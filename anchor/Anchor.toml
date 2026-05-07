@@ -1,0 +1,18 @@
+[features]
+resolution = true
+skip-lint = false
+
+## Deploy keypair must live at `target/deploy/pointer_fee-keypair.json`.
+## After `solana-keygen new ...`, run `anchor keys sync` (see anchor/README.md).
+[programs.devnet]
+pointer_fee = "GGKwHCsxMsVRCZEqtgmTZMBp18h9DVpGDERykhHrT2BJ"
+
+[programs.localnet]
+pointer_fee = "GGKwHCsxMsVRCZEqtgmTZMBp18h9DVpGDERykhHrT2BJ"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Devnet"
+wallet = "~/.config/solana/id.json"

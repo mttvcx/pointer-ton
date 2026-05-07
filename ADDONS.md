@@ -1,0 +1,11 @@
+# Pointer add-ons tracking
+
+## 10. Beta access gate
+
+- **Gate**: When `BETA_GATE_ENABLED=true` and `BETA_SESSION_SECRET` is set, `proxy.ts` redirects non-public routes to `/beta` unless cookie `ptr_beta` verifies (HMAC session).
+- **Public paths**: `/`, `/beta`, `/_next/*`, `/api/*`, static assets (`/branding/*`, common file extensions, `favicon.ico`).
+- **Codes**: Table `beta_codes` — `code_hash` (SHA-256 of normalized code + pepper), `created_by_user_id`, `used_by_user_id` / `used_at` when consumed. Single-use.
+- **Redeem**: `POST /api/beta/redeem` with Privy bearer; sets cookie and `users.beta_granted_at`. Idempotent if user already granted.
+- **Generate**: `POST /api/beta/generate` — founder wallets in `BETA_FOUNDER_WALLETS` only; returns plaintext code once. Optional JSON body `{ "prefix": "PTR" }`.
+- **SQL**: `scripts/beta-gate.sql` (run in Supabase).
+- **Env**: See `.env.example` beta section (`BETA_CODE_PEPPER`, `BETA_FOUNDER_WALLETS`, etc.).

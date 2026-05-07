@@ -1,0 +1,57 @@
+import 'server-only';
+
+import { runCascade } from '@/lib/ai/cascade';
+import { TooltipOutputSchema, type TooltipOutput } from '@/lib/ai/schemas';
+
+export interface TooltipInput {
+  term: string;
+  context?: string;
+  userId: string;
+}
+
+const SYSTEM_PROMPT = [
+  'You are Pointer, explaining trading and Solana terminology to a user.',
+  'Reply with one sentence, max 25 words, plain language. No emojis. No "in summary".',
+].join(' ');
+
+/**
+ * Lightweight one-liner explainer ("what is bonding curve?", "what is rug pull?").
+ * Cached 24h - the cascade key uses term + context so the same lookup hits
+ * across users.
+ */
+export async function tooltip(input: TooltipInput): Promise<{
+  data: TooltipOutput;
+  cacheHit: boolean;
+  modelUsed: string;
+  costUsd: number;
+}> {
+  const term = input.term.trim().slice(0, 80);
+  const context = input.context?.trim().slice(0, 200) ?? null;
+  if (!term) throw new Error('empty_term');
+
+  const userPrompt = [
+    `Explain the term "${term}" in the context of Solana memecoin trading.`,
+    context ? `Context: ${context}` : null,
+    '',
+    'Respond as JSON: { "text": string (<=200 chars) }',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const result = await runCascade({
+    pipeline: 'tooltip',
+    userId: input.userId,
+    inputs: { term: term.toLowerCase(), context: context?.toLowerCase() ?? null },
+    systemPrompt: SYSTEM_PROMPT,
+    userPrompt,
+  });
+
+  return {
+    data: result.data as TooltipOutput,
+    cacheHit: result.cacheHit,
+    modelUsed: result.modelUsed,
+    costUsd: result.costUsd,
+  };
+}
+
+export { TooltipOutputSchema };

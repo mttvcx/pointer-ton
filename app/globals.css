@@ -1,0 +1,256 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * One app-wide product font: Inter with system fallbacks.
+   * Numeric alignment uses tabular figures, not a separate monospace face.
+   */
+  :root {
+    color-scheme: dark;
+
+    --bg-base: #0b0d12;
+    --bg-raised: #0b0d12;
+    --bg-sunken: #080a0f;
+    --bg-hover: #141820;
+
+    --border-subtle: #1b1f2a;
+    --border-default: #2a2f3a;
+    --border-strong: #3a4150;
+
+    --fg-primary: #e8ebf0;
+    --fg-secondary: #9ba3b0;
+    --fg-muted: #6b7280;
+    --fg-inverse: #0a0b0e;
+
+    --accent-primary: #7c5cff;
+    --accent-glow: #9d7bff;
+
+    --signal-bull: #3ddc97;
+    --signal-bear: #ff5e78;
+    --signal-warn: #ffb547;
+    --signal-info: #5ebbff;
+
+    /* shadcn HSL bridge - used by any shadcn primitives that read CSS vars */
+    --background: 224 16% 5%;
+    --foreground: 220 16% 93%;
+    --card: 224 16% 5%;
+    --card-foreground: 220 16% 93%;
+    --popover: 224 16% 5%;
+    --popover-foreground: 220 16% 93%;
+    --primary: 251 100% 68%;
+    --primary-foreground: 224 16% 5%;
+    --secondary: 222 14% 12%;
+    --secondary-foreground: 220 16% 93%;
+    --muted: 222 14% 12%;
+    --muted-foreground: 220 9% 65%;
+    --accent: 251 100% 68%;
+    --accent-foreground: 224 16% 5%;
+    --destructive: 350 100% 68%;
+    --destructive-foreground: 224 16% 5%;
+    --border: 224 14% 17%;
+    --input: 224 14% 17%;
+    --ring: 251 100% 68%;
+    --radius: 6px;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  /**
+   * Layout chrome sizing (co-pilot overlay, safe areas).
+   * Top bar baseline height; bottom bar is 2.75rem + home-indicator inset.
+   */
+  :root {
+    --app-topbar-h: calc(64px + env(safe-area-inset-top, 0px));
+    --app-bottombar-h: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  html {
+    color-scheme: dark;
+    background: var(--bg-base);
+    font-size: 15px;
+  }
+
+  body {
+    @apply bg-bg-base touch-manipulation text-fg-primary font-sans antialiased;
+    font-family:
+      var(--font-inter),
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      Arial,
+      sans-serif;
+    font-size: 13px;
+    line-height: 1.35;
+    font-feature-settings:
+      'cv11' on,
+      'ss01' on,
+      'ss03' on,
+      'tnum' on;
+    text-rendering: optimizeLegibility;
+  }
+
+  input,
+  button,
+  textarea,
+  select,
+  table,
+  dialog,
+  [role='dialog'] {
+    font: inherit;
+    line-height: 1.35;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-weight: 500;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    line-height: 1.2;
+  }
+
+  /* Tabular numbers for every financial readout */
+  .num,
+  [data-num],
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  .tracking-wide,
+  .tracking-wider,
+  .tracking-widest {
+    letter-spacing: 0.02em;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  ::selection {
+    background: rgba(124, 92, 255, 0.35);
+    color: var(--fg-primary);
+  }
+
+  /* Slim, neutral scrollbars - match dense trader UI */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 6px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--border-strong);
+  }
+
+  /* Hide spinner on number inputs */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  .skeleton {
+    @apply rounded;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 0%,
+      rgba(255, 255, 255, 0.07) 50%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+
+  .panel {
+    @apply border-b border-border-subtle bg-bg-base;
+  }
+
+  .hairline {
+    border-color: var(--border-subtle);
+  }
+
+  /* Buttons get a small "press" feedback so trades / actions feel tactile. */
+  .btn-press {
+    transition:
+      transform 80ms ease,
+      filter 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease,
+      opacity 150ms ease;
+  }
+  .btn-press:active:not(:disabled) {
+    transform: translateY(1px) scale(0.99);
+  }
+
+  /* Bull / bear gradient CTAs used by the BuySellPanel. */
+  .cta-bull {
+    background-image: linear-gradient(180deg, #4be0a8 0%, #2bc587 100%);
+    color: #062b1c;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.15) inset,
+      0 6px 16px -8px rgba(61, 220, 151, 0.55);
+  }
+  .cta-bull:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
+  .cta-bear {
+    background-image: linear-gradient(180deg, #ff7188 0%, #ec495f 100%);
+    color: #2a0710;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.15) inset,
+      0 6px 16px -8px rgba(255, 94, 120, 0.55);
+  }
+  .cta-bear:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
+
+  /* Focus ring used on every interactive element so keyboard nav feels native. */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/45 focus-visible:ring-offset-0;
+  }
+}
+
+/* Sonner: align the toast theme with our terminal palette. */
+[data-sonner-toaster] {
+  --normal-bg: var(--bg-base);
+  --normal-border: var(--border-subtle);
+  --normal-text: var(--fg-primary);
+  --success-bg: var(--bg-base);
+  --success-border: rgba(61, 220, 151, 0.45);
+  --success-text: var(--signal-bull);
+  --error-bg: var(--bg-base);
+  --error-border: rgba(255, 94, 120, 0.45);
+  --error-text: var(--signal-bear);
+  --info-bg: var(--bg-base);
+  --info-border: rgba(94, 187, 255, 0.4);
+  --info-text: var(--signal-info);
+}

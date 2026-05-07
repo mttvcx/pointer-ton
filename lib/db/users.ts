@@ -1,0 +1,107 @@
+import 'server-only';
+import { createAdminSupabase } from '@/lib/supabase/server';
+import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
+
+export type UserRow = Tables<'users'>;
+
+export interface UserUpsertInput {
+  privyId: string;
+  walletAddress?: string | null;
+  email?: string | null;
+  username?: string | null;
+}
+
+/**
+ * Idempotently insert/update a Pointer user keyed by Privy ID.
+ *
+ * Called from `/api/auth/sync` after a successful Privy access-token
+ * verification. Returns the persisted row (with assigned uuid + timestamps).
+ *
+ * Conflict target: `privy_id` (unique). On conflict we patch wallet/email/
+ * username so renaming or wallet linkage stays in sync.
+ */
+export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserRow> {
+  const supabase = createAdminSupabase();
+
+  // Do not send `tier_id` in the JSON body. Reasons:
+  // 1) The DB column has `DEFAULT 'default'` per the Phase 1 schema, so new rows
+  //    pick up the tier without an extra round-trip.
+  // 2) If you added `tier_id` via migration and PostgREST has not reloaded its
+  //    schema cache yet, referencing the column in the payload throws:
+  //    "Could not find the tier_id column of users in the schema cache."
+  //    Run `scripts/reload-postgrest-schema.sql` in the SQL editor after DDL.
+  const insert: TablesInsert<'users'> = {
+    privy_id: input.privyId,
+    wallet_address: input.walletAddress ?? `privy:${input.privyId}`,
+    email: input.email ?? null,
+    username: input.username ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(insert, { onConflict: 'privy_id' })
+    .select('*')
+    .single();
+
+  if (error) throw new Error(`upsertUserFromPrivy failed: ${error.message}`);
+
+  try {
+    const { ensureDefaultTradingPresets } = await import('@/lib/db/presets');
+    await ensureDefaultTradingPresets(data.id);
+  } catch (e) {
+    console.warn('[users] ensureDefaultTradingPresets:', e instanceof Error ? e.message : e);
+  }
+
+  try {
+    const { ensureDefaultColumnPresets } = await import('@/lib/db/columnPresets');
+    await ensureDefaultColumnPresets(data.id);
+  } catch (e) {
+    console.warn('[users] ensureDefaultColumnPresets:', e instanceof Error ? e.message : e);
+  }
+
+  return data;
+}
+
+export async function getUserByPrivyId(privyId: string): Promise<UserRow | null> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('privy_id', privyId)
+    .maybeSingle();
+  if (error) throw new Error(`getUserByPrivyId failed: ${error.message}`);
+  return data;
+}
+
+export async function getUserById(id: string): Promise<UserRow | null> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error(`getUserById failed: ${error.message}`);
+  return data;
+}
+
+export async function completeUserOnboarding(userId: string): Promise<UserRow> {
+  return updateUser(userId, {
+    onboarding_completed_at: new Date().toISOString(),
+    onboarding_step: 3,
+  });
+}
+
+export async function updateUser(
+  id: string,
+  patch: TablesUpdate<'users'>,
+): Promise<UserRow> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('users')
+    .update(patch)
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw new Error(`updateUser failed: ${error.message}`);
+  return data;
+}
