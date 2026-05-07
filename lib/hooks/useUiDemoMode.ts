@@ -11,14 +11,17 @@ export function useUiDemoMode(): boolean {
   const [on, setOn] = useState(() => uiDemoModeFromEnv());
 
   useEffect(() => {
-    setOn(isUiDemoMode());
+    const raf = requestAnimationFrame(() => setOn(isUiDemoMode()));
     function onStorage(e: StorageEvent) {
       if (e.key === UI_DEMO_STORAGE_KEY || e.key === null) {
         setOn(isUiDemoMode());
       }
     }
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   return on;

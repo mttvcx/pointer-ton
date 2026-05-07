@@ -12,12 +12,33 @@ import {
   Sparkles,
   Users,
   Wallet,
+  type LucideIcon,
 } from 'lucide-react';
 import { formatNumber, lamportsToSol } from '@/lib/utils/formatters';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { useTradingStore } from '@/store/trading';
 import { cn } from '@/lib/utils/cn';
+
+function DockNav({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#6b7280] transition hover:bg-white/5 hover:text-[#d1d5db]"
+    >
+      <Icon className="h-3 w-3 opacity-90" strokeWidth={2} />
+      <span className="hidden sm:inline">{label}</span>
+    </Link>
+  );
+}
 
 /**
  * Token-page dock: Axiom-style shortcuts above the global app BottomBar.
@@ -72,24 +93,6 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
       : null;
   const solUsd = tickersQ.data;
 
-  const Nav = ({
-    href,
-    icon: Icon,
-    label,
-  }: {
-    href: string;
-    icon: typeof Wallet;
-    label: string;
-  }) => (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#6b7280] transition hover:bg-white/5 hover:text-[#d1d5db]"
-    >
-      <Icon className="h-3 w-3 opacity-90" strokeWidth={2} />
-      <span className="hidden sm:inline">{label}</span>
-    </Link>
-  );
-
   return (
     <div className="flex w-full shrink-0 flex-col gap-0.5 border-t border-[#1b1f2a] bg-[#0b0d12] px-2 py-1 text-[10px] text-[#9ca3af]">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -106,11 +109,11 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
           PRESET {activePresetSlot}
         </span>
         <div className="hidden h-3 w-px bg-[#1b1f2a] sm:block" aria-hidden />
-        <Nav href="/wallets" icon={Wallet} label="Wallet" />
-        <Nav href="/trackers" icon={Users} label="Track" />
-        <Nav href="/pulse" icon={Compass} label="Pulse" />
-        <Nav href="/portfolio" icon={CircleDollarSign} label="PnL" />
-        <Nav href="/points" icon={Sparkles} label="Alpha" />
+        <DockNav href="/wallets" icon={Wallet} label="Wallet" />
+        <DockNav href="/trackers" icon={Users} label="Track" />
+        <DockNav href="/pulse" icon={Compass} label="Pulse" />
+        <DockNav href="/portfolio" icon={CircleDollarSign} label="PnL" />
+        <DockNav href="/points" icon={Sparkles} label="Alpha" />
         <div className="ml-auto flex flex-wrap items-center gap-x-2 tabular-nums">
           <span className="inline-flex items-center gap-0.5 text-[#6b7280]">
             <ArrowLeftRight className="h-3 w-3" strokeWidth={2} />

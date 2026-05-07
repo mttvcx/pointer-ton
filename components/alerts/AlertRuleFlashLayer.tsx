@@ -38,7 +38,8 @@ export function AlertRuleFlashLayer() {
       return;
     }
 
-    let timeout: number | undefined;
+    let rafId: number | null = null;
+    let timeoutId: number | undefined;
     for (const a of data) {
       if (seenIds.current.has(a.id)) continue;
       seenIds.current.add(a.id);
@@ -47,12 +48,15 @@ export function AlertRuleFlashLayer() {
       if (f?.enabled === false) continue;
       const color = f?.color && /^#[0-9A-Fa-f]{6}$/.test(f.color) ? f.color : '#7C5CFF';
       const opacity = f?.size === 'large' ? 0.22 : 0.12;
-      setFlash({ color, opacity });
-      timeout = window.setTimeout(() => setFlash(null), 420);
+      rafId = requestAnimationFrame(() => {
+        setFlash({ color, opacity });
+        timeoutId = window.setTimeout(() => setFlash(null), 420);
+      });
       break;
     }
     return () => {
-      if (timeout !== undefined) window.clearTimeout(timeout);
+      if (rafId != null) cancelAnimationFrame(rafId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     };
   }, [authenticated, data]);
 

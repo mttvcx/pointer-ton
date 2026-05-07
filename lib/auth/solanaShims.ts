@@ -18,7 +18,8 @@ export type PrivyLikeSignTxInput = {
 
 export function useSignTransaction() {
   return {
-    signTransaction: async (_opts: PrivyLikeSignTxInput): Promise<{ signedTransaction: Uint8Array }> => {
+    signTransaction: async (opts: PrivyLikeSignTxInput): Promise<{ signedTransaction: Uint8Array }> => {
+      void opts;
       throw new Error(
         'TON migration: Solana signing is removed; on-chain signing via TonConnect comes in a later step.',
       );
@@ -52,7 +53,8 @@ export function useImportWallet(): {
   importWallet: (opts: { privateKey: string }) => Promise<{ address: string }>;
 } {
   return {
-    importWallet: async (_opts: { privateKey: string }): Promise<{ address: string }> => {
+    importWallet: async (opts: { privateKey: string }): Promise<{ address: string }> => {
+      void opts;
       throw new Error('TON migration: import a key through a TonConnect-compatible wallet app.');
     },
   };

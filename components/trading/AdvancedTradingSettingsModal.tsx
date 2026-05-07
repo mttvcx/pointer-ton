@@ -39,10 +39,13 @@ function FormBody({
   const [maxFeeSol, setMaxFeeSol] = useState(preset.max_fee_sol);
 
   useEffect(() => {
-    setPriorityLamports(preset.priority_fee_lamports);
-    setJitoTip(preset.jito_tip_lamports);
-    setAutoFee(preset.auto_fee);
-    setMaxFeeSol(preset.max_fee_sol);
+    const raf = requestAnimationFrame(() => {
+      setPriorityLamports(preset.priority_fee_lamports);
+      setJitoTip(preset.jito_tip_lamports);
+      setAutoFee(preset.auto_fee);
+      setMaxFeeSol(preset.max_fee_sol);
+    });
+    return () => cancelAnimationFrame(raf);
   }, [
     preset.slot,
     preset.priority_fee_lamports,

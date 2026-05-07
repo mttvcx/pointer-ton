@@ -195,12 +195,15 @@ export function ColumnFilterModal({
   useEffect(() => {
     if (!open || tab !== 'display') return;
     const q = display.quickBuySol;
-    if (q == null || !Number.isFinite(q) || q <= 0) setQuickSolDraft('');
-    else {
-      const t = q.toFixed(8).replace(/\.?0+$/, '');
-      setQuickSolDraft(t || String(q));
-    }
-  }, [open, tab]);
+    const raf = requestAnimationFrame(() => {
+      if (q == null || !Number.isFinite(q) || q <= 0) setQuickSolDraft('');
+      else {
+        const t = q.toFixed(8).replace(/\.?0+$/, '');
+        setQuickSolDraft(t || String(q));
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open, tab, display.quickBuySol]);
 
   const sharePayload = useMemo((): ColumnPresetSharePayload | null => {
     try {

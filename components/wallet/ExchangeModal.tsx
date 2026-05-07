@@ -34,7 +34,9 @@ export function ExchangeModal({
   const [assetOpen, setAssetOpen] = useState(false);
 
   useEffect(() => {
-    if (open) setTab(initialTab);
+    if (!open) return;
+    const raf = requestAnimationFrame(() => setTab(initialTab));
+    return () => cancelAnimationFrame(raf);
   }, [open, initialTab]);
 
   useEffect(() => {

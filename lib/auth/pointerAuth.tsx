@@ -84,8 +84,11 @@ function InnerAuth({ children }: { children: ReactNode }) {
   const syncingRef = useRef(false);
 
   useEffect(() => {
-    setSessionToken(readSession());
-    setReady(true);
+    const raf = requestAnimationFrame(() => {
+      setSessionToken(readSession());
+      setReady(true);
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   useEffect(() => {
@@ -190,7 +193,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
     const jwtWallet = decodeJwtWallet(token);
     const wa = normalizeTonAddress(wallet.account.address);
     return Boolean(jwtWallet && wa && normalizeTonAddress(jwtWallet) === wa);
-  }, [sessionToken, wallet?.account?.address]);
+  }, [sessionToken, wallet]);
 
   const authenticated = Boolean(ready && wallet && tokenMatchesWallet);
 

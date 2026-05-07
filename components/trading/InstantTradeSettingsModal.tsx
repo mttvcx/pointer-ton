@@ -20,7 +20,9 @@ export function InstantTradeSettingsModal({ open, onClose, onOpenFullTradeColumn
   const [s, setS] = useState<InstantTradeUiSettings>(defaultInstantTradeUiSettings);
 
   useEffect(() => {
-    if (open) setS(readInstantTradeUiSettings());
+    if (!open) return;
+    const raf = requestAnimationFrame(() => setS(readInstantTradeUiSettings()));
+    return () => cancelAnimationFrame(raf);
   }, [open]);
 
   if (!open) return null;

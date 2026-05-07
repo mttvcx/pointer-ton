@@ -373,7 +373,9 @@ export function CompactInstantTradePanel({
   const [mounted, setMounted] = useState(false);
   const [bounds, setBounds] = useState(readBounds);
   const boundsRef = useRef(bounds);
-  boundsRef.current = bounds;
+  useEffect(() => {
+    boundsRef.current = bounds;
+  }, [bounds]);
   const [slotBundle, setSlotBundle] = useState<SlotPersistV2 | null>(null);
   const [editSlots, setEditSlots] = useState(false);
   const [draftBuy, setDraftBuy] = useState<string[]>([]);
@@ -443,17 +445,24 @@ export function CompactInstantTradePanel({
   });
   const presetList = presetsPayload?.presets ?? [];
 
-  useEffect(() => setMounted(true), []);
   useEffect(() => {
-    if (open) {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const raf = requestAnimationFrame(() => {
       setBounds(readBounds());
       setSlotBundle(readSlotOverrides() ?? migrateLegacySlots());
       setInstantUi(readInstantTradeUiSettings());
-    }
+    });
+    return () => cancelAnimationFrame(raf);
   }, [open]);
 
   useEffect(() => {
-    if (!open) setWalletMenuOpen(false);
+    if (open) return;
+    const raf = requestAnimationFrame(() => setWalletMenuOpen(false));
+    return () => cancelAnimationFrame(raf);
   }, [open]);
 
   useEffect(() => {
@@ -492,7 +501,7 @@ export function CompactInstantTradePanel({
       ? activePreset.buy_amounts_sol
       : [...BUY_PRESETS_SOL];
     return eightBuyAmounts(from);
-  }, [activePreset?.buy_amounts_sol]);
+  }, [activePreset]);
 
   const sellMode = slotBundle?.sellMode ?? 'pct';
 

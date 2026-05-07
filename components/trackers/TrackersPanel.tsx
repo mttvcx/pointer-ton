@@ -831,7 +831,7 @@ function WalletManagerTable({
               tracker={t}
               rowBg={rowBg}
               sol={sol}
-              lastUnix={en?.lastActiveUnix ?? Math.floor(Date.now() / 1000) - (i + 1) * 71}
+              lastUnix={en?.lastActiveUnix ?? 1_700_000_000 - (i + 1) * 71}
               expanded={expandedRuleId === t.id}
               onToggleRules={() => setExpandedRuleId((id) => (id === t.id ? null : t.id))}
               onRemove={() => removeMutation.mutate(t.walletAddress)}

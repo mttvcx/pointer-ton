@@ -55,7 +55,7 @@ export async function verifyTonConnectProof(
   try {
     const stateInit = loadStateInit(Cell.fromBase64(body.proof.state_init).beginParse());
 
-    let publicKey = await getWalletPublicKey(body.address);
+    const publicKey = await getWalletPublicKey(body.address);
     const wantedPublicKey = Buffer.from(body.public_key, 'hex');
     if (!publicKey.equals(wantedPublicKey)) {
       return false;
