@@ -121,7 +121,7 @@ export function TokenChart({
     queryFn: async () => {
       const r = await fetch('/api/prices/tickers');
       const j = (await r.json()) as { tickers?: { symbol: string; usdPrice: number | null }[] };
-      const hit = j.tickers?.find((t) => t.symbol === 'SOL');
+      const hit = j.tickers?.find((t) => t.symbol === 'TON');
       return hit?.usdPrice ?? null;
     },
     staleTime: 60_000,
@@ -171,7 +171,7 @@ export function TokenChart({
 
   const fmtPx = useCallback(
     (v: number) => {
-      if (quoteMode === 'sol') return `${formatNumber(v, { decimals: 5 })} SOL`;
+      if (quoteMode === 'sol') return `${formatNumber(v, { decimals: 5 })} TON`;
       if (showMc) return formatCompactUsd(v);
       return formatCompactUsd(v);
     },
@@ -186,7 +186,7 @@ export function TokenChart({
       width: el.clientWidth,
       height: Math.max(1, el.clientHeight),
       layout: {
-        background: { type: ColorType.Solid, color: '#0b0d12' },
+        background: { type: ColorType.Solid, color: '#080d14' },
         textColor: '#8b92a4',
         fontSize: 12,
       },
@@ -308,13 +308,13 @@ export function TokenChart({
     });
   };
 
-  const pairTitle = `${tick}${quoteMode === 'usd' ? '/USD' : '/SOL'} on Pointer · ${interval}`;
+  const pairTitle = `${tick}${quoteMode === 'usd' ? '/USD' : '/TON'} on Pointer · ${interval}`;
 
   return (
     <div
       ref={outerRef}
       className={cn(
-        'flex h-full min-h-0 flex-1 flex-col border border-[#1b1f2a] bg-[#0b0d12]',
+        'flex h-full min-h-0 flex-1 flex-col border border-[#1b1f2a] bg-[#080d14]',
         edgeToEdge ? 'rounded-none border-x-0 border-t-0' : 'rounded-sm',
       )}
     >
@@ -392,7 +392,7 @@ export function TokenChart({
         >
           <span className={quoteMode === 'usd' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>USD</span>
           <span className="mx-0.5 text-[#374151]">/</span>
-          <span className={quoteMode === 'sol' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>SOL</span>
+          <span className={quoteMode === 'sol' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>TON</span>
         </button>
         <button
           type="button"
@@ -424,7 +424,7 @@ export function TokenChart({
         <div className="ml-auto flex items-center gap-0.5">
           <select
             aria-label="Chart data provider"
-            className="h-7 max-w-[7rem] cursor-pointer rounded border border-[#1b1f2a] bg-[#0b0d12] px-1.5 text-[10px] text-fg-secondary"
+            className="h-7 max-w-[7rem] cursor-pointer rounded border border-[#1b1f2a] bg-[#080d14] px-1.5 text-[10px] text-fg-secondary"
             disabled
           >
             <option>Pointer</option>
@@ -489,12 +489,12 @@ export function TokenChart({
       <div className="relative min-h-0 flex-1">
         <div ref={wrapRef} className="absolute inset-0 h-full min-h-0 w-full" />
         {isLoading ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0b0d12] text-[12px] text-[#6b7280]">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#080d14] text-[12px] text-[#6b7280]">
             Loading{'\u2026'}
           </div>
         ) : null}
         {isError ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#0b0d12] text-[12px] text-[#fb7185]">
+          <div className="absolute inset-0 flex items-center justify-center bg-[#080d14] text-[12px] text-[#fb7185]">
             Could not load price history.
           </div>
         ) : null}

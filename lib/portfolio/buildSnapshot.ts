@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Tables } from '@/lib/supabase/types';
 import { listConfirmedTradesForUserAsc, listTradesForUser } from '@/lib/db/trades';
-import { fetchUsdPricesForMints, TICKER_MINTS } from '@/lib/jupiter/priceTickers';
+import { fetchTonUsdFromCoinGecko, fetchUsdPricesForMints } from '@/lib/jupiter/priceTickers';
 import type { PositionMark } from '@/lib/portfolio/fifoPnl';
 import {
   fifoClosedSellsAndOpenLots,
@@ -63,12 +63,14 @@ export async function buildPortfolioSnapshot(params: {
   ]);
 
   const mints = new Set<string>();
-  mints.add(TICKER_MINTS.SOL);
   for (const h of holdings) mints.add(h.mint);
   for (const t of tradesAsc) mints.add(t.mint);
 
-  const priceMap = await fetchUsdPricesForMints([...mints]);
-  const solUsd = priceMap.get(TICKER_MINTS.SOL)?.usdPrice ?? null;
+  const [priceMap, tonQuote] = await Promise.all([
+    fetchUsdPricesForMints([...mints]),
+    fetchTonUsdFromCoinGecko(),
+  ]);
+  const solUsd = tonQuote.usdPrice;
 
   const { closedSells, openByMint, realizedPnlSol } = fifoClosedSellsAndOpenLots(tradesAsc);
 

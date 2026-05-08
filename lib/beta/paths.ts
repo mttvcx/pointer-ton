@@ -1,6 +1,8 @@
 /** Routes that do not require a beta session cookie when the gate is enabled. */
 export function pathIsBetaPublic(pathname: string): boolean {
   if (pathname === '/') return true;
+  // TonConnect / wallet extensions fetch this without site cookies; must not redirect to /beta.
+  if (pathname === '/tonconnect-manifest.json') return true;
   if (pathname.startsWith('/beta')) return true;
   if (pathname.startsWith('/share/')) return true;
   if (pathname.startsWith('/_next')) return true;

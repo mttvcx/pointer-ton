@@ -28,12 +28,10 @@ import { usePulseColumnStore } from '@/store/pulseColumns';
 import { cn } from '@/lib/utils/cn';
 
 const PROTOCOL_LABEL: Record<PulseProtocolId, string> = {
-  pump: 'Pump',
-  bags: 'Bags',
-  printr: 'Printr',
-  moonshot: 'Moonshot',
-  raydium: 'Raydium',
-  meteora: 'Meteora',
+  ton: 'TON Index',
+  dedust: 'DeDust',
+  stonfi: 'STON.fi',
+  megaton: 'Megaton',
 };
 
 const SORT_LABELS: Record<ColumnSortKey, string> = {
@@ -467,7 +465,7 @@ export function ColumnFilterModal({
               </div>
               <p className="text-[10px] text-fg-muted">Quote token (when data is available)</p>
               <div className="space-y-1">
-                <Toggle label="SOL" checked={filters.quoteSol} onChange={(v) => setFilters((f) => ({ ...f, quoteSol: v }))} />
+                <Toggle label="TON" checked={filters.quoteSol} onChange={(v) => setFilters((f) => ({ ...f, quoteSol: v }))} />
                 <Toggle label="USDC" checked={filters.quoteUsdc} onChange={(v) => setFilters((f) => ({ ...f, quoteUsdc: v }))} />
                 <Toggle label="USD1" checked={filters.quoteUsd1} onChange={(v) => setFilters((f) => ({ ...f, quoteUsd1: v }))} />
               </div>
@@ -598,7 +596,7 @@ export function ColumnFilterModal({
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase text-fg-muted">
-                  Quick buy (SOL) - this column only
+                  Quick buy (TON) - this column only
                 </span>
                 <input
                   type="text"

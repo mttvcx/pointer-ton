@@ -6,8 +6,14 @@ export interface PulseNewTokenAlertInput {
   symbol?: string | null;
   name?: string | null;
   launchpad?: LaunchpadId | null;
-  /** How the mint was discovered: das_authority | das_search | das_hydrate | helius_webhook */
-  source: 'das_authority' | 'das_search' | 'das_hydrate' | 'helius_webhook';
+  /** How the mint was discovered (Solana DAS / webhook or TON TonAPI paths). */
+  source:
+    | 'das_authority'
+    | 'das_search'
+    | 'das_hydrate'
+    | 'helius_webhook'
+    | 'tonapi_poll'
+    | 'tonapi_hydrate';
   creator_wallet?: string | null;
   /** Helius / RPC signature when known (webhook path). */
   tx_signature?: string | null;

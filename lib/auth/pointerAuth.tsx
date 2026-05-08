@@ -15,6 +15,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
+function fallbackTonConnectManifestUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const base =
+    raw && raw.length > 0 ? raw.replace(/\/$/, '') : 'http://127.0.0.1:3001';
+  return `${base}/tonconnect-manifest.json`;
+}
+
 const SESSION_KEY = 'pointer_ton_session';
 
 type PointerAuthUser = {
@@ -214,11 +221,19 @@ function InnerAuth({ children }: { children: ReactNode }) {
 }
 
 export function PointerAuthProvider({ children }: { children: ReactNode }) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://127.0.0.1:3001';
-  const manifestUrl = `${base.replace(/\/$/, '')}/api/tonconnect-manifest`;
+  const [manifestUrl, setManifestUrl] = useState(fallbackTonConnectManifestUrl);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const next = `${window.location.origin}/tonconnect-manifest.json`;
+    if (next === manifestUrl) return;
+    // Defer URL to browser tab after SSR so TonConnect manifest matches the host (localhost vs 127.0.0.1).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration remount of TonConnectUIProvider
+    setManifestUrl(next);
+  }, [manifestUrl]);
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl}>
+    <TonConnectUIProvider key={manifestUrl} manifestUrl={manifestUrl}>
       <InnerAuth>{children}</InnerAuth>
     </TonConnectUIProvider>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -21,8 +21,8 @@ import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
-import { isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
-import { formatAgeShort, formatLastActiveShort, formatNumber, lamportsToSol } from '@/lib/utils/formatters';
+import { isValidTonTrackedAddress, shortenAddress } from '@/lib/utils/addresses';
+import { formatAgeShort, formatLastActiveShort, formatNumber, rawToUi } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 
 const AX_BG = '#0b0d12';
@@ -40,7 +40,7 @@ type TrackerRow = {
 };
 
 type EnrichmentEntry = {
-  lamports: string | null;
+  nanoTon: string | null;
   lastActiveUnix: number | null;
 };
 
@@ -65,11 +65,117 @@ function walletEmoji(addr: string): string {
   return emojis[h % emojis.length] ?? '💼';
 }
 
-const MOCK_TRACKERS: TrackerRow[] = [
-  { id: 'mock-1', walletAddress: '7PQCWEfa9H1xZQwPq3rW6VYqJZB9s6h8uQk4nYd2pA11', label: 'Wallet', notify: true, createdAt: new Date(Date.now() - 21_000).toISOString() },
-  { id: 'mock-2', walletAddress: '95EmJnHY9k2KqVY4u8JmFbE8jQx5JgVn3fZ9bK6oLwE2', label: 'Blast wallet 1', notify: true, createdAt: new Date(Date.now() - 62_000).toISOString() },
-  { id: 'mock-3', walletAddress: 'XU6eC7fkDYQk5s2YgN8p4LqZr8Wm1Pa3cVb9HdE3tA2', label: 'Blast wallet 3', notify: false, createdAt: new Date(Date.now() - 124_000).toISOString() },
+type GroupId = 'all' | 'main' | 'test' | 'fast' | 'whales';
+
+type KolRow = { id: string; name: string; handle: string; wallet: string; followers: string };
+
+/** Demo KOLs: deterministic v4 wallet addresses on TON (valid `Address.parse`). */
+const INITIAL_KOL_ROWS: KolRow[] = [
+  { id: 'k1', name: 'Ozark', handle: '@ozarkm', wallet: 'EQDXWFihDsLUEJM5z2HPiFxjxBKvZuLcuY9alCu00i7vJaZa', followers: '3947' },
+  { id: 'k2', name: 'Cupsey', handle: '@cupsey', wallet: 'EQBMPsBatosg8z8WFMAm4IKzzk9oNVDjVINaZJgKL7UKBphA', followers: '2188' },
+  { id: 'k3', name: 'Kadenox', handle: '@kadenox', wallet: 'EQBPauSJUSd-lRxePlW-S3wxb1m4ZilvBFTaeytfMqmBj84c', followers: '1735' },
+  { id: 'k4', name: '1simple', handle: '@simple_unique', wallet: 'EQCGECIaOBhYcTj77EqQmVC5qupOS2iJ7Ixzfj-tp0dPd2I8', followers: '1512' },
+  { id: 'k5', name: 'LimoonLambo', handle: '@limoonlambo', wallet: 'EQDSsGG5WYliTh4n7bDKANc-mCqrHwsCJSr-oRNOe-xN49q1', followers: '1409' },
+  { id: 'k6', name: 'dandiono45', handle: '@dandiono45', wallet: 'EQC-5bzneBaxgeIUoPUtTI-R3Tm_g-Pm87EctIyLbVdPRvdt', followers: '1288' },
+  { id: 'k7', name: 'Tii', handle: '@tinnews', wallet: 'EQC4HnbbC_XOfJFblcEPQwikzr_eUGFJZIdwdfJSq2kNaXJe', followers: '1194' },
+  { id: 'k8', name: 'Henn100x', handle: '@henn100x', wallet: 'EQDS36Lp3cbqvKBRqn0LNRKxKiqNTOj2se__DNgfLuh0RfF-', followers: '1091' },
+  { id: 'k9', name: 'Danny', handle: '@danny', wallet: 'EQDVhxI-CWaTsPrZO1X58pSIETmMF4DPht6aiQlu88keu9y5', followers: '988' },
+  { id: 'k10', name: 'YieldYolo', handle: '@yieldyolo', wallet: 'EQBv9lbU6I0eXg8UZuGxVwNeMsCQm4mQ9-KVuH4A1Qydloee', followers: '912' },
+  { id: 'k11', name: 'Kev', handle: '@kev', wallet: 'EQDJgAtxmV0O6Py1jjbfeCzJ1l3vH3U2BRkcwiBEIh8VtN8p', followers: '854' },
+  { id: 'k12', name: 'Ghostee', handle: '@ghostee', wallet: 'EQA-zLyMNoRdJ6hPraacQJwsVbo6wExGIR7-T9dj5coOnOGZ', followers: '801' },
 ];
+
+const KOL_LIST_STORAGE_KEY = 'pointer-kol-feed-list-ton';
+
+function readStoredKolRows(): KolRow[] {
+  if (typeof window === 'undefined') return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+  try {
+    const raw = localStorage.getItem(KOL_LIST_STORAGE_KEY);
+    if (!raw) return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+    return parsed
+      .filter((x): x is KolRow => {
+        if (!x || typeof x !== 'object') return false;
+        const o = x as Record<string, unknown>;
+        return typeof o.id === 'string' && typeof o.wallet === 'string';
+      })
+      .map((r) => ({
+        id: r.id,
+        name: typeof r.name === 'string' ? r.name : shortenAddress(r.wallet, 4),
+        handle: typeof r.handle === 'string' ? r.handle : '',
+        wallet: r.wallet,
+        followers: typeof r.followers === 'string' ? r.followers : '0',
+      }));
+  } catch {
+    return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+  }
+}
+
+function filterTrackersByGroup(
+  rows: TrackerRow[],
+  group: GroupId,
+  enrichment: EnrichmentMap,
+): TrackerRow[] {
+  if (group === 'all') return rows;
+  /** “Main” = everything that isn’t tagged as a test wallet (group still filters). */
+  if (group === 'main') {
+    return rows.filter((r) => !(r.label ?? '').toLowerCase().includes('test'));
+  }
+  if (group === 'test') {
+    return rows.filter((r) => (r.label ?? '').toLowerCase().includes('test'));
+  }
+  if (group === 'fast') {
+    const dayAgo = Date.now() - 86_400_000;
+    return rows.filter((r) => new Date(r.createdAt).getTime() > dayAgo);
+  }
+  if (group === 'whales') {
+    return rows.filter((r) => {
+      const raw = enrichment[r.walletAddress]?.nanoTon;
+      if (!raw) return false;
+      try {
+        return rawToUi(raw, 9) >= 50;
+      } catch {
+        return false;
+      }
+    });
+  }
+  return rows;
+}
+
+function groupLabel(g: GroupId): string {
+  switch (g) {
+    case 'all':
+      return 'All';
+    case 'main':
+      return 'Main';
+    case 'test':
+      return 'test';
+    case 'fast':
+      return 'Fast movers';
+    case 'whales':
+      return 'Whales';
+    default:
+      return 'All';
+  }
+}
+
+function groupIcon(g: GroupId): string {
+  switch (g) {
+    case 'all':
+      return '◆';
+    case 'main':
+      return '🌸';
+    case 'test':
+      return '⭐';
+    case 'fast':
+      return '🔥';
+    case 'whales':
+      return '🐋';
+    default:
+      return '◆';
+  }
+}
 
 const MONITOR_CARDS = [
   { name: 'KING', subtitle: 'Official', icon: '👑', age: '29s', mc: '$3.69K', liq: '$7.5K', tx: '3', last: '7s', buys: '3', bought: '$280.7', sells: '0', sold: '$0', pnl: '-$31.28', remaining: '$249.9', wallet: 'otta' },
@@ -78,21 +184,6 @@ const MONITOR_CARDS = [
   { name: 'toly', subtitle: 'toly', icon: '🟩', age: '2m', mc: '$1B', liq: '$5.11K', tx: '1', last: '2m', buys: '0', bought: '$0', sells: '1', sold: '$2.55K', pnl: '+$1.07B', remaining: '$1.07B', wallet: 'Unprof...' },
   { name: 'bruh', subtitle: 'bruh is', icon: '🧟', age: '5m', mc: '$463.5', liq: '$904.5', tx: '23', last: '3m', buys: '21', bought: '$42.26', sells: '2', sold: '$59.67', pnl: '-$24.09', remaining: '$0', wallet: 'Unprof...' },
   { name: 'ELMER', subtitle: 'underdog', icon: '🐶', age: '3m', mc: '$157K', liq: '$22.8K', tx: '8', last: '3m', buys: '1', bought: '$1.38K', sells: '7', sold: '$1.36K', pnl: '-$18.61', remaining: '$0', wallet: 'YENNI' },
-];
-
-const KOL_ROWS = [
-  ['Ozark', '@ozarkm', 'DZAa...Yxm', '3947'],
-  ['Cupsey', '@cupsey', 'sujh...HQK', '2188'],
-  ['Kadenox', '@kadenox', '2tg5...x6f', '1735'],
-  ['1simple', '@simple_unique', '3p7S...mGJ', '1512'],
-  ['LimoonLambo', '@limoonlambo', 'AeLa...PFe3', '1409'],
-  ['dandiono45', '@dandiono45', 'Gjvh...7wB', '1288'],
-  ['Tii', '@tinnews', '3LY...WxP', '1194'],
-  ['Henn100x', '@henn100x', 'Ehg5...Myr', '1091'],
-  ['Danny', '@danny', 'FRbL...yCS', '988'],
-  ['YieldYolo', '@yieldyolo', '9fNz...13r', '912'],
-  ['Kev', '@kev', 'BTT4...sad', '854'],
-  ['Ghostee', '@ghostee', '2rvL...Pua9', '801'],
 ];
 
 function AddWalletDialog({
@@ -136,7 +227,7 @@ function AddWalletDialog({
             <input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Solana wallet address"
+              placeholder="TON wallet address"
               className="w-full rounded border bg-[#0b0d12] px-2 py-1.5 tabular-nums text-[12px] text-white outline-none focus:ring-1 focus:ring-[#5865F2]"
               style={{ borderColor: AX_BORDER }}
             />
@@ -188,6 +279,17 @@ export function TrackersPanel({ className }: { className?: string }) {
   const [address, setAddress] = useState('');
   const [label, setLabel] = useState('');
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
+  const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows());
+  const [kolWalletFocus, setKolWalletFocus] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(KOL_LIST_STORAGE_KEY, JSON.stringify(kolRows));
+    } catch {
+      /* ignore quota */
+    }
+  }, [kolRows]);
 
   const listQuery = useQuery({
     queryKey: ['trackers', 'enriched'],
@@ -215,8 +317,8 @@ export function TrackersPanel({ className }: { className?: string }) {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const walletAddress = address.trim();
-      if (!isValidPublicKey(walletAddress)) {
-        throw new Error('Invalid Solana address');
+      if (!isValidTonTrackedAddress(walletAddress)) {
+        throw new Error('Invalid TON address (use EQ/UQ format)');
       }
       const res = await fetch('/api/trackers', {
         method: 'POST',
@@ -308,7 +410,7 @@ export function TrackersPanel({ className }: { className?: string }) {
   });
 
   const sorted = useMemo(() => {
-    const rows = listQuery.data?.trackers?.length ? listQuery.data.trackers : MOCK_TRACKERS;
+    const rows = listQuery.data?.trackers ?? [];
     return [...rows].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
@@ -316,15 +418,27 @@ export function TrackersPanel({ className }: { className?: string }) {
 
   const enrichment = listQuery.data?.enrichment ?? {};
 
+  const groupFiltered = useMemo(
+    () => filterTrackersByGroup(sorted, selectedGroup, enrichment),
+    [sorted, selectedGroup, enrichment],
+  );
+
+  const groupCounts = useMemo(() => {
+    const ids: GroupId[] = ['all', 'main', 'test', 'fast', 'whales'];
+    return Object.fromEntries(
+      ids.map((g) => [g, filterTrackersByGroup(sorted, g, enrichment).length]),
+    ) as Record<GroupId, number>;
+  }, [sorted, enrichment]);
+
   const filtered = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter(
+    if (!q) return groupFiltered;
+    return groupFiltered.filter(
       (t) =>
         t.walletAddress.toLowerCase().includes(q) ||
         (t.label ?? '').toLowerCase().includes(q),
     );
-  }, [sorted, tableSearch]);
+  }, [groupFiltered, tableSearch]);
 
   const isWalletView = viewTab === 'all' || viewTab === 'wallet_manager';
 
@@ -335,7 +449,7 @@ export function TrackersPanel({ className }: { className?: string }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'pointer-trackers.json';
+    a.download = 'pointer-trackers-ton.json';
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Exported');
@@ -362,16 +476,16 @@ export function TrackersPanel({ className }: { className?: string }) {
         if (addr) set.add(addr);
       }
     } catch {
-      // treat as plaintext list and extract base58-like wallet lines
+      // treat as plaintext list and extract address-like lines (TON or legacy base58)
       for (const line of raw.split(/\r?\n/)) {
         const addr = line.trim().split(/\s+/)[0] ?? '';
         if (addr) set.add(addr);
       }
     }
 
-    const addresses = [...set].filter(isValidPublicKey);
+    const addresses = [...set].filter(isValidTonTrackedAddress);
     if (addresses.length === 0) {
-      toast.error('No valid Solana wallet addresses found');
+      toast.error('No valid TON wallet addresses found');
       return;
     }
 
@@ -526,34 +640,50 @@ export function TrackersPanel({ className }: { className?: string }) {
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-12 overflow-hidden" style={{ backgroundColor: AX_BG }}>
-          <aside className="col-span-12 min-h-0 border-r md:col-span-2" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
+          <aside className="relative z-10 col-span-12 min-h-0 border-r md:col-span-2" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
             <div className="border-b px-2 py-2" style={{ borderColor: AX_BORDER }}>
-              <button className="flex w-full items-center justify-between rounded px-2 py-1 text-[11px] text-white hover:bg-white/5">
-                <span>All</span>
-                <span className="text-[#6b7280]">{sorted.length + 95}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedGroup('all')}
+                className={cn(
+                  'flex w-full items-center justify-between rounded px-2 py-2 text-[11px] transition',
+                  selectedGroup === 'all' ? 'border bg-[#1c2030] text-white' : 'text-[#9ca3af] hover:bg-white/5',
+                )}
+                style={{ borderColor: selectedGroup === 'all' ? '#5865F2' : 'transparent' }}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <span>{groupIcon('all')}</span>All
+                </span>
+                <span className="text-[#6b7280]">{groupCounts.all}</span>
               </button>
             </div>
             <div className="px-2 py-2">
               <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-[#9ca3af]">
                 <span>Groups</span>
-                <button className="text-[#9ca3af] hover:text-white">+</button>
-              </div>
-              {[
-                { icon: '🌸', name: 'Main', count: '98', active: true },
-                { icon: '⭐', name: 'test', count: '0', active: false },
-                { icon: '🔥', name: 'Fast movers', count: '12', active: false },
-                { icon: '🐋', name: 'Whales', count: '7', active: false },
-              ].map(({ icon, name, count, active }) => (
                 <button
-                  key={name}
-                  className={cn(
-                    'mb-1 flex w-full items-center justify-between rounded px-2 py-1.5 text-[11px]',
-                    active ? 'border bg-[#1c2030] text-white' : 'text-[#9ca3af] hover:bg-white/5',
-                  )}
-                  style={{ borderColor: active ? '#5865F2' : 'transparent' }}
+                  type="button"
+                  className="text-[#9ca3af] hover:text-white"
+                  onClick={() => toast.message('Custom groups', { description: 'Saved groups ship in a later release.' })}
                 >
-                  <span className="inline-flex items-center gap-1.5"><span>{icon}</span>{name}</span>
-                  <span className="text-[#6b7280]">{count}</span>
+                  +
+                </button>
+              </div>
+              {(['main', 'test', 'fast', 'whales'] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setSelectedGroup(g)}
+                  className={cn(
+                    'mb-1 flex w-full items-center justify-between rounded px-2 py-2 text-[11px] transition',
+                    selectedGroup === g ? 'border bg-[#1c2030] text-white' : 'text-[#9ca3af] hover:bg-white/5',
+                  )}
+                  style={{ borderColor: selectedGroup === g ? '#5865F2' : 'transparent' }}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>{groupIcon(g)}</span>
+                    {groupLabel(g)}
+                  </span>
+                  <span className="text-[#6b7280]">{groupCounts[g]}</span>
                 </button>
               ))}
             </div>
@@ -570,17 +700,36 @@ export function TrackersPanel({ className }: { className?: string }) {
                 notifyMutation={notifyMutation}
               />
             ) : viewTab === 'kols' ? (
-              <KolsList />
+              <KolsList
+                rows={kolRows}
+                onRemove={(id) => {
+                  setKolRows((prev) => prev.filter((r) => r.id !== id));
+                  toast.success('Removed from list');
+                }}
+                onWalletClick={(addr) => setKolWalletFocus(addr)}
+              />
             ) : (
               <MonitorGrid />
             )}
           </main>
 
           <aside className="col-span-12 min-h-0 border-l md:col-span-3" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
-            <SecondaryPanel viewTab={viewTab} />
+            <SecondaryPanel
+              viewTab={viewTab}
+              rows={kolRows}
+              onRemove={(id) => {
+                setKolRows((prev) => prev.filter((r) => r.id !== id));
+                toast.success('Removed from list');
+              }}
+              onWalletClick={(addr) => setKolWalletFocus(addr)}
+            />
           </aside>
         </div>
       )}
+
+      {kolWalletFocus ? (
+        <KolWalletPopup address={kolWalletFocus} onClose={() => setKolWalletFocus(null)} />
+      ) : null}
 
       <AddWalletDialog
         open={addOpen}
@@ -606,7 +755,7 @@ export function TrackersPanel({ className }: { className?: string }) {
           aria-modal="true"
         >
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: AX_BORDER }}>
-            <span className="text-[13px] font-semibold text-white">Import Solana Wallets</span>
+            <span className="text-[13px] font-semibold text-white">Import TON Wallets</span>
             <button
               type="button"
               onClick={() => setImportOpen(false)}
@@ -643,7 +792,9 @@ export function TrackersPanel({ className }: { className?: string }) {
                 />
               </button>
             </label>
-            <p className="text-[10px] text-[#6b7280]">Blox / GMGN / Raydium wallet imports are supported via pasted addresses.</p>
+            <p className="text-[10px] text-[#6b7280]">
+              Paste EQ/UQ TON wallet addresses (one per line) or a JSON export from this app.
+            </p>
           </div>
           <div className="mt-3 border-t pt-2" style={{ borderColor: AX_BORDER }}>
             <button
@@ -660,10 +811,47 @@ export function TrackersPanel({ className }: { className?: string }) {
   );
 }
 
+function KolWalletPopup({ address, onClose }: { address: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+      <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close" onClick={onClose} />
+      <div
+        className="relative z-[1] w-full max-w-md rounded-lg border p-4 shadow-2xl"
+        style={{ backgroundColor: AX_PANEL, borderColor: AX_BORDER }}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[13px] font-semibold text-white">KOL wallet</span>
+          <button type="button" onClick={onClose} className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mb-4 break-all font-mono text-[11px] leading-relaxed text-[#d1d5db]">{address}</p>
+        <div className="flex flex-wrap gap-2">
+          <CopyButton
+            value={address}
+            label="Copy address"
+            className="rounded border border-[#2a2f3a] px-3 py-1.5 text-[11px] text-[#d1d5db]"
+          >
+            Copy
+          </CopyButton>
+          <Link
+            href={`/wallet/${encodeURIComponent(address)}`}
+            className="inline-flex items-center rounded bg-[#5865F2] px-3 py-1.5 text-[11px] font-semibold text-[#0a0a0f] hover:brightness-105"
+          >
+            Open in Pointer
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FragmentRow({
   tracker,
   rowBg,
-  sol,
+  tonUi,
   lastUnix,
   expanded,
   onToggleRules,
@@ -674,7 +862,7 @@ function FragmentRow({
 }: {
   tracker: TrackerRow;
   rowBg: string;
-  sol: number | null;
+  tonUi: number | null;
   lastUnix: number | null;
   expanded: boolean;
   onToggleRules: () => void;
@@ -703,10 +891,10 @@ function FragmentRow({
         style={{ borderColor: AX_BORDER, backgroundColor: rowBg }}
         {...hoverProps}
       >
-        <td className="whitespace-nowrap px-1.5 py-1 align-middle tabular-nums text-[#6b7280]">
+        <td className="whitespace-nowrap px-1.5 py-1.5 align-middle tabular-nums text-[#6b7280]">
           {formatAgeShort(tracker.createdAt)}
         </td>
-        <td className="max-w-[14rem] px-1.5 py-1 align-middle">
+        <td className="max-w-[14rem] px-1.5 py-1.5 align-middle">
           <div className="flex min-w-0 items-center gap-1">
             <span className="shrink-0 text-[13px] leading-none" aria-hidden>
               {walletEmoji(tracker.walletAddress)}
@@ -725,16 +913,13 @@ function FragmentRow({
             </div>
           </div>
         </td>
-        <td className="whitespace-nowrap px-1.5 py-1 align-middle tabular-nums font-medium text-[#5eead4]">
-          <span className="mr-0.5 text-[10px] text-[#c4b5fd]" aria-hidden>
-            ◎
-          </span>
-          {sol != null ? formatNumber(sol, { decimals: sol < 1 ? 4 : 2 }) : '—'}
+        <td className="whitespace-nowrap px-1.5 py-1.5 align-middle tabular-nums font-medium text-[#5eead4]">
+          {tonUi != null ? formatNumber(tonUi, { decimals: tonUi < 1 ? 4 : 2 }) : '—'}
         </td>
-        <td className="whitespace-nowrap px-1.5 py-1 align-middle tabular-nums text-[#6b7280]">
+        <td className="whitespace-nowrap px-1.5 py-1.5 align-middle tabular-nums text-[#6b7280]">
           {lastUnix != null ? formatLastActiveShort(lastUnix) : '—'}
         </td>
-        <td className="px-1.5 py-1 align-middle">
+        <td className="px-1.5 py-1.5 align-middle">
           <div className="flex items-center justify-end gap-0">
             <button
               type="button"
@@ -815,7 +1000,7 @@ function WalletManagerTable({
         <tr className="border-b" style={{ borderColor: AX_BORDER }}>
           <th className="whitespace-nowrap px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Created</th>
           <th className="min-w-[8rem] px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Name</th>
-          <th className="whitespace-nowrap px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Balance</th>
+          <th className="whitespace-nowrap px-1.5 py-2 font-semibold uppercase tracking-wide text-[#6b7280]">Balance (TON)</th>
           <th className="whitespace-nowrap px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Last Active</th>
           <th className="w-24 px-1.5 py-1 text-right font-semibold uppercase tracking-wide text-[#6b7280]">Actions</th>
         </tr>
@@ -823,19 +1008,27 @@ function WalletManagerTable({
       <tbody>
         {filtered.map((t, i) => {
           const en = enrichment[t.walletAddress];
-          const sol = en?.lamports != null ? lamportsToSol(BigInt(en.lamports)) : (i + 1) * 0.0137;
+          let tonUi: number | null = null;
+          if (en?.nanoTon != null) {
+            try {
+              tonUi = rawToUi(en.nanoTon, 9);
+            } catch {
+              tonUi = null;
+            }
+          }
           const rowBg = i % 2 === 0 ? AX_ROW_A : AX_ROW_B;
+          const addrDeleting = removeMutation.isPending && removeMutation.variables === t.walletAddress;
           return (
             <FragmentRow
               key={t.id}
               tracker={t}
               rowBg={rowBg}
-              sol={sol}
-              lastUnix={en?.lastActiveUnix ?? 1_700_000_000 - (i + 1) * 71}
+              tonUi={tonUi}
+              lastUnix={en?.lastActiveUnix ?? null}
               expanded={expandedRuleId === t.id}
               onToggleRules={() => setExpandedRuleId((id) => (id === t.id ? null : t.id))}
               onRemove={() => removeMutation.mutate(t.walletAddress)}
-              removePending={removeMutation.isPending}
+              removePending={addrDeleting}
               onNotify={(n) => notifyMutation.mutate({ walletAddress: t.walletAddress, notify: n })}
               notifyPending={notifyMutation.isPending}
             />
@@ -900,35 +1093,87 @@ function MonitorGrid() {
   );
 }
 
-function KolsList() {
+function KolsList({
+  rows,
+  onRemove,
+  onWalletClick,
+}: {
+  rows: KolRow[];
+  onRemove: (id: string) => void;
+  onWalletClick: (walletAddress: string) => void;
+}) {
+  const [kolSearch, setKolSearch] = useState('');
+  const filtered = useMemo(() => {
+    const s = kolSearch.trim().toLowerCase();
+    if (!s) return rows;
+    return rows.filter(
+      (r) =>
+        r.name.toLowerCase().includes(s) ||
+        r.handle.toLowerCase().includes(s) ||
+        r.wallet.toLowerCase().includes(s),
+    );
+  }, [rows, kolSearch]);
+
   return (
     <div className="grid min-h-0 grid-cols-12">
       <div className="col-span-5 border-r p-2" style={{ borderColor: AX_BORDER }}>
-        <div className="mb-2 rounded border px-2 py-1" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
-          <input className="w-full bg-transparent text-[11px] outline-none placeholder:text-[#4b5563]" placeholder="Search KOLs..." />
+        <div className="mb-2 rounded border px-2 py-1.5" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
+          <input
+            value={kolSearch}
+            onChange={(e) => setKolSearch(e.target.value)}
+            className="w-full bg-transparent text-[11px] outline-none placeholder:text-[#4b5563]"
+            placeholder="Search KOLs…"
+          />
         </div>
-        <div className="space-y-1">
-          {KOL_ROWS.map(([name, handle], i) => (
-            <div key={name} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/5">
-              <span className="h-7 w-7 rounded-full bg-[#20263a]" />
-              <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold text-white">{name}</div>
-                <div className="truncate text-[10px] text-[#6b7280]">{handle}</div>
+        <div className="space-y-0.5">
+          {filtered.map((row, i) => (
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => onWalletClick(row.wallet)}
+              className="flex w-full items-center gap-2 rounded px-2 py-2.5 text-left transition hover:bg-white/5"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#20263a] text-[11px] text-[#9ca3af]">
+                {(row.name[0] ?? '?').toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-semibold text-white">{row.name}</div>
+                <div className="truncate text-[11px] text-[#6b7280]">{row.handle}</div>
               </div>
-              <span className="ml-auto text-[10px] text-[#6b7280]">#{i + 1}</span>
-            </div>
+              <span className="shrink-0 text-[11px] text-[#6b7280]">#{i + 1}</span>
+            </button>
           ))}
         </div>
       </div>
       <div className="col-span-7 min-h-0 overflow-auto">
-        <table className="w-full text-[10px]">
+        <table className="w-full text-[11px]">
           <tbody>
-            {KOL_ROWS.map(([name, , wallet, followers], i) => (
-              <tr key={`${name}-${wallet}`} className="border-b" style={{ borderColor: AX_BORDER, backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B }}>
-                <td className="px-2 py-1.5 text-white">{wallet}</td>
-                <td className="px-2 py-1.5 text-right text-[#9ca3af]">☆ 🔔 𝕏 ⛓</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-[#d1d5db]">{followers}</td>
-                <td className="px-2 py-1.5 text-right text-[#fb7185]">Remove</td>
+            {filtered.map((row, i) => (
+              <tr
+                key={`${row.id}-addr`}
+                className="border-b"
+                style={{ borderColor: AX_BORDER, backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B }}
+              >
+                <td className="px-2 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => onWalletClick(row.wallet)}
+                    className="max-w-[14rem] truncate text-left font-mono text-white hover:text-[#7dd3fc] hover:underline"
+                  >
+                    {shortenAddress(row.wallet, 6)}
+                  </button>
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right text-[#9ca3af]">—</td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-[#d1d5db]">{row.followers}</td>
+                <td className="px-2 py-2.5 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onRemove(row.id)}
+                    className="font-semibold text-[#fb7185] hover:underline"
+                  >
+                    Remove
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -938,37 +1183,117 @@ function KolsList() {
   );
 }
 
-function SecondaryPanel({ viewTab }: { viewTab: ViewTab }) {
+function SecondaryPanel({
+  viewTab,
+  rows,
+  onRemove,
+  onWalletClick,
+}: {
+  viewTab: ViewTab;
+  rows: KolRow[];
+  onRemove: (id: string) => void;
+  onWalletClick: (walletAddress: string) => void;
+}) {
+  const [headerTab, setHeaderTab] = useState(0);
+  const [listTab, setListTab] = useState<'my' | 'top'>('my');
+
+  const showRows = viewTab === 'kols' ? rows : rows.slice(0, Math.min(8, rows.length));
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex border-b text-[11px]" style={{ borderColor: AX_BORDER }}>
-        {['Customize Feed', 'Twitter Alerts', 'Socials'].map((label, i) => (
-          <button key={label} className={cn('px-2 py-1.5 font-semibold', i === 0 ? 'text-white' : 'text-[#6b7280] hover:text-white')}>
+        {(['Customize Feed', 'Twitter Alerts', 'Socials'] as const).map((label, i) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setHeaderTab(i)}
+            className={cn(
+              'px-2 py-2 font-semibold transition',
+              headerTab === i ? 'text-white' : 'text-[#6b7280] hover:text-white',
+            )}
+          >
             {label}
           </button>
         ))}
       </div>
-      <div className="border-b p-2 text-[10px] text-[#9ca3af]" style={{ borderColor: AX_BORDER }}>
-        Twitter handles are actively tracked when they appear in Top Subscriptions list. You can add popular handles directly from this panel.
-      </div>
-      <div className="flex items-center gap-2 border-b p-2" style={{ borderColor: AX_BORDER }}>
-        <button className="rounded bg-white/10 px-2 py-1 text-[10px] font-semibold text-white">My List</button>
-        <button className="rounded px-2 py-1 text-[10px] font-semibold text-[#6b7280]">Top Subscriptions</button>
-        <span className="ml-auto text-[10px] text-[#9ca3af]">3947</span>
-      </div>
-      <div className="grid grid-cols-4 border-b px-2 py-1 text-[10px] text-[#6b7280]" style={{ borderColor: AX_BORDER }}>
-        <span>Handle</span><span>Tweets</span><span>Profile updates</span><span className="text-right">Actions</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        {(viewTab === 'kols' ? KOL_ROWS : KOL_ROWS.slice(0, 8)).map(([name, handle, , followers], i) => (
-          <div key={`${name}-${handle}-secondary`} className="grid grid-cols-4 border-b px-2 py-1.5 text-[10px]" style={{ borderColor: AX_BORDER, backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B }}>
-            <span className="truncate text-white">{handle}</span>
-            <span className="text-[#9ca3af]">{followers}</span>
-            <span className="text-[#5eead4]">Live</span>
-            <span className="text-right text-[#fb7185]">Remove</span>
+      {headerTab === 0 ? (
+        <>
+          <div className="border-b p-2 text-[10px] text-[#9ca3af]" style={{ borderColor: AX_BORDER }}>
+            Tracked X handles for this TON build. Click a handle or use Remove to edit your list (saved in this browser).
           </div>
-        ))}
-      </div>
+          <div className="flex items-center gap-2 border-b p-2" style={{ borderColor: AX_BORDER }}>
+            <button
+              type="button"
+              onClick={() => setListTab('my')}
+              className={cn(
+                'rounded px-2 py-1.5 text-[10px] font-semibold transition',
+                listTab === 'my' ? 'bg-white/10 text-white' : 'text-[#6b7280] hover:text-white',
+              )}
+            >
+              My List
+            </button>
+            <button
+              type="button"
+              onClick={() => setListTab('top')}
+              className={cn(
+                'rounded px-2 py-1.5 text-[10px] font-semibold transition',
+                listTab === 'top' ? 'bg-white/10 text-white' : 'text-[#6b7280] hover:text-white',
+              )}
+            >
+              Top Subscriptions
+            </button>
+            <span className="ml-auto text-[10px] text-[#9ca3af]">{rows.length} saved</span>
+          </div>
+          <div
+            className="grid grid-cols-4 border-b px-2 py-2 text-[10px] font-medium text-[#6b7280]"
+            style={{ borderColor: AX_BORDER }}
+          >
+            <span>Handle</span>
+            <span>Tweets</span>
+            <span>Profile</span>
+            <span className="text-right">Actions</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {listTab === 'my'
+              ? showRows.map((row, i) => (
+                  <div
+                    key={`${row.id}-feed`}
+                    className="grid grid-cols-4 border-b px-2 py-2.5 text-[10px] leading-snug"
+                    style={{ borderColor: AX_BORDER, backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onWalletClick(row.wallet)}
+                      className="truncate text-left text-white hover:text-[#7dd3fc] hover:underline"
+                    >
+                      {row.handle}
+                    </button>
+                    <span className="text-[#9ca3af]">—</span>
+                    <span className="text-[#5eead4]">Live</span>
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => onRemove(row.id)}
+                        className="font-semibold text-[#fb7185] hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              : null}
+            {listTab === 'top' ? (
+              <div className="p-3 text-[11px] text-[#6b7280]">Browse top subscriptions in a future update.</div>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto p-3 text-[11px] text-[#6b7280]">
+          {headerTab === 1
+            ? 'Twitter alert routing for new TON listings is wired from the Alert Builder.'
+            : 'Social connectors (Telegram, etc.) ship in a later release.'}
+        </div>
+      )}
     </div>
   );
 }

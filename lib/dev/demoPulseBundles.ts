@@ -1,7 +1,10 @@
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
 import { HYPE_MINT } from '@/lib/utils/constants';
-import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
+import { USDC_MINT } from '@/lib/utils/addresses';
+
+/** Placeholder “mint” string for UI demo native TON row (not a jetton master). */
+const TON_NATIVE_DEMO_MINT = 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c';
 
 const now = () => new Date().toISOString();
 
@@ -27,7 +30,7 @@ function bundle(
       twitter_handle: null,
       telegram_url: null,
       website_url: null,
-      creator_wallet: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
+      creator_wallet: 'EQD0vdSA_NedY9wgmkLAtBZmRnYxlMJT0F2f5pTkOmXuTES',
       launch_pad: launchPad,
       raw_metadata: null,
       initial_liquidity_sol: 42,
@@ -42,7 +45,7 @@ function bundle(
     },
     snapshot: {
       id:
-        mint === HYPE_MINT ? -101 : mint === USDC_MINT ? -102 : mint === SOL_MINT ? -103 : -104,
+        mint === HYPE_MINT ? -101 : mint === USDC_MINT ? -102 : mint === TON_NATIVE_DEMO_MINT ? -103 : -104,
       mint,
       market_cap_usd: mcUsd,
       liquidity_usd: mcUsd * 0.08,
@@ -67,7 +70,7 @@ export function syntheticPulseFeedItems(column: PulseColumnId): PulseTokenBundle
     HYPE_MINT,
     'HYPE',
     'Demo listed',
-    'raydium',
+    'dedust',
     8,
     2_400_000,
     180_000,
@@ -83,8 +86,8 @@ export function syntheticPulseFeedItems(column: PulseColumnId): PulseTokenBundle
     6,
   );
   const b3 = bundle(
-    SOL_MINT,
-    'SOL',
+    TON_NATIVE_DEMO_MINT,
+    'TON',
     'Demo native',
     null,
     120,

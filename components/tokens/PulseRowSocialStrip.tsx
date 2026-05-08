@@ -391,6 +391,17 @@ export function PulseRowSocialStrip({
           />
         ) : null}
 
+        {model.telegram ? (
+          <ExternalGlyphLink
+            href={model.telegram}
+            label="Telegram"
+            glyph="telegram"
+            previewTitle="Telegram"
+            previewSubtitle="Channel or chat"
+            glyphPx={sx}
+          />
+        ) : null}
+
         {model.instagram ? (
           <ExternalInstagramLink
             href={model.instagram}
@@ -441,17 +452,6 @@ export function PulseRowSocialStrip({
           </a>
         ) : null}
 
-        {model.telegram ? (
-          <ExternalGlyphLink
-            href={model.telegram}
-            label="Telegram"
-            glyph="telegram"
-            previewTitle="Telegram"
-            previewSubtitle="Channel or chat"
-            glyphPx={sx}
-          />
-        ) : null}
-
         {pumpUrl ? (
           pumpLive ? (
             <PulseRichHover panel={<PumpFunHoverPanel bundle={bundle} pumpUrl={pumpUrl} />}>
@@ -459,8 +459,8 @@ export function PulseRowSocialStrip({
                 href={pumpUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Pump.fun (live)"
-                title="Pump.fun livestream"
+                aria-label="TON launchpad (live)"
+                title="TON launchpad livestream"
                 className={iconHit}
               >
                 <PulseGlyphMask
@@ -476,8 +476,8 @@ export function PulseRowSocialStrip({
               href={pumpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Pump.fun"
-              title="Pump.fun"
+              aria-label="TON launchpad"
+              title="TON launchpad"
               className={iconHit}
             >
               <PulseGlyphMask name="pump" size={sx} variant="mono" />

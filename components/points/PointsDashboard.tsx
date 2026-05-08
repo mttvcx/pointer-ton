@@ -10,7 +10,7 @@ import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import type { LeaderboardPageResult } from '@/lib/points/leaderboardTypes';
 
 const BORDER = '#1b1f2a';
-const BG = '#0b0d12';
+const BG = '#080d14';
 const PANEL = '#121622';
 const PANEL2 = '#151826';
 
@@ -257,9 +257,9 @@ export function PointsDashboard({ className, initialTab = 'rewards' }: { classNa
             <div className="mt-2.5 border-t pt-2" style={{ borderColor: BORDER }}>
               <div className="mb-1 flex items-center justify-between text-[10px] text-[#6b7280]">
                 <span>Next Level: {nextTierLabel} Rewards rate</span>
-                <span>You&apos;re almost there! Trade 1.7K SOL to reach Champion</span>
+                <span>You&apos;re almost there! Trade 1.7K TON to reach Champion</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[#0b0d12]">
+              <div className="h-2 overflow-hidden rounded-full bg-[#080d14]">
                 <div className="h-full rounded-full bg-[linear-gradient(90deg,#5865F2,#8b5cf6)] shadow-[0_0_10px_rgba(88,101,242,0.45)]" style={{ width: `${progressPct}%` }} />
               </div>
             </div>
@@ -268,7 +268,7 @@ export function PointsDashboard({ className, initialTab = 'rewards' }: { classNa
           {/* claim grid */}
           <section className="mt-2 grid gap-2 lg:grid-cols-3">
             <article className="rounded border p-2" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-              <div className="mb-2 text-[11px] font-semibold text-white">SOL Rewards</div>
+              <div className="mb-2 text-[11px] font-semibold text-white">TON Rewards</div>
               <TinyLineChart />
             </article>
 
@@ -289,7 +289,7 @@ export function PointsDashboard({ className, initialTab = 'rewards' }: { classNa
               </div>
               <div className="flex items-start justify-around gap-1">
                 <CircleQuest value={refCode.referredCount} max={3} label="Refer 3 more people" color="#4ade80" />
-                <CircleQuest value={refCode.earnings.total} max={1_000_000} label="Trade 6000 more SOL in Volume" color="#5865F2" />
+                <CircleQuest value={refCode.earnings.total} max={1_000_000} label="Trade 6000 more TON in Volume" color="#5865F2" />
                 <CircleQuest value={(lb.rows?.length ?? 0) * 1000} max={100_000} label="Make 5000 more transactions" color="#f472b6" />
               </div>
             </article>
@@ -306,7 +306,7 @@ export function PointsDashboard({ className, initialTab = 'rewards' }: { classNa
                   <thead className="sticky top-0" style={{ backgroundColor: PANEL2 }}>
                     <tr className="border-b" style={{ borderColor: BORDER }}>
                       <th className="px-2 py-1 text-[#6b7280]">Referrals</th>
-                      <th className="px-2 py-1 text-right text-[#6b7280]">SOL</th>
+                      <th className="px-2 py-1 text-right text-[#6b7280]">TON</th>
                       <th className="px-2 py-1 text-right text-[#6b7280]">Status</th>
                       <th className="px-2 py-1 text-right text-[#6b7280]">Age</th>
                     </tr>

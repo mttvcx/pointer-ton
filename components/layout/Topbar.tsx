@@ -7,6 +7,7 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { ArrowDownToLine, ChevronDown, ExternalLink, LogOut, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
+import { CopilotPillTopbarCollapsed } from '@/components/ai/CopilotPill';
 import { WebPushControls } from '@/components/layout/WebPushControls';
 import { APP_NAV } from '@/components/layout/navConfig';
 import { DepositHistoryModal } from '@/components/wallet/DepositHistoryModal';
@@ -26,7 +27,7 @@ import { formatNumber, lamportsToSol, rawToUi } from '@/lib/utils/formatters';
  */
 export function Topbar() {
   const pathname = usePathname();
-  const { authenticated, user, logout, getAccessToken } = usePointerAuth();
+  const { authenticated, user, logout, getAccessToken, login, linkedTonAddress } = usePointerAuth();
   const searchQuery = useUIStore((s) => s.searchQuery);
   const searchOpen = useUIStore((s) => s.searchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
@@ -89,7 +90,8 @@ export function Topbar() {
       }>;
     },
     enabled: Boolean(authenticated && walletsReady && walletAddress),
-    staleTime: 20_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
   });
 
   const solUi =
@@ -133,7 +135,7 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-30 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b px-2 py-1 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1.5" style={{ borderColor: '#1b1f2a', backgroundColor: '#0b0d12' }}>
+    <header className="sticky top-0 z-30 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b px-2 py-1 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1.5" style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}>
       <Link
         href="/pulse"
         prefetch
@@ -191,38 +193,42 @@ export function Topbar() {
         })}
       </nav>
 
-      <button
-        type="button"
-        onClick={() => setSearchOpen(true)}
-        className={cn(
-          'focus-ring relative mx-0 flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default',
-          'bg-bg-hover px-3 py-1.5 text-left transition-all duration-150 hover:border-border-strong hover:bg-bg-base',
-          'sm:min-w-[8rem] md:mx-auto md:max-w-[340px] lg:max-w-[420px]',
-        )}
-        aria-haspopup="dialog"
-        aria-expanded={searchOpen}
-        aria-label="Open search"
-      >
-        <Search
-          className={cn(
-            'h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4',
-            searchQuery ? 'text-accent-primary/90' : 'text-fg-muted',
-          )}
-        />
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-[12px] sm:text-[13px]',
-            searchQuery ? 'text-fg-secondary opacity-90' : 'text-fg-muted',
-          )}
-        >
-          {searchQuery.trim() || 'Search mint, wallet, CA…'}
-        </span>
-        <kbd className="pointer-events-none hidden shrink-0 rounded border border-border-subtle/80 bg-black/30 px-1 tabular-nums text-[9px] text-fg-muted/80 lg:inline">
-          /
-        </kbd>
-      </button>
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
+        <div className="pointer-events-none hidden min-w-0 flex-1 justify-center md:pointer-events-auto lg:flex">
+          <CopilotPillTopbarCollapsed />
+        </div>
+        <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className={cn(
+              'focus-ring relative flex h-8 max-w-[11rem] shrink-0 items-center gap-1.5 rounded-md border border-border-default',
+              'bg-bg-hover px-2 py-1 text-left transition-all duration-150 hover:border-border-strong hover:bg-bg-base',
+              'sm:max-w-[13rem]',
+            )}
+            aria-haspopup="dialog"
+            aria-expanded={searchOpen}
+            aria-label="Open search"
+          >
+            <Search
+              className={cn(
+                'h-3.5 w-3.5 shrink-0',
+                searchQuery ? 'text-accent-primary/90' : 'text-fg-muted',
+              )}
+            />
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-[11px]',
+                searchQuery ? 'text-fg-secondary opacity-90' : 'text-fg-muted',
+              )}
+            >
+              {searchQuery.trim() || 'Search…'}
+            </span>
+            <kbd className="pointer-events-none hidden shrink-0 rounded border border-border-subtle/80 bg-black/30 px-1 tabular-nums text-[9px] text-fg-muted/80 xl:inline">
+              /
+            </kbd>
+          </button>
 
-      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
         <button
           type="button"
           disabled
@@ -234,7 +240,7 @@ export function Topbar() {
             <span className="absolute inline-flex h-full w-full animate-pulse-soft rounded-full bg-signal-bull/60" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-signal-bull shadow-[0_0_6px_var(--signal-bull)]" />
           </span>
-          SOL
+          TON
         </button>
 
         <button
@@ -255,7 +261,17 @@ export function Topbar() {
         <WebPushControls className="hidden md:flex" />
         <CopilotToggleButton />
 
-        {user ? (
+        {!authenticated ? (
+          <button
+            type="button"
+            onClick={() => void login()}
+            className="btn-press focus-ring flex h-8 shrink-0 items-center rounded-md bg-[#5865F2] px-2.5 text-[11px] font-semibold text-white hover:brightness-110 sm:px-3"
+          >
+            {linkedTonAddress ? 'Finish sign-in' : 'Connect wallet'}
+          </button>
+        ) : null}
+
+        {authenticated ? (
           <div className="ml-0.5 flex items-center gap-1 border-l border-border-subtle pl-1.5 sm:ml-1 sm:gap-2 sm:pl-2">
             <Link
               href="/wallets"
@@ -287,7 +303,7 @@ export function Topbar() {
                     aria-expanded={balancePopoverOpen}
                   >
                     <span className="block max-w-[7rem] truncate text-[11px] font-medium leading-tight text-fg-primary sm:max-w-[9rem]">
-                      {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} SOL` : '\u2014'}
+                      {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '\u2014'}
                     </span>
                   </button>
                   <button
@@ -375,7 +391,7 @@ export function Topbar() {
                             target="_blank"
                             rel="noreferrer"
                             className="flex shrink-0 items-center px-1 text-fg-muted hover:text-fg-secondary"
-                            title="Solscan"
+                            title="TON explorer"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
@@ -397,7 +413,7 @@ export function Topbar() {
               ) : null}
             </div>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[10px] font-semibold text-fg-inverse">
-              {(user.email?.address ?? walletAddress ?? '?').slice(0, 2).toUpperCase()}
+              {(walletAddress ?? user?.id ?? '?').slice(0, 2).toUpperCase()}
             </div>
             <button
               type="button"
@@ -409,6 +425,7 @@ export function Topbar() {
             </button>
           </div>
         ) : null}
+        </div>
       </div>
     </header>
 

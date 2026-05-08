@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { Layers, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Topbar } from '@/components/layout/Topbar';
 import { GlobalSearchModal } from '@/components/layout/GlobalSearchModal';
 import { LabelWalletModal } from '@/components/wallets/LabelWalletModal';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { AlertRuleFlashLayer } from '@/components/alerts/AlertRuleFlashLayer';
+import { AlertRulesDockPanel } from '@/components/alerts/AlertRulesDockPanel';
+import { AlertRulesPopoutHost } from '@/components/alerts/AlertRulesPopoutHost';
 import { AlertRuleAudioPlayer } from '@/components/alerts/AlertRuleAudioPlayer';
 import { AICopilotPanel } from '@/components/layout/AICopilotPanel';
 import { BottomBar } from '@/components/layout/BottomBar';
@@ -15,16 +18,18 @@ import { FeatureAnnouncementGate } from '@/components/onboarding/FeatureAnnounce
 import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeSpotlightOnboarding';
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { useUIStore } from '@/store/ui';
-import { APP_NAME, APP_TAGLINE } from '@/lib/utils/constants';
+import { APP_NAME } from '@/lib/utils/constants';
 
 /**
- * Auth-gated shell: [Topbar] [main + AI co-pilot] with fixed bottom bar.
- * Main scrolls above the 44px bottom chrome; content column uses the viewport
- * between 48px top and 44px bottom.
+ * App shell: signed-in TON users only. Landing stays on `/`; all routes here require
+ * TonConnect + valid session from `/api/auth/sync`.
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { ready, authenticated, login } = usePointerAuth();
+  const pathname = usePathname();
+  const { ready, authenticated, login, linkedTonAddress } = usePointerAuth();
   useAuthSync();
+
+  const onSharePage = Boolean(pathname?.startsWith('/share/'));
 
   useEffect(() => {
     document.title = APP_NAME;
@@ -78,34 +83,35 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!authenticated) {
+  if (!authenticated && !onSharePage) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-bg-base px-6">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(124,92,255,0.18),transparent_60%)]" />
-
-        <div className="w-full max-w-sm border border-border-subtle p-7">
-          <div className="mb-5 flex items-center gap-2">
-            <Layers className="h-4 w-4 text-accent-primary" strokeWidth={2.25} />
-            <span className="text-sm font-semibold tracking-tight text-fg-primary">
-              {APP_NAME}
-            </span>
-          </div>
-
-          <h1 className="text-lg font-semibold text-fg-primary">Sign in to continue</h1>
-          <p className="mt-1 text-xs text-fg-secondary">{APP_TAGLINE}</p>
-
+      <div className="flex min-h-screen flex-col bg-bg-base text-fg-primary">
+        <header
+          className="flex min-h-[var(--app-topbar-h)] items-center justify-between border-b px-4"
+          style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}
+        >
+          <span className="text-[15px] font-semibold text-white">pointer.</span>
           <button
             type="button"
             onClick={() => void login()}
-            className="mt-5 w-full rounded-sm bg-accent-primary py-2 text-sm font-medium text-fg-inverse transition-all duration-150 hover:bg-accent-glow"
+            className="btn-press rounded-md bg-[#5865F2] px-3 py-1.5 text-[12px] font-semibold text-white hover:brightness-110"
           >
-            Continue with TonConnect
+            {linkedTonAddress ? 'Finish sign-in' : 'Connect wallet'}
           </button>
-
-          <p className="mt-3 text-center tabular-nums text-[10px] text-fg-muted">
-            TON wallet (Tonkeeper, MyTonWallet, etc.)
+        </header>
+        <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <h1 className="text-lg font-semibold text-white">Sign in with your TON wallet</h1>
+          <p className="mt-2 max-w-md text-sm text-fg-secondary">
+            Connect TonConnect and complete sign-in to open Pulse, trackers, and the rest of the terminal.
           </p>
-        </div>
+          <button
+            type="button"
+            onClick={() => void login()}
+            className="btn-press mt-6 rounded-md bg-accent-primary px-5 py-2.5 text-sm font-semibold text-fg-inverse hover:bg-accent-glow"
+          >
+            {linkedTonAddress ? 'Finish sign-in' : 'Connect wallet'}
+          </button>
+        </main>
       </div>
     );
   }
@@ -119,11 +125,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <AlertRuleFlashLayer />
       <AlertRuleAudioPlayer />
       <div className="flex min-h-0 flex-1">
+        <AlertRulesDockPanel />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-[var(--app-bottombar-h)]">
           {children}
         </main>
         <AICopilotPanel />
       </div>
+      <AlertRulesPopoutHost />
       <BottomBar />
       <FirstTimeSpotlightOnboarding />
       <FeatureAnnouncementGate />

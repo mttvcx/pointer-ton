@@ -40,7 +40,7 @@ function coerceBuyButtonStyle(s: unknown, fallback: BuyButtonStyle): BuyButtonSt
 
 const defaults = (): PerColumn => ({
   quickBuySol: 0.5,
-  density: 'normal',
+  density: 'expanded',
   presetSlot: 1,
   buyButtonStyle: 'medium',
 });
@@ -109,7 +109,8 @@ export const usePulseColumnStore = create<PulseColumnsState>()(
         })),
     }),
     {
-      name: 'pointer-pulse-columns',
+      /** TON build: avoids reusing saved per-column “compact” density from older sessions. */
+      name: 'pointer-pulse-columns-ton',
       partialize: (s) => ({ byColumn: s.byColumn }),
       merge: (persisted, current) => {
         const p = persisted as

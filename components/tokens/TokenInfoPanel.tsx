@@ -45,7 +45,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
 
   if (q.isLoading && !q.data) {
     return (
-      <div className="flex h-full min-h-[120px] w-full min-w-0 flex-col bg-[#0b0d12] p-2">
+      <div className="flex h-full min-h-[120px] w-full min-w-0 flex-col bg-[#080d14] p-2">
         <div className="flex items-center gap-2 text-[10px] text-[#6b7280]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Metrics…
@@ -57,7 +57,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
   const m = q.data?.metrics;
   if (!m || q.isError) {
     return (
-      <div className="flex h-full min-h-[120px] w-full min-w-0 flex-col bg-[#0b0d12] p-2">
+      <div className="flex h-full min-h-[120px] w-full min-w-0 flex-col bg-[#080d14] p-2">
         <p className="text-[11px] text-[#fb923c]">Could not load token intel.</p>
       </div>
     );
@@ -115,7 +115,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
 
   if (compactGrid) {
     return (
-      <div className="w-full min-w-0 bg-[#0b0d12] p-2">
+      <div className="w-full min-w-0 bg-[#080d14] p-2">
         <div className="text-[9px] font-semibold uppercase tracking-[0.02em] text-[#6b7280]">Token intel</div>
         <div className="mt-1">{grid}</div>
         {mini}
@@ -124,7 +124,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
   }
 
   return (
-    <div className="flex h-full min-h-[200px] w-full min-w-0 flex-col gap-2 bg-[#0b0d12] p-2">
+    <div className="flex h-full min-h-[200px] w-full min-w-0 flex-col gap-2 bg-[#080d14] p-2">
       <h3 className="text-[10px] font-semibold uppercase tracking-[0.02em] text-[#6b7280]">Token intel</h3>
       {grid}
       {mini}

@@ -121,12 +121,12 @@ export function TokenActivityTabs({
     return (
       <div className="h-full min-h-0 overflow-auto">
         <table className="w-full border-collapse text-left text-[10px]">
-          <thead className="sticky top-0 z-[1] bg-[#0b0d12] text-[#6b7280]">
+          <thead className="sticky top-0 z-[1] bg-[#080d14] text-[#6b7280]">
             <tr className="border-b border-[#1b1f2a]">
               <th className="px-2 py-1.5 font-semibold uppercase tracking-wide">Time</th>
               <th className="px-2 py-1.5 font-semibold uppercase tracking-wide">Side</th>
               <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wide">
-                {tableUsd ? 'SOL' : 'SOL'}
+                TON
               </th>
               <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wide">Px</th>
             </tr>
@@ -160,7 +160,7 @@ export function TokenActivityTabs({
                   {t.price_usd_at_fill != null
                     ? tableUsd
                       ? `$${formatNumber(t.price_usd_at_fill, { decimals: 4 })}`
-                      : `${formatNumber(t.price_usd_at_fill / 150, { decimals: 6 })} SOL`
+                      : `${formatNumber(t.price_usd_at_fill / 150, { decimals: 6 })} TON`
                     : '\u2014'}
                 </td>
               </tr>
@@ -189,7 +189,7 @@ export function TokenActivityTabs({
     const maxBuy = displayRows.reduce((m, w) => Math.max(m, w.buy_usd), 0);
     const maxSell = displayRows.reduce((m, w) => Math.max(m, w.sell_usd), 0);
     const fmtUsdCell = (v: number) =>
-      tableUsd ? formatCompactUsd(v) : `${formatNumber(v / 150, { decimals: 4 })} SOL`;
+      tableUsd ? formatCompactUsd(v) : `${formatNumber(v / 150, { decimals: 4 })} TON`;
 
     if (displayRows.length === 0) {
       return (
@@ -215,14 +215,14 @@ export function TokenActivityTabs({
         </p>
         <div className="overflow-x-auto">
           <table className="min-w-[56rem] w-full border-collapse text-left text-[9px]">
-            <thead className="sticky top-0 z-[1] bg-[#0b0d12] text-[#6b7280]">
+            <thead className="sticky top-0 z-[1] bg-[#080d14] text-[#6b7280]">
               <tr className="border-b border-[#1b1f2a]">
                 <th className="w-7 px-1 py-1 text-center font-semibold uppercase">#</th>
                 <th className="min-w-[7.5rem] px-1.5 py-1 font-semibold uppercase tracking-wide">
                   Wallet
                 </th>
                 <th className="min-w-[6.5rem] px-1.5 py-1 font-semibold uppercase leading-tight tracking-wide">
-                  <span className="block">SOL Balance</span>
+                  <span className="block">TON Balance</span>
                   <span className="block text-[8px] font-normal capitalize opacity-80">(Last Active)</span>
                 </th>
                 <th className="min-w-[7.5rem] px-1.5 py-1 font-semibold uppercase leading-tight tracking-wide">
@@ -319,7 +319,7 @@ export function TokenActivityTabs({
                       )}
                     >
                       {pnl >= 0 ? '+' : ''}
-                      {tableUsd ? formatCompactUsd(pnl) : `${formatNumber(pnl / 150, { decimals: 2 })} SOL`}
+                      {tableUsd ? formatCompactUsd(pnl) : `${formatNumber(pnl / 150, { decimals: 2 })} TON`}
                     </td>
                     <td className="px-1.5 py-1 align-top leading-tight text-[#9ca3af]">
                       <div className="tabular-nums">{'\u2014'}</div>
@@ -355,7 +355,7 @@ export function TokenActivityTabs({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col border-t border-[#1b1f2a] bg-[#0b0d12] font-sans text-[12px]"
+      className="flex h-full min-h-0 flex-col border-t border-[#1b1f2a] bg-[#080d14] font-sans text-[12px]"
      
     >
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-[#1b1f2a] px-2 py-1">

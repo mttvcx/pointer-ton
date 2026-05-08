@@ -14,6 +14,7 @@ export const useActiveWalletStore = create<ActiveWalletState>()(
       activeWalletAddress: null,
       setActiveWalletAddress: (addr) => set({ activeWalletAddress: addr }),
     }),
-    { name: 'pointer-active-wallet' },
+    /** TON app build: isolates from any legacy Solana-localStorage wallet selection. */
+    { name: 'pointer-active-wallet-ton' },
   ),
 );

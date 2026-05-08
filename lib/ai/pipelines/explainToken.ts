@@ -48,7 +48,7 @@ function buildPrompt(facts: {
   recentTrades24h: number;
 }): { system: string; user: string } {
   const system = [
-    'You are Pointer, an experienced Solana memecoin analyst.',
+    'You are Pointer, an experienced TON / memecoin analyst.',
     'Be terse, specific, and skeptical. Prefer numbers over adjectives.',
     'Never recommend buying or selling. Treat every token as risky by default.',
   ].join(' ');

@@ -202,15 +202,15 @@ export function ReferralDashboard({ className }: { className?: string }) {
           <>
             <div className="mt-3 grid gap-2 tabular-nums text-[13px] tabular-nums sm:grid-cols-3">
               <div>
-                <p className="text-[10px] uppercase text-fg-muted">Pending SOL</p>
+                <p className="text-[10px] uppercase text-fg-muted">Pending TON</p>
                 <p className="text-fg-primary">{formatNumber(earnData.sums.pendingSol, { decimals: 4 })}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-fg-muted">Paid SOL</p>
+                <p className="text-[10px] uppercase text-fg-muted">Paid TON</p>
                 <p className="text-fg-primary">{formatNumber(earnData.sums.paidSol, { decimals: 4 })}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-fg-muted">Total SOL</p>
+                <p className="text-[10px] uppercase text-fg-muted">Total TON</p>
                 <p className="text-fg-primary">{formatNumber(earnData.sums.totalSol, { decimals: 4 })}</p>
               </div>
             </div>
@@ -218,7 +218,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
               <table className="w-full border-collapse text-left text-[12px]">
                 <thead className="sticky top-0 border-b border-border-subtle bg-bg-base text-[10px] uppercase text-fg-muted">
                   <tr>
-                    <th className="px-2 py-1.5 font-medium">SOL</th>
+                    <th className="px-2 py-1.5 font-medium">TON</th>
                     <th className="px-2 py-1.5 font-medium">Status</th>
                     <th className="px-2 py-1.5 font-medium">When</th>
                   </tr>

@@ -1,12 +1,12 @@
 /**
- * Centralized constants. Anything that might rotate (model IDs, tip lamports,
+ * Centralized constants. Anything that might rotate (model IDs, fee nanotons,
  * cache TTLs, fee defaults) lives here so feature code never inlines a magic
  * number that's painful to find later.
  */
 
 /* --------------------------------- chain ---------------------------------- */
 
-export const CHAIN = 'solana' as const;
+export const CHAIN = 'ton' as const;
 
 export const SOL_DECIMALS = 9;
 export const USDC_DECIMALS = 6;
@@ -29,10 +29,10 @@ export const COMPUTE_UNIT_LIMIT_MAX = 1_400_000;
 /** Default slippage shown in the buy/sell panel. */
 export const DEFAULT_SLIPPAGE_BPS = 500; // 5%
 
-/** Quick-buy preset chips (SOL) — default; trading presets override per user. */
+/** Quick-buy preset chips (native TON notionals) — default; trading presets override per user. */
 export const BUY_PRESETS_SOL = [0.1, 0.5, 1, 5] as const;
 
-/** Wrapped HYPE on Solana (Jupiter-listed). */
+/** Wrapped HYPE (Jupiter-listed; legacy mint id). */
 export const HYPE_MINT = '98sMhvDwXj1RQi5c5Mndm3vPe9cBqPrbLaufMXFNMh5g';
 
 /** Confirmation polling. */
@@ -151,11 +151,14 @@ export const JUPITER_QUOTE_URL =
 export const JUPITER_SWAP_URL =
   process.env.JUPITER_SWAP_URL ?? 'https://quote-api.jup.ag/v6/swap';
 
+/** Legacy Solana JSON-RPC (Helius) for Pulse / webhooks / ingest only — not the primary TON RPC. */
 export function getHeliusRpcUrl(): string {
   if (process.env.SOLANA_RPC_URL) return process.env.SOLANA_RPC_URL;
   const key = process.env.HELIUS_API_KEY;
   if (!key) {
-    throw new Error('HELIUS_API_KEY missing - required to derive Solana RPC URL');
+    throw new Error(
+      'HELIUS_API_KEY or SOLANA_RPC_URL missing — required for legacy Solana indexer RPC (Pulse / webhooks).',
+    );
   }
   return `https://mainnet.helius-rpc.com/?api-key=${key}`;
 }
@@ -163,7 +166,7 @@ export function getHeliusRpcUrl(): string {
 /* --------------------------------- misc ---------------------------------- */
 
 export const APP_NAME = 'Pointer';
-export const APP_TAGLINE = 'Solana memecoin terminal with an AI co-pilot.';
+export const APP_TAGLINE = 'TON memecoin terminal with an AI co-pilot.';
 
 /** Canonical origin (no trailing slash). Used for OG URLs and share links in metadata. */
 export function getPublicOrigin(): string {

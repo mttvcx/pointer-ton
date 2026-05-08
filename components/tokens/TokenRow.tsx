@@ -34,18 +34,21 @@ export function TokenRow({
   pulseBuyBusy = false,
   pulseBuyDisabled = false,
   columnId,
+  /** Fixed pixel height from Pulse virtualizer — keeps every row the same size. */
+  slotHeight,
 }: {
   bundle: PulseTokenBundle;
   density?: PulseRowDensity;
   display?: ColumnDisplayOptions;
   quickBuySol?: number;
   buyButtonStyle?: BuyButtonStyle;
-  /** Execute swap for this row’s mint using column header SOL amount. */
+  /** Execute swap for this row’s mint using column header TON amount. */
   onPulseQuickBuy?: () => void;
   pulseBuyBusy?: boolean;
   pulseBuyDisabled?: boolean;
   /** Pulse board column (bonding ring semantics / gold on migrated lane). */
   columnId?: PulseColumnId;
+  slotHeight?: number;
 }) {
   const { token, snapshot } = bundle;
   const demoMetrics = useMemo(
@@ -119,7 +122,7 @@ export function TokenRow({
     >
       {shortenAddress(token.mint, 4)}
       {token.mint.toLowerCase().endsWith('pump') ? (
-        <span className="text-emerald-400/75"> · pump</span>
+        <span className="text-emerald-400/75"> · launchpad</span>
       ) : null}
     </span>
   );
@@ -298,10 +301,14 @@ export function TokenRow({
           : undefined
       }
       className={cn(
-        'group relative flex items-stretch border-b border-border-subtle outline-none transition-colors duration-150 hover:bg-bg-hover',
-        rowMinH,
-        trackedDev && 'bg-accent-primary/[0.04]',
+        'group relative flex items-stretch border-b border-border-subtle bg-bg-base outline-none transition-colors duration-150',
+        slotHeight != null
+          ? 'h-full min-h-0 max-h-full overflow-hidden'
+          : rowMinH,
+        trackedDev && 'bg-accent-primary/[0.08]',
+        'hover:bg-bg-hover',
       )}
+      style={slotHeight != null ? { height: slotHeight } : undefined}
     >
       <span
         aria-hidden
@@ -318,14 +325,14 @@ export function TokenRow({
           <Link
             href={`/token/${token.mint}`}
             className={cn(
-              'flex min-w-0 flex-1 items-center px-3 outline-none focus-visible:bg-bg-hover',
+              'flex min-h-0 min-w-0 flex-1 items-center px-3 outline-none focus-visible:bg-bg-hover',
               py,
             )}
             {...hoverProps}
           >
-            <div className="flex w-full min-w-0 items-center gap-3">
+            <div className="flex h-full min-h-0 w-full min-w-0 items-center gap-3">
               {avatarStack}
-              <div className="min-w-0 flex-1">
+              <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
                 <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5">
                   {identityCluster}
                   {ageSpan}
@@ -347,10 +354,10 @@ export function TokenRow({
 
           <div
             className={cn(
-              'my-1 mr-2 flex shrink-0 flex-col justify-center gap-1 self-stretch rounded-xl border border-emerald-400/55 px-2 py-1.5',
+              'mr-2 flex min-h-0 shrink-0 flex-col justify-center gap-1 self-stretch rounded-xl border border-emerald-400/55 px-2 py-1.5',
               canQuickBuy &&
                 !pulseBuyDisabled &&
-                'cursor-pointer transition hover:bg-emerald-500/[0.06] active:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/55',
+                'cursor-pointer transition hover:bg-emerald-500/[0.08] active:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/55 focus-visible:ring-offset-0',
               canQuickBuy && pulseBuyDisabled && 'cursor-not-allowed opacity-60',
             )}
             role={canQuickBuy ? 'button' : undefined}
@@ -359,7 +366,7 @@ export function TokenRow({
             onKeyDown={canQuickBuy ? onUltraPaneKeyDown : undefined}
             aria-label={
               canQuickBuy && quickBuySol != null
-                ? `Quick buy ${formatSolDraft(quickBuySol) || String(quickBuySol)} SOL, framed area`
+                ? `Quick buy ${formatSolDraft(quickBuySol) || String(quickBuySol)} TON, framed area`
                 : undefined
             }
             aria-busy={pulseBuyBusy}
@@ -393,17 +400,13 @@ export function TokenRow({
                           className="h-3.5 w-3.5 shrink-0 fill-emerald-400/35 text-emerald-400"
                           aria-hidden
                         />
-                        {`${formatSolDraft(quickBuySol)} SOL`}
+                        {`${formatSolDraft(quickBuySol)} TON`}
                       </>
                     ) : null}
                   </span>
                 ) : null}
                 {showRisk ? (
-                  <RiskFlags
-                    token={token}
-                    snapshot={snapshot}
-                    className="shrink-0 opacity-80 transition group-hover:opacity-100"
-                  />
+                  <RiskFlags token={token} snapshot={snapshot} className="shrink-0" />
                 ) : null}
               </div>
             ) : null}
@@ -414,14 +417,14 @@ export function TokenRow({
           <Link
             href={`/token/${token.mint}`}
             className={cn(
-              'flex min-w-0 flex-1 items-center px-3 outline-none focus-visible:bg-bg-hover',
+              'flex min-h-0 min-w-0 flex-1 items-center px-3 outline-none focus-visible:bg-bg-hover',
               py,
             )}
             {...hoverProps}
           >
-            <div className="flex w-full min-w-0 items-center gap-3">
+            <div className="flex h-full min-h-0 w-full min-w-0 items-center gap-3">
               {avatarStack}
-              <div className="min-w-0 flex-1">
+              <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
                 <div className="flex items-start gap-2">
                   {identityCluster}
                   {ageSpan}
@@ -463,11 +466,7 @@ export function TokenRow({
 
           {showRisk ? (
             <div className={cn('flex shrink-0 items-center pr-2', py)}>
-              <RiskFlags
-                token={token}
-                snapshot={snapshot}
-                className="shrink-0 opacity-80 transition group-hover:opacity-100"
-              />
+              <RiskFlags token={token} snapshot={snapshot} className="shrink-0" />
             </div>
           ) : null}
         </>
@@ -525,15 +524,15 @@ function QuickBuyPill({
       onClick={onBuy}
       disabled={disabled || loading}
       className={btn}
-      title={`Quick trade: ${labelAmount} SOL on this mint`}
-      aria-label={`Quick buy ${labelAmount} SOL`}
+      title={`Quick trade: ${labelAmount} TON on this mint`}
+      aria-label={`Quick buy ${labelAmount} TON`}
     >
       {loading ? (
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin sm:h-4 sm:w-4" aria-hidden />
       ) : (
         <ArrowUpRight className="shrink-0" strokeWidth={style === 'small' ? 2.5 : 3} />
       )}
-      <span className="max-w-[11rem] truncate sm:max-w-[14rem]">{`${labelAmount} SOL`}</span>
+      <span className="max-w-[11rem] truncate sm:max-w-[14rem]">{`${labelAmount} TON`}</span>
     </button>
   );
 }

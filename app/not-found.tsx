@@ -9,7 +9,7 @@ export default function NotFound() {
       </span>
       <p className="text-sm font-semibold">Not found</p>
       <p className="max-w-sm text-[11px] leading-snug text-fg-secondary">
-        The address or page you were looking for could not be resolved on Solana.
+        The address or page you were looking for could not be resolved on TON.
       </p>
       <Link
         href="/pulse"

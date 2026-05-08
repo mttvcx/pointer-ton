@@ -62,7 +62,7 @@ export function PulseTokenAvatar({
   size = 48,
   className,
   showRing = true,
-  /** Bright pump.fun frame (on-curve) — Axiom-style outline outside the image. */
+  /** Bright TON launchpad frame (on-curve) — Axiom-style outline outside the image. */
   pumpFrame = false,
   /** Pump.fun dock badge (bottom-right). */
   launchpadCorner = false,
@@ -127,7 +127,7 @@ export function PulseTokenAvatar({
       className={cn(
         'relative shrink-0 rounded-md',
         pumpFrame &&
-          'ring-2 ring-emerald-400/90 shadow-[0_0_14px_rgba(52,211,153,0.28)]',
+          'shadow-[0_0_0_2px_rgba(52,211,153,0.9),0_0_14px_rgba(52,211,153,0.28)]',
         className,
       )}
       style={{ width: size, height: size }}
@@ -190,8 +190,8 @@ export function PulseTokenAvatar({
           href={`https://pump.fun/${encodeURIComponent(token.mint)}`}
           target="_blank"
           rel="noopener noreferrer"
-          title="Open on Pump.fun"
-          aria-label="Pump.fun"
+          title="Open on TON launchpad"
+          aria-label="TON launchpad"
           className="absolute bottom-0.5 right-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[#030806] shadow-[0_0_0_1px_rgba(0,0,0,0.45)] ring-1 ring-emerald-300/90 transition hover:scale-105 hover:bg-emerald-400"
           onClick={(e) => e.stopPropagation()}
         >

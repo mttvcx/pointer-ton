@@ -54,7 +54,7 @@ const PROTOCOL_CHIPS: {
   activeClass: string;
   idleClass: string;
 }[] = [
-  { id: 'pump', label: 'Pump', Icon: Coins, activeClass: 'border-emerald-500/80 text-emerald-300 shadow-[0_0_12px_-4px_rgba(52,211,153,0.45)]', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
+  { id: 'pump', label: 'Launchpad', Icon: Coins, activeClass: 'border-emerald-500/80 text-emerald-300 shadow-[0_0_12px_-4px_rgba(52,211,153,0.45)]', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
   { id: 'bonk', label: 'Bonk', Icon: Flame, activeClass: 'border-orange-500/75 text-orange-300 shadow-[0_0_12px_-4px_rgba(251,146,60,0.4)]', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
   { id: 'printr', label: 'Printr', Icon: Printer, activeClass: 'border-sky-500/75 text-sky-300', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
   { id: 'og_mode', label: 'OG Mode', Icon: Crown, activeClass: 'border-violet-500/70 text-violet-300', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
@@ -63,7 +63,7 @@ const PROTOCOL_CHIPS: {
 ];
 
 const PROTOCOL_LAUNCHPAD_LABEL: Record<ProtocolId, string> = {
-  pump: 'Pump.fun',
+  pump: 'TON launchpad',
   bonk: 'Bonk Launch',
   printr: 'Printr',
   og_mode: 'OG Mode',
@@ -104,7 +104,7 @@ type EnrichedSummary = SummaryRow & {
 const DEMO_SEARCH_RECENTS: SummaryRow[] = [
   { mint: HYPE_MINT, symbol: 'HYPE', name: 'Wrapped HYPE', image_url: null },
   { mint: USDC_MINT, symbol: 'USDC', name: 'USD Coin', image_url: null },
-  { mint: SOL_MINT, symbol: 'SOL', name: 'Solana', image_url: null },
+  { mint: SOL_MINT, symbol: 'TON', name: 'Toncoin', image_url: null },
   { mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', symbol: 'BONK', name: 'Bonk', image_url: null },
 ];
 
@@ -265,7 +265,7 @@ export function GlobalSearchModal() {
     if (!q) return;
     if (!isValidPublicKey(q)) {
       toast.error('Not a valid address', {
-        description: 'Paste a Solana mint or wallet. Ticker/name search is coming next.',
+        description: 'Paste a TON jetton master, wallet, or friendly address. Ticker/name search is coming next.',
       });
       return;
     }
@@ -342,7 +342,7 @@ export function GlobalSearchModal() {
   const rowPadding = compactRows ? 'py-1.5 min-h-[64px]' : 'py-2 min-h-[74px]';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center px-3 pt-[min(8vh,72px)] sm:px-4" role="presentation">
+    <div className="fixed inset-0 z-[620] flex items-start justify-center px-3 pt-[min(8vh,72px)] sm:px-4" role="presentation">
       <button
         type="button"
         className={cn(
@@ -460,7 +460,7 @@ export function GlobalSearchModal() {
               <span className="text-[10px] font-medium uppercase tracking-wide text-[#6b7280]">Quote</span>
               {(
                 [
-                  ['sol', 'SOL'],
+                  ['sol', 'TON'],
                   ['usdc', 'USDC'],
                   ['usd1', 'USD1'],
                 ] as const

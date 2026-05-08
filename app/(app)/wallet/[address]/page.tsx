@@ -52,10 +52,10 @@ export default async function WalletDetailPage({
 
   const statItems: StatItem[] = [
     {
-      label: 'SOL balance',
+      label: 'TON balance',
       value:
         balanceLamports != null
-          ? `${formatNumber(lamportsToSol(balanceLamports), { decimals: 4 })} SOL`
+          ? `${formatNumber(lamportsToSol(balanceLamports), { decimals: 4 })} TON`
           : '\u2014',
     },
     {
@@ -131,7 +131,7 @@ export default async function WalletDetailPage({
               rel="noreferrer"
               className="focus-ring inline-flex items-center gap-1 rounded-md border border-border-subtle bg-bg-base px-2.5 py-1.5 text-[11px] font-medium text-accent-primary transition hover:border-accent-primary/40"
             >
-              Solscan
+              TON explorer
               <ExternalLink className="h-3 w-3 opacity-80" />
             </a>
           </div>

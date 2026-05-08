@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   PULSE_PROTOCOL_IDS,
   type PulseProtocolId,
+  migrateLegacyPulseProtocols,
 } from '@/lib/tokens/columnPresetModel';
 
 export const ALERT_RULE_TYPES = ['pulse_launchpad'] as const;
@@ -24,7 +25,16 @@ export const PulseLaunchpadRuleConfigSchema = z
 export type PulseLaunchpadRuleConfig = z.infer<typeof PulseLaunchpadRuleConfigSchema>;
 
 export function parsePulseLaunchpadRuleConfig(raw: unknown): PulseLaunchpadRuleConfig | null {
-  const p = PulseLaunchpadRuleConfigSchema.safeParse(raw ?? {});
+  const o =
+    raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? { ...(raw as Record<string, unknown>) }
+      : {};
+  if (Array.isArray(o.launchpads)) {
+    const migrated = migrateLegacyPulseProtocols(o.launchpads);
+    if (migrated?.length) o.launchpads = migrated;
+    else if (o.launchpads.length > 0) o.launchpads = ['ton'];
+  }
+  const p = PulseLaunchpadRuleConfigSchema.safeParse(o);
   return p.success ? p.data : null;
 }
 

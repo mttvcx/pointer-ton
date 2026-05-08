@@ -6,7 +6,7 @@ import { createAdminSupabase } from '@/lib/supabase/server';
 import { emitMatchingPulseLaunchpadAlertRules } from '@/lib/alerts/emitAlertRuleMatches';
 import type { PulseNewTokenAlertInput } from '@/lib/alerts/pulseNewTokenTypes';
 
-/** Broadcast alert: new fungible indexed into Pulse (DAS poll, DAS hydrate, or webhook). */
+/** Broadcast alert: new fungible indexed into Pulse (DAS, webhook, or TonAPI poll/hydrate). */
 export const ALERT_TYPE_PULSE_NEW_TOKEN = 'pulse_new_token' as const;
 
 export type { PulseNewTokenAlertInput } from '@/lib/alerts/pulseNewTokenTypes';

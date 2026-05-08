@@ -7,7 +7,8 @@ import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSignTransaction } from '@/lib/auth/solanaShims';
+import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
+import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import {
   ArrowBigUp,
   ArrowDownRight,
@@ -18,7 +19,6 @@ import {
   Clock,
   Coins,
   Loader2,
-  RefreshCw,
   Settings,
   Shield,
   TrendingDown,
@@ -66,37 +66,8 @@ type TradingPresetApi = {
 type TradeSide = 'buy' | 'sell';
 type LandingMode = 'jito' | 'rpc';
 
-type QuoteApiOk = {
-  side: TradeSide;
-  mint: string;
-  quote: Record<string, unknown> & {
-    inAmount?: string;
-    outAmount?: string;
-  };
-  swapTransaction: string | null;
-  lastValidBlockHeight?: number;
-  presetsSol: readonly number[] | number[];
-  summary: {
-    amountInRaw: string;
-    amountOutRaw: string | null;
-    amountSolEstimate: number;
-  };
-};
-
 const SLIPPAGE_PRESETS_BPS = [50, 100, 500, 1_000] as const;
 const SELL_PCTS = [25, 50, 75, 100] as const;
-
-/** Privy embedded wallet: skip the send-transaction modal (silent / session signing). */
-const SILENT_SOLANA_SIGN_TX_OPTIONS = {
-  uiOptions: { showWalletUIs: false as const },
-} as const;
-
-function base64ToUint8(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
 
 function TradeAmountInput({
   value,
@@ -131,15 +102,6 @@ function TradeAmountInput({
       </span>
     </div>
   );
-}
-
-function uint8ToBase64(bytes: Uint8Array): string {
-  const chunk = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
 }
 
 function TradeTapeStrip({ m }: { m: TokenExtendedMetrics }) {
@@ -249,7 +211,6 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
     <section className="rounded-md border border-[#1b1f2a] bg-[#0b0d12] p-2">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[12px] font-semibold text-white">Token Info</span>
-        <RefreshCw className="h-3.5 w-3.5 text-[#9ca3af]" strokeWidth={2} />
       </div>
       <div className="grid grid-cols-3 gap-1.5">
         {items.map((item) => (
@@ -263,9 +224,26 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
   );
 }
 
+/** Label for Buy/Sell CTA when on-chain symbol is generic (e.g. DEX pool "LP"). */
+function tradeCtaLabel(symbol: string | null, tokenName: string | null | undefined): string {
+  const sym = (symbol ?? '').trim();
+  const generic = !sym || /^lp$/i.test(sym) || /^lq$/i.test(sym) || /^pool$/i.test(sym);
+  if (!generic) {
+    return sym.length > 16 ? `${sym.slice(0, 14)}…` : sym;
+  }
+  let raw = (tokenName ?? '').trim();
+  if (!raw) return sym || 'token';
+  raw = raw.replace(/^(lp\s+)?(dedust|ston\.?fi|megaton)[^.]*:\s*/i, '').trim();
+  raw = raw.replace(/^lp\s+/i, '').trim();
+  const left = raw.split('/')[0]?.trim() || raw;
+  const out = left.length > 22 ? `${left.slice(0, 20)}…` : left;
+  return out || sym || 'token';
+}
+
 export function BuySellPanel({
   mint,
   symbol,
+  tokenName,
   decimals,
   limitAlertOrder,
   initialBuySol,
@@ -275,6 +253,8 @@ export function BuySellPanel({
 }: {
   mint: string;
   symbol: string | null;
+  /** Human-readable name when `symbol` is a pool placeholder (e.g. LP). */
+  tokenName?: string | null;
   decimals: number;
   limitAlertOrder?: LimitOrderRow | null;
   /** Deep link from Pulse quick-buy (`?buySol=`). Applied once chips load. */
@@ -324,7 +304,7 @@ export function BuySellPanel({
     }
   }, [activeWalletRow?.balance_lamports]);
   const tradingBlockedImported = activeWalletRow?.is_imported === true;
-  const { signTransaction } = useSignTransaction();
+  const { submitFromQuote } = usePointerTradeSubmit();
   const { activePresetSlot } = useTradingStore();
 
   const limitToastRef = useRef<string | null>(null);
@@ -376,7 +356,7 @@ export function BuySellPanel({
     );
   }, [wallet?.address]);
 
-  const [quote, setQuote] = useState<QuoteApiOk | null>(null);
+  const [quote, setQuote] = useState<TradeQuoteApiOk | null>(null);
   const [quoteForKey, setQuoteForKey] = useState<string | null>(null);
   const [quoteWallet, setQuoteWallet] = useState<string | null>(null);
 
@@ -437,6 +417,8 @@ export function BuySellPanel({
   });
 
   const balanceRaw = balanceData?.rawAmount ?? '0';
+
+  const ctaSym = useMemo(() => tradeCtaLabel(symbol, tokenName), [symbol, tokenName]);
 
   const sellAmountTokenRaw = useMemo(() => {
     const bal = BigInt(balanceRaw === '' ? '0' : balanceRaw);
@@ -682,7 +664,7 @@ export function BuySellPanel({
     }
     return `${formatNumber(lamportsToSol(BigInt(quote.summary.amountOutRaw)), {
       decimals: 5,
-    })} SOL`;
+    })} TON`;
   }, [quote, decimals, symbol]);
 
   const formattedPay = useMemo(() => {
@@ -690,19 +672,19 @@ export function BuySellPanel({
     if (quote.side === 'buy') {
       return `${formatNumber(lamportsToSol(BigInt(quote.summary.amountInRaw)), {
         decimals: 4,
-      })} SOL`;
+      })} TON`;
     }
     return `${formatNumber(rawToUi(quote.summary.amountInRaw, decimals), { decimals: 4 })} ${symbol ?? 'tokens'}`;
   }, [quote, decimals, symbol]);
 
   const runTrade = useCallback(async () => {
     if (!wallet) {
-      toast.error('No Solana wallet', { description: 'Connect an embedded wallet first.' });
+      toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
       return;
     }
     if (activeWalletRow?.is_imported === true) {
       toast.error('View-only wallet', {
-        description: 'Imported wallets cannot trade in Phase 4. Use an embedded wallet.',
+        description: 'Use a non-imported wallet linked in TonConnect to trade.',
       });
       return;
     }
@@ -713,7 +695,7 @@ export function BuySellPanel({
     }
 
     if (tab === 'buy' && (buyAmountSol == null || buyAmountSol <= 0)) {
-      toast.error('Enter SOL amount');
+      toast.error('Enter TON amount');
       return;
     }
     if (tab === 'sell' && !sellAmountTokenRaw) {
@@ -776,8 +758,8 @@ export function BuySellPanel({
             : `Quote failed (${res.status})`;
         throw new Error(msg);
       }
-      const ok = json as QuoteApiOk;
-      if (!ok.swapTransaction || !ok.summary?.amountOutRaw) {
+      const ok = json as TradeQuoteApiOk;
+      if (!ok.tonConnect?.messages?.length || !ok.summary?.amountOutRaw) {
         throw new Error('No swap transaction from quote');
       }
 
@@ -785,45 +767,14 @@ export function BuySellPanel({
       setQuoteForKey(paramsKey);
       setQuoteWallet(wallet.address);
 
-      toast.loading('Signing...', { id: toastId });
-      const unsigned = base64ToUint8(ok.swapTransaction);
-      const { signedTransaction } = await signTransaction({
-        transaction: unsigned,
-        wallet,
-        chain: 'solana:mainnet',
-        options: SILENT_SOLANA_SIGN_TX_OPTIONS,
+      toast.loading('Sign in wallet...', { id: toastId });
+      const { signature: sig } = await submitFromQuote({
+        quote: ok,
+        walletAddress: wallet.address,
+        mint,
+        getAccessToken,
       });
-      const signedB64 = uint8ToBase64(signedTransaction);
 
-      toast.loading('Submitting...', { id: toastId });
-      const execRes = await fetch('/api/trade/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          signedTransaction: signedB64,
-          userPublicKey: wallet.address,
-          mint,
-          side: ok.side,
-          amountInRaw: ok.summary.amountInRaw,
-          amountOutRaw: ok.summary.amountOutRaw ?? '0',
-          amountSolNotional: ok.summary.amountSolEstimate,
-        }),
-      });
-      const execJson: unknown = await execRes.json();
-      if (!execRes.ok) {
-        const msg =
-          typeof execJson === 'object' && execJson && 'message' in execJson
-            ? String((execJson as { message: unknown }).message)
-            : `Execute failed (${execRes.status})`;
-        throw new Error(msg);
-      }
-      const sig =
-        typeof execJson === 'object' && execJson && 'signature' in execJson
-          ? String((execJson as { signature: unknown }).signature)
-          : '';
       toast.success(tab === 'buy' ? 'Buy complete' : 'Sell complete', {
         id: toastId,
         description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
@@ -844,7 +795,7 @@ export function BuySellPanel({
   }, [
     wallet,
     getAccessToken,
-    signTransaction,
+    submitFromQuote,
     tab,
     mint,
     buyAmountSol,
@@ -882,8 +833,22 @@ export function BuySellPanel({
     if (addresses[0]) setActiveWalletAddress(addresses[0]);
   };
 
+  const walletPickerShellRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!walletMenuOpen) return;
+    function onDown(e: MouseEvent) {
+      const el = walletPickerShellRef.current;
+      if (el?.contains(e.target as Node)) return;
+      setWalletMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [walletMenuOpen]);
+
   return (
     <div
+      ref={walletPickerShellRef}
       data-mint={mint}
       className="relative flex h-full max-h-[calc(100vh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[#0b0d12] text-[12px] text-white"
     >
@@ -900,7 +865,7 @@ export function BuySellPanel({
           </p>
         ) : !wallet ? (
           <p className="rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[11px] text-signal-warn">
-            No Solana wallet linked. Create one from Privy after sign-in.
+            No TON wallet linked. Connect with TonConnect after sign-in.
           </p>
         ) : null}
 
@@ -941,7 +906,7 @@ export function BuySellPanel({
         {tab === 'buy' ? (
           <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] p-2">
             <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#8b93a3]">Amount</div>
-            <TradeAmountInput value={buyCustomSol} onChange={onBuyCustom} placeholder={activePresetSol != null ? String(activePresetSol) : '0.0'} suffix="SOL" icon="sol" aria-label="SOL amount to buy" />
+            <TradeAmountInput value={buyCustomSol} onChange={onBuyCustom} placeholder={activePresetSol != null ? String(activePresetSol) : '0.0'} suffix="TON" icon="sol" aria-label="TON amount to buy" />
             <div className="mt-1 grid grid-cols-5 overflow-hidden rounded border border-[#1b1f2a] text-center text-[12px] font-semibold">
               {axiomBuyAmounts.map((s) => <button key={s} type="button" onClick={() => pickBuyPreset(s)} className={cn('border-r border-[#1b1f2a] py-1.5 tabular-nums last:border-r-0 hover:bg-white/5', activePresetSol === Number(s) ? 'text-[#38d99c]' : 'text-white')}>{s}</button>)}
               <button type="button" className="py-1.5 text-[#8b93a3] hover:bg-white/5">%</button>
@@ -973,14 +938,14 @@ export function BuySellPanel({
         {tradingBlockedImported ? <p className="rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[10px] leading-snug text-[#9ca3af]">Imported wallets are view-only for swaps right now. Switch to an embedded Pointer wallet to trade.</p> : null}
 
         <button type="button" disabled={!wallet || tradingBlockedImported || (panelMode === 'limit_mcap' && targetMcUsd == null)} onClick={() => { if (panelMode === 'limit_mcap') { toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' }); return; } void runTrade(); }} className={cn('btn-press focus-ring sticky bottom-0 z-[1] flex w-full items-center justify-center gap-2 rounded-full py-3 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50', tab === 'buy' ? 'cta-bull' : 'cta-bear')}>
-          {panelMode === 'limit_mcap' && targetMcUsd != null ? `Buy @ ${formatCompactUsd(targetMcUsd)} MC` : `${tab === 'buy' ? 'Buy' : 'Sell'} ${sym}`}
+          {panelMode === 'limit_mcap' && targetMcUsd != null ? `Buy @ ${formatCompactUsd(targetMcUsd)} MC` : `${tab === 'buy' ? 'Buy' : 'Sell'} ${ctaSym}`}
         </button>
 
         <div className="grid grid-cols-4 border-t border-[#1b1f2a] pt-2 text-[11px] leading-tight">
           <div className="border-r border-[#1b1f2a] pr-2"><div className="text-[#8b93a3]">Bought</div><div className="font-semibold text-[#38d99c]">$0</div></div>
           <div className="border-r border-[#1b1f2a] px-2"><div className="text-[#8b93a3]">Sold</div><div className="font-semibold text-[#fb7185]">$0</div></div>
           <div className="border-r border-[#1b1f2a] px-2"><div className="text-[#8b93a3]">Holding</div><div className="font-semibold text-white">$0</div></div>
-          <div className="pl-2"><div className="flex items-center gap-1 text-[#8b93a3]">PnL <RefreshCw className="h-3 w-3" /></div><div className="font-semibold text-[#38d99c]">+$0 (0%)</div></div>
+          <div className="pl-2"><div className="text-[#8b93a3]">PnL</div><div className="font-semibold text-[#38d99c]">+$0 (0%)</div></div>
         </div>
 
         {wallet && authenticated ? <PresetSelector presets={presetRowsForSelector} onEdit={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setPresetEditorOpen(true); }} onAdvancedSettings={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setAdvancedSettingsOpen(true); }} disabled={!authenticated} /> : null}

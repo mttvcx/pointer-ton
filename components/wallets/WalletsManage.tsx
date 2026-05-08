@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useCreateWallet, useExportWallet } from '@/lib/auth/solanaShims';
-import { ArrowRightLeft, Copy, ExternalLink, KeyRound, Loader2, MoreHorizontal, Pencil, RefreshCw, Shield, Star, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Copy, KeyRound, Loader2, MoreHorizontal, Pencil, Shield, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useWalletBalancesPoll } from '@/lib/hooks/useWalletBalancesPoll';
@@ -73,7 +73,19 @@ export function WalletsManage({ className }: { className?: string }) {
     walletIds: pollIds,
     getAccessToken,
     queryClient: qc,
+    intervalMs: 15_000,
   });
+
+  useEffect(() => {
+    if (!actionOpenId) return;
+    function onDown(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('[data-wallet-actions-root]')) return;
+      setActionOpenId(null);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [actionOpenId]);
 
   const patchMutation = useMutation({
     mutationFn: async ({
@@ -185,17 +197,14 @@ export function WalletsManage({ className }: { className?: string }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-[16px] font-semibold leading-tight text-white">Wallets</h1>
-              <span className="rounded-full border border-[#1b1f2a] bg-[#0b0d12] px-2 py-0.5 text-[11px] text-[#9ca3af]">
+              <span className="rounded-full border border-[#1b1f2a] bg-[#080d14] px-2 py-0.5 text-[11px] text-[#9ca3af]">
                 {rows.length} wallets
               </span>
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">
                 {activeRows.length} active
               </span>
-              <span className="hidden rounded-full border border-[#1b1f2a] bg-[#0b0d12] px-2 py-0.5 text-[11px] text-[#9ca3af] sm:inline-flex">
-                balances refresh every 30s
-              </span>
             </div>
-            <p className="mt-0.5 text-[12px] text-[#8b93a3]">Manage embedded and linked Solana wallets</p>
+            <p className="mt-0.5 text-[12px] text-[#8b93a3]">Manage embedded and linked TON wallets</p>
           </div>
           <div className="flex items-center gap-1.5">
             <button
@@ -209,20 +218,9 @@ export function WalletsManage({ className }: { className?: string }) {
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="focus-ring rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2.5 py-1.5 text-[11px] font-medium text-[#d1d5db] hover:bg-white/[0.04]"
+              className="focus-ring rounded-md border border-[#1b1f2a] bg-[#080d14] px-2.5 py-1.5 text-[11px] font-medium text-[#d1d5db] hover:bg-white/[0.04]"
             >
               Import
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void qc.invalidateQueries({ queryKey: ['wallets-my'] });
-                toast.success('Refreshing balances');
-              }}
-              className="focus-ring inline-flex h-7 w-7 items-center justify-center rounded-md border border-[#1b1f2a] bg-[#0b0d12] text-[#9ca3af] hover:bg-white/[0.04] hover:text-white"
-              aria-label="Refresh balances"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
             </button>
           </div>
         </header>
@@ -253,7 +251,7 @@ export function WalletsManage({ className }: { className?: string }) {
                     <div
                       key={w.id}
                       className="grid grid-cols-[1.25fr_1.4fr_0.7fr_0.8fr_3rem] items-center border-b border-[#1b1f2a] px-3 py-2 text-[12px] last:border-b-0 hover:bg-white/[0.03]"
-                      style={{ backgroundColor: i % 2 === 0 ? '#0b0d12' : '#121622' }}
+                      style={{ backgroundColor: i % 2 === 0 ? '#080d14' : '#121622' }}
                     >
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-1.5">
@@ -281,8 +279,8 @@ export function WalletsManage({ className }: { className?: string }) {
                         </button>
                       </div>
                       <div className="text-right">
-                        <span className={cn('inline-flex rounded-full border px-2 py-1 text-[11px] tabular-nums', sol > 0 ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-[#1b1f2a] bg-[#0b0d12] text-[#9ca3af]')}>
-                          {sol > 0 ? `${formatNumber(sol, { decimals: 4 })} SOL` : 'No SOL yet'}
+                        <span className={cn('inline-flex rounded-full border px-2 py-1 text-[11px] tabular-nums', sol > 0 ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-[#1b1f2a] bg-[#080d14] text-[#9ca3af]')}>
+                          {sol > 0 ? `${formatNumber(sol, { decimals: 4 })} TON` : 'No TON yet'}
                         </span>
                       </div>
                       <div className="flex justify-end gap-1">
@@ -290,11 +288,11 @@ export function WalletsManage({ className }: { className?: string }) {
                           {w.is_archived ? 'Archived' : w.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      <div className="relative flex justify-end">
+                      <div className="relative flex justify-end" data-wallet-actions-root>
                         <button
                           type="button"
                           onClick={() => setActionOpenId((id) => (id === w.id ? null : w.id))}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[#1b1f2a] bg-[#0b0d12] text-[#9ca3af] hover:bg-white/[0.04] hover:text-white"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[#1b1f2a] bg-[#080d14] text-[#9ca3af] hover:bg-white/[0.04] hover:text-white"
                           aria-label="Wallet actions"
                         >
                           <MoreHorizontal className="h-4 w-4" />
@@ -328,14 +326,14 @@ export function WalletsManage({ className }: { className?: string }) {
                     <div className="font-semibold text-white">{activeWallet.label?.trim() || 'Untitled wallet'}</div>
                     <div className="mt-0.5 truncate text-[11px] tabular-nums text-[#8b93a3]">{shortenAddress(activeWallet.wallet_address, 10)}</div>
                   </div>
-                  <div className="rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2 py-2">
+                  <div className="rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-2">
                     <div className="text-[10px] text-[#6b7280]">Balance</div>
-                    <div className="mt-0.5 text-[18px] font-semibold tabular-nums text-white">{formatNumber(activeBalance, { decimals: 4 })} SOL</div>
-                    {activeBalance <= 0 ? <div className="mt-1 text-[11px] text-[#8b93a3]">No SOL yet. Deposit to active wallet.</div> : null}
+                    <div className="mt-0.5 text-[18px] font-semibold tabular-nums text-white">{formatNumber(activeBalance, { decimals: 4 })} TON</div>
+                    {activeBalance <= 0 ? <div className="mt-1 text-[11px] text-[#8b93a3]">No TON yet. Deposit to active wallet.</div> : null}
                   </div>
                   <div className="flex gap-1.5">
-                    <button type="button" onClick={() => { void navigator.clipboard.writeText(activeWallet.wallet_address); toast.success('Address copied'); }} className="flex-1 rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1.5 text-[11px] text-[#d1d5db] hover:bg-white/[0.04]">Copy address</button>
-                    <a href={explorerAddressUrl(activeWallet.wallet_address)} target="_blank" rel="noreferrer" className="flex-1 rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1.5 text-center text-[11px] text-[#d1d5db] hover:bg-white/[0.04]">Explorer</a>
+                    <button type="button" onClick={() => { void navigator.clipboard.writeText(activeWallet.wallet_address); toast.success('Address copied'); }} className="flex-1 rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-1.5 text-[11px] text-[#d1d5db] hover:bg-white/[0.04]">Copy address</button>
+                    <a href={explorerAddressUrl(activeWallet.wallet_address)} target="_blank" rel="noreferrer" className="flex-1 rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-1.5 text-center text-[11px] text-[#d1d5db] hover:bg-white/[0.04]">Explorer</a>
                   </div>
                 </div>
               ) : (
@@ -345,9 +343,9 @@ export function WalletsManage({ className }: { className?: string }) {
 
             <section className="rounded-lg border border-[#1b1f2a] bg-[#11141b] p-3">
               <div className="mb-2 flex items-center gap-2"><ArrowRightLeft className="h-4 w-4 text-[#5865F2]" /><h2 className="text-[13px] font-semibold text-white">Distribution</h2></div>
-              <p className="text-[12px] leading-snug text-[#9ca3af]">Move SOL between wallets and consolidate low-balance accounts with safe execution preview.</p>
+              <p className="text-[12px] leading-snug text-[#9ca3af]">Move TON between wallets and consolidate low-balance accounts with safe execution preview.</p>
               <div className="mt-3 flex gap-1.5">
-                <Link href="/portfolio" className="flex-1 rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1.5 text-center text-[11px] text-[#d1d5db] hover:bg-white/[0.04]">View Portfolio</Link>
+                <Link href="/portfolio" className="flex-1 rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-1.5 text-center text-[11px] text-[#d1d5db] hover:bg-white/[0.04]">View Portfolio</Link>
                 <Link href="/portfolio?tab=wallets" className="flex-1 rounded-md bg-[#5865F2] px-2 py-1.5 text-center text-[11px] font-semibold text-[#05070d]">Start transfer</Link>
               </div>
               <p className="mt-2 text-[10px] text-[#6b7280]">Transfers use your selected trading wallet and preview before execution.</p>

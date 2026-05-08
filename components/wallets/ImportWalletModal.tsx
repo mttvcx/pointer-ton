@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import bs58 from 'bs58';
-import { Keypair } from '@solana/web3.js';
 import { useImportWallet } from '@/lib/auth/solanaShims';
 import { Eye, EyeOff, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,22 +23,6 @@ export function ImportWalletModal({
 
   async function submit() {
     const trimmed = keyText.trim();
-    try {
-      const raw = bs58.decode(trimmed);
-      if (raw.length === 64) {
-        Keypair.fromSecretKey(raw);
-      } else if (raw.length === 32) {
-        Keypair.fromSeed(raw);
-      } else {
-        throw new Error('bad_len');
-      }
-    } catch {
-      toast.error('Invalid key', {
-        description: 'Paste a Solana private key in base58 (32-byte seed or 64-byte secret).',
-      });
-      return;
-    }
-
     setBusy(true);
     try {
       const w = await importWallet({ privateKey: trimmed });
@@ -51,8 +33,15 @@ export function ImportWalletModal({
       setKeyText('');
       onClose();
     } catch (e) {
-      toast.error('Import failed', {
-        description: e instanceof Error ? e.message.slice(0, 200) : 'Unknown error',
+      const msg = e instanceof Error ? e.message : '';
+      const isFormat =
+        msg.includes('unsupported_key_format') ||
+        msg.includes('invalid_mnemonic') ||
+        msg.includes('empty_key');
+      toast.error(isFormat ? 'Invalid TON secret' : 'Import failed', {
+        description: isFormat
+          ? 'Use a 12–24 word TON recovery phrase, a 64-character hex seed, or a 128-character hex secret key.'
+          : (e instanceof Error ? e.message : 'Unknown error').slice(0, 200),
       });
     } finally {
       setBusy(false);
@@ -88,7 +77,7 @@ export function ImportWalletModal({
         </div>
         <div className="px-4 pb-4">
           <div className="mb-3 flex items-center justify-between">
-            <label className="text-[12px] font-medium text-[#8b93a3]">Enter Private Key</label>
+            <label className="text-[12px] font-medium text-[#8b93a3]">TON mnemonic or hex key</label>
             <button
               type="button"
               className="rounded bg-[#24306a] p-1 text-[#6378ff] hover:bg-[#2d3a83]"
@@ -101,7 +90,7 @@ export function ImportWalletModal({
             <input
               value={keyText}
               onChange={(e) => setKeyText(e.target.value)}
-              placeholder="Enter private key"
+              placeholder="Mnemonic or hex key (never share this)"
               type={showKey ? 'text' : 'password'}
               disabled={busy}
               className="focus-ring min-w-0 flex-1 border-0 bg-transparent py-2 text-[12px] text-[#d1d5db] outline-none placeholder:text-[#6b7280]"

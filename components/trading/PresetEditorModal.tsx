@@ -116,7 +116,7 @@ function PresetEditorForm({
           </label>
           <label className="block space-y-1">
             <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Buy chips (SOL)
+              Buy chips (TON)
             </span>
             <input
               value={amountsStr}

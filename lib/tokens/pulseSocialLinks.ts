@@ -328,7 +328,7 @@ function pickWebsiteTelegram(urls: Iterable<string>, twitterUrls: Set<string>): 
     if (
       !website &&
       !host.includes('pump.fun') &&
-      !host.includes('solscan') &&
+      !host.includes('tonviewer') &&
       !host.includes('dexscreener') &&
       !host.includes('birdeye') &&
       !host.includes('photon.sol') &&
@@ -451,7 +451,10 @@ export function getPulseSocialModel(bundle: PulseTokenBundle): PulseSocialModel 
   }
 
   const websiteRaw = primarySite || wFromUrls;
-  const telegramRaw = (token.telegram_url && normalizeHttpUrl(token.telegram_url)) || tgFromUrls;
+  const telegramRaw =
+    (token.telegram_url?.trim() &&
+      (ensureBrowserUrl(token.telegram_url) ?? normalizeHttpUrl(token.telegram_url))) ||
+    tgFromUrls;
 
   const website = websiteRaw ? ensureBrowserUrl(websiteRaw) : null;
   const telegram = telegramRaw ? ensureBrowserUrl(telegramRaw) : null;

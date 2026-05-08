@@ -16,7 +16,7 @@ const AT = {
   elevated: '#151924',
   muted: '#7f8aa3',
   text: '#f5f7ff',
-  accent: '#7c5cff',
+  accent: '#0077b6',
 } as const;
 
 export function AlertsTicker() {

@@ -1,11 +1,11 @@
-/** SPL mints used in wallet / deposit UI. */
+/** Jetton mints / symbols referenced in wallet / deposit UI (legacy ids). */
 export const USDC_MINT_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 /** Shown as "Accepting" deposit rails (marketing parity; always verify on-chain). */
 export const DEPOSIT_ACCEPTING_SYMBOLS = [
   'EURC',
   'PYUSD',
-  'SOL',
+  'TON',
   'USD1',
   'USDC',
   'USDT',

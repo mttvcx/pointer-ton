@@ -19,6 +19,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Skip static assets, favicon, and image optimization. Match everything else.
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Skip TonConnect manifest so wallet extensions get JSON, not a beta redirect HTML page.
+    '/((?!_next/static|_next/image|favicon.ico|tonconnect-manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

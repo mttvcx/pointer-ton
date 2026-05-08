@@ -48,6 +48,15 @@ interface UIState {
   /** When set, floating co-pilot uses this height (px); otherwise full column below top bar. */
   copilotFloatHeight: number | null;
 
+  /**
+   * `panel` — right rail (default). `pill` — Cluely-style top-center floating pill;
+   * right panel hidden while pill mode is active.
+   */
+  copilotDisplayMode: 'panel' | 'pill';
+
+  /** Expanded “card” state when in pill mode (also driven from top bar “Co-pilot”). */
+  copilotPillExpanded: boolean;
+
   searchQuery: string;
   searchOpen: boolean;
 
@@ -64,6 +73,22 @@ interface UIState {
   setCopilotDetached: (detached: boolean) => void;
   setCopilotFloat: (top: number, right: number) => void;
   setCopilotFloatHeight: (px: number | null) => void;
+  setCopilotDisplayMode: (mode: 'panel' | 'pill') => void;
+  setCopilotPillExpanded: (open: boolean) => void;
+  /** Draggable pill position (px) relative to default top-center anchor. */
+  copilotPillOffsetX: number;
+  copilotPillOffsetY: number;
+  setCopilotPillOffset: (x: number, y: number) => void;
+
+  /** Detached alert builder (floating). Null when docked. */
+  alertRulesPopout: { top: number; left: number; width: number; height: number } | null;
+  setAlertRulesPopout: (rect: { top: number; left: number; width: number; height: number } | null) => void;
+  /** Docked left rail (pushes main content like co-pilot on the right). */
+  alertRulesDocked: boolean;
+  alertRulesDockWidth: number;
+  setAlertRulesDocked: (docked: boolean) => void;
+  setAlertRulesDockWidth: (px: number) => void;
+
   setSearchQuery: (q: string) => void;
   setSearchOpen: (open: boolean) => void;
 }
@@ -99,6 +124,13 @@ export const useUIStore = create<UIState>()(
       copilotTop: 72,
       copilotRight: 12,
       copilotFloatHeight: null,
+      copilotDisplayMode: 'panel',
+      copilotPillExpanded: false,
+      copilotPillOffsetX: 0,
+      copilotPillOffsetY: 0,
+      alertRulesPopout: null,
+      alertRulesDocked: false,
+      alertRulesDockWidth: 380,
       searchQuery: '',
       searchOpen: false,
 
@@ -159,6 +191,28 @@ export const useUIStore = create<UIState>()(
         }),
       setCopilotFloat: (top, right) => set({ copilotTop: top, copilotRight: right }),
       setCopilotFloatHeight: (px) => set({ copilotFloatHeight: px }),
+      setCopilotDisplayMode: (mode) =>
+        set((s) => ({
+          copilotDisplayMode: mode,
+          copilotPillExpanded: mode === 'pill' ? s.copilotPillExpanded : false,
+          ...(mode === 'pill'
+            ? { panelOpen: true, panelCollapsed: false, copilotDetached: false, copilotFloatHeight: null }
+            : {}),
+        })),
+      setCopilotPillExpanded: (open) => set({ copilotPillExpanded: open }),
+      setCopilotPillOffset: (x, y) =>
+        set({
+          copilotPillOffsetX: Math.min(800, Math.max(-800, Math.round(x))),
+          copilotPillOffsetY: Math.min(520, Math.max(-32, Math.round(y))),
+        }),
+      setAlertRulesPopout: (rect) => set({ alertRulesPopout: rect }),
+      setAlertRulesDocked: (docked) =>
+        set(() => ({
+          alertRulesDocked: docked,
+          ...(docked ? { alertRulesPopout: null } : {}),
+        })),
+      setAlertRulesDockWidth: (px) =>
+        set({ alertRulesDockWidth: Math.min(520, Math.max(300, Math.round(px))) }),
       setSearchQuery: (q) => set({ searchQuery: q }),
       setSearchOpen: (open) => set({ searchOpen: open }),
     }),
@@ -172,6 +226,11 @@ export const useUIStore = create<UIState>()(
         copilotTop: s.copilotTop,
         copilotRight: s.copilotRight,
         copilotFloatHeight: s.copilotFloatHeight,
+        copilotDisplayMode: s.copilotDisplayMode,
+        copilotPillOffsetX: s.copilotPillOffsetX,
+        copilotPillOffsetY: s.copilotPillOffsetY,
+        alertRulesDocked: s.alertRulesDocked,
+        alertRulesDockWidth: s.alertRulesDockWidth,
       }),
     },
   ),

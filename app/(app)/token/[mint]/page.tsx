@@ -56,6 +56,7 @@ export default async function TokenDetailPage({
               <TokenDetailView
                 mint={mint}
                 symbol={token.symbol}
+                tokenName={token.name}
                 decimals={token.decimals}
                 creatorWallet={token.creator_wallet}
                 dev={dev}

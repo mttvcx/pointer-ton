@@ -3,15 +3,36 @@ import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { PulseColumnId } from '@/lib/utils/constants';
 
-export const PULSE_PROTOCOL_IDS = [
-  'pump',
-  'bags',
-  'printr',
-  'moonshot',
-  'raydium',
-  'meteora',
-] as const;
+/** Pulse “protocol” buckets for Pointer TON — venues / discovery sources (not Solana DEXes). */
+export const PULSE_PROTOCOL_IDS = ['ton', 'dedust', 'stonfi', 'megaton'] as const;
 export type PulseProtocolId = (typeof PULSE_PROTOCOL_IDS)[number];
+
+/** Legacy Solana-era preset IDs → collapse into TON buckets when loading saved filters. */
+const LEGACY_PROTOCOL_TO_TON: Record<string, PulseProtocolId> = {
+  pump: 'ton',
+  bags: 'ton',
+  printr: 'ton',
+  moonshot: 'ton',
+  raydium: 'dedust',
+  meteora: 'stonfi',
+};
+
+/** Migrate Solana-era preset/protocol IDs to TON buckets (Pulse filters + alert rules). */
+export function migrateLegacyPulseProtocols(raw: unknown): PulseProtocolId[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const next = new Set<PulseProtocolId>();
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    if ((PULSE_PROTOCOL_IDS as readonly string[]).includes(item)) {
+      next.add(item as PulseProtocolId);
+      continue;
+    }
+    const mapped = LEGACY_PROTOCOL_TO_TON[item];
+    if (mapped) next.add(mapped);
+  }
+  if (next.size === 0) return undefined;
+  return PULSE_PROTOCOL_IDS.filter((p) => next.has(p));
+}
 
 export const COLUMN_SORT_KEYS = [
   'created_at',
@@ -133,7 +154,10 @@ export const DEFAULT_COLUMN_DISPLAY_OPTIONS: ColumnDisplayOptions = {
 
 export function normalizeColumnFilters(raw: unknown): ColumnFilters {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_COLUMN_FILTERS };
-  const merged = { ...DEFAULT_COLUMN_FILTERS, ...(raw as Record<string, unknown>) };
+  const o = { ...(raw as Record<string, unknown>) };
+  const migrated = migrateLegacyPulseProtocols(o.protocols);
+  if (migrated) o.protocols = migrated;
+  const merged = { ...DEFAULT_COLUMN_FILTERS, ...o };
   const p = ColumnFiltersSchema.safeParse(merged);
   return p.success ? p.data : { ...DEFAULT_COLUMN_FILTERS };
 }
@@ -186,15 +210,18 @@ export function decodeColumnPresetShare(raw: string): ColumnPresetSharePayload |
 
 export function padToProtocols(pad: string | null): PulseProtocolId[] {
   if (!pad) return [];
-  const p = pad.toLowerCase();
+  const p = pad.toLowerCase().trim();
   const out: PulseProtocolId[] = [];
-  if (p === 'pump.fun' || p.includes('pump')) out.push('pump');
-  if (p === 'bags' || p.includes('bag')) out.push('bags');
-  if (p === 'printr' || p.includes('printr')) out.push('printr');
-  if (p === 'moonshot' || p.includes('moon')) out.push('moonshot');
-  if (p.includes('raydium')) out.push('raydium');
-  if (p.includes('meteora')) out.push('meteora');
-  return out;
+  // `jettonToTokenRow` sets launch_pad: 'ton' for TonAPI ingest.
+  if (p === 'ton' || p === 'tonapi') out.push('ton');
+  // Friendly labels / legacy rows
+  if (p === 'pump.fun' || p === 'pump' || p.includes('launchpad')) out.push('ton');
+  if (p.includes('dedust')) out.push('dedust');
+  if (p.includes('ston.fi') || p.includes('stonfi')) out.push('stonfi');
+  if (p.includes('megaton')) out.push('megaton');
+  const mapped = LEGACY_PROTOCOL_TO_TON[p];
+  if (mapped) out.push(mapped);
+  return [...new Set(out)];
 }
 
 function protocolsFromExtended(bundle: PulseTokenBundle): PulseProtocolId[] {
@@ -204,12 +231,14 @@ function protocolsFromExtended(bundle: PulseTokenBundle): PulseProtocolId[] {
   const dex =
     (typeof r.dex === 'string' ? r.dex : '') ||
     (typeof r.dexId === 'string' ? r.dexId : '') ||
+    (typeof r.poolDex === 'string' ? r.poolDex : '') ||
     '';
   const d = dex.toLowerCase();
   const out: PulseProtocolId[] = [];
-  if (d.includes('raydium')) out.push('raydium');
-  if (d.includes('meteora')) out.push('meteora');
-  return out;
+  if (d.includes('dedust')) out.push('dedust');
+  if (d.includes('stonfi') || d.includes('ston.fi')) out.push('stonfi');
+  if (d.includes('megaton')) out.push('megaton');
+  return [...new Set(out)];
 }
 
 export function tokenProtocolIds(bundle: PulseTokenBundle): Set<PulseProtocolId> {

@@ -888,9 +888,9 @@ export function CompactInstantTradePanel({
               <div className="flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5">
                 {(
                   [
-                    { k: 'sol' as const, label: 'SOL', disabled: false },
+                    { k: 'sol' as const, label: 'TON', disabled: false },
                     { k: 'usdc' as const, label: 'USDC', disabled: true },
-                    { k: 'usol' as const, label: 'uSOL', disabled: true },
+                    { k: 'usol' as const, label: 'wTON', disabled: true },
                   ] as const
                 ).map(({ k, label, disabled }) => (
                   <button
@@ -979,7 +979,7 @@ export function CompactInstantTradePanel({
                     setSellMode(sellMode === 'pct' ? 'sol' : 'pct');
                   }}
                   className="btn-press rounded p-0.5 text-fg-muted hover:text-fg-secondary"
-                  title="Switch: % of balance vs fixed SOL received"
+                  title="Switch: % of balance vs fixed TON received"
                   aria-label="Toggle sell mode"
                 >
                   <ArrowLeftRight className="h-2.5 w-2.5" strokeWidth={2} />
@@ -990,7 +990,7 @@ export function CompactInstantTradePanel({
                     sellMode === 'sol' ? 'text-accent-primary' : 'text-fg-muted',
                   )}
                 >
-                  SOL
+                  TON
                 </span>
               </span>
               <span className="truncate tabular-nums text-[9px] text-fg-secondary">
@@ -1022,8 +1022,8 @@ export function CompactInstantTradePanel({
                       });
                     }}
                     className={cn('w-full min-w-0', EDIT_PRESET_CLASS)}
-                    placeholder={sellMode === 'pct' ? '0–100' : 'SOL'}
-                    aria-label={sellMode === 'pct' ? 'Sell percent' : 'SOL out'}
+                    placeholder={sellMode === 'pct' ? '0–100' : 'TON'}
+                    aria-label={sellMode === 'pct' ? 'Sell percent' : 'TON out'}
                   />
                 ) : (
                   <button
@@ -1161,7 +1161,7 @@ export function CompactInstantTradePanel({
                       <span className="mt-0.5 flex items-center justify-between gap-2 tabular-nums text-[9px] text-fg-muted">
                         <span>{shortenAddress(w.wallet_address, 4)}</span>
                         <span className="shrink-0 tabular-nums">
-                          {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} SOL` : '—'}
+                          {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '—'}
                         </span>
                       </span>
                       {(w.is_archived || !w.is_active || !canSign) && (

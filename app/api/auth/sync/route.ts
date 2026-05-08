@@ -9,7 +9,14 @@ import { assertTonAddress, tonAuthSubject } from '@/lib/utils/tonAddress';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const NetworkSchema = z.union([z.literal(-239), z.literal(-3)]);
+/** TonConnect `CHAIN` uses string ids (`"-239"` mainnet, `"-3"` testnet); coerce for Zod. */
+const NetworkSchema = z
+  .union([z.string(), z.number()])
+  .transform((v): TonConnectNetwork => {
+    const n = typeof v === 'string' ? Number(v) : v;
+    if (n === -239 || n === -3) return n as TonConnectNetwork;
+    throw new Error(`unsupported_network:${String(v)}`);
+  });
 
 const SyncBodySchema = z
   .object({
@@ -19,9 +26,9 @@ const SyncBodySchema = z
     payloadToken: z.string().trim().min(1),
     proof: z
       .object({
-        timestamp: z.number().int(),
+        timestamp: z.coerce.number().int(),
         domain: z.object({
-          lengthBytes: z.number().int(),
+          lengthBytes: z.coerce.number().int(),
           value: z.string(),
         }),
         payload: z.string(),

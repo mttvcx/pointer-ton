@@ -85,9 +85,9 @@ function BetaLanyardBadge() {
         >
           <div
             className={cn(
-              'relative overflow-hidden rounded-xl border border-white/15 bg-black/80 p-5 shadow-[0_0_60px_rgba(124,92,255,0.35)] backdrop-blur-md',
+              'relative overflow-hidden rounded-xl border border-white/15 bg-black/80 p-5 shadow-[0_0_60px_rgba(0,119,182,0.35)] backdrop-blur-md',
               'before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:opacity-90',
-              'before:bg-[radial-gradient(120%_80%_at_15%_100%,rgba(255,60,172,0.45),rgba(124,92,255,0.25)_35%,transparent_65%)]',
+              'before:bg-[radial-gradient(120%_80%_at_15%_100%,rgba(255,60,172,0.45),rgba(0,119,182,0.25)_35%,transparent_65%)]',
             )}
           >
             <div className="relative z-10 flex flex-col items-center gap-3 text-center">
@@ -177,7 +177,7 @@ export function BetaGateClient() {
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.07]"
         style={{
-          background: `radial-gradient(ellipse 80% 70% at ${mouse.x}% ${mouse.y}%, rgba(124,92,255,0.55), transparent 55%),
+          background: `radial-gradient(ellipse 80% 70% at ${mouse.x}% ${mouse.y}%, rgba(0,119,182,0.55), transparent 55%),
             radial-gradient(ellipse 50% 40% at 20% 80%, rgba(0,255,180,0.12), transparent 50%)`,
         }}
         aria-hidden
@@ -226,7 +226,7 @@ export function BetaGateClient() {
               <button
                 type="button"
                 onClick={() => void login()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#7C5CFF] py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(124,92,255,0.35)] transition hover:bg-[#8f72ff]"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0077B6] py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(0,119,182,0.35)] transition hover:bg-[#0096D6]"
               >
                 <LogIn className="h-4 w-4" />
                 Continue with Privy
@@ -261,12 +261,12 @@ export function BetaGateClient() {
       <footer className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-3">
         <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-4 py-2 backdrop-blur-md">
           <Image src="/branding/pointer-mark.png" alt="" width={22} height={22} className="h-5 w-5 opacity-80" />
-          <span className="text-[10px] tabular-nums uppercase tracking-widest text-white/35">Solana</span>
+          <span className="text-[10px] tabular-nums uppercase tracking-widest text-white/35">TON</span>
         </div>
         <button
           type="button"
           onClick={() => document.getElementById('access')?.scrollIntoView({ behavior: 'smooth' })}
-          className="rounded-full bg-[#7C5CFF] px-8 py-2.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(124,92,255,0.45)] transition hover:bg-[#8f72ff]"
+          className="rounded-full bg-[#0077B6] px-8 py-2.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(0,119,182,0.45)] transition hover:bg-[#0096D6]"
         >
           Get access
         </button>

@@ -24,7 +24,7 @@ type PresetRow = { slot: 1 | 2 | 3; name: string };
 
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
-const CENTER_ORDER = ['BTC', 'ETH', 'SOL', 'HYPE'] as const;
+const CENTER_ORDER = ['BTC', 'ETH', 'TON'] as const;
 
 function TickerLine({ row }: { row: TickerRow }) {
   const ch = row.priceChange24h;
@@ -203,7 +203,7 @@ export function BottomBar() {
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 flex min-h-11 shrink-0 border-t pb-[env(safe-area-inset-bottom,0px)] text-[10px] tabular-nums text-[#9ca3af]"
-      style={{ borderColor: '#1b1f2a', backgroundColor: '#0b0d12' }}
+      style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}
     >
       <div className="flex min-h-11 w-full min-w-0 items-center gap-2 overflow-x-auto px-2 sm:gap-2 sm:px-2.5">
         <div className="hidden min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-r pr-2 sm:flex" style={{ borderColor: '#1b1f2a' }}>
@@ -225,13 +225,13 @@ export function BottomBar() {
           <span className="text-fg-muted">
             Bal{' '}
             <span className="tabular-nums text-fg-primary">
-              {solBal != null ? formatNumber(solBal, { decimals: 3 }) : '\u2014'}
+              {solBal != null ? `${formatNumber(solBal, { decimals: 3 })} TON` : '\u2014'}
             </span>
           </span>
           <span className="text-fg-muted">
             Vol{' '}
             <span className="tabular-nums text-fg-primary">
-              {formatNumber(volQ.data ?? 0, { decimals: 1, compact: true })}
+              {formatNumber(volQ.data ?? 0, { decimals: 1, compact: true })} TON
             </span>
           </span>
           <span className="text-fg-muted">
@@ -246,7 +246,7 @@ export function BottomBar() {
                     : 'text-fg-primary',
               )}
             >
-              {pnlQ.data ? `${formatNumber(pnlQ.data.pnlSolToday, { decimals: 3 })}` : '\u2014'}
+              {pnlQ.data ? `${formatNumber(pnlQ.data.pnlSolToday, { decimals: 3 })} TON` : '\u2014'}
             </span>
           </span>
           {authenticated ? (

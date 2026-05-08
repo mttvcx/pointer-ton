@@ -37,13 +37,20 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '**.googleusercontent.com' },
       { protocol: 'https', hostname: 'pbs.twimg.com' },
       { protocol: 'https', hostname: 'imagedelivery.net' },
-      { protocol: 'https', hostname: 'static.jup.ag' },
+      { protocol: 'https', hostname: 'cache.tonapi.io' },
+      { protocol: 'https', hostname: '**.tonapi.io' },
     ],
   },
 
-  // Keep server-side imports of the Solana SDK external to avoid bundling
-  // the full library into every API route.
+  // Keep heavy chain SDKs external so API routes stay lean.
   serverExternalPackages: ['@solana/web3.js', '@solana/spl-token', 'helius-sdk'],
+
+  async rewrites() {
+    return [
+      // TonConnect / Tonkeeper expect a conventional manifest path.
+      { source: '/tonconnect-manifest.json', destination: '/api/tonconnect-manifest' },
+    ];
+  },
 };
 
 const sentryOrg = process.env.SENTRY_ORG?.trim();

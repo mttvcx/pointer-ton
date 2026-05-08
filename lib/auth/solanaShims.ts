@@ -54,8 +54,9 @@ export function useImportWallet(): {
 } {
   return {
     importWallet: async (opts: { privateKey: string }): Promise<{ address: string }> => {
-      void opts;
-      throw new Error('TON migration: import a key through a TonConnect-compatible wallet app.');
+      const { importTonPrivateKeyToAddress } = await import('@/lib/ton/tonPrivateKeyImport');
+      const address = await importTonPrivateKeyToAddress(opts.privateKey);
+      return { address };
     },
   };
 }

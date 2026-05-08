@@ -45,17 +45,15 @@ function rowHeightForDensity(
   buyStyle?: BuyButtonStyle,
   mcLayout?: 'strip' | 'hero',
 ): number {
+  /** Uniform tall rows on every column (Axiom-style); density presets still affect in-row icons via `effectiveDensity`. */
+  void d;
   const big =
     buyStyle === 'large' || buyStyle === 'ultra' ? 16 : 0;
-  /** Ultra uses a separate trading pane; small extra pad for border. */
   const ultra = buyStyle === 'ultra' ? 6 : 0;
   const bump = big + ultra;
   const hero = mcLayout === 'hero' ? 8 : 0;
-  /** Social icons + DS/bonding pills + mint caption under avatar. */
   const metaStrip = 24;
-  if (d === 'compact') return 92 + bump + hero + metaStrip;
-  if (d === 'expanded') return 144 + bump + hero + metaStrip;
-  return 124 + bump + hero + metaStrip;
+  return 144 + bump + hero + metaStrip;
 }
 
 export function PulseColumn({
@@ -308,7 +306,8 @@ export function PulseColumn({
 
   const dotClass = PULSE_COLUMN_ACCENT_DOT[column];
   const title = COLUMN_LABEL[column];
-  const effectiveDensity = displayForRow.density;
+  /** Chunky, consistent row chrome across New / Stretch / Migrated. */
+  const effectiveDensity = 'expanded' satisfies PulseRowDensity;
   const effectiveBuyStyle = displayForRow.buyButtonStyle;
 
   return (
@@ -433,8 +432,8 @@ export function PulseColumn({
                   key={vi.key}
                   data-index={vi.index}
                   ref={rowVirtualizer.measureElement}
-                  className="absolute left-0 top-0 w-full"
-                  style={{ transform: `translateY(${vi.start}px)` }}
+                  className="absolute left-0 top-0 w-full overflow-hidden"
+                  style={{ transform: `translateY(${vi.start}px)`, height: rowSize }}
                 >
                   <TokenRow
                     bundle={bundle}
@@ -443,6 +442,7 @@ export function PulseColumn({
                     quickBuySol={quickBuySol}
                     buyButtonStyle={effectiveBuyStyle}
                     columnId={column}
+                    slotHeight={rowSize}
                     onPulseQuickBuy={() => void buyToken(bundle.token.mint, quickBuySol)}
                     pulseBuyBusy={busyMint === bundle.token.mint}
                     pulseBuyDisabled={busyMint !== null && busyMint !== bundle.token.mint}

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PointsPage() {
   return (
-    <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h))] min-h-0 flex-col bg-[#0b0d12] px-1 py-1 sm:px-1.5">
+    <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h))] min-h-0 flex-col bg-[#080d14] px-1 py-1 sm:px-1.5">
       <PointsDashboard className="min-h-0 flex-1" initialTab="rewards" />
     </div>
   );

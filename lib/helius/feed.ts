@@ -1,4 +1,6 @@
 import 'server-only';
+
+import { randomInt } from 'node:crypto';
 import { subMinutes } from 'date-fns';
 import { emitGlobalPulseNewTokenAlert } from '@/lib/alerts/generate';
 import {
@@ -11,271 +13,176 @@ import {
   updateToken,
   upsertToken,
 } from '@/lib/db/tokens';
-import { getHeliusClient } from '@/lib/helius/client';
-import { launchpadEventFromDasAsset } from '@/lib/helius/parsers';
-import { extractSocialUrlsFromAsset } from '@/lib/tokens/pulseSocialLinks';
 import type { TablesInsert } from '@/lib/supabase/types';
 import {
-  LAUNCHPAD_AUTHORITIES,
-  LAUNCHPAD_LABELS,
-  PULSE_DAS_FALLBACK_POLL_OWNER,
-  PULSE_THRESHOLDS,
-  type LaunchpadId,
-  type PulseColumnId,
-} from '@/lib/utils/constants';
-import { isValidPublicKey } from '@/lib/utils/addresses';
+  listTonApiJettons,
+  type TonApiJetton,
+  fetchTonApiJettonByMaster,
+} from '@/lib/ton/tonApi';
+import { tonCenterAddressIsActive } from '@/lib/ton/tonCenter';
+import { normalizeTonAddress } from '@/lib/utils/tonAddress';
+import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
-import type { Asset } from 'helius-sdk/types/das';
 
 const PULSE_PAGE_SIZE = 60;
-const DAS_POLL_BATCH = 48;
-/** When a column has fewer than this many rows, backfill from DAS once. */
+const TONAPI_POLL_BATCH = 48;
+/** When a column has fewer than this many rows, backfill from TonAPI once. */
 const MIN_ROWS_BEFORE_POLL = 6;
 
-const DEBUG_DAS = process.env.POINTER_DEBUG_DAS === '1';
+const DEBUG_TON = process.env.POINTER_DEBUG_TONAPI === '1';
 
-function debugDas(message: string, extra?: Record<string, unknown>) {
-  if (!DEBUG_DAS) return;
+function debugTon(message: string, extra?: Record<string, unknown>) {
+  if (!DEBUG_TON) return;
   if (extra && Object.keys(extra).length > 0) {
-    console.log(`[pointer][pulse DAS] ${message}`, extra);
+    console.log(`[pointer][pulse TON] ${message}`, extra);
   } else {
-    console.log(`[pointer][pulse DAS] ${message}`);
+    console.log(`[pointer][pulse TON] ${message}`);
   }
 }
 
-/**
- * Helius `searchAssets` requires `ownerAddress` when `tokenType` is set.
- * Override via `PULSE_DAS_POLL_OWNER_WALLET`; otherwise a bootstrap address
- * from Helius docs keeps dev feeds non-empty.
- *
- * NOTE: Legacy code path. The bootstrap wallet returns a fixed set of mints,
- * so the New (< 30m) column drains 30 min after the first ingest. Prefer
- * `pollNewMintsByLaunchpadAuthority` (used by `pollPulseColumn`) which uses
- * `getAssetsByAuthority(sortBy: created desc)` against a launchpad authority.
- */
-function resolveDasPollOwner(): string {
-  const raw = process.env.PULSE_DAS_POLL_OWNER_WALLET?.trim();
-  if (raw) {
-    if (isValidPublicKey(raw)) return raw;
-    console.warn(
-      '[pointer][pulse DAS] PULSE_DAS_POLL_OWNER_WALLET is not a valid base58 pubkey; using fallback owner',
-    );
-  }
-  return PULSE_DAS_FALLBACK_POLL_OWNER;
+function rawMetadataAddrToMint(metadataAddr: string): string | null {
+  return normalizeTonAddress(metadataAddr);
 }
 
-/**
- * Parse `PULSE_DAS_LAUNCHPAD_AUTHORITIES="pad:pubkey,pad:pubkey,..."` and
- * fall back to the non-null entries in `LAUNCHPAD_AUTHORITIES`. The order
- * is preserved (first env-listed pad polls first).
- */
-function resolveLaunchpadAuthorities(): Array<{ launchpad: LaunchpadId; address: string }> {
-  const out: Array<{ launchpad: LaunchpadId; address: string }> = [];
-  const seen = new Set<string>();
-
-  const envRaw = process.env.PULSE_DAS_LAUNCHPAD_AUTHORITIES?.trim();
-  if (envRaw) {
-    for (const part of envRaw.split(',')) {
-      const [padRaw, addrRaw] = part.split(':');
-      const pad = padRaw?.trim() as LaunchpadId | undefined;
-      const addr = addrRaw?.trim();
-      if (!pad || !addr) continue;
-      if (!(pad in LAUNCHPAD_LABELS)) {
-        console.warn(`[pointer][pulse DAS] PULSE_DAS_LAUNCHPAD_AUTHORITIES: unknown pad "${pad}"`);
-        continue;
-      }
-      if (!isValidPublicKey(addr)) {
-        console.warn(`[pointer][pulse DAS] PULSE_DAS_LAUNCHPAD_AUTHORITIES: invalid pubkey for "${pad}"`);
-        continue;
-      }
-      if (seen.has(addr)) continue;
-      seen.add(addr);
-      out.push({ launchpad: pad, address: addr });
-    }
+function pickSocialFromJetton(j: TonApiJetton): {
+  website_url: string | null;
+  telegram_url: string | null;
+  twitter_handle: string | null;
+} {
+  const websites = j.metadata?.websites ?? [];
+  const social = j.metadata?.social ?? [];
+  let telegram_url: string | null = null;
+  let twitter_handle: string | null = null;
+  for (const s of social) {
+    const low = s.toLowerCase();
+    if (low.includes('t.me') || low.includes('telegram')) telegram_url = s;
+    const xm = s.match(/(?:twitter\.com|x\.com)\/([^/?#]+)/i);
+    if (xm?.[1]) twitter_handle = xm[1];
   }
-
-  for (const [pad, address] of Object.entries(LAUNCHPAD_AUTHORITIES) as Array<
-    [LaunchpadId, string | null]
-  >) {
-    if (!address || seen.has(address)) continue;
-    seen.add(address);
-    out.push({ launchpad: pad, address });
-  }
-
-  return out;
+  return {
+    website_url: websites[0] ?? null,
+    telegram_url,
+    twitter_handle,
+  };
 }
 
-/**
- * TODO: replace with webhooks - we poll DAS when the DB is thin.
- *
- * Helius behavior (verified with `scripts/probe-das.mjs`):
- * - Without `ownerAddress`: `Must provide owner_address when using token_type field`.
- * - With `ownerAddress` + `sortBy: "created"`: `Only sorting based on id is supported`.
- */
-export async function pollRecentFungiblesFromDas(): Promise<number> {
-  const helius = getHeliusClient();
-  const owner = resolveDasPollOwner();
-  debugDas('searchAssets request', {
-    ownerPreview: `${owner.slice(0, 4)}...${owner.slice(-4)}`,
-    limit: DAS_POLL_BATCH,
-    sortBy: 'id desc',
-  });
+function jettonToTokenRow(j: TonApiJetton, now: string): TablesInsert<'tokens'> | null {
+  const mint = rawMetadataAddrToMint(j.metadata?.address ?? '');
+  if (!mint) return null;
+  if (j.verification === 'blacklist') return null;
 
-  const res = await helius.searchAssets({
-    ownerAddress: owner,
-    tokenType: 'fungible',
-    page: 1,
-    limit: DAS_POLL_BATCH,
-    sortBy: { sortBy: 'id', sortDirection: 'desc' },
-  });
+  const decimals = Number.parseInt(j.metadata?.decimals ?? '9', 10);
+  const adminRaw = j.admin?.address;
+  const creator_wallet = adminRaw ? normalizeTonAddress(adminRaw) : null;
+  const social = pickSocialFromJetton(j);
 
-  const items = res.items ?? [];
-  debugDas('searchAssets response', {
-    total: res.total,
-    itemsReturned: items.length,
-    lastIndexedSlot: res.last_indexed_slot,
-    sample: items.slice(0, 5).map((a) => ({
-      id: a.id,
-      interface: a.interface,
-      symbol: a.content?.metadata?.symbol ?? null,
-    })),
-  });
-
-  return ingestAssets(items, { source: 'searchAssets', alertSource: 'das_search' });
+  return {
+    mint,
+    symbol: j.metadata?.symbol ?? '???',
+    name: j.metadata?.name ?? 'Unknown Jetton',
+    decimals: Number.isFinite(decimals) ? decimals : 9,
+    image_url: j.metadata?.image ?? j.preview ?? null,
+    description: j.metadata?.description ?? null,
+    creator_wallet,
+    launch_pad: 'ton',
+    raw_metadata: j as unknown as TablesInsert<'tokens'>['raw_metadata'],
+    website_url: social.website_url,
+    telegram_url: social.telegram_url,
+    twitter_handle: social.twitter_handle,
+    created_at: now,
+    last_seen_at: now,
+  };
 }
 
 interface IngestOptions {
   source: string;
-  /** Override `launch_pad` for every row (used when polling by launchpad authority). */
-  launchpadOverride?: LaunchpadId;
-  /** Used for global Pulse ticker alerts on first insert. */
-  alertSource: 'das_authority' | 'das_search';
+  alertSource: 'tonapi_poll' | 'tonapi_hydrate';
 }
 
-/**
- * Shared ingest path: parse each DAS asset into a `LaunchpadEvent`, then
- * insert (new mint) or update (refresh metadata + `last_seen_at`) per row.
- * Returns the count of newly-inserted mints.
- */
-async function ingestAssets(items: Asset[], opts: IngestOptions): Promise<number> {
+async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): Promise<number> {
   let inserted = 0;
   let updated = 0;
-  let skippedInvalidEv = 0;
+  let skipped = 0;
   const now = new Date().toISOString();
 
-  for (const asset of items) {
-    const ev = launchpadEventFromDasAsset(asset);
-    if (!ev) {
-      skippedInvalidEv += 1;
+  for (const j of items) {
+    const row = jettonToTokenRow(j, now);
+    if (!row) {
+      skipped += 1;
       continue;
     }
-    const launchpadId = opts.launchpadOverride ?? ev.launchpad;
-    const launchpadColumn: string | null =
-      launchpadId === 'unknown' ? null : launchpadId;
 
-    const social = extractSocialUrlsFromAsset(asset);
-
-    const row: TablesInsert<'tokens'> = {
-      mint: ev.mint,
-      symbol: ev.symbol,
-      name: ev.name,
-      decimals: asset.token_info?.decimals ?? 6,
-      image_url: ev.image_url,
-      description: asset.content?.metadata?.description ?? null,
-      creator_wallet: ev.creator_wallet,
-      launch_pad: launchpadColumn,
-      raw_metadata: ev.raw,
-      website_url: social.website_url,
-      telegram_url: social.telegram_url,
-      twitter_handle: social.twitter_handle,
-      created_at: now,
-      last_seen_at: now,
-    };
-
-    const existing = await getTokenByMint(ev.mint);
+    const existing = await getTokenByMint(row.mint);
     if (existing) {
-      await updateToken(ev.mint, {
+      await updateToken(row.mint, {
         last_seen_at: now,
-        raw_metadata: ev.raw,
+        raw_metadata: row.raw_metadata,
         symbol: row.symbol ?? existing.symbol,
         name: row.name ?? existing.name,
         image_url: row.image_url ?? existing.image_url,
         description: row.description ?? existing.description,
         creator_wallet: row.creator_wallet ?? existing.creator_wallet,
-        // Prefer a known launchpad over the existing null/unknown attribution.
-        launch_pad: launchpadColumn ?? existing.launch_pad,
         decimals: row.decimals ?? existing.decimals,
-        website_url: social.website_url ?? existing.website_url,
-        telegram_url: social.telegram_url ?? existing.telegram_url,
-        twitter_handle: social.twitter_handle ?? existing.twitter_handle,
+        website_url: row.website_url ?? existing.website_url,
+        telegram_url: row.telegram_url ?? existing.telegram_url,
+        twitter_handle: row.twitter_handle ?? existing.twitter_handle,
       });
       updated += 1;
     } else {
       await upsertToken(row);
       inserted += 1;
       await emitGlobalPulseNewTokenAlert({
-        mint: ev.mint,
+        mint: row.mint,
         symbol: row.symbol,
         name: row.name,
-        launchpad: launchpadId === 'unknown' ? null : launchpadId,
+        launchpad: null,
         source: opts.alertSource,
         creator_wallet: row.creator_wallet,
-        initial_liquidity_sol: ev.initial_liquidity_sol ?? row.initial_liquidity_sol ?? null,
+        initial_liquidity_sol: null,
       });
     }
   }
 
-  debugDas(`${opts.source} ingest summary`, {
+  debugTon(`${opts.source} ingest summary`, {
     inserted,
     updated,
-    skippedInvalidEv,
+    skipped,
     itemsSeen: items.length,
   });
 
   return inserted;
 }
 
-/**
- * Pull freshly minted tokens for a single launchpad by their static metadata
- * authority address. `getAssetsByAuthority` with `sortBy: created desc` is
- * the only DAS path that surfaces genuinely new mints without webhooks.
- */
-export async function pollNewMintsByLaunchpadAuthority(
-  authority: string,
-  launchpad: LaunchpadId,
-  limit = 100,
-): Promise<number> {
-  const helius = getHeliusClient();
-  debugDas('getAssetsByAuthority request', {
-    launchpad,
-    authorityPreview: `${authority.slice(0, 4)}...${authority.slice(-4)}`,
-    limit,
-    sortBy: 'created desc',
+/** Rotate through TonAPI jettons index + a secondary sort key to mimic “pair discovery”. */
+export async function pollRecentJettonsFromTonApi(): Promise<number> {
+  const offsetA =
+    (Math.floor(Date.now() / 300_000) % 40) * TONAPI_POLL_BATCH + randomInt(0, 4);
+  const offsetB =
+    (Math.floor(Date.now() / 180_000) % 25) * TONAPI_POLL_BATCH + randomInt(0, 8) + 120;
+
+  debugTon('listTonApiJettons(primary offset)', { offset: offsetA, limit: TONAPI_POLL_BATCH });
+  const primary = await listTonApiJettons({
+    limit: TONAPI_POLL_BATCH,
+    offset: offsetA,
   });
 
-  const res = await helius.getAssetsByAuthority({
-    authorityAddress: authority,
-    page: 1,
-    limit,
-    sortBy: { sortBy: 'created', sortDirection: 'desc' },
+  debugTon('listTonApiJettons(secondary offset)', { offset: offsetB, limit: TONAPI_POLL_BATCH });
+  const secondary = await listTonApiJettons({
+    limit: TONAPI_POLL_BATCH,
+    offset: offsetB,
   });
 
-  const items = (res.items ?? []) as Asset[];
-  debugDas('getAssetsByAuthority response', {
-    launchpad,
-    total: res.total,
-    itemsReturned: items.length,
-    lastIndexedSlot: res.last_indexed_slot,
-    sample: items.slice(0, 3).map((a) => ({
-      id: a.id,
-      symbol: a.content?.metadata?.symbol ?? null,
-    })),
-  });
+  const byAddr = new Map<string, TonApiJetton>();
+  for (const j of [...(primary.jettons ?? []), ...(secondary.jettons ?? [])]) {
+    const addr = j.metadata?.address;
+    if (!addr) continue;
+    if (!byAddr.has(addr)) byAddr.set(addr, j);
+  }
+  const merged = [...byAddr.values()];
 
-  return ingestAssets(items, {
-    source: `getAssetsByAuthority(${launchpad})`,
-    launchpadOverride: launchpad,
-    alertSource: 'das_authority',
+  return ingestTonApiJettons(merged, {
+    source: 'tonapi:list+pair_discovery',
+    alertSource: 'tonapi_poll',
   });
 }
 
@@ -292,66 +199,47 @@ async function listTokensForColumn(column: PulseColumnId) {
   }
 }
 
-/**
- * Run the active Pulse poll. Prefers per-launchpad
- * `getAssetsByAuthority(sortBy: created desc)` so the New (< 30m) column sees
- * actually-fresh mints. Falls back to the legacy owner-based poll only if no
- * launchpad authority resolves (no env override, all built-ins null).
- */
-async function pollPulseColumn(): Promise<{ inserted: number; via: 'authority' | 'legacy-owner' }> {
-  const authorities = resolveLaunchpadAuthorities();
-  if (authorities.length === 0) {
-    debugDas('pollPulseColumn: no launchpad authorities resolved; using legacy owner poll');
-    return { inserted: await pollRecentFungiblesFromDas(), via: 'legacy-owner' };
+async function pollPulseColumn(): Promise<{ inserted: number; via: 'tonapi' }> {
+  try {
+    const inserted = await pollRecentJettonsFromTonApi();
+    return { inserted, via: 'tonapi' };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[pointer][pulse TON] pollRecentJettonsFromTonApi failed:', msg);
+    return { inserted: 0, via: 'tonapi' };
   }
-
-  let inserted = 0;
-  for (const { launchpad, address } of authorities) {
-    try {
-      inserted += await pollNewMintsByLaunchpadAuthority(address, launchpad);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(
-        `[pointer][pulse DAS] pollNewMintsByLaunchpadAuthority(${launchpad}) failed:`,
-        msg,
-      );
-    }
-  }
-  return { inserted, via: 'authority' };
 }
 
-/**
- * Run a full DAS poll (all configured launchpad authorities or legacy owner
- * path). For cron jobs so Pulse indexing and global ticker alerts keep moving
- * without a user opening `/pulse`.
- */
 export async function runScheduledPulsePoll(): Promise<{
   inserted: number;
-  via: 'authority' | 'legacy-owner';
+  via: 'tonapi' | 'legacy-owner';
 }> {
-  return pollPulseColumn();
+  const r = await pollPulseColumn();
+  return { inserted: r.inserted, via: r.via === 'tonapi' ? 'tonapi' : 'legacy-owner' };
 }
 
 export async function getPulseFeed(column: PulseColumnId): Promise<PulseTokenBundle[]> {
   let tokens = await listTokensForColumn(column);
-  debugDas('getPulseFeed: DB rows before poll', { column, count: tokens.length });
+  debugTon('getPulseFeed: DB rows before poll', { column, count: tokens.length });
 
   if (tokens.length < MIN_ROWS_BEFORE_POLL) {
     try {
       const { inserted, via } = await pollPulseColumn();
-      debugDas('getPulseFeed: poll finished', { via, insertedNewMints: inserted });
+      debugTon('getPulseFeed: poll finished', { via, insertedNewMints: inserted });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const isSupabase = /fetch failed|ENOTFOUND|ECONNRESET|getaddrinfo|insertTrade|upsertToken|updateToken/i.test(msg);
-      const cause = isSupabase ? 'supabase reachability' : 'helius / parse';
-      console.warn(`[pointer][pulse DAS] poll failed (${cause}):`, msg);
+      const isSupabase = /fetch failed|ENOTFOUND|ECONNRESET|getaddrinfo|insertTrade|upsertToken|updateToken/i.test(
+        msg,
+      );
+      const cause = isSupabase ? 'supabase reachability' : 'ton center / tonapi / parse';
+      console.warn(`[pointer][pulse TON] poll failed (${cause}):`, msg);
     }
     tokens = await listTokensForColumn(column);
   }
 
-  if (DEBUG_DAS && column === 'new') {
+  if (DEBUG_TON && column === 'new') {
     const sinceIso = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
-    debugDas('getPulseFeed: New column filter', {
+    debugTon('getPulseFeed: New column filter', {
       created_at_gte: sinceIso,
       windowMinutes: PULSE_THRESHOLDS.newMaxAgeMinutes,
       matchingRows: tokens.length,
@@ -362,53 +250,38 @@ export async function getPulseFeed(column: PulseColumnId): Promise<PulseTokenBun
 }
 
 /**
- * Ensures a `tokens` row exists for `mint` by hydrating from Helius DAS once.
- * Used for deep links and token detail before Pulse has indexed the mint.
+ * Ensures a `tokens` row exists for jetton `mint` (master) using TonAPI metadata.
+ * Optionally checks TON Center that the account is active before trusting insert.
  */
-export async function ensureTokenRowFromDas(mint: string): Promise<TokenRow | null> {
-  const existing = await getTokenByMint(mint);
+export async function ensureTokenRowFromTon(mint: string): Promise<TokenRow | null> {
+  const canonical = normalizeTonAddress(mint);
+  if (!canonical) return null;
+
+  const existing = await getTokenByMint(canonical);
   if (existing) return existing;
 
-  const helius = getHeliusClient();
-  let asset: Asset | null = null;
-  try {
-    asset = await helius.getAsset({ id: mint, options: { showFungible: true } });
-  } catch {
-    return null;
-  }
-  if (!asset?.id) return null;
+  const active = await tonCenterAddressIsActive(canonical);
+  if (active === false) return null;
 
-  const ev = launchpadEventFromDasAsset(asset);
-  if (!ev) return null;
-
-  const social = extractSocialUrlsFromAsset(asset);
+  const j = await fetchTonApiJettonByMaster(canonical);
+  if (!j?.metadata?.address) return null;
 
   const now = new Date().toISOString();
-  const row: TablesInsert<'tokens'> = {
-    mint: ev.mint,
-    symbol: ev.symbol,
-    name: ev.name,
-    decimals: asset.token_info?.decimals ?? 6,
-    image_url: ev.image_url,
-    description: asset.content?.metadata?.description ?? null,
-    creator_wallet: ev.creator_wallet,
-    launch_pad: ev.launchpad === 'unknown' ? null : ev.launchpad,
-    raw_metadata: ev.raw,
-    website_url: social.website_url,
-    telegram_url: social.telegram_url,
-    twitter_handle: social.twitter_handle,
-    created_at: now,
-    last_seen_at: now,
-  };
+  const row = jettonToTokenRow(j, now);
+  if (!row) return null;
+
   const saved = await upsertToken(row);
   await emitGlobalPulseNewTokenAlert({
-    mint: ev.mint,
+    mint: row.mint,
     symbol: row.symbol,
     name: row.name,
-    launchpad: ev.launchpad === 'unknown' ? null : ev.launchpad,
-    source: 'das_hydrate',
+    launchpad: null,
+    source: 'tonapi_hydrate',
     creator_wallet: row.creator_wallet,
-    initial_liquidity_sol: row.initial_liquidity_sol ?? null,
+    initial_liquidity_sol: null,
   });
   return saved;
 }
+
+/** @deprecated Step 2 renamed; kept for incremental refactors. */
+export const ensureTokenRowFromDas = ensureTokenRowFromTon;

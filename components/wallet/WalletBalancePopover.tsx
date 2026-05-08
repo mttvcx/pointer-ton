@@ -20,7 +20,7 @@ type Props = {
 };
 
 /**
- * Axiom-style compact balance popover (Solana-only rails for now).
+ * Axiom-style compact balance popover (native TON rails).
  */
 export function WalletBalancePopover({
   open,
@@ -75,7 +75,7 @@ export function WalletBalancePopover({
           </div>
         </div>
         <div className="flex gap-1 text-[10px] font-semibold text-[#4b5563]">
-          <span className="text-white">Solana</span>
+          <span className="text-white">TON</span>
           <span className="text-[#3f4654]">|</span>
           <span className="cursor-not-allowed">Perps</span>
         </div>
@@ -88,7 +88,7 @@ export function WalletBalancePopover({
             type="button"
             onClick={() => {
               if (pill === 'usol') {
-                toast.message('uSOL', { description: 'Liquid staking view is not wired yet.' });
+                toast.message('wTON', { description: 'Liquid staking view is not wired yet.' });
                 setAsset('usol');
                 return;
               }
@@ -98,7 +98,7 @@ export function WalletBalancePopover({
               'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
               asset === pill
                 ? 'border-[#5865F2]/50 bg-[#5865F2]/25 text-white'
-                : 'border-[#1b1f2a] bg-[#0b0d12] text-[#d1d5db] hover:border-[#2d3548]',
+                : 'border-[#1b1f2a] bg-[#080d14] text-[#d1d5db] hover:border-[#2d3548]',
             )}
           >
             <span
@@ -110,7 +110,7 @@ export function WalletBalancePopover({
               )}
               aria-hidden
             />
-            {pill === 'sol' ? 'SOL' : pill === 'usdc' ? 'USDC' : 'uSOL'}
+            {pill === 'sol' ? 'TON' : pill === 'usdc' ? 'USDC' : 'wTON'}
           </button>
         ))}
         <Link
@@ -125,7 +125,7 @@ export function WalletBalancePopover({
 
       <div className="mt-2 space-y-1.5">
         {(asset === 'sol' || asset === 'usol') && (
-          <div className="flex items-center gap-2 rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1.5">
+          <div className="flex items-center gap-2 rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-1.5">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#9945FF]/25 text-[10px] font-semibold text-[#e9d5ff]">
               S
             </span>
@@ -135,7 +135,7 @@ export function WalletBalancePopover({
           </div>
         )}
         {(asset === 'usdc' || asset === 'sol') && (
-          <div className="flex items-center gap-2 rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1.5">
+          <div className="flex items-center gap-2 rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-1.5">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#2775ca]/30 text-[9px] font-semibold text-[#93c5fd]">
               U
             </span>
@@ -164,7 +164,7 @@ export function WalletBalancePopover({
           type="button"
           onClick={() => {
             toast.message('Withdraw', {
-              description: 'Send SOL or SPL from your wallet using any self-custody wallet app.',
+              description: 'Send TON or jettons from your wallet using any self-custody wallet app.',
             });
           }}
           className="btn-press rounded-md border border-[#1b1f2a] bg-[#1b1f2a]/40 py-2 text-[11px] font-semibold text-white transition hover:bg-[#252b38]"

@@ -10,7 +10,7 @@ export interface TooltipInput {
 }
 
 const SYSTEM_PROMPT = [
-  'You are Pointer, explaining trading and Solana terminology to a user.',
+  'You are Pointer, explaining trading and TON / memecoin terminology to a user.',
   'Reply with one sentence, max 25 words, plain language. No emojis. No "in summary".',
 ].join(' ');
 
@@ -30,7 +30,7 @@ export async function tooltip(input: TooltipInput): Promise<{
   if (!term) throw new Error('empty_term');
 
   const userPrompt = [
-    `Explain the term "${term}" in the context of Solana memecoin trading.`,
+    `Explain the term "${term}" in the context of TON memecoin trading.`,
     context ? `Context: ${context}` : null,
     '',
     'Respond as JSON: { "text": string (<=200 chars) }',

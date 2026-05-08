@@ -83,8 +83,12 @@ const GLYPH: Record<string, ComponentType<{ className?: string }>> = {
   printr: IconPrintr,
 };
 
+const DISPLAY_TITLE: Partial<Record<string, string>> = {
+  'pump.fun': 'TON launchpad',
+};
+
 const ABBREV: Record<string, string> = {
-  'pump.fun': 'PU',
+  'pump.fun': 'TN',
   bags: 'BG',
   moonshot: 'MS',
   printr: 'PR',
@@ -98,10 +102,11 @@ export function LaunchpadBadge({ launchPad }: { launchPad: string | null }) {
   if (fallback.length === 0) fallback = 'LP';
   const abbrev = (ABBREV[launchPad] ?? fallback).slice(0, 2);
 
+  const title = DISPLAY_TITLE[launchPad] ?? launchPad;
   const G = GLYPH[launchPad];
   if (G) {
     return (
-      <span className="inline-flex shrink-0 text-fg-muted opacity-50" title={launchPad}>
+      <span className="inline-flex shrink-0 text-fg-muted opacity-50" title={title}>
         <G className="block h-3.5 w-3.5" />
       </span>
     );
@@ -112,7 +117,7 @@ export function LaunchpadBadge({ launchPad }: { launchPad: string | null }) {
       className={cn(
         'inline-flex h-3.5 min-w-0 shrink-0 items-center tabular-nums text-[10px] font-semibold uppercase leading-none tracking-wide text-fg-muted opacity-50',
       )}
-      title={launchPad}
+      title={title}
     >
       {abbrev}
     </span>

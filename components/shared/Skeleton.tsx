@@ -17,8 +17,8 @@ export function Skeleton({ className }: { className?: string }) {
 /** Pre-styled token-row skeleton matching the Pulse layout. */
 export function PulseRowSkeleton() {
   return (
-    <div className="flex min-h-[84px] items-center gap-3 border-b border-border-subtle px-3 py-2.5">
-      <Skeleton className="h-[52px] w-[52px] shrink-0 rounded-md" />
+    <div className="flex min-h-[132px] items-center gap-3 border-b border-border-subtle px-3 py-3">
+      <Skeleton className="h-[60px] w-[60px] shrink-0 rounded-md" />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-center gap-2">
           <Skeleton className="h-4 w-28" />

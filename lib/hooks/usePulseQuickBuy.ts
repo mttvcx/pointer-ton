@@ -2,11 +2,12 @@
 
 import { useCallback, useMemo } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useSignTransaction } from '@/lib/auth/solanaShims';
+import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
+import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
@@ -24,45 +25,13 @@ type TradingPresetApi = {
   max_fee_sol: number;
 };
 
-type QuoteApiOk = {
-  side: 'buy';
-  mint: string;
-  quote: Record<string, unknown>;
-  swapTransaction: string | null;
-  summary: {
-    amountInRaw: string;
-    amountOutRaw: string | null;
-    amountSolEstimate: number;
-  };
-};
-
-const SILENT_SOLANA_SIGN_TX_OPTIONS = {
-  uiOptions: { showWalletUIs: false as const },
-} as const;
-
-function base64ToUint8(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-function uint8ToBase64(bytes: Uint8Array): string {
-  const chunk = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
-
 /**
  * Quote ? sign ? execute for Pulse row quick-buy (buy only).
  */
 export function usePulseQuickBuy() {
   const { getAccessToken, authenticated } = usePointerAuth();
   const qc = useQueryClient();
-  const { signTransaction } = useSignTransaction();
+  const { submitFromQuote } = usePointerTradeSubmit();
   const { activePresetSlot } = useTradingStore();
 
   const myWalletsQ = useQuery({
@@ -108,17 +77,17 @@ export function usePulseQuickBuy() {
   const buyToken = useCallback(
     async (mint: string, amountSol: number) => {
       if (!walletsReady || !wallet) {
-        toast.error('No Solana wallet', { description: 'Connect an embedded wallet first.' });
+        toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
         return;
       }
       if (activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
-          description: 'Imported wallets cannot trade yet. Use an embedded wallet.',
+          description: 'Use a non-imported wallet linked in TonConnect to trade.',
         });
         return;
       }
       if (!Number.isFinite(amountSol) || amountSol <= 0) {
-        toast.error('Invalid amount', { description: 'Set a positive SOL amount in the column header.' });
+        toast.error('Invalid amount', { description: 'Set a positive TON amount in the column header.' });
         return;
       }
       const token = await getAccessToken();
@@ -171,50 +140,19 @@ export function usePulseQuickBuy() {
               : `Quote failed (${res.status})`;
           throw new Error(msg);
         }
-        const ok = json as QuoteApiOk;
-        if (!ok.swapTransaction || !ok.summary?.amountOutRaw) {
+        const ok = json as TradeQuoteApiOk;
+        if (!ok.tonConnect?.messages?.length || !ok.summary?.amountOutRaw) {
           throw new Error('No swap transaction from quote');
         }
 
-        toast.loading('Signing...', { id: toastId });
-        const unsigned = base64ToUint8(ok.swapTransaction);
-        const { signedTransaction } = await signTransaction({
-          transaction: unsigned,
-          wallet,
-          chain: 'solana:mainnet',
-          options: SILENT_SOLANA_SIGN_TX_OPTIONS,
+        toast.loading('Sign in wallet...', { id: toastId });
+        const { signature: sig } = await submitFromQuote({
+          quote: ok,
+          walletAddress: wallet.address,
+          mint,
+          getAccessToken,
         });
-        const signedB64 = uint8ToBase64(signedTransaction);
 
-        toast.loading('Submitting...', { id: toastId });
-        const execRes = await fetch('/api/trade/execute', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            signedTransaction: signedB64,
-            userPublicKey: wallet.address,
-            mint,
-            side: ok.side,
-            amountInRaw: ok.summary.amountInRaw,
-            amountOutRaw: ok.summary.amountOutRaw ?? '0',
-            amountSolNotional: ok.summary.amountSolEstimate,
-          }),
-        });
-        const execJson: unknown = await execRes.json();
-        if (!execRes.ok) {
-          const msg =
-            typeof execJson === 'object' && execJson && 'message' in execJson
-              ? String((execJson as { message: unknown }).message)
-              : `Execute failed (${execRes.status})`;
-          throw new Error(msg);
-        }
-        const sig =
-          typeof execJson === 'object' && execJson && 'signature' in execJson
-            ? String((execJson as { signature: unknown }).signature)
-            : '';
         toast.success('Buy complete', {
           id: toastId,
           description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
@@ -232,7 +170,7 @@ export function usePulseQuickBuy() {
       activeWalletRow?.is_imported,
       getAccessToken,
       activePreset,
-      signTransaction,
+      submitFromQuote,
       qc,
     ],
   );

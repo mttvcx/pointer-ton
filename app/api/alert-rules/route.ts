@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       rule_type: b.ruleType,
       rule_config: b.ruleConfig,
       flash_enabled: b.flashEnabled ?? true,
-      flash_color: b.flashColor ?? '#7C5CFF',
+      flash_color: b.flashColor ?? '#0077B6',
       flash_size: b.flashSize ?? 'normal',
       audio_enabled: b.audioEnabled ?? false,
       audio_url: b.audioUrl ?? null,

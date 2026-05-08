@@ -82,7 +82,7 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
     queryFn: async () => {
       const res = await fetch('/api/prices/tickers');
       const j = (await res.json()) as { tickers?: { symbol: string; usdPrice: number | null }[] };
-      return j.tickers?.find((t) => t.symbol === 'SOL')?.usdPrice ?? null;
+      return j.tickers?.find((t) => t.symbol === 'TON')?.usdPrice ?? null;
     },
     staleTime: 60_000,
   });
@@ -117,7 +117,7 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
         <div className="ml-auto flex flex-wrap items-center gap-x-2 tabular-nums">
           <span className="inline-flex items-center gap-0.5 text-[#6b7280]">
             <ArrowLeftRight className="h-3 w-3" strokeWidth={2} />
-            SOL ${solUsd != null ? formatNumber(solUsd, { decimals: 2 }) : '-'}
+            TON ${solUsd != null ? formatNumber(solUsd, { decimals: 2 }) : '-'}
           </span>
           <span>
             Bal{' '}

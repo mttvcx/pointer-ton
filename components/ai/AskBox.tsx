@@ -14,7 +14,7 @@ const COPILOT = {
   elevated: '#151924',
   muted: '#7f8aa3',
   text: '#f5f7ff',
-  accent: '#7c5cff',
+  accent: '#0077b6',
 } as const;
 
 const SUGGESTIONS = [
@@ -133,7 +133,7 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
           placeholder="Ask about bonding curve, holders, risk, or entry…"
           aria-label="Ask Pointer"
           className={cn(
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#7c5cff]/50',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0077b6]/50',
             'h-11 w-full rounded-full border pr-11 pl-4 text-[13px] placeholder:font-normal',
             'disabled:opacity-50',
           )}
@@ -151,7 +151,7 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
           className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition disabled:opacity-40"
           style={{
             backgroundImage: `linear-gradient(135deg, ${COPILOT.accent} 0%, #5b8cff 100%)`,
-            color: '#0b0d12',
+            color: '#080d14',
           }}
         >
           {mutation.isPending ? (
@@ -169,7 +169,7 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
             type="button"
             disabled={!authenticated || mutation.isPending}
             onClick={() => submit(s)}
-            className="rounded-full border px-2 py-0.5 text-[10px] font-medium transition hover:border-[#7c5cff]/40 hover:text-[#f5f7ff] disabled:opacity-50"
+            className="rounded-full border px-2 py-0.5 text-[10px] font-medium transition hover:border-[#0077b6]/40 hover:text-[#f5f7ff] disabled:opacity-50"
             style={{
               borderColor: COPILOT.border,
               backgroundColor: COPILOT.elevated,

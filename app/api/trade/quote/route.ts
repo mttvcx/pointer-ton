@@ -1,31 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getTokenByMint } from '@/lib/db/tokens';
 import { getUserByPrivyId } from '@/lib/db/users';
-import type { JupiterQuoteResponse } from '@/lib/jupiter/quote';
-import { getQuote } from '@/lib/jupiter/quote';
-import {
-  getDefaultSwapFeeParams,
-  getSwapTx,
-  type SwapFeeParams,
-  type SwapLanding,
-} from '@/lib/jupiter/swap';
-import { tryPumpDirectSwapQuote } from '@/lib/pump/directSwap';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
-import { getConnection } from '@/lib/solana/connection';
-import { isValidPublicKey, SOL_MINT } from '@/lib/utils/addresses';
+import { buildPointerStonSwapQuote } from '@/lib/stonfi/pointerSwap';
+import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
-import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const tonAddr = z.string().refine((s) => Boolean(normalizeTonAddress(s)), 'invalid_ton_address');
+
 const QuoteBodySchema = z
   .object({
-    mint: z.string().refine(isValidPublicKey, 'invalid mint'),
+    mint: tonAddr,
     side: z.enum(['buy', 'sell']),
-    userPublicKey: z.string().refine(isValidPublicKey, 'invalid userPublicKey'),
+    userPublicKey: tonAddr,
     amountSol: z.number().positive().optional(),
     amountSolOut: z.number().positive().optional(),
     amountTokenRaw: z.string().regex(/^\d+$/).optional(),
@@ -40,6 +31,13 @@ const QuoteBodySchema = z
   })
   .strict()
   .superRefine((val, ctx) => {
+    void val.dynamicSlippage;
+    void val.landing;
+    void val.jitoTipLamports;
+    void val.priorityFeeLamports;
+    void val.autoFee;
+    void val.maxFeeSol;
+
     if (val.side === 'buy' && (val.amountSol == null || val.amountSol <= 0)) {
       ctx.addIssue({
         code: 'custom',
@@ -101,9 +99,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_body', message }, { status: 400 });
   }
 
-  const useExactOutSell = body.side === 'sell' && body.amountSolOut != null;
+  const walletCanon = normalizeTonAddress(body.userPublicKey)!;
+  const mintCanon = normalizeTonAddress(body.mint)!;
 
-  const tradeOk = await userCanUseWalletForTrading(user, body.userPublicKey);
+  const tradeOk = await userCanUseWalletForTrading(user, walletCanon);
   if (!tradeOk) {
     return NextResponse.json(
       {
@@ -115,138 +114,30 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const tokenRow = await getTokenByMint(body.mint);
-    if (!useExactOutSell && tokenRow?.launch_pad === 'pump.fun') {
-      try {
-        const pumpQuote = await tryPumpDirectSwapQuote({
-          connection: getConnection(),
-          mint: body.mint,
-          userPublicKey: body.userPublicKey,
-          side: body.side,
-          ...(body.side === 'buy'
-            ? { amountSol: body.amountSol }
-            : { amountTokenRaw: body.amountTokenRaw }),
-          slippageBps: body.slippageBps,
-          includeSwapTx: body.includeSwapTx,
-        });
-        if (pumpQuote) {
-          return NextResponse.json({
-            side: body.side,
-            mint: body.mint,
-            quote: pumpQuote.quote,
-            swapTransaction: pumpQuote.swapTransaction,
-            lastValidBlockHeight: pumpQuote.lastValidBlockHeight,
-            presetsSol: [...BUY_PRESETS_SOL],
-            summary: pumpQuote.summary,
-          });
-        }
-      } catch {
-        // Fall through to Jupiter.
-      }
-    }
+    const useExactOutSell = body.side === 'sell' && body.amountSolOut != null;
 
-    if (useExactOutSell) {
-      const feesExact: SwapFeeParams = {
-        ...getDefaultSwapFeeParams(),
-        ...(body.jitoTipLamports != null ? { jitoTipLamports: body.jitoTipLamports } : {}),
-        ...(body.priorityFeeLamports != null ? { priorityFeeLamports: body.priorityFeeLamports } : {}),
-        ...(body.autoFee != null ? { autoFee: body.autoFee } : {}),
-        ...(body.maxFeeSol != null ? { maxFeeSol: body.maxFeeSol } : {}),
-      };
-
-      const wantLamports = solToLamports(body.amountSolOut!);
-      const quoteEx = (await getQuote({
-        userId: user.id,
-        inputMint: body.mint,
-        outputMint: SOL_MINT,
-        amountRaw: String(wantLamports),
-        slippageBps: body.slippageBps,
-        dynamicSlippage: body.dynamicSlippage,
-        swapMode: 'ExactOut',
-      })) as JupiterQuoteResponse;
-
-      let swapTransaction: string | null = null;
-      let lastValidBlockHeight: number | undefined;
-
-      if (body.includeSwapTx) {
-        const swap = await getSwapTx(quoteEx, body.userPublicKey, {
-          dynamicSlippage: body.dynamicSlippage,
-          landing: body.landing as SwapLanding,
-          fees: feesExact,
-        });
-        swapTransaction = swap.swapTransaction;
-        lastValidBlockHeight = swap.lastValidBlockHeight;
-      }
-
-      const inAmt = quoteEx.inAmount != null ? String(quoteEx.inAmount) : '0';
-      const outAmt =
-        quoteEx.outAmount != null ? String(quoteEx.outAmount) : String(wantLamports);
-
-      return NextResponse.json({
-        side: body.side,
-        mint: body.mint,
-        quote: quoteEx,
-        swapTransaction,
-        lastValidBlockHeight,
-        presetsSol: [...BUY_PRESETS_SOL],
-        summary: {
-          amountInRaw: inAmt,
-          amountOutRaw: outAmt,
-          amountSolEstimate: body.amountSolOut!,
-        },
-      });
-    }
-
-    const inputMint = body.side === 'buy' ? SOL_MINT : body.mint;
-    const outputMint = body.side === 'buy' ? body.mint : SOL_MINT;
-    const amountRaw =
-      body.side === 'buy' ? String(solToLamports(body.amountSol!)) : body.amountTokenRaw!;
-
-    const fees: SwapFeeParams = {
-      ...getDefaultSwapFeeParams(),
-      ...(body.jitoTipLamports != null ? { jitoTipLamports: body.jitoTipLamports } : {}),
-      ...(body.priorityFeeLamports != null ? { priorityFeeLamports: body.priorityFeeLamports } : {}),
-      ...(body.autoFee != null ? { autoFee: body.autoFee } : {}),
-      ...(body.maxFeeSol != null ? { maxFeeSol: body.maxFeeSol } : {}),
-    };
-
-    const quote = (await getQuote({
-      userId: user.id,
-      inputMint,
-      outputMint,
-      amountRaw,
+    const built = await buildPointerStonSwapQuote({
+      userWalletAddress: walletCanon,
+      jettonMaster: mintCanon,
+      side: body.side,
+      ...(body.side === 'buy' ? { amountSol: body.amountSol } : {}),
+      ...(body.side === 'sell' && !useExactOutSell ? { amountTokenRaw: body.amountTokenRaw } : {}),
+      ...(body.side === 'sell' && useExactOutSell ? { amountSolOut: body.amountSolOut } : {}),
       slippageBps: body.slippageBps,
-      dynamicSlippage: body.dynamicSlippage,
-    })) as JupiterQuoteResponse;
-
-    let swapTransaction: string | null = null;
-    let lastValidBlockHeight: number | undefined;
-
-    if (body.includeSwapTx) {
-      const swap = await getSwapTx(quote, body.userPublicKey, {
-        dynamicSlippage: body.dynamicSlippage,
-        landing: body.landing as SwapLanding,
-        fees,
-      });
-      swapTransaction = swap.swapTransaction;
-      lastValidBlockHeight = swap.lastValidBlockHeight;
-    }
-
-    const inAmt = quote.inAmount != null ? String(quote.inAmount) : amountRaw;
-    const outAmt = quote.outAmount != null ? String(quote.outAmount) : null;
+      includeSwapTx: body.includeSwapTx,
+    });
 
     return NextResponse.json({
       side: body.side,
-      mint: body.mint,
-      quote,
-      swapTransaction,
-      lastValidBlockHeight,
+      mint: mintCanon,
+      quote: built.quote,
+      swapTransaction: null,
+      tonConnect: built.tonConnect,
       presetsSol: [...BUY_PRESETS_SOL],
       summary: {
-        amountInRaw: inAmt,
-        amountOutRaw: outAmt,
-        amountSolEstimate:
-          body.side === 'buy' ? body.amountSol : lamportsToSol(BigInt(outAmt ?? '0')),
+        amountInRaw: built.summary.amountInRaw,
+        amountOutRaw: built.summary.amountOutRaw,
+        amountSolEstimate: built.summary.amountSolEstimate,
       },
     });
   } catch (err) {

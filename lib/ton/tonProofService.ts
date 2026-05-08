@@ -4,6 +4,7 @@ import { Address, Cell, contractAddress, loadStateInit } from '@ton/core';
 import { sign } from 'tweetnacl';
 import { Buffer } from 'buffer';
 import type { TonConnectNetwork } from '@/lib/ton/tonLiteClient';
+import { tryParsePublicKeyFromStateInit } from '@/lib/ton/walletStateInitPublicKey';
 
 export interface TonProofBody {
   timestamp: number;
@@ -29,18 +30,23 @@ const validAuthTime = 15 * 60;
 function allowedDomains(): string[] {
   const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'http://127.0.0.1:3001';
   try {
-    const host = new URL(raw).host;
+    const u = new URL(raw);
+    const host = u.host;
+    const hostname = u.hostname;
     const set = new Set<string>([
       host,
+      hostname,
       'localhost:3001',
       '127.0.0.1:3001',
       'localhost:3000',
       '127.0.0.1:3000',
       'localhost:5173',
+      'localhost',
+      '127.0.0.1',
     ]);
     return [...set];
   } catch {
-    return ['127.0.0.1:3001', 'localhost:3001'];
+    return ['127.0.0.1:3001', 'localhost:3001', '127.0.0.1', 'localhost'];
   }
 }
 
@@ -55,7 +61,9 @@ export async function verifyTonConnectProof(
   try {
     const stateInit = loadStateInit(Cell.fromBase64(body.proof.state_init).beginParse());
 
-    const publicKey = await getWalletPublicKey(body.address);
+    const publicKey =
+      tryParsePublicKeyFromStateInit(stateInit, body.network) ??
+      (await getWalletPublicKey(body.address));
     const wantedPublicKey = Buffer.from(body.public_key, 'hex');
     if (!publicKey.equals(wantedPublicKey)) {
       return false;
@@ -67,7 +75,8 @@ export async function verifyTonConnectProof(
       return false;
     }
 
-    if (!allowedDomains().includes(body.proof.domain.value)) {
+    const domainValue = body.proof.domain.value;
+    if (!allowedDomains().includes(domainValue)) {
       return false;
     }
 
@@ -76,8 +85,12 @@ export async function verifyTonConnectProof(
       return false;
     }
 
-    const msgHashExpected = Buffer.from(await sha256(Buffer.from(body.payloadToken))).toString('hex');
-    if (body.proof.payload !== msgHashExpected) {
+    const tokenUtf8 = Buffer.from(body.payloadToken, 'utf8');
+    const payloadHashHex = Buffer.from(await sha256(tokenUtf8)).toString('hex');
+    const payloadOk =
+      body.proof.payload === payloadHashHex ||
+      body.proof.payload === body.payloadToken;
+    if (!payloadOk) {
       return false;
     }
 

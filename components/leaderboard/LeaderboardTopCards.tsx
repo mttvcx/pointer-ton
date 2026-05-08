@@ -31,7 +31,7 @@ function PodiumCard({ entry, placing, emphasize, highlightYou }: PodiumCardProps
       className={cn(
         'relative flex flex-col justify-end overflow-hidden rounded-md border bg-bg-base px-4 pb-4 pt-10 transition-all duration-200',
         emphasize
-          ? 'min-h-[168px] border-accent-primary/40 shadow-[0_0_32px_rgba(124,92,255,0.12)]'
+          ? 'min-h-[168px] border-accent-primary/40 shadow-[0_0_32px_rgba(0,119,182,0.12)]'
           : 'min-h-[132px] border-border-subtle',
         highlightYou && 'ring-1 ring-accent-primary/60',
       )}
@@ -40,7 +40,7 @@ function PodiumCard({ entry, placing, emphasize, highlightYou }: PodiumCardProps
         className={cn(
           'pointer-events-none absolute inset-0 opacity-90',
           placing === 1 &&
-            'bg-[radial-gradient(ellipse_at_50%_0%,rgba(124,92,255,0.22),transparent_55%)]',
+            'bg-[radial-gradient(ellipse_at_50%_0%,rgba(0,119,182,0.22),transparent_55%)]',
           placing === 2 &&
             'bg-[radial-gradient(ellipse_at_50%_0%,rgba(93,235,181,0.12),transparent_50%)]',
           placing === 3 &&

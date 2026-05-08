@@ -1,5 +1,4 @@
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
-import { padToProtocols } from '@/lib/tokens/columnPresetModel';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 export type PulseRowTraitFlags = {
@@ -110,8 +109,8 @@ function walkTraits(obj: unknown, depth: number): Omit<PulseRowTraitFlags, 'pump
 export function getPulseRowTraitFlags(bundle: PulseTokenBundle): PulseRowTraitFlags {
   const { token, snapshot } = bundle;
   const bond = getPulseBondingRingState(bundle);
-  const proto = padToProtocols(token.launch_pad ?? null);
-  const pumpFunBonding = proto.includes('pump') && !bond.migrated;
+  const lp = token.launch_pad?.toLowerCase() ?? '';
+  const pumpFunBonding = (lp === 'pump.fun' || lp === 'pump') && !bond.migrated;
 
   let cashback = false;
   let agent = false;

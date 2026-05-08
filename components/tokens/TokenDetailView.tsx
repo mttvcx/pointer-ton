@@ -86,6 +86,7 @@ function clamp(n: number, lo: number, hi: number): number {
 export function TokenDetailView({
   mint,
   symbol,
+  tokenName,
   decimals,
   creatorWallet,
   dev,
@@ -94,6 +95,7 @@ export function TokenDetailView({
 }: {
   mint: string;
   symbol: string | null;
+  tokenName?: string | null;
   decimals: number;
   creatorWallet: string | null;
   dev: DevWalletStatsRow | null;
@@ -263,7 +265,7 @@ export function TokenDetailView({
           <div
             ref={leftColRef}
             className={cn(
-              'flex min-h-[300px] min-w-0 flex-col bg-[#0b0d12] lg:min-h-0',
+              'flex min-h-[300px] min-w-0 flex-col bg-[#080d14] lg:min-h-0',
               lg && 'min-w-[360px] flex-1',
             )}
           >
@@ -288,7 +290,7 @@ export function TokenDetailView({
               onPointerUp={onRowUp}
             />
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col basis-0 bg-[#0b0d12]">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col basis-0 bg-[#080d14]">
               <TokenActivityTabs
                 mint={mint}
                 symbol={symbol}
@@ -308,7 +310,7 @@ export function TokenDetailView({
 
           <div
             className={cn(
-              'flex min-h-[320px] w-full min-w-0 shrink-0 flex-col border-t border-[#1b1f2a] bg-[#0b0d12] lg:min-h-0 lg:border-t-0 lg:border-l',
+              'flex min-h-[320px] w-full min-w-0 shrink-0 flex-col border-t border-[#1b1f2a] bg-[#080d14] lg:min-h-0 lg:border-t-0 lg:border-l',
             )}
             style={lg ? { width: rightStackW } : undefined}
           >
@@ -322,6 +324,7 @@ export function TokenDetailView({
                 }
                 mint={mint}
                 symbol={symbol}
+                tokenName={tokenName}
                 decimals={decimals}
                 limitAlertOrder={limitAlertForPanel}
                 initialBuySol={initialBuySol}

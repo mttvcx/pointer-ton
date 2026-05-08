@@ -40,14 +40,14 @@ function buildPrompt(facts: {
   oldestRecentSig: string | null;
 }): { system: string; user: string } {
   const system = [
-    'You are Pointer, an analyst classifying a Solana wallet by behavior.',
+    'You are Pointer, an analyst classifying an on-chain wallet by behavior (TON ecosystem).',
     'Be terse and skeptical. Pick exactly one archetype.',
     'Never recommend copying trades or treat the wallet as a signal.',
   ].join(' ');
 
   const lines: string[] = [];
   lines.push(`Wallet: ${facts.address}`);
-  if (facts.solBalance != null) lines.push(`SOL balance: ${facts.solBalance.toFixed(4)}`);
+  if (facts.solBalance != null) lines.push(`TON balance: ${facts.solBalance.toFixed(4)}`);
   if (facts.kolHandle) lines.push(`KOL handle: @${facts.kolHandle}`);
   if (facts.isKol === true) lines.push('Tagged: KOL');
   if (facts.pnl30d != null) lines.push(`30d PnL: ${formatCompactUsd(facts.pnl30d)}`);

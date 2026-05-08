@@ -344,7 +344,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
           All Wallets
           <ChevronDown className="h-3 w-3" />
         </button>
-        <span className="tabular-nums text-[11px] text-[#d1d5db]">◎ {formatNumber(solUi, { decimals: 4 })}</span>
+        <span className="tabular-nums text-[11px] text-[#d1d5db]">{formatNumber(solUi, { decimals: 4 })}</span>
         <div className="ml-auto flex min-w-[230px] items-center gap-1">
           <div className="flex min-w-0 flex-1 items-center gap-1 rounded border px-2 py-1" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
             <Search className="h-3 w-3 text-[#6b7280]" />
@@ -422,7 +422,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                   </button>
                 ))}
                 <div className="ml-auto flex items-center gap-1">
-                  <div className="flex items-center gap-1 rounded border px-2 py-0.5" style={{ borderColor: BORDER, backgroundColor: '#0b0d12' }}>
+                  <div className="flex items-center gap-1 rounded border px-2 py-0.5" style={{ borderColor: BORDER, backgroundColor: '#080d14' }}>
                     <Search className="h-3 w-3 text-[#6b7280]" />
                     <input
                       value={searchTable}
@@ -436,7 +436,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                     Show Hidden
                   </label>
                   <button onClick={() => setUsdMode((v) => !v)} className="rounded border px-1.5 py-0.5 text-[10px] font-semibold" style={{ borderColor: BORDER }}>
-                    {usdMode ? 'USD' : 'SOL'}
+                    {usdMode ? 'USD' : 'TON'}
                   </button>
                 </div>
               </div>
@@ -459,11 +459,11 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                       const bought = 'costBasisSol' in row ? row.costBasisSol : 0;
                       const sold = 'solProceeds' in row ? row.solProceeds : 0;
                       return (
-                        <tr key={`${mint}-${i}`} className="border-b hover:bg-white/[0.04]" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#0b0d12' : '#151826' }}>
+                        <tr key={`${mint}-${i}`} className="border-b hover:bg-white/[0.04]" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#080d14' : '#151826' }}>
                           <td className="px-2 py-1"><div className="flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-[#20263a]" /><span className="font-medium text-white">{symbol}</span></div></td>
-                          <td className="px-2 py-1 text-right tabular-nums text-[#34d399]">{usdMode ? formatUsd(bought) : `${formatNumber(bought, { decimals: 4 })} SOL`}</td>
-                          <td className="px-2 py-1 text-right tabular-nums text-[#fb7185]">{usdMode ? formatUsd(sold) : `${formatNumber(sold, { decimals: 4 })} SOL`}</td>
-                          <td className={cn('px-2 py-1 text-right tabular-nums', pnl >= 0 ? 'text-[#34d399]' : 'text-[#fb7185]')}>{usdMode ? formatUsd(pnl) : `${formatNumber((pnl ?? 0) / Math.max(1, query.data.solUsd ?? 150), { decimals: 4 })} SOL`}</td>
+                          <td className="px-2 py-1 text-right tabular-nums text-[#34d399]">{usdMode ? formatUsd(bought) : `${formatNumber(bought, { decimals: 4 })} TON`}</td>
+                          <td className="px-2 py-1 text-right tabular-nums text-[#fb7185]">{usdMode ? formatUsd(sold) : `${formatNumber(sold, { decimals: 4 })} TON`}</td>
+                          <td className={cn('px-2 py-1 text-right tabular-nums', pnl >= 0 ? 'text-[#34d399]' : 'text-[#fb7185]')}>{usdMode ? formatUsd(pnl) : `${formatNumber((pnl ?? 0) / Math.max(1, query.data.solUsd ?? 150), { decimals: 4 })} TON`}</td>
                           <td className="px-2 py-1 text-right"><div className="inline-flex items-center gap-1 text-[#6b7280]"><button className="rounded p-1 hover:bg-white/5"><Copy className="h-3.5 w-3.5" /></button><Link href={`/token/${mint}`} className="rounded p-1 hover:bg-white/5"><ExternalLink className="h-3.5 w-3.5" /></Link></div></td>
                         </tr>
                       );
@@ -490,7 +490,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                   </thead>
                   <tbody>
                     {trades.map((t, i) => (
-                      <tr key={t.id} className="border-b hover:bg-white/[0.04]" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#0b0d12' : '#151826' }}>
+                      <tr key={t.id} className="border-b hover:bg-white/[0.04]" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#080d14' : '#151826' }}>
                         <td className={cn('px-1.5 py-1', t.side === 'buy' ? 'text-[#34d399]' : 'text-[#fb7185]')}>{t.side.toUpperCase()}</td>
                         <td className="px-1.5 py-1 text-white">{shortenAddress(t.mint, 3)}</td>
                         <td className="px-1.5 py-1 text-right text-[#d1d5db]">{t.amountSol != null ? formatNumber(t.amountSol, { decimals: 3 }) : '—'}</td>
@@ -517,7 +517,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
         <div className="grid min-h-0 flex-1 grid-cols-12 gap-1 p-1.5">
           <section className="col-span-12 flex min-h-0 flex-col rounded border md:col-span-6" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
             <div className="flex items-center gap-1 border-b px-2 py-1" style={{ borderColor: BORDER }}>
-              <div className="flex items-center gap-1 rounded border px-2 py-0.5" style={{ borderColor: BORDER, backgroundColor: '#0b0d12' }}>
+              <div className="flex items-center gap-1 rounded border px-2 py-0.5" style={{ borderColor: BORDER, backgroundColor: '#080d14' }}>
                 <Search className="h-3 w-3 text-[#6b7280]" />
                 <input value={searchWallets} onChange={(e) => setSearchWallets(e.target.value)} placeholder="Search by name or address" className="w-36 border-0 bg-transparent text-[10px] text-white outline-none placeholder:text-[#4b5563]" />
               </div>
@@ -585,7 +585,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                       draggable
                       onDragStart={(e) => e.dataTransfer.setData('text/plain', w.id)}
                       className="cursor-grab border-b active:cursor-grabbing"
-                      style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#0b0d12' : '#151826' }}
+                      style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#080d14' : '#151826' }}
                     >
                       <td className="px-2 py-1.5">
                         <div className="flex items-center gap-1.5">
@@ -596,7 +596,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                           </div>
                         </div>
                       </td>
-                      <td className="px-2 py-1.5 text-right tabular-nums text-[#5eead4]">◎ {w.balance_lamports ? formatNumber(lamportsToSol(BigInt(w.balance_lamports)), { decimals: 3 }) : '0'}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-[#5eead4]">{w.balance_lamports ? formatNumber(lamportsToSol(BigInt(w.balance_lamports)), { decimals: 3 }) : '0'}</td>
                       <td className="px-2 py-1.5 text-right text-[#6b7280]">0</td>
                       <td className="px-2 py-1.5 text-right text-[#6b7280]"><button className="rounded p-1 hover:bg-white/5"><ExternalLink className="h-3.5 w-3.5" /></button></td>
                     </tr>
@@ -622,12 +622,12 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                   if (id) onDropSource(id);
                 }}
                 className="flex min-h-0 flex-col rounded border border-dashed"
-                style={{ borderColor: BORDER, backgroundColor: '#0b0d12' }}
+                style={{ borderColor: BORDER, backgroundColor: '#080d14' }}
               >
                 <div className="flex items-center justify-between border-b px-2 py-1" style={{ borderColor: BORDER }}>
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-[#9ca3af]">Send From</span>
                   <span className="tabular-nums text-[10px] text-[#5eead4]">
-                    ◎ {formatNumber(sourceWallets.reduce((sum, w) => sum + (w.balance_lamports ? lamportsToSol(BigInt(w.balance_lamports)) : 0), 0), { decimals: 4 })}
+                    {formatNumber(sourceWallets.reduce((sum, w) => sum + (w.balance_lamports ? lamportsToSol(BigInt(w.balance_lamports)) : 0), 0), { decimals: 4 })}
                   </span>
                 </div>
                 <div className="min-h-0 flex-1 overflow-auto">
@@ -635,7 +635,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                     <div className="flex h-full min-h-[120px] items-center justify-center text-center text-[#4b5563]">
                       <div>
                         <GripVertical className="mx-auto h-5 w-5" />
-                        <p className="mt-1 text-[11px]">Drag wallets here to send SOL</p>
+                        <p className="mt-1 text-[11px]">Drag wallets here to send TON</p>
                       </div>
                     </div>
                   ) : (
@@ -646,7 +646,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                           <div className="tabular-nums text-[10px] text-[#6b7280]">{shortenAddress(w.wallet_address, 5)}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="tabular-nums text-[10px] text-[#5eead4]">◎ {w.balance_lamports ? formatNumber(lamportsToSol(BigInt(w.balance_lamports)), { decimals: 4 }) : '0'}</span>
+                          <span className="tabular-nums text-[10px] text-[#5eead4]">{w.balance_lamports ? formatNumber(lamportsToSol(BigInt(w.balance_lamports)), { decimals: 4 }) : '0'}</span>
                           <button
                             type="button"
                             onClick={() => setSourceWalletIds((current) => current.filter((id) => id !== w.id))}
@@ -669,7 +669,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                   if (id) onDropDestination(id);
                 }}
                 className="flex min-h-0 flex-col rounded border border-dashed"
-                style={{ borderColor: BORDER, backgroundColor: '#0b0d12' }}
+                style={{ borderColor: BORDER, backgroundColor: '#080d14' }}
               >
                 <div className="flex items-center justify-between border-b px-2 py-1" style={{ borderColor: BORDER }}>
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-[#9ca3af]">Receive To</span>
@@ -689,7 +689,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                     <div className="flex h-full min-h-[120px] items-center justify-center text-center text-[#4b5563]">
                       <div>
                         <GripVertical className="mx-auto h-5 w-5" />
-                        <p className="mt-1 text-[11px]">Drag one wallet here to receive SOL</p>
+                        <p className="mt-1 text-[11px]">Drag one wallet here to receive TON</p>
                       </div>
                     </div>
                   ) : (
@@ -699,7 +699,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                         <div className="tabular-nums text-[10px] text-[#6b7280]">{shortenAddress(destinationWallet.wallet_address, 5)}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="tabular-nums text-[10px] text-[#5eead4]">◎ {destinationWallet.balance_lamports ? formatNumber(lamportsToSol(BigInt(destinationWallet.balance_lamports)), { decimals: 4 }) : '0'}</span>
+                        <span className="tabular-nums text-[10px] text-[#5eead4]">{destinationWallet.balance_lamports ? formatNumber(lamportsToSol(BigInt(destinationWallet.balance_lamports)), { decimals: 4 }) : '0'}</span>
                         <button
                           type="button"
                           onClick={() => setDestinationWalletId(null)}
@@ -791,7 +791,7 @@ function TransferModal({
           >
             <span className="inline-flex items-center gap-2">
               <span className="h-3 w-3 rounded-sm bg-[#5865F2]" />
-              Solana
+              TON
             </span>
             <ChevronDown className="h-3.5 w-3.5 text-[#6b7280]" />
           </button>
@@ -829,7 +829,7 @@ function TransferModal({
           </div>
 
           <div className="text-[11px] text-[#8b93a3]">
-            Available: <span className="tabular-nums text-[#d1d5db]">◎ {formatNumber(available, { decimals: 5 })}</span>
+            Available: <span className="tabular-nums text-[#d1d5db]">{formatNumber(available, { decimals: 5 })}</span>
           </div>
         </div>
         <div className="border-t p-3" style={{ borderColor: BORDER }}>
@@ -870,7 +870,7 @@ function PortfolioPlaceholderRows() {
   return (
     <>
       {Array.from({ length: 9 }).map((_, i) => (
-        <tr key={i} className="border-b" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#0b0d12' : '#151826' }}>
+        <tr key={i} className="border-b" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? '#080d14' : '#151826' }}>
           <td className="px-2 py-1">
             <div className="flex items-center gap-1.5">
               <span className="h-4 w-4 rounded bg-[#20263a]/70" />
@@ -900,7 +900,7 @@ function PerfRow({ label, value, bar }: { label: string; value: string; bar?: nu
         <span className="tabular-nums text-white">{value}</span>
       </div>
       {bar != null ? (
-        <div className="h-[3px] rounded-full bg-[#0b0d12]">
+        <div className="h-[3px] rounded-full bg-[#080d14]">
           <div className="h-full rounded-full bg-[#5865F2]" style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
         </div>
       ) : null}

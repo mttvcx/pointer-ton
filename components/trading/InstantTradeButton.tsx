@@ -13,7 +13,7 @@ import { useRecentTradeMintsStore } from '@/store/recentTradeMints';
 const SHORTCUTS = [
   { label: 'HYPE', mint: HYPE_MINT },
   { label: 'USDC', mint: USDC_MINT },
-  { label: 'SOL', mint: SOL_MINT },
+  { label: 'TON', mint: SOL_MINT },
 ] as const;
 
 const SELL_PCTS = [25, 50, 75, 100] as const;
@@ -59,7 +59,7 @@ export function InstantTradeButton() {
   function goToToken() {
     const raw = mintInput.trim();
     if (!isValidPublicKey(raw)) {
-      toast.error('Invalid mint', { description: 'Paste a valid Solana token mint address.' });
+      toast.error('Invalid mint', { description: 'Paste a valid TON jetton master or wallet address.' });
       return;
     }
     if (side === 'buy') {
@@ -173,7 +173,7 @@ export function InstantTradeButton() {
 
               <p className="mt-3 text-[11px] leading-snug text-fg-secondary">
                 {side === 'buy'
-                  ? 'Open the token page with optional SOL size pre-filled. USD sizing on-chart is next; you always sign with Privy on the token screen.'
+                  ? 'Open the token page with optional TON size pre-filled. USD sizing on-chart is next; you always sign with Privy on the token screen.'
                   : 'Jump to the token on the Sell tab. Set percent chips here for your workflow (full % routing on-token is expanding).'}
               </p>
 
@@ -213,7 +213,7 @@ export function InstantTradeButton() {
                 {side === 'buy' ? (
                   <div>
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-                      Size (SOL)
+                      Size (TON)
                     </span>
                     <div className="mt-1 flex flex-wrap gap-1">
                       <button
@@ -258,7 +258,7 @@ export function InstantTradeButton() {
                         setBuySolCustom(e.target.value);
                         setBuySolAttach(null);
                       }}
-                      placeholder="Custom SOL amount"
+                      placeholder="Custom TON amount"
                       className="focus-ring mt-2 w-full rounded-md border border-border-subtle bg-bg-base px-2.5 py-2 tabular-nums text-[12px] text-fg-primary placeholder:text-fg-muted"
                     />
                   </div>
@@ -322,7 +322,7 @@ export function InstantTradeButton() {
                           target="_blank"
                           rel="noreferrer"
                           className="shrink-0 rounded p-1 text-fg-muted hover:text-fg-secondary"
-                          aria-label="Solscan"
+                          aria-label="TON explorer"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <ExternalLink className="h-3.5 w-3.5" />

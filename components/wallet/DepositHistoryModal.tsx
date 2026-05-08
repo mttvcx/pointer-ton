@@ -24,7 +24,7 @@ export function DepositHistoryModal({ open, onOpenChange }: Props) {
       />
       <div
         className={cn(
-          'relative z-[1] flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-[#1b1f2a] bg-[#0b0d12] shadow-2xl',
+          'relative z-[1] flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-[#1b1f2a] bg-[#080d14] shadow-2xl',
           'font-sans text-[12px]',
         )}
         role="dialog"

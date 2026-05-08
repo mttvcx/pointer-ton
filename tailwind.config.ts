@@ -16,9 +16,9 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          base: '#0A0B0E',
-          raised: '#0A0B0E',
-          sunken: '#0A0B0E',
+          base: '#080D14',
+          raised: '#080D14',
+          sunken: '#080D14',
           hover: '#1A1D24',
         },
         border: {
@@ -30,11 +30,11 @@ const config: Config = {
           primary: '#E8EBF0',
           secondary: '#9BA3B0',
           muted: '#6B7280',
-          inverse: '#0A0B0E',
+          inverse: '#080D14',
         },
         accent: {
-          primary: '#7C5CFF',
-          glow: '#9D7BFF',
+          primary: '#0077B6',
+          glow: '#00A3E0',
         },
         signal: {
           bull: '#3DDC97',
@@ -43,34 +43,34 @@ const config: Config = {
           info: '#5EBBFF',
         },
         // shadcn token bridge - points all shadcn primitives at our palette
-        background: '#0A0B0E',
+        background: '#080D14',
         foreground: '#E8EBF0',
         card: {
-          DEFAULT: '#0A0B0E',
+          DEFAULT: '#080D14',
           foreground: '#E8EBF0',
         },
         popover: {
-          DEFAULT: '#0A0B0E',
+          DEFAULT: '#080D14',
           foreground: '#E8EBF0',
         },
         primary: {
-          DEFAULT: '#7C5CFF',
-          foreground: '#0A0B0E',
+          DEFAULT: '#0077B6',
+          foreground: '#080D14',
         },
         secondary: {
-          DEFAULT: '#0A0B0E',
+          DEFAULT: '#080D14',
           foreground: '#E8EBF0',
         },
         muted: {
-          DEFAULT: '#0A0B0E',
+          DEFAULT: '#080D14',
           foreground: '#9BA3B0',
         },
         destructive: {
           DEFAULT: '#FF5E78',
-          foreground: '#0A0B0E',
+          foreground: '#080D14',
         },
         input: '#2A2F3A',
-        ring: '#7C5CFF',
+        ring: '#0077B6',
       },
       fontFamily: {
         sans: [
@@ -100,8 +100,8 @@ const config: Config = {
         lg: '10px',
       },
       boxShadow: {
-        glow: '0 0 24px -4px rgba(124, 92, 255, 0.45)',
-        'glow-sm': '0 0 12px -2px rgba(124, 92, 255, 0.35)',
+        glow: '0 0 24px -4px rgba(0, 119, 182, 0.45)',
+        'glow-sm': '0 0 12px -2px rgba(0, 119, 182, 0.35)',
         panel: '0 1px 0 0 rgba(255,255,255,0.03) inset, 0 0 0 1px #1F232C',
       },
       keyframes: {
@@ -125,12 +125,22 @@ const config: Config = {
           '62.5%, 80%': { transform: 'translateY(-3.75rem)' },
           '82.5%, 100%': { transform: 'translateY(-5rem)' },
         },
+        'copilot-pill-in': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'copilot-pill-out': {
+          from: { opacity: '1', transform: 'translateY(0)' },
+          to: { opacity: '0', transform: 'translateY(-8px)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 160ms ease-out',
         'pulse-soft': 'pulse-soft 1.6s ease-in-out infinite',
         shimmer: 'shimmer 1.4s linear infinite',
         'bottom-bar-ticker': 'bottom-bar-ticker 12s linear infinite',
+        'copilot-pill-in': 'copilot-pill-in 200ms ease-out forwards',
+        'copilot-pill-out': 'copilot-pill-out 200ms ease-out forwards',
       },
     },
   },

@@ -116,7 +116,7 @@ export function formatSol(
   if (lamports == null) return EMPTY;
   const sol = lamportsToSol(lamports);
   const decimals = opts.decimals ?? (Math.abs(sol) < 1 ? 4 : 3);
-  return `${sol.toFixed(decimals)} SOL`;
+  return `${sol.toFixed(decimals)} TON`;
 }
 
 /* ------------------------------- time helpers ------------------------------- */

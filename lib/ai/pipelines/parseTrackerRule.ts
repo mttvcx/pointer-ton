@@ -10,12 +10,12 @@ export async function parseTrackerRuleNaturalLanguage(input: {
   walletLabel: string | null;
 }): Promise<ParseTrackerRuleOutput> {
   const system = [
-    'You convert natural-language Solana wallet tracker rules into strict JSON.',
+    'You convert natural-language wallet tracker rules into strict JSON (TON network, jettons, launchpads).',
     'eventTypes (array, 1-6): token_launch = wallet creates/deploys a new token; swap_buy / swap_sell = buys or sells (future); any_trade = any swap including launches for broad "anything" rules.',
     'For "new token", "launches", "deploys", "mints" use token_launch and/or any_trade.',
     'launchpadsAnyOf: optional short names e.g. ["pump.fun","bags","moonshot","printr"] - use null or omit if user did not restrict launchpads.',
-    'mintFilter: full Solana mint base58 only if user names one token; else null.',
-    'minSol: positive SOL threshold for swap rules only; null for launch-only rules.',
+    'mintFilter: full token / jetton address if user names one token; else null.',
+    'minSol: positive TON (native) threshold for swap rules only — use this JSON field name even though it is TON-notional; null for launch-only rules.',
     'summary: <=200 chars, human label shown in the UI (what this rule does).',
     'Respond ONLY with JSON: { "summary": string, "condition": { "eventTypes": [...], ... } }',
   ].join(' ');

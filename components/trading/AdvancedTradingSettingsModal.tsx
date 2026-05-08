@@ -94,7 +94,7 @@ function FormBody({
     onError: (e) => {
       const msg = e instanceof Error ? e.message : '';
       if (msg === 'max_fee_sol') {
-        toast.error('Invalid max fee', { description: 'Use a value between 0.000001 and 5 SOL.' });
+        toast.error('Invalid max fee', { description: 'Use a value between 0.000001 and 5 TON.' });
         return;
       }
       toast.error('Could not save', {
@@ -132,7 +132,7 @@ function FormBody({
 
           <label className="block space-y-1">
             <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Jito tip (lamports)
+              Jito tip (nanotons)
             </span>
             <input
               type="number"
@@ -161,7 +161,7 @@ function FormBody({
 
           <label className="block space-y-1">
             <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Priority fee cap / fixed (lamports)
+              Priority fee cap / fixed (nanotons)
             </span>
             <input
               type="number"
@@ -178,14 +178,14 @@ function FormBody({
             />
             <span className="block text-[10px] text-fg-muted">
               {autoFee
-                ? 'Disabled while auto fee is on; Jupiter picks a level up to the max below.'
+                ? 'Disabled while auto fee is on; the router picks a level up to the max below.'
                 : 'Fixed compute / priority budget on RPC-style routes (off or secure MEV).'}
             </span>
           </label>
 
           <label className="block space-y-1">
             <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Max total fee (SOL)
+              Max total fee (TON)
             </span>
             <input
               type="number"
@@ -197,8 +197,8 @@ function FormBody({
               className="focus-ring w-full border border-border-subtle bg-transparent px-2 py-1.5 tabular-nums text-fg-primary"
             />
             <span className="block text-[10px] text-fg-muted">
-              Upper bound on swap-side priority spend (converted to lamports). Current:{' '}
-              {formatNumber(maxFeeSol, { decimals: 4 })} SOL.
+              Upper bound on swap-side priority spend (converted to nanotons). Current:{' '}
+              {formatNumber(maxFeeSol, { decimals: 4 })} TON.
             </span>
           </label>
         </div>

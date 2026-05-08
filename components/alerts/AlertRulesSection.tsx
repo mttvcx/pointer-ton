@@ -3,11 +3,12 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { Bell, ChevronDown, Loader2, Trash2 } from 'lucide-react';
+import { Bell, ChevronDown, ExternalLink, Loader2, PanelLeft, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { type PulseProtocolId, PULSE_PROTOCOL_IDS } from '@/lib/tokens/columnPresetModel';
 import { playAlertPresetSound } from '@/lib/alerts/alertRulePayloadAudio';
 import { cn } from '@/lib/utils/cn';
+import { useUIStore } from '@/store/ui';
 
 const UI = {
   card: '#11141b',
@@ -15,20 +16,18 @@ const UI = {
   border: '#202636',
   muted: '#7f8aa3',
   text: '#f5f7ff',
-  accent: '#7c5cff',
+  accent: '#0077b6',
   cyan: '#34d5ff',
 } as const;
 
 const PROTOCOL_LABEL: Record<PulseProtocolId, string> = {
-  pump: 'Pump',
-  bags: 'Bags',
-  printr: 'Printr',
-  moonshot: 'Moonshot',
-  raydium: 'Raydium',
-  meteora: 'Meteora',
+  ton: 'TON Index',
+  dedust: 'DeDust',
+  stonfi: 'STON.fi',
+  megaton: 'Megaton',
 };
 
-const FLASH_PRESETS = ['#7C5CFF', '#3ddc97', '#ff5e78', '#fbbf24', '#38bdf8'] as const;
+const FLASH_PRESETS = ['#0077B6', '#3ddc97', '#ff5e78', '#fbbf24', '#38bdf8'] as const;
 
 const AUDIO_PRESETS = ['chime', 'bell', 'pop'] as const;
 
@@ -74,7 +73,24 @@ function ToggleRow({ children }: { children: React.ReactNode }) {
   return <div className="inline-flex items-center gap-2">{children}</div>;
 }
 
-export function AlertRulesSection() {
+function openAlertRulesPopout() {
+  const header = document.querySelector('header');
+  const top = Math.round((header?.getBoundingClientRect().bottom ?? 72) + 8);
+  const w = Math.min(440, Math.max(300, Math.round(window.innerWidth * 0.38)));
+  const bottomReserve = 64;
+  const h = Math.min(600, Math.max(320, window.innerHeight - top - bottomReserve));
+  const st = useUIStore.getState();
+  st.setAlertRulesDocked(false);
+  st.setAlertRulesPopout({ top, left: 14, width: w, height: h });
+}
+
+export function AlertRulesSection({
+  embedInFloatingPanel = false,
+  showPopoutLauncher = false,
+}: {
+  embedInFloatingPanel?: boolean;
+  showPopoutLauncher?: boolean;
+} = {}) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const qc = useQueryClient();
   const [name, setName] = useState('');
@@ -83,7 +99,7 @@ export function AlertRulesSection() {
   );
   const [minLiq, setMinLiq] = useState('');
   const [flashEnabled, setFlashEnabled] = useState(true);
-  const [flashColor, setFlashColor] = useState('#7C5CFF');
+  const [flashColor, setFlashColor] = useState('#0077B6');
   const [flashSize, setFlashSize] = useState<'normal' | 'large'>('normal');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [audioPreset, setAudioPreset] = useState<(typeof AUDIO_PRESETS)[number]>('chime');
@@ -230,7 +246,7 @@ export function AlertRulesSection() {
   }
 
   const inputCls =
-    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#7c5cff]/45 w-full rounded-lg border px-2 py-1.5 text-[12px] transition';
+    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0077b6]/45 w-full rounded-lg border px-2 py-1.5 text-[12px] transition';
 
   return (
     <div className="flex flex-col gap-2">
@@ -240,37 +256,79 @@ export function AlertRulesSection() {
         className="overflow-hidden rounded-xl border"
         style={{ borderColor: UI.border, backgroundColor: UI.card }}
       >
-        <button
-          type="button"
-          onClick={() => setBuilderOpen((v) => !v)}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-white/[0.03]"
-          aria-expanded={builderOpen}
-        >
-          <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
-            Alert Builder
-          </span>
-          <span
-            className="rounded-full border px-2 py-px text-[10px] font-medium"
-            style={{
-              borderColor: `${UI.cyan}44`,
-              color: UI.cyan,
-              backgroundColor: `${UI.cyan}10`,
-            }}
-          >
-            Rule-based
-          </span>
-          <ChevronDown
-            className={cn(
-              'ml-auto h-4 w-4 shrink-0 transition-transform',
-              builderOpen ? 'rotate-180' : 'rotate-0',
-            )}
-            style={{ color: UI.muted }}
-          />
-        </button>
+        {!embedInFloatingPanel ? (
+          <div className="flex items-stretch gap-0.5 px-2 py-1.5">
+            <button
+              type="button"
+              onClick={() => setBuilderOpen((v) => !v)}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.03]"
+              aria-expanded={builderOpen}
+            >
+              <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
+                Alert Builder
+              </span>
+              <span
+                className="rounded-full border px-2 py-px text-[10px] font-medium"
+                style={{
+                  borderColor: `${UI.cyan}44`,
+                  color: UI.cyan,
+                  backgroundColor: `${UI.cyan}10`,
+                }}
+              >
+                Rule-based
+              </span>
+              <ChevronDown
+                className={cn(
+                  'ml-auto h-4 w-4 shrink-0 transition-transform',
+                  builderOpen ? 'rotate-180' : 'rotate-0',
+                )}
+                style={{ color: UI.muted }}
+              />
+            </button>
+            {showPopoutLauncher ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => useUIStore.getState().setAlertRulesDocked(true)}
+                  className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+                  title="Dock in left shell"
+                  aria-label="Dock alert builder in left rail"
+                >
+                  <PanelLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAlertRulesPopout()}
+                  className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+                  title="Pop out — drag, resize, dock to edge"
+                  aria-label="Pop out alert builder"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <div className="border-b px-3 py-2" style={{ borderColor: UI.border }}>
+            <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
+              Alert Builder
+            </span>
+            <span
+              className="ml-2 rounded-full border px-2 py-px text-[10px] font-medium"
+              style={{
+                borderColor: `${UI.cyan}44`,
+                color: UI.cyan,
+                backgroundColor: `${UI.cyan}10`,
+              }}
+            >
+              Rule-based
+            </span>
+          </div>
+        )}
 
-        {builderOpen ? (
+        {embedInFloatingPanel || builderOpen ? (
           <form
-            className="space-y-2 border-t px-3 py-2"
+            className={cn('space-y-2 px-3 py-2', !embedInFloatingPanel && 'border-t')}
             style={{ borderColor: UI.border }}
             onSubmit={(e) => {
               e.preventDefault();
@@ -338,7 +396,7 @@ export function AlertRulesSection() {
             <div className="space-y-2">
               <SectionLabel>Conditions</SectionLabel>
               <div className="space-y-1">
-                <FieldLabel hint="Optional">Minimum initial SOL</FieldLabel>
+                <FieldLabel hint="Optional">Minimum initial TON</FieldLabel>
                 <input
                   value={minLiq}
                   onChange={(e) => setMinLiq(e.target.value)}
@@ -495,7 +553,7 @@ export function AlertRulesSection() {
               className="w-full rounded-lg py-2 text-[12px] font-semibold transition disabled:opacity-45"
               style={{
                 backgroundImage: `linear-gradient(135deg, ${UI.accent} 0%, #5f8bff 100%)`,
-                color: '#0b0d12',
+                color: '#080d14',
               }}
             >
               {createMutation.isPending ? (
@@ -650,7 +708,7 @@ function ruleSummary(r: RuleDto): string {
     c.launchpads?.length ? c.launchpads.map((p) => PROTOCOL_LABEL[p] ?? p).join(', ') : 'any pad';
   const liq =
     c.minInitialLiquiditySol != null && c.minInitialLiquiditySol > 0
-      ? ` / min ${c.minInitialLiquiditySol} SOL`
+      ? ` / min ${c.minInitialLiquiditySol} TON`
       : '';
   return `${pads}${liq}`;
 }

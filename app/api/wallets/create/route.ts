@@ -49,12 +49,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  const owned = await privyUserOwnsSolanaAddress(verified.walletAddress, body.wallet_address);
-  if (!owned) {
-    return NextResponse.json(
-      { error: 'wallet_not_linked', message: 'Address must match your connected TON wallet' },
-      { status: 403 },
-    );
+  if (body.is_imported !== true) {
+    const owned = await privyUserOwnsSolanaAddress(verified.walletAddress, body.wallet_address);
+    if (!owned) {
+      return NextResponse.json(
+        { error: 'wallet_not_linked', message: 'Address must match your connected TON wallet' },
+        { status: 403 },
+      );
+    }
   }
 
   const dup = await getUserWalletByAddress(user.id, body.wallet_address);

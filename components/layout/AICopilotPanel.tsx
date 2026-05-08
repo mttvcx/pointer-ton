@@ -9,6 +9,8 @@ import {
   ChevronsRight,
   Globe,
   Headphones,
+  PanelRight,
+  Pill,
   Settings2,
   Sparkles,
   X,
@@ -18,9 +20,11 @@ import {
   useUIStore,
   computeCopilotAlertsReadIso,
 } from '@/store/ui';
+import { CopilotPillHost } from '@/components/ai/CopilotPill';
 import { ContextCard } from '@/components/ai/ContextCard';
 import { AskBox } from '@/components/ai/AskBox';
 import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
+import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
 import { AlertsTicker } from '@/components/ai/AlertsTicker';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { cn } from '@/lib/utils/cn';
@@ -43,9 +47,9 @@ const COPILOT_CHROME = {
   border: '#202636',
   muted: '#7f8aa3',
   text: '#f5f7ff',
-  accent: '#7c5cff',
+  accent: '#0077b6',
   cyan: '#34d5ff',
-  bg: '#0b0d12',
+  bg: '#080d14',
   success: '#28e0a0',
   glass: 'linear-gradient(180deg, rgba(17,20,27,0.98) 0%, rgba(11,13,18,0.96) 100%)',
 } as const;
@@ -279,24 +283,30 @@ function copilotUnreadCount(
 }
 
 function CopilotAlertsReadSync() {
+  const displayMode = useUIStore((s) => s.copilotDisplayMode);
+  const pillExpanded = useUIStore((s) => s.copilotPillExpanded);
   const open = useUIStore((s) => s.panelOpen);
   const collapsed = useUIStore((s) => s.panelCollapsed);
   const lastRead = useUIStore((s) => s.lastCopilotAlertsReadAt);
   const markRead = useUIStore((s) => s.markCopilotAlertsRead);
   const { data } = useAlertsTickerQuery();
 
+  const surfaceOpen = displayMode === 'pill' ? pillExpanded : open && !collapsed;
+
   useEffect(() => {
-    if (!data?.length || !open || collapsed) return;
+    if (!data?.length || !surfaceOpen) return;
     const nextIso = computeCopilotAlertsReadIso(data);
     const prevT = lastRead ? new Date(lastRead).getTime() : 0;
     if (new Date(nextIso).getTime() <= prevT) return;
     markRead(data);
-  }, [data, open, collapsed, lastRead, markRead]);
+  }, [data, surfaceOpen, lastRead, markRead]);
 
   return null;
 }
 
 export function AICopilotPanel() {
+  const displayMode = useUIStore((s) => s.copilotDisplayMode);
+  const setDisplayMode = useUIStore((s) => s.setCopilotDisplayMode);
   const open = useUIStore((s) => s.panelOpen);
   const collapsed = useUIStore((s) => s.panelCollapsed);
   const width = useUIStore((s) => s.panelWidth);
@@ -313,6 +323,8 @@ export function AICopilotPanel() {
   const entity = useUIStore(selectActiveEntity);
   const lockedEntity = useUIStore((s) => s.lockedEntity);
   const hoveredEntity = useUIStore((s) => s.hoveredEntity);
+
+  const alertRulesAway = useUIStore((s) => s.alertRulesPopout != null || s.alertRulesDocked);
 
   const [narrow, setNarrow] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -452,7 +464,7 @@ export function AICopilotPanel() {
           onPointerMove={onResizePointerMove}
           onPointerUp={onResizePointerUp}
           onPointerCancel={onResizePointerUp}
-          className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-[#7c5cff]/35"
+          className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/35"
         />
       ) : null}
 
@@ -529,6 +541,40 @@ export function AICopilotPanel() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          <span className="mr-0.5 hidden items-center rounded-md border p-0.5 sm:inline-flex" style={{ borderColor: COPILOT_CHROME.border }}>
+            <button
+              type="button"
+              aria-label="Co-pilot as right panel"
+              title="Panel layout"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDisplayMode('panel');
+              }}
+              className="focus-ring rounded px-1.5 py-1"
+              style={{
+                color: displayMode === 'panel' ? COPILOT_CHROME.cyan : COPILOT_CHROME.muted,
+                backgroundColor: displayMode === 'panel' ? `${COPILOT_CHROME.accent}22` : 'transparent',
+              }}
+            >
+              <PanelRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+            </button>
+            <button
+              type="button"
+              aria-label="Co-pilot as top pill"
+              title="Pill layout"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDisplayMode('pill');
+              }}
+              className="focus-ring rounded px-1.5 py-1"
+              style={{
+                color: displayMode === 'pill' ? COPILOT_CHROME.cyan : COPILOT_CHROME.muted,
+                backgroundColor: displayMode === 'pill' ? `${COPILOT_CHROME.accent}22` : 'transparent',
+              }}
+            >
+              <Pill className="h-3.5 w-3.5" strokeWidth={2.25} />
+            </button>
+          </span>
           {!narrow ? (
             <button
               type="button"
@@ -583,7 +629,11 @@ export function AICopilotPanel() {
         <div className="flex flex-col gap-2 pb-2">
           <ContextCard entity={entity} />
           <AskBox entity={entity} />
-          <AlertRulesSection />
+          {alertRulesAway ? (
+            <AlertBuilderEmbeddedPlaceholder />
+          ) : (
+            <AlertRulesSection showPopoutLauncher />
+          )}
           <AlertsTicker />
         </div>
       </div>
@@ -663,6 +713,10 @@ export function AICopilotPanel() {
         )
       : null;
 
+  if (displayMode === 'pill') {
+    return <CopilotPillHost />;
+  }
+
   if (detached && open && !narrow) {
     return <>{floatingLayer}</>;
   }
@@ -672,7 +726,7 @@ export function AICopilotPanel() {
       <aside
         data-onboarding="copilot"
         className={cn(
-          'relative flex h-full min-h-0 flex-col border-l border-[#202636] bg-[#0b0d12]/95 backdrop-blur-md',
+          'relative flex h-full min-h-0 flex-col border-l border-[#202636] bg-[#080d14]/95 backdrop-blur-md',
           narrow
             ? cn(
                 open
@@ -749,26 +803,40 @@ export function AICopilotPanel() {
 }
 
 export function CopilotToggleButton() {
+  const displayMode = useUIStore((s) => s.copilotDisplayMode);
   const open = useUIStore((s) => s.panelOpen);
   const collapsed = useUIStore((s) => s.panelCollapsed);
   const setOpen = useUIStore((s) => s.setPanelOpen);
   const setCollapsed = useUIStore((s) => s.setPanelCollapsed);
   const setDetached = useUIStore((s) => s.setCopilotDetached);
-  if (open && !collapsed) return null;
+  const setPillExpanded = useUIStore((s) => s.setCopilotPillExpanded);
+
+  if (displayMode !== 'pill' && open && !collapsed) return null;
+
   return (
     <button
       type="button"
       onClick={() => {
+        if (displayMode === 'pill') {
+          setPillExpanded(true);
+          return;
+        }
         setDetached(false);
         if (!open) setOpen(true);
         else setCollapsed(false);
       }}
-      aria-label={open ? 'Expand co-pilot' : 'Show co-pilot'}
+      aria-label={
+        displayMode === 'pill'
+          ? 'Open co-pilot'
+          : open
+            ? 'Expand co-pilot'
+            : 'Show co-pilot'
+      }
       data-onboarding="copilot"
       className="btn-press focus-ring flex shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-bg-base px-1.5 py-1 text-[11px] font-medium text-fg-secondary transition-all duration-150 hover:border-accent-primary/40 hover:text-fg-primary sm:px-2 sm:text-xs"
     >
       <Sparkles className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2.25} />
-      {open ? 'Expand' : 'Co-pilot'}
+      {displayMode === 'pill' ? 'Co-pilot' : open ? 'Expand' : 'Co-pilot'}
       <ChevronsRight className="hidden h-3 w-3 sm:block" />
     </button>
   );

@@ -1,6 +1,6 @@
 import 'server-only';
 import { subDays } from 'date-fns';
-import { getHeliusClient } from '@/lib/helius/client';
+import { fetchTonApiJettonUsdPrice } from '@/lib/ton/tonApi';
 import { listSnapshotsForMintRange, type TokenMarketSnapshotRow } from '@/lib/db/tokens';
 
 export type ChartInterval = '1s' | '3m' | '1m' | '5m' | '15m' | '1h' | '1d' | '5d';
@@ -36,17 +36,9 @@ export function chartIntervalSeconds(interval: ChartInterval): number {
   }
 }
 
-/** Helius DAS spot USD (via Jupiter price fields on the asset). */
-export async function getHeliusSpotUsd(mint: string): Promise<number | null> {
-  const helius = getHeliusClient();
-  try {
-    const asset = await helius.getAsset({ id: mint, options: { showFungible: true } });
-    const p = asset.token_info?.price_info?.price_per_token;
-    if (p != null && Number.isFinite(p) && p > 0) return p;
-  } catch {
-    return null;
-  }
-  return null;
+/** Live spot USD from TonAPI rates (display only; not for settlement). */
+export async function getLiveJettonSpotUsd(mint: string): Promise<number | null> {
+  return fetchTonApiJettonUsdPrice(mint);
 }
 
 export function aggregateSnapshotsToOhlc(
@@ -98,7 +90,7 @@ export function aggregateSnapshotsToOhlc(
     }));
 }
 
-/** Append or extend the last candle with a live Helius/Jupiter spot. */
+/** Append or extend the last candle with a live TonAPI spot. */
 export function mergeLiveSpot(bars: OhlcBar[], intervalSec: number, spotUsd: number | null): OhlcBar[] {
   if (spotUsd == null || !Number.isFinite(spotUsd) || spotUsd <= 0) return bars;
   const nowSec = Math.floor(Date.now() / 1000);
@@ -153,6 +145,6 @@ export async function getTokenChartBars(mint: string, interval: ChartInterval): 
   const limit = interval === '1d' || interval === '5d' ? 8000 : 4000;
   const snaps = await listSnapshotsForMintRange(mint, since, limit);
   const fromDb = aggregateSnapshotsToOhlc(snaps, intervalSec);
-  const spot = await getHeliusSpotUsd(mint);
+  const spot = await getLiveJettonSpotUsd(mint);
   return mergeLiveSpot(fromDb, intervalSec, spot);
 }

@@ -113,7 +113,7 @@ export function ExchangeModal({
           {tab === 'convert' ? (
             <div className="space-y-3 py-2">
               <p className="text-[12px] leading-relaxed text-[#9ca3af]">
-                Cross-chain conversion (bridge) is not available in Pointer yet. Deposit native SOL from
+                Cross-chain conversion (bridge) is not available in Pointer yet. Deposit native TON from
                 an external wallet, or sell on another venue and withdraw here.
               </p>
             </div>
@@ -121,7 +121,7 @@ export function ExchangeModal({
           {tab === 'buy' ? (
             <div className="space-y-4 py-2">
               <p className="text-[12px] leading-relaxed text-[#9ca3af]">
-                Buy crypto with a card or bank transfer, then send SOL to your Pointer wallet address.
+                Buy crypto with a card or bank transfer, then send TON to your Pointer wallet address.
               </p>
               <a
                 href={ONRAMPER_HREF}
@@ -158,9 +158,9 @@ export function ExchangeModal({
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#9945FF]/20 text-[10px] font-semibold text-[#c4b5fd]">
-                        S
+                        T
                       </span>
-                      <span className="truncate font-semibold">SOL</span>
+                      <span className="truncate font-semibold">TON</span>
                     </span>
                     <ChevronDown
                       className={cn(
@@ -174,22 +174,22 @@ export function ExchangeModal({
                       <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#4b5563]">
                         Networks
                       </div>
-                      {['Solana', 'ETH', 'BASE', 'ARBITRUM', 'POLYGON', 'BSC', 'BITCOIN'].map(
+                      {['TON', 'ETH', 'BASE', 'ARBITRUM', 'POLYGON', 'BSC', 'BITCOIN'].map(
                         (n) => (
                           <button
                             key={n}
                             type="button"
-                            disabled={n !== 'Solana'}
+                            disabled={n !== 'TON'}
                             onClick={() => setAssetOpen(false)}
                             className={cn(
                               'flex w-full items-center px-2.5 py-1.5 text-left text-[11px]',
-                              n === 'Solana'
+                              n === 'TON'
                                 ? 'text-white hover:bg-white/5'
                                 : 'cursor-not-allowed text-[#4b5563]',
                             )}
                           >
                             {n}
-                            {n !== 'Solana' ? (
+                            {n !== 'TON' ? (
                               <span className="ml-auto text-[9px] text-[#4b5563]">Soon</span>
                             ) : null}
                           </button>
@@ -209,7 +209,7 @@ export function ExchangeModal({
               </div>
 
               <p className="text-[11px] leading-snug text-[#6b7280]">
-                Deposit SOL or SPL tokens directly to your wallet address.
+                Deposit TON or jettons directly to your wallet address.
               </p>
 
               <div className="flex gap-3 rounded-lg border border-[#1b1f2a] bg-[#12141b] p-3">
@@ -224,13 +224,13 @@ export function ExchangeModal({
                     />
                   </div>
                   <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-[#9945FF] text-[10px] font-semibold text-white shadow">
-                    S
+                    T
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
                   <div>
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
-                      SOL Deposit Address
+                      TON deposit address
                     </div>
                     <div className="mt-1 break-all tabular-nums text-[12px] leading-snug text-white">
                       {walletAddress}
@@ -266,7 +266,7 @@ export function ExchangeModal({
               </div>
 
               <p className="text-center text-[11px] text-[#6b7280]">
-                Don&apos;t have any SOL?{' '}
+                Don&apos;t have any TON?{' '}
                 <a
                   href={ONRAMPER_HREF}
                   target="_blank"
@@ -279,7 +279,7 @@ export function ExchangeModal({
             </div>
           ) : tab === 'deposit' && !walletAddress ? (
             <p className="py-8 text-center text-[12px] text-[#6b7280]">
-              No active Solana wallet. Open /wallets to create or link one.
+              No active TON wallet. Open /wallets to create or link one.
             </p>
           ) : null}
         </div>

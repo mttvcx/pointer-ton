@@ -9,15 +9,11 @@ import {
   formatPercent,
   formatRelativeTime,
 } from '@/lib/utils/formatters';
-import { shortenAddress } from '@/lib/utils/addresses';
+import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { PulseSocialModel } from '@/lib/tokens/pulseSocialLinks';
 import { agentBuybackPctFromMetadata } from '@/lib/tokens/pulseRichMetadata';
-
-function solscanAccountUrl(address: string): string {
-  return `https://solscan.io/account/${encodeURIComponent(address)}`;
-}
 
 function isTwitterishUrl(url: string): boolean {
   try {
@@ -205,7 +201,7 @@ export function FeeShareHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
         <p className={labelMuted}>Fee authority</p>
         {dev ? (
           <a
-            href={solscanAccountUrl(dev)}
+            href={explorerAddressUrl(dev)}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-black/30 px-2.5 py-2 text-[11px] text-white transition hover:border-white/15"
@@ -303,7 +299,7 @@ export function AgentHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
         <p className={labelMuted}>Payment authority</p>
         {pay ? (
           <a
-            href={solscanAccountUrl(pay)}
+            href={explorerAddressUrl(pay)}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-black/30 px-2.5 py-2"
@@ -348,7 +344,7 @@ export function PumpFunHoverPanel({ bundle, pumpUrl }: { bundle: PulseTokenBundl
           rel="noopener noreferrer"
           className="mt-3 flex w-full items-center justify-center rounded-lg border border-white/15 bg-black/40 py-2 text-[11px] font-semibold text-white transition hover:border-emerald-400/40 hover:text-emerald-300"
         >
-          Open in pump.fun
+          Open on TON launchpad
         </a>
       </div>
     </div>
@@ -369,11 +365,11 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
         </span>
         {token.creator_wallet ? (
           <a
-            href={solscanAccountUrl(token.creator_wallet)}
+            href={explorerAddressUrl(token.creator_wallet)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[#9ca3af] hover:text-[#70C0E8]"
-            aria-label="Solscan"
+            aria-label="TON explorer"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
           </a>
@@ -384,7 +380,7 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
           <p className="text-[12px] font-semibold tabular-nums text-white">
             {sol != null ? `${formatNumber(sol, { decimals: 3 })}` : '-'}
           </p>
-          <p className="text-[9px] text-[#9ca3af]">SOL seeded</p>
+          <p className="text-[9px] text-[#9ca3af]">TON seeded</p>
         </div>
         <div className="rounded-lg border border-white/[0.08] bg-black/35 px-2 py-2 text-center">
           <p className="text-[12px] font-semibold tabular-nums text-white">

@@ -1,4 +1,4 @@
--- Phase 4 Pointer ù run in Supabase SQL editor before using Phase 4 features.
+-- Phase 4 Pointer ÔøΩ run in Supabase SQL editor before using Phase 4 features.
 -- notify pgrst at end if you use PostgREST schema cache reload.
 
 -- Wallet labels (Step 1+)
@@ -23,7 +23,7 @@ create table if not exists alert_rules (
   rule_type text not null,
   rule_config jsonb not null,
   flash_enabled boolean default true,
-  flash_color text default '#7C5CFF',
+  flash_color text default '#0077B6',
   flash_size text default 'normal',
   audio_enabled boolean default false,
   audio_url text,

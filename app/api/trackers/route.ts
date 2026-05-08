@@ -11,21 +11,21 @@ import {
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { enrichTrackedWalletAddresses } from '@/lib/trackers/enrichAddresses';
-import { isValidPublicKey } from '@/lib/utils/addresses';
+import { isValidTonTrackedAddress } from '@/lib/utils/addresses';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const PatchBodySchema = z
   .object({
-    walletAddress: z.string().refine(isValidPublicKey),
+    walletAddress: z.string().refine(isValidTonTrackedAddress),
     notify: z.boolean(),
   })
   .strict();
 
 const PostBodySchema = z
   .object({
-    walletAddress: z.string().refine(isValidPublicKey),
+    walletAddress: z.string().refine(isValidTonTrackedAddress),
     label: z.string().trim().max(64).optional().nullable(),
   })
   .strict();
@@ -229,7 +229,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const address = req.nextUrl.searchParams.get('address')?.trim() ?? '';
-  if (!address || !isValidPublicKey(address)) {
+  if (!address || !isValidTonTrackedAddress(address)) {
     return NextResponse.json({ error: 'invalid_address' }, { status: 400 });
   }
 

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getFeeBpsForUser } from '@/lib/db/tiers';
@@ -8,18 +8,20 @@ import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
 import { awardPoints } from '@/lib/points/award';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { recordReferralEarningFromTrade } from '@/lib/referrals/earnings';
-import { submitTransaction } from '@/lib/solana/submit';
-import { isValidPublicKey } from '@/lib/utils/addresses';
+import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const tonAddr = z.string().refine((s) => Boolean(normalizeTonAddress(s)), 'invalid_ton_address');
+
 const ExecuteBodySchema = z
   .object({
+    /** TonConnect `sendTransaction` result: signed external-message BOC (base64). */
     signedTransaction: z.string().min(80),
-    userPublicKey: z.string().refine(isValidPublicKey, 'invalid userPublicKey'),
-    mint: z.string().refine(isValidPublicKey),
+    userPublicKey: tonAddr,
+    mint: tonAddr,
     side: z.enum(['buy', 'sell']),
     amountInRaw: z.string().regex(/^\d+$/),
     amountOutRaw: z.string().regex(/^\d+$/),
@@ -58,7 +60,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_body', message }, { status: 400 });
   }
 
-  const tradeOk = await userCanUseWalletForTrading(user, body.userPublicKey);
+  const walletCanon = normalizeTonAddress(body.userPublicKey)!;
+  const mintCanon = normalizeTonAddress(body.mint)!;
+
+  const tradeOk = await userCanUseWalletForTrading(user, walletCanon);
   if (!tradeOk) {
     return NextResponse.json(
       {
@@ -69,12 +74,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let serialized: Uint8Array;
+  let serialized: Buffer;
   try {
-    serialized = Uint8Array.from(Buffer.from(body.signedTransaction, 'base64'));
+    serialized = Buffer.from(body.signedTransaction, 'base64');
+    if (serialized.length < 32) throw new Error('short_boc');
   } catch {
     return NextResponse.json({ error: 'invalid_transaction_encoding' }, { status: 400 });
   }
+
+  /** Stable id for DB + points; wallet has already broadcast via TonConnect. */
+  const txSignature = `ton:${createHash('sha256').update(serialized).digest('hex')}`;
 
   const amountSol =
     body.amountSolNotional ??
@@ -83,31 +92,6 @@ export async function POST(req: NextRequest) {
       : lamportsToSol(BigInt(body.amountOutRaw)));
 
   const submittedAt = new Date().toISOString();
-  const result = await submitTransaction(serialized);
-
-  if (result.status === 'failed') {
-    try {
-      await insertTrade({
-        id: randomUUID(),
-        user_id: user.id,
-        mint: body.mint,
-        side: body.side,
-        amount_in_raw: body.amountInRaw,
-        amount_out_raw: body.amountOutRaw,
-        tx_signature: `failed:${randomUUID()}`,
-        status: 'failed',
-        failure_reason: result.error ?? 'submit_failed',
-        submitted_at: submittedAt,
-        confirmed_at: null,
-      });
-    } catch {
-      /* best-effort audit row */
-    }
-    return NextResponse.json(
-      { error: 'execute_failed', message: result.error, signature: result.signature },
-      { status: 502 },
-    );
-  }
 
   const feeBps = await getFeeBpsForUser(user.id);
   const lamports = solToLamports(amountSol);
@@ -116,13 +100,13 @@ export async function POST(req: NextRequest) {
   const trade = await insertTrade({
     id: randomUUID(),
     user_id: user.id,
-    mint: body.mint,
+    mint: mintCanon,
     side: body.side,
     amount_in_raw: body.amountInRaw,
     amount_out_raw: body.amountOutRaw,
     amount_sol: amountSol,
     platform_fee_lamports: Number.isFinite(platformFeeLamports) ? platformFeeLamports : null,
-    tx_signature: result.signature,
+    tx_signature: txSignature,
     status: 'confirmed',
     submitted_at: submittedAt,
     confirmed_at: new Date().toISOString(),
@@ -140,9 +124,9 @@ export async function POST(req: NextRequest) {
 
   try {
     await awardPoints(user.id, 'trade_volume', {
-      dedupeKey: `trade:${result.signature}`,
+      dedupeKey: `trade:${txSignature}`,
       amountSol,
-      metadata: { mint: body.mint, side: body.side, signature: result.signature },
+      metadata: { mint: mintCanon, side: body.side, signature: txSignature },
     });
   } catch {
     /* best-effort */
@@ -153,7 +137,7 @@ export async function POST(req: NextRequest) {
     if (n === 1) {
       await awardPoints(user.id, 'first_trade', {
         dedupeKey: 'first_trade',
-        metadata: { signature: result.signature },
+        metadata: { signature: txSignature },
       });
     }
   } catch {
@@ -161,7 +145,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    signature: result.signature,
+    signature: txSignature,
     tradeId: trade.id,
     status: 'confirmed',
   });

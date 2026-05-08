@@ -161,7 +161,7 @@ export function TrackerRulesSection({ tracker }: { tracker: TrackerRow }) {
           <p className="text-[11px] leading-snug text-fg-secondary">
             Describe what you want in plain English. Example:{' '}
             <span className="text-fg-muted">
-              &ldquo;Only pump.fun launches&rdquo; or &ldquo;Any new token from this wallet&rdquo;.
+              &ldquo;Only TON launchpad launches&rdquo; or &ldquo;Any new token from this wallet&rdquo;.
             </span>
           </p>
 
@@ -170,7 +170,7 @@ export function TrackerRulesSection({ tracker }: { tracker: TrackerRow }) {
               value={nl}
               onChange={(e) => setNl(e.target.value)}
               rows={3}
-              placeholder="e.g. Alert me only when they launch on pump.fun"
+              placeholder="e.g. Alert me only when they launch on the TON launchpad"
               className="focus-ring w-full resize-y rounded-md border border-border-subtle bg-bg-base px-3 py-2 text-[13px] text-fg-primary placeholder:text-fg-muted hover:border-border-default focus:border-accent-primary/60"
             />
             <div className="flex flex-wrap gap-2">

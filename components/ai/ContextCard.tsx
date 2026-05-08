@@ -37,7 +37,7 @@ const COPILOT = {
   border: '#202636',
   muted: '#7f8aa3',
   text: '#f5f7ff',
-  accent: '#7c5cff',
+  accent: '#0077b6',
   cyan: '#34d5ff',
 } as const;
 
@@ -163,7 +163,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
             <div className="mt-2 flex flex-wrap gap-1">
               {(
                 [
-                  ['explain', 'Explain token', () => dispatchCopilotAsk('What should I check first on a new Solana token?')],
+                  ['explain', 'Explain token', () => dispatchCopilotAsk('What should I check first on a new TON token?')],
                   ['risks', 'Find risks', () => dispatchCopilotAsk('What are the most common rug and bundle risks on fresh launches?')],
                   ['alert', 'Build alert', scrollToAlertBuilder],
                 ] as const

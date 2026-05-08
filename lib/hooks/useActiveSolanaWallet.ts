@@ -21,7 +21,7 @@ export type MyWalletRow = {
 
 /**
  * Active TON wallet for the session (TonConnect). Kept name for minimal churn
- * across trading / portfolio components until the Solana→TON swap is complete.
+ * across trading / portfolio components. Rename to useActiveTonWallet when convenient.
  */
 export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
   const { linkedTonAddress, ready: authReady } = usePointerAuth();

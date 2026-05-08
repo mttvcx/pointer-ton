@@ -152,7 +152,7 @@ export default async function PnlSharePage({ params }: PageProps) {
         <dl className="mt-5 space-y-2 border-t border-border-subtle pt-4 tabular-nums text-sm tabular-nums">
           {d.amountSol != null && Number.isFinite(d.amountSol) ? (
             <div className="flex justify-between gap-3">
-              <dt className="text-fg-muted">SOL (est.)</dt>
+              <dt className="text-fg-muted">TON (est.)</dt>
               <dd className="text-fg-primary">{formatNumber(d.amountSol, { decimals: 4 })}</dd>
             </div>
           ) : null}
@@ -180,7 +180,7 @@ export default async function PnlSharePage({ params }: PageProps) {
                 {formatUsd(d.displayRealizedPnlUsd!)}
                 {d.displayRealizedPnlSol != null && Number.isFinite(d.displayRealizedPnlSol) ? (
                   <span className="mt-0.5 block text-[11px] font-normal text-fg-muted">
-                    {formatNumber(d.displayRealizedPnlSol, { decimals: 4 })} SOL
+                    {formatNumber(d.displayRealizedPnlSol, { decimals: 4 })} TON
                   </span>
                 ) : null}
               </dd>
