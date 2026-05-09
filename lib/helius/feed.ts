@@ -27,6 +27,8 @@ import { tonCenterAddressIsActive } from '@/lib/ton/tonCenter';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
+import { pollGeckoNewPools } from '@/lib/evm/geckoTerminalPulse';
+import { pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
 
 const PULSE_PAGE_SIZE = 60;
 const TONAPI_POLL_BATCH = 48;
@@ -233,11 +235,34 @@ async function pollPulseColumn(): Promise<{ inserted: number; via: 'tonapi' }> {
 }
 
 export async function runScheduledPulsePoll(): Promise<{
-  inserted: number;
-  via: 'tonapi' | 'legacy-owner';
+  tonapi: number;
+  solDas: number;
+  geckoBsc: number;
+  geckoBase: number;
 }> {
-  const r = await pollPulseColumn();
-  return { inserted: r.inserted, via: r.via === 'tonapi' ? 'tonapi' : 'legacy-owner' };
+  const ton = await pollPulseColumn();
+  let solDas = 0;
+  let geckoBsc = 0;
+  let geckoBase = 0;
+  try {
+    solDas = await pollSolanaPulseFromDas();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[pointer][pulse DAS] scheduled Sol poll failed:', msg);
+  }
+  try {
+    geckoBsc = await pollGeckoNewPools('bsc');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[pointer][pulse Gecko] BSC poll failed:', msg);
+  }
+  try {
+    geckoBase = await pollGeckoNewPools('base');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[pointer][pulse Gecko] Base poll failed:', msg);
+  }
+  return { tonapi: ton.inserted, solDas, geckoBsc, geckoBase };
 }
 
 export async function getPulseFeed(
@@ -262,7 +287,25 @@ export async function getPulseFeed(
     }
     tokens = (await listTokensForColumn(column)).filter((t) => mintMatchesAppChain(t.mint, chain));
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
-    tokens = await widenChainBackfill(column, chain);
+    try {
+      if (chain === 'sol') {
+        const inserted = await pollSolanaPulseFromDas();
+        debugTon('getPulseFeed: Sol DAS poll inserted', { inserted });
+      } else if (chain === 'bnb') {
+        const inserted = await pollGeckoNewPools('bsc');
+        debugTon('getPulseFeed: Gecko BSC poll inserted', { inserted });
+      } else if (chain === 'base') {
+        const inserted = await pollGeckoNewPools('base');
+        debugTon('getPulseFeed: Gecko Base poll inserted', { inserted });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[pointer][pulse] chain poll failed (${chain}):`, msg);
+    }
+    tokens = (await listTokensForColumn(column)).filter((t) => mintMatchesAppChain(t.mint, chain));
+    if (tokens.length < MIN_ROWS_BEFORE_POLL) {
+      tokens = await widenChainBackfill(column, chain);
+    }
   }
 
   if (DEBUG_TON && column === 'new' && chain === 'ton') {

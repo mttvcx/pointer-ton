@@ -9,7 +9,8 @@ export default function NotFound() {
       </span>
       <p className="text-sm font-semibold">Not found</p>
       <p className="max-w-sm text-[11px] leading-snug text-fg-secondary">
-        The address or page you were looking for could not be resolved on TON.
+        That page or address does not exist, or data for it is not available yet. If you changed networks in
+        the header, make sure the link matches the selected chain.
       </p>
       <Link
         href="/pulse"

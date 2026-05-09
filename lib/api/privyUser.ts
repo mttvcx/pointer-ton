@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUserByPrivyId } from '@/lib/db/users';
-import { verifyPointerAccessToken } from '@/lib/auth/pointerSession';
+import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import type { Tables } from '@/lib/supabase/types';
 
 export type AuthSuccess = { user: Tables<'users'> };
@@ -17,7 +17,8 @@ export async function requirePointerUser(req: NextRequest): Promise<
   }
   let verified: { authSubject: string; walletAddress: string };
   try {
-    verified = await verifyPointerAccessToken(accessToken);
+    const v = await verifyPrivyAccessToken(accessToken);
+    verified = { authSubject: v.privyId, walletAddress: v.walletAddress };
   } catch {
     return { error: NextResponse.json({ error: 'invalid_token' }, { status: 401 }) };
   }
@@ -25,7 +26,10 @@ export async function requirePointerUser(req: NextRequest): Promise<
   if (!user) {
     return {
       error: NextResponse.json(
-        { error: 'user_not_synced', message: 'Connect with TonConnect again (session missing user)' },
+        {
+          error: 'user_not_synced',
+          message: 'Complete sign-in from the app menu (Privy session missing user row)',
+        },
         { status: 403 },
       ),
     };

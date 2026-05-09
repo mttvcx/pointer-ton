@@ -12,6 +12,7 @@ export interface PulseNewTokenAlertInput {
     | 'das_search'
     | 'das_hydrate'
     | 'helius_webhook'
+    | 'gecko_terminal'
     | 'tonapi_poll'
     | 'tonapi_hydrate';
   creator_wallet?: string | null;

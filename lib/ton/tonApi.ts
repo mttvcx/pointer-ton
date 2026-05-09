@@ -71,6 +71,25 @@ export async function fetchTonApiJettonByMaster(master: string): Promise<TonApiJ
   return (await res.json()) as TonApiJetton;
 }
 
+/** Native TON balance in nanotons (TonAPI `GET /v2/accounts/{account_id}`). */
+export async function fetchTonAccountBalanceNanotons(address: string): Promise<bigint> {
+  const canon = normalizeTonAddress(address);
+  if (!canon) {
+    throw new Error('invalid_ton_address');
+  }
+  const res = await fetch(`${TON_API_BASE}/v2/accounts/${encodeURIComponent(canon)}`, {
+    headers: tonApiHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`tonapi_account ${res.status}`);
+  }
+  const json = (await res.json()) as { balance?: number | string };
+  const b = json.balance;
+  if (b == null) return 0n;
+  return BigInt(typeof b === 'string' ? b : Math.trunc(Number(b)));
+}
+
 /**
  * Display-only USD price per jetton (TonAPI `/v2/rates`). Not for settlement.
  */

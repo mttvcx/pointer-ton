@@ -1,19 +1,17 @@
 import 'server-only';
 import { timingSafeEqual } from 'node:crypto';
-import { emitGlobalPulseNewTokenAlert } from '@/lib/alerts/generate';
 import { insertAlert } from '@/lib/db/alerts';
 import { notifyUserWebPush } from '@/lib/push/notifyUser';
 import {
   listEnabledTrackerRulesForWallet,
 } from '@/lib/db/trackerRules';
-import { getTokenByMint, updateToken, upsertToken } from '@/lib/db/tokens';
 import { getTrackedWallet, listUserIdsTrackingWallet } from '@/lib/db/wallets';
 import { upsertWebhookEvent } from '@/lib/db/webhooks';
-import type { LaunchpadEvent } from '@/lib/helius/parsers';
+import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
 import { parseEnhancedTransaction } from '@/lib/helius/parsers';
 import { ruleMatchesTokenLaunch } from '@/lib/trackers/evaluateRules';
 import { parseRuleCondition } from '@/lib/trackers/ruleCondition';
-import type { Json, TablesInsert } from '@/lib/supabase/types';
+import type { Json } from '@/lib/supabase/types';
 
 /** Constant-time compare for webhook auth header. */
 export function verifyHeliusWebhookAuthorization(
@@ -28,24 +26,6 @@ export function verifyHeliusWebhookAuthorization(
   const b = Buffer.from(expectedToken);
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
-}
-
-function eventToTokenInsert(ev: Readonly<LaunchpadEvent>): TablesInsert<'tokens'> {
-  const now = new Date().toISOString();
-  return {
-    mint: ev.mint,
-    symbol: ev.symbol,
-    name: ev.name,
-    decimals: 6,
-    image_url: ev.image_url,
-    creator_wallet: ev.creator_wallet,
-    launch_pad: ev.launchpad === 'unknown' ? null : ev.launchpad,
-    raw_metadata: ev.raw,
-    initial_liquidity_sol: ev.initial_liquidity_sol,
-    initial_liquidity_at: ev.initial_liquidity_sol != null ? now : null,
-    created_at: now,
-    last_seen_at: now,
-  };
 }
 
 function normalizePayload(body: unknown): unknown[] {
@@ -81,30 +61,10 @@ export async function processHeliusWebhookBody(
     if (!ev) continue;
     events += 1;
 
-    const existing = await getTokenByMint(ev.mint);
-    const now = new Date().toISOString();
-    if (existing) {
-      await updateToken(ev.mint, {
-        last_seen_at: now,
-        raw_metadata: ev.raw,
-        symbol: ev.symbol ?? existing.symbol,
-        name: ev.name ?? existing.name,
-        image_url: ev.image_url ?? existing.image_url,
-        creator_wallet: ev.creator_wallet ?? existing.creator_wallet,
-      });
-    } else {
-      await upsertToken(eventToTokenInsert(ev));
-      await emitGlobalPulseNewTokenAlert({
-        mint: ev.mint,
-        symbol: ev.symbol,
-        name: ev.name,
-        launchpad: ev.launchpad === 'unknown' ? null : ev.launchpad,
-        source: 'helius_webhook',
-        creator_wallet: ev.creator_wallet,
-        tx_signature: meta.signature,
-        initial_liquidity_sol: ev.initial_liquidity_sol,
-      });
-    }
+    await ingestLaunchpadDiscovery(ev, {
+      alertSource: 'helius_webhook',
+      txSignature: meta.signature,
+    });
     tokensUpserted += 1;
 
     const wallet = ev.creator_wallet;

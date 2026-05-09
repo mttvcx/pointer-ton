@@ -25,6 +25,8 @@ import { isValidTonTrackedAddress, shortenAddress } from '@/lib/utils/addresses'
 import { formatAgeShort, formatLastActiveShort, formatNumber, rawToUi } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import type { AppChainId } from '@/lib/chains/appChain';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
 
 const AX_BG = '#0b0d12';
@@ -221,6 +223,7 @@ function AddWalletDialog({
   setLabel,
   onSubmit,
   pending,
+  addressPlaceholder,
 }: {
   open: boolean;
   onClose: () => void;
@@ -230,6 +233,7 @@ function AddWalletDialog({
   setLabel: (s: string) => void;
   onSubmit: () => void;
   pending: boolean;
+  addressPlaceholder?: string;
 }) {
   if (!open) return null;
   return (
@@ -253,7 +257,7 @@ function AddWalletDialog({
             <input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="TON wallet address"
+              placeholder={addressPlaceholder ?? 'Wallet address'}
               className="w-full rounded border bg-[#0b0d12] px-2 py-1.5 tabular-nums text-[12px] text-white outline-none focus:ring-1 focus:ring-[#5865F2]"
               style={{ borderColor: AX_BORDER }}
             />
@@ -314,15 +318,21 @@ export function TrackersPanel({
   const [label, setLabel] = useState('');
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
-  const [kolRows, setKolRows] = useState<KolRow[]>(() => defaultKolRows('ton'));
+  const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows(useUIStore.getState().activeChain));
   const [kolWalletFocus, setKolWalletFocus] = useState<string | null>(null);
   const lastPrefillRef = useRef<string | null>(null);
+  const kolHydratingRef = useRef(false);
 
   useEffect(() => {
+    kolHydratingRef.current = true;
     setKolRows(readStoredKolRows(activeChain));
   }, [activeChain]);
 
   useEffect(() => {
+    if (kolHydratingRef.current) {
+      kolHydratingRef.current = false;
+      return;
+    }
     try {
       localStorage.setItem(kolStorageKey(activeChain), JSON.stringify(kolRows));
     } catch {
@@ -346,11 +356,12 @@ export function TrackersPanel({
 
   const listQuery = useQuery({
     queryKey: ['trackers', 'enriched', activeChain],
-    enabled: authenticated && activeChain === 'ton',
+    enabled: authenticated,
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const res = await fetch('/api/trackers?enrich=1', {
+      const q = `enrich=1&app_chain=${encodeURIComponent(activeChain)}`;
+      const res = await fetch(`/api/trackers?${q}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json: unknown = await res.json();
@@ -370,11 +381,10 @@ export function TrackersPanel({
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const walletAddress = address.trim();
-      if (activeChain !== 'ton') {
-        throw new Error('Wallet trackers are saved for TON first. Switch the header network to TON, or use KOLs (chain-specific list) on this network.');
-      }
-      if (!isValidTonTrackedAddress(walletAddress)) {
-        throw new Error('Invalid TON address (use EQ/UQ format)');
+      if (!mintMatchesAppChain(walletAddress, activeChain)) {
+        throw new Error(
+          `Enter a valid ${nativeTicker(activeChain)} wallet address for the current header chain.`,
+        );
       }
       const res = await fetch('/api/trackers', {
         method: 'POST',
@@ -385,6 +395,7 @@ export function TrackersPanel({
         body: JSON.stringify({
           walletAddress,
           label: label.trim() || null,
+          appChain: activeChain,
         }),
       });
       const json: unknown = await res.json();
@@ -434,10 +445,13 @@ export function TrackersPanel({
     mutationFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const res = await fetch('/api/trackers?all=1', {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `/api/trackers?all=1&app_chain=${encodeURIComponent(activeChain)}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (!res.ok) throw new Error('remove all failed');
     },
     onSuccess: () => {
@@ -466,12 +480,11 @@ export function TrackersPanel({
   });
 
   const sorted = useMemo(() => {
-    if (activeChain !== 'ton') return [];
     const rows = listQuery.data?.trackers ?? [];
     return [...rows].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-  }, [listQuery.data?.trackers, activeChain]);
+  }, [listQuery.data?.trackers]);
 
   const enrichment = listQuery.data?.enrichment ?? {};
 
@@ -506,11 +519,11 @@ export function TrackersPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'pointer-trackers-ton.json';
+    a.download = `pointer-trackers-${activeChain}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Exported');
-  }, [sorted]);
+  }, [sorted, activeChain]);
 
   const onImportWallets = useCallback(async () => {
     const raw = importText.trim();
@@ -540,9 +553,9 @@ export function TrackersPanel({
       }
     }
 
-    const addresses = [...set].filter(isValidTonTrackedAddress);
+    const addresses = [...set].filter((a) => mintMatchesAppChain(a, activeChain));
     if (addresses.length === 0) {
-      toast.error('No valid TON wallet addresses found');
+      toast.error(`No valid ${nativeTicker(activeChain)} wallet addresses found`);
       return;
     }
 
@@ -559,6 +572,7 @@ export function TrackersPanel({
         body: JSON.stringify({
           walletAddress: addr,
           label: importSingleGroup ? 'Imported group' : null,
+          appChain: activeChain,
         }),
       });
       if (res.ok) ok += 1;
@@ -568,7 +582,7 @@ export function TrackersPanel({
     setImportOpen(false);
     setImportText('');
     toast.success(`Imported ${ok}/${addresses.length} wallet(s)`);
-  }, [getAccessToken, importSingleGroup, importText, queryClient]);
+  }, [getAccessToken, importSingleGroup, importText, queryClient, activeChain]);
 
   if (!authenticated) {
     return (
@@ -628,7 +642,12 @@ export function TrackersPanel({
             type="button"
             disabled={sorted.length === 0 || removeAllMutation.isPending}
             onClick={() => {
-              if (!window.confirm('Remove all tracked wallets? This cannot be undone.')) return;
+              if (
+                !window.confirm(
+                  `Remove all ${nativeTicker(activeChain)} wallet trackers? This cannot be undone.`,
+                )
+              )
+                return;
               removeAllMutation.mutate();
             }}
             className="rounded px-1.5 py-1 text-[10px] font-semibold tracking-wide text-[#f87171] hover:underline disabled:opacity-40"
@@ -688,17 +707,16 @@ export function TrackersPanel({
         </div>
       </div>
 
-      {activeChain !== 'ton' ? (
-        <div
-          className="mx-3 mt-2 rounded-lg border px-3 py-2 text-[11px] text-[#9ca3af]"
-          style={{ borderColor: '#2a3644', backgroundColor: '#10141c' }}
-        >
-          Saved trackers load for <span className="font-semibold text-white">TON</span> right now. Switch the header to TON to see them, or use{' '}
-          <span className="text-white">KOLs</span> for Solana / EVM previews.
-        </div>
-      ) : null}
+      <div
+        className="mx-3 mt-2 rounded-lg border px-3 py-2 text-[11px] text-[#9ca3af]"
+        style={{ borderColor: '#2a3644', backgroundColor: '#10141c' }}
+      >
+        Tracking <span className="font-semibold text-white">{nativeTicker(activeChain)}</span> wallets. Live
+        native balance in the table uses the TON indexer today; other chains show your watchlist (balances
+        wire-up next).
+      </div>
 
-      {activeChain === 'ton' && listQuery.isLoading ? (
+      {listQuery.isLoading ? (
         <div className="flex flex-1 items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-[#5865F2]" />
         </div>
@@ -762,6 +780,7 @@ export function TrackersPanel({
                 setExpandedRuleId={setExpandedRuleId}
                 removeMutation={removeMutation}
                 notifyMutation={notifyMutation}
+                nativeSym={nativeTicker(activeChain)}
               />
             ) : viewTab === 'kols' ? (
               <KolsList
@@ -779,6 +798,7 @@ export function TrackersPanel({
 
           <aside className="col-span-12 min-h-0 border-l md:col-span-3" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
             <SecondaryPanel
+              activeChain={activeChain}
               viewTab={viewTab}
               rows={kolRows}
               onRemove={(id) => {
@@ -804,6 +824,13 @@ export function TrackersPanel({
         setLabel={setLabel}
         pending={addMutation.isPending}
         onSubmit={() => addMutation.mutate()}
+        addressPlaceholder={
+          activeChain === 'ton'
+            ? 'TON address (EQ… / UQ…)'
+            : activeChain === 'sol'
+              ? 'Solana address (base58)'
+              : 'EVM address (0x…)'
+        }
       />
       <div className={cn(importOpen ? 'fixed inset-0 z-[82] flex items-center justify-center p-4' : 'hidden')}>
         <button
@@ -819,7 +846,9 @@ export function TrackersPanel({
           aria-modal="true"
         >
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: AX_BORDER }}>
-            <span className="text-[13px] font-semibold text-white">Import TON Wallets</span>
+            <span className="text-[13px] font-semibold text-white">
+              Import {nativeTicker(activeChain)} wallets
+            </span>
             <button
               type="button"
               onClick={() => setImportOpen(false)}
@@ -1050,6 +1079,7 @@ function WalletManagerTable({
   setExpandedRuleId,
   removeMutation,
   notifyMutation,
+  nativeSym,
 }: {
   filtered: TrackerRow[];
   enrichment: EnrichmentMap;
@@ -1057,6 +1087,7 @@ function WalletManagerTable({
   setExpandedRuleId: (value: string | null | ((prev: string | null) => string | null)) => void;
   removeMutation: ReturnType<typeof useMutation<void, Error, string>>;
   notifyMutation: ReturnType<typeof useMutation<void, Error, { walletAddress: string; notify: boolean }>>;
+  nativeSym: string;
 }) {
   return (
     <table className="w-full border-collapse text-left text-[11px]">
@@ -1064,7 +1095,9 @@ function WalletManagerTable({
         <tr className="border-b" style={{ borderColor: AX_BORDER }}>
           <th className="whitespace-nowrap px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Created</th>
           <th className="min-w-[8rem] px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Name</th>
-          <th className="whitespace-nowrap px-1.5 py-2 font-semibold uppercase tracking-wide text-[#6b7280]">Balance (TON)</th>
+          <th className="whitespace-nowrap px-1.5 py-2 font-semibold uppercase tracking-wide text-[#6b7280]">
+            Balance ({nativeSym})
+          </th>
           <th className="whitespace-nowrap px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Last Active</th>
           <th className="w-24 px-1.5 py-1 text-right font-semibold uppercase tracking-wide text-[#6b7280]">Actions</th>
         </tr>
@@ -1248,11 +1281,13 @@ function KolsList({
 }
 
 function SecondaryPanel({
+  activeChain,
   viewTab,
   rows,
   onRemove,
   onWalletClick,
 }: {
+  activeChain: AppChainId;
   viewTab: ViewTab;
   rows: KolRow[];
   onRemove: (id: string) => void;
@@ -1283,7 +1318,8 @@ function SecondaryPanel({
       {headerTab === 0 ? (
         <>
           <div className="border-b p-2 text-[10px] text-[#9ca3af]" style={{ borderColor: AX_BORDER }}>
-            Tracked X handles for this TON build. Click a handle or use Remove to edit your list (saved in this browser).
+            Tracked X handles for <span className="font-semibold text-white">{nativeTicker(activeChain)}</span>{' '}
+            (saved in this browser per network). Click a handle or use Remove to edit your list.
           </div>
           <div className="flex items-center gap-2 border-b p-2" style={{ borderColor: AX_BORDER }}>
             <button

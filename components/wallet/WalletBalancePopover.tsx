@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowDownToLine, ArrowUpToLine, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUIStore } from '@/store/ui';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber, formatUsd } from '@/lib/utils/formatters';
 
@@ -17,10 +19,12 @@ type Props = {
   solUi: number | null;
   usdcUi: number | null;
   onDeposit: () => void;
+  /** False when no row is selected for the current header chain */
+  hasActiveWallet?: boolean;
 };
 
 /**
- * Axiom-style compact balance popover (native TON rails).
+ * Axiom-style compact balance popover (multi-chain header).
  */
 export function WalletBalancePopover({
   open,
@@ -30,7 +34,10 @@ export function WalletBalancePopover({
   solUi,
   usdcUi,
   onDeposit,
+  hasActiveWallet = true,
 }: Props) {
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, right: 0 });
   const [asset, setAsset] = useState<AssetPill>('sol');
@@ -65,6 +72,15 @@ export function WalletBalancePopover({
       role="dialog"
       aria-label="Wallet balance"
     >
+      {!hasActiveWallet ? (
+        <div className="mb-2 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-snug text-amber-100">
+          No active <span className="font-semibold">{nativeSym}</span> wallet for this chain.{' '}
+          <Link href="/wallets" onClick={() => onOpenChange(false)} className="font-semibold text-[#8da2ff] hover:underline">
+            Open Wallets
+          </Link>{' '}
+          to add one.
+        </div>
+      ) : null}
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-[10px] font-medium uppercase tracking-wide text-[#6b7280]">
@@ -75,7 +91,7 @@ export function WalletBalancePopover({
           </div>
         </div>
         <div className="flex gap-1 text-[10px] font-semibold text-[#4b5563]">
-          <span className="text-white">TON</span>
+          <span className="text-white">{nativeSym}</span>
           <span className="text-[#3f4654]">|</span>
           <span className="cursor-not-allowed">Perps</span>
         </div>
@@ -88,7 +104,9 @@ export function WalletBalancePopover({
             type="button"
             onClick={() => {
               if (pill === 'usol') {
-                toast.message('wTON', { description: 'Liquid staking view is not wired yet.' });
+                toast.message(activeChain === 'ton' ? 'wTON' : 'wSOL', {
+                  description: 'Liquid staking view is not wired yet.',
+                });
                 setAsset('usol');
                 return;
               }
@@ -110,7 +128,7 @@ export function WalletBalancePopover({
               )}
               aria-hidden
             />
-            {pill === 'sol' ? 'TON' : pill === 'usdc' ? 'USDC' : 'wTON'}
+            {pill === 'sol' ? nativeSym : pill === 'usdc' ? 'USDC' : activeChain === 'ton' ? 'wTON' : 'wSOL'}
           </button>
         ))}
         <Link
@@ -164,7 +182,7 @@ export function WalletBalancePopover({
           type="button"
           onClick={() => {
             toast.message('Withdraw', {
-              description: 'Send TON or jettons from your wallet using any self-custody wallet app.',
+              description: `Send ${nativeSym} or other tokens from your wallet using any self-custody wallet app.`,
             });
           }}
           className="btn-press rounded-md border border-[#1b1f2a] bg-[#1b1f2a]/40 py-2 text-[11px] font-semibold text-white transition hover:bg-[#252b38]"

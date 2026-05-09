@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { getUserWalletById, updateUserWalletBalance } from '@/lib/db/userWallets';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
+import { inferMintKind } from '@/lib/chains/mintKind';
 import { getSolBalanceLamports } from '@/lib/solana/recent-activity';
+import { fetchTonAccountBalanceNanotons } from '@/lib/ton/tonApi';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,7 +44,15 @@ export async function GET(
   }
 
   try {
-    const lamports = await getSolBalanceLamports(row.wallet_address);
+    const kind = inferMintKind(row.wallet_address);
+    let lamports: bigint;
+    if (kind === 'sol') {
+      lamports = await getSolBalanceLamports(row.wallet_address);
+    } else if (kind === 'ton') {
+      lamports = await fetchTonAccountBalanceNanotons(row.wallet_address);
+    } else {
+      return NextResponse.json({ error: 'unsupported_address_kind', kind }, { status: 400 });
+    }
     const updated = await updateUserWalletBalance(user.id, id, lamports);
     return NextResponse.json({
       wallet_address: row.wallet_address,

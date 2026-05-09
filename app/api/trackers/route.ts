@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   deleteAllTrackedWalletsForUser,
   deleteTrackedWallet,
+  deleteTrackedWalletsForUserChain,
   getTrackedWallet,
   listTrackedWalletsForUser,
   updateTrackedWalletNotify,
@@ -11,24 +12,36 @@ import {
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { enrichTrackedWalletAddresses } from '@/lib/trackers/enrichAddresses';
-import { isValidTonTrackedAddress } from '@/lib/utils/addresses';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { isAppChainId } from '@/lib/chains/appChain';
+import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const AppChainEnum = z.enum(['sol', 'ton', 'bnb', 'base']);
+
 const PatchBodySchema = z
   .object({
-    walletAddress: z.string().refine(isValidTonTrackedAddress),
+    walletAddress: z.string().min(1),
     notify: z.boolean(),
   })
-  .strict();
+  .strict()
+  .refine((b) => inferMintKind(b.walletAddress.trim()) !== 'unknown', {
+    message: 'invalid_wallet_address',
+  });
 
 const PostBodySchema = z
   .object({
-    walletAddress: z.string().refine(isValidTonTrackedAddress),
+    walletAddress: z.string().min(1),
     label: z.string().trim().max(64).optional().nullable(),
+    appChain: AppChainEnum,
   })
-  .strict();
+  .strict()
+  .refine((b) => mintMatchesAppChain(b.walletAddress, b.appChain as AppChainId), {
+    message: 'address_chain_mismatch',
+  });
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -54,7 +67,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const rows = await listTrackedWalletsForUser(user.id);
+  const rowsAll = await listTrackedWalletsForUser(user.id);
+  const chainParam = req.nextUrl.searchParams.get('app_chain');
+  const rows =
+    chainParam && isAppChainId(chainParam)
+      ? rowsAll.filter((r) => mintMatchesAppChain(r.wallet_address, chainParam))
+      : rowsAll;
   const trackers = rows.map((r) => ({
     id: r.id,
     walletAddress: r.wallet_address,
@@ -68,7 +86,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ trackers, enrichment: undefined });
   }
 
-  const enrichment = await enrichTrackedWalletAddresses(rows.map((r) => r.wallet_address));
+  const tonOnly = rows.filter((r) => inferMintKind(r.wallet_address) === 'ton');
+  const tonEnrichment =
+    tonOnly.length > 0 ? await enrichTrackedWalletAddresses(tonOnly.map((r) => r.wallet_address)) : {};
+  const enrichment: Record<string, { nanoTon: string | null; lastActiveUnix: number | null }> = {};
+  for (const r of rows) {
+    const k = r.wallet_address;
+    if (inferMintKind(k) === 'ton') {
+      enrichment[k] = tonEnrichment[k] ?? { nanoTon: null, lastActiveUnix: null };
+    } else {
+      enrichment[k] = { nanoTon: null, lastActiveUnix: null };
+    }
+  }
   return NextResponse.json({ trackers, enrichment });
 }
 
@@ -106,10 +135,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const existing = await getTrackedWallet(user.id, body.walletAddress);
+    const norm = normalizeWalletAddressForStorage(body.walletAddress);
+    if (!norm) {
+      return NextResponse.json({ error: 'invalid_wallet_address' }, { status: 400 });
+    }
+
+    const existing = await getTrackedWallet(user.id, norm);
     const row = await upsertTrackedWallet({
       user_id: user.id,
-      wallet_address: body.walletAddress,
+      wallet_address: norm,
       label: body.label ?? null,
       notify: true,
     });
@@ -117,7 +151,7 @@ export async function POST(req: NextRequest) {
       try {
         const { awardPoints } = await import('@/lib/points/award');
         await awardPoints(user.id, 'tracker_setup', {
-          dedupeKey: `tracker_wallet:${body.walletAddress}`,
+          dedupeKey: `tracker_wallet:${norm}`,
           metadata: { tracker_id: row.id },
         });
       } catch {
@@ -173,11 +207,16 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const exists = await getTrackedWallet(user.id, body.walletAddress);
+    const norm = normalizeWalletAddressForStorage(body.walletAddress);
+    if (!norm) {
+      return NextResponse.json({ error: 'invalid_wallet_address' }, { status: 400 });
+    }
+
+    const exists = await getTrackedWallet(user.id, norm);
     if (!exists) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
-    const row = await updateTrackedWalletNotify(user.id, body.walletAddress, body.notify);
+    const row = await updateTrackedWalletNotify(user.id, norm, body.notify);
     return NextResponse.json({
       tracker: {
         id: row.id,
@@ -220,7 +259,12 @@ export async function DELETE(req: NextRequest) {
   const removeAll = req.nextUrl.searchParams.get('all') === '1';
   if (removeAll) {
     try {
-      await deleteAllTrackedWalletsForUser(user.id);
+      const chainParam = req.nextUrl.searchParams.get('app_chain');
+      if (chainParam && isAppChainId(chainParam)) {
+        await deleteTrackedWalletsForUserChain(user.id, chainParam);
+      } else {
+        await deleteAllTrackedWalletsForUser(user.id);
+      }
       return NextResponse.json({ ok: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'delete_failed';
@@ -228,8 +272,9 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
-  const address = req.nextUrl.searchParams.get('address')?.trim() ?? '';
-  if (!address || !isValidTonTrackedAddress(address)) {
+  const raw = req.nextUrl.searchParams.get('address')?.trim() ?? '';
+  const address = raw ? normalizeWalletAddressForStorage(raw) : null;
+  if (!address || inferMintKind(address) === 'unknown') {
     return NextResponse.json({ error: 'invalid_address' }, { status: 400 });
   }
 

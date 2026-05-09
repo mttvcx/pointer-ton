@@ -18,13 +18,19 @@ import { cn } from '@/lib/utils/cn';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { formatNumber, lamportsToSol } from '@/lib/utils/formatters';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { useUIStore } from '@/store/ui';
 import { useTradingStore } from '@/store/trading';
+import type { AppChainId } from '@/lib/chains/appChain';
 
 type PresetRow = { slot: 1 | 2 | 3; name: string };
 
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
-const CENTER_ORDER = ['BTC', 'ETH', 'TON'] as const;
+function rotatingCenterSymbols(chain: AppChainId): string[] {
+  return ['BTC', 'ETH', nativeTicker(chain)];
+}
 
 function TickerLine({ row }: { row: TickerRow }) {
   const ch = row.priceChange24h;
@@ -56,9 +62,10 @@ function TickerLine({ row }: { row: TickerRow }) {
   );
 }
 
-function BottomBarVerticalTicker({ rows }: { rows: TickerRow[] }) {
+function BottomBarVerticalTicker({ rows, chain }: { rows: TickerRow[]; chain: AppChainId }) {
+  const order = rotatingCenterSymbols(chain);
   const map = new Map(rows.map((r) => [r.symbol, r] as const));
-  const resolved: TickerRow[] = CENTER_ORDER.map((sym) => {
+  const resolved: TickerRow[] = order.map((sym) => {
     const hit = map.get(sym);
     return (
       hit ?? {
@@ -69,7 +76,7 @@ function BottomBarVerticalTicker({ rows }: { rows: TickerRow[] }) {
     );
   });
   const dupFirst = resolved[0] ?? {
-    symbol: CENTER_ORDER[0],
+    symbol: order[0] ?? 'BTC',
     usdPrice: null,
     priceChange24h: null,
   };
@@ -98,6 +105,8 @@ function BottomBarVerticalTicker({ rows }: { rows: TickerRow[] }) {
 export function BottomBar() {
   const { getAccessToken, authenticated } = usePointerAuth();
   const { activePresetSlot } = useTradingStore();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -160,7 +169,13 @@ export function BottomBar() {
       if (!res.ok) throw new Error('portfolio');
       return res.json() as Promise<{ solLamports: string | null }>;
     },
-    enabled: Boolean(authenticated && walletsReady && activeAddress),
+    enabled: Boolean(
+      authenticated &&
+        walletsReady &&
+        activeAddress &&
+        activeChain === 'sol' &&
+        mintMatchesAppChain(activeAddress, 'sol'),
+    ),
     staleTime: 20_000,
   });
 
@@ -175,7 +190,7 @@ export function BottomBar() {
       if (!res.ok) throw new Error('pnl');
       return res.json() as Promise<{ pnlSolToday: number }>;
     },
-    enabled: authenticated,
+    enabled: authenticated && activeChain === 'sol',
     staleTime: 45_000,
   });
 
@@ -186,6 +201,7 @@ export function BottomBar() {
       const json = (await res.json()) as { volumeSolToday?: number };
       return json.volumeSolToday ?? 0;
     },
+    enabled: activeChain === 'sol',
     refetchInterval: 60_000,
     staleTime: 55_000,
   });
@@ -196,6 +212,17 @@ export function BottomBar() {
     portfolioQ.data?.solLamports != null
       ? lamportsToSol(BigInt(portfolioQ.data.solLamports))
       : null;
+
+  const rowForActive = myWalletsQ.data?.wallets?.find((w) => w.wallet_address === activeAddress);
+  const tonBalUi =
+    activeChain === 'ton' && rowForActive?.balance_lamports
+      ? lamportsToSol(BigInt(rowForActive.balance_lamports))
+      : activeChain === 'ton'
+        ? 0
+        : null;
+
+  const barBal =
+    activeChain === 'sol' ? solBal : activeChain === 'ton' ? tonBalUi : null;
 
   const presetName =
     presetsQ.data?.presets?.find((p) => p.slot === activePresetSlot)?.name ?? `S${activePresetSlot}`;
@@ -225,13 +252,15 @@ export function BottomBar() {
           <span className="text-fg-muted">
             Bal{' '}
             <span className="tabular-nums text-fg-primary">
-              {solBal != null ? `${formatNumber(solBal, { decimals: 3 })} TON` : '0.000 TON'}
+              {barBal != null ? `${formatNumber(barBal, { decimals: 3 })} ${nativeSym}` : `0.000 ${nativeSym}`}
             </span>
           </span>
           <span className="text-fg-muted">
             Vol{' '}
             <span className="tabular-nums text-fg-primary">
-              {formatNumber(volQ.data ?? 0, { decimals: 1, compact: true })} TON
+              {activeChain === 'sol'
+                ? `${formatNumber(volQ.data ?? 0, { decimals: 1, compact: true })} ${nativeSym}`
+                : '\u2014'}
             </span>
           </span>
           <span className="text-fg-muted">
@@ -239,14 +268,16 @@ export function BottomBar() {
             <span
               className={cn(
                 'tabular-nums',
-                (pnlQ.data?.pnlSolToday ?? 0) > 0
+                activeChain === 'sol' && (pnlQ.data?.pnlSolToday ?? 0) > 0
                   ? 'text-signal-bull'
-                  : (pnlQ.data?.pnlSolToday ?? 0) < 0
+                  : activeChain === 'sol' && (pnlQ.data?.pnlSolToday ?? 0) < 0
                     ? 'text-signal-bear'
                     : 'text-fg-primary',
               )}
             >
-              {pnlQ.data ? `${formatNumber(pnlQ.data.pnlSolToday, { decimals: 3 })} TON` : '\u2014'}
+              {activeChain === 'sol' && pnlQ.data
+                ? `${formatNumber(pnlQ.data.pnlSolToday, { decimals: 3 })} ${nativeSym}`
+                : '\u2014'}
             </span>
           </span>
           {authenticated ? (
@@ -257,7 +288,7 @@ export function BottomBar() {
         </div>
 
         <div className="hidden shrink-0 justify-center sm:flex">
-          <BottomBarVerticalTicker rows={rows} />
+          <BottomBarVerticalTicker rows={rows} chain={activeChain} />
         </div>
 
         <div className="min-w-0 flex-1" aria-hidden />

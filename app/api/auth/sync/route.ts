@@ -5,9 +5,25 @@ import { signPointerSession } from '@/lib/auth/pointerSession';
 import { verifyTonConnectProof } from '@/lib/ton/tonProofService';
 import { fetchWalletPublicKey, type TonConnectNetwork } from '@/lib/ton/tonLiteClient';
 import { assertTonAddress, tonAuthSubject } from '@/lib/utils/tonAddress';
+import { isValidPublicKey } from '@/lib/utils/addresses';
+import { verifyPrivyJwksOnly } from '@/lib/privy/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/** Privy `POST /api/auth/sync` — same shape as `pointer` repo. */
+const PrivySyncBodySchema = z
+  .object({
+    walletAddress: z
+      .string()
+      .trim()
+      .optional()
+      .nullable()
+      .transform((v) => (v && isValidPublicKey(v) ? v : null)),
+    email: z.string().trim().email().optional().nullable(),
+    username: z.string().trim().min(1).max(64).optional().nullable(),
+  })
+  .strict();
 
 /** TonConnect `CHAIN` uses string ids (`"-239"` mainnet, `"-3"` testnet); coerce for Zod. */
 const NetworkSchema = z
@@ -18,7 +34,7 @@ const NetworkSchema = z
     throw new Error(`unsupported_network:${String(v)}`);
   });
 
-const SyncBodySchema = z
+const TonSyncBodySchema = z
   .object({
     address: z.string().trim().min(1),
     network: NetworkSchema,
@@ -40,10 +56,69 @@ const SyncBodySchema = z
   .strict();
 
 export async function POST(req: NextRequest) {
-  let body: z.infer<typeof SyncBodySchema>;
+  const authHeader = req.headers.get('authorization');
+  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : null;
+
+  /** Branch A: Privy access token — sync user row (embedded wallets, profile). */
+  if (bearer) {
+    let verified;
+    try {
+      verified = await verifyPrivyJwksOnly(bearer);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'invalid token';
+      return NextResponse.json({ error: 'invalid_token', message }, { status: 401 });
+    }
+
+    let body: z.infer<typeof PrivySyncBodySchema>;
+    try {
+      const json: unknown = await req.json().catch(() => ({}));
+      body = PrivySyncBodySchema.parse(json);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'bad request';
+      return NextResponse.json({ error: 'invalid_body', message }, { status: 400 });
+    }
+
+    try {
+      const user = await upsertUserFromPrivy({
+        privyId: verified.privyId,
+        walletAddress: body.walletAddress,
+        email: body.email,
+        username: body.username,
+      });
+
+      try {
+        const { maybeAwardDailyLogin } = await import('@/lib/points/award');
+        await maybeAwardDailyLogin(user.id);
+      } catch (e) {
+        console.warn('[/api/auth/sync] daily login points:', e instanceof Error ? e.message : e);
+      }
+
+      return NextResponse.json(
+        {
+          user: {
+            id: user.id,
+            privyId: user.privy_id,
+            walletAddress: user.wallet_address,
+            email: user.email,
+            username: user.username,
+            tierId: user.tier_id,
+            createdAt: user.created_at,
+          },
+        },
+        { status: 200 },
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      console.error('[/api/auth/sync] Privy upsert failed:', message);
+      return NextResponse.json({ error: 'sync_failed', message }, { status: 500 });
+    }
+  }
+
+  /** Branch B: TonConnect proof — legacy session JWT for TON signing. */
+  let body: z.infer<typeof TonSyncBodySchema>;
   try {
     const json: unknown = await req.json();
-    body = SyncBodySchema.parse(json);
+    body = TonSyncBodySchema.parse(json);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'bad request';
     return NextResponse.json({ error: 'invalid_body', message }, { status: 400 });
@@ -117,7 +192,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';
-    console.error('[/api/auth/sync] upsert failed:', message);
+    console.error('[/api/auth/sync] TonConnect upsert failed:', message);
     return NextResponse.json({ error: 'sync_failed', message }, { status: 500 });
   }
 }

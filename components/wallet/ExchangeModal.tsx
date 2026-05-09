@@ -2,16 +2,41 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { ChevronDown, Clock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { cn } from '@/lib/utils/cn';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { useUIStore } from '@/store/ui';
 import {
   DEPOSIT_ACCEPTING_SYMBOLS,
   ONRAMPER_HREF,
 } from '@/components/wallet/walletFundingConstants';
 
 const QRCodeSVG = dynamic(() => import('react-qr-code').then((m) => m.default), { ssr: false });
+
+const DEPOSIT_NETWORK_ROWS: { chain: AppChainId; label: string }[] = [
+  { chain: 'ton', label: 'TON' },
+  { chain: 'sol', label: 'Solana' },
+  { chain: 'bnb', label: 'BNB Chain' },
+  { chain: 'base', label: 'Base' },
+];
+
+function depositQrAccentClass(chain: AppChainId): string {
+  switch (chain) {
+    case 'sol':
+      return 'bg-[#14f195]/90';
+    case 'bnb':
+      return 'bg-[#f0b90b]/90 text-black';
+    case 'base':
+      return 'bg-[#0052ff]/90';
+    case 'ton':
+    default:
+      return 'bg-[#9945FF]';
+  }
+}
 
 export type ExchangeTab = 'convert' | 'deposit' | 'buy';
 
@@ -32,6 +57,10 @@ export function ExchangeModal({
 }: Props) {
   const [tab, setTab] = useState<ExchangeTab>(initialTab);
   const [assetOpen, setAssetOpen] = useState(false);
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
+  const depositNetworkLabel =
+    DEPOSIT_NETWORK_ROWS.find((r) => r.chain === activeChain)?.label ?? nativeSym;
 
   useEffect(() => {
     if (!open) return;
@@ -113,15 +142,16 @@ export function ExchangeModal({
           {tab === 'convert' ? (
             <div className="space-y-3 py-2">
               <p className="text-[12px] leading-relaxed text-[#9ca3af]">
-                Cross-chain conversion (bridge) is not available in Pointer yet. Deposit native TON from
-                an external wallet, or sell on another venue and withdraw here.
+                Cross-chain conversion (bridge) is not available in Pointer yet. Deposit {nativeSym} from an
+                external wallet, or move funds on another venue and send to your Pointer address.
               </p>
             </div>
           ) : null}
           {tab === 'buy' ? (
             <div className="space-y-4 py-2">
               <p className="text-[12px] leading-relaxed text-[#9ca3af]">
-                Buy crypto with a card or bank transfer, then send TON to your Pointer wallet address.
+                Buy crypto with a card or bank transfer, then send {nativeSym} to your Pointer wallet
+                address.
               </p>
               <a
                 href={ONRAMPER_HREF}
@@ -157,10 +187,15 @@ export function ExchangeModal({
                     className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#1b1f2a] bg-[#12141b] px-2.5 text-left text-[12px] text-white transition hover:border-[#2d3548]"
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#9945FF]/20 text-[10px] font-semibold text-[#c4b5fd]">
-                        T
+                      <span
+                        className={cn(
+                          'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-inner',
+                          depositQrAccentClass(activeChain),
+                        )}
+                      >
+                        {nativeSym.slice(0, 1)}
                       </span>
-                      <span className="truncate font-semibold">TON</span>
+                      <span className="truncate font-semibold">{depositNetworkLabel}</span>
                     </span>
                     <ChevronDown
                       className={cn(
@@ -174,27 +209,28 @@ export function ExchangeModal({
                       <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#4b5563]">
                         Networks
                       </div>
-                      {['TON', 'ETH', 'BASE', 'ARBITRUM', 'POLYGON', 'BSC', 'BITCOIN'].map(
-                        (n) => (
+                      {DEPOSIT_NETWORK_ROWS.map((row) => {
+                        const enabled = row.chain === activeChain;
+                        return (
                           <button
-                            key={n}
+                            key={row.chain}
                             type="button"
-                            disabled={n !== 'TON'}
+                            disabled={!enabled}
                             onClick={() => setAssetOpen(false)}
                             className={cn(
                               'flex w-full items-center px-2.5 py-1.5 text-left text-[11px]',
-                              n === 'TON'
+                              enabled
                                 ? 'text-white hover:bg-white/5'
                                 : 'cursor-not-allowed text-[#4b5563]',
                             )}
                           >
-                            {n}
-                            {n !== 'TON' ? (
-                              <span className="ml-auto text-[9px] text-[#4b5563]">Soon</span>
+                            {row.label}
+                            {!enabled ? (
+                              <span className="ml-auto text-[9px] text-[#4b5563]">Switch header</span>
                             ) : null}
                           </button>
-                        ),
-                      )}
+                        );
+                      })}
                     </div>
                   ) : null}
                 </div>
@@ -209,7 +245,9 @@ export function ExchangeModal({
               </div>
 
               <p className="text-[11px] leading-snug text-[#6b7280]">
-                Deposit TON or jettons directly to your wallet address.
+                {activeChain === 'ton'
+                  ? 'Deposit TON or jettons directly to your wallet address.'
+                  : `Send ${nativeSym} and compatible tokens to your deposit address below.`}
               </p>
 
               <div className="flex gap-3 rounded-lg border border-[#1b1f2a] bg-[#12141b] p-3">
@@ -223,14 +261,19 @@ export function ExchangeModal({
                       style={{ height: '100%', width: '100%' }}
                     />
                   </div>
-                  <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-[#9945FF] text-[10px] font-semibold text-white shadow">
-                    T
+                  <span
+                    className={cn(
+                      'absolute flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow',
+                      depositQrAccentClass(activeChain),
+                    )}
+                  >
+                    {nativeSym.slice(0, 1)}
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
                   <div>
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
-                      TON deposit address
+                      {nativeSym} deposit address
                     </div>
                     <div className="mt-1 break-all tabular-nums text-[12px] leading-snug text-white">
                       {walletAddress}
@@ -266,7 +309,7 @@ export function ExchangeModal({
               </div>
 
               <p className="text-center text-[11px] text-[#6b7280]">
-                Don&apos;t have any TON?{' '}
+                Don&apos;t have {nativeSym}?{' '}
                 <a
                   href={ONRAMPER_HREF}
                   target="_blank"
@@ -278,9 +321,28 @@ export function ExchangeModal({
               </p>
             </div>
           ) : tab === 'deposit' && !walletAddress ? (
-            <p className="py-8 text-center text-[12px] text-[#6b7280]">
-              No active TON wallet. Open /wallets to create or link one.
-            </p>
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <p className="max-w-xs text-[12px] leading-relaxed text-[#9ca3af]">
+                You don&apos;t have an active{' '}
+                <span className="font-semibold text-white">{nativeSym}</span> wallet for this chain yet.
+                Create or import one to get a deposit QR and address.
+              </p>
+              <Link
+                href="/wallets"
+                onClick={() => onOpenChange(false)}
+                className="btn-press inline-flex rounded-full bg-[#5865F2] px-4 py-2 text-[12px] font-semibold text-[#0a0a0f] transition hover:brightness-105"
+              >
+                Open Wallets
+              </Link>
+              <a
+                href={ONRAMPER_HREF}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-semibold text-[#5865F2] hover:underline"
+              >
+                Buy crypto via Onramper
+              </a>
+            </div>
           ) : null}
         </div>
 

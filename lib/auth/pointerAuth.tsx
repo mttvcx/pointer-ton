@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import { TonConnectUIProvider, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -24,7 +25,7 @@ function fallbackTonConnectManifestUrl(): string {
 
 const SESSION_KEY = 'pointer_ton_session';
 
-type PointerAuthUser = {
+export type PointerAuthUser = {
   id: string;
   email?: { address?: string };
   twitter?: { username?: string };
@@ -82,10 +83,11 @@ function decodeJwtWallet(token: string): string | null {
 }
 
 function InnerAuth({ children }: { children: ReactNode }) {
+  const privy = usePrivy();
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
   const queryClient = useQueryClient();
-  const [ready, setReady] = useState(false);
+  const [localReady, setLocalReady] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const payloadTokenRef = useRef<string | null>(null);
   const syncingRef = useRef(false);
@@ -93,7 +95,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
       setSessionToken(readSession());
-      setReady(true);
+      setLocalReady(true);
     });
     return () => cancelAnimationFrame(raf);
   }, []);
@@ -165,36 +167,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
     });
   }, [tonConnectUI, queryClient]);
 
-  const login = useCallback(async () => {
-    const existing = readSession();
-    if (wallet && !existing) {
-      await tonConnectUI.disconnect();
-    }
-    tonConnectUI.openModal();
-  }, [tonConnectUI, wallet]);
-
-  const logout = useCallback(async () => {
-    writeSession(null);
-    setSessionToken(null);
-    await tonConnectUI.disconnect();
-  }, [tonConnectUI]);
-
-  const getAccessToken = useCallback(async () => {
-    return sessionToken ?? readSession();
-  }, [sessionToken]);
-
-  const linkedTonAddress = useMemo(() => {
-    const raw = wallet?.account?.address;
-    return raw ? normalizeTonAddress(raw) : null;
-  }, [wallet?.account?.address]);
-
-  const user = useMemo((): PointerAuthUser | null => {
-    const raw = wallet?.account?.address;
-    if (!raw) return null;
-    return { id: raw };
-  }, [wallet?.account?.address]);
-
-  const tokenMatchesWallet = useMemo(() => {
+  const pointerSessionValid = useMemo(() => {
     const token = sessionToken ?? readSession();
     if (!token || !wallet?.account?.address) return false;
     const jwtWallet = decodeJwtWallet(token);
@@ -202,7 +175,60 @@ function InnerAuth({ children }: { children: ReactNode }) {
     return Boolean(jwtWallet && wa && normalizeTonAddress(jwtWallet) === wa);
   }, [sessionToken, wallet]);
 
-  const authenticated = Boolean(ready && wallet && tokenMatchesWallet);
+  const authenticated =
+    (privy.ready && privy.authenticated) || Boolean(localReady && pointerSessionValid);
+
+  const login = useCallback(async () => {
+    if (!privy.authenticated) {
+      privy.login();
+      return;
+    }
+    const existing = readSession();
+    if (wallet && !existing) {
+      await tonConnectUI.disconnect();
+    }
+    tonConnectUI.openModal();
+  }, [privy.authenticated, privy.login, tonConnectUI, wallet]);
+
+  const logout = useCallback(async () => {
+    writeSession(null);
+    setSessionToken(null);
+    await tonConnectUI.disconnect();
+    await privy.logout();
+  }, [privy, tonConnectUI]);
+
+  const getAccessToken = useCallback(async () => {
+    if (privy.authenticated) {
+      const t = await privy.getAccessToken();
+      if (t) return t;
+    }
+    return sessionToken ?? readSession();
+  }, [privy.authenticated, privy.getAccessToken, sessionToken]);
+
+  const linkedTonAddress = useMemo(() => {
+    const raw = wallet?.account?.address;
+    return raw ? normalizeTonAddress(raw) : null;
+  }, [wallet?.account?.address]);
+
+  const user = useMemo((): PointerAuthUser | null => {
+    if (privy.authenticated && privy.user) {
+      return {
+        id: privy.user.id,
+        email: privy.user.email?.address
+          ? { address: privy.user.email.address }
+          : undefined,
+        twitter: privy.user.twitter?.username
+          ? { username: privy.user.twitter.username }
+          : undefined,
+        google: privy.user.google?.name ? { name: privy.user.google.name } : undefined,
+      };
+    }
+    const raw = wallet?.account?.address;
+    if (pointerSessionValid && raw) return { id: raw };
+    return null;
+  }, [privy.authenticated, privy.user, wallet?.account?.address, pointerSessionValid]);
+
+  const ready = privy.ready && localReady;
 
   const value = useMemo(
     () => ({
@@ -227,8 +253,7 @@ export function PointerAuthProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
     const next = `${window.location.origin}/tonconnect-manifest.json`;
     if (next === manifestUrl) return;
-    // Defer URL to browser tab after SSR so TonConnect manifest matches the host (localhost vs 127.0.0.1).
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration remount of TonConnectUIProvider
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- match host for TonConnect manifest
     setManifestUrl(next);
   }, [manifestUrl]);
 

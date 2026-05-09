@@ -120,6 +120,10 @@ export const LAUNCHPAD_LABELS = {
   bags: 'Bags',
   printr: 'Printr',
   moonshot: 'Moonshot',
+  /** BNB Chain meme / new-pool discovery (Gecko Terminal ingest). */
+  bsc: 'BNB Chain',
+  /** Base chain meme / new-pool discovery (Gecko Terminal ingest). */
+  base: 'Base',
   unknown: 'Unknown',
 } as const;
 export type LaunchpadId = keyof typeof LAUNCHPAD_LABELS;
@@ -138,6 +142,8 @@ export const LAUNCHPAD_AUTHORITIES: Record<LaunchpadId, string | null> = {
   bags: null,
   printr: null,
   moonshot: null,
+  bsc: null,
+  base: null,
   unknown: null,
 };
 

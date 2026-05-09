@@ -1,9 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo } from 'react';
+import { PublicKey } from '@solana/web3.js';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useActiveWalletStore } from '@/store/activeWallet';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
+import { useUIStore } from '@/store/ui';
 
 export type MyWalletRow = {
   id: string;
@@ -19,11 +23,29 @@ export type MyWalletRow = {
   created_at: string;
 };
 
+function canonicalWalletKey(address: string, chain: AppChainId): string | null {
+  const raw = address.trim();
+  if (!mintMatchesAppChain(raw, chain)) return null;
+  if (chain === 'ton') return normalizeTonAddress(raw);
+  if (chain === 'sol') {
+    try {
+      return new PublicKey(raw).toBase58();
+    } catch {
+      return null;
+    }
+  }
+  if (chain === 'bnb' || chain === 'base') {
+    const lo = raw.toLowerCase();
+    if (/^0x[a-f0-9]{40}$/.test(lo)) return lo;
+  }
+  return null;
+}
+
 /**
- * Active TON wallet for the session (TonConnect). Kept name for minimal churn
- * across trading / portfolio components. Rename to useActiveTonWallet when convenient.
+ * Active wallet for the selected app chain (header toggle). TON rows use TonConnect for signing.
  */
 export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
+  const activeChain = useUIStore((s) => s.activeChain);
   const { linkedTonAddress, ready: authReady } = usePointerAuth();
   const activeAddr = useActiveWalletStore((s) => s.activeWalletAddress);
   const setActive = useActiveWalletStore((s) => s.setActiveWalletAddress);
@@ -33,29 +55,33 @@ export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
     [linkedTonAddress],
   );
 
-  /** Normalized TON addresses the session can sign for (TonConnect-linked). */
   const signableNormalized = useMemo(() => {
     const s = new Set<string>();
-    if (linkedTonAddress) {
+    if (activeChain === 'ton' && linkedTonAddress) {
       const n = normalizeTonAddress(linkedTonAddress);
       if (n) s.add(n);
     }
     return s;
-  }, [linkedTonAddress]);
+  }, [activeChain, linkedTonAddress]);
 
   const eligibleRows = useMemo(() => {
     if (!myWallets?.length) return [];
-    return myWallets.filter((r) => r.is_active && !r.is_archived);
-  }, [myWallets]);
+    return myWallets.filter(
+      (r) =>
+        r.is_active &&
+        !r.is_archived &&
+        mintMatchesAppChain(r.wallet_address, activeChain),
+    );
+  }, [myWallets, activeChain]);
 
-  const eligibleNormToRaw = useMemo(() => {
+  const eligibleKeyToRaw = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of eligibleRows) {
-      const n = normalizeTonAddress(r.wallet_address);
-      if (n) m.set(n, r.wallet_address);
+      const k = canonicalWalletKey(r.wallet_address, activeChain);
+      if (k) m.set(k, r.wallet_address);
     }
     return m;
-  }, [eligibleRows]);
+  }, [eligibleRows, activeChain]);
 
   const wallet = useMemo(() => {
     if (!activeAddr) return null;
@@ -64,41 +90,56 @@ export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
 
   const canSignWithWallet = useCallback(
     (address: string) => {
+      if (activeChain !== 'ton') return false;
       const n = normalizeTonAddress(address);
       return n != null && signableNormalized.has(n);
     },
-    [signableNormalized],
+    [activeChain, signableNormalized],
   );
 
   useEffect(() => {
     if (!authReady) return;
 
     if (myWallets === undefined) {
-      if (linkedTonAddress && !activeAddr) {
+      if (activeChain === 'ton' && linkedTonAddress && !activeAddr) {
         setActive(linkedTonAddress);
+      } else if (activeAddr && canonicalWalletKey(activeAddr, activeChain) == null) {
+        // Drop persisted chain-mismatch (e.g. TON address while header is SOL) before list loads.
+        setActive(null);
       }
       return;
     }
 
     if (eligibleRows.length === 0) {
-      if (linkedTonAddress) {
+      if (activeChain === 'ton' && linkedTonAddress) {
         const n = normalizeTonAddress(linkedTonAddress);
         const activeNorm = activeAddr ? normalizeTonAddress(activeAddr) : null;
         if (n && activeNorm !== n) {
           setActive(linkedTonAddress);
         }
+        return;
       }
+      if (activeAddr) setActive(null);
       return;
     }
 
-    const activeNorm = activeAddr ? normalizeTonAddress(activeAddr) : null;
-    if (activeNorm && eligibleNormToRaw.has(activeNorm)) {
+    const activeKey = activeAddr ? canonicalWalletKey(activeAddr, activeChain) : null;
+    if (activeKey && eligibleKeyToRaw.has(activeKey)) {
       return;
     }
 
     const primary = eligibleRows.find((r) => r.is_primary);
     setActive((primary ?? eligibleRows[0]!).wallet_address);
-  }, [authReady, myWallets, eligibleRows, eligibleNormToRaw, activeAddr, setActive, linkedTonAddress]);
+  }, [
+    authReady,
+    myWallets,
+    eligibleRows,
+    eligibleKeyToRaw,
+    activeAddr,
+    setActive,
+    linkedTonAddress,
+    activeChain,
+  ]);
 
   return {
     wallet,
@@ -107,5 +148,6 @@ export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
     activeAddress: activeAddr ?? null,
     setActiveWalletAddress: setActive,
     canSignWithWallet,
+    activeChain,
   };
 }

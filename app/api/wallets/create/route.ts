@@ -8,14 +8,14 @@ import {
   privyUserOwnsSolanaAddress,
 } from '@/lib/db/userWallets';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
-import { normalizeTonAddress } from '@/lib/utils/tonAddress';
+import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BodySchema = z
   .object({
-    wallet_address: z.string().refine((s) => normalizeTonAddress(s) != null),
+    wallet_address: z.string().min(1),
     label: z.string().min(1).max(64).nullable().optional(),
     is_imported: z.boolean().optional(),
   })
@@ -49,17 +49,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
+  const normalized = normalizeWalletAddressForStorage(body.wallet_address);
+  if (!normalized) {
+    return NextResponse.json(
+      { error: 'invalid_wallet_address', message: 'Not a valid TON, Solana, or EVM address' },
+      { status: 400 },
+    );
+  }
+
   if (body.is_imported !== true) {
-    const owned = await privyUserOwnsSolanaAddress(verified.walletAddress, body.wallet_address);
+    const owned = await privyUserOwnsSolanaAddress(verified.walletAddress, normalized);
     if (!owned) {
       return NextResponse.json(
-        { error: 'wallet_not_linked', message: 'Address must match your connected TON wallet' },
+        {
+          error: 'wallet_not_linked',
+          message: 'Address must match your connected wallet for this sign-in session',
+        },
         { status: 403 },
       );
     }
   }
 
-  const dup = await getUserWalletByAddress(user.id, body.wallet_address);
+  const dup = await getUserWalletByAddress(user.id, normalized);
   if (dup) {
     return NextResponse.json(
       { error: 'duplicate_wallet', wallet: dup },
@@ -71,7 +82,7 @@ export async function POST(req: NextRequest) {
   try {
     const row = await insertUserWallet({
       user_id: user.id,
-      wallet_address: body.wallet_address,
+      wallet_address: normalized,
       label: body.label ?? (n === 0 ? 'Primary' : `Wallet ${n + 1}`),
       is_primary: n === 0,
       slot: n,

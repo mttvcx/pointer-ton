@@ -1,6 +1,8 @@
 import 'server-only';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 
 export type TrackedWalletRow = Tables<'tracked_wallets'>;
 export type WalletStatsRow = Tables<'wallet_stats'>;
@@ -94,6 +96,23 @@ export async function deleteAllTrackedWalletsForUser(userId: string): Promise<vo
   const supabase = createAdminSupabase();
   const { error } = await supabase.from('tracked_wallets').delete().eq('user_id', userId);
   if (error) throw new Error(`deleteAllTrackedWalletsForUser failed: ${error.message}`);
+}
+
+/** Remove only trackers whose address format belongs to the given app chain. */
+export async function deleteTrackedWalletsForUserChain(
+  userId: string,
+  chain: AppChainId,
+): Promise<void> {
+  const all = await listTrackedWalletsForUser(userId);
+  const addrs = all.filter((r) => mintMatchesAppChain(r.wallet_address, chain)).map((r) => r.wallet_address);
+  if (addrs.length === 0) return;
+  const supabase = createAdminSupabase();
+  const { error } = await supabase
+    .from('tracked_wallets')
+    .delete()
+    .eq('user_id', userId)
+    .in('wallet_address', addrs);
+  if (error) throw new Error(`deleteTrackedWalletsForUserChain failed: ${error.message}`);
 }
 
 export async function updateTrackedWalletNotify(

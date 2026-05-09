@@ -8,7 +8,8 @@ import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
 export type GeneratedEmbeddedTonWallet = {
   address: string;
-  mnemonicWords: string[];
+  /** 64-char hex — ed25519 secret key bytes (32). Safer to show than the full mnemonic. */
+  privateKeyHex: string;
 };
 
 export async function generateEmbeddedTonWallet(): Promise<GeneratedEmbeddedTonWallet> {
@@ -18,5 +19,6 @@ export async function generateEmbeddedTonWallet(): Promise<GeneratedEmbeddedTonW
   const raw = w.address.toString({ bounceable: true, urlSafe: true });
   const n = normalizeTonAddress(raw);
   if (!n) throw new Error('derived_invalid_address');
-  return { address: n, mnemonicWords };
+  const privateKeyHex = Buffer.from(kp.secretKey).toString('hex');
+  return { address: n, privateKeyHex };
 }

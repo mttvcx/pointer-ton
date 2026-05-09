@@ -27,8 +27,7 @@ function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
 }
 
 /**
- * App shell: signed-in TON users only. Landing stays on `/`; all routes here require
- * TonConnect + valid session from `/api/auth/sync`.
+ * App shell: signed-in users (Privy and/or legacy TonConnect session). Landing stays on `/`.
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -106,16 +105,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </button>
         </header>
         <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <h1 className="text-lg font-semibold text-white">Sign in with your TON wallet</h1>
+          <h1 className="text-lg font-semibold text-white">Sign in to Pointer</h1>
           <p className="mt-2 max-w-md text-sm text-fg-secondary">
-            Connect TonConnect and complete sign-in to open Pulse, trackers, and the rest of the terminal.
+            Sign in with Privy (email, Google, X, or wallet). Then link your TON wallet via TonConnect for
+            on-chain actions and trading.
           </p>
           <button
             type="button"
             onClick={() => void login()}
             className="btn-press mt-6 rounded-md bg-accent-primary px-5 py-2.5 text-sm font-semibold text-fg-inverse hover:bg-accent-glow"
           >
-            {linkedTonAddress ? 'Finish sign-in' : 'Connect wallet'}
+            {linkedTonAddress ? 'Finish TON link' : 'Sign in'}
           </button>
         </main>
       </div>

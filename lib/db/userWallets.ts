@@ -3,6 +3,7 @@ import 'server-only';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 import type { UserRow } from '@/lib/db/users';
+import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
 export type UserWalletRow = Tables<'user_wallets'>;
@@ -135,8 +136,8 @@ export async function privyUserOwnsSolanaAddress(
   sessionWalletAddress: string,
   walletAddress: string,
 ): Promise<boolean> {
-  const a = normalizeTonAddress(walletAddress);
-  const b = normalizeTonAddress(sessionWalletAddress);
+  const a = normalizeWalletAddressForStorage(walletAddress);
+  const b = normalizeWalletAddressForStorage(sessionWalletAddress);
   return Boolean(a && b && a === b);
 }
 

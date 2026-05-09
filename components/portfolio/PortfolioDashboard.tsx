@@ -24,6 +24,8 @@ import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
 import { explorerTxUrl, shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
+import { useUIStore } from '@/store/ui';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import {
   formatCompactUsd,
   formatNumber,
@@ -130,6 +132,7 @@ async function authJson<T>(
 
 export function PortfolioDashboard({ className }: { className?: string }) {
   const { authenticated, getAccessToken } = usePointerAuth();
+  const activeChain = useUIStore((s) => s.activeChain);
   const qc = useQueryClient();
   const { createWallet } = useCreateWallet();
   const [tab, setTab] = useState<PortfolioTab>('spot');
@@ -165,9 +168,15 @@ export function PortfolioDashboard({ className }: { className?: string }) {
 
   const { activeAddress, ready: walletsReady } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
 
+  const portfolioEnabled =
+    authenticated &&
+    walletsReady &&
+    activeChain === 'sol' &&
+    Boolean(activeAddress && mintMatchesAppChain(activeAddress, 'sol'));
+
   const query = useQuery({
-    queryKey: ['portfolio', activeAddress],
-    enabled: authenticated && walletsReady,
+    queryKey: ['portfolio', activeChain, activeAddress],
+    enabled: portfolioEnabled,
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
@@ -297,6 +306,39 @@ export function PortfolioDashboard({ className }: { className?: string }) {
         )}
       >
         Sign in to view portfolio.
+      </div>
+    );
+  }
+
+  if (activeChain !== 'sol') {
+    return (
+      <div
+        className={cn(
+          'rounded-md border border-border-subtle bg-bg-base p-6 text-sm text-fg-secondary',
+          className,
+        )}
+      >
+        Spot portfolio, holdings, and PnL on this build are tracked for{' '}
+        <span className="font-semibold text-fg-primary">Solana</span>. Switch the header chain to SOL to
+        load your Solana portfolio. Other networks keep Pulse and wallet labels in sync with the chain
+        toggle.
+      </div>
+    );
+  }
+
+  if (!activeAddress || !mintMatchesAppChain(activeAddress, 'sol')) {
+    return (
+      <div
+        className={cn(
+          'rounded-md border border-border-subtle bg-bg-base p-6 text-sm text-fg-secondary',
+          className,
+        )}
+      >
+        No active Solana wallet. Add or select a Solana address under{' '}
+        <Link href="/wallets" className="font-semibold text-accent-primary underline-offset-2 hover:underline">
+          Wallets
+        </Link>
+        , then return here.
       </div>
     );
   }
