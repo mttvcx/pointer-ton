@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type HTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Activity,
@@ -36,7 +36,19 @@ const CHROME = {
 } as const;
 
 const PILL_TRANSITION_MS = 200;
-const DRAG_THRESHOLD_PX = 6;
+
+const HEADER_DRAG_MAX_X = 150;
+const HEADER_DRAG_MAX_Y = 8;
+const DRAG_IGNORER_CLICK_PX = 10;
+const DETACH_DRAG_DOWN_PX = 36;
+
+function headerBottomPx(): number {
+  if (typeof document === 'undefined') return 72;
+  const h = document.querySelector('header');
+  if (!h) return 72;
+  const r = h.getBoundingClientRect();
+  return r.bottom > 0 ? r.bottom : 72;
+}
 
 function CopilotPillAlertsSync() {
   const expanded = useUIStore((s) => s.copilotPillExpanded);
@@ -84,25 +96,27 @@ function PillInsightCrossfade({ insight }: { insight: ReturnType<typeof useCopil
   }, [stack.prev?.key]);
 
   return (
-    <div className="relative h-[22px] min-w-0 flex-1 overflow-hidden px-2">
-      {stack.prev ? (
-        <p
-          key={`out-${stack.prev.key}`}
-          className="pointer-events-none absolute inset-x-2 top-0 line-clamp-1 text-left text-[12px] leading-snug text-fg-primary animate-copilot-pill-out"
-          aria-hidden
+    <div className="flex min-h-0 min-w-0 flex-1 items-stretch self-stretch overflow-hidden px-2">
+      <div className="relative min-h-0 min-w-0 flex-1">
+        {stack.prev ? (
+          <div
+            key={`out-${stack.prev.key}`}
+            className="pointer-events-none absolute inset-x-0 top-0 bottom-0 flex items-center animate-copilot-pill-out"
+            aria-hidden
+          >
+            <p className="line-clamp-1 w-full text-left text-[12px] leading-[1.35] text-fg-primary">{stack.prev.text}</p>
+          </div>
+        ) : null}
+        <div
+          key={`in-${stack.cur.key}`}
+          className={cn(
+            'absolute inset-x-0 top-0 bottom-0 flex items-center',
+            stack.prev ? 'animate-copilot-pill-in' : null,
+          )}
         >
-          {stack.prev.text}
-        </p>
-      ) : null}
-      <p
-        key={`in-${stack.cur.key}`}
-        className={cn(
-          'absolute inset-x-2 top-0 line-clamp-1 text-left text-[12px] leading-snug text-fg-primary',
-          stack.prev ? 'animate-copilot-pill-in' : null,
-        )}
-      >
-        {stack.cur.text}
-      </p>
+          <p className="line-clamp-1 w-full text-left text-[12px] leading-[1.35] text-fg-primary">{stack.cur.text}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -115,28 +129,35 @@ function CopilotPillExpandedCard({
   entity: ReturnType<typeof selectActiveEntity>;
 }) {
   const setMode = useUIStore((s) => s.setCopilotDisplayMode);
-  const alertRulesAway =
-    useUIStore((s) => s.alertRulesPopout != null || s.alertRulesDocked);
+  const alertRulesPopped = useUIStore((s) => s.alertRulesPopout != null);
+  const alertRulesDocked = useUIStore((s) => s.alertRulesDocked);
+  const { data: alertsData } = useAlertsTickerQuery();
+  const pillInsight = useCopilotPillInsight(alertsData);
 
   return createPortal(
     <>
       <button
         type="button"
         aria-label="Dismiss co-pilot card"
-        className="fixed inset-0 z-[625] cursor-default animate-in fade-in bg-black/25 backdrop-blur-[2px] duration-200"
+        className="fixed inset-0 z-[625] cursor-default animate-in fade-in duration-300 bg-black/30 backdrop-blur-[3px]"
         onClick={onClose}
       />
       <div
-        role="dialog"
-        aria-modal
-        aria-label="AI co-pilot"
-        className="fixed left-1/2 z-[630] flex max-h-[min(680px,calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-24px))] w-[min(720px,calc(100vw-20px))] -translate-x-1/2 animate-in fade-in zoom-in-95 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080d14]/95 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.55)] backdrop-blur-xl duration-200 ease-out"
-        style={{
-          top: 'calc(var(--app-topbar-h) + 10px)',
-          borderColor: CHROME.border,
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="pointer-events-none fixed left-1/2 z-[630] w-[min(720px,calc(100vw-20px))] -translate-x-1/2"
+        style={{ top: 'calc(var(--app-topbar-h) + 10px)' }}
       >
+        <div
+          role="dialog"
+          aria-modal
+          aria-label="AI co-pilot"
+          className={cn(
+            'pointer-events-auto flex max-h-[min(680px,calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-24px))] w-full flex-col overflow-hidden rounded-xl border bg-[#080d14]/95 backdrop-blur-xl',
+            'animate-copilot-card-enter border-white/14',
+            'shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_36px_-8px_rgba(255,255,255,0.16),0_28px_52px_-14px_rgba(0,0,0,0.58)]',
+          )}
+          style={{ borderColor: CHROME.border }}
+          onClick={(e) => e.stopPropagation()}
+        >
         <div
           className="flex shrink-0 items-center justify-between border-b px-3 py-2"
           style={{ borderColor: CHROME.border, background: `linear-gradient(180deg, ${CHROME.card} 0%, ${CHROME.bg} 100%)` }}
@@ -197,16 +218,27 @@ function CopilotPillExpandedCard({
         </div>
 
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2 py-2"
           style={{
             backgroundColor: CHROME.bg,
             paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
           }}
         >
           <div className="flex flex-col gap-2 pb-2">
+            <div
+              className="rounded-lg border px-2.5 py-2"
+              style={{ borderColor: `${CHROME.border}`, backgroundColor: '#0f1218' }}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: CHROME.muted }}>
+                Live scan
+              </div>
+              <p className="mt-1 whitespace-pre-wrap break-words text-[12px] leading-snug" style={{ color: CHROME.text }}>
+                {pillInsight.text}
+              </p>
+            </div>
             <ContextCard entity={entity} />
             <AskBox entity={entity} />
-            {alertRulesAway ? (
+            {alertRulesDocked ? null : alertRulesPopped ? (
               <AlertBuilderEmbeddedPlaceholder />
             ) : (
               <AlertRulesSection showPopoutLauncher />
@@ -225,112 +257,89 @@ function CopilotPillExpandedCard({
             <Activity className="h-3 w-3" strokeWidth={2} />
           </div>
         </div>
+        </div>
       </div>
     </>,
     document.body,
   );
 }
 
-/** Collapsed co-pilot control embedded in the top bar (pill layout mode). */
-export function CopilotPillTopbarCollapsed() {
-  const mode = useUIStore((s) => s.copilotDisplayMode);
+/** Collapsed pill control: insight strip + chrome (shared header + floating). */
+function CopilotPillCollapsedSurface({
+  insight,
+  pillHover,
+  setPillHover,
+  shellProps,
+}: {
+  insight: ReturnType<typeof useCopilotPillInsight>;
+  pillHover: boolean;
+  setPillHover: (v: boolean) => void;
+  shellProps: Pick<
+    HTMLAttributes<HTMLDivElement>,
+    | 'className'
+    | 'style'
+    | 'onPointerDown'
+    | 'onPointerMove'
+    | 'onPointerUp'
+    | 'onPointerCancel'
+    | 'onClick'
+    | 'onPointerEnter'
+    | 'onPointerLeave'
+    | 'onKeyDown'
+  >;
+}) {
+  const busyElsewhere = useUIStore(
+    (s) => Boolean(s.hoveredEntity || s.lockedEntity || s.searchOpen),
+  );
   const expanded = useUIStore((s) => s.copilotPillExpanded);
-  const setExpanded = useUIStore((s) => s.setCopilotPillExpanded);
-  const offsetX = useUIStore((s) => s.copilotPillOffsetX);
-  const setCopilotPillOffset = useUIStore((s) => s.setCopilotPillOffset);
-  const hoveredEntity = useUIStore((s) => s.hoveredEntity);
-  const lockedEntity = useUIStore((s) => s.lockedEntity);
-  const searchOpen = useUIStore((s) => s.searchOpen);
-
-  const { data: alertsData } = useAlertsTickerQuery();
-  const insight = useCopilotPillInsight(alertsData);
-
-  const [pillHover, setPillHover] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    ox: number;
-    moved: boolean;
-  } | null>(null);
-
-  const busyElsewhere = Boolean(hoveredEntity || lockedEntity || searchOpen);
-  const pillOpacity =
-    expanded || pillHover ? 1 : busyElsewhere ? 0.42 : 0.72;
-
-  if (mode !== 'pill' || expanded) return null;
+  const pillOpacity = expanded || pillHover ? 1 : busyElsewhere ? 0.42 : 0.72;
 
   return (
     <div
       data-onboarding="copilot"
-      className="flex w-full max-w-[min(420px,calc(100vw-16px))] touch-none justify-center"
+      className="pointer-events-auto flex w-full max-w-[min(420px,calc(100vw-16px))] justify-center"
       style={{
-        transform: `translateX(${offsetX}px)`,
         opacity: pillOpacity,
-        transition: dragging ? 'none' : `opacity ${PILL_TRANSITION_MS}ms ease`,
+        transition: `opacity ${PILL_TRANSITION_MS}ms ease`,
       }}
     >
       <div
         role="button"
         tabIndex={0}
-        aria-label="Open or drag AI co-pilot"
-        title="Drag horizontally · Click to open"
+        aria-label="Open AI co-pilot. Drag sideways in the header, or drag down to tear off."
+        title="Open co-pilot · drag to reposition"
         className={cn(
-          'pointer-events-auto flex h-9 w-full min-w-0 cursor-grab select-none items-center gap-2 rounded-full border border-white/10 bg-bg-base/90 px-3 shadow-md backdrop-blur-xl transition-[box-shadow,border-color,background-color] duration-200 active:cursor-grabbing hover:border-white/18 hover:bg-bg-base/95 hover:shadow-lg',
+          'flex h-9 w-full min-w-0 touch-none select-none items-stretch gap-2 rounded-full border py-0 pl-2.5 pr-2 shadow-md backdrop-blur-xl transition-[box-shadow,border-color,background-color,transform] duration-200',
+          pillHover
+            ? 'border-white/22 bg-bg-base/95 shadow-[0_0_32px_-8px_rgba(255,255,255,0.28),0_0_14px_-2px_rgba(255,255,255,0.12)]'
+            : 'border-white/10 bg-bg-base/90 hover:border-white/18 hover:bg-bg-base/95 hover:shadow-[0_0_22px_-8px_rgba(255,255,255,0.18)]',
+          shellProps.className,
         )}
-        onPointerEnter={() => setPillHover(true)}
-        onPointerLeave={() => setPillHover(false)}
+        style={shellProps.style}
+        onPointerEnter={(e) => {
+          setPillHover(true);
+          shellProps.onPointerEnter?.(e);
+        }}
+        onPointerLeave={(e) => {
+          setPillHover(false);
+          shellProps.onPointerLeave?.(e);
+        }}
+        onPointerDown={shellProps.onPointerDown}
+        onPointerMove={shellProps.onPointerMove}
+        onPointerUp={shellProps.onPointerUp}
+        onPointerCancel={shellProps.onPointerCancel}
         onKeyDown={(e) => {
+          shellProps.onKeyDown?.(e);
+          if (e.defaultPrevented) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setExpanded(true);
+            useUIStore.getState().setCopilotPillExpanded(true);
           }
         }}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          setDragging(false);
-          dragRef.current = {
-            pointerId: e.pointerId,
-            startX: e.clientX,
-            startY: e.clientY,
-            ox: offsetX,
-            moved: false,
-          };
-          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        }}
-        onPointerMove={(e) => {
-          const d = dragRef.current;
-          if (!d || e.pointerId !== d.pointerId) return;
-          const dx = e.clientX - d.startX;
-          if (Math.abs(dx) > DRAG_THRESHOLD_PX) {
-            d.moved = true;
-            setDragging(true);
-            setCopilotPillOffset(d.ox + dx, 0);
-          }
-        }}
-        onPointerUp={(e) => {
-          const d = dragRef.current;
-          if (!d || e.pointerId !== d.pointerId) return;
-          try {
-            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-          } catch {
-            /* ignore */
-          }
-          const shouldOpen = !d.moved;
-          dragRef.current = null;
-          setDragging(false);
-          if (shouldOpen) setExpanded(true);
-        }}
-        onPointerCancel={(e) => {
-          const d = dragRef.current;
-          if (!d || e.pointerId !== d.pointerId) return;
-          dragRef.current = null;
-          setDragging(false);
-        }}
+        onClick={shellProps.onClick}
       >
         <span
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border"
+          className="flex h-7 w-7 shrink-0 self-center items-center justify-center rounded-full border"
           style={{
             borderColor: `${CHROME.accent}44`,
             boxShadow: `0 0 12px -3px ${CHROME.accent}55`,
@@ -339,9 +348,262 @@ export function CopilotPillTopbarCollapsed() {
           <Sparkles className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2.25} />
         </span>
         <PillInsightCrossfade insight={insight} />
-        <ChevronDown className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
+        <ChevronDown className="h-4 w-4 shrink-0 self-center text-fg-muted" strokeWidth={2.25} aria-hidden />
       </div>
     </div>
+  );
+}
+
+/** Collapsed co-pilot control embedded in the top bar (pill layout mode). */
+export function CopilotPillTopbarCollapsed() {
+  const mode = useUIStore((s) => s.copilotDisplayMode);
+  const expanded = useUIStore((s) => s.copilotPillExpanded);
+  const anchor = useUIStore((s) => s.copilotPillAnchor);
+  const offsetX = useUIStore((s) => s.copilotPillOffsetX);
+  const offsetY = useUIStore((s) => s.copilotPillOffsetY);
+  const setOffset = useUIStore((s) => s.setCopilotPillOffset);
+  const setAnchor = useUIStore((s) => s.setCopilotPillAnchor);
+  const setFreePos = useUIStore((s) => s.setCopilotPillFreePos);
+
+  const { data: alertsData } = useAlertsTickerQuery();
+  const insight = useCopilotPillInsight(alertsData);
+
+  const [pillHover, setPillHover] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{
+    id: number;
+    cx: number;
+    cy: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
+  const didDragRef = useRef(false);
+  const pillWrapRef = useRef<HTMLDivElement | null>(null);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      didDragRef.current = false;
+      setDragging(true);
+      dragRef.current = {
+        id: e.pointerId,
+        cx: e.clientX,
+        cy: e.clientY,
+        ox: offsetX,
+        oy: offsetY,
+      };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [offsetX, offsetY],
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = dragRef.current;
+      if (!d || e.pointerId !== d.id) return;
+      const dx = e.clientX - d.cx;
+      const dy = e.clientY - d.cy;
+      if (Math.hypot(dx, dy) > DRAG_IGNORER_CLICK_PX) didDragRef.current = true;
+
+      if (
+        didDragRef.current &&
+        dy > DETACH_DRAG_DOWN_PX &&
+        e.clientY > headerBottomPx() + 2
+      ) {
+        const rect = pillWrapRef.current?.getBoundingClientRect();
+        const w = rect?.width ?? 260;
+        setAnchor('free');
+        setFreePos(e.clientX - w / 2, e.clientY - 14);
+        dragRef.current = null;
+        setDragging(false);
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      if (!didDragRef.current) return;
+
+      setOffset(
+        Math.min(HEADER_DRAG_MAX_X, Math.max(-HEADER_DRAG_MAX_X, d.ox + dx)),
+        Math.min(HEADER_DRAG_MAX_Y, Math.max(-HEADER_DRAG_MAX_Y, d.oy + dy)),
+      );
+    },
+    [setAnchor, setFreePos, setOffset],
+  );
+
+  const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (d && e.pointerId === d.id) {
+      dragRef.current = null;
+      setDragging(false);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  if (mode !== 'pill' || expanded || anchor !== 'header') return null;
+
+  return (
+    <div
+      ref={pillWrapRef}
+      className="flex w-full justify-center"
+      style={{
+        transform: `translate(${offsetX}px, ${offsetY}px)`,
+        transition: dragging ? 'none' : 'transform 160ms ease-out',
+      }}
+    >
+      <CopilotPillCollapsedSurface
+        insight={insight}
+        pillHover={pillHover}
+        setPillHover={setPillHover}
+        shellProps={{
+          className: 'cursor-grab active:cursor-grabbing',
+          onPointerDown,
+          onPointerMove,
+          onPointerUp: endDrag,
+          onPointerCancel: endDrag,
+          onClick: (ev) => {
+            if (didDragRef.current) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              return;
+            }
+            useUIStore.getState().setCopilotPillExpanded(true);
+          },
+        }}
+      />
+    </div>
+  );
+}
+
+function CopilotPillFreeFloat() {
+  const mode = useUIStore((s) => s.copilotDisplayMode);
+  const expanded = useUIStore((s) => s.copilotPillExpanded);
+  const anchor = useUIStore((s) => s.copilotPillAnchor);
+  const freeLeft = useUIStore((s) => s.copilotPillFreeLeft);
+  const freeTop = useUIStore((s) => s.copilotPillFreeTop);
+  const setFreePos = useUIStore((s) => s.setCopilotPillFreePos);
+  const setAnchor = useUIStore((s) => s.setCopilotPillAnchor);
+  const setOffset = useUIStore((s) => s.setCopilotPillOffset);
+
+  const { data: alertsData } = useAlertsTickerQuery();
+  const insight = useCopilotPillInsight(alertsData);
+
+  const [pillHover, setPillHover] = useState(false);
+  const dragRef = useRef<{ id: number; cx: number; cy: number; ol: number; ot: number } | null>(null);
+  const didDragRef = useRef(false);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+
+  const clampFree = useCallback((l: number, t: number) => {
+    const el = shellRef.current;
+    const w = el?.offsetWidth ?? 280;
+    const h = el?.offsetHeight ?? 40;
+    const maxL = Math.max(8, window.innerWidth - w - 8);
+    const maxT = Math.max(8, window.innerHeight - h - 8);
+    return {
+      left: Math.min(maxL, Math.max(8, l)),
+      top: Math.min(maxT, Math.max(8, t)),
+    };
+  }, []);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      didDragRef.current = false;
+      dragRef.current = {
+        id: e.pointerId,
+        cx: e.clientX,
+        cy: e.clientY,
+        ol: freeLeft,
+        ot: freeTop,
+      };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [freeLeft, freeTop],
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = dragRef.current;
+      if (!d || e.pointerId !== d.id) return;
+      const dx = e.clientX - d.cx;
+      const dy = e.clientY - d.cy;
+      if (Math.hypot(dx, dy) > DRAG_IGNORER_CLICK_PX) didDragRef.current = true;
+      if (!didDragRef.current) return;
+      const next = clampFree(d.ol + dx, d.ot + dy);
+      setFreePos(next.left, next.top);
+    },
+    [clampFree, setFreePos],
+  );
+
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = dragRef.current;
+      if (d && e.pointerId === d.id) {
+        dragRef.current = null;
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+
+        const mid = window.innerWidth / 2;
+        if (
+          e.clientY <= headerBottomPx() + 16 &&
+          Math.abs(e.clientX - mid) < Math.min(340, window.innerWidth * 0.38)
+        ) {
+          setAnchor('header');
+          setOffset(0, 0);
+        }
+      }
+    },
+    [setAnchor, setOffset],
+  );
+
+  if (mode !== 'pill' || expanded || anchor !== 'free') return null;
+
+  return createPortal(
+    <div
+      ref={shellRef}
+      className="pointer-events-auto fixed z-[125] w-[min(420px,calc(100vw-24px))]"
+      style={{ left: freeLeft, top: freeTop }}
+    >
+      <CopilotPillCollapsedSurface
+        insight={insight}
+        pillHover={pillHover}
+        setPillHover={setPillHover}
+        shellProps={{
+          className: 'cursor-grab shadow-lg active:cursor-grabbing',
+          onPointerDown,
+          onPointerMove,
+          onPointerUp,
+          onPointerCancel: onPointerUp,
+          onClick: (ev) => {
+            if (didDragRef.current) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              return;
+            }
+            useUIStore.getState().setCopilotPillExpanded(true);
+          },
+        }}
+      />
+    </div>,
+    document.body,
   );
 }
 
@@ -362,6 +624,7 @@ export function CopilotPillHost() {
   return (
     <>
       <CopilotPillAlertsSync />
+      <CopilotPillFreeFloat />
       {expanded ? <CopilotPillExpandedCard onClose={() => setExpanded(false)} entity={entity} /> : null}
     </>
   );

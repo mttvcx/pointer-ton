@@ -116,19 +116,19 @@ function TradeTapeStrip({ m }: { m: TokenExtendedMetrics }) {
         <span className="shrink-0 text-fg-muted">
           6h Vol{' '}
           <span className="font-semibold text-fg-primary">
-            {m.vol6hUsd != null ? formatCompactUsd(m.vol6hUsd) : '—'}
+            {formatCompactUsd(m.vol6hUsd ?? 0)}
           </span>
         </span>
         <span className="shrink-0">
           <span className="text-fg-muted">Buys </span>
           <span className="font-semibold text-signal-bull">
-            {m.buys6h ?? '—'} / {m.buyVol6hUsd != null ? formatCompactUsd(m.buyVol6hUsd) : '—'}
+            {buys} / {formatCompactUsd(m.buyVol6hUsd ?? 0)}
           </span>
         </span>
         <span className="shrink-0">
           <span className="text-fg-muted">Sells </span>
           <span className="font-semibold text-signal-bear">
-            {m.sells6h ?? '—'} / {m.sellVol6hUsd != null ? formatCompactUsd(m.sellVol6hUsd) : '—'}
+            {sells} / {formatCompactUsd(m.sellVol6hUsd ?? 0)}
           </span>
         </span>
         <span className="shrink-0 text-fg-muted">
@@ -136,13 +136,13 @@ function TradeTapeStrip({ m }: { m: TokenExtendedMetrics }) {
           <span
             className={cn(
               'font-semibold',
-              m.netVol6hUsd != null && m.netVol6hUsd < 0 ? 'text-signal-bear' : 'text-signal-bull',
+              (m.netVol6hUsd ?? 0) < 0 ? 'text-signal-bear' : 'text-signal-bull',
             )}
           >
-            {m.netVol6hUsd != null ? `${m.netVol6hUsd >= 0 ? '+' : ''}${formatCompactUsd(m.netVol6hUsd)}` : '—'}
+            {(m.netVol6hUsd ?? 0) >= 0 ? '+' : ''}
+            {formatCompactUsd(m.netVol6hUsd ?? 0)}
           </span>
-        </span>
-      </div>
+        </span>      </div>
       <div className="flex h-1 w-full overflow-hidden rounded-full bg-bg-sunken">
         <div
           className="h-full bg-signal-bull transition-[width]"
@@ -192,9 +192,10 @@ function CompactFeeStrip({
 }
 
 function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
-  const pct = (n: number | null | undefined) => (n != null ? `${formatNumber(n, { decimals: 2 })}%` : '—');
+  const pct = (n: number | null | undefined) =>
+    `${formatNumber(n ?? 0, { decimals: 2 })}%`;
   const tone = (n: number | null | undefined, warn = 25) =>
-    n == null ? 'text-[#9ca3af]' : n > warn ? 'text-[#fb7185]' : 'text-[#34d399]';
+    n == null || n === 0 ? 'text-[#9ca3af]' : n > warn ? 'text-[#fb7185]' : 'text-[#34d399]';
   const items = [
     { label: 'Top 10 H.', value: pct(m?.top10HolderPct), cls: tone(m?.top10HolderPct, 20) },
     { label: 'Dev H.', value: pct(m?.devHoldingPct), cls: tone(m?.devHoldingPct, 5) },
@@ -202,9 +203,9 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
     { label: 'Insiders', value: pct(m?.insidersPct), cls: tone(m?.insidersPct, 12) },
     { label: 'Bundlers', value: pct(m?.bundlersPct), cls: tone(m?.bundlersPct, 20) },
     { label: 'LP Burned', value: pct(m?.lpBurnedPct), cls: m?.lpBurnedPct != null && m.lpBurnedPct >= 99 ? 'text-[#34d399]' : 'text-[#e5e7eb]' },
-    { label: 'Holders', value: m?.holders != null ? formatNumber(m.holders, { decimals: 0 }) : '—', cls: 'text-[#e5e7eb]' },
-    { label: 'Pro Traders', value: m?.proTraders != null ? formatNumber(m.proTraders, { decimals: 0 }) : '—', cls: 'text-[#e5e7eb]' },
-    { label: 'Dex Paid', value: m?.dexPaid == null ? '—' : m.dexPaid ? 'Paid' : 'Unpaid', cls: m?.dexPaid ? 'text-[#34d399]' : 'text-[#fb7185]' },
+    { label: 'Holders', value: formatNumber(m?.holders ?? 0, { decimals: 0 }), cls: 'text-[#e5e7eb]' },
+    { label: 'Pro Traders', value: formatNumber(m?.proTraders ?? 0, { decimals: 0 }), cls: 'text-[#e5e7eb]' },
+    { label: 'Dex Paid', value: m?.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid', cls: m?.dexPaid ? 'text-[#34d399]' : 'text-[#fb7185]' },
   ];
 
   return (

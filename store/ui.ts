@@ -2,6 +2,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
 
 /**
  * Lightweight UI state shared across the layout shell.
@@ -45,6 +47,10 @@ interface UIState {
   copilotDetached: boolean;
   copilotTop: number;
   copilotRight: number;
+  /** When floating with left anchor: distance from viewport left. */
+  copilotLeft: number;
+  /** True = floating panel positioned with `left`+`width`; false = `right`+`width`. */
+  copilotFloatUseLeftAnchor: boolean;
   /** When set, floating co-pilot uses this height (px); otherwise full column below top bar. */
   copilotFloatHeight: number | null;
 
@@ -60,6 +66,9 @@ interface UIState {
   searchQuery: string;
   searchOpen: boolean;
 
+  /** Selected network in the header toggle (TON is fully wired; others are UI preview). */
+  activeChain: AppChainId;
+
   setHovered: (entity: EntityRef | null) => void;
   setLocked: (entity: EntityRef | null, source?: LockSource) => void;
   pinHovered: () => void;
@@ -72,6 +81,8 @@ interface UIState {
   setPanelWidth: (px: number) => void;
   setCopilotDetached: (detached: boolean) => void;
   setCopilotFloat: (top: number, right: number) => void;
+  setCopilotFloatLeft: (top: number, left: number) => void;
+  setCopilotRailSide: (side: 'left' | 'right') => void;
   setCopilotFloatHeight: (px: number | null) => void;
   setCopilotDisplayMode: (mode: 'panel' | 'pill') => void;
   setCopilotPillExpanded: (open: boolean) => void;
@@ -79,6 +90,22 @@ interface UIState {
   copilotPillOffsetX: number;
   copilotPillOffsetY: number;
   setCopilotPillOffset: (x: number, y: number) => void;
+
+  /**
+   * `header` — pill sits in the top bar center track (with nudge offsets).
+   * `free` — pill is a tiny floating chip anywhere on the page; drag into the top snap band to dock.
+   */
+  copilotPillAnchor: 'header' | 'free';
+  copilotPillFreeLeft: number;
+  copilotPillFreeTop: number;
+  setCopilotPillAnchor: (anchor: 'header' | 'free') => void;
+  setCopilotPillFreePos: (left: number, top: number) => void;
+
+  /**
+   * Which side of the shell the docked co-pilot rail attaches to.
+   * Floating drag to screen edges updates this when snapping in.
+   */
+  copilotRailSide: 'left' | 'right';
 
   /** Detached alert builder (floating). Null when docked. */
   alertRulesPopout: { top: number; left: number; width: number; height: number } | null;
@@ -91,6 +118,7 @@ interface UIState {
 
   setSearchQuery: (q: string) => void;
   setSearchOpen: (open: boolean) => void;
+  setActiveChain: (chain: AppChainId) => void;
 }
 
 const PANEL_DEFAULT = 380;
@@ -98,6 +126,11 @@ const PANEL_MIN = 320;
 const PANEL_MAX = 480;
 const PANEL_MIN_FLOAT = 260;
 const PANEL_MAX_FLOAT = 720;
+
+/** Left-rail alert builder: keep narrow so Pulse still fits with co-pilot open. */
+export const ALERT_DOCK_MIN_W = 240;
+export const ALERT_DOCK_MAX_W = 400;
+export const ALERT_DOCK_DEFAULT_W = 292;
 
 function sameEntity(a: EntityRef | null, b: EntityRef | null): boolean {
   if (a === b) return true;
@@ -123,16 +156,23 @@ export const useUIStore = create<UIState>()(
       copilotDetached: false,
       copilotTop: 72,
       copilotRight: 12,
+      copilotLeft: 12,
+      copilotFloatUseLeftAnchor: false,
+      copilotRailSide: 'right',
       copilotFloatHeight: null,
       copilotDisplayMode: 'panel',
       copilotPillExpanded: false,
       copilotPillOffsetX: 0,
       copilotPillOffsetY: 0,
+      copilotPillAnchor: 'header',
+      copilotPillFreeLeft: 48,
+      copilotPillFreeTop: 120,
       alertRulesPopout: null,
       alertRulesDocked: false,
-      alertRulesDockWidth: 380,
+      alertRulesDockWidth: ALERT_DOCK_DEFAULT_W,
       searchQuery: '',
       searchOpen: false,
+      activeChain: DEFAULT_APP_CHAIN,
 
       setHovered: (entity) => {
         if (sameEntity(entity, get().hoveredEntity)) return;
@@ -187,9 +227,26 @@ export const useUIStore = create<UIState>()(
               copilotFloatHeight: null,
             };
           }
-          return { copilotDetached: true };
+          return {
+            copilotDetached: true,
+            ...(s.copilotRailSide === 'left'
+              ? {
+                  copilotFloatUseLeftAnchor: true,
+                  copilotLeft: 12,
+                  copilotTop: Math.max(52, s.copilotTop),
+                }
+              : {
+                  copilotFloatUseLeftAnchor: false,
+                  copilotRight: 12,
+                  copilotTop: Math.max(52, s.copilotTop),
+                }),
+          };
         }),
-      setCopilotFloat: (top, right) => set({ copilotTop: top, copilotRight: right }),
+      setCopilotFloat: (top, right) =>
+        set({ copilotTop: top, copilotRight: right, copilotFloatUseLeftAnchor: false }),
+      setCopilotFloatLeft: (top, left) =>
+        set({ copilotTop: top, copilotLeft: left, copilotFloatUseLeftAnchor: true }),
+      setCopilotRailSide: (side) => set({ copilotRailSide: side }),
       setCopilotFloatHeight: (px) => set({ copilotFloatHeight: px }),
       setCopilotDisplayMode: (mode) =>
         set((s) => ({
@@ -205,6 +262,12 @@ export const useUIStore = create<UIState>()(
           copilotPillOffsetX: Math.min(800, Math.max(-800, Math.round(x))),
           copilotPillOffsetY: Math.min(520, Math.max(-32, Math.round(y))),
         }),
+      setCopilotPillAnchor: (anchor) => set({ copilotPillAnchor: anchor }),
+      setCopilotPillFreePos: (left, top) =>
+        set({
+          copilotPillFreeLeft: Math.min(4000, Math.max(4, Math.round(left))),
+          copilotPillFreeTop: Math.min(4000, Math.max(4, Math.round(top))),
+        }),
       setAlertRulesPopout: (rect) => set({ alertRulesPopout: rect }),
       setAlertRulesDocked: (docked) =>
         set(() => ({
@@ -212,9 +275,12 @@ export const useUIStore = create<UIState>()(
           ...(docked ? { alertRulesPopout: null } : {}),
         })),
       setAlertRulesDockWidth: (px) =>
-        set({ alertRulesDockWidth: Math.min(520, Math.max(300, Math.round(px))) }),
+        set({
+          alertRulesDockWidth: Math.min(ALERT_DOCK_MAX_W, Math.max(ALERT_DOCK_MIN_W, Math.round(px))),
+        }),
       setSearchQuery: (q) => set({ searchQuery: q }),
       setSearchOpen: (open) => set({ searchOpen: open }),
+      setActiveChain: (chain) => set({ activeChain: chain }),
     }),
     {
       name: 'pointer-ui',
@@ -225,12 +291,19 @@ export const useUIStore = create<UIState>()(
         copilotDetached: s.copilotDetached,
         copilotTop: s.copilotTop,
         copilotRight: s.copilotRight,
+        copilotLeft: s.copilotLeft,
+        copilotFloatUseLeftAnchor: s.copilotFloatUseLeftAnchor,
+        copilotRailSide: s.copilotRailSide,
         copilotFloatHeight: s.copilotFloatHeight,
         copilotDisplayMode: s.copilotDisplayMode,
         copilotPillOffsetX: s.copilotPillOffsetX,
         copilotPillOffsetY: s.copilotPillOffsetY,
+        copilotPillAnchor: s.copilotPillAnchor,
+        copilotPillFreeLeft: s.copilotPillFreeLeft,
+        copilotPillFreeTop: s.copilotPillFreeTop,
         alertRulesDocked: s.alertRulesDocked,
         alertRulesDockWidth: s.alertRulesDockWidth,
+        activeChain: s.activeChain,
       }),
     },
   ),

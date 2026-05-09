@@ -1161,7 +1161,7 @@ export function CompactInstantTradePanel({
                       <span className="mt-0.5 flex items-center justify-between gap-2 tabular-nums text-[9px] text-fg-muted">
                         <span>{shortenAddress(w.wallet_address, 4)}</span>
                         <span className="shrink-0 tabular-nums">
-                          {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '—'}
+                          {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '0.000 TON'}
                         </span>
                       </span>
                       {(w.is_archived || !w.is_active || !canSign) && (

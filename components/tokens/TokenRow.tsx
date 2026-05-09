@@ -94,16 +94,44 @@ export function TokenRow({
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
   const pumpFrameActive = showPumpFrame && traits.pumpFunBonding;
 
-  const avatarSize = density === 'compact' ? 44 : density === 'expanded' ? 60 : 52;
+  /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
+  const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
+
+  const avatarSize =
+    slotHeight != null && slotHeight < 88
+      ? 40
+      : layoutDensity === 'compact'
+        ? 44
+        : layoutDensity === 'expanded'
+          ? 60
+          : 52;
   const rowMinH =
-    density === 'compact' ? 'min-h-[68px]' : density === 'expanded' ? 'min-h-[92px]' : 'min-h-[76px]';
-  const py = density === 'compact' ? 'py-2' : density === 'expanded' ? 'py-3' : 'py-2.5';
+    layoutDensity === 'compact'
+      ? 'min-h-[68px]'
+      : layoutDensity === 'expanded'
+        ? 'min-h-[92px]'
+        : 'min-h-[76px]';
+  const py =
+    layoutDensity === 'compact' ? 'py-2' : layoutDensity === 'expanded' ? 'py-3' : 'py-2.5';
+  const effectivePy = slotHeight != null ? 'py-1' : py;
   const titleSize =
-    density === 'compact' ? 'text-[14px]' : density === 'expanded' ? 'text-[16px]' : 'text-[15px]';
+    layoutDensity === 'compact'
+      ? 'text-[14px]'
+      : layoutDensity === 'expanded'
+        ? 'text-[16px]'
+        : 'text-[15px]';
   const nameSize =
-    density === 'compact' ? 'text-[12px]' : density === 'expanded' ? 'text-[14px]' : 'text-[13px]';
+    layoutDensity === 'compact'
+      ? 'text-[12px]'
+      : layoutDensity === 'expanded'
+        ? 'text-[14px]'
+        : 'text-[13px]';
   const metricSize =
-    density === 'compact' ? 'text-[11px]' : density === 'expanded' ? 'text-[13px]' : 'text-[12px]';
+    layoutDensity === 'compact'
+      ? 'text-[11px]'
+      : layoutDensity === 'expanded'
+        ? 'text-[13px]'
+        : 'text-[12px]';
 
   const devWallet = token.creator_wallet;
   const trackedDev =
@@ -169,26 +197,27 @@ export function TokenRow({
     triggerQuickBuy();
   }
 
-  const identityCluster = (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-      <span className={cn('truncate font-semibold leading-tight text-fg-primary', titleSize)}>
-        {ticker}
-      </span>
-      <span className={cn('truncate font-medium leading-snug text-fg-secondary', nameSize)}>
-        {name}
-      </span>
+  const nameTitle = `${ticker} — ${name}`;
+
+  /** Single primary line: ticker + full name never wrap (Axiom-style). */
+  const nameCluster = (
+    <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
+      <p className="min-w-0 flex-1 truncate leading-tight" title={nameTitle}>
+        <span className={cn('font-semibold text-fg-primary', titleSize)}>{ticker}</span>
+        <span className={cn('font-medium text-fg-secondary', nameSize)}> {name}</span>
+      </p>
       {showBadge ? (
-        <span className="inline-flex max-w-[min(100%,12rem)] flex-wrap items-center gap-1">
+        <span className="inline-flex max-w-[min(11rem,42%)] shrink-0 flex-nowrap items-center gap-1 overflow-hidden">
           {token.launch_pad !== 'pump.fun' ? <LaunchpadBadge launchPad={token.launch_pad} /> : null}
           <LaunchpadSubBadges
             bundle={bundle}
-            variant={density === 'expanded' ? 'detail' : 'inline'}
+            variant={layoutDensity === 'expanded' ? 'detail' : 'inline'}
           />
         </span>
       ) : null}
       {trackedDev ? (
         <span
-          className="inline-flex max-w-[9rem] shrink-0 items-center gap-0.5 truncate rounded border border-accent-primary/35 bg-accent-primary/12 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent-primary"
+          className="inline-flex max-w-[6.5rem] shrink-0 items-center gap-0.5 truncate rounded border border-accent-primary/35 bg-accent-primary/12 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent-primary"
           title={
             trackedDevLabel
               ? `Dev is tracked: ${trackedDevLabel}`
@@ -202,6 +231,7 @@ export function TokenRow({
     </div>
   );
 
+  const identityCluster = nameCluster;
   const ageSpan = (
     <span
       className={cn(
@@ -213,7 +243,12 @@ export function TokenRow({
     </span>
   );
 
-  const volMcSize = density === 'compact' ? 'compact' : density === 'expanded' ? 'expanded' : 'normal';
+  const volMcSize =
+    layoutDensity === 'compact'
+      ? 'compact'
+      : layoutDensity === 'expanded'
+        ? 'expanded'
+        : 'normal';
 
   const heroMcBlock =
     heroMc && (showVol || showMc) ? (
@@ -222,7 +257,7 @@ export function TokenRow({
         mcUsd={mcUsd}
         showVol={showVol}
         showMc={showMc}
-        size={volMcSize}
+        size={slotHeight != null ? 'compact' : volMcSize}
         justify="end"
       />
     ) : null;
@@ -243,9 +278,12 @@ export function TokenRow({
   const metricsStrip = (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums tabular-nums leading-snug text-fg-muted',
+        'flex items-center gap-x-3 tabular-nums tabular-nums leading-snug text-fg-muted',
         metricSize,
         !ultraChrome && 'mt-1',
+        slotHeight != null
+          ? 'max-w-full flex-nowrap overflow-hidden'
+          : 'flex-wrap gap-y-0.5',
       )}
     >
       {axiomVolMcForStrip}
@@ -326,14 +364,14 @@ export function TokenRow({
             href={`/token/${token.mint}`}
             className={cn(
               'flex min-h-0 min-w-0 flex-1 items-center px-3 outline-none focus-visible:bg-bg-hover',
-              py,
+              effectivePy,
             )}
             {...hoverProps}
           >
             <div className="flex h-full min-h-0 w-full min-w-0 items-center gap-3">
               {avatarStack}
               <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-                <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5">
+                <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
                   {identityCluster}
                   {ageSpan}
                 </div>
@@ -345,7 +383,9 @@ export function TokenRow({
                     agent: showTraitIcons && traits.agent,
                   }}
                   compact={false}
-                  glyphSize={density === 'compact' ? 20 : density === 'expanded' ? 28 : 24}
+                  glyphSize={
+                    layoutDensity === 'compact' ? 20 : layoutDensity === 'expanded' ? 28 : 24
+                  }
                 />
                 <PulseRowMetaPills bundle={bundle} />
               </div>
@@ -354,7 +394,10 @@ export function TokenRow({
 
           <div
             className={cn(
-              'mr-2 flex min-h-0 shrink-0 flex-col justify-center gap-1 self-stretch rounded-xl border border-emerald-400/55 px-2 py-1.5',
+              'mr-2 flex min-h-0 shrink-0 flex-col justify-center self-stretch rounded-xl border border-emerald-400/55',
+              slotHeight != null
+                ? 'max-h-[calc(100%-2px)] gap-0.5 overflow-hidden px-1.5 py-1'
+                : 'gap-1 px-2 py-1.5',
               canQuickBuy &&
                 !pulseBuyDisabled &&
                 'cursor-pointer transition hover:bg-emerald-500/[0.08] active:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/55 focus-visible:ring-offset-0',
@@ -388,16 +431,28 @@ export function TokenRow({
               <div className="mt-0.5 flex items-center justify-end gap-2">
                 {canQuickBuy && quickBuySol != null ? (
                   <span
-                    className="pointer-events-none inline-flex items-center gap-1 font-sans text-[12px] font-semibold tabular-nums tracking-normal text-emerald-400/95"
+                    className={cn(
+                      'pointer-events-none inline-flex items-center gap-1 font-sans font-semibold tabular-nums tracking-normal text-emerald-400/95',
+                      slotHeight != null ? 'text-[10px]' : 'text-[12px]',
+                    )}
                     aria-hidden
                   >
                     {pulseBuyBusy ? (
-                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                      <Loader2
+                        className={cn(
+                          'shrink-0 animate-spin',
+                          slotHeight != null ? 'h-3 w-3' : 'h-3.5 w-3.5',
+                        )}
+                        aria-hidden
+                      />
                     ) : null}
                     {!pulseBuyBusy ? (
                       <>
                         <Zap
-                          className="h-3.5 w-3.5 shrink-0 fill-emerald-400/35 text-emerald-400"
+                          className={cn(
+                            'shrink-0 fill-emerald-400/35 text-emerald-400',
+                            slotHeight != null ? 'h-3 w-3' : 'h-3.5 w-3.5',
+                          )}
                           aria-hidden
                         />
                         {`${formatSolDraft(quickBuySol)} TON`}
@@ -418,14 +473,14 @@ export function TokenRow({
             href={`/token/${token.mint}`}
             className={cn(
               'flex min-h-0 min-w-0 flex-1 items-center px-3 outline-none focus-visible:bg-bg-hover',
-              py,
+              effectivePy,
             )}
             {...hoverProps}
           >
             <div className="flex h-full min-h-0 w-full min-w-0 items-center gap-3">
               {avatarStack}
               <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-                <div className="flex items-start gap-2">
+                <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
                   {identityCluster}
                   {ageSpan}
                   {heroMcBlock}
@@ -438,7 +493,9 @@ export function TokenRow({
                     agent: showTraitIcons && traits.agent,
                   }}
                   compact
-                  glyphSize={density === 'compact' ? 20 : density === 'expanded' ? 28 : 24}
+                  glyphSize={
+                    layoutDensity === 'compact' ? 20 : layoutDensity === 'expanded' ? 28 : 24
+                  }
                 />
                 <PulseRowMetaPills bundle={bundle} />
                 {metricsStrip}
@@ -450,8 +507,10 @@ export function TokenRow({
             <div
               className={cn(
                 'flex shrink-0 items-center pr-2',
-                py,
-                buyButtonStyle === 'large' && 'min-w-[7rem] flex-1 justify-end sm:min-w-[9rem]',
+                effectivePy,
+                buyButtonStyle === 'large' &&
+                  slotHeight == null &&
+                  'min-w-[4.5rem] flex-1 justify-end sm:min-w-[6.5rem]',
               )}
             >
               <QuickBuyPill
@@ -460,12 +519,13 @@ export function TokenRow({
                 onBuy={onQuickBuy}
                 loading={pulseBuyBusy}
                 disabled={pulseBuyDisabled}
+                pulseFit={slotHeight != null}
               />
             </div>
           ) : null}
 
           {showRisk ? (
-            <div className={cn('flex shrink-0 items-center pr-2', py)}>
+            <div className={cn('flex shrink-0 items-center pr-2', effectivePy)}>
               <RiskFlags token={token} snapshot={snapshot} className="shrink-0" />
             </div>
           ) : null}
@@ -494,17 +554,29 @@ function QuickBuyPill({
   onBuy,
   loading,
   disabled,
+  pulseFit,
 }: {
   quickBuySol: number;
   style: Exclude<BuyButtonStyle, 'ultra'>;
   onBuy: (e: MouseEvent<HTMLButtonElement>) => void;
   loading?: boolean;
   disabled?: boolean;
+  /** Pulse grid: fixed row height — button must never force the row taller. */
+  pulseFit?: boolean;
 }) {
   const labelAmount = formatSolDraft(quickBuySol) || String(quickBuySol);
 
-  const sizeCls =
-    style === 'small'
+  const emphasisRing =
+    pulseFit &&
+    cn(
+      style === 'large' && 'ring-2 ring-emerald-200/65 ring-offset-0 ring-offset-transparent',
+      style === 'small' && 'ring-1 ring-emerald-400/30',
+      style === 'medium' && 'ring-1 ring-emerald-200/45',
+    );
+
+  const sizeCls = pulseFit
+    ? 'h-8 max-h-8 min-h-[28px] w-full gap-1 px-2 text-[10px] leading-none [&_svg]:h-2.5 [&_svg]:w-2.5'
+    : style === 'small'
       ? 'min-h-7 gap-1 px-2.5 text-[9px] leading-none [&_svg]:h-2.5 [&_svg]:w-2.5'
       : style === 'medium'
         ? 'min-h-9 gap-1.5 px-3.5 text-[12px] leading-none [&_svg]:h-3.5 [&_svg]:w-3.5'
@@ -515,6 +587,7 @@ function QuickBuyPill({
     'shadow-[0_0_28px_-6px_rgba(16,185,129,0.65),0_2px_8px_-2px_rgba(0,0,0,0.5)]',
     'border-2 border-emerald-300/90 bg-emerald-400 text-[#030806] hover:border-emerald-200 hover:bg-emerald-300 active:bg-emerald-500 active:border-emerald-400',
     sizeCls,
+    emphasisRing,
     (disabled || loading) && 'pointer-events-none opacity-55',
   );
 

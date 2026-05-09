@@ -126,12 +126,20 @@ const config: Config = {
           '82.5%, 100%': { transform: 'translateY(-5rem)' },
         },
         'copilot-pill-in': {
-          from: { opacity: '0', transform: 'translateY(8px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
+          from: { opacity: '0', transform: 'scale(0.98)' },
+          to: { opacity: '1', transform: 'scale(1)' },
         },
         'copilot-pill-out': {
-          from: { opacity: '1', transform: 'translateY(0)' },
-          to: { opacity: '0', transform: 'translateY(-8px)' },
+          from: { opacity: '1', transform: 'scale(1)' },
+          to: { opacity: '0', transform: 'scale(0.98)' },
+        },
+        /**
+         * Co-pilot expanded card — animate only scale/opacity on an inner shell.
+         * (Never put translate-x-50% here: it overrides the outer centering transform and makes the card jump left.)
+         */
+        'copilot-card-enter': {
+          '0%': { opacity: '0', transform: 'scale(0.94)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
         },
       },
       animation: {
@@ -141,6 +149,7 @@ const config: Config = {
         'bottom-bar-ticker': 'bottom-bar-ticker 12s linear infinite',
         'copilot-pill-in': 'copilot-pill-in 200ms ease-out forwards',
         'copilot-pill-out': 'copilot-pill-out 200ms ease-out forwards',
+        'copilot-card-enter': 'copilot-card-enter 380ms cubic-bezier(0.22, 0.9, 0.22, 1) both',
       },
     },
   },

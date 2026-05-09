@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { GripHorizontal, PanelLeft, PanelRight, X } from 'lucide-react';
 import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
 import { useUIStore } from '@/store/ui';
+import { isFloatPanelDragSurface } from '@/lib/ui/floatPanelDrag';
 
 const MIN_W = 280;
 const MAX_W = 640;
@@ -75,52 +76,28 @@ function applyResize(
 
 export function AlertBuilderEmbeddedPlaceholder() {
   const popped = useUIStore((s) => s.alertRulesPopout != null);
-  const docked = useUIStore((s) => s.alertRulesDocked);
   const clearFloat = useUIStore((s) => s.setAlertRulesPopout);
-  const setDocked = useUIStore((s) => s.setAlertRulesDocked);
 
-  if (docked) {
-    return (
-      <div
-        className="rounded-xl border px-3 py-3 text-center"
-        style={{ borderColor: '#202636', backgroundColor: '#11141b' }}
+  if (!popped) return null;
+
+  return (
+    <div
+      className="rounded-xl border px-3 py-3 text-center"
+      style={{ borderColor: '#202636', backgroundColor: '#11141b' }}
+    >
+      <p className="text-[11px] leading-snug" style={{ color: '#7f8aa3' }}>
+        Alert Builder is open in a floating window. Drag the grip to the left edge to dock in the shell, or to the
+        right edge to embed back here.
+      </p>
+      <button
+        type="button"
+        className="mt-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-fg-primary hover:bg-white/[0.08]"
+        onClick={() => clearFloat(null)}
       >
-        <p className="text-[11px] leading-snug" style={{ color: '#7f8aa3' }}>
-          Alert Builder is docked in the left rail (same layout pattern as co-pilot on the right).
-        </p>
-        <button
-          type="button"
-          className="mt-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-fg-primary hover:bg-white/[0.08]"
-          onClick={() => setDocked(false)}
-        >
-          Close dock
-        </button>
-      </div>
-    );
-  }
-
-  if (popped) {
-    return (
-      <div
-        className="rounded-xl border px-3 py-3 text-center"
-        style={{ borderColor: '#202636', backgroundColor: '#11141b' }}
-      >
-        <p className="text-[11px] leading-snug" style={{ color: '#7f8aa3' }}>
-          Alert Builder is open in a floating window. Drag the grip to the left edge to dock in the shell, or to the
-          right edge to embed back here.
-        </p>
-        <button
-          type="button"
-          className="mt-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-fg-primary hover:bg-white/[0.08]"
-          onClick={() => clearFloat(null)}
-        >
-          Put back in co-pilot
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+        Put back in co-pilot
+      </button>
+    </div>
+  );
 }
 
 export function AlertRulesPopoutHost() {
@@ -282,75 +259,78 @@ export function AlertRulesPopoutHost() {
       <div
         ref={panelRef}
         className="fixed z-[632] flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080d14]/97 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+        onPointerDown={(e) => {
+          if (e.button !== 0 || !rect) return;
+          const t = e.target as HTMLElement;
+          if (!t.closest('[data-alert-drag-chrome]')) return;
+          if (!isFloatPanelDragSurface(e.target)) return;
+          dragActiveRef.current = true;
+          dragRef.current = {
+            pointerId: e.pointerId,
+            startX: e.clientX,
+            startY: e.clientY,
+            ox: rect.left,
+            oy: rect.top,
+            ow: rect.width,
+            oh: rect.height,
+          };
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const d = dragRef.current;
+          if (!d || e.pointerId !== d.pointerId) return;
+          const dx = e.clientX - d.startX;
+          const dy = e.clientY - d.startY;
+          updateDockHint(e.clientX);
+          const next = clampFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
+          applyFrameToDom(next);
+        }}
+        onPointerUp={(e) => {
+          const d = dragRef.current;
+          if (!d || e.pointerId !== d.pointerId) return;
+          try {
+            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+          } catch {
+            /* ignore */
+          }
+          dragRef.current = null;
+          dragActiveRef.current = false;
+          setDockHighlight(null);
+
+          if (e.clientX < DOCK_ZONE) {
+            dockLeftShell();
+            return;
+          }
+          if (e.clientX > window.innerWidth - DOCK_ZONE) {
+            embedInCopilot();
+            return;
+          }
+          const dx = e.clientX - d.startX;
+          const dy = e.clientY - d.startY;
+          const committed = clampFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
+          setRect(committed);
+          applyFrameToDom(committed);
+        }}
+        onPointerCancel={(e) => {
+          const d = dragRef.current;
+          if (d && e.pointerId === d.pointerId) {
+            try {
+              (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+            } catch {
+              /* ignore */
+            }
+          }
+          dragRef.current = null;
+          dragActiveRef.current = false;
+          setDockHighlight(null);
+          if (rect) applyFrameToDom(rect);
+        }}
       >
-        <div className="relative z-[70] flex shrink-0 items-center gap-1 border-b border-white/10 bg-[#11141b]/95 px-1 py-1">
+        <div data-alert-drag-chrome className="relative z-[70] flex shrink-0 items-center gap-1 border-b border-white/10 bg-[#11141b]/95 px-1 py-1">
           <div
             role="toolbar"
-            className="flex min-w-0 flex-1 cursor-grab select-none items-center gap-1.5 rounded-md px-1.5 py-1 active:cursor-grabbing"
-            title="Drag · release on left edge to dock in shell"
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              dragActiveRef.current = true;
-              dragRef.current = {
-                pointerId: e.pointerId,
-                startX: e.clientX,
-                startY: e.clientY,
-                ox: rect.left,
-                oy: rect.top,
-                ow: rect.width,
-                oh: rect.height,
-              };
-              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-            }}
-            onPointerMove={(e) => {
-              const d = dragRef.current;
-              if (!d || e.pointerId !== d.pointerId) return;
-              const dx = e.clientX - d.startX;
-              const dy = e.clientY - d.startY;
-              updateDockHint(e.clientX);
-              const next = clampFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
-              applyFrameToDom(next);
-            }}
-            onPointerUp={(e) => {
-              const d = dragRef.current;
-              if (!d || e.pointerId !== d.pointerId) return;
-              try {
-                (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-              } catch {
-                /* ignore */
-              }
-              dragRef.current = null;
-              dragActiveRef.current = false;
-              setDockHighlight(null);
-
-              if (e.clientX < DOCK_ZONE) {
-                dockLeftShell();
-                return;
-              }
-              if (e.clientX > window.innerWidth - DOCK_ZONE) {
-                embedInCopilot();
-                return;
-              }
-              const dx = e.clientX - d.startX;
-              const dy = e.clientY - d.startY;
-              const committed = clampFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
-              setRect(committed);
-              applyFrameToDom(committed);
-            }}
-            onPointerCancel={(e) => {
-              const d = dragRef.current;
-              if (d && e.pointerId === d.pointerId) {
-                try {
-                  (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-                } catch {
-                  /* ignore */
-                }
-              }
-              dragRef.current = null;
-              dragActiveRef.current = false;
-              setDockHighlight(null);
-              if (rect) applyFrameToDom(rect);
-            }}
+            className="flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1.5 py-1"
+            title="Drag header or side edges · release on left edge to dock in shell"
           >
             <GripHorizontal className="h-4 w-4 shrink-0 text-fg-muted" aria-hidden />
             <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-fg-primary">Alert builder</span>
@@ -399,6 +379,20 @@ export function AlertRulesPopoutHost() {
         </div>
 
         <div
+          data-alert-drag-chrome
+          className="pointer-events-auto absolute bottom-4 left-2 top-12 z-[40] w-3 cursor-grab touch-none rounded-sm hover:bg-white/[0.05] active:cursor-grabbing"
+          title="Drag · left edge"
+          aria-hidden
+        />
+        <div
+          data-alert-drag-chrome
+          className="pointer-events-auto absolute bottom-4 right-2 top-12 z-[40] w-3 cursor-grab touch-none rounded-sm hover:bg-white/[0.05] active:cursor-grabbing"
+          title="Drag · right edge"
+          aria-hidden
+        />
+
+        <div
+          data-float-resize="1"
           role="presentation"
           className="pointer-events-auto absolute bottom-0 left-[12px] right-[12px] z-[45] cursor-ns-resize"
           style={{ height: EDGE_HIT }}
@@ -408,6 +402,7 @@ export function AlertRulesPopoutHost() {
           onPointerCancel={onResizePointerUp}
         />
         <div
+          data-float-resize="1"
           role="presentation"
           className="pointer-events-auto absolute bottom-[10px] left-0 top-[10px] z-[45] cursor-ew-resize"
           style={{ width: EDGE_HIT }}
@@ -417,6 +412,7 @@ export function AlertRulesPopoutHost() {
           onPointerCancel={onResizePointerUp}
         />
         <div
+          data-float-resize="1"
           role="presentation"
           className="pointer-events-auto absolute bottom-[10px] right-0 top-[10px] z-[45] cursor-ew-resize"
           style={{ width: EDGE_HIT }}
@@ -426,6 +422,7 @@ export function AlertRulesPopoutHost() {
           onPointerCancel={onResizePointerUp}
         />
         <div
+          data-float-resize="1"
           role="presentation"
           className="pointer-events-auto absolute left-0 top-0 z-[50] cursor-nwse-resize"
           style={{ width: CORNER, height: CORNER }}
@@ -435,6 +432,7 @@ export function AlertRulesPopoutHost() {
           onPointerCancel={onResizePointerUp}
         />
         <div
+          data-float-resize="1"
           role="presentation"
           className="pointer-events-auto absolute right-0 top-0 z-[50] cursor-nesw-resize"
           style={{ width: CORNER, height: CORNER }}
@@ -444,6 +442,7 @@ export function AlertRulesPopoutHost() {
           onPointerCancel={onResizePointerUp}
         />
         <div
+          data-float-resize="1"
           role="presentation"
           className="pointer-events-auto absolute bottom-0 left-0 z-[50] cursor-nesw-resize"
           style={{ width: CORNER, height: CORNER }}
@@ -453,6 +452,7 @@ export function AlertRulesPopoutHost() {
           onPointerCancel={onResizePointerUp}
         />
         <div
+          data-float-resize="1"
           role="presentation"
           className="pointer-events-auto absolute bottom-0 right-0 z-[50] cursor-nwse-resize"
           style={{ width: CORNER, height: CORNER }}

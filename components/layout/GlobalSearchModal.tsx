@@ -30,9 +30,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { TokenImage } from '@/components/shared/TokenImage';
-import { isValidPublicKey, SOL_MINT, shortenAddress, USDC_MINT } from '@/lib/utils/addresses';
+import { ChainIconToggle } from '@/components/layout/ChainIconToggle';
+import { isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
+import {
+  TON_DEMO_JETTON_A,
+  TON_DEMO_JETTON_B,
+  TON_NATIVE_UI_MINT,
+} from '@/lib/utils/tonDemoMints';
 import { cn } from '@/lib/utils/cn';
-import { HYPE_MINT } from '@/lib/utils/constants';
 import { formatCompactUsd } from '@/lib/utils/formatters';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useRecentTradeMintsStore } from '@/store/recentTradeMints';
@@ -102,10 +107,9 @@ type EnrichedSummary = SummaryRow & {
 };
 
 const DEMO_SEARCH_RECENTS: SummaryRow[] = [
-  { mint: HYPE_MINT, symbol: 'HYPE', name: 'Wrapped HYPE', image_url: null },
-  { mint: USDC_MINT, symbol: 'USDC', name: 'USD Coin', image_url: null },
-  { mint: SOL_MINT, symbol: 'TON', name: 'Toncoin', image_url: null },
-  { mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', symbol: 'BONK', name: 'Bonk', image_url: null },
+  { mint: TON_NATIVE_UI_MINT, symbol: 'TON', name: 'Toncoin', image_url: null },
+  { mint: TON_DEMO_JETTON_A, symbol: 'USD₮', name: 'Tether USD', image_url: null },
+  { mint: TON_DEMO_JETTON_B, symbol: 'ADDR', name: 'Demo address', image_url: null },
 ];
 
 function fnv1aHex(s: string): number {
@@ -162,7 +166,7 @@ export function GlobalSearchModal() {
   const [densityMenuOpen, setDensityMenuOpen] = useState(false);
   /** Secondary filters (quote preference for mock tagging / filter). */
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [activeQuotes, setActiveQuotes] = useState<Set<'sol' | 'usdc' | 'usd1'>>(() => new Set());
+  const [activeQuotes, setActiveQuotes] = useState<Set<'native' | 'usdc' | 'usd1'>>(() => new Set());
 
   const recents = useRecentTradeMintsStore((s) => s.mints);
   const recentsSlice = useMemo(() => recents.slice(0, MAX_RECENT), [recents]);
@@ -250,7 +254,7 @@ export function GlobalSearchModal() {
     });
   }
 
-  function toggleQuote(q: 'sol' | 'usdc' | 'usd1') {
+  function toggleQuote(q: 'native' | 'usdc' | 'usd1') {
     setActiveQuotes((prev) => {
       const next = new Set(prev);
       if (next.has(q)) next.delete(q);
@@ -312,7 +316,7 @@ export function GlobalSearchModal() {
     if (activeQuotes.size > 0) {
       const hFn = fnv1aHex;
       rows = rows.filter((r) => {
-        const qPick = ['sol', 'usdc', 'usd1'][(hFn(r.mint) >>> 20) % 3] as 'sol' | 'usdc' | 'usd1';
+        const qPick = ['native', 'usdc', 'usd1'][(hFn(r.mint) >>> 20) % 3] as 'native' | 'usdc' | 'usd1';
         return activeQuotes.has(qPick);
       });
     }
@@ -393,6 +397,8 @@ export function GlobalSearchModal() {
               })}
             </div>
 
+            <ChainIconToggle size="sm" className="shrink-0" />
+
             <div className="ml-auto flex shrink-0 items-center gap-0.5">
               <div className="relative" ref={densityWrapRef}>
                 <button
@@ -460,7 +466,7 @@ export function GlobalSearchModal() {
               <span className="text-[10px] font-medium uppercase tracking-wide text-[#6b7280]">Quote</span>
               {(
                 [
-                  ['sol', 'TON'],
+                  ['native', 'TON'],
                   ['usdc', 'USDC'],
                   ['usd1', 'USD1'],
                 ] as const

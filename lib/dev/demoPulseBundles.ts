@@ -1,10 +1,18 @@
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
-import { HYPE_MINT } from '@/lib/utils/constants';
-import { USDC_MINT } from '@/lib/utils/addresses';
+import {
+  TON_DEMO_JETTON_A,
+  TON_DEMO_JETTON_B,
+  TON_NATIVE_UI_MINT,
+} from '@/lib/utils/tonDemoMints';
 
-/** Placeholder “mint” string for UI demo native TON row (not a jetton master). */
-const TON_NATIVE_DEMO_MINT = 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c';
+function demoSnapshotId(mint: string): number {
+  let h = 0;
+  for (let i = 0; i < mint.length; i++) {
+    h = (Math.imul(h, 31) + mint.charCodeAt(i)) | 0;
+  }
+  return -100 - (Math.abs(h) % 900);
+}
 
 const now = () => new Date().toISOString();
 
@@ -44,8 +52,7 @@ function bundle(
       last_seen_at: now(),
     },
     snapshot: {
-      id:
-        mint === HYPE_MINT ? -101 : mint === USDC_MINT ? -102 : mint === TON_NATIVE_DEMO_MINT ? -103 : -104,
+      id: demoSnapshotId(mint),
       mint,
       market_cap_usd: mcUsd,
       liquidity_usd: mcUsd * 0.08,
@@ -67,26 +74,26 @@ function bundle(
 /** Feed rows when the Pulse API returns an empty list (UI demo mode only). */
 export function syntheticPulseFeedItems(column: PulseColumnId): PulseTokenBundle[] {
   const b1 = bundle(
-    HYPE_MINT,
-    'HYPE',
-    'Demo listed',
+    TON_DEMO_JETTON_A,
+    'USD₮',
+    'Demo stable pair',
     'dedust',
     8,
     2_400_000,
     180_000,
   );
   const b2 = bundle(
-    USDC_MINT,
-    'USDC',
-    'Demo stable',
+    TON_DEMO_JETTON_B,
+    'WALL',
+    'Demo wallet row',
     null,
     200,
-    12_000_000_000,
-    4_000_000_000,
+    12_000_000,
+    4_000_000,
     6,
   );
   const b3 = bundle(
-    TON_NATIVE_DEMO_MINT,
+    TON_NATIVE_UI_MINT,
     'TON',
     'Demo native',
     null,

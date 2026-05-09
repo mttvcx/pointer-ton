@@ -16,7 +16,7 @@ export function PulseRowMetaPills({ bundle }: { bundle: PulseTokenBundle }) {
   if (!devSold && (bond.migrated || bond.fillPct == null)) return null;
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
+    <div className="mt-1 flex flex-nowrap items-center gap-1 overflow-hidden">
       {devSold ? (
         <PulseRichHover panel={<DevFundedHoverPanel bundle={bundle} />}>
           <span

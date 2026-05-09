@@ -20,6 +20,12 @@ import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { useUIStore } from '@/store/ui';
 import { APP_NAME } from '@/lib/utils/constants';
 
+function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
+  const rail = useUIStore((s) => s.copilotRailSide);
+  if (rail !== side) return null;
+  return <AICopilotPanel />;
+}
+
 /**
  * App shell: signed-in TON users only. Landing stays on `/`; all routes here require
  * TonConnect + valid session from `/api/auth/sync`.
@@ -126,10 +132,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <AlertRuleAudioPlayer />
       <div className="flex min-h-0 flex-1">
         <AlertRulesDockPanel />
+        <ShellCopilotSlot side="left" />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-[var(--app-bottombar-h)]">
           {children}
         </main>
-        <AICopilotPanel />
+        <ShellCopilotSlot side="right" />
       </div>
       <AlertRulesPopoutHost />
       <BottomBar />

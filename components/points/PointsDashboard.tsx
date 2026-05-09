@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useQuery } from '@tanstack/react-query';
@@ -81,12 +82,30 @@ function BenefitCard({
   description,
   accent,
   button,
+  href,
 }: {
   title: string;
   description: string;
   accent: string;
   button: string;
+  href?: string;
 }) {
+  const ctaClass =
+    'mt-2 inline-flex w-full justify-center rounded-full px-2 py-1 text-[10px] font-semibold text-[#0a0a0f] transition hover:brightness-110';
+  const cta = href ? (
+    <Link href={href} className={ctaClass} style={{ backgroundColor: accent }}>
+      {button}
+    </Link>
+  ) : (
+    <button
+      type="button"
+      disabled
+      className={cn(ctaClass, 'cursor-not-allowed opacity-50 hover:brightness-100')}
+      style={{ backgroundColor: accent }}
+    >
+      {button}
+    </button>
+  );
   return (
     <article className="flex min-h-[180px] flex-col rounded border p-2" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
       <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-white">
@@ -94,13 +113,7 @@ function BenefitCard({
         {title}
       </div>
       <p className="flex-1 text-[10px] leading-snug text-[#6b7280]">{description}</p>
-      <button
-        type="button"
-        className="mt-2 rounded-full px-2 py-1 text-[10px] font-semibold text-[#0a0a0f]"
-        style={{ backgroundColor: accent }}
-      >
-        {button}
-      </button>
+      {cta}
     </article>
   );
 }
@@ -398,12 +411,39 @@ export function PointsDashboard({ className, initialTab = 'rewards' }: { classNa
 
       {tab === 'benefits' ? (
         <div className="min-h-0 flex-1 overflow-auto p-2">
+          <p className="mb-3 max-w-3xl text-[11px] leading-snug text-[#9ca3af]">
+            Pointer runs on <span className="text-white">TON</span>. Points, leaderboard rankings, and referral rewards
+            are native to Pointer—Solana-only partner tiles have been removed. Third-party TON protocol perks will show
+            up here when we integrate claim flows.
+          </p>
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            <BenefitCard title="Vanish Points" description="Earn points by trading on Vanish." accent="#38bdf8" button="Claim All" />
-            <BenefitCard title="Raydium Rewards" description="No claimable rewards available. Trade Raydium and Launch Lab tokens to earn rewards." accent="#67e8f9" button="Claim All" />
-            <BenefitCard title="Sugar Rewards" description="No Sugar rewards available to claim." accent="#f9a8d4" button="Claim All" />
-            <BenefitCard title="Pump Cashback Rewards" description="No pump cashback rewards available to claim." accent="#4ade80" button="Claim All" />
-            <BenefitCard title="LiquidAF Cashback" description="Join us via referral link to earn 10% cashback on LiquidAF protocol fees." accent="#60a5fa" button="Claim All" />
+            <BenefitCard
+              title="Pointer Points"
+              description="Earn points from trading, trackers, and activity on Pointer. Everything is scored against your TON wallets."
+              accent="#38bdf8"
+              button="Open Points"
+              href="/points"
+            />
+            <BenefitCard
+              title="Leaderboard"
+              description="Climb seasonal ranks and compare your score with the rest of the community."
+              accent="#a78bfa"
+              button="View leaderboard"
+              href="/leaderboard"
+            />
+            <BenefitCard
+              title="Referrals"
+              description="Share your referral code and earn when friends trade on Pointer."
+              accent="#4ade80"
+              button="Open referrals"
+              href="/referral"
+            />
+            <BenefitCard
+              title="TON DEX activity"
+              description="Volume routed through Pulse on launchpads and TON DEX routes (e.g. STON.fi, DeDust) counts toward Pointer Points. Direct reward claims from those protocols are not live yet in this UI."
+              accent="#67e8f9"
+              button="Coming soon"
+            />
           </div>
         </div>
       ) : null}

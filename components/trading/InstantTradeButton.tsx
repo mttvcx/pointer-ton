@@ -5,15 +5,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ExternalLink, Trash2, Zap, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { HYPE_MINT, BUY_PRESETS_SOL } from '@/lib/utils/constants';
-import { SOL_MINT, USDC_MINT, explorerAddressUrl, isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
+import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
+import { explorerAddressUrl, isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
+import {
+  TON_DEMO_JETTON_A,
+  TON_DEMO_JETTON_B,
+  TON_NATIVE_UI_MINT,
+} from '@/lib/utils/tonDemoMints';
 import { cn } from '@/lib/utils/cn';
 import { useRecentTradeMintsStore } from '@/store/recentTradeMints';
 
 const SHORTCUTS = [
-  { label: 'HYPE', mint: HYPE_MINT },
-  { label: 'USDC', mint: USDC_MINT },
-  { label: 'TON', mint: SOL_MINT },
+  { label: 'TON', mint: TON_NATIVE_UI_MINT },
+  { label: 'USDT', mint: TON_DEMO_JETTON_A },
+  { label: 'ADDR', mint: TON_DEMO_JETTON_B },
 ] as const;
 
 const SELL_PCTS = [25, 50, 75, 100] as const;

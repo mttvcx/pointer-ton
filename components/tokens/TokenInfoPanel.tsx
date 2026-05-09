@@ -63,9 +63,9 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
     );
   }
 
-  const pct = (n: number | null) => (n != null ? `${formatNumber(n, { decimals: 2 })}%` : '—');
+  const pct = (n: number | null) => `${formatNumber(n ?? 0, { decimals: 2 })}%`;
   const pnlTone = (n: number | null, warnHi = 50) =>
-    n == null ? 'text-[#9ca3af]' : n > warnHi ? 'text-[#fb7185]' : 'text-[#34d399]';
+    n == null || n === 0 ? 'text-[#9ca3af]' : n > warnHi ? 'text-[#fb7185]' : 'text-[#34d399]';
 
   const grid = (
     <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
@@ -93,11 +93,11 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
   const mini = (
     <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 border-t border-[#1b1f2a] pt-1.5 text-[10px] text-[#9ca3af]">
       <span>
-        Holders: <span className="font-semibold tabular-nums text-[#e5e7eb]">{m.holders ?? '—'}</span>
+        Holders: <span className="font-semibold tabular-nums text-[#e5e7eb]">{m.holders ?? 0}</span>
       </span>
       <span>
         Pro Traders:{' '}
-        <span className="font-semibold tabular-nums text-[#e5e7eb]">{m.proTraders ?? '—'}</span>
+        <span className="font-semibold tabular-nums text-[#e5e7eb]">{m.proTraders ?? 0}</span>
       </span>
       <span>
         Dex Paid:{' '}
@@ -107,7 +107,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
             m.dexPaid === false ? 'text-[#fb7185]' : m.dexPaid === true ? 'text-[#34d399]' : 'text-[#e5e7eb]',
           )}
         >
-          {m.dexPaid == null ? '—' : m.dexPaid ? 'Paid' : 'Unpaid'}
+          {m.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid'}
         </span>
       </span>
     </div>
@@ -133,7 +133,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
         <div className="flex justify-between gap-2">
           <span>Vol $</span>
           <span className="tabular-nums tabular-nums text-[#e5e7eb]">
-            {m.vol6hUsd != null ? `$${formatNumber(m.vol6hUsd, { decimals: 0 })}` : '—'}
+            {m.vol6hUsd != null ? `$${formatNumber(m.vol6hUsd, { decimals: 0 })}` : '$0'}
           </span>
         </div>
       </div>

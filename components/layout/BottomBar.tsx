@@ -225,7 +225,7 @@ export function BottomBar() {
           <span className="text-fg-muted">
             Bal{' '}
             <span className="tabular-nums text-fg-primary">
-              {solBal != null ? `${formatNumber(solBal, { decimals: 3 })} TON` : '\u2014'}
+              {solBal != null ? `${formatNumber(solBal, { decimals: 3 })} TON` : '0.000 TON'}
             </span>
           </span>
           <span className="text-fg-muted">

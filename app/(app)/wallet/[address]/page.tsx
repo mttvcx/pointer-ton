@@ -118,12 +118,21 @@ export default async function WalletDetailPage({
               </CopyButton>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             <Link
-              href="/trackers"
+              href={`/trackers?wallet=${encodeURIComponent(address)}`}
+              prefetch={false}
               className="focus-ring rounded-md border border-border-subtle bg-bg-base px-2.5 py-1.5 text-[11px] font-medium text-fg-secondary transition hover:border-border-default hover:text-fg-primary"
+              title="Add this address to your wallet trackers"
             >
-              Track
+              Track this wallet
+            </Link>
+            <Link
+              href="/wallets"
+              prefetch={false}
+              className="focus-ring rounded-md border border-accent-primary/35 bg-accent-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-accent-primary transition hover:bg-accent-primary/15"
+            >
+              Create / manage wallets
             </Link>
             <a
               href={explorerAddressUrl(address)}
@@ -136,6 +145,14 @@ export default async function WalletDetailPage({
             </a>
           </div>
         </div>
+        <p className="mx-auto mt-2 max-w-[1400px] text-[10px] text-fg-muted sm:px-4">
+          <strong className="font-medium text-fg-secondary">Trading wallets:</strong> embedded or linked TON wallets are
+          created on the{' '}
+          <Link href="/wallets" className="text-accent-primary hover:underline">
+            Wallets
+          </Link>{' '}
+          page—not on this public address view.
+        </p>
       </div>
 
       <div className="mx-auto w-full max-w-[1400px] space-y-3 px-3 py-3">

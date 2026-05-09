@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useCreateWallet, useExportWallet } from '@/lib/auth/solanaShims';
 import { ArrowRightLeft, Copy, KeyRound, Loader2, MoreHorizontal, Pencil, Shield, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
@@ -14,6 +13,7 @@ import { formatNumber, lamportsToSol } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
 import { useActiveWalletStore } from '@/store/activeWallet';
+import { generateEmbeddedTonWallet } from '@/lib/ton/tonEmbeddedCreate';
 
 async function authJson<T>(
   token: string,
@@ -42,12 +42,12 @@ async function authJson<T>(
 export function WalletsManage({ className }: { className?: string }) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const qc = useQueryClient();
-  const { createWallet } = useCreateWallet();
-  const { exportWallet } = useExportWallet();
   const activeWalletAddress = useActiveWalletStore((s) => s.activeWalletAddress);
   const setActiveWalletAddress = useActiveWalletStore((s) => s.setActiveWalletAddress);
   const [creating, setCreating] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [backupPhrase, setBackupPhrase] = useState<string[] | null>(null);
+  const [newWalletAddress, setNewWalletAddress] = useState<string | null>(null);
   const [actionOpenId, setActionOpenId] = useState<string | null>(null);
 
   const listQ = useQuery({
@@ -121,31 +121,43 @@ export function WalletsManage({ className }: { className?: string }) {
     void qc.invalidateQueries({ queryKey: ['portfolio'] });
   }
 
-  async function onExportKey(address: string) {
-    try {
-      await exportWallet({ address });
-    } catch (e) {
-      toast.error('Export did not complete', {
-        description: e instanceof Error ? e.message.slice(0, 200) : 'Cancelled or unsupported wallet',
+  function onExportKeyInfo(w: MyWalletRow) {
+    if (w.is_imported) {
+      toast.info('Recovery phrase isn’t stored in Pointer', {
+        description:
+          'Embedded / imported rows only save your address. Use the 24-word phrase or key you copied when you created or imported this wallet.',
       });
+      return;
     }
+    toast.info('Linked TonConnect wallet', {
+      description:
+        'Your keys stay in your TON wallet app (Tonkeeper, etc.). Open it there to view seed / backup — Pointer never receives your phrase for linked wallets.',
+    });
   }
 
   async function onCreateEmbedded() {
     setCreating(true);
     try {
-      const { wallet: w } = await createWallet({ createAdditional: true });
+      const { address, mnemonicWords } = await generateEmbeddedTonWallet();
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const res = await authJson<{ wallet: MyWalletRow }>(token, '/api/wallets/create', {
         method: 'POST',
-        body: JSON.stringify({ wallet_address: w.address }),
+        body: JSON.stringify({ wallet_address: address, is_imported: true, label: 'Embedded' }),
       });
       if (!res.ok) {
+        if (res.status === 409) {
+          toast.info('This wallet is already on your account');
+          return;
+        }
         throw new Error(res.message);
       }
-      toast.success('Wallet created');
+      setNewWalletAddress(address);
+      setBackupPhrase(mnemonicWords);
+      setActiveWalletAddress(address);
+      toast.success('Wallet created — save your recovery phrase');
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+      void qc.invalidateQueries({ queryKey: ['portfolio'] });
     } catch (e) {
       toast.error('Could not create wallet', {
         description: e instanceof Error ? e.message : 'Unknown error',
@@ -192,6 +204,47 @@ export function WalletsManage({ className }: { className?: string }) {
         onClose={() => setImportOpen(false)}
         onImported={persistImportedPointerRow}
       />
+      {backupPhrase && newWalletAddress ? (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div
+            className="max-h-[min(90dvh,640px)] w-full max-w-lg overflow-y-auto rounded-xl border border-[#1b1f2a] bg-[#11141b] p-4 shadow-2xl"
+            role="dialog"
+            aria-modal
+            aria-label="Save recovery phrase"
+          >
+            <h2 className="text-[15px] font-semibold text-white">Save your recovery phrase</h2>
+            <p className="mt-2 text-[12px] leading-snug text-[#9ca3af]">
+              This is the only way to recover <span className="tabular-nums text-fg-primary">{shortenAddress(newWalletAddress, 6)}</span>. Store it offline.
+              Anyone with these words can control the wallet.
+            </p>
+            <div className="mt-3 rounded-lg border border-[#1b1f2a] bg-[#080d14] p-3 font-mono text-[11px] leading-relaxed text-[#d1d5db]">
+              {backupPhrase.join(' ')}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-[#5865F2] px-3 py-1.5 text-[11px] font-semibold text-[#05070d]"
+                onClick={() => {
+                  void navigator.clipboard.writeText(backupPhrase.join(' '));
+                  toast.success('Phrase copied');
+                }}
+              >
+                Copy phrase
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-[#1b1f2a] bg-[#080d14] px-3 py-1.5 text-[11px] text-[#d1d5db] hover:bg-white/[0.04]"
+                onClick={() => {
+                  setBackupPhrase(null);
+                  setNewWalletAddress(null);
+                }}
+              >
+                I saved it — dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className={cn('flex min-h-0 flex-1 flex-col gap-2', className)}>
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-[#1b1f2a] bg-[#11141b] px-3 py-2">
           <div className="min-w-0">
@@ -280,7 +333,7 @@ export function WalletsManage({ className }: { className?: string }) {
                       </div>
                       <div className="text-right">
                         <span className={cn('inline-flex rounded-full border px-2 py-1 text-[11px] tabular-nums', sol > 0 ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-[#1b1f2a] bg-[#080d14] text-[#9ca3af]')}>
-                          {sol > 0 ? `${formatNumber(sol, { decimals: 4 })} TON` : 'No TON yet'}
+                          {formatNumber(sol, { decimals: 4 })} TON
                         </span>
                       </div>
                       <div className="flex justify-end gap-1">
@@ -301,7 +354,7 @@ export function WalletsManage({ className }: { className?: string }) {
                           <div className="absolute right-0 top-8 z-30 w-36 overflow-hidden rounded-md border border-[#1b1f2a] bg-[#151826] p-1 shadow-2xl">
                             <button type="button" onClick={() => { setActiveWalletAddress(w.wallet_address); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Star className="h-3.5 w-3.5" /> Set active</button>
                             <button type="button" onClick={() => { toast.info('Click the wallet name to rename'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Pencil className="h-3.5 w-3.5" /> Rename</button>
-                            <button type="button" onClick={() => { void onExportKey(w.wallet_address); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><KeyRound className="h-3.5 w-3.5" /> Export key</button>
+                            <button type="button" onClick={() => { onExportKeyInfo(w); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><KeyRound className="h-3.5 w-3.5" /> Export key</button>
                             <button type="button" disabled={patchMutation.isPending} onClick={() => { patchMutation.mutate({ id: w.id, body: { is_archived: !w.is_archived } }); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Shield className="h-3.5 w-3.5" /> {w.is_archived ? 'Unarchive' : 'Archive'}</button>
                             <button type="button" onClick={() => { toast.info('Delete wallet is not available yet'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#fb7185] hover:bg-white/5"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
                           </div>

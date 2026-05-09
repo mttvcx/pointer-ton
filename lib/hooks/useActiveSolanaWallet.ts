@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useActiveWalletStore } from '@/store/activeWallet';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
@@ -33,57 +33,79 @@ export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
     [linkedTonAddress],
   );
 
-  const privySet = useMemo(() => new Set(wallets.map((w) => w.address)), [wallets]);
+  /** Normalized TON addresses the session can sign for (TonConnect-linked). */
+  const signableNormalized = useMemo(() => {
+    const s = new Set<string>();
+    if (linkedTonAddress) {
+      const n = normalizeTonAddress(linkedTonAddress);
+      if (n) s.add(n);
+    }
+    return s;
+  }, [linkedTonAddress]);
+
+  const eligibleRows = useMemo(() => {
+    if (!myWallets?.length) return [];
+    return myWallets.filter((r) => r.is_active && !r.is_archived);
+  }, [myWallets]);
+
+  const eligibleNormToRaw = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of eligibleRows) {
+      const n = normalizeTonAddress(r.wallet_address);
+      if (n) m.set(n, r.wallet_address);
+    }
+    return m;
+  }, [eligibleRows]);
 
   const wallet = useMemo(() => {
-    if (!linkedTonAddress) return null;
-    if (!activeAddr) return wallets[0] ?? null;
-    return wallets.find((w) => w.address === activeAddr) ?? wallets[0] ?? null;
-  }, [wallets, activeAddr, linkedTonAddress]);
+    if (!activeAddr) return null;
+    return { address: activeAddr };
+  }, [activeAddr]);
+
+  const canSignWithWallet = useCallback(
+    (address: string) => {
+      const n = normalizeTonAddress(address);
+      return n != null && signableNormalized.has(n);
+    },
+    [signableNormalized],
+  );
 
   useEffect(() => {
-    if (!authReady || wallets.length === 0) return;
-    const firstPrivy = wallets[0]!.address;
+    if (!authReady) return;
 
     if (myWallets === undefined) {
-      if (!activeAddr || !privySet.has(activeAddr)) {
-        setActive(firstPrivy);
+      if (linkedTonAddress && !activeAddr) {
+        setActive(linkedTonAddress);
       }
       return;
     }
 
-    const eligible = myWallets.filter((r) => {
-      if (r.is_archived || !r.is_active) return false;
-      const row = normalizeTonAddress(r.wallet_address);
-      return Boolean(row && linkedTonAddress && row === linkedTonAddress);
-    });
-    const tradingEligible = eligible.filter((r) => !r.is_imported);
-    const pickList = tradingEligible.length > 0 ? tradingEligible : eligible;
-
-    if (pickList.length === 0) {
-      if (!activeAddr || !privySet.has(activeAddr)) {
-        setActive(firstPrivy);
+    if (eligibleRows.length === 0) {
+      if (linkedTonAddress) {
+        const n = normalizeTonAddress(linkedTonAddress);
+        const activeNorm = activeAddr ? normalizeTonAddress(activeAddr) : null;
+        if (n && activeNorm !== n) {
+          setActive(linkedTonAddress);
+        }
       }
       return;
     }
 
-    const eligibleSet = new Set(
-      pickList.map((r) => normalizeTonAddress(r.wallet_address)).filter(Boolean) as string[],
-    );
     const activeNorm = activeAddr ? normalizeTonAddress(activeAddr) : null;
-    if (activeNorm && eligibleSet.has(activeNorm)) {
+    if (activeNorm && eligibleNormToRaw.has(activeNorm)) {
       return;
     }
 
-    const primary = pickList.find((r) => r.is_primary);
-    setActive((primary ?? pickList[0]!).wallet_address);
-  }, [authReady, wallets, myWallets, activeAddr, privySet, setActive, linkedTonAddress]);
+    const primary = eligibleRows.find((r) => r.is_primary);
+    setActive((primary ?? eligibleRows[0]!).wallet_address);
+  }, [authReady, myWallets, eligibleRows, eligibleNormToRaw, activeAddr, setActive, linkedTonAddress]);
 
   return {
     wallet,
     wallets,
     ready: authReady,
-    activeAddress: wallet?.address ?? null,
+    activeAddress: activeAddr ?? null,
     setActiveWalletAddress: setActive,
+    canSignWithWallet,
   };
 }

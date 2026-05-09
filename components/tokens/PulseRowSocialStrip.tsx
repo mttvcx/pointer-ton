@@ -330,7 +330,7 @@ export function PulseRowSocialStrip({
 
   return (
     <div className={cn('min-w-0 font-sans', compact ? 'mt-0.5' : 'mt-1')}>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-0.5 gap-y-0.5">
+      <div className="flex min-w-0 flex-nowrap items-center gap-x-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {profile?.url ? (
           <PulseRichHover
             wide

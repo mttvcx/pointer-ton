@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -266,7 +266,14 @@ function AddWalletDialog({
   );
 }
 
-export function TrackersPanel({ className }: { className?: string }) {
+export function TrackersPanel({
+  className,
+  prefillWallet,
+}: {
+  className?: string;
+  /** When set (e.g. from `/trackers?wallet=EQ…`), pre-fills add-tracker and opens the dialog. */
+  prefillWallet?: string;
+}) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const queryClient = useQueryClient();
 
@@ -282,6 +289,7 @@ export function TrackersPanel({ className }: { className?: string }) {
   const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
   const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows());
   const [kolWalletFocus, setKolWalletFocus] = useState<string | null>(null);
+  const lastPrefillRef = useRef<string | null>(null);
 
   useEffect(() => {
     try {
@@ -290,6 +298,20 @@ export function TrackersPanel({ className }: { className?: string }) {
       /* ignore quota */
     }
   }, [kolRows]);
+
+  useEffect(() => {
+    const raw = prefillWallet?.trim() ?? '';
+    if (!raw) {
+      lastPrefillRef.current = null;
+      return;
+    }
+    if (!isValidTonTrackedAddress(raw)) return;
+    if (lastPrefillRef.current === raw) return;
+    lastPrefillRef.current = raw;
+    setAddress(raw);
+    setViewTab('wallet_manager');
+    setAddOpen(true);
+  }, [prefillWallet]);
 
   const listQuery = useQuery({
     queryKey: ['trackers', 'enriched'],
@@ -531,10 +553,10 @@ export function TrackersPanel({ className }: { className?: string }) {
     >
       {/* Sub-header control bar */}
       <div
-        className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-1 border-b px-1 py-1 sm:px-2"
+        className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b px-2 py-1.5"
         style={{ borderColor: AX_BORDER, backgroundColor: AX_BG }}
       >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5">
+        <div className="flex min-w-0 max-w-[100%] flex-[1_1_auto] flex-wrap items-center gap-0.5 sm:max-w-[55%] md:max-w-[50%]">
           <AlignJustify className="mr-1 hidden h-3.5 w-3.5 shrink-0 text-[#6b7280] sm:block" strokeWidth={2} />
           {VIEW_TABS.map((t) => (
             <button
@@ -551,9 +573,9 @@ export function TrackersPanel({ className }: { className?: string }) {
           ))}
         </div>
 
-        <div className="flex min-w-0 flex-[2] justify-end sm:mx-2 sm:max-w-[14rem] md:max-w-[18rem]">
+        <div className="order-3 flex min-w-0 w-full flex-[1_1_200px] sm:order-none sm:w-auto sm:max-w-md">
           <div
-            className="flex w-full max-w-full items-center gap-1 rounded border px-2 py-0.5"
+            className="flex w-full items-center gap-1 rounded border px-2 py-0.5"
             style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}
           >
             <Search className="h-3 w-3 shrink-0 text-[#6b7280]" strokeWidth={2} />
@@ -566,7 +588,18 @@ export function TrackersPanel({ className }: { className?: string }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="ml-auto flex flex-[0_0_auto] flex-wrap items-center gap-1">
+          <button
+            type="button"
+            disabled={sorted.length === 0 || removeAllMutation.isPending}
+            onClick={() => {
+              if (!window.confirm('Remove all tracked wallets? This cannot be undone.')) return;
+              removeAllMutation.mutate();
+            }}
+            className="rounded px-1.5 py-1 text-[10px] font-semibold tracking-wide text-[#f87171] hover:underline disabled:opacity-40"
+          >
+            Remove all
+          </button>
           <button
             type="button"
             onClick={() => setImportOpen(true)}
@@ -618,20 +651,6 @@ export function TrackersPanel({ className }: { className?: string }) {
             <Radio className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
-      </div>
-
-      <div className="flex shrink-0 items-center justify-end border-b px-2 py-0.5" style={{ borderColor: AX_BORDER }}>
-        <button
-          type="button"
-          disabled={sorted.length === 0 || removeAllMutation.isPending}
-          onClick={() => {
-            if (!window.confirm('Remove all tracked wallets? This cannot be undone.')) return;
-            removeAllMutation.mutate();
-          }}
-          className="text-[10px] font-semibold text-[#f87171] hover:underline disabled:opacity-40"
-        >
-          Remove All
-        </button>
       </div>
 
       {listQuery.isLoading ? (

@@ -61,7 +61,6 @@ type Props = {
   onClose: () => void;
   columnId: PulseColumnId;
   presetSlot: ColumnPulsePresetSlot;
-  headerDensity: ColumnDisplayOptions['density'];
   row: ColumnPresetRowDto | null;
   onSaved: () => void;
 };
@@ -141,7 +140,6 @@ export function ColumnFilterModal({
   onClose,
   columnId,
   presetSlot,
-  headerDensity,
   row,
   onSaved,
 }: Props) {
@@ -162,10 +160,10 @@ export function ColumnFilterModal({
     const qb = usePulseColumnStore.getState().byColumn[columnId].quickBuySol;
     setName(row?.name?.trim() || `P${presetSlot}`);
     setFilters(DEFAULT_COLUMN_FILTERS);
-    setDisplay({ ...DEFAULT_COLUMN_DISPLAY_OPTIONS, density: headerDensity, quickBuySol: qb });
+    setDisplay({ ...DEFAULT_COLUMN_DISPLAY_OPTIONS, density: 'normal', quickBuySol: qb });
     setSortBy('created_at');
     setSortDir('desc');
-  }, [headerDensity, presetSlot, row?.name, columnId]);
+  }, [presetSlot, row?.name, columnId]);
 
   useEffect(() => {
     if (!open) return;
@@ -181,14 +179,14 @@ export function ColumnFilterModal({
     setFilters(normalizeColumnFilters(row.filters));
     const disp = normalizeColumnDisplayOptions(row.display_options);
     const qb = usePulseColumnStore.getState().byColumn[columnId].quickBuySol;
-    setDisplay({ ...disp, density: headerDensity, quickBuySol: qb });
+    setDisplay({ ...disp, density: 'normal', quickBuySol: qb });
     const sb = COLUMN_SORT_KEYS.includes(row.sort_by as ColumnSortKey)
       ? (row.sort_by as ColumnSortKey)
       : 'created_at';
     setSortBy(sb);
     setSortDir(row.sort_dir === 'asc' ? 'asc' : 'desc');
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [open, row, presetSlot, headerDensity, resetDraft, columnId]);
+  }, [open, row, presetSlot, resetDraft, columnId]);
 
   useEffect(() => {
     if (!open || tab !== 'display') return;
@@ -211,7 +209,7 @@ export function ColumnFilterModal({
         preset_slot: presetSlot,
         name: name.trim() || undefined,
         filters,
-        display_options: display,
+        display_options: { ...display, density: 'normal' },
         sort_by: sortBy,
         sort_dir: sortDir,
       };
@@ -248,7 +246,7 @@ export function ColumnFilterModal({
           preset_slot: presetSlot,
           name: name.trim() || `P${presetSlot}`,
           filters,
-          display_options: display,
+          display_options: { ...display, density: 'normal' },
           sort_by: sortBy,
           sort_dir: sortDir,
           apply_all_slots: opts.applyAll === true,
@@ -284,7 +282,7 @@ export function ColumnFilterModal({
       preset_slot: presetSlot,
       name: name.trim(),
       filters,
-      display_options: display,
+      display_options: { ...display, density: 'normal' },
       sort_by: sortBy,
       sort_dir: sortDir,
     };
@@ -298,7 +296,7 @@ export function ColumnFilterModal({
       return;
     }
     setFilters(parsed.filters);
-    setDisplay(parsed.display_options);
+    setDisplay({ ...normalizeColumnDisplayOptions(parsed.display_options), density: 'normal' });
     setSortBy(parsed.sort_by);
     setSortDir(parsed.sort_dir);
     if (parsed.name) setName(parsed.name);
@@ -577,23 +575,6 @@ export function ColumnFilterModal({
                 />
                 <Toggle label="Show dev" checked={display.showDev} onChange={(v) => setDisplay((d) => ({ ...d, showDev: v }))} />
               </div>
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase text-fg-muted">Row density</span>
-                <select
-                  value={display.density}
-                  onChange={(e) =>
-                    setDisplay((d) => ({
-                      ...d,
-                      density: e.target.value as ColumnDisplayOptions['density'],
-                    }))
-                  }
-                  className="focus-ring border border-border-subtle bg-bg-base px-2 py-1 text-fg-primary"
-                >
-                  <option value="compact">Compact</option>
-                  <option value="normal">Normal</option>
-                  <option value="expanded">Expanded</option>
-                </select>
-              </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase text-fg-muted">
                   Quick buy (TON) - this column only

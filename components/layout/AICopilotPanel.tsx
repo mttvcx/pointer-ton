@@ -28,6 +28,7 @@ import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesP
 import { AlertsTicker } from '@/components/ai/AlertsTicker';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { cn } from '@/lib/utils/cn';
+import { isFloatPanelDragSurface } from '@/lib/ui/floatPanelDrag';
 
 /** Docked rail: keep moderate width. */
 const DOCK_MIN_WIDTH = 320;
@@ -40,6 +41,7 @@ const PANEL_TRANSITION_MS = 200;
 const FLOAT_EDGE_HIT = 6;
 const FLOAT_CORNER = 12;
 const MIN_FLOAT_H = 200;
+const COPILOT_DOCK_ZONE_PX = 88;
 
 /** Panel chrome colors (matches `ContextCard` COPILOT tokens + layout-specific fields). */
 const COPILOT_CHROME = {
@@ -84,6 +86,8 @@ function CopilotFloatResizeChrome({
     sy: number;
     top: number;
     right: number;
+    left: number;
+    useLeft: boolean;
     w: number;
     h: number;
   } | null>(null);
@@ -94,17 +98,29 @@ function CopilotFloatResizeChrome({
     const dx = e.clientX - d.sx;
     const dy = e.clientY - d.sy;
     const maxH = maxFloatPanelHeight(d.top);
+    const useLeft = d.useLeft;
 
     switch (d.edge) {
-      case 'w': {
-        const nw = clamp(d.w - dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
-        useUIStore.setState({ panelWidth: nw });
-        break;
-      }
       case 'e': {
         const nw = clamp(d.w + dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
-        const nr = clamp(d.right - (nw - d.w), 8, window.innerWidth - 24);
-        useUIStore.setState({ panelWidth: nw, copilotRight: nr });
+        if (useLeft) {
+          useUIStore.setState({ panelWidth: nw });
+        } else {
+          const nr = clamp(d.right - (nw - d.w), 8, window.innerWidth - 24);
+          useUIStore.setState({ panelWidth: nw, copilotRight: nr });
+        }
+        break;
+      }
+      case 'w': {
+        const nw = clamp(d.w - dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
+        if (useLeft) {
+          const nl = d.left + (d.w - nw);
+          const maxLeft = window.innerWidth - nw - 8;
+          const clampedNl = clamp(nl, 8, maxLeft);
+          useUIStore.setState({ panelWidth: nw, copilotLeft: clampedNl });
+        } else {
+          useUIStore.setState({ panelWidth: nw });
+        }
         break;
       }
       case 's': {
@@ -121,16 +137,27 @@ function CopilotFloatResizeChrome({
         break;
       }
       case 'se': {
-        const nw = clamp(d.w + dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
-        const nr = clamp(d.right - (nw - d.w), 8, window.innerWidth - 24);
         const nh = clamp(d.h + dy, MIN_FLOAT_H, maxH);
-        useUIStore.setState({ panelWidth: nw, copilotRight: nr, copilotFloatHeight: nh });
+        const nw = clamp(d.w + dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
+        if (useLeft) {
+          useUIStore.setState({ panelWidth: nw, copilotFloatHeight: nh });
+        } else {
+          const nr = clamp(d.right - (nw - d.w), 8, window.innerWidth - 24);
+          useUIStore.setState({ panelWidth: nw, copilotRight: nr, copilotFloatHeight: nh });
+        }
         break;
       }
       case 'sw': {
         const nw = clamp(d.w - dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
         const nh = clamp(d.h + dy, MIN_FLOAT_H, maxH);
-        useUIStore.setState({ panelWidth: nw, copilotFloatHeight: nh });
+        if (useLeft) {
+          const nl = d.left + (d.w - nw);
+          const maxLeft = window.innerWidth - nw - 8;
+          const clampedNl = clamp(nl, 8, maxLeft);
+          useUIStore.setState({ panelWidth: nw, copilotLeft: clampedNl, copilotFloatHeight: nh });
+        } else {
+          useUIStore.setState({ panelWidth: nw, copilotFloatHeight: nh });
+        }
         break;
       }
       case 'ne': {
@@ -139,8 +166,12 @@ function CopilotFloatResizeChrome({
         nt = clamp(nt, 52, window.innerHeight - 120);
         nh = clamp(d.top + d.h - nt, MIN_FLOAT_H, maxFloatPanelHeight(nt));
         const nw = clamp(d.w + dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
-        const nr = clamp(d.right - (nw - d.w), 8, window.innerWidth - 24);
-        useUIStore.setState({ copilotTop: nt, copilotFloatHeight: nh, panelWidth: nw, copilotRight: nr });
+        if (useLeft) {
+          useUIStore.setState({ copilotTop: nt, copilotFloatHeight: nh, panelWidth: nw });
+        } else {
+          const nr = clamp(d.right - (nw - d.w), 8, window.innerWidth - 24);
+          useUIStore.setState({ copilotTop: nt, copilotFloatHeight: nh, panelWidth: nw, copilotRight: nr });
+        }
         break;
       }
       case 'nw': {
@@ -149,7 +180,14 @@ function CopilotFloatResizeChrome({
         nt = clamp(nt, 52, window.innerHeight - 120);
         nh = clamp(d.top + d.h - nt, MIN_FLOAT_H, maxFloatPanelHeight(nt));
         const nw = clamp(d.w - dx, FLOAT_MIN_WIDTH, FLOAT_MAX_WIDTH);
-        useUIStore.setState({ copilotTop: nt, copilotFloatHeight: nh, panelWidth: nw });
+        if (useLeft) {
+          const nl = d.left + (d.w - nw);
+          const maxLeft = window.innerWidth - nw - 8;
+          const clampedNl = clamp(nl, 8, maxLeft);
+          useUIStore.setState({ copilotTop: nt, copilotFloatHeight: nh, panelWidth: nw, copilotLeft: clampedNl });
+        } else {
+          useUIStore.setState({ copilotTop: nt, copilotFloatHeight: nh, panelWidth: nw });
+        }
         break;
       }
       default:
@@ -184,6 +222,8 @@ function CopilotFloatResizeChrome({
         sy: e.clientY,
         top: st.copilotTop,
         right: st.copilotRight,
+        left: st.copilotLeft,
+        useLeft: st.copilotFloatUseLeftAnchor,
         w: st.panelWidth,
         h,
       };
@@ -196,6 +236,7 @@ function CopilotFloatResizeChrome({
   return (
     <>
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto absolute left-[10px] right-[10px] top-0 z-[45] cursor-ns-resize"
         style={{ height: E }}
@@ -205,6 +246,7 @@ function CopilotFloatResizeChrome({
         onPointerCancel={onPointerUp}
       />
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto absolute bottom-0 left-[10px] right-[10px] z-[45] cursor-ns-resize"
         style={{ height: E }}
@@ -214,6 +256,7 @@ function CopilotFloatResizeChrome({
         onPointerCancel={onPointerUp}
       />
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto absolute bottom-[10px] left-0 top-[10px] z-[45] cursor-ew-resize"
         style={{ width: E }}
@@ -223,6 +266,7 @@ function CopilotFloatResizeChrome({
         onPointerCancel={onPointerUp}
       />
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto absolute bottom-[10px] right-0 top-[10px] z-[45] cursor-ew-resize"
         style={{ width: E }}
@@ -232,6 +276,7 @@ function CopilotFloatResizeChrome({
         onPointerCancel={onPointerUp}
       />
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto absolute left-0 top-0 z-[50] cursor-nwse-resize"
         style={{ width: C, height: C }}
@@ -241,6 +286,7 @@ function CopilotFloatResizeChrome({
         onPointerCancel={onPointerUp}
       />
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto absolute right-0 top-0 z-[50] cursor-nesw-resize"
         style={{ width: C, height: C }}
@@ -250,6 +296,7 @@ function CopilotFloatResizeChrome({
         onPointerCancel={onPointerUp}
       />
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto bottom-0 left-0 z-[50] cursor-nesw-resize"
         style={{ width: C, height: C, position: 'absolute' }}
@@ -259,6 +306,7 @@ function CopilotFloatResizeChrome({
         onPointerCancel={onPointerUp}
       />
       <div
+        data-float-resize="1"
         role="presentation"
         className="pointer-events-auto bottom-0 right-0 z-[50] cursor-nwse-resize"
         style={{ width: C, height: C, position: 'absolute' }}
@@ -313,18 +361,24 @@ export function AICopilotPanel() {
   const detached = useUIStore((s) => s.copilotDetached);
   const floatTop = useUIStore((s) => s.copilotTop);
   const floatRight = useUIStore((s) => s.copilotRight);
+  const floatLeft = useUIStore((s) => s.copilotLeft);
+  const copilotFloatUseLeftAnchor = useUIStore((s) => s.copilotFloatUseLeftAnchor);
+  const copilotRailSide = useUIStore((s) => s.copilotRailSide);
   const copilotFloatHeight = useUIStore((s) => s.copilotFloatHeight);
   const setOpen = useUIStore((s) => s.setPanelOpen);
   const setCollapsed = useUIStore((s) => s.setPanelCollapsed);
   const setWidth = useUIStore((s) => s.setPanelWidth);
   const setDetached = useUIStore((s) => s.setCopilotDetached);
   const setCopilotFloat = useUIStore((s) => s.setCopilotFloat);
+  const setCopilotFloatLeft = useUIStore((s) => s.setCopilotFloatLeft);
+  const setCopilotRailSide = useUIStore((s) => s.setCopilotRailSide);
   const lastRead = useUIStore((s) => s.lastCopilotAlertsReadAt);
   const entity = useUIStore(selectActiveEntity);
   const lockedEntity = useUIStore((s) => s.lockedEntity);
   const hoveredEntity = useUIStore((s) => s.hoveredEntity);
 
-  const alertRulesAway = useUIStore((s) => s.alertRulesPopout != null || s.alertRulesDocked);
+  const alertRulesPopped = useUIStore((s) => s.alertRulesPopout != null);
+  const alertRulesDocked = useUIStore((s) => s.alertRulesDocked);
 
   const [narrow, setNarrow] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -362,15 +416,33 @@ export function AICopilotPanel() {
     copilotFloatHeight != null
       ? `${copilotFloatHeight}px`
       : `calc(100dvh - ${floatTop}px - var(--app-bottombar-h) - 8px)`;
-  const float0 = useRef<{ px: number; py: number; top: number; right: number } | null>(null);
+  const float0 = useRef<{
+    px: number;
+    py: number;
+    top: number;
+    right: number;
+    left: number;
+    useLeftAnchor: boolean;
+    w: number;
+  } | null>(null);
   const floatDrag = useRef(false);
+  const dockedLeftResizeRef = useRef<{ pointerId: number; sx: number; sw: number } | null>(null);
 
-  const onResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (narrow) return;
-    panelResizeActive.current = true;
-    setPanelResizing(true);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [narrow]);
+  const onResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (narrow) return;
+      panelResizeActive.current = true;
+      setPanelResizing(true);
+      const st = useUIStore.getState();
+      if (!st.copilotDetached && st.copilotRailSide === 'left') {
+        dockedLeftResizeRef.current = { pointerId: e.pointerId, sx: e.clientX, sw: width };
+      } else {
+        dockedLeftResizeRef.current = null;
+      }
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [narrow, width],
+  );
 
   const onResizePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -382,6 +454,10 @@ export function AICopilotPanel() {
       if (st.copilotDetached) {
         const rightEdge = window.innerWidth - st.copilotRight;
         next = Math.min(maxW, Math.max(minW, rightEdge - e.clientX));
+      } else if (st.copilotRailSide === 'left') {
+        const d = dockedLeftResizeRef.current;
+        if (!d || e.pointerId !== d.pointerId) return;
+        next = Math.min(maxW, Math.max(minW, d.sw + (e.clientX - d.sx)));
       } else {
         next = Math.min(maxW, Math.max(minW, window.innerWidth - e.clientX));
       }
@@ -393,6 +469,7 @@ export function AICopilotPanel() {
   const onResizePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     panelResizeActive.current = false;
     setPanelResizing(false);
+    dockedLeftResizeRef.current = null;
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
@@ -400,21 +477,26 @@ export function AICopilotPanel() {
     }
   }, []);
 
-  function onHeaderPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!detached || narrow) return;
-    if ((e.target as HTMLElement).closest('button')) return;
+  function onFloatShellPointerDown(e: React.PointerEvent<HTMLElement>) {
+    if (e.button !== 0) return;
+    const t = e.target as HTMLElement;
+    if (!t.closest('.copilot-drag-handle')) return;
+    if (!isFloatPanelDragSurface(e.target)) return;
     floatDrag.current = true;
     float0.current = {
       px: e.clientX,
       py: e.clientY,
       top: floatTop,
       right: floatRight,
+      left: floatLeft,
+      useLeftAnchor: copilotFloatUseLeftAnchor,
+      w: width,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
     e.stopPropagation();
   }
 
-  function onHeaderPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+  function onFloatShellPointerMove(e: React.PointerEvent<HTMLElement>) {
     if (!floatDrag.current || !float0.current) return;
     const d = float0.current;
     const dy = e.clientY - d.py;
@@ -426,11 +508,16 @@ export function AICopilotPanel() {
       Math.max(topbar, d.top + dy),
     );
     const minFloat = FLOAT_MIN_WIDTH;
-    const nextRight = Math.min(window.innerWidth - minFloat - 8, Math.max(8, d.right - dx));
-    setCopilotFloat(nextTop, nextRight);
+    if (d.useLeftAnchor) {
+      const nextLeft = Math.min(window.innerWidth - d.w - 8, Math.max(8, d.left + dx));
+      setCopilotFloatLeft(nextTop, nextLeft);
+    } else {
+      const nextRight = Math.min(window.innerWidth - minFloat - 8, Math.max(8, d.right - dx));
+      setCopilotFloat(nextTop, nextRight);
+    }
   }
 
-  function onHeaderPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+  function onFloatShellPointerUp(e: React.PointerEvent<HTMLElement>) {
     if (!floatDrag.current) return;
     floatDrag.current = false;
     float0.current = null;
@@ -439,8 +526,22 @@ export function AICopilotPanel() {
     } catch {
       /* no-op */
     }
+    if (e.clientX < COPILOT_DOCK_ZONE_PX) {
+      setCopilotRailSide('left');
+      setDetached(false);
+      return;
+    }
+    if (e.clientX > window.innerWidth - COPILOT_DOCK_ZONE_PX) {
+      setCopilotRailSide('right');
+      setDetached(false);
+      return;
+    }
     const st = useUIStore.getState();
-    if (st.copilotRight <= 56) setCopilotFloat(st.copilotTop, 8);
+    if (!st.copilotFloatUseLeftAnchor && st.copilotRight <= 56) {
+      setCopilotFloat(st.copilotTop, 8);
+    } else if (st.copilotFloatUseLeftAnchor && st.copilotLeft <= 56) {
+      setCopilotFloatLeft(st.copilotTop, 8);
+    }
   }
 
   useEffect(() => {
@@ -456,31 +557,40 @@ export function AICopilotPanel() {
   const expandedBody = (
     <>
       {!narrow && !detached ? (
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize co-pilot panel"
-          onPointerDown={onResizePointerDown}
-          onPointerMove={onResizePointerMove}
-          onPointerUp={onResizePointerUp}
-          onPointerCancel={onResizePointerUp}
-          className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/35"
-        />
+        copilotRailSide === 'left' ? (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize co-pilot panel"
+            onPointerDown={onResizePointerDown}
+            onPointerMove={onResizePointerMove}
+            onPointerUp={onResizePointerUp}
+            onPointerCancel={onResizePointerUp}
+            className="absolute right-0 top-0 z-20 h-full w-2 translate-x-1/2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/35"
+          />
+        ) : (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize co-pilot panel"
+            onPointerDown={onResizePointerDown}
+            onPointerMove={onResizePointerMove}
+            onPointerUp={onResizePointerUp}
+            onPointerCancel={onResizePointerUp}
+            className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/35"
+          />
+        )
       ) : null}
 
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center justify-between border-b px-2.5 py-2 backdrop-blur-md',
-          detached && !narrow && 'cursor-grab touch-none active:cursor-grabbing',
+          detached && !narrow && 'copilot-drag-handle cursor-grab touch-none active:cursor-grabbing',
         )}
         style={{
           borderColor: COPILOT_CHROME.border,
           background: `linear-gradient(180deg, ${COPILOT_CHROME.card} 0%, ${COPILOT_CHROME.bg} 100%)`,
         }}
-        onPointerDown={onHeaderPointerDown}
-        onPointerMove={onHeaderPointerMove}
-        onPointerUp={onHeaderPointerUp}
-        onPointerCancel={onHeaderPointerUp}
       >
         <div className="flex min-w-0 items-center gap-2">
           <span
@@ -629,7 +739,7 @@ export function AICopilotPanel() {
         <div className="flex flex-col gap-2 pb-2">
           <ContextCard entity={entity} />
           <AskBox entity={entity} />
-          {alertRulesAway ? (
+          {alertRulesDocked ? null : alertRulesPopped ? (
             <AlertBuilderEmbeddedPlaceholder />
           ) : (
             <AlertRulesSection showPopoutLauncher />
@@ -690,7 +800,9 @@ export function AICopilotPanel() {
               position: 'fixed',
               zIndex: 260,
               top: floatTop,
-              right: floatRight,
+              ...(copilotFloatUseLeftAnchor
+                ? { left: floatLeft, right: 'auto' as const }
+                : { right: floatRight, left: 'auto' as const }),
               width,
               height: floatHeightStyle,
               maxHeight:
@@ -704,9 +816,23 @@ export function AICopilotPanel() {
               boxShadow: '0 24px 48px -12px rgba(0,0,0,0.55)',
             }}
             aria-label="AI co-pilot floating"
+            onPointerDown={onFloatShellPointerDown}
+            onPointerMove={onFloatShellPointerMove}
+            onPointerUp={onFloatShellPointerUp}
+            onPointerCancel={onFloatShellPointerUp}
           >
             <CopilotAlertsReadSync />
             {expandedBody}
+            <div
+              className="copilot-drag-handle pointer-events-auto absolute bottom-4 left-2 top-14 z-[38] w-3 cursor-grab touch-none rounded-sm hover:bg-white/[0.05] active:cursor-grabbing"
+              title="Drag · left edge"
+              aria-hidden
+            />
+            <div
+              className="copilot-drag-handle pointer-events-auto absolute bottom-4 right-2 top-14 z-[38] w-3 cursor-grab touch-none rounded-sm hover:bg-white/[0.05] active:cursor-grabbing"
+              title="Drag · right edge"
+              aria-hidden
+            />
             <CopilotFloatResizeChrome asideRef={floatAsideRef} />
           </aside>,
           document.body,
@@ -726,7 +852,8 @@ export function AICopilotPanel() {
       <aside
         data-onboarding="copilot"
         className={cn(
-          'relative flex h-full min-h-0 flex-col border-l border-[#202636] bg-[#080d14]/95 backdrop-blur-md',
+          'relative flex h-full min-h-0 flex-col bg-[#080d14]/95 backdrop-blur-md',
+          copilotRailSide === 'left' ? 'border-r border-[#202636]' : 'border-l border-[#202636]',
           narrow
             ? cn(
                 open
@@ -782,7 +909,11 @@ export function AICopilotPanel() {
               onClick={() => setCollapsed(false)}
               className="btn-press focus-ring rounded-md p-1.5 text-fg-muted transition-all duration-150 hover:bg-bg-hover hover:text-fg-primary"
             >
-              <ChevronsLeft className="h-4 w-4" strokeWidth={2.25} />
+              {copilotRailSide === 'left' ? (
+                <ChevronsRight className="h-4 w-4" strokeWidth={2.25} />
+              ) : (
+                <ChevronsLeft className="h-4 w-4" strokeWidth={2.25} />
+              )}
             </button>
 
             <button

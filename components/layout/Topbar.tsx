@@ -7,6 +7,7 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { ArrowDownToLine, ChevronDown, ExternalLink, LogOut, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
+import { ChainIconToggle } from '@/components/layout/ChainIconToggle';
 import { CopilotPillTopbarCollapsed } from '@/components/ai/CopilotPill';
 import { WebPushControls } from '@/components/layout/WebPushControls';
 import { APP_NAV } from '@/components/layout/navConfig';
@@ -53,10 +54,9 @@ export function Topbar() {
     staleTime: 30_000,
   });
 
-  const { wallets, activeAddress, setActiveWalletAddress, ready: walletsReady } =
+  const { activeAddress, setActiveWalletAddress, ready: walletsReady, canSignWithWallet } =
     useActiveSolanaWallet(myWalletsQ.data?.wallets);
   const walletAddress = activeAddress;
-  const privyAddrs = useMemo(() => new Set(wallets.map((w) => w.address)), [wallets]);
 
   useEffect(() => {
     if (!walletMenuOpen) return;
@@ -135,7 +135,7 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-30 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b px-2 py-1 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1.5" style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}>
+    <header className="sticky top-0 z-30 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b px-2 py-1 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1.5 relative" style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}>
       <Link
         href="/pulse"
         prefetch
@@ -193,18 +193,21 @@ export function Topbar() {
         })}
       </nav>
 
+      <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 hidden w-full max-w-[min(520px,calc(100vw-220px))] -translate-x-1/2 -translate-y-1/2 justify-center md:flex">
+        <CopilotPillTopbarCollapsed />
+      </div>
+
       <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
-        <div className="pointer-events-none hidden min-w-0 flex-1 justify-center md:pointer-events-auto lg:flex">
-          <CopilotPillTopbarCollapsed />
-        </div>
-        <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">
+        <div className="flex min-w-0 max-w-[56rem] flex-1 items-center justify-end gap-1 sm:gap-1.5">
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
             className={cn(
-              'focus-ring relative flex h-8 max-w-[11rem] shrink-0 items-center gap-1.5 rounded-md border border-border-default',
-              'bg-bg-hover px-2 py-1 text-left transition-all duration-150 hover:border-border-strong hover:bg-bg-base',
-              'sm:max-w-[13rem]',
+              'focus-ring relative flex h-8 min-w-[12rem] max-w-[min(28rem,100%)] flex-1 shrink-0 items-center gap-1.5 rounded-md border border-transparent',
+              'bg-bg-hover px-2 py-1 text-left transition-[border-color,background-color,box-shadow] duration-150',
+              'hover:border-white/20 hover:bg-bg-base hover:shadow-[0_0_0_1px_rgba(255,255,255,0.06)]',
+              'focus-visible:border-white/25',
+              'md:min-w-[14rem] md:max-w-[32rem]',
             )}
             aria-haspopup="dialog"
             aria-expanded={searchOpen}
@@ -229,19 +232,9 @@ export function Topbar() {
             </kbd>
           </button>
 
-        <button
-          type="button"
-          disabled
-          aria-disabled
-          className="flex h-8 cursor-not-allowed items-center gap-1 rounded-md border border-border-subtle px-1.5 text-[11px] font-medium text-fg-secondary sm:px-2"
-          title="Multi-chain coming Phase 2"
-        >
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-pulse-soft rounded-full bg-signal-bull/60" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-signal-bull shadow-[0_0_6px_var(--signal-bull)]" />
-          </span>
-          TON
-        </button>
+        <div className="flex h-8 shrink-0 items-center">
+          <ChainIconToggle size="sm" />
+        </div>
 
         <button
           type="button"
@@ -303,7 +296,7 @@ export function Topbar() {
                     aria-expanded={balancePopoverOpen}
                   >
                     <span className="block max-w-[7rem] truncate text-[11px] font-medium leading-tight text-fg-primary sm:max-w-[9rem]">
-                      {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '\u2014'}
+                      {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '0 TON'}
                     </span>
                   </button>
                   <button
@@ -345,7 +338,7 @@ export function Topbar() {
                   <div className="max-h-[min(40vh,240px)] overflow-y-auto">
                     {myWalletsQ.data!.wallets.map((w) => {
                       const isSel = w.wallet_address === walletAddress;
-                      const canSign = privyAddrs.has(w.wallet_address);
+                      const canSign = canSignWithWallet(w.wallet_address);
                       const unusable = w.is_archived || !w.is_active || !canSign;
                       return (
                         <div

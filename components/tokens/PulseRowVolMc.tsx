@@ -33,16 +33,19 @@ export function PulseRowVolMc({
     size === 'compact' ? 'text-[11px]' : size === 'expanded' ? 'text-[15px]' : 'text-[13px]';
   const valueMcCls = valueVolCls;
 
+  const gapCls = size === 'compact' ? 'gap-x-4' : size === 'expanded' ? 'gap-x-7' : 'gap-x-6';
+
   return (
     <div
       className={cn(
-        'inline-flex flex-wrap items-baseline gap-x-3 gap-y-0 font-sans tabular-nums leading-tight tracking-tight',
+        'inline-flex max-w-full flex-nowrap items-baseline font-sans tabular-nums leading-none tracking-tight',
+        gapCls,
         justify === 'end' && 'justify-end',
         className,
       )}
     >
       {showVol ? (
-        <span className="inline-flex items-baseline gap-0">
+        <span className="inline-flex shrink-0 items-baseline gap-1">
           <span className={labelCls}>V</span>
           <NumberDisplay
             value={vol}
@@ -52,7 +55,7 @@ export function PulseRowVolMc({
         </span>
       ) : null}
       {showMc ? (
-        <span className="inline-flex items-baseline gap-0">
+        <span className="inline-flex shrink-0 items-baseline gap-1">
           <span className={labelCls}>MC</span>
           <NumberDisplay
             value={mcUsd}

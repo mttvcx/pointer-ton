@@ -1,14 +1,65 @@
 'use client';
 
+import { useCallback, useLayoutEffect, useRef, type PointerEvent as DomPointerEvent } from 'react';
 import { PanelRight, X } from 'lucide-react';
 import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
-import { useUIStore } from '@/store/ui';
+import {
+  ALERT_DOCK_MAX_W,
+  ALERT_DOCK_MIN_W,
+  useUIStore,
+} from '@/store/ui';
 
 export function AlertRulesDockPanel() {
   const docked = useUIStore((s) => s.alertRulesDocked);
   const width = useUIStore((s) => s.alertRulesDockWidth);
   const setDocked = useUIStore((s) => s.setAlertRulesDocked);
   const setPopout = useUIStore((s) => s.setAlertRulesPopout);
+  const setDockWidth = useUIStore((s) => s.setAlertRulesDockWidth);
+
+  const resizeRef = useRef<{ pointerId: number; sx: number; sw: number } | null>(null);
+  const clampedOnce = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!docked) {
+      clampedOnce.current = false;
+      return;
+    }
+    if (clampedOnce.current) return;
+    clampedOnce.current = true;
+    const w = useUIStore.getState().alertRulesDockWidth;
+    const c = Math.min(ALERT_DOCK_MAX_W, Math.max(ALERT_DOCK_MIN_W, w));
+    if (c !== w) setDockWidth(c);
+  }, [docked, setDockWidth]);
+
+  const onResizePointerDown = useCallback(
+    (e: DomPointerEvent<HTMLDivElement>) => {
+      if (!docked || e.button !== 0) return;
+      resizeRef.current = { pointerId: e.pointerId, sx: e.clientX, sw: width };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [docked, width],
+  );
+
+  const onResizePointerMove = useCallback(
+    (e: DomPointerEvent<HTMLDivElement>) => {
+      const d = resizeRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      const next = Math.min(ALERT_DOCK_MAX_W, Math.max(ALERT_DOCK_MIN_W, d.sw + (e.clientX - d.sx)));
+      setDockWidth(next);
+    },
+    [setDockWidth],
+  );
+
+  const onResizePointerUp = useCallback((e: DomPointerEvent<HTMLDivElement>) => {
+    const d = resizeRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    resizeRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   if (!docked) return null;
 
@@ -19,12 +70,21 @@ export function AlertRulesDockPanel() {
       style={{ width, minWidth: width, maxWidth: width }}
     >
       <div
-        className="flex shrink-0 items-center justify-between gap-2 border-b border-[#1b1f2a] px-2 py-2"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize alert builder width"
+        className="absolute right-0 top-0 z-20 h-full w-2 translate-x-1/2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/30"
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={onResizePointerUp}
+        onPointerCancel={onResizePointerUp}
+      />
+      <div
+        className="flex shrink-0 items-center justify-between gap-2 border-b border-[#1b1f2a] px-2 py-1.5"
         style={{ backgroundColor: '#11141b' }}
       >
         <div className="min-w-0">
-          <div className="truncate text-[12px] font-semibold text-fg-primary">Alert builder</div>
-          <div className="text-[10px] text-fg-muted">Docked · same rail pattern as co-pilot</div>
+          <div className="truncate text-[11px] font-semibold text-fg-primary">Alert builder</div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           <button
@@ -35,7 +95,7 @@ export function AlertRulesDockPanel() {
               setDocked(false);
               const header = document.querySelector('header');
               const top = Math.round((header?.getBoundingClientRect().bottom ?? 72) + 8);
-              const w = Math.min(440, Math.max(300, Math.round(window.innerWidth * 0.36)));
+              const w = Math.min(420, Math.max(280, Math.round(window.innerWidth * 0.32)));
               const h = Math.min(600, Math.max(320, window.innerHeight - top - 72));
               setPopout({ top, left: 16, width: w, height: h });
             }}
@@ -52,7 +112,7 @@ export function AlertRulesDockPanel() {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2 pr-3">
         <AlertRulesSection embedInFloatingPanel />
       </div>
     </aside>

@@ -1,10 +1,10 @@
 'use client';
 
-import { useVirtualizer, measureElement } from '@tanstack/react-virtual';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Activity, AlertTriangle, ArrowDownWideNarrow } from 'lucide-react';
 import { toast } from 'sonner';
 import { ColumnFilterModal, type ColumnPresetRowDto } from '@/components/tokens/ColumnFilterModal';
@@ -15,7 +15,6 @@ import { createClient } from '@/lib/supabase/client';
 import {
   DEFAULT_COLUMN_FILTERS,
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
-  type BuyButtonStyle,
   type ColumnDisplayOptions,
   type ColumnPresetSharePayload,
   type ColumnSortKey,
@@ -30,7 +29,6 @@ import { syntheticPulseFeedItems } from '@/lib/dev/demoPulseBundles';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { cn } from '@/lib/utils/cn';
-import type { PulseRowDensity } from '@/store/pulseColumns';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import type { PulseTokenBundle } from '@/types/tokens';
 
@@ -40,20 +38,9 @@ const COLUMN_LABEL: Record<PulseColumnId, string> = {
   migrated: 'Migrated',
 };
 
-function rowHeightForDensity(
-  d: PulseRowDensity,
-  buyStyle?: BuyButtonStyle,
-  mcLayout?: 'strip' | 'hero',
-): number {
-  /** Uniform tall rows on every column (Axiom-style); density presets still affect in-row icons via `effectiveDensity`. */
-  void d;
-  const big =
-    buyStyle === 'large' || buyStyle === 'ultra' ? 16 : 0;
-  const ultra = buyStyle === 'ultra' ? 6 : 0;
-  const bump = big + ultra;
-  const hero = mcLayout === 'hero' ? 8 : 0;
-  const metaStrip = 24;
-  return 144 + bump + hero + metaStrip;
+function pulseRowSlotHeightFallback(): number {
+  /** SSR / pre-measure only — live board height is viewport ÷ 6 (fixed; never grows with quick-buy). */
+  return 96;
 }
 
 export function PulseColumn({
@@ -75,13 +62,13 @@ export function PulseColumn({
   const displayPopoverRef = useRef<HTMLDivElement>(null);
   const shareAppliedRef = useRef(false);
 
-  const density = usePulseColumnStore((s) => s.byColumn[column].density);
-  const quickBuySol = usePulseColumnStore((s) => s.byColumn[column].quickBuySol);
+  const [listViewportH, setListViewportH] = useState(0);
+
   const buyButtonStyle = usePulseColumnStore((s) => s.byColumn[column].buyButtonStyle);
+  const quickBuySol = usePulseColumnStore((s) => s.byColumn[column].quickBuySol);
   const presetSlot = usePulseColumnStore((s) => s.byColumn[column].presetSlot);
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
   const setPresetSlot = usePulseColumnStore((s) => s.setPresetSlot);
-  const setDensity = usePulseColumnStore((s) => s.setDensity);
   const setBuyButtonStyleAll = usePulseColumnStore((s) => s.setBuyButtonStyleAll);
 
   const presetsQuery = useQuery({
@@ -237,8 +224,14 @@ export function PulseColumn({
   );
 
   const displayForRow = useMemo(
-    () => ({ ...displayCore, density, buyButtonStyle }),
-    [displayCore, density, buyButtonStyle],
+    (): ColumnDisplayOptions => ({
+      ...displayCore,
+      /** P1–P3 must not change Pulse row geometry — lock board layout to Axiom sizing. */
+      density: 'normal',
+      mcLayout: 'hero',
+      buyButtonStyle,
+    }),
+    [displayCore, buyButtonStyle],
   );
 
   const displayOptionsSig =
@@ -249,10 +242,9 @@ export function PulseColumn({
   useEffect(() => {
     if (!activePresetRow || !authenticated) return;
     const disp = normalizeColumnDisplayOptions(activePresetRow.display_options);
-    setDensity(column, disp.density);
     setBuyButtonStyleAll(disp.buyButtonStyle);
     setQuickBuySol(column, disp.quickBuySol);
-  }, [column, presetSlot, displayOptionsSig, activePresetRow, authenticated, setDensity, setBuyButtonStyleAll, setQuickBuySol]);
+  }, [column, presetSlot, displayOptionsSig, activePresetRow, authenticated, setBuyButtonStyleAll, setQuickBuySol]);
 
   const sortBy: ColumnSortKey = useMemo(() => {
     const raw = activePresetRow?.sort_by;
@@ -283,11 +275,25 @@ export function PulseColumn({
     [columnFiltered, sortBy, sortDir],
   );
 
-  const rowSize = rowHeightForDensity(
-    displayForRow.density ?? density,
-    buyButtonStyle,
-    displayForRow.mcLayout,
-  );
+  useLayoutEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const measure = () => {
+      const next = Math.floor(el.getBoundingClientRect().height);
+      if (next > 0) setListViewportH(next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const rowSize = useMemo(() => {
+    if (listViewportH <= 0) return pulseRowSlotHeightFallback();
+    /** Exactly six token rows — height is never derived from row content (quick-buy size cannot stretch rows). */
+    const h = Math.floor(listViewportH / 6);
+    return Math.max(64, h);
+  }, [listViewportH]);
 
   /* eslint-disable react-hooks/incompatible-library */
   const rowVirtualizer = useVirtualizer({
@@ -296,24 +302,21 @@ export function PulseColumn({
     estimateSize: () => rowSize,
     overscan: 12,
     getItemKey: (i) => visibleRows[i]?.token.mint ?? i,
-    measureElement,
   });
   /* eslint-enable react-hooks/incompatible-library */
 
   useEffect(() => {
     rowVirtualizer.measure();
-  }, [density, displayForRow.density, buyButtonStyle, rowVirtualizer, visibleRows.length, rowSize]);
+  }, [listViewportH, rowVirtualizer, visibleRows.length, rowSize]);
 
   const dotClass = PULSE_COLUMN_ACCENT_DOT[column];
   const title = COLUMN_LABEL[column];
-  /** Chunky, consistent row chrome across New / Stretch / Migrated. */
-  const effectiveDensity = 'expanded' satisfies PulseRowDensity;
   const effectiveBuyStyle = displayForRow.buyButtonStyle;
 
   return (
     <section
       className={cn(
-        'flex min-h-0 min-w-[300px] flex-1 flex-col border-r border-border-subtle bg-bg-base last:border-r-0 sm:min-w-[380px] lg:min-w-[420px]',
+        'flex min-h-0 min-w-0 flex-1 basis-0 flex-col border-r border-border-subtle bg-bg-base last:border-r-0',
       )}
     >
       <header className="shrink-0 space-y-2 border-b border-border-subtle bg-bg-base px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
@@ -337,8 +340,9 @@ export function PulseColumn({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search symbol or name..."
             className={cn(
-              'min-w-[120px] flex-1 rounded-sm px-2 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
-              'bg-white/5 placeholder:text-fg-muted/50 focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
+              'min-w-[120px] flex-1 rounded-sm border border-transparent px-2 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
+              'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
+              'hover:border-white/15',
             )}
             aria-label={`Search ${title}`}
           />
@@ -381,7 +385,6 @@ export function PulseColumn({
         onClose={() => setFilterOpen(false)}
         columnId={column}
         presetSlot={presetSlot}
-        headerDensity={density}
         row={activePresetRow}
         onSaved={() => {
           void presetsQuery.refetch();
@@ -431,13 +434,12 @@ export function PulseColumn({
                 <div
                   key={vi.key}
                   data-index={vi.index}
-                  ref={rowVirtualizer.measureElement}
                   className="absolute left-0 top-0 w-full overflow-hidden"
                   style={{ transform: `translateY(${vi.start}px)`, height: rowSize }}
                 >
                   <TokenRow
                     bundle={bundle}
-                    density={effectiveDensity}
+                    density="normal"
                     display={displayForRow}
                     quickBuySol={quickBuySol}
                     buyButtonStyle={effectiveBuyStyle}
