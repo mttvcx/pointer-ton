@@ -1,5 +1,7 @@
 import 'server-only';
 import { subMinutes } from 'date-fns';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { PULSE_THRESHOLDS } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -189,6 +191,60 @@ export async function bundlePulseTokens(tokens: TokenRow[]): Promise<PulseTokenB
     token,
     snapshot: snapshots.get(token.mint) ?? null,
   }));
+}
+
+const EXPLORE_SNAPSHOT_SCAN = 2000;
+
+/**
+ * Ranked “top” view for Explore: latest snapshot per mint (recency), then sort by 24h volume,
+ * keep mints that match the header chain (`mintMatchesAppChain`).
+ */
+export async function listExploreTopBundlesForChain(
+  chain: AppChainId,
+  limit: number,
+): Promise<PulseTokenBundle[]> {
+  const cap = Math.min(Math.max(limit, 1), 100);
+  const supabase = createAdminSupabase();
+
+  const { data: snaps, error } = await supabase
+    .from('token_market_snapshots')
+    .select('*')
+    .order('snapshot_at', { ascending: false })
+    .limit(EXPLORE_SNAPSHOT_SCAN);
+
+  if (error) throw new Error(`listExploreTopBundlesForChain(snapshots) failed: ${error.message}`);
+
+  const latestByMint = new Map<string, TokenMarketSnapshotRow>();
+  for (const row of snaps ?? []) {
+    const s = row as TokenMarketSnapshotRow;
+    if (!latestByMint.has(s.mint)) latestByMint.set(s.mint, s);
+  }
+
+  const ranked = [...latestByMint.values()].sort((a, b) => {
+    const va = Number(a.volume_24h_usd) || 0;
+    const vb = Number(b.volume_24h_usd) || 0;
+    if (vb !== va) return vb - va;
+    const ma = Number(a.market_cap_usd) || 0;
+    const mb = Number(b.market_cap_usd) || 0;
+    return mb - ma;
+  });
+
+  const mintsOrdered = ranked.map((s) => s.mint).filter((m) => mintMatchesAppChain(m, chain));
+
+  const limitedMints = mintsOrdered.slice(0, cap);
+  if (limitedMints.length === 0) return [];
+
+  const { data: tokens, error: tErr } = await supabase.from('tokens').select('*').in('mint', limitedMints);
+  if (tErr) throw new Error(`listExploreTopBundlesForChain(tokens) failed: ${tErr.message}`);
+
+  const byMint = new Map((tokens ?? []).map((t) => [t.mint, t]));
+  const bundles: PulseTokenBundle[] = [];
+  for (const m of limitedMints) {
+    const token = byMint.get(m);
+    const snapshot = latestByMint.get(m);
+    if (token && snapshot) bundles.push({ token, snapshot });
+  }
+  return bundles;
 }
 
 /* ------------------------ token_market_snapshots ------------------------ */
