@@ -6,8 +6,8 @@ import { TokenHeader } from '@/components/tokens/TokenHeader';
 import { getLatestSnapshotForMint } from '@/lib/db/tokens';
 import { getDevWalletStats } from '@/lib/db/wallets';
 import { ensureTokenRowFromDas } from '@/lib/helius/feed';
+import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 import { extractSupplyTokens } from '@/lib/tokens/metadataHints';
-import { isValidPublicKey } from '@/lib/utils/addresses';
 
 export async function generateMetadata({
   params,
@@ -27,7 +27,7 @@ export default async function TokenDetailPage({
   params: Promise<{ mint: string }>;
 }) {
   const { mint } = await params;
-  if (!isValidPublicKey(mint)) {
+  if (!isValidTokenMintParam(mint)) {
     notFound();
   }
 

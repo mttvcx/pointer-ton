@@ -33,7 +33,7 @@ export function isValidPublicKey(value: string): boolean {
   return isValidSolanaPublicKey(s);
 }
 
-/** Trackers / watchlists in pointer-ton are TON-only. */
+/** @deprecated Prefer {@link isValidTrackedWalletAddress} from `@/lib/chains/mintKind` with the active chain. */
 export function isValidTonTrackedAddress(value: string): boolean {
   return normalizeTonAddress(value.trim()) != null;
 }

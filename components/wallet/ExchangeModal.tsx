@@ -58,6 +58,7 @@ export function ExchangeModal({
   const [tab, setTab] = useState<ExchangeTab>(initialTab);
   const [assetOpen, setAssetOpen] = useState(false);
   const activeChain = useUIStore((s) => s.activeChain);
+  const setActiveChain = useUIStore((s) => s.setActiveChain);
   const nativeSym = nativeTicker(activeChain);
   const depositNetworkLabel =
     DEPOSIT_NETWORK_ROWS.find((r) => r.chain === activeChain)?.label ?? nativeSym;
@@ -210,23 +211,25 @@ export function ExchangeModal({
                         Networks
                       </div>
                       {DEPOSIT_NETWORK_ROWS.map((row) => {
-                        const enabled = row.chain === activeChain;
+                        const selected = row.chain === activeChain;
                         return (
                           <button
                             key={row.chain}
                             type="button"
-                            disabled={!enabled}
-                            onClick={() => setAssetOpen(false)}
+                            onClick={() => {
+                              setActiveChain(row.chain);
+                              setAssetOpen(false);
+                            }}
                             className={cn(
-                              'flex w-full items-center px-2.5 py-1.5 text-left text-[11px]',
-                              enabled
-                                ? 'text-white hover:bg-white/5'
-                                : 'cursor-not-allowed text-[#4b5563]',
+                              'flex w-full items-center px-2.5 py-1.5 text-left text-[11px] transition',
+                              selected
+                                ? 'bg-white/[0.06] text-white'
+                                : 'text-[#d1d5db] hover:bg-white/5 hover:text-white',
                             )}
                           >
                             {row.label}
-                            {!enabled ? (
-                              <span className="ml-auto text-[9px] text-[#4b5563]">Switch header</span>
+                            {selected ? (
+                              <span className="ml-auto text-[9px] font-semibold text-[#5865F2]">Selected</span>
                             ) : null}
                           </button>
                         );

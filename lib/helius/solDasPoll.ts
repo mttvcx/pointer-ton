@@ -23,7 +23,7 @@ function debugDas(message: string, extra?: Record<string, unknown>) {
 
 type DasResult<T> = { error?: { message?: string }; result?: T };
 
-async function heliusDasRpc<T>(method: string, params: unknown): Promise<T> {
+export async function heliusDasRpc<T>(method: string, params: unknown): Promise<T> {
   const url = getHeliusRpcUrl();
   const res = await fetch(url, {
     method: 'POST',

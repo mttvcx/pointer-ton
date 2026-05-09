@@ -362,7 +362,7 @@ export function WalletsManage({ className }: { className?: string }) {
                             onSave={(label) => patchMutation.mutate({ id: w.id, body: { label } })}
                           />
                           {w.is_primary ? <span className="rounded-full bg-[#5865F2]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#8da2ff]">Primary</span> : null}
-                          {isActiveTrading ? <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">Active wallet</span> : null}
+                          {isActiveTrading ? <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">Primary wallet</span> : null}
                         </div>
                         {w.is_imported ? <div className="mt-0.5 text-[10px] text-[#8b93a3]">View-only imported key</div> : null}
                       </div>
@@ -401,7 +401,7 @@ export function WalletsManage({ className }: { className?: string }) {
                         </button>
                         {actionOpenId === w.id ? (
                           <div className="absolute right-0 top-8 z-30 w-36 overflow-hidden rounded-md border border-[#1b1f2a] bg-[#151826] p-1 shadow-2xl">
-                            <button type="button" onClick={() => { setActiveWalletAddress(w.wallet_address); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Star className="h-3.5 w-3.5" /> Set active</button>
+                            <button type="button" onClick={() => { setActiveWalletAddress(w.wallet_address); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Star className="h-3.5 w-3.5" /> Set primary</button>
                             <button type="button" onClick={() => { toast.info('Click the wallet name to rename'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Pencil className="h-3.5 w-3.5" /> Rename</button>
                             <button type="button" onClick={() => { onExportKeyInfo(w); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><KeyRound className="h-3.5 w-3.5" /> Export key</button>
                             <button type="button" disabled={patchMutation.isPending} onClick={() => { patchMutation.mutate({ id: w.id, body: { is_archived: !w.is_archived } }); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Shield className="h-3.5 w-3.5" /> {w.is_archived ? 'Unarchive' : 'Archive'}</button>
@@ -419,7 +419,7 @@ export function WalletsManage({ className }: { className?: string }) {
           <aside className="col-span-12 min-h-0 space-y-2 overflow-auto lg:col-span-4">
             <section className="rounded-lg border border-[#1b1f2a] bg-[#11141b] p-3">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold text-white">Active Wallet</h2>
+                <h2 className="text-[13px] font-semibold text-white">Primary wallet</h2>
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">Live</span>
               </div>
               {activeWallet ? (
@@ -435,7 +435,7 @@ export function WalletsManage({ className }: { className?: string }) {
                     </div>
                     {activeBalance <= 0 ? (
                       <div className="mt-1 text-[11px] text-[#8b93a3]">
-                        No {nativeSym} yet. Deposit to active wallet.
+                        No {nativeSym} yet. Deposit to your primary wallet.
                       </div>
                     ) : null}
                   </div>
@@ -445,7 +445,7 @@ export function WalletsManage({ className }: { className?: string }) {
                   </div>
                 </div>
               ) : (
-                <div className="text-[12px] text-[#8b93a3]">No active wallet selected.</div>
+                <div className="text-[12px] text-[#8b93a3]">No primary wallet selected.</div>
               )}
             </section>
 

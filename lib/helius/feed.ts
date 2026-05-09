@@ -16,7 +16,8 @@ import {
 } from '@/lib/db/tokens';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
-import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { ensureTokenRowFromGeckoEvm } from '@/lib/evm/geckoTerminalPulse';
 import type { TablesInsert } from '@/lib/supabase/types';
 import {
   listTonApiJettons,
@@ -28,7 +29,12 @@ import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
 import { pollGeckoNewPools } from '@/lib/evm/geckoTerminalPulse';
-import { pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
+import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
+import { launchpadEventFromDasAsset } from '@/lib/helius/parsers';
+import { heliusDasRpc, pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
+import { PublicKey } from '@solana/web3.js';
+import type { Asset } from 'helius-sdk/types/das';
+import { getHeliusRpcUrl } from '@/lib/utils/constants';
 
 const PULSE_PAGE_SIZE = 60;
 const TONAPI_POLL_BATCH = 48;
@@ -354,5 +360,45 @@ export async function ensureTokenRowFromTon(mint: string): Promise<TokenRow | nu
   return saved;
 }
 
-/** @deprecated Step 2 renamed; kept for incremental refactors. */
-export const ensureTokenRowFromDas = ensureTokenRowFromTon;
+/**
+ * Hydrates a Solana SPL mint via Helius DAS `getAsset` (Pulse may already have ingested it).
+ */
+export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenRow | null> {
+  let canonical: string;
+  try {
+    canonical = new PublicKey(mint.trim()).toBase58();
+  } catch {
+    return null;
+  }
+
+  const existing = await getTokenByMint(canonical);
+  if (existing) return existing;
+
+  try {
+    getHeliusRpcUrl();
+  } catch {
+    return null;
+  }
+
+  try {
+    const asset = await heliusDasRpc<Asset>('getAsset', { id: canonical });
+    const ev = launchpadEventFromDasAsset(asset);
+    if (!ev) return null;
+    await ingestLaunchpadDiscovery(ev, { alertSource: 'das_hydrate' });
+    return getTokenByMint(canonical);
+  } catch {
+    return null;
+  }
+}
+
+/** Resolves a token row for TON, Solana, or EVM mints / contract addresses. */
+export async function ensureTokenRowForMint(mint: string): Promise<TokenRow | null> {
+  const kind = inferMintKind(mint);
+  if (kind === 'ton') return ensureTokenRowFromTon(mint);
+  if (kind === 'sol') return ensureTokenRowFromSolanaMint(mint);
+  if (kind === 'evm') return ensureTokenRowFromGeckoEvm(mint);
+  return null;
+}
+
+/** @deprecated Renamed to {@link ensureTokenRowForMint} — supports Solana + EVM, not only TON. */
+export const ensureTokenRowFromDas = ensureTokenRowForMint;

@@ -28,6 +28,11 @@ export function useAuthSync() {
   const queryClient = useQueryClient();
 
   const lastSyncedKeyRef = useRef<string | null>(null);
+  const privyWalletSyncRef = useRef(false);
+
+  useEffect(() => {
+    if (!authenticated) privyWalletSyncRef.current = false;
+  }, [authenticated]);
 
   const wallet = wallets[0]?.address ?? null;
   const email = user?.email?.address ?? null;
@@ -70,6 +75,16 @@ export function useAuthSync() {
           lastSyncedKeyRef.current = key;
           void queryClient.invalidateQueries();
           console.debug('[auth] synced user', json.user.id);
+
+          if (!privyWalletSyncRef.current) {
+            privyWalletSyncRef.current = true;
+            void fetch('/api/wallets/sync-privy', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            }).then(() => {
+              void queryClient.invalidateQueries({ queryKey: ['wallets-my'] });
+            });
+          }
         }
       } catch (err) {
         if (!cancelled) {

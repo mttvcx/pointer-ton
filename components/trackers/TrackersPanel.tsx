@@ -21,7 +21,8 @@ import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
-import { isValidTonTrackedAddress, shortenAddress } from '@/lib/utils/addresses';
+import { isValidTrackedWalletAddress } from '@/lib/chains/mintKind';
+import { shortenAddress } from '@/lib/utils/addresses';
 import { formatAgeShort, formatLastActiveShort, formatNumber, rawToUi } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -346,13 +347,13 @@ export function TrackersPanel({
       lastPrefillRef.current = null;
       return;
     }
-    if (!isValidTonTrackedAddress(raw)) return;
+    if (!isValidTrackedWalletAddress(raw, activeChain)) return;
     if (lastPrefillRef.current === raw) return;
     lastPrefillRef.current = raw;
     setAddress(raw);
     setViewTab('wallet_manager');
     setAddOpen(true);
-  }, [prefillWallet]);
+  }, [prefillWallet, activeChain]);
 
   const listQuery = useQuery({
     queryKey: ['trackers', 'enriched', activeChain],
@@ -711,9 +712,9 @@ export function TrackersPanel({
         className="mx-3 mt-2 rounded-lg border px-3 py-2 text-[11px] text-[#9ca3af]"
         style={{ borderColor: '#2a3644', backgroundColor: '#10141c' }}
       >
-        Tracking <span className="font-semibold text-white">{nativeTicker(activeChain)}</span> wallets. Live
-        native balance in the table uses the TON indexer today; other chains show your watchlist (balances
-        wire-up next).
+        Tracking <span className="font-semibold text-white">{nativeTicker(activeChain)}</span> wallets. Balances
+        and activity wiring follow your header chain; native refreshes are fastest on Solana (Helius) and TON
+        (TonAPI); EVM rows show watchlist + explorer links first.
       </div>
 
       {listQuery.isLoading ? (

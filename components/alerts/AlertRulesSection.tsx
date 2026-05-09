@@ -7,6 +7,8 @@ import { Bell, ChevronDown, ExternalLink, Loader2, PanelLeft, Trash2 } from 'luc
 import { toast } from 'sonner';
 import { type PulseProtocolId, PULSE_PROTOCOL_IDS } from '@/lib/tokens/columnPresetModel';
 import { playAlertPresetSound } from '@/lib/alerts/alertRulePayloadAudio';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 
@@ -26,6 +28,26 @@ const PROTOCOL_LABEL: Record<PulseProtocolId, string> = {
   stonfi: 'STON.fi',
   megaton: 'Megaton',
 };
+
+function launchpadChipLabel(chain: AppChainId, id: PulseProtocolId): string {
+  if (chain === 'ton') return PROTOCOL_LABEL[id];
+  if (chain === 'sol') {
+    const m: Record<PulseProtocolId, string> = {
+      ton: 'Pump-style / new',
+      dedust: 'DEX pairs',
+      stonfi: 'Routed venues',
+      megaton: 'Other',
+    };
+    return m[id];
+  }
+  const m: Record<PulseProtocolId, string> = {
+    ton: 'New pools (Gecko)',
+    dedust: 'DEX listings',
+    stonfi: 'Routed pairs',
+    megaton: 'Other',
+  };
+  return m[id];
+}
 
 const FLASH_PRESETS = ['#0077B6', '#3ddc97', '#ff5e78', '#fbbf24', '#38bdf8'] as const;
 
@@ -92,6 +114,7 @@ export function AlertRulesSection({
   showPopoutLauncher?: boolean;
 } = {}) {
   const { authenticated, getAccessToken } = usePointerAuth();
+  const activeChain = useUIStore((s) => s.activeChain);
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [selectedPads, setSelectedPads] = useState<Set<PulseProtocolId>>(
@@ -383,7 +406,7 @@ export function AlertRulesSection({
                             }
                       }
                     >
-                      {PROTOCOL_LABEL[id]}
+                      {launchpadChipLabel(activeChain, id)}
                     </button>
                   ))}
                 </div>
@@ -396,7 +419,13 @@ export function AlertRulesSection({
             <div className="space-y-2">
               <SectionLabel>Conditions</SectionLabel>
               <div className="space-y-1">
-                <FieldLabel hint="Optional">Minimum initial TON</FieldLabel>
+                <FieldLabel hint="Optional">
+                  {activeChain === 'ton'
+                    ? 'Minimum initial TON'
+                    : activeChain === 'sol'
+                      ? 'Minimum initial SOL (when available)'
+                      : `Minimum liquidity hint (${nativeTicker(activeChain)})`}
+                </FieldLabel>
                 <input
                   value={minLiq}
                   onChange={(e) => setMinLiq(e.target.value)}

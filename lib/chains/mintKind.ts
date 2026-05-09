@@ -28,3 +28,13 @@ export function mintMatchesAppChain(mint: string, chain: AppChainId): boolean {
   if (chain === 'bnb' || chain === 'base') return k === 'evm';
   return false;
 }
+
+/** Token detail routes accept TON, Solana base58 mints, or `0x` contract addresses. */
+export function isValidTokenMintParam(mint: string): boolean {
+  return inferMintKind(mint.trim()) !== 'unknown';
+}
+
+/** Tracker watchlist addresses must match the selected header chain (TON / Solana / EVM). */
+export function isValidTrackedWalletAddress(addr: string, chain: AppChainId): boolean {
+  return mintMatchesAppChain(addr.trim(), chain);
+}

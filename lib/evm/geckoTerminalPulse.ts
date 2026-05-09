@@ -2,6 +2,7 @@ import 'server-only';
 
 import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
+import { getTokenByMint, type TokenRow } from '@/lib/db/tokens';
 import type { Json } from '@/lib/supabase/types';
 import type { LaunchpadId } from '@/lib/utils/constants';
 
@@ -31,11 +32,66 @@ type GeckoResponse = {
   }>;
 };
 
-function normalizeEvmMint(addr: string): string | null {
+export function normalizeEvmMint(addr: string): string | null {
   const a = addr.trim().toLowerCase();
   if (!/^0x[a-f0-9]{40}$/.test(a)) return null;
   if (a === '0x0000000000000000000000000000000000000000') return null;
   return a;
+}
+
+type GeckoSingleTokenResponse = {
+  data?: { attributes?: GeckoTokenAttrs };
+};
+
+/**
+ * On-demand EVM token row from Gecko Terminal when opening `/token/0x…`.
+ */
+export async function ensureTokenRowFromGeckoEvm(mintParam: string): Promise<TokenRow | null> {
+  const mint = normalizeEvmMint(mintParam);
+  if (!mint) return null;
+
+  const existing = await getTokenByMint(mint);
+  if (existing) return existing;
+
+  for (const network of ['bsc', 'base'] as const) {
+    const u = `https://api.geckoterminal.com/api/v2/networks/${network}/tokens/${encodeURIComponent(mint)}`;
+    const res = await fetch(u, {
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!res.ok) continue;
+
+    const json = (await res.json()) as GeckoSingleTokenResponse;
+    const attrs = json.data?.attributes;
+    if (!attrs?.address && !attrs?.symbol && !attrs?.name) continue;
+
+    const symbol = attrs.symbol?.trim() || null;
+    const name = attrs.name?.trim() || null;
+    const image_url = attrs.image_url ?? null;
+    const decimals =
+      typeof attrs.decimals === 'number' && Number.isFinite(attrs.decimals) ? attrs.decimals : 18;
+
+    const raw = {
+      geckoNetwork: network,
+      geckoHydrate: true,
+      geckoToken: attrs ?? {},
+    } as unknown as Json;
+
+    const ev: LaunchpadEvent = {
+      launchpad: launchpadForNetwork(network),
+      mint,
+      creator_wallet: null,
+      symbol,
+      name,
+      image_url,
+      initial_liquidity_sol: null,
+      raw,
+    };
+    await ingestLaunchpadDiscovery(ev, { alertSource: 'gecko_terminal' });
+    return getTokenByMint(mint);
+  }
+
+  return null;
 }
 
 function launchpadForNetwork(n: GeckoPulseNetwork): LaunchpadId {

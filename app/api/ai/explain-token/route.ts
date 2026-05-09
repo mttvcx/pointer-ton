@@ -3,14 +3,14 @@ import { z } from 'zod';
 import { requireSyncedUser } from '@/lib/ai/auth';
 import { aiErrorResponse } from '@/lib/ai/http';
 import { explainToken } from '@/lib/ai/pipelines/explainToken';
-import { isValidPublicKey } from '@/lib/utils/addresses';
+import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const Body = z
   .object({
-    mint: z.string().refine(isValidPublicKey, 'invalid mint'),
+    mint: z.string().refine(isValidTokenMintParam, 'invalid mint'),
     mode: z.enum(['fast', 'deep']).default('fast'),
   })
   .strict();
