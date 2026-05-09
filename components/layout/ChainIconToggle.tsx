@@ -6,11 +6,12 @@ import { APP_CHAIN_IDS } from '@/lib/chains/appChain';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 
+/** Transparent PNGs in `public/chains/` — swap files to match your brand kit (no code changes). */
 const CHAIN_SRC: Record<AppChainId, string> = {
-  ton: '/chains/ton.svg',
-  sol: '/chains/sol.svg',
-  bnb: '/chains/bnb.svg',
-  base: '/chains/base.svg',
+  sol: '/chains/sol.png',
+  bnb: '/chains/bnb.png',
+  base: '/chains/base.png',
+  ton: '/chains/ton.png',
 };
 
 const CHAIN_LABEL: Record<AppChainId, string> = {
@@ -20,22 +21,22 @@ const CHAIN_LABEL: Record<AppChainId, string> = {
   base: 'Base',
 };
 
-const SIZE_PX = { sm: 22, md: 26 } as const;
+const SIZE_CLASS = { sm: 'h-5 w-5', md: 'h-6 w-6' } as const;
 
 export function ChainIconToggle({
   className,
   size = 'md',
 }: {
   className?: string;
-  size?: keyof typeof SIZE_PX;
+  size?: keyof typeof SIZE_CLASS;
 }) {
   const activeChain = useUIStore((s) => s.activeChain);
   const setActiveChain = useUIStore((s) => s.setActiveChain);
-  const px = SIZE_PX[size];
+  const dim = SIZE_CLASS[size];
 
   return (
     <div
-      className={cn('inline-flex items-center gap-0.5', className)}
+      className={cn('inline-flex items-center gap-1.5', className)}
       role="radiogroup"
       aria-label="Network"
     >
@@ -59,18 +60,16 @@ export function ChainIconToggle({
             }}
             className={cn(
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5865F2]/55 focus-visible:ring-offset-0',
-              'relative flex shrink-0 items-center justify-center rounded-full p-0.5 transition-opacity duration-150',
+              'flex shrink-0 items-center justify-center rounded-md p-0.5 transition-[opacity,filter,transform] duration-150',
               on
-                ? 'opacity-100 ring-1 ring-white/50 ring-offset-0 shadow-[0_0_12px_-4px_rgba(255,255,255,0.3)]'
-                : 'opacity-45 hover:opacity-90',
+                ? 'opacity-100 brightness-110 saturate-[1.05]'
+                : 'opacity-[0.42] hover:opacity-[0.78]',
             )}
           >
             <img
               src={CHAIN_SRC[id]}
               alt=""
-              width={px}
-              height={px}
-              className="rounded-full select-none"
+              className={cn('block select-none object-contain', dim)}
               draggable={false}
             />
           </button>
