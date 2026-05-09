@@ -7,7 +7,7 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { ArrowDownToLine, ChevronDown, ExternalLink, LogOut, Search } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
-import { ChainIconToggle } from '@/components/layout/ChainIconToggle';
+import { ChainSelectDropdown } from '@/components/layout/ChainSelectDropdown';
 import { CopilotPillTopbarCollapsed } from '@/components/ai/CopilotPill';
 import { WebPushControls } from '@/components/layout/WebPushControls';
 import { APP_NAV } from '@/components/layout/navConfig';
@@ -20,6 +20,7 @@ import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { cn } from '@/lib/utils/cn';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatNumber, lamportsToSol, rawToUi } from '@/lib/utils/formatters';
 
 /**
@@ -32,6 +33,8 @@ export function Topbar() {
   const searchQuery = useUIStore((s) => s.searchQuery);
   const searchOpen = useUIStore((s) => s.searchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [balancePopoverOpen, setBalancePopoverOpen] = useState(false);
   const [exchangeOpen, setExchangeOpen] = useState(false);
@@ -232,9 +235,7 @@ export function Topbar() {
             </kbd>
           </button>
 
-        <div className="flex h-8 shrink-0 items-center">
-          <ChainIconToggle size="sm" />
-        </div>
+        <ChainSelectDropdown />
 
         <button
           type="button"
@@ -296,7 +297,7 @@ export function Topbar() {
                     aria-expanded={balancePopoverOpen}
                   >
                     <span className="block max-w-[7rem] truncate text-[11px] font-medium leading-tight text-fg-primary sm:max-w-[9rem]">
-                      {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '0 TON'}
+                      {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} ${nativeSym}` : `0 ${nativeSym}`}
                     </span>
                   </button>
                   <button

@@ -1,4 +1,4 @@
-import { PulseBoard } from '@/components/pulse/PulseBoard';
+import { PulseColumn } from '@/components/tokens/PulseColumn';
 import {
   decodeColumnPresetShare,
   type ColumnPresetSharePayload,
@@ -30,10 +30,13 @@ export default async function PulsePage({
   }
 
   return (
-    <PulseBoard
-      initialNew={initialNew}
-      initialStretch={initialStretch}
-      initialMigrated={initialMigrated}
-    />
+    <div
+      data-onboarding="pulse-feed"
+      className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden"
+    >
+      <PulseColumn column="new" initialShare={initialNew} />
+      <PulseColumn column="stretch" initialShare={initialStretch} />
+      <PulseColumn column="migrated" initialShare={initialMigrated} />
+    </div>
   );
 }

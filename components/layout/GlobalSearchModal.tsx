@@ -30,7 +30,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { TokenImage } from '@/components/shared/TokenImage';
-import { ChainIconToggle } from '@/components/layout/ChainIconToggle';
 import { isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
 import {
   TON_DEMO_JETTON_A,
@@ -396,8 +395,6 @@ export function GlobalSearchModal() {
                 );
               })}
             </div>
-
-            <ChainIconToggle size="sm" className="shrink-0" />
 
             <div className="ml-auto flex shrink-0 items-center gap-0.5">
               <div className="relative" ref={densityWrapRef}>

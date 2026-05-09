@@ -36,19 +36,22 @@ export function TokenRow({
   columnId,
   /** Fixed pixel height from Pulse virtualizer — keeps every row the same size. */
   slotHeight,
+  /** Native quote for quick-buy chip (TON / SOL / …). */
+  quoteSymbol = 'TON',
 }: {
   bundle: PulseTokenBundle;
   density?: PulseRowDensity;
   display?: ColumnDisplayOptions;
   quickBuySol?: number;
   buyButtonStyle?: BuyButtonStyle;
-  /** Execute swap for this row’s mint using column header TON amount. */
+  /** Execute swap for this row’s mint using column header amount (labelled by `quoteSymbol`). */
   onPulseQuickBuy?: () => void;
   pulseBuyBusy?: boolean;
   pulseBuyDisabled?: boolean;
   /** Pulse board column (bonding ring semantics / gold on migrated lane). */
   columnId?: PulseColumnId;
   slotHeight?: number;
+  quoteSymbol?: string;
 }) {
   const { token, snapshot } = bundle;
   const demoMetrics = useMemo(
@@ -409,7 +412,7 @@ export function TokenRow({
             onKeyDown={canQuickBuy ? onUltraPaneKeyDown : undefined}
             aria-label={
               canQuickBuy && quickBuySol != null
-                ? `Quick buy ${formatSolDraft(quickBuySol) || String(quickBuySol)} TON, framed area`
+                ? `Quick buy ${formatSolDraft(quickBuySol) || String(quickBuySol)} ${quoteSymbol}, framed area`
                 : undefined
             }
             aria-busy={pulseBuyBusy}
@@ -455,7 +458,7 @@ export function TokenRow({
                           )}
                           aria-hidden
                         />
-                        {`${formatSolDraft(quickBuySol)} TON`}
+                        {`${formatSolDraft(quickBuySol)} ${quoteSymbol}`}
                       </>
                     ) : null}
                   </span>
@@ -520,6 +523,7 @@ export function TokenRow({
                 loading={pulseBuyBusy}
                 disabled={pulseBuyDisabled}
                 pulseFit={slotHeight != null}
+                quoteSymbol={quoteSymbol}
               />
             </div>
           ) : null}
@@ -555,6 +559,7 @@ function QuickBuyPill({
   loading,
   disabled,
   pulseFit,
+  quoteSymbol = 'TON',
 }: {
   quickBuySol: number;
   style: Exclude<BuyButtonStyle, 'ultra'>;
@@ -563,6 +568,7 @@ function QuickBuyPill({
   disabled?: boolean;
   /** Pulse grid: fixed row height — button must never force the row taller. */
   pulseFit?: boolean;
+  quoteSymbol?: string;
 }) {
   const labelAmount = formatSolDraft(quickBuySol) || String(quickBuySol);
 
@@ -597,15 +603,15 @@ function QuickBuyPill({
       onClick={onBuy}
       disabled={disabled || loading}
       className={btn}
-      title={`Quick trade: ${labelAmount} TON on this mint`}
-      aria-label={`Quick buy ${labelAmount} TON`}
+      title={`Quick trade: ${labelAmount} ${quoteSymbol} on this mint`}
+      aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
     >
       {loading ? (
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin sm:h-4 sm:w-4" aria-hidden />
       ) : (
         <ArrowUpRight className="shrink-0" strokeWidth={style === 'small' ? 2.5 : 3} />
       )}
-      <span className="max-w-[11rem] truncate sm:max-w-[14rem]">{`${labelAmount} TON`}</span>
+      <span className="max-w-[11rem] truncate sm:max-w-[14rem]">{`${labelAmount} ${quoteSymbol}`}</span>
     </button>
   );
 }

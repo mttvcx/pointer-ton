@@ -27,6 +27,10 @@ import type { ColumnPulsePresetSlot } from '@/store/pulseColumns';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import { cn } from '@/lib/utils/cn';
 
+const FILTER_MODAL_BG = '#151820';
+const FILTER_MODAL_BORDER = '#2a2f3a';
+const FILTER_FIELD_BG = '#0f1118';
+
 const PROTOCOL_LABEL: Record<PulseProtocolId, string> = {
   ton: 'TON Index',
   dedust: 'DeDust',
@@ -337,48 +341,53 @@ export function ColumnFilterModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="column-filter-title"
-      className="fixed inset-0 z-[90] flex animate-in fade-in items-center justify-center bg-black/60 p-4 duration-200"
+      className="fixed inset-0 z-[90] flex animate-in fade-in items-center justify-center bg-black/55 p-4 backdrop-blur-[6px] duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         className={cn(
-          'relative flex max-h-[92vh] w-full max-w-lg origin-center animate-in zoom-in-95 fade-in flex-col overflow-hidden border border-border-subtle bg-bg-base shadow-2xl duration-200',
+          'relative flex max-h-[92vh] w-full max-w-lg origin-center animate-in zoom-in-95 fade-in flex-col overflow-hidden shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)] duration-200',
+          'rounded-[11px] border',
         )}
+        style={{ backgroundColor: FILTER_MODAL_BG, borderColor: FILTER_MODAL_BORDER }}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+          className="absolute right-3 top-3 z-10 rounded-md p-1 text-[#6b7280] transition hover:bg-white/[0.06] hover:text-white"
           aria-label="Close filters"
         >
           <X className="h-4 w-4" />
         </button>
         <h2
           id="column-filter-title"
-          className="border-b border-border-subtle px-4 py-3 pr-10 text-sm font-semibold uppercase tracking-wide text-fg-primary"
+          className="border-b px-4 py-3 pr-10 text-[13px] font-semibold tracking-tight text-white"
+          style={{ borderColor: FILTER_MODAL_BORDER }}
         >
-          Filters: {columnId}
+          Filters · {columnId}
         </h2>
 
-        <div className="space-y-2 border-b border-border-subtle px-4 py-2">
+        <div className="space-y-2 border-b px-4 py-3" style={{ borderColor: FILTER_MODAL_BORDER }}>
           <label className="block space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
               Preset name
             </span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="focus-ring w-full border border-border-subtle bg-transparent px-2 py-1 text-[12px] text-fg-primary"
+              className="focus-ring w-full rounded-[10px] border bg-transparent px-3 py-2 text-[12px] text-white outline-none transition focus:border-[#5865F2]/70"
+              style={{ borderColor: FILTER_MODAL_BORDER, backgroundColor: FILTER_FIELD_BG }}
             />
           </label>
-          <div className="flex flex-wrap gap-2 text-[10px] text-fg-muted">
-            <span>Sort:</span>
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-[#6b7280]">
+            <span className="font-medium">Sort</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as ColumnSortKey)}
-              className="focus-ring border border-border-subtle bg-bg-base px-1 py-0.5 text-fg-primary"
+              className="focus-ring rounded-[10px] border px-2 py-1.5 text-[11px] text-white outline-none"
+              style={{ borderColor: FILTER_MODAL_BORDER, backgroundColor: FILTER_FIELD_BG }}
             >
               {COLUMN_SORT_KEYS.map((k) => (
                 <option key={k} value={k}>
@@ -389,7 +398,8 @@ export function ColumnFilterModal({
             <select
               value={sortDir}
               onChange={(e) => setSortDir(e.target.value === 'asc' ? 'asc' : 'desc')}
-              className="focus-ring border border-border-subtle bg-bg-base px-1 py-0.5 text-fg-primary"
+              className="focus-ring rounded-[10px] border px-2 py-1.5 text-[11px] text-white outline-none"
+              style={{ borderColor: FILTER_MODAL_BORDER, backgroundColor: FILTER_FIELD_BG }}
             >
               <option value="desc">Desc</option>
               <option value="asc">Asc</option>

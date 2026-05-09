@@ -9,10 +9,14 @@ import {
   listPulseMigratedTokens,
   listPulseNewTokens,
   listPulseStretchTokens,
+  listRecentTokens,
   type TokenRow,
   updateToken,
   upsertToken,
 } from '@/lib/db/tokens';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import type { TablesInsert } from '@/lib/supabase/types';
 import {
   listTonApiJettons,
@@ -153,6 +157,24 @@ async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): 
   return inserted;
 }
 
+async function widenChainBackfill(column: PulseColumnId, chain: AppChainId): Promise<TokenRow[]> {
+  const recent = await listRecentTokens(1500);
+  let pool = recent.filter((t) => mintMatchesAppChain(t.mint, chain));
+  if (column === 'new') {
+    const since = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
+    pool = pool.filter((t) => t.created_at >= since);
+  } else if (column === 'migrated') {
+    pool = pool.filter((t) => t.migrated_at != null);
+    pool.sort((a, b) => (b.migrated_at ?? '').localeCompare(a.migrated_at ?? ''));
+  } else {
+    const stretch = await listPulseStretchTokens(PULSE_PAGE_SIZE * 5);
+    const sm = new Set(stretch.map((t) => t.mint));
+    pool = pool.filter((t) => sm.has(t.mint));
+  }
+  pool.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return pool.slice(0, PULSE_PAGE_SIZE);
+}
+
 /** Rotate through TonAPI jettons index + a secondary sort key to mimic “pair discovery”. */
 export async function pollRecentJettonsFromTonApi(): Promise<number> {
   const offsetA =
@@ -218,11 +240,15 @@ export async function runScheduledPulsePoll(): Promise<{
   return { inserted: r.inserted, via: r.via === 'tonapi' ? 'tonapi' : 'legacy-owner' };
 }
 
-export async function getPulseFeed(column: PulseColumnId): Promise<PulseTokenBundle[]> {
+export async function getPulseFeed(
+  column: PulseColumnId,
+  chain: AppChainId = DEFAULT_APP_CHAIN,
+): Promise<PulseTokenBundle[]> {
   let tokens = await listTokensForColumn(column);
-  debugTon('getPulseFeed: DB rows before poll', { column, count: tokens.length });
+  tokens = tokens.filter((t) => mintMatchesAppChain(t.mint, chain));
+  debugTon('getPulseFeed: DB rows after chain filter', { column, chain, count: tokens.length });
 
-  if (tokens.length < MIN_ROWS_BEFORE_POLL) {
+  if (chain === 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
     try {
       const { inserted, via } = await pollPulseColumn();
       debugTon('getPulseFeed: poll finished', { via, insertedNewMints: inserted });
@@ -234,10 +260,12 @@ export async function getPulseFeed(column: PulseColumnId): Promise<PulseTokenBun
       const cause = isSupabase ? 'supabase reachability' : 'ton center / tonapi / parse';
       console.warn(`[pointer][pulse TON] poll failed (${cause}):`, msg);
     }
-    tokens = await listTokensForColumn(column);
+    tokens = (await listTokensForColumn(column)).filter((t) => mintMatchesAppChain(t.mint, chain));
+  } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
+    tokens = await widenChainBackfill(column, chain);
   }
 
-  if (DEBUG_TON && column === 'new') {
+  if (DEBUG_TON && column === 'new' && chain === 'ton') {
     const sinceIso = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
     debugTon('getPulseFeed: New column filter', {
       created_at_gte: sinceIso,

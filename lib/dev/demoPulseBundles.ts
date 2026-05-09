@@ -76,7 +76,7 @@ export function syntheticPulseFeedItems(column: PulseColumnId): PulseTokenBundle
   const b1 = bundle(
     TON_DEMO_JETTON_A,
     'USD₮',
-    'Demo stable pair',
+    'Bridged stable',
     'dedust',
     8,
     2_400_000,
@@ -85,7 +85,7 @@ export function syntheticPulseFeedItems(column: PulseColumnId): PulseTokenBundle
   const b2 = bundle(
     TON_DEMO_JETTON_B,
     'WALL',
-    'Demo wallet row',
+    'Watch wallet',
     null,
     200,
     12_000_000,
@@ -95,7 +95,7 @@ export function syntheticPulseFeedItems(column: PulseColumnId): PulseTokenBundle
   const b3 = bundle(
     TON_NATIVE_UI_MINT,
     'TON',
-    'Demo native',
+    'Native',
     null,
     120,
     8_500_000_000,

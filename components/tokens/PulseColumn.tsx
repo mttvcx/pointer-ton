@@ -28,8 +28,10 @@ import { PULSE_COLUMN_ACCENT_DOT, type PulseColumnId } from '@/lib/utils/constan
 import { syntheticPulseFeedItems } from '@/lib/dev/demoPulseBundles';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
+import { useUIStore } from '@/store/ui';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 const COLUMN_LABEL: Record<PulseColumnId, string> = {
@@ -55,6 +57,7 @@ export function PulseColumn({
   const uiDemo = useUiDemoMode();
   const { authenticated, getAccessToken } = usePointerAuth();
   const parentRef = useRef<HTMLDivElement>(null);
+  const activeChain = useUIStore((s) => s.activeChain);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [displayPopoverOpen, setDisplayPopoverOpen] = useState(false);
@@ -89,9 +92,9 @@ export function PulseColumn({
   });
 
   const query = useQuery({
-    queryKey: ['pulse', column],
+    queryKey: ['pulse', column, activeChain],
     queryFn: async (): Promise<{ items: PulseTokenBundle[] }> => {
-      const r = await fetch(`/api/tokens/feed?column=${column}`);
+      const r = await fetch(`/api/tokens/feed?column=${column}&chain=${encodeURIComponent(activeChain)}`);
       if (!r.ok) {
         const j = (await r.json().catch(() => ({}))) as { message?: string };
         throw new Error(j.message ?? `feed ${r.status}`);
@@ -100,13 +103,16 @@ export function PulseColumn({
     },
   });
 
+  const quoteSymbol = nativeTicker(activeChain);
+
   const feedItems = useMemo(() => {
     const raw = query.data?.items ?? [];
-    if (uiDemo && !query.isLoading && !query.isError && raw.length === 0) {
+    const allowSynthetic = uiDemo && activeChain === 'ton';
+    if (allowSynthetic && !query.isLoading && !query.isError && raw.length === 0) {
       return syntheticPulseFeedItems(column);
     }
     return raw;
-  }, [column, query.data?.items, query.isLoading, query.isError, uiDemo]);
+  }, [column, query.data?.items, query.isLoading, query.isError, uiDemo, activeChain]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -445,6 +451,7 @@ export function PulseColumn({
                     buyButtonStyle={effectiveBuyStyle}
                     columnId={column}
                     slotHeight={rowSize}
+                    quoteSymbol={quoteSymbol}
                     onPulseQuickBuy={() => void buyToken(bundle.token.mint, quickBuySol)}
                     pulseBuyBusy={busyMint === bundle.token.mint}
                     pulseBuyDisabled={busyMint !== null && busyMint !== bundle.token.mint}

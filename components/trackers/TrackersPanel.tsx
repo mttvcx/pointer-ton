@@ -24,6 +24,8 @@ import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { isValidTonTrackedAddress, shortenAddress } from '@/lib/utils/addresses';
 import { formatAgeShort, formatLastActiveShort, formatNumber, rawToUi } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { useUIStore } from '@/store/ui';
 
 const AX_BG = '#0b0d12';
 const AX_ROW_A = '#0b0d12';
@@ -85,15 +87,39 @@ const INITIAL_KOL_ROWS: KolRow[] = [
   { id: 'k12', name: 'Ghostee', handle: '@ghostee', wallet: 'EQA-zLyMNoRdJ6hPraacQJwsVbo6wExGIR7-T9dj5coOnOGZ', followers: '801' },
 ];
 
-const KOL_LIST_STORAGE_KEY = 'pointer-kol-feed-list-ton';
+/** Demo Solana KOL placeholders — distinct list from TON; replaces when you switch chain. */
+const INITIAL_KOL_ROWS_SOL: KolRow[] = [
+  { id: 's1', name: 'SOL KOL A', handle: '@sol_a', wallet: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', followers: '2100' },
+  { id: 's2', name: 'SOL KOL B', handle: '@sol_b', wallet: '5ZWj7a1f8tWkjBESHKgrLmXshuXx6mvKULojCCA3hg8d', followers: '1840' },
+  { id: 's3', name: 'SOL KOL C', handle: '@sol_c', wallet: 'GKNeKHqYJZwVMCfvA4n6mJTH3pZvd3f6VK5N9yRQnaXm', followers: '1200' },
+  { id: 's4', name: 'SOL KOL D', handle: '@sol_d', wallet: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', followers: '980' },
+  { id: 's5', name: 'SOL KOL E', handle: '@sol_e', wallet: 'Vote111111111111111111111111111111111111111', followers: '760' },
+  { id: 's6', name: 'SOL KOL F', handle: '@sol_f', wallet: 'So11111111111111111111111111111111111111112', followers: '540' },
+];
 
-function readStoredKolRows(): KolRow[] {
-  if (typeof window === 'undefined') return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+const INITIAL_KOL_ROWS_EVM: KolRow[] = [
+  { id: 'e1', name: 'EVM KOL A', handle: '@evm_a', wallet: '0xd8dA6BF26964af9D7eEd9e03E53415D37aA96045', followers: '3200' },
+  { id: 'e2', name: 'EVM KOL B', handle: '@evm_b', wallet: '0x28C6c06298d514Db089934071355E5743bf21d60', followers: '2100' },
+  { id: 'e3', name: 'EVM KOL C', handle: '@evm_c', wallet: '0x47ac0Fb4F2D84898e4D9E7bDaDaBb6c6CFe9b794', followers: '1500' },
+];
+
+function kolStorageKey(chain: AppChainId): string {
+  return `pointer-kol-feed-list-${chain}`;
+}
+
+function defaultKolRows(chain: AppChainId): KolRow[] {
+  if (chain === 'ton') return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+  if (chain === 'sol') return INITIAL_KOL_ROWS_SOL.map((r) => ({ ...r }));
+  return INITIAL_KOL_ROWS_EVM.map((r) => ({ ...r }));
+}
+
+function readStoredKolRows(chain: AppChainId): KolRow[] {
+  if (typeof window === 'undefined') return defaultKolRows(chain);
   try {
-    const raw = localStorage.getItem(KOL_LIST_STORAGE_KEY);
-    if (!raw) return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+    const raw = localStorage.getItem(kolStorageKey(chain));
+    if (!raw) return defaultKolRows(chain);
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+    if (!Array.isArray(parsed) || parsed.length === 0) return defaultKolRows(chain);
     return parsed
       .filter((x): x is KolRow => {
         if (!x || typeof x !== 'object') return false;
@@ -108,7 +134,7 @@ function readStoredKolRows(): KolRow[] {
         followers: typeof r.followers === 'string' ? r.followers : '0',
       }));
   } catch {
-    return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
+    return defaultKolRows(chain);
   }
 }
 
@@ -276,6 +302,7 @@ export function TrackersPanel({
 }) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const queryClient = useQueryClient();
+  const activeChain = useUIStore((s) => s.activeChain);
 
   const [viewTab, setViewTab] = useState<ViewTab>('wallet_manager');
   const [tableSearch, setTableSearch] = useState('');
@@ -287,17 +314,21 @@ export function TrackersPanel({
   const [label, setLabel] = useState('');
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
-  const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows());
+  const [kolRows, setKolRows] = useState<KolRow[]>(() => defaultKolRows('ton'));
   const [kolWalletFocus, setKolWalletFocus] = useState<string | null>(null);
   const lastPrefillRef = useRef<string | null>(null);
 
   useEffect(() => {
+    setKolRows(readStoredKolRows(activeChain));
+  }, [activeChain]);
+
+  useEffect(() => {
     try {
-      localStorage.setItem(KOL_LIST_STORAGE_KEY, JSON.stringify(kolRows));
+      localStorage.setItem(kolStorageKey(activeChain), JSON.stringify(kolRows));
     } catch {
       /* ignore quota */
     }
-  }, [kolRows]);
+  }, [kolRows, activeChain]);
 
   useEffect(() => {
     const raw = prefillWallet?.trim() ?? '';
@@ -314,8 +345,8 @@ export function TrackersPanel({
   }, [prefillWallet]);
 
   const listQuery = useQuery({
-    queryKey: ['trackers', 'enriched'],
-    enabled: authenticated,
+    queryKey: ['trackers', 'enriched', activeChain],
+    enabled: authenticated && activeChain === 'ton',
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
@@ -339,6 +370,9 @@ export function TrackersPanel({
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const walletAddress = address.trim();
+      if (activeChain !== 'ton') {
+        throw new Error('Wallet trackers are saved for TON first. Switch the header network to TON, or use KOLs (chain-specific list) on this network.');
+      }
       if (!isValidTonTrackedAddress(walletAddress)) {
         throw new Error('Invalid TON address (use EQ/UQ format)');
       }
@@ -432,11 +466,12 @@ export function TrackersPanel({
   });
 
   const sorted = useMemo(() => {
+    if (activeChain !== 'ton') return [];
     const rows = listQuery.data?.trackers ?? [];
     return [...rows].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-  }, [listQuery.data?.trackers]);
+  }, [listQuery.data?.trackers, activeChain]);
 
   const enrichment = listQuery.data?.enrichment ?? {};
 
@@ -653,7 +688,17 @@ export function TrackersPanel({
         </div>
       </div>
 
-      {listQuery.isLoading ? (
+      {activeChain !== 'ton' ? (
+        <div
+          className="mx-3 mt-2 rounded-lg border px-3 py-2 text-[11px] text-[#9ca3af]"
+          style={{ borderColor: '#2a3644', backgroundColor: '#10141c' }}
+        >
+          Saved trackers load for <span className="font-semibold text-white">TON</span> right now. Switch the header to TON to see them, or use{' '}
+          <span className="text-white">KOLs</span> for Solana / EVM previews.
+        </div>
+      ) : null}
+
+      {activeChain === 'ton' && listQuery.isLoading ? (
         <div className="flex flex-1 items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-[#5865F2]" />
         </div>
