@@ -65,3 +65,14 @@ export async function tonCenterAddressIsActive(address: string): Promise<boolean
   if (state === 'uninitialized' || state === 'frozen') return false;
   return null;
 }
+
+/** Native TON balance in nanotons (1e9 per TON), or null if RPC skipped / failed. */
+export async function getTonBalanceNano(address: string): Promise<bigint | null> {
+  const info = await tonCenterJsonRpc('getAddressInformation', { address });
+  if (!info || info.balance == null) return null;
+  try {
+    return BigInt(String(info.balance));
+  } catch {
+    return null;
+  }
+}

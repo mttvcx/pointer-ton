@@ -82,10 +82,9 @@ export function AlertBuilderEmbeddedPlaceholder() {
 
   return (
     <div
-      className="rounded-xl border px-3 py-3 text-center"
-      style={{ borderColor: '#202636', backgroundColor: '#11141b' }}
+      className="rounded-2xl border border-white/10 bg-[rgba(255,255,255,0.04)] px-4 py-4 text-center backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
     >
-      <p className="text-[11px] leading-snug" style={{ color: '#7f8aa3' }}>
+      <p className="text-[11px] leading-relaxed text-fg-secondary">
         Alert Builder is open in a floating window. Drag the grip to the left edge to dock in the shell, or to the
         right edge to embed back here.
       </p>
@@ -326,7 +325,10 @@ export function AlertRulesPopoutHost() {
           if (rect) applyFrameToDom(rect);
         }}
       >
-        <div data-alert-drag-chrome className="relative z-[70] flex shrink-0 items-center gap-1 border-b border-white/10 bg-[#11141b]/95 px-1 py-1">
+        <div
+          data-alert-drag-chrome
+          className="relative z-[70] flex shrink-0 items-center gap-1 border-b border-white/[0.06] bg-gradient-to-b from-white/[0.07] to-transparent px-2 py-1.5 backdrop-blur-md"
+        >
           <div
             role="toolbar"
             className="flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1.5 py-1"
@@ -374,7 +376,7 @@ export function AlertRulesPopoutHost() {
           </button>
         </div>
 
-        <div className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
+        <div className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <AlertRulesSection embedInFloatingPanel />
         </div>
 

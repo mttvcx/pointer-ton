@@ -17,7 +17,10 @@ import {
 import { formatNumber, lamportsToSol } from '@/lib/utils/formatters';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { useTradingStore } from '@/store/trading';
+import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
 function DockNav({
@@ -47,6 +50,8 @@ function DockNav({
 export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: string | null }) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const { activePresetSlot } = useTradingStore();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
 
   const walletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -64,7 +69,7 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
   const { activeAddress } = useActiveSolanaWallet(walletsQ.data?.wallets);
 
   const portfolioQ = useQuery({
-    queryKey: ['dock-portfolio', activeAddress],
+    queryKey: ['dock-portfolio', activeChain, activeAddress],
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
@@ -73,16 +78,32 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
       if (!res.ok) throw new Error('portfolio');
       return res.json() as Promise<{ solLamports: string | null }>;
     },
-    enabled: Boolean(authenticated && activeAddress),
+    enabled: Boolean(
+      authenticated &&
+        activeAddress &&
+        activeChain === 'sol' &&
+        mintMatchesAppChain(activeAddress, 'sol'),
+    ),
     staleTime: 25_000,
   });
 
+  const tickerSymbol =
+    activeChain === 'sol'
+      ? 'SOL'
+      : activeChain === 'ton'
+        ? 'TON'
+        : activeChain === 'bnb'
+          ? 'BNB'
+          : activeChain === 'base'
+            ? 'ETH'
+            : 'SOL';
+
   const tickersQ = useQuery({
-    queryKey: ['dock-sol'],
+    queryKey: ['dock-native-usd', tickerSymbol],
     queryFn: async () => {
       const res = await fetch('/api/prices/tickers');
       const j = (await res.json()) as { tickers?: { symbol: string; usdPrice: number | null }[] };
-      return j.tickers?.find((t) => t.symbol === 'TON')?.usdPrice ?? null;
+      return j.tickers?.find((t) => t.symbol === tickerSymbol)?.usdPrice ?? null;
     },
     staleTime: 60_000,
   });
@@ -91,7 +112,7 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
     portfolioQ.data?.solLamports != null
       ? lamportsToSol(BigInt(portfolioQ.data.solLamports))
       : null;
-  const solUsd = tickersQ.data;
+  const nativeUsd = tickersQ.data;
 
   return (
     <div className="flex w-full shrink-0 flex-col gap-0.5 border-t border-[#1b1f2a] bg-[#0b0d12] px-2 py-1 text-[10px] text-[#9ca3af]">
@@ -117,12 +138,16 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
         <div className="ml-auto flex flex-wrap items-center gap-x-2 tabular-nums">
           <span className="inline-flex items-center gap-0.5 text-[#6b7280]">
             <ArrowLeftRight className="h-3 w-3" strokeWidth={2} />
-            TON ${solUsd != null ? formatNumber(solUsd, { decimals: 2 }) : '-'}
+            {nativeSym} ${nativeUsd != null ? formatNumber(nativeUsd, { decimals: 2 }) : '-'}
           </span>
           <span>
             Bal{' '}
             <span className="tabular-nums text-[#e5e7eb]">
-              {solBal != null ? formatNumber(solBal, { decimals: 3 }) : '-'}
+              {activeChain === 'sol' && solBal != null
+                ? `${formatNumber(solBal, { decimals: 3 })} ${nativeSym}`
+                : activeChain === 'sol'
+                  ? '-'
+                  : '—'}
             </span>
           </span>
           <span

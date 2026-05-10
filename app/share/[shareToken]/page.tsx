@@ -8,7 +8,8 @@ import {
 } from '@/lib/db/pnlCards';
 import { parsePnlCardData } from '@/lib/pnl/pnlCardModel';
 import { APP_NAME, getPublicOrigin } from '@/lib/utils/constants';
-import { explorerTxUrl, shortenAddress } from '@/lib/utils/addresses';
+import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
+import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber, formatPriceUsd, formatRelativeTime, formatUsd } from '@/lib/utils/formatters';
 
@@ -201,7 +202,7 @@ export default async function PnlSharePage({ params }: PageProps) {
             Open in {APP_NAME}
           </Link>
           <a
-            href={explorerTxUrl(d.txSignature)}
+            href={explorerUrlSolanaTx(d.txSignature)}
             target="_blank"
             rel="noreferrer"
             className="rounded-md border border-border-subtle px-3 py-1.5 text-fg-secondary transition hover:border-border-default hover:text-fg-primary"

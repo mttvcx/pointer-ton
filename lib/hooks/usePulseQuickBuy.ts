@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
+import { tokenRawForSellPct } from '@/lib/hooks/useSpotTradeExecution';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
+import { addInstantTradeSellTon } from '@/lib/trading/instantTradeStats';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
@@ -33,6 +35,7 @@ export function usePulseQuickBuy() {
   const qc = useQueryClient();
   const { submitFromQuote } = usePointerTradeSubmit();
   const { activePresetSlot } = useTradingStore();
+  const [busyMint, setBusyMint] = useState<string | null>(null);
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -110,6 +113,7 @@ export function usePulseQuickBuy() {
       const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
       const landing = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
 
+      setBusyMint(mint);
       const toastId = toast.loading('Getting quote...');
       try {
         const body = {
@@ -141,7 +145,11 @@ export function usePulseQuickBuy() {
           throw new Error(msg);
         }
         const ok = json as TradeQuoteApiOk;
-        if (!ok.tonConnect?.messages?.length || !ok.summary?.amountOutRaw) {
+        const executable =
+          ok.chain === 'sol'
+            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+        if (!executable) {
           throw new Error('No swap transaction from quote');
         }
 
@@ -162,6 +170,144 @@ export function usePulseQuickBuy() {
         toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
         toast.error('Quick buy failed', { description: msg.slice(0, 200) });
+      } finally {
+        setBusyMint(null);
+      }
+    },
+    [
+      walletsReady,
+      wallet,
+      activeWalletRow?.is_imported,
+      getAccessToken,
+      activePreset,
+      submitFromQuote,
+      qc,
+    ],
+  );
+
+  const sellTokenPct = useCallback(
+    async (mint: string, sellPct: number) => {
+      if (!walletsReady || !wallet) {
+        toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
+        return;
+      }
+      if (activeWalletRow?.is_imported === true) {
+        toast.error('View-only wallet', {
+          description: 'Use a non-imported wallet linked in TonConnect to trade.',
+        });
+        return;
+      }
+      if (!Number.isFinite(sellPct) || sellPct <= 0 || sellPct > 100) {
+        toast.error('Invalid sell %');
+        return;
+      }
+      const token = await getAccessToken();
+      if (!token) {
+        toast.error('Sign in required', { description: 'Log in to quick sell.' });
+        return;
+      }
+
+      setBusyMint(mint);
+      const toastId = toast.loading('Sell: quote...');
+      try {
+        const balRes = await fetch(
+          `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet.address)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const balJson: unknown = await balRes.json();
+        if (!balRes.ok) {
+          const msg =
+            typeof balJson === 'object' && balJson && 'message' in balJson
+              ? String((balJson as { message: unknown }).message)
+              : balRes.statusText;
+          throw new Error(msg);
+        }
+        const rawAmount =
+          typeof balJson === 'object' && balJson && 'rawAmount' in balJson
+            ? String((balJson as { rawAmount: unknown }).rawAmount)
+            : '0';
+        const amountTokenRaw = tokenRawForSellPct(rawAmount, sellPct);
+        if (!amountTokenRaw) {
+          toast.dismiss(toastId);
+          toast.error('No tokens to sell', {
+            description: 'Zero balance for this mint.',
+          });
+          return;
+        }
+
+        const feeExtra =
+          activePreset != null
+            ? {
+                jitoTipLamports: activePreset.jito_tip_lamports,
+                priorityFeeLamports: activePreset.priority_fee_lamports,
+                autoFee: activePreset.auto_fee,
+                maxFeeSol: activePreset.max_fee_sol,
+              }
+            : {};
+
+        const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
+        const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
+        const landing = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
+
+        const res = await fetch('/api/trade/quote', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            mint,
+            side: 'sell' as const,
+            userPublicKey: wallet.address,
+            amountTokenRaw,
+            slippageBps,
+            dynamicSlippage,
+            landing,
+            includeSwapTx: true,
+            ...feeExtra,
+          }),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) {
+          const msg =
+            typeof json === 'object' && json && 'message' in json
+              ? String((json as { message: unknown }).message)
+              : `Quote failed (${res.status})`;
+          throw new Error(msg);
+        }
+        const ok = json as TradeQuoteApiOk;
+        const executable =
+          ok.chain === 'sol'
+            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+        if (!executable) {
+          throw new Error('No swap transaction from quote');
+        }
+
+        toast.loading('Sell: sign in wallet...', { id: toastId });
+        const { signature: sig } = await submitFromQuote({
+          quote: ok,
+          walletAddress: wallet.address,
+          mint,
+          getAccessToken,
+        });
+
+        toast.success('Sell complete', {
+          id: toastId,
+          description: sig ? `${sig.slice(0, 8)}...` : undefined,
+        });
+        const estOut =
+          typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
+            ? Math.max(0, ok.summary.amountSolEstimate)
+            : 0;
+        if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
+        void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+      } catch (e) {
+        toast.dismiss(toastId);
+        const msg = e instanceof Error ? e.message : 'Trade failed';
+        toast.error('Quick sell failed', { description: msg.slice(0, 200) });
+      } finally {
+        setBusyMint(null);
       }
     },
     [
@@ -177,7 +323,8 @@ export function usePulseQuickBuy() {
 
   return {
     buyToken,
-    busyMint: null as string | null,
+    sellTokenPct,
+    busyMint,
     walletReady: walletsReady && !!wallet,
     canTrade: Boolean(wallet && !activeWalletRow?.is_imported),
   };

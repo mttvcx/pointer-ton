@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, LineChart } from 'lucide-react';
-import Link from 'next/link';
 import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
 import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
@@ -13,6 +12,7 @@ import { syntheticTraderMintStats } from '@/lib/dev/demoTokenFixtures';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { useWalletIntelStore } from '@/store/walletIntelStore';
 
 export function TopTraderWalletCell({
   mint,
@@ -209,6 +209,7 @@ function TraderWalletModal({
   onClose: () => void;
 }) {
   const { resolveLabel } = useWalletLabels();
+  const openWalletIntel = useWalletIntelStore((s) => s.openWallet);
   const disp = resolveLabel(wallet);
   const title = disp?.labeled ? disp.label : shortenAddress(wallet, 5);
 
@@ -276,14 +277,17 @@ function TraderWalletModal({
           )}
         </div>
         <div className="flex flex-wrap gap-2 border-t border-border-subtle px-4 py-3">
-          <Link
-            href={`/wallet/${encodeURIComponent(wallet)}`}
+          <button
+            type="button"
             className="btn-press inline-flex items-center gap-1 rounded-md bg-accent-primary px-3 py-1.5 text-[11px] font-semibold text-fg-inverse"
-            onClick={onClose}
+            onClick={() => {
+              openWalletIntel({ address: wallet, chain: 'sol' });
+              onClose();
+            }}
           >
             <LineChart className="h-3.5 w-3.5" />
             Full wallet
-          </Link>
+          </button>
           <a
             href={explorerAddressUrl(wallet)}
             target="_blank"

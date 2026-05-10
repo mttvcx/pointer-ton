@@ -12,12 +12,13 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 
+/** Glass tokens — airy layers on `bg-base`, not flat grey slabs */
 const UI = {
-  card: '#11141b',
-  elevated: '#151924',
-  border: '#202636',
-  muted: '#7f8aa3',
-  text: '#f5f7ff',
+  card: 'rgba(255, 255, 255, 0.04)',
+  elevated: 'rgba(255, 255, 255, 0.07)',
+  border: 'rgba(255, 255, 255, 0.1)',
+  muted: '#9ba3b0',
+  text: '#f0f4fc',
   accent: '#0077b6',
   cyan: '#34d5ff',
 } as const;
@@ -70,7 +71,7 @@ type RuleDto = {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold" style={{ color: UI.text }}>
+    <p className="text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: UI.muted }}>
       {children}
     </p>
   );
@@ -260,7 +261,7 @@ export function AlertRulesSection({
   if (!authenticated) {
     return (
       <div
-        className="rounded-xl border px-3 py-2 text-[11px] leading-snug"
+        className="rounded-2xl border px-4 py-3 text-[11px] leading-relaxed backdrop-blur-md"
         style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.muted }}
       >
         Sign in to save alert rules for new Pulse listings.
@@ -269,22 +270,22 @@ export function AlertRulesSection({
   }
 
   const inputCls =
-    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0077b6]/45 w-full rounded-lg border px-2 py-1.5 text-[12px] transition';
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0077b6]/35 focus-visible:ring-offset-0 w-full rounded-xl border px-3 py-2.5 text-[13px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition';
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {/* Alert Builder */}
       <section
         id="copilot-alert-builder"
-        className="overflow-hidden rounded-xl border"
+        className="overflow-hidden rounded-2xl border backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
         style={{ borderColor: UI.border, backgroundColor: UI.card }}
       >
         {!embedInFloatingPanel ? (
-          <div className="flex items-stretch gap-0.5 px-2 py-1.5">
+          <div className="flex items-stretch gap-1 border-b border-white/[0.06] px-3 py-2">
             <button
               type="button"
               onClick={() => setBuilderOpen((v) => !v)}
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.03]"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-white/[0.04]"
               aria-expanded={builderOpen}
             >
               <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
@@ -332,8 +333,8 @@ export function AlertRulesSection({
             ) : null}
           </div>
         ) : (
-          <div className="border-b px-3 py-2" style={{ borderColor: UI.border }}>
-            <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
+          <div className="border-b border-white/[0.06] bg-gradient-to-b from-white/[0.05] to-transparent px-4 py-3 backdrop-blur-sm">
+            <span className="text-[13px] font-semibold tracking-tight" style={{ color: UI.text }}>
               Alert Builder
             </span>
             <span
@@ -351,8 +352,7 @@ export function AlertRulesSection({
 
         {embedInFloatingPanel || builderOpen ? (
           <form
-            className={cn('space-y-2 px-3 py-2', !embedInFloatingPanel && 'border-t')}
-            style={{ borderColor: UI.border }}
+            className="space-y-3 px-4 py-3"
             onSubmit={(e) => {
               e.preventDefault();
               if (!name.trim()) {
@@ -363,9 +363,9 @@ export function AlertRulesSection({
             }}
           >
             {/* A. Trigger */}
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <SectionLabel>Trigger</SectionLabel>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <FieldLabel>Rule name</FieldLabel>
                 <input
                   value={name}
@@ -379,18 +379,18 @@ export function AlertRulesSection({
                   }}
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <FieldLabel hint="Leave empty for any launchpad">
                   Launchpads
                 </FieldLabel>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {PULSE_PROTOCOL_IDS.map((id) => (
                     <button
                       key={id}
                       type="button"
                       onClick={() => toggleProtocol(id)}
                       className={cn(
-                        'rounded-full border px-2 py-0.5 text-[10px] font-medium transition',
+                        'rounded-full border px-2.5 py-1 text-[10px] font-medium transition active:scale-[0.98]',
                       )}
                       style={
                         selectedPads.has(id)
@@ -413,10 +413,10 @@ export function AlertRulesSection({
               </div>
             </div>
 
-            <div className="border-t pt-2" style={{ borderColor: UI.border }} />
+            <div className="border-t border-white/[0.06] pt-3" />
 
             {/* B. Conditions */}
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <SectionLabel>Conditions</SectionLabel>
               <div className="space-y-1">
                 <FieldLabel hint="Optional">
@@ -444,10 +444,10 @@ export function AlertRulesSection({
               </p>
             </div>
 
-            <div className="border-t pt-2" style={{ borderColor: UI.border }} />
+            <div className="border-t border-white/[0.06] pt-3" />
 
             {/* C. Notification */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <SectionLabel>Notification</SectionLabel>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -473,7 +473,7 @@ export function AlertRulesSection({
                       disabled={!flashEnabled}
                       onClick={() => setFlashColor(c)}
                       className={cn(
-                        'h-7 w-7 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-[#11141b] transition disabled:opacity-35',
+                        'h-8 w-8 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-[rgba(8,13,20,0.92)] transition disabled:opacity-35',
                         flashEnabled && flashColor.toLowerCase() === c.toLowerCase()
                           ? 'ring-[#f5f7ff]'
                           : 'ring-transparent hover:ring-white/20',
@@ -579,7 +579,7 @@ export function AlertRulesSection({
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="w-full rounded-lg py-2 text-[12px] font-semibold transition disabled:opacity-45"
+              className="w-full rounded-xl py-2.5 text-[13px] font-semibold shadow-[0_8px_24px_-8px_rgba(0,119,182,0.55)] transition hover:brightness-105 active:scale-[0.99] disabled:opacity-45"
               style={{
                 backgroundImage: `linear-gradient(135deg, ${UI.accent} 0%, #5f8bff 100%)`,
                 color: '#080d14',
@@ -600,7 +600,7 @@ export function AlertRulesSection({
 
       {/* Active Rules */}
       <section
-        className="rounded-xl border px-3 py-2"
+        className="rounded-2xl border px-4 py-3 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
         style={{ borderColor: UI.border, backgroundColor: UI.card }}
       >
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -647,7 +647,7 @@ export function AlertRulesSection({
             </div>
           </div>
         ) : (
-          <ul className="max-h-[200px] space-y-1 overflow-y-auto pr-0.5">
+          <ul className="max-h-[200px] space-y-1.5 overflow-y-auto pr-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {sorted.map((r) => (
               <li
                 key={r.id}

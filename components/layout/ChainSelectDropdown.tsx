@@ -34,9 +34,9 @@ export function ChainSelectDropdown({ className }: { className?: string }) {
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5865F2]/45',
-          'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/28 bg-[#0a0e14] px-2.5 pr-1.5 text-[11px] font-semibold tracking-wide text-white',
-          'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-emerald-400/40 hover:bg-[#0d121a]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5865F2]/35',
+          'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border-subtle bg-transparent px-2.5 pr-1.5 text-[11px] font-semibold tracking-wide text-fg-secondary',
+          'transition hover:border-border-default hover:bg-bg-hover hover:text-fg-primary',
         )}
       >
         <img

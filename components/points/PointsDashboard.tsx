@@ -1,26 +1,91 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Medal, Search, Share2, Sparkles, Trophy } from 'lucide-react';
+import {
+  Activity,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Compass,
+  Loader2,
+  Radio,
+  Search,
+  Share2,
+  Shield,
+  Sparkles,
+  Trophy,
+  Users,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
+import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
 import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import type { LeaderboardPageResult } from '@/lib/points/leaderboardTypes';
+import { ReferralDashboard } from '@/components/referral/ReferralDashboard';
+import { CampaignRadarSection } from '@/components/points/CampaignRadar';
+import { ChainGlyph } from '@/components/points/ChainGlyph';
+import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
+import {
+  CREATOR_PROGRAM_COPY,
+  ECOSYSTEM_CAMPAIGNS,
+  ECOSYSTEM_NODE_VISUAL,
+  POINTS_LAST_UPDATED_LABEL,
+  POINTS_RULES_VERSION,
+  POINTS_SEASON_LABEL,
+  RANK_LADDER,
+  SOCIAL_IDENTITY_COPY,
+  TRANSPARENCY_BULLETS,
+  rankTierFromPoints,
+  type EcosystemCampaignId,
+  type RankTierId,
+} from '@/components/points/pointsUiConfig';
 
-const BORDER = '#1b1f2a';
-const BG = '#080d14';
-const PANEL = '#121622';
-const PANEL2 = '#151826';
+type RewardsTab = 'rewards' | 'leaderboard' | 'referral' | 'benefits';
 
-type RewardsTab = 'rewards' | 'leaderboard' | 'benefits';
+type LeaderboardBoard = 'traders' | 'referrers' | 'creators';
+
+function parseRewardsTab(raw: string | null): RewardsTab {
+  const t = raw?.trim().toLowerCase();
+  if (t === 'rewards' || t === 'leaderboard' || t === 'benefits' || t === 'referral') return t;
+  return 'rewards';
+}
+
+function parseLeaderboardBoard(raw: string | null): LeaderboardBoard {
+  const b = raw?.trim().toLowerCase();
+  if (b === 'referrers' || b === 'creators') return b;
+  return 'traders';
+}
+
+function parseCampaignHighlight(raw: string | null): EcosystemCampaignId | null {
+  const c = raw?.trim().toLowerCase();
+  const ids: EcosystemCampaignId[] = ['sol', 'ton', 'base', 'bnb', 'hyperliquid'];
+  return ids.includes(c as EcosystemCampaignId) ? (c as EcosystemCampaignId) : null;
+}
 
 function shortenAddress(value: string, chars = 4) {
   if (!value) return '';
   if (value.length <= chars * 2 + 1) return value;
   return `${value.slice(0, chars)}...${value.slice(-chars)}`;
+}
+
+function displayNameFromUser(user: {
+  twitter?: { username?: string };
+  google?: { name?: string };
+  email?: { address?: string };
+} | null): string {
+  if (!user) return 'Operator';
+  const tw = user.twitter?.username?.trim();
+  if (tw) return `@${tw}`;
+  const g = user.google?.name?.trim();
+  if (g) return g;
+  const em = user.email?.address?.trim();
+  if (em) return em.includes('@') ? em.split('@')[0] ?? em : em;
+  return 'Operator';
 }
 
 async function authFetch<T>(url: string, token: string): Promise<T> {
@@ -32,96 +97,132 @@ async function authFetch<T>(url: string, token: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-function TinyLineChart() {
+function rankTierIndex(id: RankTierId): number {
+  const i = RANK_LADDER.findIndex((t) => t.id === id);
+  return i < 0 ? 0 : i;
+}
+
+function RankSeal({ label }: { label: string }) {
+  const initials = label.slice(0, 2).toUpperCase();
   return (
-    <div className="relative h-[160px] overflow-hidden rounded border" style={{ borderColor: BORDER, backgroundColor: BG }}>
-      <div className="absolute inset-0 grid grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="border-r last:border-r-0" style={{ borderColor: BORDER }} />
+    <div className="relative flex h-[76px] w-[76px] shrink-0 items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 animate-pulse-soft rounded-2xl bg-gradient-to-br from-cyan-400/20 via-accent-primary/25 to-violet-500/30 blur-xl" />
+      <div className="relative flex h-[68px] w-[68px] items-center justify-center rounded-2xl border border-white/15 bg-gradient-to-br from-bg-hover/95 to-bg-base/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_44px_-10px_rgba(0,163,224,0.55)] ring-1 ring-cyan-400/30">
+        <span className="bg-gradient-to-br from-white via-fg-primary to-fg-secondary bg-clip-text text-[18px] font-bold tracking-tight text-transparent">
+          {initials}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function RankMiniLadder({ currentId }: { currentId: RankTierId }) {
+  const idx = rankTierIndex(currentId);
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-fg-muted">Prestige ladder</p>
+      <div className="flex gap-0.5 sm:gap-1">
+        {RANK_LADDER.map((t, i) => {
+          const reached = i <= idx;
+          const current = i === idx;
+          return (
+            <div key={t.id} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+              <div
+                className={cn(
+                  'h-2 w-full rounded-full transition-all duration-300',
+                  reached
+                    ? 'bg-gradient-to-r from-cyan-400/85 via-accent-primary to-violet-500/85 shadow-[0_0_14px_rgba(0,163,224,0.45)]'
+                    : 'bg-bg-base ring-1 ring-white/[0.06]',
+                  current && 'ring-1 ring-cyan-300/45',
+                )}
+              />
+              <span
+                className={cn(
+                  'block max-w-full truncate text-center text-[7px] font-semibold uppercase leading-none tracking-tight sm:text-[8px]',
+                  current ? 'text-fg-primary' : reached ? 'text-fg-secondary' : 'text-fg-muted',
+                )}
+                title={t.label}
+              >
+                {t.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AccrualSparkline() {
+  return (
+    <div className="relative h-[148px] overflow-hidden rounded-xl border border-white/[0.06] bg-bg-sunken/90 shadow-inner ring-1 ring-white/[0.04]">
+      <div className="absolute inset-0 bg-gradient-to-b from-accent-primary/[0.06] via-transparent to-violet-500/[0.05]" />
+      <div className="absolute inset-0 grid grid-cols-8 opacity-[0.35]">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="border-r border-border-subtle/80 last:border-r-0" />
         ))}
       </div>
-      <div className="absolute inset-0 grid grid-rows-4">
+      <div className="absolute inset-0 grid grid-rows-4 opacity-[0.35]">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="border-b last:border-b-0" style={{ borderColor: BORDER }} />
+          <div key={i} className="border-b border-border-subtle/80 last:border-b-0" />
         ))}
       </div>
-      <div className="absolute left-0 right-0 top-[58%] h-px bg-[#5865F2]" />
+      <div className="absolute inset-x-0 bottom-[38%] h-px bg-gradient-to-r from-transparent via-accent-primary/70 to-transparent shadow-[0_0_16px_rgba(0,163,224,0.45)]" />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-[42%] h-[42%] opacity-90"
+        style={{
+          background:
+            'linear-gradient(180deg, transparent 0%, rgba(0,163,224,0.07) 55%, rgba(139,92,246,0.06) 100%)',
+        }}
+      />
+      <div className="absolute bottom-2 left-3 flex items-center gap-2">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-glow/40 opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-primary shadow-[0_0_10px_rgba(0,163,224,0.7)]" />
+        </span>
+        <p className="text-[10px] uppercase tracking-[0.14em] text-fg-muted">Points accrual index · live</p>
+      </div>
     </div>
   );
 }
 
-function CircleQuest({ value, max, label, color }: { value: number; max: number; label: string; color: string }) {
-  const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
-  return (
-    <div className="flex flex-col items-center gap-1 text-center">
-      <div className="relative h-16 w-16 rounded-full border" style={{ borderColor: BORDER }}>
-        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="42" stroke="#1f2533" strokeWidth="8" fill="none" />
-          <circle
-            cx="50"
-            cy="50"
-            r="42"
-            stroke={color}
-            strokeWidth="8"
-            fill="none"
-            strokeDasharray={`${pct * 2.64} 999`}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center text-[10px] tabular-nums text-[#d1d5db]">
-          {formatNumber(value, { compact: true, decimals: 0 })}
-        </div>
-      </div>
-      <p className="max-w-[90px] text-[10px] leading-tight text-[#9ca3af]">{label}</p>
-    </div>
-  );
-}
+export function PointsDashboard({ className }: { className?: string }) {
+  const { getAccessToken, user } = usePointerAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = parseRewardsTab(searchParams.get('tab'));
+  const leaderboardBoard = parseLeaderboardBoard(searchParams.get('board'));
+  const campaignHighlight = parseCampaignHighlight(searchParams.get('campaign'));
 
-function BenefitCard({
-  title,
-  description,
-  accent,
-  button,
-  href,
-}: {
-  title: string;
-  description: string;
-  accent: string;
-  button: string;
-  href?: string;
-}) {
-  const ctaClass =
-    'mt-2 inline-flex w-full justify-center rounded-full px-2 py-1 text-[10px] font-semibold text-[#0a0a0f] transition hover:brightness-110';
-  const cta = href ? (
-    <Link href={href} className={ctaClass} style={{ backgroundColor: accent }}>
-      {button}
-    </Link>
-  ) : (
-    <button
-      type="button"
-      disabled
-      className={cn(ctaClass, 'cursor-not-allowed opacity-50 hover:brightness-100')}
-      style={{ backgroundColor: accent }}
-    >
-      {button}
-    </button>
-  );
-  return (
-    <article className="flex min-h-[180px] flex-col rounded border p-2" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-white">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: accent }} />
-        {title}
-      </div>
-      <p className="flex-1 text-[10px] leading-snug text-[#6b7280]">{description}</p>
-      {cta}
-    </article>
-  );
-}
+  const setTab = (id: RewardsTab) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('tab', id);
+    router.replace(`/points?${next.toString()}`, { scroll: false });
+  };
 
-export function PointsDashboard({ className, initialTab = 'rewards' }: { className?: string; initialTab?: RewardsTab }) {
-  const { getAccessToken } = usePointerAuth();
-  const [tab, setTab] = useState<RewardsTab>(initialTab);
+  const setLeaderboardBoard = (board: LeaderboardBoard) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('tab', 'leaderboard');
+    next.set('board', board);
+    router.replace(`/points?${next.toString()}`, { scroll: false });
+  };
+
+  const setCampaignHighlight = (id: EcosystemCampaignId | null) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('tab', 'rewards');
+    if (id) next.set('campaign', id);
+    else next.delete('campaign');
+    router.replace(`/points?${next.toString()}`, { scroll: false });
+  };
+
+  const displayName = useMemo(() => displayNameFromUser(user), [user]);
+
   const [searchLb, setSearchLb] = useState('');
+  const [lbPage, setLbPage] = useState(1);
+
+  useEffect(() => {
+    setLbPage(1);
+  }, [searchLb]);
 
   const pointsQ = useQuery({
     queryKey: ['points-me'],
@@ -166,24 +267,38 @@ export function PointsDashboard({ className, initialTab = 'rewards' }: { classNa
         }>;
       }>('/api/referrals/earnings?limit=25', token);
     },
+    enabled: tab === 'rewards',
   });
 
   const lbQ = useQuery({
-    queryKey: ['points-leaderboard', searchLb],
+    queryKey: ['points-leaderboard', searchLb, lbPage],
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const q = searchLb.trim() ? `&q=${encodeURIComponent(searchLb.trim())}` : '';
-      return authFetch<LeaderboardPageResult>(`/api/points/leaderboard?page=1&pageSize=50${q}`, token);
+      return authFetch<LeaderboardPageResult>(
+        `/api/points/leaderboard?page=${lbPage}&pageSize=50${q}`,
+        token,
+      );
     },
     staleTime: 20_000,
+    enabled: tab === 'leaderboard',
   });
 
-  const loading = pointsQ.isLoading || refCodeQ.isLoading || earningsQ.isLoading || lbQ.isLoading;
+  const loadingRewards =
+    tab === 'rewards' &&
+    (pointsQ.isLoading || refCodeQ.isLoading || earningsQ.isLoading || earningsQ.isFetching);
+  const loadingLeaderboard =
+    tab === 'leaderboard' &&
+    (pointsQ.isLoading || lbQ.isLoading || refCodeQ.isLoading || lbQ.isFetching);
+
+  /** Only rewards / leaderboard tabs fetch heavy aggregates — referral & benefits render immediately. */
+  const loading = loadingRewards || loadingLeaderboard;
+
   if (loading) {
     return (
       <div className={cn('flex h-full min-h-[300px] items-center justify-center', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-[#5865F2]" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
       </div>
     );
   }
@@ -192,261 +307,750 @@ export function PointsDashboard({ className, initialTab = 'rewards' }: { classNa
   const refCode = refCodeQ.data;
   const earnings = earningsQ.data;
   const lb = lbQ.data;
-  if (!points || !refCode || !earnings || !lb) {
+
+  if ((tab === 'rewards' || tab === 'leaderboard') && (!points || !refCode || (tab === 'rewards' && !earnings))) {
     return (
-      <div className={cn('rounded border p-3 text-[12px] text-[#f87171]', className)} style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-        Could not load rewards data.
+      <div
+        className={cn(
+          'rounded-xl border border-border-subtle bg-bg-raised p-4 text-[13px] text-signal-bear',
+          className,
+        )}
+      >
+        Could not load campaign data. Try refreshing — if this persists, sync auth and retry.
       </div>
     );
   }
 
-  const username = 'Moustapha';
-  const tier = points.totalPoints > 5_000_000 ? 'Diamond' : points.totalPoints > 1_000_000 ? 'Gold' : 'Silver';
-  const mult = tier === 'Diamond' ? '4X Rewards' : tier === 'Gold' ? '2X Rewards' : '1X Rewards';
-  const nextTierLabel = tier === 'Diamond' ? 'Champion' : tier === 'Gold' ? 'Diamond' : 'Gold';
-  const progressPct = tier === 'Diamond' ? 82 : tier === 'Gold' ? 54 : 26;
-  const you = lb.you;
+  if (tab === 'leaderboard' && leaderboardBoard === 'traders' && !lb) {
+    return (
+      <div className={cn('flex h-full min-h-[300px] items-center justify-center', className)}>
+        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
+      </div>
+    );
+  }
 
-  return (
-    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden text-[12px] text-white', className)}>
-      {/* sub-nav */}
-      <div className="flex shrink-0 items-center gap-3 border-b px-2 py-1" style={{ borderColor: BORDER, backgroundColor: BG }}>
-        {([
+  const rankState = rankTierFromPoints(points?.totalPoints ?? 0);
+  const referralRatePct = refCode ? Math.round(refCode.feeShareBps / 100) : 0;
+  const you = lb?.you;
+
+  const tabNav = (
+    <div className="flex shrink-0 items-center gap-0.5 border-b border-border-subtle/90 bg-bg-base/95 px-1.5 py-1.5 backdrop-blur-md">
+      {(
+        [
           ['rewards', 'Rewards'],
           ['leaderboard', 'Leaderboard'],
+          ['referral', 'Referral'],
           ['benefits', 'Benefits'],
-        ] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn(
-              'relative pb-1 text-[13px] transition',
-              tab === id ? 'font-semibold text-white' : 'text-[#6b7280] hover:text-[#d1d5db]',
-            )}
-          >
-            {label}
-            {tab === id ? <span className="absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-[#5865F2]" /> : null}
-          </button>
-        ))}
-      </div>
+        ] as const
+      ).map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => setTab(id)}
+          className={cn(
+            'focus-ring relative rounded-lg px-3.5 pb-2 pt-1.5 text-[13px] tracking-tight transition-all duration-200',
+            tab === id
+              ? 'bg-bg-hover/80 font-semibold text-fg-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_24px_-8px_rgba(0,163,224,0.35)] ring-1 ring-cyan-500/20'
+              : 'text-fg-muted hover:bg-bg-hover/50 hover:text-fg-secondary',
+          )}
+        >
+          {label}
+          {tab === id ? (
+            <span className="absolute inset-x-2 -bottom-0.5 h-0.5 rounded-full bg-gradient-to-r from-cyan-400/20 via-accent-primary to-violet-500/50 shadow-[0_0_14px_rgba(0,163,224,0.6)]" />
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
 
-      {tab === 'rewards' ? (
-        <div className="min-h-0 flex-1 overflow-auto p-2">
-          {/* profile header */}
-          <section className="rounded border p-3" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-            <div className="relative flex flex-wrap items-start justify-between gap-2">
-              <div className="w-[96px]" />
-              <div className="mx-auto flex flex-col items-center text-center">
-                <div className="h-14 w-14 rounded-md border p-1" style={{ borderColor: '#6ea7ff', backgroundColor: '#20263a' }}>
-                  <div className="h-full w-full rounded bg-[#f3b34c]" />
+  return (
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden text-[13px] text-fg-primary', className)}>
+      {tabNav}
+
+      {tab === 'rewards' && points && refCode && earnings ? (
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          <HeroBackdrop />
+
+          <div className="relative space-y-6 p-4 sm:p-5 lg:p-6">
+            {/* Hero */}
+            <GlassPanel variant="hero" glow="cyan" className="p-5 sm:p-6 lg:p-7">
+              <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+                <div className="max-w-xl space-y-4">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-bg-sunken/90 px-3 py-1.5 text-[11px] text-fg-secondary shadow-inner ring-1 ring-cyan-500/15">
+                    <Radio className="h-3.5 w-3.5 text-accent-glow" aria-hidden />
+                    <span className="tabular-nums font-medium text-fg-primary">{POINTS_SEASON_LABEL}</span>
+                    <span className="text-fg-muted">·</span>
+                    <span>
+                      Rules v{POINTS_RULES_VERSION}
+                    </span>
+                    <span className="rounded-md bg-accent-primary/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-accent-glow">
+                      Live
+                    </span>
+                  </div>
+                  <h1 className="font-semibold tracking-tight text-fg-primary text-[clamp(1.45rem,3.2vw,1.95rem)] leading-[1.15]">
+                    Pointer Points
+                  </h1>
+                  <p className="text-[12px] leading-relaxed text-fg-secondary">
+                    Transparent campaign scoring for real terminal usage — trading, referrals, retention, and verified
+                    identity. Social accounts unlock credibility and creator flows; they do not mint points for posts or
+                    replies.
+                  </p>
+                  <div className="flex flex-wrap gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setTab('referral')}
+                      className="focus-ring btn-press inline-flex items-center gap-2 rounded-lg border border-cyan-500/35 bg-bg-hover px-3.5 py-2.5 text-[12px] font-semibold text-fg-primary shadow-[0_0_28px_-10px_rgba(0,163,224,0.55)] transition hover:border-cyan-400/45 hover:shadow-[0_0_36px_-8px_rgba(0,163,224,0.65)]"
+                    >
+                      Referral program
+                      <ArrowRight className="h-3.5 w-3.5 opacity-80" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const share = buildReferralInviteUrl(refCode.code);
+                        void navigator.clipboard.writeText(share);
+                        toast.success('Referral link copied');
+                      }}
+                      className="focus-ring btn-press inline-flex items-center gap-2 rounded-lg border border-border-subtle px-3.5 py-2.5 text-[12px] font-medium text-fg-secondary transition hover:border-violet-400/35 hover:bg-bg-hover/80 hover:text-fg-primary"
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                      Copy invite link
+                    </button>
+                  </div>
                 </div>
-                <p className="mt-1 text-[11px] text-[#d1d5db]">{username}</p>
-                <p className="text-[20px] font-semibold leading-tight text-white">{mult}</p>
-                <p className="text-[11px] text-[#9ca3af]">{Math.round(refCode.feeShareBps / 100)}% Referral Rate ? {tier}</p>
-                <div className="mt-1.5 flex items-center gap-3 text-[12px]">
-                  <span className="inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-[#a78bfa]" /> {formatNumber(points.totalPoints)}</span>
-                  <span className="inline-flex items-center gap-1 text-[#9ca3af]"><Trophy className="h-3.5 w-3.5" /> {formatNumber(refCode.earnings.total, { compact: true, decimals: 2 })} Earned</span>
+
+                <div className="relative w-full lg:max-w-[380px]">
+                  <div className="absolute -left-8 -top-8 hidden h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.18)_0%,transparent_70%)] blur-2xl lg:block" />
+                  <div className="relative flex flex-col gap-4 rounded-2xl border border-white/10 bg-gradient-to-b from-bg-hover/55 to-bg-base/75 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_48px_-28px_rgba(0,0,0,0.85)] ring-1 ring-cyan-400/20 backdrop-blur-md">
+                    <div className="flex items-start gap-4">
+                      <RankSeal label={rankState.tier.label} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-muted">
+                              Operator status
+                            </p>
+                            <p className="truncate text-[16px] font-semibold tracking-tight text-fg-primary">
+                              {displayName}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-1.5 text-right shadow-[0_0_24px_-12px_rgba(167,139,250,0.55)] ring-1 ring-violet-400/20">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-200/90">
+                              Rank
+                            </p>
+                            <p className="text-[18px] font-bold leading-none tracking-tight text-fg-primary">
+                              {rankState.tier.label}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+                              Total points
+                            </p>
+                            <p className="mt-1 flex items-center gap-1.5 text-[22px] font-semibold tabular-nums tracking-tight text-fg-primary">
+                              <Sparkles className="h-5 w-5 text-accent-glow drop-shadow-[0_0_12px_rgba(0,163,224,0.55)]" aria-hidden />
+                              {formatNumber(points.totalPoints)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+                              Referral rate
+                            </p>
+                            <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight text-fg-primary">
+                              {referralRatePct}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <RankMiniLadder currentId={rankState.tier.id} />
+
+                    {rankState.next ? (
+                      <div className="border-t border-white/[0.06] pt-4">
+                        <div className="mb-2 flex justify-between text-[11px] text-fg-muted">
+                          <span className="font-medium text-fg-secondary">
+                            Ascension to <span className="text-fg-primary">{rankState.next.label}</span>
+                          </span>
+                          <span className="tabular-nums font-semibold text-accent-glow">
+                            {Math.round(rankState.progressToNext * 100)}%
+                          </span>
+                        </div>
+                        <div className="relative h-2.5 overflow-hidden rounded-full bg-bg-base ring-1 ring-white/[0.06]">
+                          <div
+                            className="points-progress-fill h-full rounded-full transition-[width] duration-700 ease-out"
+                            style={{ width: `${Math.round(rankState.progressToNext * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="border-t border-white/[0.06] pt-4 text-[11px] text-fg-muted">
+                        Apex tier displayed for this ladder preview — disclosure continues with seasonal rules.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-1">
-                <button className="rounded border px-2 py-1 text-[10px] font-semibold text-[#d1d5db]" style={{ borderColor: BORDER }}>
-                  Edit Referral
-                </button>
-                <button
-                  onClick={() => {
-                    const share = `${window.location.origin}/referral?code=${encodeURIComponent(refCode.code)}`;
-                    void navigator.clipboard.writeText(share);
-                    toast.success('Referral link copied');
-                  }}
-                  className="inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-semibold text-[#d1d5db]"
-                  style={{ borderColor: BORDER }}
-                >
-                  <Share2 className="h-3.5 w-3.5" /> Share Referral
-                </button>
+            </GlassPanel>
+
+            {/* Eligibility & transparency — primary campaign governance */}
+            <GlassPanel variant="primary" className="p-5 sm:p-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-12">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-violet-200/90">
+                      Eligibility · Transparency
+                    </h2>
+                    <span className="rounded-full border border-white/10 bg-bg-base/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted ring-1 ring-violet-400/15">
+                      Rules log · v{POINTS_RULES_VERSION}
+                    </span>
+                  </div>
+                  <p className="max-w-xl text-[12px] leading-relaxed text-fg-secondary">
+                    Season rules, breakdowns, pool disclosures, and eligibility gates publish here as campaigns mature.
+                    Last reviewed{' '}
+                    <span className="tabular-nums font-medium text-fg-primary">{POINTS_LAST_UPDATED_LABEL}</span>.
+                  </p>
+                </div>
+                <ul className="max-w-md space-y-3 text-[11px] leading-snug text-fg-secondary">
+                  {TRANSPARENCY_BULLETS.map((line) => (
+                    <li key={line} className="flex gap-2.5 rounded-lg border border-white/[0.04] bg-bg-base/40 px-3 py-2 ring-1 ring-white/[0.03]">
+                      <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-300/90" />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
+            </GlassPanel>
+
+            {/* Ecosystem campaigns */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-muted">
+                    Active ecosystem nodes
+                  </h2>
+                  <p className="mt-1 text-[11px] text-fg-muted">
+                    Select a surface to filter campaign context — scoring stays on-terminal.
+                  </p>
+                </div>
+                {campaignHighlight ? (
+                  <button
+                    type="button"
+                    onClick={() => setCampaignHighlight(null)}
+                    className="text-[11px] font-medium text-accent-glow underline-offset-4 transition hover:text-fg-primary hover:underline"
+                  >
+                    Clear filter
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {ECOSYSTEM_CAMPAIGNS.map((c) => {
+                  const active = campaignHighlight === c.id;
+                  const vis = ECOSYSTEM_NODE_VISUAL[c.id];
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCampaignHighlight(active ? null : c.id)}
+                      className={cn(
+                        'points-eco-hover focus-ring relative overflow-hidden rounded-2xl border p-3.5 text-left',
+                        active
+                          ? 'border-cyan-400/50 bg-bg-hover/40 shadow-[0_0_40px_-14px_rgba(0,163,224,0.55)] ring-2 ring-cyan-400/25'
+                          : 'border-border-subtle/90 bg-bg-base/50 ring-1 ring-white/[0.04]',
+                      )}
+                    >
+                      <div
+                        className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full blur-2xl"
+                        style={{ background: `radial-gradient(circle, ${vis.radial} 0%, transparent 70%)` }}
+                      />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                      <div className="relative mb-2 flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <ChainGlyph
+                            chain={c.id}
+                            className="h-8 w-8 shrink-0 opacity-[0.92] drop-shadow-[0_0_14px_rgba(255,255,255,0.06)]"
+                            title={c.label}
+                          />
+                          <p className="truncate text-[14px] font-semibold tracking-tight text-fg-primary">{c.label}</p>
+                        </div>
+                        <span
+                          className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-bg-base/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-fg-secondary ring-1 ring-white/[0.06]"
+                          style={{ borderColor: `${vis.accent}` }}
+                        >
+                          <span
+                            className="points-live-dot h-1.5 w-1.5 rounded-full"
+                            style={{ color: vis.liveHue, backgroundColor: vis.liveHue }}
+                          />
+                          {vis.status}
+                        </span>
+                      </div>
+                      {vis.boost ? (
+                        <span className="relative mb-2 inline-flex rounded-md border border-cyan-400/25 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-100/95 ring-1 ring-cyan-400/20">
+                          {vis.boost}
+                        </span>
+                      ) : null}
+                      <p className="relative text-[11px] leading-snug text-fg-secondary">{c.tagline}</p>
+                      <div className="relative mt-3 flex items-center justify-between gap-2 border-t border-white/[0.05] pt-2.5">
+                        <span className="text-[9px] font-medium uppercase tracking-wider text-fg-muted">
+                          {vis.meta}
+                        </span>
+                        <span className="rounded-md border border-white/10 bg-bg-sunken/80 px-1.5 py-px text-[9px] tabular-nums text-fg-muted ring-1 ring-white/[0.04]">
+                          S1
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {campaignHighlight ? (
+                <p className="text-[11px] text-fg-muted">
+                  Filtering <span className="font-semibold text-accent-glow">{campaignHighlight}</span> — scoring stays
+                  tied to on-terminal behaviour and disclosed partner routes, not social posting.
+                </p>
+              ) : null}
             </div>
 
-            <div className="mt-2.5 border-t pt-2" style={{ borderColor: BORDER }}>
-              <div className="mb-1 flex items-center justify-between text-[10px] text-[#6b7280]">
-                <span>Next Level: {nextTierLabel} Rewards rate</span>
-                <span>You&apos;re almost there! Trade 1.7K TON to reach Champion</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[#080d14]">
-                <div className="h-full rounded-full bg-[linear-gradient(90deg,#5865F2,#8b5cf6)] shadow-[0_0_10px_rgba(88,101,242,0.45)]" style={{ width: `${progressPct}%` }} />
-              </div>
+            <CampaignRadarSection selected={campaignHighlight} />
+
+            {/* Pillars */}
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <GlassPanel
+                variant="secondary"
+                className="group p-4 transition duration-300 hover:-translate-y-0.5 hover:border-white/12 hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.75)]"
+              >
+                <div className="mb-2 inline-flex rounded-lg border border-border-subtle bg-bg-sunken/60 p-2 ring-1 ring-white/[0.03] transition group-hover:border-accent-primary/30">
+                  <Zap className="h-4 w-4 text-accent-primary" aria-hidden />
+                </div>
+                <h3 className="text-[13px] font-semibold">Trading points</h3>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-fg-secondary">
+                  Volume, trade count, streaks, multi-chain routes, trackers, alerts, co-pilot and portfolio usage —
+                  scored as product-native activity.
+                </p>
+              </GlassPanel>
+              <GlassPanel
+                variant="secondary"
+                className="group p-4 transition duration-300 hover:-translate-y-0.5 hover:border-white/12 hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.75)]"
+              >
+                <div className="mb-2 inline-flex rounded-lg border border-border-subtle bg-bg-sunken/60 p-2 ring-1 ring-white/[0.03] transition group-hover:border-signal-bull/25">
+                  <Users className="h-4 w-4 text-signal-bull" aria-hidden />
+                </div>
+                <h3 className="text-[13px] font-semibold">Referral points</h3>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-fg-secondary">
+                  Invites that convert to active traders, retained usage, and referred volume — partner codes supported
+                  where configured.
+                </p>
+              </GlassPanel>
+              <GlassPanel
+                variant="secondary"
+                className="group p-4 transition duration-300 hover:-translate-y-0.5 hover:border-white/12 hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.75)]"
+              >
+                <div className="mb-2 inline-flex rounded-lg border border-border-subtle bg-bg-sunken/60 p-2 ring-1 ring-white/[0.03] transition group-hover:border-signal-info/25">
+                  <Shield className="h-4 w-4 text-signal-info" aria-hidden />
+                </div>
+                <h3 className="text-[13px] font-semibold">Social identity</h3>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-fg-secondary">{SOCIAL_IDENTITY_COPY}</p>
+              </GlassPanel>
+              <GlassPanel
+                variant="secondary"
+                className="group p-4 transition duration-300 hover:-translate-y-0.5 hover:border-white/12 hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.75)]"
+              >
+                <div className="mb-2 inline-flex rounded-lg border border-border-subtle bg-bg-sunken/60 p-2 ring-1 ring-white/[0.03] transition group-hover:border-violet-400/25">
+                  <Compass className="h-4 w-4 text-[#a78bfa]" aria-hidden />
+                </div>
+                <h3 className="text-[13px] font-semibold">Creator / operator</h3>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-fg-secondary">{CREATOR_PROGRAM_COPY}</p>
+              </GlassPanel>
             </div>
-          </section>
 
-          {/* claim grid */}
-          <section className="mt-2 grid gap-2 lg:grid-cols-3">
-            <article className="rounded border p-2" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-              <div className="mb-2 text-[11px] font-semibold text-white">TON Rewards</div>
-              <TinyLineChart />
-            </article>
-
-            <article className="rounded border p-2" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-              <div className="mb-2 text-[11px] font-semibold text-white">Claim</div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-full border px-2 py-1 text-center text-[16px] font-semibold" style={{ borderColor: BORDER }}>? +0</div>
-                <div className="rounded-full border px-2 py-1 text-center text-[16px] font-semibold" style={{ borderColor: BORDER }}>? +0</div>
-                <div className="col-span-2 rounded-full border px-2 py-1 text-center text-[16px] font-semibold" style={{ borderColor: BORDER }}>? +0</div>
-              </div>
-              <button className="mt-2 w-full rounded-full bg-[#5865F2] py-2 text-[11px] font-semibold text-[#0a0a0f]">Nothing to Claim</button>
-            </article>
-
-            <article className="rounded border p-2" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-white">Quests</span>
-                <span className="text-[10px] text-[#6b7280]">Points Breakdown</span>
-              </div>
-              <div className="flex items-start justify-around gap-1">
-                <CircleQuest value={refCode.referredCount} max={3} label="Refer 3 more people" color="#4ade80" />
-                <CircleQuest value={refCode.earnings.total} max={1_000_000} label="Trade 6000 more TON in Volume" color="#5865F2" />
-                <CircleQuest value={(lb.rows?.length ?? 0) * 1000} max={100_000} label="Make 5000 more transactions" color="#f472b6" />
-              </div>
-            </article>
-          </section>
-
-          {/* activity */}
-          <section className="mt-2 rounded border" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-            <div className="border-b px-2 py-1 text-[11px] font-semibold" style={{ borderColor: BORDER }}>Activity</div>
-            <div className="max-h-56 overflow-auto">
-              {earnings.recent.length === 0 ? (
-                <div className="px-2 py-10 text-center text-[11px] text-[#6b7280]">No referral activity yet</div>
-              ) : (
-                <table className="w-full border-collapse text-left text-[11px]">
-                  <thead className="sticky top-0" style={{ backgroundColor: PANEL2 }}>
-                    <tr className="border-b" style={{ borderColor: BORDER }}>
-                      <th className="px-2 py-1 text-[#6b7280]">Referrals</th>
-                      <th className="px-2 py-1 text-right text-[#6b7280]">TON</th>
-                      <th className="px-2 py-1 text-right text-[#6b7280]">Status</th>
-                      <th className="px-2 py-1 text-right text-[#6b7280]">Age</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {earnings.recent.map((r, i) => (
-                      <tr key={r.id} className="border-b" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? BG : PANEL2 }}>
-                        <td className="px-2 py-1.5 text-white">Referral fee</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums text-[#5eead4]">{formatNumber(r.amountSol, { decimals: 5 })}</td>
-                        <td className="px-2 py-1.5 text-right text-[#9ca3af]">{r.paidOut ? 'Paid' : 'Pending'}</td>
-                        <td className="px-2 py-1.5 text-right text-[#6b7280]">{formatRelativeTime(r.createdAt)}</td>
+            {/* Breakdown + charts */}
+            <div className="grid gap-4 lg:grid-cols-3">
+              <GlassPanel variant="quiet" glow="cyan" className="p-4 lg:col-span-2">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
+                  <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Points breakdown</h3>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/90 ring-1 ring-cyan-400/15">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-glow/35 opacity-60" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-primary" />
+                    </span>
+                    Ledger live
+                  </span>
+                </div>
+                <div className="max-h-[220px] overflow-auto rounded-xl border border-white/[0.05] bg-bg-base/40 ring-1 ring-white/[0.03]">
+                  <table className="w-full border-collapse text-left text-[12px]">
+                    <thead className="sticky top-0 z-[1] bg-bg-raised/95 backdrop-blur">
+                      <tr className="border-b border-border-subtle">
+                        <th className="px-3 py-2 font-medium text-fg-muted">Source</th>
+                        <th className="px-3 py-2 text-right font-medium text-fg-muted">Points</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                    </thead>
+                    <tbody>
+                      {points.breakdown.length === 0 ? (
+                        <tr>
+                          <td colSpan={2} className="px-3 py-8 text-center text-fg-muted">
+                            No scored events yet — trade and use the terminal to accrue.
+                          </td>
+                        </tr>
+                      ) : (
+                        points.breakdown.map((row) => (
+                          <tr key={row.event_type} className="border-b border-border-subtle/80 last:border-0">
+                            <td className="px-3 py-2 font-mono text-[11px] text-fg-secondary">{row.event_type}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-fg-primary">{formatNumber(row.total)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </GlassPanel>
+
+              <GlassPanel variant="secondary" className="flex flex-col p-4 ring-1 ring-violet-400/10">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Accrual visual</h3>
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-violet-200/70">Synthetic</span>
+                </div>
+                <AccrualSparkline />
+                <p className="mt-3 text-[11px] leading-relaxed text-fg-muted">
+                  Illustrative series — full historical curves ship with analytics rollout.
+                </p>
+              </GlassPanel>
             </div>
-          </section>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <GlassPanel variant="quiet" className="p-4">
+                <h3 className="mb-1 text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Settlement</h3>
+                <p className="mb-4 text-[11px] leading-relaxed text-fg-secondary">
+                  Claims and reward pools follow seasonal disclosure. Nothing here incentivizes posting on social
+                  platforms.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-white/[0.06] bg-bg-base/50 px-2 py-2.5 text-center ring-1 ring-white/[0.03]">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Pending</p>
+                    <p className="text-[15px] font-semibold tabular-nums text-fg-muted">—</p>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.06] bg-bg-base/50 px-2 py-2.5 text-center ring-1 ring-white/[0.03]">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Ready</p>
+                    <p className="text-[15px] font-semibold tabular-nums text-fg-muted">—</p>
+                  </div>
+                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.07] px-2 py-2.5 text-center ring-1 ring-cyan-400/15">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Season</p>
+                    <p className="text-[13px] font-semibold text-fg-primary">
+                      {POINTS_SEASON_LABEL.split('—')[0]?.trim() ?? 'S1'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="mt-4 w-full cursor-not-allowed rounded-xl border border-white/[0.06] bg-bg-sunken/80 py-2.5 text-[12px] font-medium text-fg-muted ring-1 ring-white/[0.04]"
+                >
+                  No claim available
+                </button>
+              </GlassPanel>
+
+              <GlassPanel variant="quiet" glow="cyan" className="p-4 lg:col-span-2">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
+                  <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Referral activity</h3>
+                  <div className="flex gap-3 text-[11px] tabular-nums text-fg-secondary">
+                    <span>
+                      Codes <span className="text-fg-primary">{refCode.usesCount}</span>
+                    </span>
+                    <span>
+                      Referred <span className="text-fg-primary">{refCode.referredCount}</span>
+                    </span>
+                  </div>
+                </div>
+                <div className="max-h-52 overflow-auto rounded-lg border border-border-subtle">
+                  {earnings.recent.length === 0 ? (
+                    <div className="px-3 py-10 text-center text-[12px] text-fg-muted">No referral fees yet</div>
+                  ) : (
+                    <table className="w-full border-collapse text-left text-[12px]">
+                      <thead className="sticky top-0 bg-bg-raised/95 backdrop-blur">
+                        <tr className="border-b border-border-subtle">
+                          <th className="px-3 py-2 font-medium text-fg-muted">Type</th>
+                          <th className="px-3 py-2 text-right font-medium text-fg-muted">SOL</th>
+                          <th className="px-3 py-2 text-right font-medium text-fg-muted">Status</th>
+                          <th className="px-3 py-2 text-right font-medium text-fg-muted">Age</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {earnings.recent.map((r, i) => (
+                          <tr
+                            key={r.id}
+                            className={cn(
+                              'border-b border-border-subtle/80 last:border-0',
+                              i % 2 === 0 ? 'bg-bg-base/40' : 'bg-transparent',
+                            )}
+                          >
+                            <td className="px-3 py-2 text-fg-primary">Referral fee</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-signal-bull">
+                              {formatNumber(r.amountSol, { decimals: 5 })}
+                            </td>
+                            <td className="px-3 py-2 text-right text-fg-secondary">{r.paidOut ? 'Paid' : 'Pending'}</td>
+                            <td className="px-3 py-2 text-right text-fg-muted">{formatRelativeTime(r.createdAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </GlassPanel>
+            </div>
+          </div>
         </div>
       ) : null}
 
-      {tab === 'leaderboard' ? (
-        <div className="min-h-0 flex-1 overflow-auto p-2">
-          <section className="rounded border p-3" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-            <div className="mx-auto flex max-w-[260px] flex-col items-center text-center">
-              <div className="h-14 w-14 rounded-md border p-1" style={{ borderColor: '#6ea7ff', backgroundColor: '#20263a' }}>
-                <div className="h-full w-full rounded bg-[#f3b34c]" />
+      {tab === 'referral' ? (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <Suspense
+            fallback={
+              <div className="flex min-h-[300px] items-center justify-center">
+                <Loader2 className="h-7 w-7 animate-spin text-accent-primary" />
               </div>
-              <p className="mt-1 text-[11px] text-[#d1d5db]">{username}</p>
-              <p className="text-[22px] font-semibold leading-tight text-white">{formatNumber(points.totalPoints)}</p>
-              <div className="mt-1 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px]" style={{ borderColor: BORDER }}>
-                <Medal className="h-3 w-3 text-[#a78bfa]" /> Rank #{you?.rank ?? points.rank ?? 0}
-              </div>
-            </div>
-          </section>
+            }
+          >
+            <ReferralDashboard className="min-h-0 flex-1" />
+          </Suspense>
+        </div>
+      ) : null}
 
-          <section className="mt-2 rounded border" style={{ borderColor: BORDER, backgroundColor: PANEL }}>
-            <div className="flex items-center justify-between border-b px-2 py-1" style={{ borderColor: BORDER }}>
-              <span className="text-[11px] font-semibold text-white">Points Leaderboard</span>
-              <div className="flex items-center gap-1">
-                <div className="flex items-center gap-1 rounded border px-2 py-0.5" style={{ borderColor: BORDER, backgroundColor: BG }}>
-                  <Search className="h-3 w-3 text-[#6b7280]" />
-                  <input
-                    value={searchLb}
-                    onChange={(e) => setSearchLb(e.target.value)}
-                    placeholder="Search username or wallet"
-                    className="w-36 border-0 bg-transparent text-[10px] text-white outline-none placeholder:text-[#4b5563]"
-                  />
+      {tab === 'leaderboard' && points && refCode && lb ? (
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          <HeroBackdrop />
+          <div className="relative space-y-6 p-4 sm:p-5 lg:p-6">
+            <GlassPanel variant="hero" glow="violet" className="p-6 sm:p-8">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-500/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-violet-100/90 shadow-[0_0_28px_-12px_rgba(167,139,250,0.55)] ring-1 ring-violet-400/25">
+                  <Trophy className="h-4 w-4 text-violet-200" />
+                  <span className="text-fg-secondary">Leaderboard</span>
+                  <span className="h-1 w-1 rounded-full bg-violet-300 shadow-[0_0_8px_rgba(167,139,250,0.9)]" />
+                  <span className="normal-case tracking-normal text-fg-muted">{POINTS_SEASON_LABEL}</span>
                 </div>
-                {['1', '2', '3', '4', 'YOU'].map((p) => (
-                  <button key={p} className={cn('rounded px-1.5 py-1 text-[10px] font-semibold', p === '1' ? 'bg-white/10 text-white' : 'text-[#9ca3af] hover:text-white')}>
-                    {p}
-                  </button>
-                ))}
+                <div className="mb-3 flex items-center justify-center gap-3">
+                  <RankSeal label={rankState.tier.label} />
+                  <div className="text-left">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted">Operator</p>
+                    <p className="text-[13px] font-semibold text-fg-primary">{displayName}</p>
+                  </div>
+                </div>
+                <p className="bg-gradient-to-br from-white via-fg-primary to-fg-secondary bg-clip-text text-[clamp(1.65rem,4.5vw,2.35rem)] font-bold tabular-nums tracking-tight text-transparent drop-shadow-[0_0_28px_rgba(167,139,250,0.25)]">
+                  {formatNumber(points.totalPoints)}
+                </p>
+                <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-bg-base/50 px-4 py-2 text-[12px] shadow-inner ring-1 ring-white/[0.06]">
+                  <span className="text-fg-muted">Season rank</span>
+                  <span className="font-bold tabular-nums text-accent-glow drop-shadow-[0_0_12px_rgba(0,163,224,0.45)]">
+                    #{you?.rank ?? points.rank ?? '—'}
+                  </span>
+                  <span className="text-fg-muted">·</span>
+                  <span className="font-semibold text-violet-200/95">{rankState.tier.label}</span>
+                </div>
               </div>
+            </GlassPanel>
+
+            <div className="flex flex-wrap gap-2.5">
+              {(
+                [
+                  ['traders', 'Traders', Trophy],
+                  ['referrers', 'Referrers', Users],
+                  ['creators', 'Creators', Activity],
+                ] as const
+              ).map(([id, label, Icon]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setLeaderboardBoard(id)}
+                  className={cn(
+                    'focus-ring btn-press inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[12px] font-medium transition-all duration-200',
+                    leaderboardBoard === id
+                      ? 'border-cyan-400/45 bg-bg-hover text-fg-primary shadow-[0_0_28px_-10px_rgba(0,163,224,0.55)] ring-2 ring-cyan-400/25'
+                      : 'border-border-subtle/90 text-fg-muted hover:border-violet-400/35 hover:bg-bg-hover/60 hover:text-fg-secondary',
+                  )}
+                >
+                  <Icon className={cn('h-3.5 w-3.5', leaderboardBoard === id ? 'text-accent-glow' : 'opacity-75')} />
+                  {label}
+                </button>
+              ))}
             </div>
 
-            <div className="max-h-[52vh] overflow-auto">
-              <table className="w-full border-collapse text-left text-[11px]">
-                <thead className="sticky top-0" style={{ backgroundColor: PANEL2 }}>
-                  <tr className="border-b" style={{ borderColor: BORDER }}>
-                    <th className="px-2 py-1 text-[#6b7280]">Rank</th>
-                    <th className="px-2 py-1 text-[#6b7280]">User ID</th>
-                    <th className="px-2 py-1 text-right text-[#6b7280]">Total Points</th>
-                    <th className="px-2 py-1 text-right text-[#6b7280]">Trading</th>
-                    <th className="px-2 py-1 text-right text-[#6b7280]">Referrals</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lb.rows.map((r, i) => (
-                    <tr key={r.user_id} className="border-b" style={{ borderColor: BORDER, backgroundColor: i % 2 === 0 ? BG : PANEL2 }}>
-                      <td className="px-2 py-1.5 text-white">{r.rank}</td>
-                      <td className="px-2 py-1.5 text-[#d1d5db]">{r.username ?? shortenAddress(r.wallet_address ?? r.user_id, 4)}</td>
-                      <td className="px-2 py-1.5 text-right">
-                        <span className="rounded-full border px-2 py-0.5 tabular-nums text-white" style={{ borderColor: BORDER }}>
-                          {formatNumber(r.total_points)}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1.5 text-right text-[#9ca3af]">{formatNumber(Math.max(0, r.total_points - r.active_days * 10))}</td>
-                      <td className="px-2 py-1.5 text-right text-[#9ca3af]">{formatNumber(r.active_days * 10)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+            {leaderboardBoard === 'traders' ? (
+              <GlassPanel variant="secondary" className="overflow-hidden shadow-[0_20px_60px_-40px_rgba(0,0,0,0.9)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] bg-bg-base/30 px-4 py-3 backdrop-blur-sm">
+                  <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Trader standings</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-bg-sunken/70 px-2.5 py-1.5 ring-1 ring-white/[0.04]">
+                      <Search className="h-3.5 w-3.5 text-fg-muted" />
+                      <input
+                        value={searchLb}
+                        onChange={(e) => setSearchLb(e.target.value)}
+                        placeholder="Search username or wallet"
+                        className="w-40 border-0 bg-transparent text-[12px] text-fg-primary outline-none placeholder:text-fg-muted sm:w-48"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-bg-base/40 p-0.5 ring-1 ring-white/[0.04]">
+                      <button
+                        type="button"
+                        disabled={lbPage <= 1}
+                        onClick={() => setLbPage((p) => Math.max(1, p - 1))}
+                        className="focus-ring rounded-lg border border-transparent p-1.5 text-fg-muted transition hover:border-cyan-400/25 hover:bg-bg-hover hover:text-accent-glow disabled:opacity-35"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-[3.25rem] text-center tabular-nums text-[11px] font-semibold text-fg-secondary">
+                        {lbPage} / {Math.max(1, lb.tablePages)}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={lbPage >= lb.tablePages}
+                        onClick={() => setLbPage((p) => p + 1)}
+                        className="focus-ring rounded-lg border border-transparent p-1.5 text-fg-muted transition hover:border-cyan-400/25 hover:bg-bg-hover hover:text-accent-glow disabled:opacity-35"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="max-h-[min(56vh,520px)] overflow-auto">
+                  <table className="w-full border-collapse text-left text-[12px]">
+                    <thead className="sticky top-0 z-[1] bg-bg-raised/95 backdrop-blur">
+                      <tr className="border-b border-border-subtle">
+                        <th className="px-3 py-2 font-medium text-fg-muted">Rank</th>
+                        <th className="px-3 py-2 font-medium text-fg-muted">Operator</th>
+                        <th className="px-3 py-2 text-right font-medium text-fg-muted">Points</th>
+                        <th className="px-3 py-2 text-right font-medium text-fg-muted">Active days</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lb.rows.map((r, i) => (
+                        <tr
+                          key={r.user_id}
+                          className={cn(
+                            'border-b border-border-subtle/80 transition hover:bg-bg-hover/40',
+                            i % 2 === 0 ? 'bg-bg-base/30' : '',
+                          )}
+                        >
+                          <td className="px-3 py-2.5 tabular-nums text-fg-secondary">{r.rank}</td>
+                          <td className="px-3 py-2.5 text-fg-primary">
+                            {r.username ?? shortenAddress(r.wallet_address ?? r.user_id, 4)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span className="rounded-md border border-border-subtle bg-bg-sunken/50 px-2 py-0.5 tabular-nums font-medium">
+                              {formatNumber(r.total_points)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-fg-secondary">{r.active_days}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="border-t border-white/[0.06] bg-bg-base/25 px-4 py-2.5 text-[11px] text-fg-muted">
+                  Showing {lb.rows.length} of {lb.tableTotal} · anti-sybil weighting applies off-chain
+                </div>
+              </GlassPanel>
+            ) : (
+              <GlassPanel variant="secondary" glow="violet" className="p-10 text-center ring-1 ring-violet-400/15">
+                <p className="text-[15px] font-semibold tracking-tight text-fg-primary">
+                  {leaderboardBoard === 'referrers' ? 'Referrer standings' : 'Creator standings'}
+                </p>
+                <p className="mx-auto mt-3 max-w-md text-[12px] leading-relaxed text-fg-secondary">
+                  {leaderboardBoard === 'referrers'
+                    ? 'A dedicated referrer ladder with acquisition quality metrics is shipping — volume-weighted invites and retention, not vanity followers.'
+                    : 'Creator and operator boards are curated — application-only, attribution via referral links and disclosed volume impact.'}
+                </p>
+              </GlassPanel>
+            )}
+          </div>
         </div>
       ) : null}
 
       {tab === 'benefits' ? (
-        <div className="min-h-0 flex-1 overflow-auto p-2">
-          <p className="mb-3 max-w-3xl text-[11px] leading-snug text-[#9ca3af]">
-            Pointer runs on <span className="text-white">TON</span>. Points, leaderboard rankings, and referral rewards
-            are native to Pointer—Solana-only partner tiles have been removed. Third-party TON protocol perks will show
-            up here when we integrate claim flows.
-          </p>
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          <HeroBackdrop />
+          <div className="relative z-[1] space-y-6 p-4 sm:p-5 lg:p-6">
+            <GlassPanel variant="primary" className="p-5 sm:p-6">
+              <h2 className="text-[12px] font-bold uppercase tracking-[0.16em] text-violet-100/90">Benefits</h2>
+              <p className="mt-3 max-w-3xl text-[12px] leading-relaxed text-fg-secondary">
+                Pointer Points tracks usage across connected ecosystems — Solana, TON, Base, BNB, Hyperliquid — as
+                campaigns go live. Perks follow integrations and seasonal disclosure; nothing here pays you for spamming
+                timelines.
+              </p>
+            </GlassPanel>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <BenefitCard
               title="Pointer Points"
-              description="Earn points from trading, trackers, and activity on Pointer. Everything is scored against your TON wallets."
-              accent="#38bdf8"
-              button="Open Points"
-              href="/points"
+              description="Earn from trading volume, retention, referrals, and verified identity — transparent seasonal rules."
+              accent="var(--accent-primary)"
+              button="Open rewards"
+              href="/points?tab=rewards"
             />
             <BenefitCard
-              title="Leaderboard"
-              description="Climb seasonal ranks and compare your score with the rest of the community."
+              title="Leaderboards"
+              description="Separate prestige rails for traders, referrers, and creators — credibility without engagement farming."
               accent="#a78bfa"
               button="View leaderboard"
-              href="/leaderboard"
+              href="/points?tab=leaderboard"
             />
             <BenefitCard
               title="Referrals"
-              description="Share your referral code and earn when friends trade on Pointer."
-              accent="#4ade80"
-              button="Open referrals"
-              href="/referral"
+              description="Share your code and earn when invited operators trade — quality-weighted where configured."
+              accent="var(--signal-bull)"
+              button="Referral desk"
+              href="/points?tab=referral"
             />
             <BenefitCard
-              title="TON DEX activity"
-              description="Volume routed through Pulse on launchpads and TON DEX routes (e.g. STON.fi, DeDust) counts toward Pointer Points. Direct reward claims from those protocols are not live yet in this UI."
-              accent="#67e8f9"
-              button="Coming soon"
+              title="DEX & routing activity"
+              description="Volume through Pulse and routed venues counts toward trading signals. Third-party protocol claims appear when integrations ship."
+              accent="var(--signal-info)"
+              button="Trade"
+              href="/"
             />
+            </div>
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function BenefitCard({
+  title,
+  description,
+  accent,
+  button,
+  href,
+}: {
+  title: string;
+  description: string;
+  accent: string;
+  button: string;
+  href?: string;
+}) {
+  const ctaClass =
+    'mt-3 inline-flex w-full justify-center rounded-lg px-3 py-2 text-[12px] font-semibold text-fg-inverse transition hover:brightness-110';
+  const cta = href ? (
+    <Link href={href} className={ctaClass} style={{ backgroundColor: accent }}>
+      {button}
+    </Link>
+  ) : (
+    <button type="button" disabled className={cn(ctaClass, 'cursor-not-allowed opacity-50 hover:brightness-100')}>
+      {button}
+    </button>
+  );
+  return (
+    <GlassPanel
+      variant="secondary"
+      className="group flex min-h-[200px] flex-col p-4 transition duration-300 hover:-translate-y-0.5 hover:border-white/12 hover:shadow-[0_16px_48px_-32px_rgba(0,0,0,0.85)]"
+    >
+      <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold">
+        <span
+          className="h-2 w-2 rounded-full shadow-[0_0_14px_currentColor] transition group-hover:scale-110"
+          style={{ backgroundColor: accent }}
+        />
+        {title}
+      </div>
+      <p className="flex-1 text-[12px] leading-relaxed text-fg-secondary">{description}</p>
+      {cta}
+    </GlassPanel>
   );
 }

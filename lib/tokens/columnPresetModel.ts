@@ -79,6 +79,10 @@ export type ColumnFilters = z.infer<typeof ColumnFiltersSchema>;
 export const BUY_BUTTON_STYLES = ['small', 'medium', 'large', 'ultra'] as const;
 export type BuyButtonStyle = (typeof BUY_BUTTON_STYLES)[number];
 
+/** Optional second action on Pulse rows (left of primary quick buy). */
+export const PULSE_SECOND_BUTTON_MODES = ['none', 'buy', 'sell_pct'] as const;
+export type PulseSecondButtonMode = (typeof PULSE_SECOND_BUTTON_MODES)[number];
+
 /** MC in the metric strip vs prominent top-right (Axiom-style). */
 export const MC_LAYOUTS = ['strip', 'hero'] as const;
 export type McLayout = (typeof MC_LAYOUTS)[number];
@@ -100,8 +104,13 @@ export const ColumnDisplayOptionsSchema = z
     showPumpFrame: z.boolean().default(true),
     /** Cashback / agent / fee-share glyphs in the row. */
     showTraitIcons: z.boolean().default(true),
-    /** Quick buy size for this column only (SOL). */
+    /** Quick buy size for this column only (native units e.g. TON). */
     quickBuySol: z.number().positive().max(1_000_000).default(0.5),
+    /** Extra quick-buy amount when second button mode is `buy`. */
+    secondQuickBuySol: z.number().positive().max(1_000_000).default(2),
+    /** Sell portion when second button mode is `sell_pct`. */
+    secondSellPct: z.number().int().min(1).max(100).default(25),
+    pulseSecondButton: z.enum(PULSE_SECOND_BUTTON_MODES).default('none'),
   })
   .strict();
 
@@ -150,6 +159,9 @@ export const DEFAULT_COLUMN_DISPLAY_OPTIONS: ColumnDisplayOptions = {
   showPumpFrame: true,
   showTraitIcons: true,
   quickBuySol: 0.5,
+  secondQuickBuySol: 2,
+  secondSellPct: 25,
+  pulseSecondButton: 'none',
 };
 
 export function normalizeColumnFilters(raw: unknown): ColumnFilters {

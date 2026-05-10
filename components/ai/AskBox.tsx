@@ -9,11 +9,11 @@ import type { TooltipOutput } from '@/lib/ai/schemas';
 import type { EntityRef } from '@/store/ui';
 
 const COPILOT = {
-  card: '#11141b',
-  border: '#202636',
-  elevated: '#151924',
-  muted: '#7f8aa3',
-  text: '#f5f7ff',
+  card: 'rgba(255, 255, 255, 0.04)',
+  border: 'rgba(255, 255, 255, 0.1)',
+  elevated: 'rgba(255, 255, 255, 0.07)',
+  muted: '#9ba3b0',
+  text: '#f0f4fc',
   accent: '#0077b6',
 } as const;
 
@@ -111,7 +111,7 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
 
   return (
     <div
-      className="rounded-xl border px-3 py-2.5"
+      className="rounded-2xl border px-3 py-3 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
       style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card }}
     >
       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: COPILOT.text }}>

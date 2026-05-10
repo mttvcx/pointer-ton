@@ -3,7 +3,7 @@ import { subMinutes } from 'date-fns';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { createAdminSupabase } from '@/lib/supabase/server';
-import { PULSE_THRESHOLDS } from '@/lib/utils/constants';
+import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 
@@ -161,6 +161,71 @@ export async function listPulseStretchTokens(limit: number): Promise<TokenRow[]>
   return (tokens ?? []).sort(
     (a, b) => (order.get(a.mint) ?? 999) - (order.get(b.mint) ?? 999),
   );
+}
+
+/** Scan deeper than {@link listPulseNewTokens}: avoid empty Pulse columns when recent rows are mostly other chains. */
+const PULSE_FEED_SCAN_DEPTH = 4000;
+
+/**
+ * Pulse column feed scoped to `chain`. Queries a wide candidate set then filters by
+ * {@link mintMatchesAppChain} so SOL/BNB/Base aren’t starved when TON fills the latest slots.
+ */
+export async function listPulseFeedTokens(
+  column: PulseColumnId,
+  chain: AppChainId,
+  limit: number,
+): Promise<TokenRow[]> {
+  const supabase = createAdminSupabase();
+
+  if (column === 'new') {
+    const since = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
+    const recent = await listRecentTokens(PULSE_FEED_SCAN_DEPTH);
+    return recent
+      .filter((t) => t.created_at >= since && mintMatchesAppChain(t.mint, chain))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit);
+  }
+
+  if (column === 'migrated') {
+    const { data, error } = await supabase
+      .from('tokens')
+      .select('*')
+      .not('migrated_at', 'is', null)
+      .order('migrated_at', { ascending: false })
+      .limit(1200);
+    if (error) throw new Error(`listPulseFeedTokens(migrated) failed: ${error.message}`);
+    return (data ?? []).filter((t) => mintMatchesAppChain(t.mint, chain)).slice(0, limit);
+  }
+
+  const { data: snaps, error } = await supabase
+    .from('token_market_snapshots')
+    .select('mint, liquidity_usd, holder_count, snapshot_at')
+    .gte('liquidity_usd', PULSE_THRESHOLDS.stretchMinLiquidityUsd)
+    .gte('holder_count', PULSE_THRESHOLDS.stretchMinHolders)
+    .order('snapshot_at', { ascending: false })
+    .limit(1600);
+  if (error) throw new Error(`listPulseFeedTokens(stretch snaps) failed: ${error.message}`);
+
+  const seen = new Set<string>();
+  const orderedMints: string[] = [];
+  for (const s of snaps ?? []) {
+    const m = (s as { mint: string }).mint;
+    if (seen.has(m)) continue;
+    seen.add(m);
+    orderedMints.push(m);
+  }
+  if (orderedMints.length === 0) return [];
+
+  const { data: tokens, error: tErr } = await supabase.from('tokens').select('*').in('mint', orderedMints);
+  if (tErr) throw new Error(`listPulseFeedTokens(stretch tokens) failed: ${tErr.message}`);
+  const map = new Map((tokens ?? []).map((t) => [t.mint, t]));
+  const out: TokenRow[] = [];
+  for (const m of orderedMints) {
+    const t = map.get(m);
+    if (t && mintMatchesAppChain(t.mint, chain)) out.push(t);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 /** Map each mint to its most recent snapshot row (global sort desc, first wins). */

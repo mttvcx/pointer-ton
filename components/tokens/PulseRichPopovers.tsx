@@ -42,25 +42,35 @@ export function PulseRichHover({
   };
 
   return (
-    <span
-      className="relative inline-flex"
-      onMouseEnter={() => {
-        clear();
-        t.current = setTimeout(() => setOpen(true), 100);
-      }}
-      onMouseLeave={() => {
-        clear();
-        t.current = setTimeout(() => setOpen(false), 200);
-      }}
-    >
-      {children}
+    <span className="relative isolate inline-flex">
+      <span
+        className="inline-flex"
+        onMouseEnter={() => {
+          clear();
+          t.current = setTimeout(() => setOpen(true), 100);
+        }}
+        onMouseLeave={() => {
+          clear();
+          t.current = setTimeout(() => setOpen(false), 200);
+        }}
+      >
+        {children}
+      </span>
       {open ? (
         <div
           className={cn(
             'pointer-events-auto absolute left-1/2 top-[calc(100%+10px)] z-[100] max-h-[min(72vh,30rem)] max-w-[calc(100vw-1.25rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden',
-            'rounded-2xl border border-white/[0.07] bg-[#08090b]/97 shadow-[0_28px_70px_-16px_rgba(0,0,0,0.88),inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-xl',
+            'rounded-2xl border border-white/[0.08] bg-[#0f1419]/[0.98] shadow-[0_28px_70px_-16px_rgba(0,0,0,0.88),inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-xl',
             wide ? 'w-[19.5rem]' : 'w-[17.25rem]',
           )}
+          onMouseEnter={() => {
+            clear();
+            setOpen(true);
+          }}
+          onMouseLeave={() => {
+            clear();
+            t.current = setTimeout(() => setOpen(false), 200);
+          }}
           role="dialog"
           aria-label="Details"
         >
@@ -94,14 +104,20 @@ export function TwitterProfileHoverPanel({
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl">
-      <div className="relative h-12 w-full overflow-hidden bg-gradient-to-b from-white/[0.07] to-[#0a0b0d]">
+      <div className="relative h-12 w-full overflow-hidden bg-gradient-to-b from-[#1a2332]/90 to-[#0d1117]">
         <TokenImage
           src={token.image_url}
           alt=""
           size={400}
-          className="!h-12 !w-full !rounded-none !object-cover opacity-[0.25] brightness-[0.4]"
+          className="!h-12 !w-full !rounded-none !object-cover opacity-[0.22] brightness-[0.45]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#08090b] via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0f1419] via-transparent to-transparent" />
+        <span
+          className="absolute right-2.5 top-2 text-[13px] font-bold leading-none text-white/90"
+          aria-hidden
+        >
+          𝕏
+        </span>
       </div>
       <div className="relative -mt-4 flex flex-col gap-2 px-3 pb-3 pt-0">
         <div className="flex items-end gap-2">
@@ -109,7 +125,7 @@ export function TwitterProfileHoverPanel({
             src={token.image_url}
             alt={token.symbol ?? ''}
             size={48}
-            className="!rounded-xl ring-2 ring-[#121316]"
+            className="!rounded-full ring-2 ring-[#15202b]"
           />
           <div className="min-w-0 flex-1 pb-0.5">
             <p className="truncate text-[13px] font-semibold text-white">{token.name ?? '-'}</p>

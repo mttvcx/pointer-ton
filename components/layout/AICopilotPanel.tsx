@@ -45,15 +45,17 @@ const COPILOT_DOCK_ZONE_PX = 88;
 
 /** Panel chrome colors (matches `ContextCard` COPILOT tokens + layout-specific fields). */
 const COPILOT_CHROME = {
-  card: '#11141b',
-  border: '#202636',
+  /** Glass panels — translucent so backdrop blur reads through */
+  card: 'rgba(17, 20, 27, 0.52)',
+  border: 'rgba(255, 255, 255, 0.09)',
   muted: '#7f8aa3',
   text: '#f5f7ff',
   accent: '#0077b6',
   cyan: '#34d5ff',
-  bg: '#080d14',
+  bg: 'rgba(8, 13, 20, 0.42)',
   success: '#28e0a0',
-  glass: 'linear-gradient(180deg, rgba(17,20,27,0.98) 0%, rgba(11,13,18,0.96) 100%)',
+  glass:
+    'linear-gradient(180deg, rgba(17,20,27,0.55) 0%, rgba(8,13,20,0.48) 55%, rgba(6,9,14,0.5) 100%)',
 } as const;
 
 type FloatEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -589,7 +591,7 @@ export function AICopilotPanel() {
         )}
         style={{
           borderColor: COPILOT_CHROME.border,
-          background: `linear-gradient(180deg, ${COPILOT_CHROME.card} 0%, ${COPILOT_CHROME.bg} 100%)`,
+          background: `linear-gradient(180deg, rgba(17,20,27,0.58) 0%, rgba(8,13,20,0.38) 100%)`,
         }}
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -598,7 +600,7 @@ export function AICopilotPanel() {
             style={{
               borderColor: `${COPILOT_CHROME.accent}55`,
               boxShadow: `0 0 16px -4px ${COPILOT_CHROME.accent}66`,
-              backgroundColor: '#151924',
+              backgroundColor: 'rgba(21, 25, 36, 0.65)',
             }}
           >
             <Sparkles className="h-4 w-4" style={{ color: COPILOT_CHROME.cyan }} strokeWidth={2.25} />
@@ -624,7 +626,11 @@ export function AICopilotPanel() {
                         ? COPILOT_CHROME.accent
                         : COPILOT_CHROME.muted,
                   backgroundColor:
-                    copilotStatus === 'idle' ? '#0f1218' : copilotStatus === 'watching' ? `${COPILOT_CHROME.accent}12` : `${COPILOT_CHROME.cyan}10`,
+                    copilotStatus === 'idle'
+                      ? 'rgba(15, 18, 24, 0.55)'
+                      : copilotStatus === 'watching'
+                        ? `${COPILOT_CHROME.accent}12`
+                        : `${COPILOT_CHROME.cyan}10`,
                   boxShadow:
                     copilotStatus === 'armed'
                       ? `0 0 12px -2px ${COPILOT_CHROME.cyan}55`
@@ -730,13 +736,13 @@ export function AICopilotPanel() {
       </div>
 
       <div
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         style={{
-          backgroundColor: COPILOT_CHROME.bg,
+          backgroundColor: 'transparent',
           paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
         }}
       >
-        <div className="flex flex-col gap-2 pb-2">
+        <div className="flex flex-col gap-3 pb-2">
           <ContextCard entity={entity} />
           <AskBox entity={entity} />
           {alertRulesDocked ? null : alertRulesPopped ? (
@@ -752,7 +758,7 @@ export function AICopilotPanel() {
         className="flex shrink-0 items-center gap-3 border-t px-2.5 py-2 text-[10px] backdrop-blur-md"
         style={{
           borderColor: COPILOT_CHROME.border,
-          backgroundColor: COPILOT_CHROME.card,
+          backgroundColor: 'rgba(17, 20, 27, 0.45)',
           color: COPILOT_CHROME.muted,
         }}
       >
@@ -795,7 +801,7 @@ export function AICopilotPanel() {
           <aside
             ref={floatAsideRef}
             data-onboarding="copilot"
-            className="relative flex min-h-0 flex-col overflow-hidden rounded-xl shadow-2xl backdrop-blur-xl"
+            className="relative flex min-h-0 flex-col overflow-hidden rounded-xl shadow-[0_24px_56px_-18px_rgba(0,0,0,0.55)] backdrop-blur-2xl backdrop-saturate-150"
             style={{
               position: 'fixed',
               zIndex: 260,
@@ -813,7 +819,7 @@ export function AICopilotPanel() {
               borderStyle: 'solid',
               borderColor: COPILOT_CHROME.border,
               background: COPILOT_CHROME.glass,
-              boxShadow: '0 24px 48px -12px rgba(0,0,0,0.55)',
+              boxShadow: '0 28px 56px -16px rgba(0,0,0,0.5)',
             }}
             aria-label="AI co-pilot floating"
             onPointerDown={onFloatShellPointerDown}
@@ -852,8 +858,8 @@ export function AICopilotPanel() {
       <aside
         data-onboarding="copilot"
         className={cn(
-          'relative flex h-full min-h-0 flex-col bg-[#080d14]/95 backdrop-blur-md',
-          copilotRailSide === 'left' ? 'border-r border-[#202636]' : 'border-l border-[#202636]',
+          'relative flex h-full min-h-0 flex-col border-white/[0.07] bg-[rgba(8,13,20,0.48)] backdrop-blur-xl backdrop-saturate-150',
+          copilotRailSide === 'left' ? 'border-r' : 'border-l',
           narrow
             ? cn(
                 open

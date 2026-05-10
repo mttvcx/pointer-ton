@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import type { ExplainTokenOutput, ExplainWalletOutput } from '@/lib/ai/schemas';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
-import { useUIStore, type EntityRef } from '@/store/ui';
+import { selectCopilotSurfaceOpen, useUIStore, type EntityRef } from '@/store/ui';
 import { shortenAddress } from '@/lib/utils/addresses';
 
 const HOVER_DEBOUNCE_MS = 350;
@@ -60,6 +60,7 @@ export type CopilotPillInsight = {
 
 export function useCopilotPillInsight(alerts: AlertsTickerItem[] | undefined): CopilotPillInsight {
   const hovered = useUIStore((s) => s.hoveredEntity);
+  const copilotSurfaceOpen = useUIStore(selectCopilotSurfaceOpen);
   const debouncedHover = useDebouncedEntity(hovered);
   const { authenticated, getAccessToken } = usePointerAuth();
 
@@ -67,7 +68,7 @@ export function useCopilotPillInsight(alerts: AlertsTickerItem[] | undefined): C
 
   const explainQ = useQuery({
     queryKey: ['copilot-pill-explain', debouncedHover?.type, debouncedHover?.id] as const,
-    enabled: Boolean(authenticated && debouncedHover),
+    enabled: Boolean(authenticated && debouncedHover && copilotSurfaceOpen),
     staleTime: 60_000,
     retry: 0,
     queryFn: async () => {

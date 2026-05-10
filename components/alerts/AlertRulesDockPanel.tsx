@@ -66,7 +66,7 @@ export function AlertRulesDockPanel() {
   return (
     <aside
       aria-label="Alert builder docked"
-      className="relative flex h-full min-h-0 shrink-0 flex-col border-r border-[#1b1f2a] bg-[#080d14]/96 backdrop-blur-md"
+      className="relative flex h-full min-h-0 shrink-0 flex-col border-r border-white/[0.07] bg-[rgba(8,13,20,0.42)] backdrop-blur-xl backdrop-saturate-150"
       style={{ width, minWidth: width, maxWidth: width }}
     >
       <div
@@ -80,8 +80,7 @@ export function AlertRulesDockPanel() {
         onPointerCancel={onResizePointerUp}
       />
       <div
-        className="flex shrink-0 items-center justify-between gap-2 border-b border-[#1b1f2a] px-2 py-1.5"
-        style={{ backgroundColor: '#11141b' }}
+        className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] bg-gradient-to-b from-white/[0.06] to-transparent px-3 py-2 backdrop-blur-md"
       >
         <div className="min-w-0">
           <div className="truncate text-[11px] font-semibold text-fg-primary">Alert builder</div>
@@ -112,7 +111,7 @@ export function AlertRulesDockPanel() {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2 pr-3">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <AlertRulesSection embedInFloatingPanel />
       </div>
     </aside>

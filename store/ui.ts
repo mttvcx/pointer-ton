@@ -144,6 +144,19 @@ export function computeCopilotAlertsReadIso(alerts: { createdAt: string }[]): st
   return new Date(maxT).toISOString();
 }
 
+/**
+ * True when the co-pilot surface is visible and interactive (expanded rail, expanded pill, or floating window).
+ * When false, skip background AI + ticker work to avoid wasted API calls.
+ */
+export function selectCopilotSurfaceOpen(s: UIState): boolean {
+  if (s.copilotDisplayMode === 'pill') {
+    return s.copilotPillExpanded;
+  }
+  if (!s.panelOpen) return false;
+  if (s.copilotDetached) return true;
+  return !s.panelCollapsed;
+}
+
 export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({

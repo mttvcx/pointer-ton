@@ -72,7 +72,7 @@ export function PulseColumn({
   const presetSlot = usePulseColumnStore((s) => s.byColumn[column].presetSlot);
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
   const setPresetSlot = usePulseColumnStore((s) => s.setPresetSlot);
-  const setBuyButtonStyleAll = usePulseColumnStore((s) => s.setBuyButtonStyleAll);
+  const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
 
   const presetsQuery = useQuery({
     queryKey: ['pulse-column-presets', column],
@@ -107,9 +107,9 @@ export function PulseColumn({
 
   const feedItems = useMemo(() => {
     const raw = query.data?.items ?? [];
-    const allowSynthetic = uiDemo && activeChain === 'ton';
+    const allowSynthetic = uiDemo && (activeChain === 'ton' || activeChain === 'sol');
     if (allowSynthetic && !query.isLoading && !query.isError && raw.length === 0) {
-      return syntheticPulseFeedItems(column);
+      return syntheticPulseFeedItems(column, activeChain);
     }
     return raw;
   }, [column, query.data?.items, query.isLoading, query.isError, uiDemo, activeChain]);
@@ -145,7 +145,7 @@ export function PulseColumn({
     };
   }, [column, qc]);
 
-  const { buyToken, busyMint } = usePulseQuickBuy();
+  const { buyToken, sellTokenPct, busyMint } = usePulseQuickBuy();
 
   useEffect(() => {
     if (authenticated) setGuestDisplayPatch({});
@@ -248,9 +248,9 @@ export function PulseColumn({
   useEffect(() => {
     if (!activePresetRow || !authenticated) return;
     const disp = normalizeColumnDisplayOptions(activePresetRow.display_options);
-    setBuyButtonStyleAll(disp.buyButtonStyle);
+    setBuyButtonStyle(column, disp.buyButtonStyle);
     setQuickBuySol(column, disp.quickBuySol);
-  }, [column, presetSlot, displayOptionsSig, activePresetRow, authenticated, setBuyButtonStyleAll, setQuickBuySol]);
+  }, [column, presetSlot, displayOptionsSig, activePresetRow, authenticated, setBuyButtonStyle, setQuickBuySol]);
 
   const sortBy: ColumnSortKey = useMemo(() => {
     const raw = activePresetRow?.sort_by;
@@ -453,6 +453,12 @@ export function PulseColumn({
                     slotHeight={rowSize}
                     quoteSymbol={quoteSymbol}
                     onPulseQuickBuy={() => void buyToken(bundle.token.mint, quickBuySol)}
+                    onPulseSecondBuy={() =>
+                      void buyToken(bundle.token.mint, displayForRow.secondQuickBuySol)
+                    }
+                    onPulseQuickSell={() =>
+                      void sellTokenPct(bundle.token.mint, displayForRow.secondSellPct)
+                    }
                     pulseBuyBusy={busyMint === bundle.token.mint}
                     pulseBuyDisabled={busyMint !== null && busyMint !== bundle.token.mint}
                   />

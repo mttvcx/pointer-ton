@@ -24,3 +24,18 @@ export const CHAIN_TICKER: Record<AppChainId, string> = {
 };
 
 export const ORDERED_CHAINS: AppChainId[] = [...APP_CHAIN_IDS];
+
+/**
+ * Points ecosystem strip — same artwork as the header chain dropdown ({@link CHAIN_ICON_PNG}).
+ * Hyperliquid is not in {@link AppChainId}; add `/public/chains/hyperliquid.png` (optional fallback in UI).
+ */
+export const POINTS_ECOSYSTEM_CHAIN_ICON = {
+  sol: CHAIN_ICON_PNG.sol,
+  ton: CHAIN_ICON_PNG.ton,
+  base: CHAIN_ICON_PNG.base,
+  bnb: CHAIN_ICON_PNG.bnb,
+  /** Not in AppChainId; bundled vector (other chains use same PNGs as the header dropdown). */
+  hyperliquid: '/chains/hyperliquid.svg',
+} as const;
+
+export type PointsEcosystemIconId = keyof typeof POINTS_ECOSYSTEM_CHAIN_ICON;

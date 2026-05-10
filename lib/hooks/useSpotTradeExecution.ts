@@ -10,7 +10,19 @@ import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import { toast } from 'sonner';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
+import { useUIStore } from '@/store/ui';
+import {
+  addInstantTradeCostBasisTon,
+  clearInstantTradeCostBasisTon,
+  readInstantTradeCostBasisTon,
+} from '@/lib/trading/instantTradeCostBasis';
+import {
+  addInstantTradeBuyTon,
+  addInstantTradeSellTon,
+  readInstantTradeLifetimeStats,
+} from '@/lib/trading/instantTradeStats';
 
 type TradingPresetApi = {
   slot: PresetSlot;
@@ -37,6 +49,7 @@ export function tokenRawForSellPct(balanceRaw: string, pct: number): string | nu
 }
 
 export function useSpotTradeExecution(mint: string) {
+  const activeChain = useUIStore((s) => s.activeChain);
   const { getAccessToken, authenticated } = usePointerAuth();
   const qc = useQueryClient();
   const { submitFromQuote } = usePointerTradeSubmit();
@@ -95,6 +108,16 @@ export function useSpotTradeExecution(mint: string) {
 
   const balanceRaw = balanceData?.rawAmount ?? '0';
 
+  const costBasisTonSol = useMemo(() => {
+    if (!wallet?.address) return 0;
+    return readInstantTradeCostBasisTon(mint, wallet.address);
+  }, [mint, wallet?.address, balanceRaw]);
+
+  const lifetimeStats = useMemo(() => {
+    if (!wallet?.address) return { buyTon: 0, sellTon: 0 };
+    return readInstantTradeLifetimeStats(mint, wallet.address);
+  }, [mint, wallet?.address, balanceRaw]);
+
   const { data: presetsPayload } = useQuery({
     queryKey: ['trading-presets'],
     queryFn: async (): Promise<{ presets: TradingPresetApi[] } | null> => {
@@ -120,12 +143,15 @@ export function useSpotTradeExecution(mint: string) {
   const runBuy = useCallback(
     async (amountSol: number) => {
       if (!wallet) {
-        toast.error('Connect TON wallet');
+        toast.error(`Connect ${nativeTicker(activeChain)} wallet`);
         return;
       }
       if (activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
-          description: 'Use a wallet linked in TonConnect to trade.',
+          description:
+            activeChain === 'ton'
+              ? 'Use a wallet linked in TonConnect to trade.'
+              : 'This imported wallet cannot sign swaps in Pointer yet.',
         });
         return;
       }
@@ -178,7 +204,11 @@ export function useSpotTradeExecution(mint: string) {
           throw new Error(msg);
         }
         const ok = json as TradeQuoteApiOk;
-        if (!ok.tonConnect?.messages?.length || !ok.summary?.amountOutRaw) {
+        const executable =
+          ok.chain === 'sol'
+            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+        if (!executable) {
           throw new Error('No swap transaction from quote');
         }
 
@@ -194,6 +224,8 @@ export function useSpotTradeExecution(mint: string) {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
+        addInstantTradeCostBasisTon(mint, wallet.address, amountSol);
+        addInstantTradeBuyTon(mint, wallet.address, amountSol);
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       } catch (e) {
@@ -205,6 +237,7 @@ export function useSpotTradeExecution(mint: string) {
     [
       wallet,
       activeWalletRow?.is_imported,
+      activeChain,
       getAccessToken,
       mint,
       effectiveSlippageBps,
@@ -220,12 +253,15 @@ export function useSpotTradeExecution(mint: string) {
   const runSell = useCallback(
     async (sellPct: number) => {
       if (!wallet) {
-        toast.error('Connect TON wallet');
+        toast.error(`Connect ${nativeTicker(activeChain)} wallet`);
         return;
       }
       if (activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
-          description: 'Use a wallet linked in TonConnect to trade.',
+          description:
+            activeChain === 'ton'
+              ? 'Use a wallet linked in TonConnect to trade.'
+              : 'This imported wallet cannot sign swaps in Pointer yet.',
         });
         return;
       }
@@ -281,7 +317,11 @@ export function useSpotTradeExecution(mint: string) {
           throw new Error(msg);
         }
         const ok = json as TradeQuoteApiOk;
-        if (!ok.tonConnect?.messages?.length || !ok.summary?.amountOutRaw) {
+        const executable =
+          ok.chain === 'sol'
+            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+        if (!executable) {
           throw new Error('No swap transaction from quote');
         }
 
@@ -297,6 +337,11 @@ export function useSpotTradeExecution(mint: string) {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
+        const estOut =
+          typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
+            ? Math.max(0, ok.summary.amountSolEstimate)
+            : 0;
+        if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       } catch (e) {
@@ -308,6 +353,7 @@ export function useSpotTradeExecution(mint: string) {
     [
       wallet,
       activeWalletRow?.is_imported,
+      activeChain,
       balanceRaw,
       getAccessToken,
       mint,
@@ -322,14 +368,17 @@ export function useSpotTradeExecution(mint: string) {
   );
 
   const runSellSolOut = useCallback(
-    async (amountSolOut: number) => {
+    async (amountSolOut: number, opts?: { clearCostBasis?: boolean }) => {
       if (!wallet) {
-        toast.error('Connect TON wallet');
+        toast.error(`Connect ${nativeTicker(activeChain)} wallet`);
         return;
       }
       if (activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
-          description: 'Use a wallet linked in TonConnect to trade.',
+          description:
+            activeChain === 'ton'
+              ? 'Use a wallet linked in TonConnect to trade.'
+              : 'This imported wallet cannot sign swaps in Pointer yet.',
         });
         return;
       }
@@ -382,7 +431,11 @@ export function useSpotTradeExecution(mint: string) {
           throw new Error(msg);
         }
         const ok = json as TradeQuoteApiOk;
-        if (!ok.tonConnect?.messages?.length || !ok.summary?.amountOutRaw) {
+        const executable =
+          ok.chain === 'sol'
+            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+        if (!executable) {
           throw new Error('No swap transaction from quote');
         }
 
@@ -398,6 +451,14 @@ export function useSpotTradeExecution(mint: string) {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
+        const estOut =
+          typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
+            ? Math.max(0, ok.summary.amountSolEstimate)
+            : amountSolOut;
+        if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
+        if (opts?.clearCostBasis && wallet?.address) {
+          clearInstantTradeCostBasisTon(mint, wallet.address);
+        }
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       } catch (e) {
@@ -409,6 +470,7 @@ export function useSpotTradeExecution(mint: string) {
     [
       wallet,
       activeWalletRow?.is_imported,
+      activeChain,
       getAccessToken,
       mint,
       effectiveSlippageBps,
@@ -420,6 +482,21 @@ export function useSpotTradeExecution(mint: string) {
       qc,
     ],
   );
+
+  const runSellInitial = useCallback(async () => {
+    if (!wallet?.address) {
+      toast.error('Connect wallet');
+      return;
+    }
+    const basis = readInstantTradeCostBasisTon(mint, wallet.address);
+    if (!Number.isFinite(basis) || basis <= 0) {
+      toast.error('No tracked principal', {
+        description: 'Buy from this panel first — we track your TON in for Sell Init.',
+      });
+      return;
+    }
+    await runSellSolOut(basis, { clearCostBasis: true });
+  }, [mint, wallet?.address, runSellSolOut]);
 
   return {
     wallet,
@@ -434,6 +511,9 @@ export function useSpotTradeExecution(mint: string) {
     runBuy,
     runSell,
     runSellSolOut,
+    runSellInitial,
+    costBasisTonSol,
+    lifetimeStats,
     walletRows: myWalletsQ.data?.wallets,
     activeWalletAddress: activeAddress,
     setActiveWalletAddress,

@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { Camera, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { selectCopilotSurfaceOpen, useUIStore } from '@/store/ui';
 
 function absImageUrl(src: string): string {
   if (src.startsWith('http://') || src.startsWith('https://')) return src;
@@ -29,6 +30,7 @@ export function TokenHeaderAvatar({
   className?: string;
 }) {
   const { getAccessToken, authenticated } = usePointerAuth();
+  const copilotSurfaceOpen = useUIStore(selectCopilotSurfaceOpen);
   const [insight, setInsight] = useState<string | null>(null);
   const [insightBusy, setInsightBusy] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,7 +46,7 @@ export function TokenHeaderAvatar({
   }, [src]);
 
   const runInsight = useCallback(async () => {
-    if (!authenticated || !mint) return;
+    if (!authenticated || !mint || !copilotSurfaceOpen) return;
     setInsightBusy(true);
     try {
       const token = await getAccessToken();
@@ -71,7 +73,7 @@ export function TokenHeaderAvatar({
     } finally {
       setInsightBusy(false);
     }
-  }, [authenticated, getAccessToken, mint]);
+  }, [authenticated, copilotSurfaceOpen, getAccessToken, mint]);
 
   const onEnter = () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);

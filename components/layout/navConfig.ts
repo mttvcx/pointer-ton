@@ -12,9 +12,4 @@ export const APP_NAV: AppNavItem[] = [
   { label: 'Portfolio', href: '/portfolio' },
   { label: 'Wallets', href: '/wallets' },
   { label: 'Points', href: '/points' },
-  { label: 'Referral', href: '/referral' },
-  {
-    label: 'Leaderboard',
-    href: '/leaderboard',
-  },
 ];

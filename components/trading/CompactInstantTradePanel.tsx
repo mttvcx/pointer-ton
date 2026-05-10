@@ -22,6 +22,9 @@ import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { useSpotTradeExecution } from '@/lib/hooks/useSpotTradeExecution';
 import { useTradingStore, type PresetSlot, INSTANT_TRADE_WALLET_CAP } from '@/store/trading';
+import { useUIStore } from '@/store/ui';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { formatNumber, lamportsToSol, rawToUi } from '@/lib/utils/formatters';
 import { InstantTradeSettingsModal } from '@/components/trading/InstantTradeSettingsModal';
 import { PresetEditorModal } from '@/components/trading/PresetEditorModal';
@@ -41,12 +44,19 @@ const SLOT_OVERRIDES_KEY = 'pointer-instant-trade-slot-overrides-v1';
 
 const MIN_W = 248;
 const MIN_H = 320;
+/** Default size when no saved bounds (matches earlier compact preset). */
+const DEFAULT_BOUNDS = { x: 56, y: 72, w: 292, h: 448 } as const;
 /** Axiom-style bright blue “editing preset values” treatment. */
 const EDIT_PRESET_CLASS =
   'rounded-full border-2 border-sky-400 bg-sky-500/25 py-1.5 text-center font-sans text-[10px] font-semibold tabular-nums text-sky-50 shadow-[0_0_18px_rgba(56,189,248,0.45)] ring-2 ring-sky-400/45 outline-none focus:border-sky-300 focus:ring-sky-400/70';
 const DEFAULT_SELL_PCT = [0.5, 1, 2, 3, 5, 10, 25, 100] as const;
 const DEFAULT_SELL_SOL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 const INSTANT_FILL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
+
+/** Below this width: only first row of presets (4 chips). Use ~286 so min-width 248 is one row; default 292 shows two rows. */
+const PRESET_NARROW_W = 286;
+/** At or above: lay out all 8 presets in one horizontal row (Axiom-style strip). */
+const PRESET_SINGLE_ROW_W = 520;
 
 type TradingPresetApi = {
   slot: PresetSlot;
@@ -167,22 +177,35 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
-function readBounds(): { x: number; y: number; w: number; h: number } {
-  const def = { x: 56, y: 72, w: 292, h: 448 };
-  if (typeof window === 'undefined') return def;
+function parseBoundsJson(raw: string | null): { x: number; y: number; w: number; h: number } | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(BOUNDS_KEY);
-    if (raw) {
-      const j = JSON.parse(raw) as Record<string, unknown>;
-      if (
-        typeof j.x === 'number' &&
-        typeof j.y === 'number' &&
-        typeof j.w === 'number' &&
-        typeof j.h === 'number'
-      ) {
-        return { x: j.x, y: j.y, w: j.w, h: j.h };
-      }
+    const j = JSON.parse(raw) as Record<string, unknown>;
+    if (
+      typeof j.x === 'number' &&
+      typeof j.y === 'number' &&
+      typeof j.w === 'number' &&
+      typeof j.h === 'number'
+    ) {
+      return { x: j.x, y: j.y, w: j.w, h: j.h };
     }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** Per-wallet remembered panel bounds; falls back to legacy global key. */
+function readBoundsForWallet(walletAddress: string | null): { x: number; y: number; w: number; h: number } {
+  if (typeof window === 'undefined') return { ...DEFAULT_BOUNDS };
+  const def = { ...DEFAULT_BOUNDS };
+  try {
+    if (walletAddress) {
+      const per = parseBoundsJson(localStorage.getItem(`${BOUNDS_KEY}:${walletAddress}`));
+      if (per) return per;
+    }
+    const global = parseBoundsJson(localStorage.getItem(BOUNDS_KEY));
+    if (global) return global;
     const leg = localStorage.getItem(LEGACY_POS_KEY);
     if (leg) {
       const o = JSON.parse(leg) as Record<string, unknown>;
@@ -196,9 +219,16 @@ function readBounds(): { x: number; y: number; w: number; h: number } {
   return def;
 }
 
-function persistBounds(b: { x: number; y: number; w: number; h: number }) {
+function persistBoundsForWallet(
+  b: { x: number; y: number; w: number; h: number },
+  walletAddress: string | null,
+) {
   try {
-    localStorage.setItem(BOUNDS_KEY, JSON.stringify(b));
+    if (walletAddress) {
+      localStorage.setItem(`${BOUNDS_KEY}:${walletAddress}`, JSON.stringify(b));
+    } else {
+      localStorage.setItem(BOUNDS_KEY, JSON.stringify(b));
+    }
   } catch {
     /* ignore */
   }
@@ -371,7 +401,7 @@ export function CompactInstantTradePanel({
   onOpenFullTradeSettings,
 }: Props) {
   const [mounted, setMounted] = useState(false);
-  const [bounds, setBounds] = useState(readBounds);
+  const [bounds, setBounds] = useState(() => readBoundsForWallet(null));
   const boundsRef = useRef(bounds);
   useEffect(() => {
     boundsRef.current = bounds;
@@ -425,6 +455,9 @@ export function CompactInstantTradePanel({
     runBuy,
     runSell,
     runSellSolOut,
+    runSellInitial,
+    costBasisTonSol,
+    lifetimeStats,
     walletRows,
     activeWalletAddress,
     setActiveWalletAddress,
@@ -452,12 +485,12 @@ export function CompactInstantTradePanel({
   useEffect(() => {
     if (!open) return;
     const raf = requestAnimationFrame(() => {
-      setBounds(readBounds());
+      setBounds(readBoundsForWallet(wallet?.address ?? null));
       setSlotBundle(readSlotOverrides() ?? migrateLegacySlots());
       setInstantUi(readInstantTradeUiSettings());
     });
     return () => cancelAnimationFrame(raf);
-  }, [open]);
+  }, [open, wallet?.address]);
 
   useEffect(() => {
     if (open) return;
@@ -598,6 +631,54 @@ export function CompactInstantTradePanel({
 
   const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '').slice(0, 8) || 'TOKEN';
   const uiBal = formatNumber(rawToUi(balanceRaw, decimals), { decimals: 4 });
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
+
+  const presetLayout = useMemo(() => {
+    const w = bounds.w;
+    const narrowOnlyFirstRow = w < PRESET_NARROW_W;
+    const singleRowEight = w >= PRESET_SINGLE_ROW_W && !narrowOnlyFirstRow;
+    return {
+      narrowOnlyFirstRow,
+      singleRowEight,
+      gridCols: singleRowEight ? 'grid-cols-8' : 'grid-cols-4',
+    };
+  }, [bounds.w]);
+
+  const buyChips = presetLayout.narrowOnlyFirstRow ? buyValues.slice(0, 4) : buyValues;
+  const sellChips = presetLayout.narrowOnlyFirstRow ? sellValues.slice(0, 4) : sellValues;
+
+  const netSessionPnl = lifetimeStats.sellTon - lifetimeStats.buyTon;
+  const netPct = lifetimeStats.buyTon > 0 ? (netSessionPnl / lifetimeStats.buyTon) * 100 : null;
+  /** Naive session “still deployed” TON (buy flow − sell flow); strip-only hint. */
+  const remainingTon = Math.max(0, lifetimeStats.buyTon - lifetimeStats.sellTon);
+  const pnlPctInside =
+    lifetimeStats.buyTon > 0 && netPct != null
+      ? `${netPct >= 0 ? '+' : ''}${formatNumber(netPct, { decimals: 1 })}%`
+      : '+0%';
+
+  const spendAssetOptions = useMemo(() => {
+    const t = nativeTicker(activeChain);
+    if (activeChain === 'ton') {
+      return [
+        { k: 'sol' as const, label: 'TON', disabled: false },
+        { k: 'usdc' as const, label: 'USDC', disabled: true },
+        { k: 'usol' as const, label: 'wTON', disabled: true },
+      ];
+    }
+    if (activeChain === 'sol') {
+      return [
+        { k: 'sol' as const, label: 'SOL', disabled: false },
+        { k: 'usdc' as const, label: 'USDC', disabled: true },
+        { k: 'usol' as const, label: 'uSOL', disabled: true },
+      ];
+    }
+    return [
+      { k: 'sol' as const, label: t, disabled: false },
+      { k: 'usdc' as const, label: 'USDC', disabled: true },
+      { k: 'usol' as const, label: `w${t}`, disabled: true },
+    ];
+  }, [activeChain]);
 
   const onMoveDown = useCallback(
     (e: React.PointerEvent) => {
@@ -670,8 +751,8 @@ export function CompactInstantTradePanel({
     } catch {
       /* ignore */
     }
-    persistBounds(boundsRef.current);
-  }, []);
+    persistBoundsForWallet(boundsRef.current, wallet?.address ?? null);
+  }, [wallet?.address]);
 
   if (!mounted || !open) return null;
 
@@ -685,8 +766,8 @@ export function CompactInstantTradePanel({
   const panel = (
     <div
       className={cn(
-        'fixed z-[240] flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-base/95 font-sans shadow-2xl backdrop-blur-sm transition-[opacity,transform,box-shadow] duration-150 ease-out',
-        grabbed && 'scale-[1.015] opacity-[0.88] shadow-[0_28px_64px_-12px_rgba(0,0,0,0.75)] ring-1 ring-white/10',
+        'fixed z-[240] flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[rgba(8,10,18,0.52)] font-sans shadow-[0_24px_48px_-16px_rgba(0,0,0,0.65)] backdrop-blur-xl backdrop-saturate-150 transition-[opacity,transform,box-shadow] duration-150 ease-out',
+        grabbed && 'scale-[1.015] opacity-[0.88] shadow-[0_28px_64px_-12px_rgba(0,0,0,0.75)] ring-1 ring-white/12',
       )}
       style={{ left: bounds.x, top: bounds.y, width: bounds.w, height: bounds.h }}
       role="dialog"
@@ -767,7 +848,7 @@ export function CompactInstantTradePanel({
         onPointerCancel={onDragUp}
       />
 
-      <div className="relative z-10 flex shrink-0 items-center gap-0.5 border-b border-border-subtle bg-bg-hover/30 px-1.5 py-1 pl-2">
+      <div className="relative z-10 flex shrink-0 items-center gap-0.5 border-b border-white/[0.08] px-1.5 py-1 pl-2">
         <Keyboard className="h-3 w-3 shrink-0 text-fg-muted/70" aria-hidden />
         {([1, 2, 3] as const).map((slot) => (
           <button
@@ -823,7 +904,7 @@ export function CompactInstantTradePanel({
           onPointerCancel={onDragUp}
           aria-label="Drag"
         >
-          <GripVertical className="h-3.5 w-3.5 text-fg-muted" />
+          <GripVertical className="h-3.5 w-3.5 text-fg-muted/40" strokeWidth={2} />
         </div>
         <button
           type="button"
@@ -870,29 +951,18 @@ export function CompactInstantTradePanel({
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2 pt-1.5 text-[10px]">
-          <div
-            className={cn(
-              'flex min-h-full flex-col',
-              walletsReady && authenticated && wallet ? 'min-h-[min(100%,18rem)]' : '',
-            )}
-          >
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-2 pb-1.5 pt-1 text-[10px]">
         {!walletsReady ? (
           <p className="text-fg-muted">Loading...</p>
         ) : !authenticated || !wallet ? (
           <p className="text-signal-warn">Sign in with an embedded wallet to trade.</p>
         ) : (
-          <>
+          <div className="flex min-h-full flex-col">
+            <div className="shrink-0">
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold uppercase tracking-wide text-fg-muted">Buy</span>
               <div className="flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5">
-                {(
-                  [
-                    { k: 'sol' as const, label: 'TON', disabled: false },
-                    { k: 'usdc' as const, label: 'USDC', disabled: true },
-                    { k: 'usol' as const, label: 'wTON', disabled: true },
-                  ] as const
-                ).map(({ k, label, disabled }) => (
+                {spendAssetOptions.map(({ k, label, disabled }) => (
                   <button
                     key={k}
                     type="button"
@@ -914,8 +984,8 @@ export function CompactInstantTradePanel({
                 ))}
               </div>
             </div>
-            <div className="mt-1 grid grid-cols-4 gap-1">
-              {buyValues.map((sol, i) =>
+            <div className={cn('mt-0.5 grid gap-0.5', presetLayout.gridCols)}>
+              {buyChips.map((sol, i) =>
                 editSlots ? (
                   <input
                     key={`b-in-${i}`}
@@ -937,14 +1007,14 @@ export function CompactInstantTradePanel({
                     key={`b-${i}-${sol}`}
                     type="button"
                     onClick={() => void runBuy(sol)}
-                    className="btn-press rounded-full border border-emerald-400/55 bg-emerald-500/10 py-1.5 text-center font-sans text-[10px] font-semibold tabular-nums text-emerald-300 transition hover:bg-emerald-500/20"
+                    className="btn-press flex h-7 max-h-7 min-h-[28px] items-center justify-center rounded-full border border-emerald-400/45 bg-transparent px-0 text-center font-sans text-[10px] font-semibold leading-none tabular-nums text-emerald-400/95 transition hover:bg-emerald-500/[0.08] active:bg-emerald-500/[0.12]"
                   >
                     {fmtSolChip(sol)}
                   </button>
                 ),
               )}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
               <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
               <span>{feeHint}</span>
               <span className="inline-flex items-center gap-0.5">
@@ -979,7 +1049,7 @@ export function CompactInstantTradePanel({
                     setSellMode(sellMode === 'pct' ? 'sol' : 'pct');
                   }}
                   className="btn-press rounded p-0.5 text-fg-muted hover:text-fg-secondary"
-                  title="Switch: % of balance vs fixed TON received"
+                  title={`Switch: % of balance vs fixed ${nativeSym} received`}
                   aria-label="Toggle sell mode"
                 >
                   <ArrowLeftRight className="h-2.5 w-2.5" strokeWidth={2} />
@@ -990,15 +1060,15 @@ export function CompactInstantTradePanel({
                     sellMode === 'sol' ? 'text-accent-primary' : 'text-fg-muted',
                   )}
                 >
-                  TON
+                  {nativeSym}
                 </span>
               </span>
               <span className="truncate tabular-nums text-[9px] text-fg-secondary">
                 {uiBal} {tick}
               </span>
             </div>
-            <div className="mt-1 grid grid-cols-4 gap-1">
-              {sellValues.map((pct, i) =>
+            <div className={cn('mt-0.5 grid gap-0.5', presetLayout.gridCols)}>
+              {sellChips.map((pct, i) =>
                 editSlots ? (
                   <input
                     key={`s-in-${i}`}
@@ -1022,8 +1092,8 @@ export function CompactInstantTradePanel({
                       });
                     }}
                     className={cn('w-full min-w-0', EDIT_PRESET_CLASS)}
-                    placeholder={sellMode === 'pct' ? '0–100' : 'TON'}
-                    aria-label={sellMode === 'pct' ? 'Sell percent' : 'TON out'}
+                    placeholder={sellMode === 'pct' ? '0–100' : nativeSym}
+                    aria-label={sellMode === 'pct' ? 'Sell percent' : `${nativeSym} out`}
                   />
                 ) : (
                   <button
@@ -1032,36 +1102,111 @@ export function CompactInstantTradePanel({
                     onClick={() =>
                       void (sellMode === 'pct' ? runSell(pct) : runSellSolOut(pct))
                     }
-                    className="btn-press rounded-full border border-rose-400/45 bg-rose-500/10 py-1.5 text-center font-sans text-[10px] font-semibold tabular-nums text-rose-300 transition hover:bg-rose-500/18"
+                    className="btn-press flex h-7 max-h-7 min-h-[28px] items-center justify-center rounded-full border border-rose-400/45 bg-transparent px-0 text-center font-sans text-[10px] font-semibold leading-none tabular-nums text-rose-400/95 transition hover:bg-rose-500/[0.08] active:bg-rose-500/[0.12]"
                   >
                     {sellMode === 'pct' ? `${fmtPctChip(pct)}%` : fmtSolChip(pct)}
                   </button>
                 ),
               )}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
               <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
               <span>{feeHint}</span>
               <span className="inline-flex items-center gap-0.5">
                 <Shield className="h-2.5 w-2.5" /> On
               </span>
-              <span className="ml-auto text-[8px] font-semibold text-rose-400/90">Sell Init.</span>
+              <button
+                type="button"
+                title={`Sell enough to recover tracked ${nativeSym} in (principal); profit stays in tokens`}
+                disabled={!costBasisTonSol || costBasisTonSol <= 0}
+                onClick={() => void runSellInitial()}
+                className={cn(
+                  'btn-press ml-auto rounded-md border px-1.5 py-0.5 text-[8px] font-semibold transition',
+                  costBasisTonSol > 0
+                    ? 'border-rose-400/35 text-rose-300/95 hover:border-rose-400/55 hover:bg-rose-500/[0.08]'
+                    : 'cursor-not-allowed border-white/10 text-fg-muted opacity-50',
+                )}
+              >
+                Sell Init.{costBasisTonSol > 0 ? ` ${fmtSolChip(costBasisTonSol)}` : ''}
+              </button>
+            </div>
             </div>
 
             {instantUi.showPnlRow ? (
-            <div className="mt-2 grid grid-cols-4 gap-0.5 border-t border-border-subtle pt-2 tabular-nums text-[8px] tabular-nums">
-              <span className="text-emerald-400">-</span>
-              <span className="text-rose-400">-</span>
-              <span className="text-violet-300">-</span>
-              <span className="text-emerald-400">+0</span>
-            </div>
+              <div
+                className="mt-auto flex min-h-[26px] shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-white/[0.06] pt-2 text-[11px]"
+                role="group"
+                aria-label={`Instant trade stats · ${nativeSym}`}
+              >
+                <span
+                  className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-400"
+                  title="Bought"
+                >
+                  <span className="sr-only">Bought </span>
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                  {formatNumber(lifetimeStats.buyTon, { decimals: 4 })}
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 tabular-nums font-semibold text-rose-400"
+                  title="Sold"
+                >
+                  <span className="sr-only">Sold </span>
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                  {formatNumber(lifetimeStats.sellTon, { decimals: 4 })}
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 tabular-nums font-semibold text-amber-400"
+                  title="Remaining"
+                >
+                  <span className="sr-only">Remaining </span>
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                  {formatNumber(remainingTon, { decimals: 4 })}
+                </span>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 tabular-nums font-semibold',
+                    netSessionPnl >= 0 ? 'text-emerald-400' : 'text-rose-400',
+                  )}
+                  title="PnL"
+                >
+                  <span className="sr-only">PnL </span>
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                  {netSessionPnl >= 0 ? '+' : ''}
+                  {formatNumber(netSessionPnl, { decimals: 4 })}
+                  <span className="text-fg-secondary">({pnlPctInside})</span>
+                </span>
+              </div>
             ) : null}
-            {walletsReady && authenticated && wallet ? (
-              <div className="min-h-0 flex-1 bg-transparent" aria-hidden />
-            ) : null}
-          </>
-        )}
           </div>
+        )}
         </div>
       </div>
     </div>
@@ -1161,7 +1306,9 @@ export function CompactInstantTradePanel({
                       <span className="mt-0.5 flex items-center justify-between gap-2 tabular-nums text-[9px] text-fg-muted">
                         <span>{shortenAddress(w.wallet_address, 4)}</span>
                         <span className="shrink-0 tabular-nums">
-                          {solUi != null ? `${formatNumber(solUi, { decimals: 3 })} TON` : '0.000 TON'}
+                          {solUi != null
+                            ? `${formatNumber(solUi, { decimals: 3 })} ${nativeSym}`
+                            : `0.000 ${nativeSym}`}
                         </span>
                       </span>
                       {(w.is_archived || !w.is_active || !canSign) && (

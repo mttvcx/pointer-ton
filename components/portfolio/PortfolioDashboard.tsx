@@ -22,7 +22,8 @@ import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
-import { explorerTxUrl, shortenAddress } from '@/lib/utils/addresses';
+import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
+import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
@@ -538,7 +539,7 @@ export function PortfolioDashboard({ className }: { className?: string }) {
                         <td className="px-1.5 py-1 text-right text-[#d1d5db]">{t.amountSol != null ? formatNumber(t.amountSol, { decimals: 3 }) : '—'}</td>
                         <td className="px-1.5 py-1 text-right text-[#6b7280]">—</td>
                         <td className="px-1.5 py-1 text-right text-[#6b7280]">{formatRelativeTime(t.submittedAt)}</td>
-                        <td className="px-1.5 py-1 text-right"><a href={explorerTxUrl(t.txSignature)} target="_blank" rel="noreferrer" className="text-[#7dd3fc] hover:underline">↗</a></td>
+                        <td className="px-1.5 py-1 text-right"><a href={explorerUrlSolanaTx(t.txSignature)} target="_blank" rel="noreferrer" className="text-[#7dd3fc] hover:underline">↗</a></td>
                       </tr>
                     ))}
                   </tbody>

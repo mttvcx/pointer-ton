@@ -3,6 +3,7 @@ import 'server-only';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 import type { UserRow } from '@/lib/db/users';
+import { inferMintKind } from '@/lib/chains/mintKind';
 import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
@@ -164,15 +165,21 @@ export async function userCanViewWalletPortfolio(
   user: UserRow,
   walletAddress: string,
 ): Promise<boolean> {
-  if (!walletAddress || !normalizeTonAddress(walletAddress)) return false;
+  const normalized = normalizeWalletAddressForStorage(walletAddress);
+  if (!normalized) return false;
+  const kind = inferMintKind(normalized);
+  if (kind !== 'ton' && kind !== 'sol') return false;
 
-  const legacy =
+  const legacyRaw =
     user.wallet_address && !user.wallet_address.startsWith('privy:')
       ? user.wallet_address
       : null;
-  if (legacy && normalizeTonAddress(legacy) === normalizeTonAddress(walletAddress)) return true;
+  const legacy = legacyRaw ? normalizeWalletAddressForStorage(legacyRaw) : null;
+  if (legacy && legacy === normalized) return true;
 
-  const row = await getUserWalletByAddress(user.id, walletAddress);
+  const row =
+    (await getUserWalletByAddress(user.id, walletAddress)) ??
+    (await getUserWalletByAddress(user.id, normalized));
   if (!row) return false;
   if (row.is_archived) return false;
   if (!row.is_active) return false;
@@ -187,15 +194,21 @@ export async function userCanUseWalletForTrading(
   user: UserRow,
   walletAddress: string,
 ): Promise<boolean> {
-  if (!walletAddress || !normalizeTonAddress(walletAddress)) return false;
+  const normalized = normalizeWalletAddressForStorage(walletAddress);
+  if (!normalized) return false;
+  const kind = inferMintKind(normalized);
+  if (kind !== 'ton' && kind !== 'sol') return false;
 
-  const legacy =
+  const legacyRaw =
     user.wallet_address && !user.wallet_address.startsWith('privy:')
       ? user.wallet_address
       : null;
-  if (legacy && normalizeTonAddress(legacy) === normalizeTonAddress(walletAddress)) return true;
+  const legacy = legacyRaw ? normalizeWalletAddressForStorage(legacyRaw) : null;
+  if (legacy && legacy === normalized) return true;
 
-  const row = await getUserWalletByAddress(user.id, walletAddress);
+  const row =
+    (await getUserWalletByAddress(user.id, walletAddress)) ??
+    (await getUserWalletByAddress(user.id, normalized));
   if (!row) return false;
   if (row.is_archived) return false;
   if (!row.is_active) return false;

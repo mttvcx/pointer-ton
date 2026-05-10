@@ -48,13 +48,32 @@ export function shortenSignature(sig: string, chars = 6): string {
   return shortenAddress(sig, chars);
 }
 
+/** Legacy TON tx URL — prefer {@link explorerUrlSolanaTx} / Tonviewer helpers when chain is known. */
 export function explorerTxUrl(hash: string): string {
   const h = hash.trim();
   return `https://tonviewer.com/transaction/${encodeURIComponent(h)}`;
 }
 
+/**
+ * Explorer account URL from address shape (Solana → Solscan, TON → Tonviewer, EVM → Etherscan).
+ * Kept in this module (no import from `explorerUrls`) to avoid circular imports with `mintKind`.
+ */
 export function explorerAddressUrl(address: string): string {
   const a = address.trim();
+  if (normalizeTonAddress(a) != null) {
+    return `https://tonviewer.com/${encodeURIComponent(a)}`;
+  }
+  if (looksLikeSolanaAddress(a)) {
+    try {
+      new PublicKey(a);
+      return `https://solscan.io/account/${encodeURIComponent(a)}`;
+    } catch {
+      /* fallthrough */
+    }
+  }
+  if (/^0x[a-fA-F0-9]{40}$/.test(a)) {
+    return `https://etherscan.io/address/${a}`;
+  }
   return `https://tonviewer.com/${encodeURIComponent(a)}`;
 }
 

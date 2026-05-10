@@ -6,8 +6,7 @@ import { emitGlobalPulseNewTokenAlert } from '@/lib/alerts/generate';
 import {
   bundlePulseTokens,
   getTokenByMint,
-  listPulseMigratedTokens,
-  listPulseNewTokens,
+  listPulseFeedTokens,
   listPulseStretchTokens,
   listRecentTokens,
   type TokenRow,
@@ -216,19 +215,6 @@ export async function pollRecentJettonsFromTonApi(): Promise<number> {
   });
 }
 
-async function listTokensForColumn(column: PulseColumnId) {
-  switch (column) {
-    case 'new':
-      return listPulseNewTokens(PULSE_PAGE_SIZE);
-    case 'stretch':
-      return listPulseStretchTokens(PULSE_PAGE_SIZE);
-    case 'migrated':
-      return listPulseMigratedTokens(PULSE_PAGE_SIZE);
-    default:
-      return listPulseNewTokens(PULSE_PAGE_SIZE);
-  }
-}
-
 async function pollPulseColumn(): Promise<{ inserted: number; via: 'tonapi' }> {
   try {
     const inserted = await pollRecentJettonsFromTonApi();
@@ -275,8 +261,7 @@ export async function getPulseFeed(
   column: PulseColumnId,
   chain: AppChainId = DEFAULT_APP_CHAIN,
 ): Promise<PulseTokenBundle[]> {
-  let tokens = await listTokensForColumn(column);
-  tokens = tokens.filter((t) => mintMatchesAppChain(t.mint, chain));
+  let tokens = await listPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   debugTon('getPulseFeed: DB rows after chain filter', { column, chain, count: tokens.length });
 
   if (chain === 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
@@ -291,7 +276,7 @@ export async function getPulseFeed(
       const cause = isSupabase ? 'supabase reachability' : 'ton center / tonapi / parse';
       console.warn(`[pointer][pulse TON] poll failed (${cause}):`, msg);
     }
-    tokens = (await listTokensForColumn(column)).filter((t) => mintMatchesAppChain(t.mint, chain));
+    tokens = await listPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
     try {
       if (chain === 'sol') {
@@ -308,7 +293,7 @@ export async function getPulseFeed(
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`[pointer][pulse] chain poll failed (${chain}):`, msg);
     }
-    tokens = (await listTokensForColumn(column)).filter((t) => mintMatchesAppChain(t.mint, chain));
+    tokens = await listPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
     if (tokens.length < MIN_ROWS_BEFORE_POLL) {
       tokens = await widenChainBackfill(column, chain);
     }

@@ -244,16 +244,15 @@ export function Topbar() {
       </div>
 
       <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
-        <div className="flex min-w-0 max-w-[56rem] flex-1 items-center justify-end gap-1 sm:gap-1.5">
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
             className={cn(
-              'focus-ring relative flex h-8 min-w-[12rem] max-w-[min(28rem,100%)] flex-1 shrink-0 items-center gap-1.5 rounded-md border border-transparent',
+              'focus-ring relative flex h-8 w-[9.25rem] shrink-0 items-center gap-1.5 rounded-md border border-transparent sm:w-44',
               'bg-bg-hover px-2 py-1 text-left transition-[border-color,background-color,box-shadow] duration-150',
-              'hover:border-white/20 hover:bg-bg-base hover:shadow-[0_0_0_1px_rgba(255,255,255,0.06)]',
-              'focus-visible:border-white/25',
-              'md:min-w-[14rem] md:max-w-[32rem]',
+              'hover:border-white/12 hover:bg-bg-base hover:shadow-[0_0_0_1px_rgba(255,255,255,0.05)]',
+              'focus-visible:border-white/18',
             )}
             aria-haspopup="dialog"
             aria-expanded={searchOpen}

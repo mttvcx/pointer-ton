@@ -37,12 +37,15 @@ import {
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 import { cn } from '@/lib/utils/cn';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import type { Tables } from '@/lib/supabase/types';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { PresetSelector } from '@/components/trading/PresetSelector';
 import { PresetEditorModal } from '@/components/trading/PresetEditorModal';
 import { AdvancedTradingSettingsModal } from '@/components/trading/AdvancedTradingSettingsModal';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
+import { useUIStore } from '@/store/ui';
 
 type LimitOrderRow = Tables<'limit_orders'>;
 
@@ -209,7 +212,7 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
   ];
 
   return (
-    <section className="rounded-md border border-[#1b1f2a] bg-[#0b0d12] p-2">
+    <section className="rounded-md border border-border-subtle bg-bg-base p-2">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[12px] font-semibold text-white">Token Info</span>
       </div>
@@ -267,6 +270,7 @@ export function BuySellPanel({
   marketSnapshot?: TokenMarketSnapshotRow | null;
 }) {
   const { getAccessToken, authenticated } = usePointerAuth();
+  const activeChain = useUIStore((s) => s.activeChain);
   const qc = useQueryClient();
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -291,10 +295,10 @@ export function BuySellPanel({
     () => myWalletsQ.data?.wallets.find((w) => w.wallet_address === wallet?.address),
     [myWalletsQ.data?.wallets, wallet?.address],
   );
-  const activeWalletCount = useMemo(
-    () => (myWalletsQ.data?.wallets ?? []).filter((w) => !w.is_archived).length,
-    [myWalletsQ.data?.wallets],
-  );
+  const activeWalletCount = useMemo(() => {
+    const raw = myWalletsQ.data?.wallets ?? [];
+    return raw.filter((w) => !w.is_archived && mintMatchesAppChain(w.wallet_address, activeChain)).length;
+  }, [myWalletsQ.data?.wallets, activeChain]);
   const solBalPreview = useMemo(() => {
     const lam = activeWalletRow?.balance_lamports;
     if (lam == null || lam === '') return null;
@@ -680,12 +684,20 @@ export function BuySellPanel({
 
   const runTrade = useCallback(async () => {
     if (!wallet) {
-      toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
+      toast.error(`Connect ${nativeTicker(activeChain)} wallet`, {
+        description:
+          activeChain === 'ton'
+            ? 'Use TonConnect after sign-in.'
+            : 'Use your linked on-chain wallet after sign-in.',
+      });
       return;
     }
     if (activeWalletRow?.is_imported === true) {
       toast.error('View-only wallet', {
-        description: 'Use a non-imported wallet linked in TonConnect to trade.',
+        description:
+          activeChain === 'ton'
+            ? 'Use a non-imported wallet linked in TonConnect to trade.'
+            : 'This imported wallet cannot sign swaps in Pointer yet.',
       });
       return;
     }
@@ -760,7 +772,11 @@ export function BuySellPanel({
         throw new Error(msg);
       }
       const ok = json as TradeQuoteApiOk;
-      if (!ok.tonConnect?.messages?.length || !ok.summary?.amountOutRaw) {
+      const executable =
+        ok.chain === 'sol'
+          ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+          : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+      if (!executable) {
         throw new Error('No swap transaction from quote');
       }
 
@@ -795,6 +811,7 @@ export function BuySellPanel({
     }
   }, [
     wallet,
+    activeChain,
     getAccessToken,
     submitFromQuote,
     tab,
@@ -827,7 +844,10 @@ export function BuySellPanel({
   const editorPresetFull = activePreset;
   const panelMode = tradePanelMode === 'limit_alerts' ? 'market' : tradePanelMode;
   const axiomBuyAmounts = [0.5, 1, 2, 3];
-  const walletMenuRows = myWalletsQ.data?.wallets ?? [];
+  const walletMenuRows = useMemo(() => {
+    const raw = myWalletsQ.data?.wallets ?? [];
+    return raw.filter((w) => mintMatchesAppChain(w.wallet_address, activeChain));
+  }, [myWalletsQ.data?.wallets, activeChain]);
   const selectWallets = (rows: MyWalletRow[]) => {
     const addresses = rows.map((w) => w.wallet_address);
     setSelectedWalletAddresses(addresses);
@@ -851,9 +871,9 @@ export function BuySellPanel({
     <div
       ref={walletPickerShellRef}
       data-mint={mint}
-      className="relative flex h-full max-h-[calc(100vh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[#0b0d12] text-[12px] text-white"
+      className="relative flex h-full max-h-[calc(100vh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-bg-base text-[12px] text-white"
     >
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-2 pb-5 [scrollbar-width:thin]">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-2 pb-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {extendedTape ? <TradeTapeStrip m={extendedTape} /> : (
           <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] px-2 py-1.5 text-[11px] text-[#6b7280]">
             6h Vol - <span className="text-[#34d399]">Buys -</span> <span className="text-[#fb7185]">Sells -</span> Net -
@@ -866,11 +886,13 @@ export function BuySellPanel({
           </p>
         ) : !wallet ? (
           <p className="rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[11px] text-signal-warn">
-            No TON wallet linked. Connect with TonConnect after sign-in.
+            {activeChain === 'ton'
+              ? 'No TON wallet linked. Connect with TonConnect after sign-in.'
+              : `No ${nativeTicker(activeChain)} wallet selected. Add or connect a wallet for this network.`}
           </p>
         ) : null}
 
-        <div className="flex w-full rounded-lg border border-[#1b1f2a] bg-[#0b0d12] p-0.5">
+        <div className="flex w-full rounded-lg border border-border-subtle bg-bg-base p-0.5">
           <button type="button" onClick={() => setTab('buy')} className={cn('btn-press focus-ring flex flex-1 items-center justify-center rounded-md py-2 text-[13px] font-semibold transition', tab === 'buy' ? 'bg-[#38d99c] text-[#04120d]' : 'text-[#9ca3af] hover:bg-white/[0.04] hover:text-white')}>Buy</button>
           <button type="button" disabled={panelMode === 'limit_mcap'} onClick={() => setTab('sell')} className={cn('btn-press focus-ring flex flex-1 items-center justify-center rounded-md py-2 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40', tab === 'sell' ? 'bg-[#fb7185] text-[#21060c]' : 'text-[#9ca3af] hover:bg-white/[0.04] hover:text-white')}>Sell</button>
         </div>
@@ -929,7 +951,7 @@ export function BuySellPanel({
           <span className="ml-auto inline-flex items-center gap-1"><input type="checkbox" checked={dynamicSlippage} onChange={(e) => setDynamicSlippage(e.target.checked)} className="h-3 w-3 rounded border-[#1b1f2a]" />Dynamic</span>
         </div>
 
-        <div className="rounded-md border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1.5">
+        <div className="rounded-md border border-border-subtle bg-bg-base px-2 py-1.5">
           <label className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-white"><input type="checkbox" checked={advancedOpen && panelMode === 'advanced'} onChange={(e) => { setAdvancedOpen(e.target.checked); if (e.target.checked) setTradePanelMode('advanced'); }} className="h-3.5 w-3.5 rounded border-[#1b1f2a]" />Advanced Trading Strategy</label>
           {panelMode === 'advanced' && advancedOpen ? <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">{([['migration', 'Migration'], ['dev_sell', 'Dev Sell'], ['trail_sl', 'Trail SL'], ['dca', 'DCA']] as const).map(([id, label]) => <button key={id} type="button" onClick={() => setAdvStrategy(id)} className={cn('rounded border border-[#1b1f2a] px-2 py-1 font-semibold', advStrategy === id ? 'bg-[#5865F2]/20 text-white' : 'text-[#8b93a3]')}>{label}</button>)}</div> : null}
         </div>
@@ -1031,10 +1053,10 @@ export function BuySellPanel({
                       {w.is_imported ? 'View-only' : 'Trading'} · {w.wallet_address.slice(0, 5)}...{w.wallet_address.slice(-4)}
                     </span>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1 text-[11px] tabular-nums text-[#cbd5e1]">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] tabular-nums text-[#cbd5e1]">
                     <Coins className="h-3 w-3 text-[#5865F2]" /> {sol}
                   </span>
-                  <span className="rounded-full border border-[#1b1f2a] bg-[#0b0d12] px-2 py-1 text-[11px] text-[#8b93a3]">0</span>
+                  <span className="rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] text-[#8b93a3]">0</span>
                 </button>
               );
             })}

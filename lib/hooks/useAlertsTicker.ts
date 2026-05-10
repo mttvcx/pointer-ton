@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { selectCopilotSurfaceOpen, useUIStore } from '@/store/ui';
 
 export type AlertsTickerItem = {
   id: string;
@@ -13,10 +14,11 @@ export type AlertsTickerItem = {
 
 export function useAlertsTickerQuery() {
   const { authenticated, getAccessToken } = usePointerAuth();
+  const copilotSurfaceOpen = useUIStore(selectCopilotSurfaceOpen);
 
   return useQuery({
     queryKey: ['alerts-ticker'],
-    enabled: authenticated,
+    enabled: authenticated && copilotSurfaceOpen,
     refetchInterval: 30_000,
     staleTime: 15_000,
     queryFn: async (): Promise<AlertsTickerItem[]> => {

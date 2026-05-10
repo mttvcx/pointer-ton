@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { Topbar } from '@/components/layout/Topbar';
 import { GlobalSearchModal } from '@/components/layout/GlobalSearchModal';
 import { LabelWalletModal } from '@/components/wallets/LabelWalletModal';
+import { WalletAnalyticsHost } from '@/components/wallet/analytics/WalletAnalyticsHost';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { AlertRuleFlashLayer } from '@/components/alerts/AlertRuleFlashLayer';
 import { AlertRulesDockPanel } from '@/components/alerts/AlertRulesDockPanel';
@@ -126,6 +127,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
       <Topbar />
       <GlobalSearchModal />
+      <WalletAnalyticsHost />
       <WalletLabelsBootstrap />
       <LabelWalletModal />
       <AlertRuleFlashLayer />

@@ -14,6 +14,8 @@ import {
   COLUMN_SORT_KEYS,
   BUY_BUTTON_STYLES,
   type BuyButtonStyle,
+  PULSE_SECOND_BUTTON_MODES,
+  type PulseSecondButtonMode,
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
   DEFAULT_COLUMN_FILTERS,
   encodeColumnPresetShare,
@@ -25,6 +27,8 @@ import {
 } from '@/lib/tokens/columnPresetModel';
 import type { ColumnPulsePresetSlot } from '@/store/pulseColumns';
 import { usePulseColumnStore } from '@/store/pulseColumns';
+import { useUIStore } from '@/store/ui';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 
 const FILTER_MODAL_BG = '#151820';
@@ -148,8 +152,10 @@ export function ColumnFilterModal({
   onSaved,
 }: Props) {
   const { getAccessToken, authenticated } = usePointerAuth();
-  const setBuyButtonStyleAll = usePulseColumnStore((s) => s.setBuyButtonStyleAll);
+  const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
+  const activeChain = useUIStore((s) => s.activeChain);
+  const quoteNativeSymbol = nativeTicker(activeChain);
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabId>('protocols');
   const [name, setName] = useState('Preset');
@@ -587,7 +593,7 @@ export function ColumnFilterModal({
               </div>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold uppercase text-fg-muted">
-                  Quick buy (TON) - this column only
+                  Quick buy ({quoteNativeSymbol}) — this column only
                 </span>
                 <input
                   type="text"
@@ -612,23 +618,84 @@ export function ColumnFilterModal({
                   onChange={(e) => {
                     const v = e.target.value as BuyButtonStyle;
                     setDisplay((d) => ({ ...d, buyButtonStyle: v }));
-                    setBuyButtonStyleAll(v);
+                    setBuyButtonStyle(columnId, v);
                   }}
                   className="focus-ring border border-border-subtle bg-bg-base px-2 py-1 text-fg-primary"
                 >
                   {BUY_BUTTON_STYLES.map((s) => (
                     <option key={s} value={s}>
                       {s === 'small'
-                        ? 'Small'
+                        ? 'Small — stacked V / MC, compact pill'
                         : s === 'medium'
                           ? 'Medium'
                           : s === 'large'
                             ? 'Large'
-                            : 'Ultra (frame = buy)'}
+                            : 'Ultra (green frame = tap to buy)'}
                     </option>
                   ))}
                 </select>
               </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase text-fg-muted">
+                  Second button (left of primary)
+                </span>
+                <select
+                  value={display.pulseSecondButton}
+                  onChange={(e) => {
+                    const v = e.target.value as PulseSecondButtonMode;
+                    setDisplay((d) => ({ ...d, pulseSecondButton: v }));
+                  }}
+                  className="focus-ring border border-border-subtle bg-bg-base px-2 py-1 text-fg-primary"
+                >
+                  {PULSE_SECOND_BUTTON_MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {m === 'none'
+                        ? 'Off'
+                        : m === 'buy'
+                          ? `Second buy (separate ${quoteNativeSymbol} amount)`
+                          : 'Quick sell (% of balance)'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {display.pulseSecondButton === 'buy' ? (
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase text-fg-muted">
+                    Second buy amount ({quoteNativeSymbol})
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={
+                      display.secondQuickBuySol != null && Number.isFinite(display.secondQuickBuySol)
+                        ? display.secondQuickBuySol.toFixed(8).replace(/\.?0+$/, '')
+                        : ''
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, '.');
+                      const n = parseFloat(raw);
+                      if (Number.isFinite(n) && n > 0) {
+                        setDisplay((d) => ({ ...d, secondQuickBuySol: n }));
+                      }
+                    }}
+                    className="focus-ring border border-border-subtle bg-transparent px-2 py-1 font-sans text-[12px] font-medium tabular-nums text-fg-primary"
+                  />
+                </label>
+              ) : null}
+              {display.pulseSecondButton === 'sell_pct' ? (
+                <NumField
+                  label="Sell portion (%)"
+                  value={display.secondSellPct}
+                  onChange={(v) =>
+                    setDisplay((d) => ({
+                      ...d,
+                      secondSellPct:
+                        v != null && v >= 1 && v <= 100 ? Math.round(v) : d.secondSellPct,
+                    }))
+                  }
+                  suffix="1–100"
+                />
+              ) : null}
               <Toggle
                 label="Show risk flags"
                 checked={display.showRiskFlags}

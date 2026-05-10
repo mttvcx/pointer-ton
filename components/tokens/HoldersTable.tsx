@@ -1,18 +1,16 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Users } from 'lucide-react';
 import { CopyButton } from '@/components/shared/CopyButton';
+import { WalletDisplay } from '@/components/shared/WalletDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TableRowSkeleton } from '@/components/shared/Skeleton';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { syntheticHoldersResponse } from '@/lib/dev/demoTokenFixtures';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { formatPercent, rawToUi } from '@/lib/utils/formatters';
-import { shortenAddress } from '@/lib/utils/addresses';
-
 type HolderRow = {
   id: number;
   mint: string;
@@ -120,12 +118,13 @@ function HolderRowView({ row, decimals }: { row: HolderRow; decimals: number }) 
       <td className="py-2 pr-3 text-fg-muted">{row.rank ?? '\u2014'}</td>
       <td className="max-w-[220px] truncate py-2 pr-3 text-fg-primary" title={row.wallet_address}>
         <span className="inline-flex items-center gap-1">
-          <Link
+          <WalletDisplay
+            address={row.wallet_address}
             href={`/wallet/${row.wallet_address}`}
+            truncate={5}
+            preferIntelModal
             className="hover:text-accent-primary"
-          >
-            {shortenAddress(row.wallet_address, 5)}
-          </Link>
+          />
           <CopyButton
             value={row.wallet_address}
             iconOnly

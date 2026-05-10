@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Flame, Key, Snowflake, Unlock, Users } from 'lucide-react';
+import { Flame, Key, Snowflake, Users } from 'lucide-react';
 import type { Tables } from '@/lib/supabase/types';
 import { cn } from '@/lib/utils/cn';
 
@@ -40,14 +40,6 @@ export function RiskFlags({
       icon: <Snowflake className="h-3 w-3" strokeWidth={2.25} />,
       title: 'Freeze authority is active - balances can be frozen.',
       tone: 'bear',
-    });
-  }
-  if (token.is_lp_locked === false) {
-    flags.push({
-      key: 'lp',
-      icon: <Unlock className="h-3 w-3" strokeWidth={2.25} />,
-      title: 'Liquidity pool is not locked.',
-      tone: 'warn',
     });
   }
   const top10 = snapshot?.top10_holder_pct;

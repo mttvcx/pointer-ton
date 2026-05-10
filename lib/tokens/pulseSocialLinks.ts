@@ -405,6 +405,11 @@ function finalizeTwitterInfo(info: TwitterLinkInfo | null): TwitterLinkInfo | nu
 export function getPulseSocialModel(bundle: PulseTokenBundle): PulseSocialModel {
   const { token } = bundle;
   const urls = collectUrlsFromUnknown(token.raw_metadata);
+  if (bundle.snapshot?.extended_metrics != null) {
+    for (const u of collectUrlsFromUnknown(bundle.snapshot.extended_metrics)) {
+      urls.add(u);
+    }
+  }
   if (token.website_url) addToUrlSet(urls, token.website_url);
   if (token.telegram_url) addToUrlSet(urls, token.telegram_url);
   if (token.twitter_handle) {

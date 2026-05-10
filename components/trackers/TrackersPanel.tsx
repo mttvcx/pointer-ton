@@ -15,7 +15,6 @@ import {
   Search,
   Settings2,
   Trash2,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
@@ -29,6 +28,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
+import { ConfirmModal, GlassModal } from '@/components/ui/GlassModal';
 
 const AX_BG = '#0b0d12';
 const AX_ROW_A = '#0b0d12';
@@ -218,6 +218,7 @@ const MONITOR_CARDS = [
 function AddWalletDialog({
   open,
   onClose,
+  chainTicker,
   address,
   setAddress,
   label,
@@ -228,6 +229,7 @@ function AddWalletDialog({
 }: {
   open: boolean;
   onClose: () => void;
+  chainTicker: string;
   address: string;
   setAddress: (s: string) => void;
   label: string;
@@ -236,50 +238,20 @@ function AddWalletDialog({
   pending: boolean;
   addressPlaceholder?: string;
 }) {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close" onClick={onClose} />
-      <div
-        className="relative z-[1] w-full max-w-md rounded-lg border p-3 shadow-2xl"
-        style={{ backgroundColor: AX_PANEL, borderColor: AX_BORDER }}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: AX_BORDER }}>
-          <span className="text-[13px] font-semibold text-white">Add wallet</span>
-          <button type="button" onClick={onClose} className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-white">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-2 space-y-2">
-          <label className="block space-y-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">Address</span>
-            <input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder={addressPlaceholder ?? 'Wallet address'}
-              className="w-full rounded border bg-[#0b0d12] px-2 py-1.5 tabular-nums text-[12px] text-white outline-none focus:ring-1 focus:ring-[#5865F2]"
-              style={{ borderColor: AX_BORDER }}
-            />
-          </label>
-          <label className="block space-y-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">Label (optional)</span>
-            <input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. whale #1"
-              className="w-full rounded border bg-[#0b0d12] px-2 py-1.5 text-[12px] text-white outline-none focus:ring-1 focus:ring-[#5865F2]"
-              style={{ borderColor: AX_BORDER }}
-            />
-          </label>
-        </div>
-        <div className="mt-3 flex justify-end gap-2">
+    <GlassModal
+      open={open}
+      onClose={onClose}
+      title="Add wallet"
+      chainTicker={chainTicker}
+      zClass="z-[80]"
+      maxWidthClass="max-w-md"
+      footer={
+        <>
           <button
             type="button"
             onClick={onClose}
-            className="rounded border px-3 py-1.5 text-[11px] font-semibold text-[#9ca3af]"
-            style={{ borderColor: AX_BORDER }}
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-[13px] font-semibold text-fg-secondary transition hover:bg-white/[0.08] hover:text-fg-primary"
           >
             Cancel
           </button>
@@ -287,13 +259,34 @@ function AddWalletDialog({
             type="button"
             disabled={pending}
             onClick={onSubmit}
-            className="rounded bg-[#5865F2] px-3 py-1.5 text-[11px] font-semibold text-[#0a0a0f] hover:brightness-105 disabled:opacity-50"
+            className="rounded-xl bg-accent-primary px-4 py-2 text-[13px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
           >
             {pending ? 'Adding…' : 'Add wallet'}
           </button>
-        </div>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <label className="block space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Address</span>
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder={addressPlaceholder ?? 'Wallet address'}
+            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 tabular-nums text-[13px] text-fg-primary outline-none ring-accent-primary/30 placeholder:text-fg-muted focus:ring-2"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Label (optional)</span>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. whale #1"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[13px] text-fg-primary outline-none ring-accent-primary/30 placeholder:text-fg-muted focus:ring-2"
+          />
+        </label>
       </div>
-    </div>
+    </GlassModal>
   );
 }
 
@@ -321,6 +314,7 @@ export function TrackersPanel({
   const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
   const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows(useUIStore.getState().activeChain));
   const [kolWalletFocus, setKolWalletFocus] = useState<string | null>(null);
+  const [removeAllConfirmOpen, setRemoveAllConfirmOpen] = useState(false);
   const lastPrefillRef = useRef<string | null>(null);
   const kolHydratingRef = useRef(false);
 
@@ -458,6 +452,7 @@ export function TrackersPanel({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['trackers'] });
       toast.success('All trackers removed');
+      setRemoveAllConfirmOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -642,15 +637,7 @@ export function TrackersPanel({
           <button
             type="button"
             disabled={sorted.length === 0 || removeAllMutation.isPending}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  `Remove all ${nativeTicker(activeChain)} wallet trackers? This cannot be undone.`,
-                )
-              )
-                return;
-              removeAllMutation.mutate();
-            }}
+            onClick={() => setRemoveAllConfirmOpen(true)}
             className="rounded px-1.5 py-1 text-[10px] font-semibold tracking-wide text-[#f87171] hover:underline disabled:opacity-40"
           >
             Remove all
@@ -813,12 +800,17 @@ export function TrackersPanel({
       )}
 
       {kolWalletFocus ? (
-        <KolWalletPopup address={kolWalletFocus} onClose={() => setKolWalletFocus(null)} />
+        <KolWalletPopup
+          address={kolWalletFocus}
+          chainTicker={nativeTicker(activeChain)}
+          onClose={() => setKolWalletFocus(null)}
+        />
       ) : null}
 
       <AddWalletDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
+        chainTicker={nativeTicker(activeChain)}
         address={address}
         setAddress={setAddress}
         label={label}
@@ -833,112 +825,107 @@ export function TrackersPanel({
               : 'EVM address (0x…)'
         }
       />
-      <div className={cn(importOpen ? 'fixed inset-0 z-[82] flex items-center justify-center p-4' : 'hidden')}>
-        <button
-          type="button"
-          className="absolute inset-0 bg-black/70"
-          aria-label="Close import wallets"
-          onClick={() => setImportOpen(false)}
-        />
-        <div
-          className="relative z-[1] w-full max-w-sm rounded-lg border p-3 shadow-2xl"
-          style={{ backgroundColor: AX_PANEL, borderColor: AX_BORDER }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: AX_BORDER }}>
-            <span className="text-[13px] font-semibold text-white">
-              Import {nativeTicker(activeChain)} wallets
-            </span>
+
+      <GlassModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import wallets"
+        chainTicker={nativeTicker(activeChain)}
+        zClass="z-[82]"
+        maxWidthClass="max-w-sm"
+      >
+        <div className="space-y-3">
+          <textarea
+            rows={6}
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            placeholder="Paste wallet addresses (one per line) or JSON export"
+            className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 tabular-nums text-[12px] text-fg-primary outline-none ring-accent-primary/30 placeholder:text-fg-muted focus:ring-2"
+          />
+          <label className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-fg-secondary">
+            <span>Add to single group</span>
             <button
               type="button"
-              onClick={() => setImportOpen(false)}
-              className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-white"
+              onClick={() => setImportSingleGroup((v) => !v)}
+              className={cn(
+                'h-5 w-9 rounded-full border transition',
+                importSingleGroup ? 'border-accent-primary bg-accent-primary' : 'border-white/15 bg-bg-hover',
+              )}
+              aria-label="Toggle single group"
             >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="mt-2 space-y-2">
-            <textarea
-              rows={6}
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder="Paste wallet addresses (one per line) or JSON export"
-              className="w-full resize-none rounded border bg-[#0b0d12] px-2 py-1.5 tabular-nums text-[11px] text-white outline-none focus:ring-1 focus:ring-[#5865F2]"
-              style={{ borderColor: AX_BORDER }}
-            />
-            <label className="flex items-center justify-between rounded border px-2 py-1 text-[10px] text-[#9ca3af]" style={{ borderColor: AX_BORDER }}>
-              <span>Add to single group</span>
-              <button
-                type="button"
-                onClick={() => setImportSingleGroup((v) => !v)}
+              <span
                 className={cn(
-                  'h-4 w-8 rounded-full border transition',
-                  importSingleGroup ? 'border-[#5865F2] bg-[#5865F2]' : 'border-[#374151] bg-[#111827]',
+                  'block h-3.5 w-3.5 rounded-full bg-white shadow transition',
+                  importSingleGroup ? 'translate-x-4' : 'translate-x-0.5',
                 )}
-                aria-label="Toggle single group"
-              >
-                <span
-                  className={cn(
-                    'block h-3 w-3 rounded-full bg-white transition',
-                    importSingleGroup ? 'translate-x-4' : 'translate-x-0.5',
-                  )}
-                />
-              </button>
-            </label>
-            <p className="text-[10px] text-[#6b7280]">
-              Paste EQ/UQ TON wallet addresses (one per line) or a JSON export from this app.
-            </p>
-          </div>
-          <div className="mt-3 border-t pt-2" style={{ borderColor: AX_BORDER }}>
-            <button
-              type="button"
-              onClick={() => void onImportWallets()}
-              className="w-full rounded bg-[#5865F2] py-2 text-[12px] font-semibold text-[#0a0a0f] hover:brightness-105"
-            >
-              Import
+              />
             </button>
-          </div>
+          </label>
+          <p className="text-[10px] leading-relaxed text-fg-muted">
+            Paste addresses for the selected chain (see badge). JSON export from Pointer is supported.
+          </p>
+          <button
+            type="button"
+            onClick={() => void onImportWallets()}
+            className="w-full rounded-xl bg-accent-primary py-2.5 text-[13px] font-semibold text-fg-inverse transition hover:brightness-110"
+          >
+            Import
+          </button>
         </div>
-      </div>
+      </GlassModal>
+
+      <ConfirmModal
+        open={removeAllConfirmOpen}
+        onClose={() => setRemoveAllConfirmOpen(false)}
+        onConfirm={() => removeAllMutation.mutate()}
+        title="Remove all trackers?"
+        body={`This permanently removes every ${nativeTicker(activeChain)} wallet from your tracker list. You can’t undo this.`}
+        confirmLabel="Remove all"
+        destructive
+        pending={removeAllMutation.isPending}
+        chainTicker={nativeTicker(activeChain)}
+        zClass="z-[85]"
+      />
     </div>
   );
 }
 
-function KolWalletPopup({ address, onClose }: { address: string; onClose: () => void }) {
+function KolWalletPopup({
+  address,
+  chainTicker,
+  onClose,
+}: {
+  address: string;
+  chainTicker: string;
+  onClose: () => void;
+}) {
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/70" aria-label="Close" onClick={onClose} />
-      <div
-        className="relative z-[1] w-full max-w-md rounded-lg border p-4 shadow-2xl"
-        style={{ backgroundColor: AX_PANEL, borderColor: AX_BORDER }}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-white">KOL wallet</span>
-          <button type="button" onClick={onClose} className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-white">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="mb-4 break-all font-mono text-[11px] leading-relaxed text-[#d1d5db]">{address}</p>
-        <div className="flex flex-wrap gap-2">
-          <CopyButton
-            value={address}
-            label="Copy address"
-            className="rounded border border-[#2a2f3a] px-3 py-1.5 text-[11px] text-[#d1d5db]"
-          >
-            Copy
-          </CopyButton>
-          <Link
-            href={`/wallet/${encodeURIComponent(address)}`}
-            className="inline-flex items-center rounded bg-[#5865F2] px-3 py-1.5 text-[11px] font-semibold text-[#0a0a0f] hover:brightness-105"
-          >
-            Open in Pointer
-          </Link>
-        </div>
+    <GlassModal
+      open
+      onClose={onClose}
+      title="Wallet"
+      description="KOL monitor shortcut"
+      chainTicker={chainTicker}
+      zClass="z-[90]"
+      maxWidthClass="max-w-md"
+    >
+      <p className="break-all font-mono text-[12px] leading-relaxed text-fg-primary">{address}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <CopyButton
+          value={address}
+          label="Copy address"
+          className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-fg-primary hover:bg-white/[0.08]"
+        >
+          Copy
+        </CopyButton>
+        <Link
+          href={`/wallet/${encodeURIComponent(address)}`}
+          className="inline-flex items-center rounded-xl bg-accent-primary px-3 py-2 text-[12px] font-semibold text-fg-inverse hover:brightness-110"
+        >
+          Open in Pointer
+        </Link>
       </div>
-    </div>
+    </GlassModal>
   );
 }
 

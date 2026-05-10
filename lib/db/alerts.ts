@@ -42,7 +42,7 @@ export async function updateAlertNarration(
 }
 
 /**
- * In-app ticker: own alerts plus global broadcasts (`user_id` IS NULL).
+ * Co-pilot Activity log: this user's alerts only (no global Pulse duplicates).
  */
 export async function listAlertsForTicker(
   userId: string,
@@ -52,7 +52,7 @@ export async function listAlertsForTicker(
   const { data, error } = await supabase
     .from('alerts')
     .select('*')
-    .or(`user_id.eq.${userId},user_id.is.null`)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw new Error(`listAlertsForTicker failed: ${error.message}`);

@@ -19,7 +19,12 @@ import {
   type ExplainTokenOutput,
   type ExplainWalletOutput,
 } from '@/lib/ai/schemas';
-import { selectLockSource, useUIStore, type EntityRef } from '@/store/ui';
+import {
+  selectCopilotSurfaceOpen,
+  selectLockSource,
+  useUIStore,
+  type EntityRef,
+} from '@/store/ui';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
@@ -33,10 +38,10 @@ type TokenResult = CommonResult & { data: ExplainTokenOutput };
 type WalletResult = CommonResult & { data: ExplainWalletOutput };
 
 const COPILOT = {
-  card: '#11141b',
-  border: '#202636',
-  muted: '#7f8aa3',
-  text: '#f5f7ff',
+  card: 'rgba(255, 255, 255, 0.04)',
+  border: 'rgba(255, 255, 255, 0.1)',
+  muted: '#9ba3b0',
+  text: '#f0f4fc',
   accent: '#0077b6',
   cyan: '#34d5ff',
 } as const;
@@ -63,6 +68,7 @@ function useDebouncedEntity(entity: EntityRef | null): EntityRef | null {
 
 export function ContextCard({ entity }: { entity: EntityRef | null }) {
   const debounced = useDebouncedEntity(entity);
+  const copilotSurfaceOpen = useUIStore(selectCopilotSurfaceOpen);
   const { authenticated, getAccessToken } = usePointerAuth();
   const [mode, setMode] = useState<'fast' | 'deep'>('fast');
   const lastEntityKeyRef = useRef<string | null>(null);
@@ -83,7 +89,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
     [debounced?.type, debounced?.id, mode],
   );
 
-  const enabled = Boolean(authenticated && debounced);
+  const enabled = Boolean(authenticated && debounced && copilotSurfaceOpen);
 
   const query = useQuery({
     queryKey,
@@ -127,7 +133,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
   if (!authenticated) {
     return (
       <div
-        className="rounded-xl border px-3 py-2.5 text-[12px] leading-snug"
+        className="rounded-2xl border px-3 py-2.5 text-[12px] leading-snug backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
         style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card, color: COPILOT.muted }}
       >
         Sign in to use Pointer Co-Pilot.
@@ -138,7 +144,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
   if (!debounced) {
     return (
       <div
-        className="rounded-xl border px-3 py-2.5"
+        className="rounded-2xl border px-3 py-2.5 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
         style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card }}
       >
         <div className="flex items-start gap-2.5">
@@ -148,7 +154,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
               borderColor: `${COPILOT.accent}55`,
               color: COPILOT.cyan,
               boxShadow: `0 0 14px -3px ${COPILOT.accent}55`,
-              backgroundColor: '#151924',
+              backgroundColor: 'rgba(21, 25, 36, 0.55)',
             }}
           >
             <Sparkles className="h-4 w-4" strokeWidth={2.25} />
@@ -194,7 +200,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
 
   return (
     <div
-      className="rounded-xl border px-3 py-2.5"
+      className="rounded-2xl border px-3 py-2.5 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
       style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card }}
     >
       <div className="space-y-3">

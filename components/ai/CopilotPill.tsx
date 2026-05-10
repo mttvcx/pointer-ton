@@ -26,13 +26,13 @@ import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesP
 import { cn } from '@/lib/utils/cn';
 
 const CHROME = {
-  card: '#11141b',
-  border: '#202636',
+  card: 'rgba(17, 20, 27, 0.45)',
+  border: 'rgba(255, 255, 255, 0.1)',
   muted: '#7f8aa3',
   text: '#f5f7ff',
   accent: '#0077b6',
   cyan: '#34d5ff',
-  bg: '#080d14',
+  bg: 'rgba(8, 13, 20, 0.48)',
 } as const;
 
 const PILL_TRANSITION_MS = 200;
@@ -151,7 +151,7 @@ function CopilotPillExpandedCard({
           aria-modal
           aria-label="AI co-pilot"
           className={cn(
-            'pointer-events-auto flex max-h-[min(680px,calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-24px))] w-full flex-col overflow-hidden rounded-xl border bg-[#080d14]/95 backdrop-blur-xl',
+            'pointer-events-auto flex max-h-[min(680px,calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-24px))] w-full flex-col overflow-hidden rounded-xl border bg-[rgba(8,13,20,0.48)] backdrop-blur-2xl backdrop-saturate-150',
             'animate-copilot-card-enter border-white/14',
             'shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_36px_-8px_rgba(255,255,255,0.16),0_28px_52px_-14px_rgba(0,0,0,0.58)]',
           )}
@@ -168,7 +168,7 @@ function CopilotPillExpandedCard({
               style={{
                 borderColor: `${CHROME.accent}55`,
                 boxShadow: `0 0 16px -4px ${CHROME.accent}66`,
-                backgroundColor: '#151924',
+                backgroundColor: 'rgba(21, 25, 36, 0.55)',
               }}
             >
               <Sparkles className="h-4 w-4" style={{ color: CHROME.cyan }} strokeWidth={2.25} />
@@ -220,14 +220,14 @@ function CopilotPillExpandedCard({
         <div
           className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2 py-2"
           style={{
-            backgroundColor: CHROME.bg,
+            backgroundColor: 'transparent',
             paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
           }}
         >
           <div className="flex flex-col gap-2 pb-2">
             <div
               className="rounded-lg border px-2.5 py-2"
-              style={{ borderColor: `${CHROME.border}`, backgroundColor: '#0f1218' }}
+              style={{ borderColor: `${CHROME.border}`, backgroundColor: 'rgba(15, 18, 24, 0.52)' }}
             >
               <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: CHROME.muted }}>
                 Live scan

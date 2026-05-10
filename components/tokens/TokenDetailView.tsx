@@ -260,12 +260,12 @@ export function TokenDetailView({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
           ref={containerRef}
-          className="flex h-full min-h-0 flex-1 flex-col border-b border-[#1b1f2a] lg:flex-row lg:overflow-hidden"
+          className="flex h-full min-h-0 flex-1 flex-col border-b border-border-subtle lg:flex-row lg:overflow-hidden"
         >
           <div
             ref={leftColRef}
             className={cn(
-              'flex min-h-[300px] min-w-0 flex-col bg-[#080d14] lg:min-h-0',
+              'flex min-h-[300px] min-w-0 flex-col bg-bg-base lg:min-h-0',
               lg && 'min-w-[360px] flex-1',
             )}
           >
@@ -290,7 +290,7 @@ export function TokenDetailView({
               onPointerUp={onRowUp}
             />
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col basis-0 bg-[#080d14]">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col basis-0 bg-bg-base">
               <TokenActivityTabs
                 mint={mint}
                 symbol={symbol}
@@ -310,7 +310,7 @@ export function TokenDetailView({
 
           <div
             className={cn(
-              'flex min-h-[320px] w-full min-w-0 shrink-0 flex-col border-t border-[#1b1f2a] bg-[#080d14] lg:min-h-0 lg:border-t-0 lg:border-l',
+              'flex min-h-[320px] w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-bg-base lg:min-h-0 lg:border-t-0 lg:border-l',
             )}
             style={lg ? { width: rightStackW } : undefined}
           >

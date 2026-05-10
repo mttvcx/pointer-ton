@@ -11,11 +11,11 @@ import type { EntityRef } from '@/store/ui';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
 
 const AT = {
-  card: '#11141b',
-  border: '#202636',
-  elevated: '#151924',
-  muted: '#7f8aa3',
-  text: '#f5f7ff',
+  card: 'rgba(255, 255, 255, 0.04)',
+  border: 'rgba(255, 255, 255, 0.1)',
+  elevated: 'rgba(255, 255, 255, 0.07)',
+  muted: '#9ba3b0',
+  text: '#f0f4fc',
   accent: '#0077b6',
 } as const;
 
@@ -24,7 +24,7 @@ export function AlertsTicker() {
 
   return (
     <div
-      className="rounded-xl border px-3 py-2"
+      className="rounded-2xl border px-3 py-2.5 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
       style={{ borderColor: AT.border, backgroundColor: AT.card }}
     >
       <div className="mb-1.5 flex items-center justify-between">
@@ -54,7 +54,7 @@ export function AlertsTicker() {
         </ul>
       ) : !query.data || query.data.length === 0 ? (
         <p className="text-[10px] leading-snug" style={{ color: AT.muted }}>
-          No alerts yet — rule hits, trackers, and Pulse show up here live.
+          No alert events yet — fired rules and notifications will land here (your log).
         </p>
       ) : (
         <ul className="space-y-1">
