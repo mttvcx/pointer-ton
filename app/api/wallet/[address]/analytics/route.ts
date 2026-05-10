@@ -19,7 +19,8 @@ function parseTf(raw: string | null): WalletAnalyticsTimeframe {
 
 /**
  * Public wallet intelligence snapshot (chain RPC + indexed stats).
- * Does not expose user-private portfolio FIFO — positions are holdings-based estimates.
+ * Lives under `/api/wallet/...` (singular) so it does not clash with
+ * `/api/wallets/[id]` (user wallet row UUID).
  */
 export async function GET(
   req: NextRequest,

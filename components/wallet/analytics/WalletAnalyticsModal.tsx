@@ -52,7 +52,7 @@ export function WalletAnalyticsModal() {
     enabled: Boolean(open && wallet?.address),
     queryFn: async (): Promise<AnalyticsResponse> => {
       const res = await fetch(
-        `/api/wallets/${encodeURIComponent(wallet!.address)}/analytics?tf=${encodeURIComponent(tf)}`,
+        `/api/wallet/${encodeURIComponent(wallet!.address)}/analytics?tf=${encodeURIComponent(tf)}`,
       );
       if (!res.ok) throw new Error('wallet_analytics_failed');
       return res.json() as Promise<AnalyticsResponse>;
