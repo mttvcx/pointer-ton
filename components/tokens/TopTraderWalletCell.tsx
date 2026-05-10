@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, LineChart } from 'lucide-react';
-import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
+import { shortenAddress } from '@/lib/utils/addresses';
 import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import type { TraderMintHoverStats } from '@/lib/trading/mintTopTraders';
 import { syntheticTraderMintStats } from '@/lib/dev/demoTokenFixtures';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
-import { Skeleton } from '@/components/shared/Skeleton';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 
 export function TopTraderWalletCell({
@@ -26,10 +25,10 @@ export function TopTraderWalletCell({
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [hover, setHover] = useState(false);
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
-  const [modal, setModal] = useState(false);
   const hoverT = useRef<number | null>(null);
   const uiDemo = useUiDemoMode();
   const { resolveLabel } = useWalletLabels();
+  const openWalletIntel = useWalletIntelStore((s) => s.openWallet);
 
   const statsQ = useQuery({
     queryKey: ['trader-mint-stats', mint, wallet],
@@ -40,15 +39,13 @@ export function TopTraderWalletCell({
       if (!r.ok) throw new Error('stats');
       return r.json() as Promise<{ stats: TraderMintHoverStats | null }>;
     },
-    enabled: Boolean(!uiDemo && mint && wallet && (hover || modal)),
+    enabled: Boolean(!uiDemo && mint && wallet && hover),
     staleTime: 20_000,
   });
 
   const stats: TraderMintHoverStats | null | undefined = uiDemo
     ? syntheticTraderMintStats(wallet)
     : statsQ.data?.stats;
-
-  const statsLoading = !uiDemo && modal && statsQ.isFetching && !statsQ.data;
 
   const showPeek = hover && coords && stats;
 
@@ -96,7 +93,13 @@ export function TopTraderWalletCell({
           onMouseLeave={onLeave}
           onFocus={onEnter}
           onBlur={onLeave}
-          onClick={() => setModal(true)}
+          onClick={() => {
+            openWalletIntel({
+              address: wallet,
+              chain: appChainForWalletAddress(wallet),
+              rowDemo: true,
+            });
+          }}
         >
           {displayText}
         </button>
@@ -120,15 +123,6 @@ export function TopTraderWalletCell({
           )
         : null}
 
-      {modal ? (
-        <TraderWalletModal
-          wallet={wallet}
-          sym={sym}
-          stats={stats ?? null}
-          statsLoading={statsLoading}
-          onClose={() => setModal(false)}
-        />
-      ) : null}
     </>
   );
 }
@@ -190,121 +184,6 @@ function TraderStatsPeek({
           Holder since{' '}
           {stats.first_trade_at ? formatRelativeTime(stats.first_trade_at) : '\u2014'}
         </span>
-      </div>
-    </div>
-  );
-}
-
-function TraderWalletModal({
-  wallet,
-  sym,
-  stats,
-  statsLoading,
-  onClose,
-}: {
-  wallet: string;
-  sym: string;
-  stats: TraderMintHoverStats | null;
-  statsLoading: boolean;
-  onClose: () => void;
-}) {
-  const { resolveLabel } = useWalletLabels();
-  const openWalletIntel = useWalletIntelStore((s) => s.openWallet);
-  const disp = resolveLabel(wallet);
-  const title = disp?.labeled ? disp.label : shortenAddress(wallet, 5);
-
-  useEffect(() => {
-    function esc(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', esc);
-    return () => window.removeEventListener('keydown', esc);
-  }, [onClose]);
-
-  const pnl = stats?.realized_pnl_usd ?? 0;
-  const pnlTone = pnl >= 0 ? 'text-signal-bull' : 'text-signal-bear';
-
-  return (
-    <div className="fixed inset-0 z-[500] flex animate-in fade-in items-center justify-center bg-black/60 p-4 duration-200">
-      <button type="button" className="absolute inset-0" aria-label="Close" onClick={onClose} />
-      <div
-        className="relative z-10 flex max-h-[88vh] w-full max-w-lg animate-in zoom-in-95 fade-in flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-base shadow-2xl duration-200"
-        role="dialog"
-        aria-labelledby="tw-modal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="border-b border-border-subtle px-4 py-3">
-          <h2 id="tw-modal-title" className="text-sm font-semibold text-fg-primary">
-            {title}
-          </h2>
-          <p className="mt-0.5 break-all tabular-nums text-[10px] text-fg-muted" title={wallet}>
-            {wallet}
-          </p>
-          <p className="mt-1 text-[10px] text-fg-secondary">
-            Activity on <span className="font-semibold text-fg-primary">{sym}</span> (indexed trades)
-          </p>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[11px]">
-          {statsLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-            </div>
-          ) : stats ? (
-            <dl className="grid grid-cols-2 gap-2">
-              <div className="rounded-md border border-border-subtle p-2">
-                <dt className="text-[9px] uppercase text-fg-muted">Buys</dt>
-                <dd className="tabular-nums text-signal-bull">
-                  {`$${formatNumber(stats.buy_usd, { decimals: 2 })} \u00b7 ${stats.buy_count} tx`}
-                </dd>
-              </div>
-              <div className="rounded-md border border-border-subtle p-2">
-                <dt className="text-[9px] uppercase text-fg-muted">Sells</dt>
-                <dd className="tabular-nums text-signal-bear">
-                  {`$${formatNumber(stats.sell_usd, { decimals: 2 })} \u00b7 ${stats.sell_count} tx`}
-                </dd>
-              </div>
-              <div className="col-span-2 rounded-md border border-border-subtle p-2">
-                <dt className="text-[9px] uppercase text-fg-muted">Realized PnL (FIFO)</dt>
-                <dd className={cn('tabular-nums text-lg font-semibold', pnlTone)}>
-                  {pnl >= 0 ? '+' : ''}
-                  {`$${formatNumber(pnl, { decimals: 2 })}`}
-                </dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="text-fg-muted">No confirmed trades for this wallet on this token yet.</p>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2 border-t border-border-subtle px-4 py-3">
-          <button
-            type="button"
-            className="btn-press inline-flex items-center gap-1 rounded-md bg-accent-primary px-3 py-1.5 text-[11px] font-semibold text-fg-inverse"
-            onClick={() => {
-              openWalletIntel({ address: wallet, chain: 'sol' });
-              onClose();
-            }}
-          >
-            <LineChart className="h-3.5 w-3.5" />
-            Full wallet
-          </button>
-          <a
-            href={explorerAddressUrl(wallet)}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-press inline-flex items-center gap-1 rounded-md border border-border-subtle px-3 py-1.5 text-[11px] text-fg-secondary"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Explorer
-          </a>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press ml-auto rounded-md border border-border-subtle px-3 py-1.5 text-[11px]"
-          >
-            Close
-          </button>
-        </div>
       </div>
     </div>
   );

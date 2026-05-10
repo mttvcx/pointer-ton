@@ -5,9 +5,20 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { WalletAnalyticsHeader } from '@/components/wallet/analytics/WalletAnalyticsHeader';
 import { WalletBalancePanel } from '@/components/wallet/analytics/WalletBalancePanel';
+import {
+  WalletIntelActivityDemo,
+  WalletIntelTop100Demo,
+  WalletIntelTransfersDemo,
+} from '@/components/wallet/analytics/WalletIntelDemoPanels';
 import { WalletPerformancePanel } from '@/components/wallet/analytics/WalletPerformancePanel';
 import { WalletPnlChart } from '@/components/wallet/analytics/WalletPnlChart';
 import { WalletPositionsTable } from '@/components/wallet/analytics/WalletPositionsTable';
+import {
+  demoWalletActivityRows,
+  demoWalletPositions,
+  demoWalletTop100Rows,
+  demoWalletTransferRows,
+} from '@/lib/dev/demoWalletIntelRows';
 import type { WalletAnalyticsPayload } from '@/lib/wallet-analytics/types';
 import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
 import type { WalletPositionRow } from '@/lib/wallet-analytics/types';
@@ -48,7 +59,7 @@ export function WalletAnalyticsModal() {
   }, [wallet?.address, byLabel]);
 
   const q = useQuery({
-    queryKey: ['wallet-analytics', wallet?.address, tf],
+    queryKey: ['wallet-analytics', wallet?.address, tf, wallet?.rowDemo ?? false],
     enabled: Boolean(open && wallet?.address),
     queryFn: async (): Promise<AnalyticsResponse> => {
       const res = await fetch(
@@ -60,6 +71,29 @@ export function WalletAnalyticsModal() {
   });
 
   const data = q.data?.data;
+
+  const displayData = useMemo((): WalletAnalyticsPayload | undefined => {
+    if (!data || !wallet) return data;
+    if (!wallet.rowDemo) return data;
+    const demos = demoWalletPositions(wallet.address, wallet.chain);
+    return {
+      ...data,
+      positions: demos.length > 0 ? demos : data.positions,
+    };
+  }, [data, wallet]);
+
+  const demoActivity = useMemo(
+    () => (wallet?.rowDemo && wallet.address ? demoWalletActivityRows(wallet.address) : []),
+    [wallet?.rowDemo, wallet?.address],
+  );
+  const demoTop100 = useMemo(
+    () => (wallet?.rowDemo && wallet.address ? demoWalletTop100Rows(wallet.address) : []),
+    [wallet?.rowDemo, wallet?.address],
+  );
+  const demoTransfers = useMemo(
+    () => (wallet?.rowDemo && wallet.address ? demoWalletTransferRows(wallet.address) : []),
+    [wallet?.rowDemo, wallet?.address],
+  );
 
   const shareFromRow = (row: WalletPositionRow) => {
     if (!wallet) return;
@@ -75,7 +109,7 @@ export function WalletAnalyticsModal() {
       timeframe: tf,
       pnlUsd: row.pnlUsd,
       pnlPct: row.pnlPct,
-      investedUsd: null,
+      investedUsd: row.boughtUsd,
       positionUsd: row.remainingUsd,
       realizedUsd: null,
       unrealizedUsd: null,
@@ -120,21 +154,27 @@ export function WalletAnalyticsModal() {
             <div className="flex items-center justify-center py-24 text-fg-muted">
               <Loader2 className="h-6 w-6 animate-spin" strokeWidth={2} />
             </div>
-          ) : q.isError || !data ? (
+          ) : q.isError || !displayData ? (
             <p className="py-16 text-center text-[13px] text-signal-bear">
               Could not load wallet intelligence. Try again shortly.
             </p>
           ) : (
             <>
+              {wallet.rowDemo ? (
+                <p className="mt-2 rounded-lg border border-accent-primary/25 bg-accent-primary/10 px-3 py-2 text-[11px] text-accent-primary">
+                  Preview demo rows are layered on live snapshot headers — use{' '}
+                  <strong className="font-semibold">Share PnL</strong> on positions to open the composer.
+                </p>
+              ) : null}
               <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                <WalletBalancePanel data={data} currency="USD" />
+                <WalletBalancePanel data={displayData} currency="USD" />
                 <div className="flex min-h-[220px] flex-col rounded-xl border border-border-subtle/80 bg-bg-base/40 p-4 lg:col-span-1">
                   <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-fg-muted">
                     PNL
                   </h3>
-                  <WalletPnlChart points={data.chart} className="mt-3 min-h-[180px] flex-1" />
+                  <WalletPnlChart points={displayData.chart} className="mt-3 min-h-[180px] flex-1" />
                 </div>
-                <WalletPerformancePanel data={data} timeframe={tf} />
+                <WalletPerformancePanel data={displayData} timeframe={tf} />
               </div>
 
               <div className="mt-6 border-b border-border-subtle/70">
@@ -160,10 +200,18 @@ export function WalletAnalyticsModal() {
               <div className="mt-4">
                 {tab === 'Active Positions' ? (
                   <WalletPositionsTable
-                    rows={data.positions}
+                    rows={displayData.positions}
                     timeframe={tf}
                     onShareRow={shareFromRow}
                   />
+                ) : tab === 'Activity' && wallet.rowDemo ? (
+                  <WalletIntelActivityDemo rows={demoActivity} />
+                ) : tab === 'Top 100' && wallet.rowDemo ? (
+                  <WalletIntelTop100Demo rows={demoTop100} />
+                ) : tab === 'Transfers' && wallet.rowDemo ? (
+                  <WalletIntelTransfersDemo rows={demoTransfers} />
+                ) : tab === 'History' && wallet.rowDemo ? (
+                  <WalletIntelActivityDemo rows={demoActivity} />
                 ) : (
                   <div className="rounded-xl border border-border-subtle/60 bg-bg-base/30 px-4 py-12 text-center text-[13px] text-fg-muted">
                     {tab} feed is coming online — pinned wallet intelligence stays on Positions for now.
@@ -171,7 +219,7 @@ export function WalletAnalyticsModal() {
                 )}
               </div>
 
-              {data.statsComputedAt ? (
+              {displayData.statsComputedAt ? (
                 <p className="mt-6 text-[10px] text-fg-muted">
                   Indexed stats refreshed from telemetry when available — chart illustrates the selected
                   window.

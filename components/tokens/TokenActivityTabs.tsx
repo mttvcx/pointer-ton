@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, BarChart3, Wallet, Zap } from 'lucide-react';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd, formatDuration, formatNumber, formatRelativeTime, formatAgeShort } from '@/lib/utils/formatters';
 import type { Tables } from '@/lib/supabase/types';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
@@ -16,6 +18,15 @@ import { syntheticTradesForMint, syntheticTopTradersForMint } from '@/lib/dev/de
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
+import { useUIStore } from '@/store/ui';
+
+/** Rough native/USD for converting USD notionals in the “native units” column toggle (UI preview). */
+const NATIVE_USD_HINT: Record<AppChainId, number> = {
+  sol: 210,
+  ton: 5.5,
+  bnb: 650,
+  base: 3200,
+};
 
 type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'traders' | 'dev_tokens';
 
@@ -58,6 +69,9 @@ export function TokenActivityTabs({
   const [tableUsd, setTableUsd] = useState(true);
   const uiDemo = useUiDemoMode();
   const { isTracked } = useTrackedWalletsLookup();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
+  const nativeUsdHint = NATIVE_USD_HINT[activeChain];
 
   const tradesQ = useQuery({
     queryKey: ['mint-trades', mint],
@@ -160,7 +174,7 @@ export function TokenActivityTabs({
                   {t.price_usd_at_fill != null
                     ? tableUsd
                       ? `$${formatNumber(t.price_usd_at_fill, { decimals: 4 })}`
-                      : `${formatNumber(t.price_usd_at_fill / 150, { decimals: 6 })} TON`
+                      : `${formatNumber(t.price_usd_at_fill / nativeUsdHint, { decimals: 6 })} ${nativeSym}`
                     : '\u2014'}
                 </td>
               </tr>
@@ -169,7 +183,7 @@ export function TokenActivityTabs({
         </table>
       </div>
     );
-  }, [tradesQ.data?.trades, tradesQ.isLoading, tradesQ.isError, uiDemo, mint, tableUsd]);
+  }, [tradesQ.data?.trades, tradesQ.isLoading, tradesQ.isError, uiDemo, mint, tableUsd, nativeSym, nativeUsdHint]);
 
   const tradersBody = useMemo(() => {
     if (tradersQ.isLoading) {
@@ -189,7 +203,7 @@ export function TokenActivityTabs({
     const maxBuy = displayRows.reduce((m, w) => Math.max(m, w.buy_usd), 0);
     const maxSell = displayRows.reduce((m, w) => Math.max(m, w.sell_usd), 0);
     const fmtUsdCell = (v: number) =>
-      tableUsd ? formatCompactUsd(v) : `${formatNumber(v / 150, { decimals: 4 })} TON`;
+      tableUsd ? formatCompactUsd(v) : `${formatNumber(v / nativeUsdHint, { decimals: 4 })} ${nativeSym}`;
 
     if (displayRows.length === 0) {
       return (
@@ -222,7 +236,7 @@ export function TokenActivityTabs({
                   Wallet
                 </th>
                 <th className="min-w-[6.5rem] px-1.5 py-1 font-semibold uppercase leading-tight tracking-wide">
-                  <span className="block">TON Balance</span>
+                  <span className="block">{nativeSym} Balance</span>
                   <span className="block text-[8px] font-normal capitalize opacity-80">(Last Active)</span>
                 </th>
                 <th className="min-w-[7.5rem] px-1.5 py-1 font-semibold uppercase leading-tight tracking-wide">
@@ -319,7 +333,7 @@ export function TokenActivityTabs({
                       )}
                     >
                       {pnl >= 0 ? '+' : ''}
-                      {tableUsd ? formatCompactUsd(pnl) : `${formatNumber(pnl / 150, { decimals: 2 })} TON`}
+                      {tableUsd ? formatCompactUsd(pnl) : `${formatNumber(pnl / nativeUsdHint, { decimals: 2 })} ${nativeSym}`}
                     </td>
                     <td className="px-1.5 py-1 align-top leading-tight text-[#9ca3af]">
                       <div className="tabular-nums">{'\u2014'}</div>
@@ -338,7 +352,19 @@ export function TokenActivityTabs({
         </div>
       </div>
     );
-  }, [tradersQ.data?.traders, tradersQ.isLoading, tradersQ.isError, uiDemo, mint, sym, onlyTracked, isTracked, tableUsd]);
+  }, [
+    tradersQ.data?.traders,
+    tradersQ.isLoading,
+    tradersQ.isError,
+    uiDemo,
+    mint,
+    sym,
+    onlyTracked,
+    isTracked,
+    tableUsd,
+    nativeSym,
+    nativeUsdHint,
+  ]);
 
   const showTableControls = tab === 'traders' || tab === 'trades';
 
