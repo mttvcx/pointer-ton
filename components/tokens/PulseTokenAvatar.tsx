@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TokenImage } from '@/components/shared/TokenImage';
 import { getPulseBondingRingState, PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
@@ -7,8 +8,8 @@ import { cn } from '@/lib/utils/cn';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
 
-/** Matches Tailwind `rounded-md` (6px). */
-const CORNER_RX = 6;
+/** Matches Tailwind `rounded-lg` (10px) — locked per Pulse polish spec G. */
+const CORNER_RX = 10;
 /** Skim-thin Terminal-style ring. Was 3 — that read as a heavy chrome outline; 1.5 hugs the image edge. */
 const STROKE = 1.5;
 
@@ -126,7 +127,7 @@ export function PulseTokenAvatar({
   return (
     <div
       className={cn(
-        'relative shrink-0 rounded-md',
+        'relative shrink-0 rounded-lg ring-1 ring-border-subtle',
         pumpFrame && 'shadow-[0_0_0_2px_rgba(52,211,153,0.9)]',
         className,
       )}
@@ -136,7 +137,7 @@ export function PulseTokenAvatar({
         src={token.image_url}
         alt={token.symbol ?? 'Token'}
         size={size}
-        className="relative z-0 !rounded-md !ring-0"
+        className="relative z-0 !rounded-lg !ring-0"
       />
       {showRing ? (
       <svg
@@ -192,15 +193,16 @@ export function PulseTokenAvatar({
           rel="noopener noreferrer"
           title="Open on pump.fun"
           aria-label="pump.fun"
-          className="absolute -bottom-1 -right-1 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#1cd882] text-black shadow-[0_0_0_1.5px_#080d14] transition hover:scale-105 hover:bg-[#22e58a]"
+          className="absolute -bottom-1 -right-1 z-20 inline-flex items-center justify-center rounded-full ring-1 ring-bg-raised transition hover:scale-105"
           onClick={(e) => e.stopPropagation()}
         >
-          {/** pump.fun cap silhouette — backwards baseball cap (the real wordmark glyph). */}
-          <svg viewBox="0 0 24 24" fill="currentColor" className="h-[11px] w-[11px]" aria-hidden>
-            <path d="M4.2 14.6c0-3.5 3-6.4 7.8-6.4s7.8 2.9 7.8 6.4v.6H4.2v-.6Z" />
-            <rect x="3" y="15.4" width="14.2" height="2.2" rx="1.1" />
-            <path d="M17.2 11.8h2.6c.7 0 1.2.6 1.2 1.3v1.4c0 .7-.5 1.3-1.2 1.3h-2.6v-4Z" />
-          </svg>
+          <Image
+            src="/icons/pumpfun.webp"
+            alt="pump.fun"
+            width={14}
+            height={14}
+            className="h-3.5 w-3.5 rounded-full"
+          />
         </a>
       ) : null}
     </div>

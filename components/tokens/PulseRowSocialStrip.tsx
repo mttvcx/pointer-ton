@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { MessageSquare } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { getPulseSocialModel, isTweetOlderThan } from '@/lib/tokens/pulseSocialLinks';
 import { twitterFollowersFromBundle } from '@/lib/tokens/columnPresetModel';
@@ -12,7 +13,6 @@ import { formatNumber } from '@/lib/utils/formatters';
 import { xLiveSearchContractUrl } from '@/lib/utils/xSearch';
 import {
   PulseRichHover,
-  TwitterProfileHoverPanel,
   BrandLinkHoverPanel,
   FeeShareHoverPanel,
   AgentHoverPanel,
@@ -25,18 +25,197 @@ const MS_PER_DAY = 86_400_000;
 
 /** Row icon hit targets — slightly padded for readability and tap/click confidence. */
 const iconHit = cn(
-  'group inline-flex shrink-0 items-center justify-center gap-0',
+  'group inline-flex shrink-0 items-center justify-center gap-0.5',
   'border-0 bg-transparent px-1 py-0.5 shadow-none outline-none ring-0',
-  'rounded-md hover:bg-white/[0.06] active:bg-white/[0.09]',
-  'transition-[filter,opacity,background-color] duration-100 ease-out',
+  'rounded-md text-fg-secondary hover:bg-white/[0.06] hover:text-fg-primary active:bg-white/[0.09]',
+  'transition-colors duration-100 ease-out',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#70C0E8]/40 focus-visible:ring-offset-0',
 );
 
-function statNumberClsFor(glyphPx: number) {
-  return cn(
-    'ml-px translate-y-px font-sans tabular-nums leading-none tracking-tight text-white/95 group-hover:text-[#70C0E8]',
-    'font-medium',
-    glyphPx >= 26 ? 'text-[12px]' : glyphPx >= 22 ? 'text-[11px]' : 'text-[10px]',
+function statNumberClsFor(_glyphPx: number) {
+  return 'ml-px font-sans text-xs leading-none tracking-tight text-fg-secondary';
+}
+
+type TwitterPreviewData =
+  | { type: 'tweet'; html: string; author: string; authorUrl: string }
+  | { type: 'profile'; handle: string; profileUrl: string };
+
+function stripTwitterHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Twitter/X profile + tweet preview popover.
+ *
+ * Matches the inline-positioned mouseEnter/Leave + timeout pattern used by
+ * `PulseRichHover` (no portal, no shadcn Popover dep), but uses the Pulse
+ * polish-spec chrome (`bg-bg-raised border-border-subtle rounded-lg shadow-panel`)
+ * instead of PulseRichHover's heavier dark glass surface. Fetches
+ * `/api/twitter-preview` once per hover (cached for the lifetime of the wrapper).
+ */
+function TwitterLinkHover({ url, children }: { url: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<TwitterPreviewData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const t = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetched = useRef(false);
+
+  const clear = () => {
+    if (t.current) clearTimeout(t.current);
+    t.current = null;
+  };
+
+  useEffect(() => () => clear(), []);
+
+  const fetchPreview = async () => {
+    if (fetched.current) return;
+    fetched.current = true;
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/twitter-preview?url=${encodeURIComponent(url)}`);
+      if (r.ok) {
+        const json = (await r.json()) as Partial<TwitterPreviewData> & { error?: string };
+        if (json && !json.error && (json.type === 'tweet' || json.type === 'profile')) {
+          setData(json as TwitterPreviewData);
+        }
+      }
+    } catch {
+      /** Network/abort — popover falls back to "Open on X" link. */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span className="relative isolate inline-flex">
+      <span
+        className="inline-flex"
+        onMouseEnter={() => {
+          clear();
+          t.current = setTimeout(() => {
+            setOpen(true);
+            void fetchPreview();
+          }, 400);
+        }}
+        onMouseLeave={() => {
+          clear();
+          t.current = setTimeout(() => setOpen(false), 200);
+        }}
+      >
+        {children}
+      </span>
+      {open ? (
+        <div
+          role="dialog"
+          aria-label="X preview"
+          className="pointer-events-auto absolute left-1/2 top-[calc(100%+10px)] z-50 w-[260px] -translate-x-1/2 rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-panel"
+          onMouseEnter={() => {
+            clear();
+            setOpen(true);
+          }}
+          onMouseLeave={() => {
+            clear();
+            t.current = setTimeout(() => setOpen(false), 200);
+          }}
+        >
+          {loading && !data ? (
+            <p className="text-xs text-fg-muted">Loading preview…</p>
+          ) : data?.type === 'tweet' ? (
+            <TwitterTweetPreview data={data} />
+          ) : data?.type === 'profile' ? (
+            <TwitterProfilePreview data={data} />
+          ) : (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-xs text-accent-primary hover:underline"
+            >
+              Open on X →
+            </a>
+          )}
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
+function TwitterXBadge() {
+  return (
+    <span
+      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-[11px] font-bold leading-none text-accent-primary"
+      aria-hidden
+    >
+      𝕏
+    </span>
+  );
+}
+
+function TwitterProfilePreview({
+  data,
+}: {
+  data: Extract<TwitterPreviewData, { type: 'profile' }>;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <TwitterXBadge />
+        <span className="text-xs font-medium text-fg-primary">@{data.handle}</span>
+      </div>
+      <a
+        href={data.profileUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-accent-primary hover:underline"
+      >
+        See profile on X →
+      </a>
+    </div>
+  );
+}
+
+function TwitterTweetPreview({
+  data,
+}: {
+  data: Extract<TwitterPreviewData, { type: 'tweet' }>;
+}) {
+  const raw = stripTwitterHtml(data.html ?? '');
+  const text = raw.slice(0, 120);
+  const author = data.author?.trim() || 'Tweet';
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <TwitterXBadge />
+        <span className="text-xs font-medium text-fg-primary">{author}</span>
+      </div>
+      {text ? (
+        <p className="text-xs leading-snug text-fg-secondary">
+          {text}
+          {raw.length > 120 ? '…' : ''}
+        </p>
+      ) : null}
+      {data.authorUrl ? (
+        <a
+          href={data.authorUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-accent-primary hover:underline"
+        >
+          See on X →
+        </a>
+      ) : null}
+    </div>
   );
 }
 
@@ -314,54 +493,42 @@ export function PulseRowSocialStrip({
 
   return (
     <div className={cn('min-w-0 font-sans', compact ? 'mt-0.5' : 'mt-1')}>
-      <div className="flex min-w-0 flex-nowrap items-center gap-x-1 overflow-x-auto overflow-y-hidden overscroll-x-contain py-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {profile?.url ? (
-          <PulseRichHover
-            wide
-            panel={<TwitterProfileHoverPanel bundle={bundle} model={model} followers={twFollowers} />}
-          >
+          <TwitterLinkHover url={profile.url}>
             <a
               href={profile.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Creator profile on X"
-              title="Creator profile on X"
+              aria-label={`Creator profile on X (@${profile.handle?.replace(/^@/, '') ?? 'unknown'})`}
+              title={`Creator profile on X${profile.handle ? ` (@${profile.handle.replace(/^@/, '')})` : ''}`}
               className={iconHit}
             >
-              <PulseGlyphMask name="profile" size={sx} />
+              <PulseGlyphMask name="xLogo" size={sx} />
             </a>
-          </PulseRichHover>
+          </TwitterLinkHover>
         ) : null}
 
         {tweetUrl ? (
-          <WithHoverTooltip
-            previewTitle="Linked post on X"
-            previewSubtitle={
-              tweetStale === true
-                ? 'Tweet over 24h old (by post ID time)'
-                : 'Opens the linked post'
-            }
-          >
+          <TwitterLinkHover url={tweetUrl}>
             <a
               href={tweetUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Post on X"
-              title="Post on X"
+              aria-label={tweetStale === true ? 'Post on X (over 24h old)' : 'Post on X'}
+              title={tweetStale === true ? 'Linked post on X — over 24h old' : 'Linked post on X'}
               className={iconHit}
             >
-              <PulseGlyphMask
-                name="feather"
-                size={sx}
-                variant="natural"
-                className={
-                  tweetStale === true
-                    ? '[filter:hue-rotate(-35deg)_saturate(1.45)_brightness(0.92)_contrast(1.08)]'
-                    : undefined
-                }
+              <MessageSquare
+                className={cn(
+                  'h-3.5 w-3.5 shrink-0',
+                  tweetStale === true && 'text-signal-warn',
+                )}
+                strokeWidth={2}
+                aria-hidden
               />
             </a>
-          </WithHoverTooltip>
+          </TwitterLinkHover>
         ) : null}
 
         {model.twitterSearch?.url ? (

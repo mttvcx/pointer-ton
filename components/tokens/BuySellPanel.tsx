@@ -2,7 +2,7 @@
 
 /* Trading panel syncs local controls from async preset fetch and limit-alert deep links. */
 /* eslint-disable react-hooks/set-state-in-effect -- intentional hydration from server / URL */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -10,17 +10,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import {
+  AlertTriangle,
   ArrowBigUp,
   ArrowDownRight,
   ArrowUpRight,
   Bell,
+  Copy,
+  ExternalLink,
   ChevronsRight,
   CircleDollarSign,
   Clock,
   Coins,
   Loader2,
   Settings,
-  Shield,
   TrendingDown,
   Wallet,
   Zap,
@@ -37,7 +39,7 @@ import {
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 import { cn } from '@/lib/utils/cn';
-import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { explorerTokenAriaLabel, explorerTokenHrefFromMint, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import type { Tables } from '@/lib/supabase/types';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
@@ -173,58 +175,137 @@ function CompactFeeStrip({
   });
   const tip = formatNumber(lamportsToSol(BigInt(Math.max(0, jitoLamports))), { decimals: 3 });
   const slipPct = slippageBps / 100;
+  const slipStr = (slipPct < 1 ? slipPct.toFixed(2) : slipPct.toFixed(1)) + '%';
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border border-border-subtle/60 bg-bg-base/80 px-2 py-1 font-sans text-[8px] text-fg-muted">
-      <span className="tabular-nums">
-        Slip {(slipPct < 1 ? slipPct.toFixed(2) : slipPct.toFixed(1))}%
+    <div className="flex flex-wrap items-center gap-3 font-sans">
+      <span className="inline-flex flex-wrap items-baseline gap-1">
+        <span className="text-[10px] uppercase tracking-wider text-fg-muted">Slip</span>
+        <span className="text-xs font-medium text-fg-secondary tabular-nums">{slipStr}</span>
       </span>
-      <span className="opacity-40">·</span>
-      <span className="tabular-nums">
-        Gas {gas} {nativeQuoteSym}
-      </span>
-      <span className="opacity-40">·</span>
-      <span className="tabular-nums text-signal-warn">
-        Tip {tip} {nativeQuoteSym}
-        <span className="ml-0.5" aria-hidden>
-          ⚠
+      <span className="inline-flex flex-wrap items-baseline gap-1">
+        <span className="text-[10px] uppercase tracking-wider text-fg-muted">Gas</span>
+        <span className="text-xs font-medium text-fg-secondary tabular-nums">
+          {gas} {nativeQuoteSym}
         </span>
       </span>
-      <span className="opacity-40">·</span>
-      <span className="inline-flex items-center gap-0.5 tabular-nums">
-        <Shield className="h-2.5 w-2.5 opacity-80" strokeWidth={2} aria-hidden />
-        On
+      <span className="inline-flex flex-wrap items-baseline gap-1">
+        <span className="text-[10px] uppercase tracking-wider text-fg-muted">Tip</span>
+        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-fg-secondary tabular-nums">
+          {tip} {nativeQuoteSym}
+          <AlertTriangle className="inline h-3 w-3 shrink-0 text-signal-warn" strokeWidth={2} aria-hidden />
+        </span>
       </span>
     </div>
   );
 }
 
+function tokenInfoCellValueClass(
+  kind:
+    | 'top10'
+    | 'devh'
+    | 'sniper'
+    | 'insider'
+    | 'bundler'
+    | 'lp'
+    | 'holders'
+    | 'pro'
+    | 'dex',
+  n: number | null | undefined,
+  dexPaid?: boolean | null,
+): string {
+  if (kind === 'dex') {
+    if (dexPaid === true) return 'text-signal-bull font-semibold text-xs';
+    return 'text-signal-bear font-semibold text-xs';
+  }
+  const isZero = n == null || !Number.isFinite(n) || n === 0;
+  if (kind === 'holders' || kind === 'pro') {
+    return cn('text-sm font-semibold tabular-nums', isZero ? 'text-fg-muted' : 'text-fg-primary');
+  }
+  if (isZero) return 'text-sm font-semibold tabular-nums text-fg-muted';
+  if (kind === 'top10' || kind === 'devh') return 'text-sm font-semibold tabular-nums text-fg-primary';
+  if (kind === 'sniper' || kind === 'insider' || kind === 'bundler') {
+    return 'text-sm font-semibold tabular-nums text-signal-bear';
+  }
+  /* lp */
+  return 'text-sm font-semibold tabular-nums text-signal-bull';
+}
+
 function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
   const pct = (n: number | null | undefined) =>
     `${formatNumber(n ?? 0, { decimals: 2 })}%`;
-  const tone = (n: number | null | undefined, warn = 25) =>
-    n == null || n === 0 ? 'text-[#9ca3af]' : n > warn ? 'text-[#fb7185]' : 'text-[#34d399]';
-  const items = [
-    { label: 'Top 10 H.', value: pct(m?.top10HolderPct), cls: tone(m?.top10HolderPct, 20) },
-    { label: 'Dev H.', value: pct(m?.devHoldingPct), cls: tone(m?.devHoldingPct, 5) },
-    { label: 'Snipers H.', value: pct(m?.sniperHolderPct), cls: 'text-[#34d399]' },
-    { label: 'Insiders', value: pct(m?.insidersPct), cls: tone(m?.insidersPct, 12) },
-    { label: 'Bundlers', value: pct(m?.bundlersPct), cls: tone(m?.bundlersPct, 20) },
-    { label: 'LP Burned', value: pct(m?.lpBurnedPct), cls: m?.lpBurnedPct != null && m.lpBurnedPct >= 99 ? 'text-[#34d399]' : 'text-[#e5e7eb]' },
-    { label: 'Holders', value: formatNumber(m?.holders ?? 0, { decimals: 0 }), cls: 'text-[#e5e7eb]' },
-    { label: 'Pro Traders', value: formatNumber(m?.proTraders ?? 0, { decimals: 0 }), cls: 'text-[#e5e7eb]' },
-    { label: 'Dex Paid', value: m?.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid', cls: m?.dexPaid ? 'text-[#34d399]' : 'text-[#fb7185]' },
+
+  const dexLabel = m?.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid';
+  const dexCls = tokenInfoCellValueClass('dex', 0, m?.dexPaid);
+
+  const cells: { label: string; value: ReactNode; valueClass: string }[] = [
+    {
+      label: 'Top 10 H.',
+      value: pct(m?.top10HolderPct),
+      valueClass: tokenInfoCellValueClass('top10', m?.top10HolderPct ?? 0),
+    },
+    {
+      label: 'Dev H.',
+      value: pct(m?.devHoldingPct),
+      valueClass: tokenInfoCellValueClass('devh', m?.devHoldingPct ?? 0),
+    },
+    {
+      label: 'Snipers H.',
+      value: pct(m?.sniperHolderPct),
+      valueClass: tokenInfoCellValueClass('sniper', m?.sniperHolderPct ?? 0),
+    },
+    {
+      label: 'Insiders',
+      value: pct(m?.insidersPct),
+      valueClass: tokenInfoCellValueClass('insider', m?.insidersPct ?? 0),
+    },
+    {
+      label: 'Bundlers',
+      value: pct(m?.bundlersPct),
+      valueClass: tokenInfoCellValueClass('bundler', m?.bundlersPct ?? 0),
+    },
+    {
+      label: 'LP Burned',
+      value: pct(m?.lpBurnedPct),
+      valueClass: tokenInfoCellValueClass('lp', m?.lpBurnedPct ?? 0),
+    },
+    {
+      label: 'Holders',
+      value: formatNumber(m?.holders ?? 0, { decimals: 0 }),
+      valueClass: tokenInfoCellValueClass('holders', m?.holders ?? 0),
+    },
+    {
+      label: 'Pro Traders',
+      value: formatNumber(m?.proTraders ?? 0, { decimals: 0 }),
+      valueClass: tokenInfoCellValueClass('pro', m?.proTraders ?? 0),
+    },
+    {
+      label: 'Dex Paid',
+      value:
+        m?.dexPaid === false || m?.dexPaid == null ? (
+          <span className="inline-flex items-center justify-center gap-0.5">
+            <AlertTriangle className="inline h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+            {dexLabel}
+          </span>
+        ) : (
+          dexLabel
+        ),
+      valueClass: dexCls,
+    },
   ];
 
   return (
-    <section className="rounded-md border border-border-subtle bg-bg-base p-2">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-white">Token Info</span>
-      </div>
-      <div className="grid grid-cols-3 gap-1.5">
-        {items.map((item) => (
-          <div key={item.label} className="min-h-[54px] rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1.5 text-center">
-            <div className={cn('truncate text-[12px] font-semibold tabular-nums', item.cls)}>{item.value}</div>
-            <div className="mt-1 truncate text-[10px] text-[#8b93a3]">{item.label}</div>
+    <section>
+      <div className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-muted">Token Info</div>
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-border-subtle">
+        {cells.map((item) => (
+          <div
+            key={item.label}
+            className="flex flex-col items-center justify-center bg-bg-raised px-1 py-2"
+          >
+            <div className={cn(item.valueClass, item.label !== 'Dex Paid' && 'truncate')}>
+              {item.value}
+            </div>
+            <div className="mt-0.5 text-[10px] text-fg-muted">{item.label}</div>
           </div>
         ))}
       </div>
@@ -898,9 +979,9 @@ export function BuySellPanel({
           </p>
         ) : null}
 
-        <div className="flex w-full rounded-lg border border-border-subtle bg-bg-base p-0.5">
-          <button type="button" onClick={() => setTab('buy')} className={cn('btn-press focus-ring flex flex-1 items-center justify-center rounded-md py-2 text-[13px] font-semibold transition', tab === 'buy' ? 'bg-[#38d99c] text-[#04120d]' : 'text-[#9ca3af] hover:bg-white/[0.04] hover:text-white')}>Buy</button>
-          <button type="button" disabled={panelMode === 'limit_mcap'} onClick={() => setTab('sell')} className={cn('btn-press focus-ring flex flex-1 items-center justify-center rounded-md py-2 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40', tab === 'sell' ? 'bg-[#fb7185] text-[#21060c]' : 'text-[#9ca3af] hover:bg-white/[0.04] hover:text-white')}>Sell</button>
+        <div className="flex w-full overflow-hidden rounded-lg border border-border-subtle bg-bg-base p-0.5 gap-0.5">
+          <button type="button" onClick={() => setTab('buy')} className={cn('btn-press focus-ring flex flex-1 h-8 items-center justify-center rounded text-sm font-semibold transition-all duration-150', tab === 'buy' ? 'cta-bull' : 'bg-bg-sunken text-fg-muted hover:text-fg-secondary')}>Buy</button>
+          <button type="button" disabled={panelMode === 'limit_mcap'} onClick={() => setTab('sell')} className={cn('btn-press focus-ring flex flex-1 h-8 items-center justify-center rounded text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40', tab === 'sell' ? 'cta-bear' : 'bg-bg-sunken text-fg-muted hover:text-fg-secondary')}>Sell</button>
         </div>
 
         <div className="flex min-w-0 items-center gap-1 border-b border-[#1b1f2a] pb-1">
@@ -943,30 +1024,82 @@ export function BuySellPanel({
               icon="sol"
               aria-label={`${nativeSym} amount to buy`}
             />
-            <div className="mt-1 grid grid-cols-5 overflow-hidden rounded border border-[#1b1f2a] text-center text-[12px] font-semibold">
-              {axiomBuyAmounts.map((s) => <button key={s} type="button" onClick={() => pickBuyPreset(s)} className={cn('border-r border-[#1b1f2a] py-1.5 tabular-nums last:border-r-0 hover:bg-white/5', activePresetSol === Number(s) ? 'text-[#38d99c]' : 'text-white')}>{s}</button>)}
-              <button type="button" className="py-1.5 text-[#8b93a3] hover:bg-white/5">%</button>
+            <div className="mt-1 grid grid-cols-5 gap-1.5">
+              {axiomBuyAmounts.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => pickBuyPreset(s)}
+                  className={cn(
+                    'btn-press focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium tabular-nums transition-all duration-100',
+                    activePresetSol === Number(s)
+                      ? 'border-accent-primary/40 bg-accent-primary/15 text-accent-primary'
+                      : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border hover:bg-bg-hover hover:text-fg-primary',
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+              <button type="button" className="focus-ring flex h-8 items-center justify-center rounded border border-border-subtle bg-bg-sunken text-sm font-medium text-fg-secondary transition-all duration-100 hover:border-border hover:bg-bg-hover hover:text-fg-primary">
+                %
+              </button>
             </div>
           </div>
         ) : (
           <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] p-2">
             <div className="mb-1 flex items-center justify-between text-[10px] text-[#8b93a3]"><span>Amount</span><span className="tabular-nums">Bal {formatNumber(rawToUi(balanceRaw, decimals), { decimals: 4 })} {sym}</span></div>
-            <div className="grid grid-cols-5 overflow-hidden rounded border border-[#1b1f2a] text-center text-[12px] font-semibold">
-              {SELL_PCTS.map((p) => <button key={p} type="button" onClick={() => { setSellUseCustom(false); setSellPct(p); }} className={cn('border-r border-[#1b1f2a] py-1.5 tabular-nums hover:bg-white/5', !sellUseCustom && sellPct === p ? 'text-[#fb7185]' : 'text-white')}>{p}%</button>)}
-              <button type="button" onClick={() => setSellUseCustom(true)} className={cn('py-1.5 hover:bg-white/5', sellUseCustom ? 'text-[#fb7185]' : 'text-[#8b93a3]')}>Custom</button>
+            <div className="mt-1 grid grid-cols-5 gap-1.5">
+              {SELL_PCTS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => {
+                    setSellUseCustom(false);
+                    setSellPct(p);
+                  }}
+                  className={cn(
+                    'btn-press focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium tabular-nums transition-all duration-100',
+                    !sellUseCustom && sellPct === p
+                      ? 'border-accent-primary/40 bg-accent-primary/15 text-accent-primary'
+                      : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border hover:bg-bg-hover hover:text-fg-primary',
+                  )}
+                >
+                  {p}%
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSellUseCustom(true)}
+                className={cn(
+                  'btn-press focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium transition-all duration-100',
+                  sellUseCustom
+                    ? 'border-accent-primary/40 bg-accent-primary/15 text-accent-primary'
+                    : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border hover:bg-bg-hover hover:text-fg-primary',
+                )}
+              >
+                Custom
+              </button>
             </div>
             {sellUseCustom ? <div className="mt-1.5"><TradeAmountInput value={sellCustomUi} onChange={setSellCustomUi} placeholder="Tokens to sell" suffix={sym.length > 8 ? `${sym.slice(0, 6)}...` : sym} icon="token" aria-label={`${sym} amount to sell`} /></div> : null}
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-1 rounded-md border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[10px] text-[#8b93a3]">
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-border-subtle bg-bg-base px-2 py-1.5">
           <CompactFeeStrip
             slippageBps={effectiveSlippageBps}
             priorityLamports={activePreset?.priority_fee_lamports ?? 0}
             jitoLamports={activePreset?.jito_tip_lamports ?? 0}
             nativeQuoteSym={nativeSym}
           />
-          <span className="ml-auto inline-flex items-center gap-1"><input type="checkbox" checked={dynamicSlippage} onChange={(e) => setDynamicSlippage(e.target.checked)} className="h-3 w-3 rounded border-[#1b1f2a]" />Dynamic</span>
+          <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={dynamicSlippage}
+              onChange={(e) => setDynamicSlippage(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-border-subtle bg-bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/45 [accent-color:var(--accent-primary)]"
+            />
+            <span className="text-xs text-fg-muted">Dynamic</span>
+          </label>
         </div>
 
         <div className="rounded-md border border-border-subtle bg-bg-base px-2 py-1.5">
@@ -978,20 +1111,59 @@ export function BuySellPanel({
         {quoteStale ? <p className="text-[10px] text-signal-warn">Settings changed. Tap the action button for a fresh quote.</p> : null}
         {tradingBlockedImported ? <p className="rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[10px] leading-snug text-[#9ca3af]">Imported wallets are view-only for swaps right now. Switch to an embedded Pointer wallet to trade.</p> : null}
 
-        <button type="button" disabled={!wallet || tradingBlockedImported || (panelMode === 'limit_mcap' && targetMcUsd == null)} onClick={() => { if (panelMode === 'limit_mcap') { toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' }); return; } void runTrade(); }} className={cn('btn-press focus-ring sticky bottom-0 z-[1] flex w-full items-center justify-center gap-2 rounded-full py-3 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50', tab === 'buy' ? 'cta-bull' : 'cta-bear')}>
+        <button type="button" disabled={!wallet || tradingBlockedImported || (panelMode === 'limit_mcap' && targetMcUsd == null)} onClick={() => { if (panelMode === 'limit_mcap') { toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' }); return; } void runTrade(); }} className={cn('btn-press focus-ring sticky bottom-0 z-[1] flex w-full items-center justify-center gap-2 rounded-lg h-10 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50', tab === 'buy' ? 'cta-bull' : 'cta-bear')}>
           {panelMode === 'limit_mcap' && targetMcUsd != null ? `Buy @ ${formatCompactUsd(targetMcUsd)} MC` : `${tab === 'buy' ? 'Buy' : 'Sell'} ${ctaSym}`}
         </button>
 
-        <div className="grid grid-cols-4 border-t border-[#1b1f2a] pt-2 text-[11px] leading-tight">
-          <div className="border-r border-[#1b1f2a] pr-2"><div className="text-[#8b93a3]">Bought</div><div className="font-semibold text-[#38d99c]">$0</div></div>
-          <div className="border-r border-[#1b1f2a] px-2"><div className="text-[#8b93a3]">Sold</div><div className="font-semibold text-[#fb7185]">$0</div></div>
-          <div className="border-r border-[#1b1f2a] px-2"><div className="text-[#8b93a3]">Holding</div><div className="font-semibold text-white">$0</div></div>
-          <div className="pl-2"><div className="text-[#8b93a3]">PnL</div><div className="font-semibold text-[#38d99c]">+$0 (0%)</div></div>
+        <div className="grid grid-cols-4 gap-0 border-t border-border-subtle pt-2 mt-1">
+          <div className="flex flex-col items-center">
+            <div className="text-[10px] uppercase tracking-wider text-fg-muted">Bought</div>
+            <div className="text-xs font-semibold tabular-nums text-fg-primary">$0</div>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="text-[10px] uppercase tracking-wider text-fg-muted">Sold</div>
+            <div className="text-xs font-semibold tabular-nums text-fg-primary">$0</div>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="text-[10px] uppercase tracking-wider text-fg-muted">Holding</div>
+            <div className="text-xs font-semibold tabular-nums text-fg-primary">$0</div>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="text-[10px] uppercase tracking-wider text-fg-muted">PnL</div>
+            <div className="text-xs font-semibold tabular-nums text-fg-primary">+$0 (0%)</div>
+          </div>
         </div>
 
         {wallet && authenticated ? <PresetSelector presets={presetRowsForSelector} onEdit={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setPresetEditorOpen(true); }} onAdvancedSettings={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setAdvancedSettingsOpen(true); }} disabled={!authenticated} /> : null}
         <TokenInfoGrid m={extendedTape} />
-        <button type="button" onClick={() => { void navigator.clipboard.writeText(mint); toast.success('Contract address copied'); }} className="flex w-full items-center justify-between rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1.5 text-[11px] text-[#d1d5db] hover:bg-white/[0.03]"><span className="text-[#8b93a3]">CA:</span><span className="min-w-0 flex-1 truncate px-2 text-left tabular-nums">{mint}</span><span className="text-[#8b93a3]">?</span></button>
+        <div className="border-t border-border-subtle pt-2">
+          <div className="flex items-center gap-1.5 py-1">
+            <span className="shrink-0 text-[10px] uppercase tracking-wider text-fg-muted">CA:</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg-secondary" title={mint}>
+              {mint}
+            </span>
+            <button
+              type="button"
+              aria-label="Copy contract address"
+              className="shrink-0 text-fg-muted transition-colors hover:text-fg-primary"
+              onClick={() => {
+                void navigator.clipboard.writeText(mint);
+                toast.success('Contract address copied');
+              }}
+            >
+              <Copy className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />
+            </button>
+            <a
+              href={explorerTokenHrefFromMint(mint, activeChain)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={explorerTokenAriaLabel(activeChain)}
+              className="shrink-0 text-fg-muted transition-colors hover:text-fg-primary"
+            >
+              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+            </a>
+          </div>
+        </div>
       </div>
 
       {walletMenuOpen ? (

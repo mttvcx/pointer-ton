@@ -16,16 +16,16 @@ export function PulseRowMetaPills({ bundle }: { bundle: PulseTokenBundle }) {
   if (!devSold && (bond.migrated || bond.fillPct == null)) return null;
 
   return (
-    <div className="mt-1.5 flex flex-nowrap items-center gap-1.5 overflow-hidden">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {devSold ? (
         <PulseRichHover panel={<DevFundedHoverPanel bundle={bundle} />}>
           <span
-            className="inline-flex cursor-default items-center gap-0.5 rounded-md border border-rose-500/35 bg-rose-500/[0.11] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-rose-100/95"
+            className="inline-flex h-4 cursor-default items-center gap-0.5 rounded border-0 bg-signal-bear/10 px-1.5 text-[10px] font-medium uppercase tracking-wide text-signal-bear"
             title="Developer holding - hover for funding snapshot"
           >
             <ChefHat className="h-2.5 w-2.5 shrink-0" strokeWidth={2.25} aria-hidden />
             DS
-            <span className="tabular-nums text-[9px] font-semibold tabular-nums normal-case">
+            <span className="text-[10px] font-medium normal-case">
               {Math.round(devPct!)}%
             </span>
           </span>
@@ -33,7 +33,7 @@ export function PulseRowMetaPills({ bundle }: { bundle: PulseTokenBundle }) {
       ) : null}
       {!bond.migrated && bond.fillPct != null ? (
         <span
-          className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/[0.1] px-2 py-1 text-[10px] font-semibold text-emerald-100/90"
+          className="inline-flex h-4 items-center rounded border-0 bg-signal-bull/10 px-1.5 text-[10px] font-medium uppercase tracking-wide text-signal-bull"
           title="Bonding curve progress"
         >
           Bonding {Math.round(bond.fillPct)}%

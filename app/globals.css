@@ -11,8 +11,8 @@
     color-scheme: dark;
 
     --bg-base: #080d14;
-    --bg-raised: #080d14;
-    --bg-sunken: #080a0f;
+    --bg-raised: #0e141c;
+    --bg-sunken: #05080d;
     --bg-hover: #141820;
 
     --border-subtle: #1b1f2a;
@@ -236,6 +236,21 @@
   /* Focus ring used on every interactive element so keyboard nav feels native. */
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/45 focus-visible:ring-offset-0;
+  }
+
+  /**
+   * Pulse: active token row highlight. Uses inset box-shadow so it composes
+   * independently of the row's border/ring stack and never shifts layout.
+   * Hover deepens the inset + adds an outer signal-bull bloom.
+   */
+  .row-active {
+    box-shadow: inset 0 0 0 1px rgba(61, 220, 151, 0.35);
+    transition: box-shadow 150ms ease;
+  }
+  .row-active:hover {
+    box-shadow:
+      inset 0 0 0 1px rgba(61, 220, 151, 0.7),
+      0 0 12px -2px rgba(61, 220, 151, 0.25);
   }
 
   /**

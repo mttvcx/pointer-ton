@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
-import { ArrowUpRight, Eye, Loader2, Zap } from 'lucide-react';
+import { Eye, Loader2, Zap } from 'lucide-react';
 import { NumberDisplay } from '@/components/shared/NumberDisplay';
 import { WalletDisplay } from '@/components/shared/WalletDisplay';
 import { PulseRowMetaPills } from '@/components/tokens/PulseRowMetaPills';
@@ -119,14 +119,8 @@ export function TokenRow({
   /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
   const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
 
-  const avatarSize =
-    slotHeight != null && slotHeight < 88
-      ? 40
-      : layoutDensity === 'compact'
-        ? 44
-        : layoutDensity === 'expanded'
-          ? 60
-          : 52;
+  /** Locked to h-10 w-10 (40px) across every column for consistent visual rhythm. */
+  const avatarSize = 40;
   const rowMinH =
     layoutDensity === 'compact'
       ? 'min-h-[68px]'
@@ -136,24 +130,6 @@ export function TokenRow({
   const py =
     layoutDensity === 'compact' ? 'py-2' : layoutDensity === 'expanded' ? 'py-3' : 'py-2.5';
   const effectivePy = slotHeight != null ? 'py-1' : py;
-  const titleSize =
-    layoutDensity === 'compact'
-      ? 'text-[14px]'
-      : layoutDensity === 'expanded'
-        ? 'text-[16px]'
-        : 'text-[15px]';
-  const nameSize =
-    layoutDensity === 'compact'
-      ? 'text-[12px]'
-      : layoutDensity === 'expanded'
-        ? 'text-[14px]'
-        : 'text-[13px]';
-  const metricSize =
-    layoutDensity === 'compact'
-      ? 'text-[11px]'
-      : layoutDensity === 'expanded'
-        ? 'text-[13px]'
-        : 'text-[12px]';
 
   const devWallet = token.creator_wallet;
   const trackedDev =
@@ -252,8 +228,8 @@ export function TokenRow({
   const nameCluster = (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
       <p className="min-w-0 flex-1 truncate leading-tight" title={nameTitle}>
-        <span className={cn('font-semibold text-fg-primary', titleSize)}>{ticker}</span>
-        <span className={cn('font-medium text-fg-secondary', nameSize)}> {name}</span>
+        <span className="text-sm font-semibold text-fg-primary">{ticker}</span>
+        <span className="ml-1.5 text-xs text-fg-secondary">{name}</span>
       </p>
       {showBadge ? (
         <span className="inline-flex max-w-[min(11rem,42%)] shrink-0 flex-nowrap items-center gap-1 overflow-hidden">
@@ -286,15 +262,8 @@ export function TokenRow({
    * Recent (<60s) gets the green seconds tint Terminal uses to flag fresh listings.
    */
   const ageLabel = formatAgeShort(token.created_at);
-  const ageIsSeconds = ageLabel.endsWith('s');
   const ageBadge = (
-    <span
-      className={cn(
-        'shrink-0 whitespace-nowrap tabular-nums leading-none',
-        'text-[13px] font-semibold',
-        ageIsSeconds ? 'text-signal-bull' : 'text-fg-secondary',
-      )}
-    >
+    <span className="shrink-0 whitespace-nowrap leading-none text-xs text-fg-muted">
       {ageLabel}
     </span>
   );
@@ -315,7 +284,7 @@ export function TokenRow({
         showMc={showMc}
         size={slotHeight != null ? 'normal' : volMcSize}
         justify="end"
-        layout={volMcLayout}
+        layout="stack"
       />
     ) : null;
 
@@ -339,12 +308,8 @@ export function TokenRow({
   const metricsStrip = (
     <div
       className={cn(
-        'flex items-center gap-x-3 tabular-nums tabular-nums leading-snug text-fg-muted',
-        metricSize,
-        'mt-1',
-        slotHeight != null
-          ? 'max-w-full flex-nowrap overflow-hidden'
-          : 'flex-wrap gap-y-0.5',
+        'flex flex-wrap items-center gap-x-3 gap-y-1 leading-snug',
+        slotHeight != null && 'max-w-full overflow-hidden',
       )}
     >
       {axiomVolMcForStrip}
@@ -356,7 +321,7 @@ export function TokenRow({
               key="liq"
               label="LIQ"
               value={
-                <NumberDisplay value={snapshot?.liquidity_usd} compact className="text-fg-secondary" />
+                <NumberDisplay value={snapshot?.liquidity_usd} compact className="text-xs text-fg-secondary" />
               }
             />,
           );
@@ -367,7 +332,7 @@ export function TokenRow({
               key="tx"
               label="TX"
               value={
-                <span className="text-fg-secondary">
+                <span className="text-xs text-fg-secondary">
                   {txnsStrip != null ? formatNumber(txnsStrip, { decimals: 0 }) : '--'}
                 </span>
               }
@@ -377,7 +342,7 @@ export function TokenRow({
         if (showDev && token.creator_wallet) {
           metrics.push(
             <span key="dev" className="inline-flex items-center gap-1">
-              <span className="text-fg-muted">dev</span>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">dev</span>
               <PulseRichHover wide panel={<DevWalletIntelHoverPanel bundle={bundle} />}>
                 <WalletDisplay
                   address={token.creator_wallet}
@@ -389,7 +354,7 @@ export function TokenRow({
             </span>,
           );
         }
-        return metrics.flatMap((m, i) => (i === 0 ? [m] : [<Sep key={`sep-${i}`} />, m]));
+        return metrics;
       })()}
     </div>
   );
@@ -403,13 +368,12 @@ export function TokenRow({
           : undefined
       }
       className={cn(
-        'group relative flex items-stretch border-b border-border-subtle bg-bg-base outline-none transition-colors duration-150',
+        'focus-ring group relative flex items-stretch rounded-lg border border-border-subtle bg-bg-raised outline-none transition-colors duration-100',
         slotHeight != null
           ? 'h-full min-h-0 max-h-full overflow-hidden'
           : rowMinH,
         trackedDev && 'bg-accent-primary/[0.08]',
-        pulseFlashHighlight &&
-          'z-[25] shadow-[inset_0_0_0_2px_rgba(251,191,36,0.75)] backdrop-brightness-[1.08]',
+        pulseFlashHighlight && 'row-active z-[25]',
         'hover:bg-bg-hover',
       )}
       style={slotHeight != null ? { height: slotHeight } : undefined}
@@ -437,8 +401,7 @@ export function TokenRow({
           onClick={onTokenAreaClick}
           onKeyDown={onTokenAreaKeyDown}
           className={cn(
-            'relative z-0 flex min-h-0 min-w-0 flex-1 cursor-pointer items-center px-3 outline-none focus-visible:bg-bg-hover/80',
-            effectivePy,
+            'relative z-0 flex min-h-0 min-w-0 flex-1 cursor-pointer items-center p-3 outline-none focus-visible:bg-bg-hover/80',
             /**
              * Reservation MUST match the Ultra dock width formula below or token info
              * bleeds under the action column when the Pulse column is narrow.
@@ -452,11 +415,11 @@ export function TokenRow({
           <div className="flex h-full min-h-0 w-full min-w-0 items-center gap-3">
             <Link
               href={tokenPath}
-              className="shrink-0 outline-none focus-visible:bg-bg-hover rounded-md"
+              className="shrink-0 outline-none focus-visible:bg-bg-hover rounded-lg"
             >
               {avatarStack}
             </Link>
-            <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-center overflow-hidden">
+            <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-center space-y-1.5 overflow-hidden">
               <Link
                 href={tokenPath}
                 className="block min-w-0 outline-none focus-visible:bg-bg-hover rounded-sm"
@@ -476,16 +439,8 @@ export function TokenRow({
                     agent: showTraitIcons && traits.agent,
                   }}
                   compact
-                  glyphSize={
-                    slotHeight != null
-                      ? /** Sized so each glyph reads at the same visual weight as the LIQ / TX / dev row beneath it. */
-                        22
-                      : layoutDensity === 'compact'
-                        ? 20
-                        : layoutDensity === 'expanded'
-                          ? 24
-                          : 22
-                  }
+                  /** Locked to 14px (h-3.5 w-3.5) per Pulse polish iteration — earlier 12px read invisible. */
+                  glyphSize={14}
                 />
               </div>
               <PulseRowMetaPills bundle={bundle} />
@@ -810,23 +765,19 @@ export function TokenRow({
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <span className="inline-flex items-baseline gap-1">
-      <span className="text-fg-muted">{label}</span>
+      <span className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">{label}</span>
       {value}
     </span>
   );
 }
 
-function Sep() {
-  return <span className="text-fg-muted/40">|</span>;
-}
-
 function QuickBuyPill({
   quickBuySol,
-  style,
+  style: _style,
   onBuy,
   loading,
   disabled,
-  pulseFit,
+  pulseFit: _pulseFit,
   quoteSymbol = 'TON',
   className,
 }: {
@@ -842,42 +793,12 @@ function QuickBuyPill({
 }) {
   const labelAmount = formatSolDraft(quickBuySol) || String(quickBuySol);
 
-  const tier =
-    style === 'small' ? 'small' : style === 'large' ? 'large' : 'medium';
-
-  const emphasisRing =
-    pulseFit &&
-    cn(
-      tier === 'large' && 'ring-2 ring-emerald-200/65 ring-offset-0 ring-offset-transparent',
-      tier === 'small' && 'ring-1 ring-emerald-400/30',
-      tier === 'medium' && 'ring-1 ring-emerald-200/45',
-    );
-
-  const sizeCls = pulseFit
-    ? cn(
-        'h-8 max-h-8 min-h-[28px] min-w-0 gap-1 leading-none [&_svg]:h-2.5 [&_svg]:w-2.5',
-        tier === 'small'
-          ? 'px-1.5 text-[9px]'
-          : tier === 'large'
-            ? 'px-2 text-[11px]'
-            : 'px-2 text-[10px]',
-      )
-    : tier === 'small'
-      ? 'min-h-7 gap-1 px-2.5 text-[9px] leading-none [&_svg]:h-2.5 [&_svg]:w-2.5'
-      : tier === 'large'
-        ? 'min-h-10 gap-1.5 px-4 text-[13px] leading-none [&_svg]:h-4 [&_svg]:w-4'
-        : 'min-h-9 gap-1.5 px-3.5 text-[12px] leading-none [&_svg]:h-3.5 [&_svg]:w-3.5';
-
-  const chrome =
-    tier === 'large'
-      ? 'shadow-[0_0_18px_-8px_rgba(16,185,129,0.55)] border-2 border-emerald-300/90 bg-emerald-400 text-[#030806] hover:border-emerald-200 hover:bg-emerald-300 active:bg-emerald-500 active:border-emerald-400'
-      : 'shadow-[0_0_14px_-10px_rgba(16,185,129,0.45)] border border-emerald-300/85 bg-emerald-400 text-[#030806] hover:border-emerald-200 hover:bg-emerald-300 active:bg-emerald-500 active:border-emerald-400';
-
+  /**
+   * Axiom/Trojan-style subtle tinted pill. `style` / `pulseFit` still accepted (signature stable)
+   * but no longer drive chrome variants — visual treatment is uniform per the polish spec.
+   */
   const btn = cn(
-    'btn-press focus-ring inline-flex min-w-0 max-w-full items-center justify-center rounded-md border font-sans font-semibold tabular-nums tracking-normal transition',
-    chrome,
-    sizeCls,
-    emphasisRing,
+    'btn-press focus-ring inline-flex h-5 min-w-0 max-w-full items-center justify-center gap-1 rounded border-0 bg-signal-bull/10 px-2 font-sans text-xs font-medium leading-none text-signal-bull transition-colors hover:bg-signal-bull/15 active:bg-signal-bull/20',
     (disabled || loading) && 'pointer-events-none opacity-55',
     className,
   );
@@ -892,9 +813,9 @@ function QuickBuyPill({
       aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
     >
       {loading ? (
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin sm:h-4 sm:w-4" aria-hidden />
+        <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
       ) : (
-        <ArrowUpRight className="shrink-0" strokeWidth={tier === 'small' ? 2.5 : 3} />
+        <Zap className="h-3 w-3 inline shrink-0" aria-hidden />
       )}
       <span className="min-w-0 truncate">{`${labelAmount} ${quoteSymbol}`}</span>
     </button>

@@ -26,53 +26,24 @@ export function PulseRowVolMc({
 }) {
   if (!showVol && !showMc) return null;
 
-  const labelCls =
-    size === 'compact'
-      ? 'text-[10px] font-medium text-fg-muted/80'
-      : size === 'expanded'
-        ? 'text-[12px] font-medium text-fg-muted/80'
-        : size === 'prominent'
-          ? 'text-[12px] font-semibold text-fg-muted/85 sm:text-[13px]'
-          : 'text-[11px] font-medium text-fg-muted/80';
-  const valueVolCls =
-    size === 'compact'
-      ? 'text-[11px]'
-      : size === 'expanded'
-        ? 'text-[15px]'
-        : size === 'prominent'
-          ? 'text-[15px] font-semibold sm:text-[16px]'
-          : 'text-[13px]';
-  const valueMcCls = valueVolCls;
-
-  /** Tight horizontal rhythm (Axiom-like): labels stay adjacent without flex squeeze from buy overlay */
-  const gapCls =
-    size === 'compact'
-      ? 'gap-x-2.5'
-      : size === 'expanded'
-        ? 'gap-x-5'
-        : size === 'prominent'
-          ? 'gap-x-4 sm:gap-x-5'
-          : 'gap-x-3';
+  /**
+   * Polish spec C: uniform typography for label + value pairs.
+   * `size` prop kept for signature stability but no longer drives styling.
+   */
+  const labelCls = 'text-[10px] font-medium uppercase tracking-wider text-fg-muted';
+  const valueCls = 'text-sm font-semibold text-fg-primary';
 
   const volBlock = showVol ? (
     <span className="inline-flex shrink-0 items-baseline gap-1">
       <span className={labelCls}>V</span>
-      <NumberDisplay
-        value={vol}
-        compact
-        className={cn('font-medium text-fg-primary', valueVolCls)}
-      />
+      <NumberDisplay value={vol} compact className={valueCls} />
     </span>
   ) : null;
 
   const mcBlock = showMc ? (
     <span className="inline-flex shrink-0 items-baseline gap-1">
       <span className={labelCls}>MC</span>
-      <NumberDisplay
-        value={mcUsd}
-        compact
-        className={cn('font-medium text-[#70C0E8]', valueMcCls)}
-      />
+      <NumberDisplay value={mcUsd} compact className={valueCls} />
     </span>
   ) : null;
 
@@ -80,7 +51,7 @@ export function PulseRowVolMc({
     return (
       <div
         className={cn(
-          'flex max-w-full flex-col items-end gap-0.5 font-sans tabular-nums leading-none tracking-tight',
+          'flex max-w-full flex-col items-end gap-0.5 font-sans leading-none tracking-tight',
           className,
         )}
       >
@@ -93,8 +64,7 @@ export function PulseRowVolMc({
   return (
     <div
       className={cn(
-        'inline-flex max-w-full flex-nowrap items-baseline font-sans tabular-nums leading-none tracking-tight',
-        gapCls,
+        'inline-flex max-w-full flex-nowrap items-baseline gap-x-3 font-sans leading-none tracking-tight',
         justify === 'end' && 'justify-end',
         className,
       )}

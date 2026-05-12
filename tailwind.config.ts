@@ -17,12 +17,12 @@ const config: Config = {
       colors: {
         bg: {
           base: '#080D14',
-          raised: '#080D14',
-          sunken: '#080D14',
-          hover: '#1A1D24',
+          raised: '#0E141C',
+          sunken: '#05080D',
+          hover: '#141820',
         },
         border: {
-          subtle: '#1F232C',
+          subtle: '#1b1f2a',
           DEFAULT: '#2A2F3A',
           strong: '#3A4150',
         },

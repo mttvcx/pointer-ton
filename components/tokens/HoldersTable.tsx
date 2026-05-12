@@ -266,23 +266,23 @@ function HolderRowView({
       </td>
       <td className="px-3 align-middle">
         <span className="inline-flex flex-wrap items-center gap-1">
-          {row.is_dev ? <FlagTag tone="warn">DEV</FlagTag> : null}
-          {row.is_sniper ? <FlagTag tone="bear">SNIPER</FlagTag> : null}
+          {row.is_dev ? <FlagTag tone="dev">DEV</FlagTag> : null}
+          {row.is_sniper ? <FlagTag tone="sniper">SNIPER</FlagTag> : null}
         </span>
       </td>
     </tr>
   );
 }
 
-function FlagTag({ children, tone }: { children: string; tone: 'warn' | 'bear' }) {
+function FlagTag({ children, tone }: { children: string; tone: 'dev' | 'sniper' }) {
   const palette =
-    tone === 'warn'
-      ? 'bg-amber-500/10 text-amber-200'
-      : 'bg-rose-500/10 text-rose-200';
+    tone === 'dev'
+      ? 'border-0 bg-fg-muted/15 text-fg-secondary'
+      : 'border-0 bg-signal-bear/15 text-signal-bear';
   return (
     <span
       className={cn(
-        'inline-flex h-4 items-center rounded-sm px-1.5 text-[10px] font-semibold uppercase leading-none tracking-wide',
+        'inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium uppercase leading-none tracking-wide',
         palette,
       )}
     >

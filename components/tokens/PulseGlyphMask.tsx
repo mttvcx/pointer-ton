@@ -50,8 +50,9 @@ function luminanceMaskStyle(src: string, size: number): CSSProperties {
 }
 
 /**
- * Mono strip icons: PNG black plate must never be painted. Luminance mask + fill color keeps
- * line art sharp; grayscale+brightness on a blended img lifts black and reads as a white chip.
+ * Mono strip icons: PNG black plate must never be painted. Luminance mask + `bg-current`
+ * inherits the parent's text color so the row's `text-fg-muted` → `hover:text-fg-secondary`
+ * cascade drives icon color uniformly (per Pulse polish spec D).
  */
 export function PulseLuminanceGlyph({
   src,
@@ -65,9 +66,8 @@ export function PulseLuminanceGlyph({
   return (
     <span
       className={cn(
-        'pointer-events-none inline-block shrink-0 border-0 bg-[#f1f5f9]/[0.94] ring-0',
-        'transition-[background-color] duration-100 ease-out',
-        'group-hover:bg-[#70C0E8]',
+        'pointer-events-none inline-block shrink-0 border-0 bg-current ring-0',
+        'transition-colors duration-100 ease-out',
         className,
       )}
       style={luminanceMaskStyle(src, size)}

@@ -9,17 +9,17 @@ import { cn } from '@/lib/utils/cn';
  * They are designed to sit inline next to a wallet address — never on their own visual line.
  */
 const BADGE_STYLES: Record<WalletIntelBadgeKind, string> = {
-  kol: 'bg-fuchsia-500/10 text-fuchsia-200',
-  smart_money: 'bg-cyan-500/10 text-cyan-200',
-  tracked: 'bg-sky-500/10 text-sky-200',
-  renamed: 'bg-amber-500/10 text-amber-200',
-  top_trader: 'bg-violet-500/10 text-violet-200',
-  insider: 'bg-rose-500/10 text-rose-200',
-  dev: 'bg-amber-600/12 text-amber-200',
-  fresh: 'bg-emerald-500/10 text-emerald-200',
-  whale: 'bg-indigo-500/10 text-indigo-200',
-  high_win_rate: 'bg-lime-500/10 text-lime-200',
-  sniper: 'bg-orange-500/10 text-orange-200',
+  kol: 'bg-signal-info/15 text-signal-info',
+  smart_money: 'bg-signal-bull/15 text-signal-bull',
+  tracked: 'bg-fg-muted/15 text-fg-secondary',
+  renamed: 'bg-fg-muted/15 text-fg-secondary',
+  top_trader: 'bg-accent-primary/15 text-accent-primary',
+  insider: 'bg-signal-bear/15 text-signal-bear',
+  dev: 'bg-fg-muted/15 text-fg-secondary',
+  fresh: 'bg-signal-warn/15 text-signal-warn',
+  whale: 'bg-signal-info/15 text-signal-info',
+  high_win_rate: 'bg-signal-bull/15 text-signal-bull',
+  sniper: 'bg-signal-bear/15 text-signal-bear',
 };
 
 function badgeLabel(k: WalletIntelBadgeKind): string {
@@ -69,7 +69,7 @@ export function WalletIdentityBadges({
         <span
           key={k}
           className={cn(
-            'inline-flex h-4 items-center rounded-sm px-1.5 text-[10px] font-semibold uppercase leading-none tracking-wide',
+            'inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium uppercase leading-none tracking-wide',
             BADGE_STYLES[k],
           )}
           title={badgeLabel(k)}
