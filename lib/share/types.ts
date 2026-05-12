@@ -3,7 +3,7 @@ import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
 
 export type ShareMode = 'image' | 'video';
 
-export type ShareBackgroundPresetId = 'dark-glass' | 'crystal' | 'terminal-glow';
+export type ShareBackgroundPresetId = 'midnight' | 'onyx' | 'glacier';
 
 export type PnlFormatMode = 'amount' | 'pct' | 'both';
 
@@ -24,6 +24,9 @@ export type ShareOverlaySettings = {
   accent: OverlayAccent;
   overlayAlign: 'left' | 'center' | 'right';
 };
+
+export const DEFAULT_SHARE_HEADLINE = '50% cashback, the highest in the game.';
+export const MAX_SHARE_HEADLINE_CHARS = 72;
 
 export const DEFAULT_SHARE_OVERLAY: ShareOverlaySettings = {
   showTokenName: true,

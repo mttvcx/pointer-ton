@@ -16,7 +16,7 @@ export function PulseRowMetaPills({ bundle }: { bundle: PulseTokenBundle }) {
   if (!devSold && (bond.migrated || bond.fillPct == null)) return null;
 
   return (
-    <div className="mt-1 flex flex-nowrap items-center gap-1 overflow-hidden">
+    <div className="mt-1.5 flex flex-nowrap items-center gap-1.5 overflow-hidden">
       {devSold ? (
         <PulseRichHover panel={<DevFundedHoverPanel bundle={bundle} />}>
           <span
@@ -33,7 +33,7 @@ export function PulseRowMetaPills({ bundle }: { bundle: PulseTokenBundle }) {
       ) : null}
       {!bond.migrated && bond.fillPct != null ? (
         <span
-          className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/[0.1] px-1.5 py-0.5 text-[9px] font-semibold text-emerald-100/90"
+          className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/[0.1] px-2 py-1 text-[10px] font-semibold text-emerald-100/90"
           title="Bonding curve progress"
         >
           Bonding {Math.round(bond.fillPct)}%

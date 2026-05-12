@@ -105,6 +105,20 @@ export function lamportsToSol(lamports: number | bigint): number {
   return Number(lamports) / LAMPORTS_PER_SOL;
 }
 
+/**
+ * Lamports from APIs often arrive as decimal strings; `BigInt("")` and non-integers throw and can crash shells.
+ */
+export function parseLamportsStringToSol(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s || !/^\d+$/.test(s)) return null;
+  try {
+    return lamportsToSol(BigInt(s));
+  } catch {
+    return null;
+  }
+}
+
 export function solToLamports(sol: number): bigint {
   return BigInt(Math.round(sol * LAMPORTS_PER_SOL));
 }

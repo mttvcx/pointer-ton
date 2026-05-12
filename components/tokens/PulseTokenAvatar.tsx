@@ -9,7 +9,8 @@ import type { PulseTokenBundle } from '@/types/tokens';
 
 /** Matches Tailwind `rounded-md` (6px). */
 const CORNER_RX = 6;
-const STROKE = 3;
+/** Skim-thin Terminal-style ring. Was 3 — that read as a heavy chrome outline; 1.5 hugs the image edge. */
+const STROKE = 1.5;
 
 function buildRoundedRectRingPath(
   size: number,
@@ -126,8 +127,7 @@ export function PulseTokenAvatar({
     <div
       className={cn(
         'relative shrink-0 rounded-md',
-        pumpFrame &&
-          'shadow-[0_0_0_2px_rgba(52,211,153,0.9),0_0_14px_rgba(52,211,153,0.28)]',
+        pumpFrame && 'shadow-[0_0_0_2px_rgba(52,211,153,0.9)]',
         className,
       )}
       style={{ width: size, height: size }}
@@ -190,27 +190,16 @@ export function PulseTokenAvatar({
           href={`https://pump.fun/${encodeURIComponent(token.mint)}`}
           target="_blank"
           rel="noopener noreferrer"
-          title="Open on TON launchpad"
-          aria-label="TON launchpad"
-          className="absolute bottom-0.5 right-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[#030806] shadow-[0_0_0_1px_rgba(0,0,0,0.45)] ring-1 ring-emerald-300/90 transition hover:scale-105 hover:bg-emerald-400"
+          title="Open on pump.fun"
+          aria-label="pump.fun"
+          className="absolute -bottom-1 -right-1 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#1cd882] text-black shadow-[0_0_0_1.5px_#080d14] transition hover:scale-105 hover:bg-[#22e58a]"
           onClick={(e) => e.stopPropagation()}
         >
-          <svg viewBox="0 0 16 16" fill="none" className="h-2.5 w-2.5" aria-hidden>
-            <path
-              d="M8 2.5v2.2M8 4.7c-2.2 0-3.8 1.5-3.8 3.4 0 1.1.6 2.1 1.5 2.6"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M8 4.7c2.2 0 3.8 1.5 3.8 3.4 0 1.1-.6 2.1-1.5 2.6"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="8" cy="10.8" r="1.1" stroke="currentColor" strokeWidth="1.4" />
+          {/** pump.fun cap silhouette — backwards baseball cap (the real wordmark glyph). */}
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-[11px] w-[11px]" aria-hidden>
+            <path d="M4.2 14.6c0-3.5 3-6.4 7.8-6.4s7.8 2.9 7.8 6.4v.6H4.2v-.6Z" />
+            <rect x="3" y="15.4" width="14.2" height="2.2" rx="1.1" />
+            <path d="M17.2 11.8h2.6c.7 0 1.2.6 1.2 1.3v1.4c0 .7-.5 1.3-1.2 1.3h-2.6v-4Z" />
           </svg>
         </a>
       ) : null}

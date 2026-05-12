@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils/cn';
 import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
-import { formatNumber, lamportsToSol, rawToUi } from '@/lib/utils/formatters';
+import { formatNumber, parseLamportsStringToSol, rawToUi } from '@/lib/utils/formatters';
 
 function topbarAvatarInitials(wallet: string | null | undefined, userId: string | null | undefined): string {
   const raw = (wallet ?? userId ?? '').trim();
@@ -126,20 +126,12 @@ export function Topbar() {
     refetchInterval: 15_000,
   });
 
-  const solUi =
-    portfolioQ.data?.solLamports != null
-      ? lamportsToSol(BigInt(portfolioQ.data.solLamports))
-      : null;
+  const solUi = parseLamportsStringToSol(portfolioQ.data?.solLamports);
 
   const tonBalanceUi = useMemo(() => {
     if (activeChain !== 'ton' || !walletAddress) return null;
     const row = myWalletsQ.data?.wallets?.find((w) => w.wallet_address === walletAddress);
-    if (!row?.balance_lamports) return 0;
-    try {
-      return lamportsToSol(BigInt(row.balance_lamports));
-    } catch {
-      return 0;
-    }
+    return parseLamportsStringToSol(row?.balance_lamports ?? null) ?? 0;
   }, [activeChain, walletAddress, myWalletsQ.data?.wallets]);
 
   const headerNativeUi = activeChain === 'sol' ? solUi : activeChain === 'ton' ? tonBalanceUi : null;
@@ -243,7 +235,7 @@ export function Topbar() {
         <CopilotPillTopbarCollapsed />
       </div>
 
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
+        <div className="relative z-50 flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
         <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
           <button
             type="button"

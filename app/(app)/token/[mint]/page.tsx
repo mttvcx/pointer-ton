@@ -43,13 +43,13 @@ export default async function TokenDetailPage({
   return (
     <>
       <EntityLocker type="token" id={mint} label={token.symbol ?? token.name ?? null} />
-      <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h))] min-h-0 flex-1 flex-col overflow-hidden bg-bg-base">
+      <div className="flex min-h-0 flex-1 flex-col bg-bg-base">
         <div className="shrink-0">
           <TokenHeader token={token} snapshot={snapshot} mint={mint} />
         </div>
 
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex w-full min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col">
             <Suspense
               fallback={<div className="min-h-0 flex-1 animate-pulse bg-bg-elevated/15" aria-hidden />}
             >

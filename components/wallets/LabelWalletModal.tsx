@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useWalletLabelsStore } from '@/store/walletLabels';
@@ -42,34 +44,50 @@ const COLOR_OPTIONS = [
 export function LabelWalletModal() {
   const pending = useWalletLabelsStore((s) => s.pendingModalAddress);
   const setPending = useWalletLabelsStore((s) => s.setPendingModalAddress);
+  const [addressSnapshot, setAddressSnapshot] = useState<string | null>(null);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- retain address for overlay exit animation */
+  useEffect(() => {
+    if (pending) setAddressSnapshot(pending);
+  }, [pending]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const effectiveAddress = pending ?? addressSnapshot;
+  const { mounted, visible } = useOverlayPresence(Boolean(pending));
 
   function close() {
     setPending(null);
   }
 
-  if (!pending) return null;
+  if (!mounted || !effectiveAddress) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex animate-in fade-in items-center justify-center p-4 duration-200"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       role="presentation"
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/60"
+        className={cn(
+          'absolute inset-0 bg-black/60',
+          overlayBackdropClasses(visible),
+          'fill-mode-forwards',
+        )}
         aria-label="Close"
         onClick={close}
       />
-      <LabelWalletForm key={pending} address={pending} onClose={close} />
+      <LabelWalletForm key={effectiveAddress} address={effectiveAddress} visible={visible} onClose={close} />
     </div>
   );
 }
 
 function LabelWalletForm({
   address,
+  visible,
   onClose,
 }: {
   address: string;
+  visible: boolean;
   onClose: () => void;
 }) {
   const { getAccessToken } = usePointerAuth();
@@ -148,11 +166,13 @@ function LabelWalletForm({
   return (
     <div
       className={cn(
-        'relative z-10 w-full max-w-md animate-in zoom-in-95 fade-in rounded-xl border border-border-subtle bg-bg-base p-4 shadow-2xl duration-200',
+        'relative z-10 w-full max-w-md rounded-xl border border-border-subtle bg-bg-base p-4 shadow-2xl fill-mode-forwards',
+        overlayPanelClasses(visible),
       )}
       role="dialog"
       aria-modal="true"
       aria-labelledby="label-wallet-title"
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-2">
         <div>

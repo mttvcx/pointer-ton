@@ -8,6 +8,7 @@ import { Topbar } from '@/components/layout/Topbar';
 import { GlobalSearchModal } from '@/components/layout/GlobalSearchModal';
 import { LabelWalletModal } from '@/components/wallets/LabelWalletModal';
 import { WalletAnalyticsHost } from '@/components/wallet/analytics/WalletAnalyticsHost';
+import { SquadsTraderProfileHost } from '@/components/squads/SquadsTraderProfileHost';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { AlertRuleFlashLayer } from '@/components/alerts/AlertRuleFlashLayer';
 import { AlertRulesDockPanel } from '@/components/alerts/AlertRulesDockPanel';
@@ -15,6 +16,7 @@ import { AlertRulesPopoutHost } from '@/components/alerts/AlertRulesPopoutHost';
 import { AlertRuleAudioPlayer } from '@/components/alerts/AlertRuleAudioPlayer';
 import { AICopilotPanel } from '@/components/layout/AICopilotPanel';
 import { BottomBar } from '@/components/layout/BottomBar';
+import { ClientBugDiagnosticsBootstrap } from '@/components/reports/ClientBugDiagnosticsBootstrap';
 import { FeatureAnnouncementGate } from '@/components/onboarding/FeatureAnnouncementGate';
 import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeSpotlightOnboarding';
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
@@ -128,6 +130,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <Topbar />
       <GlobalSearchModal />
       <WalletAnalyticsHost />
+      <SquadsTraderProfileHost />
       <WalletLabelsBootstrap />
       <LabelWalletModal />
       <AlertRuleFlashLayer />
@@ -142,6 +145,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
       <AlertRulesPopoutHost />
       <BottomBar />
+      <ClientBugDiagnosticsBootstrap />
       <FirstTimeSpotlightOnboarding />
       <FeatureAnnouncementGate />
     </div>

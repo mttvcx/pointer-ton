@@ -3,7 +3,7 @@ import { ExploreTokensPanel } from '@/components/explore/ExploreTokensPanel';
 
 export const metadata: Metadata = {
   title: 'Explore',
-  description: 'Top tokens by chain',
+  description: 'Live mindshare across tokens, wallets, and social signals.',
 };
 
 export default function ExplorePage() {

@@ -16,8 +16,8 @@ function StatBox({
   valueClass?: string;
 }) {
   return (
-    <div className={cn('min-w-0 rounded border border-[#1b1f2a] bg-[#12151c] px-2 py-1.5')}>
-      <div className="text-[9px] font-semibold uppercase tracking-wide text-[#6b7280]">{label}</div>
+    <div className={cn('min-w-0 rounded border border-[#1b1f2a]/70 bg-[#12151c]/90 px-2 py-1.5')}>
+      <div className="text-[10px] font-medium tracking-tight text-[#64748b]">{label}</div>
       <div className={cn('mt-0.5 text-[12px] font-semibold tabular-nums', valueClass ?? 'text-[#e5e7eb]')}>
         {value}
       </div>
@@ -116,7 +116,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
   if (compactGrid) {
     return (
       <div className="w-full min-w-0 bg-[#080d14] p-2">
-        <div className="text-[9px] font-semibold uppercase tracking-[0.02em] text-[#6b7280]">Token intel</div>
+        <div className="text-[10px] font-semibold tracking-tight text-[#64748b]">Token intel</div>
         <div className="mt-1">{grid}</div>
         {mini}
       </div>
@@ -129,10 +129,10 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
       {grid}
       {mini}
       <div className="space-y-1 text-[10px] text-[#6b7280]">
-        <div className="font-semibold uppercase tracking-wide">6h tape</div>
+        <div className="text-[10px] font-semibold tracking-tight text-[#64748b]">6h volume</div>
         <div className="flex justify-between gap-2">
           <span>Vol $</span>
-          <span className="tabular-nums tabular-nums text-[#e5e7eb]">
+          <span className="tabular-nums text-[#e5e7eb]">
             {m.vol6hUsd != null ? `$${formatNumber(m.vol6hUsd, { decimals: 0 })}` : '$0'}
           </span>
         </div>

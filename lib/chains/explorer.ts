@@ -1,8 +1,13 @@
 import type { AppChainId } from '@/lib/chains/appChain';
 
+import { inferMintKind } from '@/lib/chains/mintKind';
+
 /** Block explorer URL for a wallet / account on the selected app chain. */
 export function explorerAccountUrlForChain(address: string, chain: AppChainId): string {
   const a = address.trim();
+  if (inferMintKind(a) === 'btc') {
+    return `https://mempool.space/address/${encodeURIComponent(a)}`;
+  }
   switch (chain) {
     case 'sol':
       return `https://solscan.io/account/${encodeURIComponent(a)}`;

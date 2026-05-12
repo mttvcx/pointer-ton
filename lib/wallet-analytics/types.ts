@@ -16,12 +16,17 @@ export type WalletPositionRow = {
   chain: AppChainId;
   boughtUsd: number | null;
   boughtTokenUi: number | null;
+  /** Optional txn counts for desk-style columns */
+  boughtTxnCount?: number | null;
   soldUsd: number | null;
   soldTokenUi: number | null;
+  soldTxnCount?: number | null;
   remainingUsd: number | null;
   remainingTokenUi: number | null;
   pnlUsd: number | null;
   pnlPct: number | null;
+  /** e.g. "9h", "3d" */
+  lastActivityLabel?: string | null;
 };
 
 export type WinLossBucketId =
@@ -36,6 +41,16 @@ export type WinLossBucket = {
   label: string;
   count: number;
   tone: 'bull' | 'bear';
+};
+
+export type WalletFundingInfo = {
+  /** Wallet / program that funded this account (display + explorer target when not a tx). */
+  fromAddress: string;
+  /** Solana transaction signature → Solscan “tx” view */
+  fundingTxSignature: string | null;
+  amountSol: number | null;
+  /** Window label, e.g. match selected timeframe “7d” */
+  periodLabel: string | null;
 };
 
 export type WalletAnalyticsPayload = {
@@ -53,6 +68,8 @@ export type WalletAnalyticsPayload = {
   walletAgeLabel: string | null;
   /** Native balance line for non-SOL chains (e.g. TON ui amount). */
   nativeBalanceLabel: string | null;
+  /** Primary inbound native funding (Solana heuristic). */
+  funding: WalletFundingInfo | null;
   chart: WalletAnalyticsChartPoint[];
   positions: WalletPositionRow[];
   performance: {

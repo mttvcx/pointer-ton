@@ -8,8 +8,9 @@ export interface AppNavItem {
 export const APP_NAV: AppNavItem[] = [
   { label: 'Pulse', href: '/pulse' },
   { label: 'Explore', href: '/explore' },
-  { label: 'Trackers', href: '/trackers' },
+  { label: 'Perps', href: '/perps', badge: 'Demo' },
   { label: 'Portfolio', href: '/portfolio' },
-  { label: 'Wallets', href: '/wallets' },
+  { label: 'Track', href: '/track' },
+  { label: 'Squads', href: '/squads' },
   { label: 'Points', href: '/points' },
 ];

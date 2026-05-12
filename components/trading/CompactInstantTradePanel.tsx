@@ -42,10 +42,10 @@ const BOUNDS_KEY = 'pointer-instant-compact-trade-bounds-v1';
 const LEGACY_POS_KEY = 'pointer-instant-trade-pos-v1';
 const SLOT_OVERRIDES_KEY = 'pointer-instant-trade-slot-overrides-v1';
 
-const MIN_W = 248;
-const MIN_H = 320;
-/** Default size when no saved bounds (matches earlier compact preset). */
-const DEFAULT_BOUNDS = { x: 56, y: 72, w: 292, h: 448 } as const;
+const MIN_W = 256;
+const MIN_H = 298;
+/** Default size when no saved bounds — roomy enough that preset chips breathe. */
+const DEFAULT_BOUNDS = { x: 56, y: 72, w: 340, h: 504 } as const;
 /** Axiom-style bright blue “editing preset values” treatment. */
 const EDIT_PRESET_CLASS =
   'rounded-full border-2 border-sky-400 bg-sky-500/25 py-1.5 text-center font-sans text-[10px] font-semibold tabular-nums text-sky-50 shadow-[0_0_18px_rgba(56,189,248,0.45)] ring-2 ring-sky-400/45 outline-none focus:border-sky-300 focus:ring-sky-400/70';
@@ -53,10 +53,10 @@ const DEFAULT_SELL_PCT = [0.5, 1, 2, 3, 5, 10, 25, 100] as const;
 const DEFAULT_SELL_SOL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 const INSTANT_FILL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 
-/** Below this width: only first row of presets (4 chips). Use ~286 so min-width 248 is one row; default 292 shows two rows. */
-const PRESET_NARROW_W = 286;
-/** At or above: lay out all 8 presets in one horizontal row (Axiom-style strip). */
-const PRESET_SINGLE_ROW_W = 520;
+/** Below this width: only first row of presets (4 chips). */
+const PRESET_NARROW_W = 296;
+/** At or above (unless narrow): lay out all 8 presets — threshold tightens slightly when taller. */
+const PRESET_SINGLE_ROW_W = 524;
 
 type TradingPresetApi = {
   slot: PresetSlot;
@@ -636,14 +636,42 @@ export function CompactInstantTradePanel({
 
   const presetLayout = useMemo(() => {
     const w = bounds.w;
-    const narrowOnlyFirstRow = w < PRESET_NARROW_W;
-    const singleRowEight = w >= PRESET_SINGLE_ROW_W && !narrowOnlyFirstRow;
+    const h = bounds.h;
+    const tall = h >= 400;
+    const xlH = h >= 492;
+    const narrowOnlyFirstRow = w < (tall ? PRESET_NARROW_W + 12 : PRESET_NARROW_W);
+    const wideBreak = xlH ? PRESET_SINGLE_ROW_W - 44 : PRESET_SINGLE_ROW_W;
+    const singleRowEight = w >= wideBreak && !narrowOnlyFirstRow;
+    let chipCls =
+      'h-7 max-h-7 min-h-[28px] rounded-full px-0 text-[10px] font-semibold leading-none tabular-nums';
+    if (w >= 420 && h >= 432) {
+      chipCls =
+        'h-8 max-h-8 min-h-[32px] rounded-full px-0 text-[11px] font-semibold leading-none tabular-nums';
+    }
+    if (w >= 460 && xlH) {
+      chipCls =
+        'h-10 max-h-10 min-h-[40px] rounded-full px-0 text-[12px] font-semibold leading-none tabular-nums';
+    }
+
+    const showDenseTradeMeta = h >= 356;
+    const showAdvToggle = h >= 374;
+    const showSellPrincipal = h >= 396;
+    const showPnlFloor = instantUi.showPnlRow && h >= 340;
+
+    const microMetaStrip = !showDenseTradeMeta && h >= 320;
+
     return {
       narrowOnlyFirstRow,
       singleRowEight,
       gridCols: singleRowEight ? 'grid-cols-8' : 'grid-cols-4',
+      chipCls,
+      showDenseTradeMeta,
+      showAdvToggle,
+      showSellPrincipal,
+      showPnlFloor,
+      microMetaStrip,
     };
-  }, [bounds.w]);
+  }, [bounds.w, bounds.h, instantUi.showPnlRow]);
 
   const buyChips = presetLayout.narrowOnlyFirstRow ? buyValues.slice(0, 4) : buyValues;
   const sellChips = presetLayout.narrowOnlyFirstRow ? sellValues.slice(0, 4) : sellValues;
@@ -661,7 +689,7 @@ export function CompactInstantTradePanel({
     const t = nativeTicker(activeChain);
     if (activeChain === 'ton') {
       return [
-        { k: 'sol' as const, label: 'TON', disabled: false },
+        { k: 'sol' as const, label: nativeSym, disabled: false },
         { k: 'usdc' as const, label: 'USDC', disabled: true },
         { k: 'usol' as const, label: 'wTON', disabled: true },
       ];
@@ -1007,29 +1035,40 @@ export function CompactInstantTradePanel({
                     key={`b-${i}-${sol}`}
                     type="button"
                     onClick={() => void runBuy(sol)}
-                    className="btn-press flex h-7 max-h-7 min-h-[28px] items-center justify-center rounded-full border border-emerald-400/45 bg-transparent px-0 text-center font-sans text-[10px] font-semibold leading-none tabular-nums text-emerald-400/95 transition hover:bg-emerald-500/[0.08] active:bg-emerald-500/[0.12]"
+                    className={cn(
+                      'btn-press flex items-center justify-center border border-emerald-400/45 bg-transparent text-center font-sans font-semibold text-emerald-400/95 transition hover:bg-emerald-500/[0.08] active:bg-emerald-500/[0.12]',
+                      presetLayout.chipCls,
+                    )}
                   >
                     {fmtSolChip(sol)}
                   </button>
                 ),
               )}
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
-              <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
-              <span>{feeHint}</span>
-              <span className="inline-flex items-center gap-0.5">
-                <Shield className="h-2.5 w-2.5" /> On
-              </span>
-              <label className="ml-auto inline-flex cursor-pointer items-center gap-1 text-[8px] text-fg-secondary">
-                <input
-                  type="checkbox"
-                  checked={advChecked}
-                  onChange={(e) => setAdvChecked(e.target.checked)}
-                  className="h-2.5 w-2.5 rounded border-border-subtle"
-                />
-                Adv.
-              </label>
-            </div>
+            {presetLayout.showDenseTradeMeta ? (
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
+                <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
+                <span>{feeHint}</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Shield className="h-2.5 w-2.5" /> On
+                </span>
+                {presetLayout.showAdvToggle ? (
+                  <label className="ml-auto inline-flex cursor-pointer items-center gap-1 text-[8px] text-fg-secondary">
+                    <input
+                      type="checkbox"
+                      checked={advChecked}
+                      onChange={(e) => setAdvChecked(e.target.checked)}
+                      className="h-2.5 w-2.5 rounded border-border-subtle"
+                    />
+                    Adv.
+                  </label>
+                ) : null}
+              </div>
+            ) : presetLayout.microMetaStrip ? (
+              <div className="mt-0.5 truncate text-[8px] text-fg-muted">
+                {(effectiveSlippageBps / 100).toFixed(2)}% slip · prio/jito {feeHint} · shield on
+              </div>
+            ) : null}
 
             <div className="mt-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
               <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-fg-muted">
@@ -1102,37 +1141,61 @@ export function CompactInstantTradePanel({
                     onClick={() =>
                       void (sellMode === 'pct' ? runSell(pct) : runSellSolOut(pct))
                     }
-                    className="btn-press flex h-7 max-h-7 min-h-[28px] items-center justify-center rounded-full border border-rose-400/45 bg-transparent px-0 text-center font-sans text-[10px] font-semibold leading-none tabular-nums text-rose-400/95 transition hover:bg-rose-500/[0.08] active:bg-rose-500/[0.12]"
+                    className={cn(
+                      'btn-press flex items-center justify-center border border-rose-400/45 bg-transparent text-center font-sans font-semibold text-rose-400/95 transition hover:bg-rose-500/[0.08] active:bg-rose-500/[0.12]',
+                      presetLayout.chipCls,
+                    )}
                   >
                     {sellMode === 'pct' ? `${fmtPctChip(pct)}%` : fmtSolChip(pct)}
                   </button>
                 ),
               )}
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
-              <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
-              <span>{feeHint}</span>
-              <span className="inline-flex items-center gap-0.5">
-                <Shield className="h-2.5 w-2.5" /> On
-              </span>
-              <button
-                type="button"
-                title={`Sell enough to recover tracked ${nativeSym} in (principal); profit stays in tokens`}
-                disabled={!costBasisTonSol || costBasisTonSol <= 0}
-                onClick={() => void runSellInitial()}
-                className={cn(
-                  'btn-press ml-auto rounded-md border px-1.5 py-0.5 text-[8px] font-semibold transition',
-                  costBasisTonSol > 0
-                    ? 'border-rose-400/35 text-rose-300/95 hover:border-rose-400/55 hover:bg-rose-500/[0.08]'
-                    : 'cursor-not-allowed border-white/10 text-fg-muted opacity-50',
-                )}
-              >
-                Sell Init.{costBasisTonSol > 0 ? ` ${fmtSolChip(costBasisTonSol)}` : ''}
-              </button>
-            </div>
+            {presetLayout.showDenseTradeMeta ? (
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
+                <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
+                <span>{feeHint}</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Shield className="h-2.5 w-2.5" /> On
+                </span>
+                {presetLayout.showSellPrincipal ? (
+                  <button
+                    type="button"
+                    title={`Sell enough to recover tracked ${nativeSym} in (principal); profit stays in tokens`}
+                    disabled={!costBasisTonSol || costBasisTonSol <= 0}
+                    onClick={() => void runSellInitial()}
+                    className={cn(
+                      'btn-press ml-auto rounded-md border px-1.5 py-0.5 text-[8px] font-semibold transition',
+                      costBasisTonSol > 0
+                        ? 'border-rose-400/35 text-rose-300/95 hover:border-rose-400/55 hover:bg-rose-500/[0.08]'
+                        : 'cursor-not-allowed border-white/10 text-fg-muted opacity-50',
+                    )}
+                  >
+                    Sell Init.{costBasisTonSol > 0 ? ` ${fmtSolChip(costBasisTonSol)}` : ''}
+                  </button>
+                ) : null}
+              </div>
+            ) : presetLayout.microMetaStrip ? (
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[8px] text-fg-muted">
+                <span>sell presets · slip {(effectiveSlippageBps / 100).toFixed(2)}%</span>
+                {presetLayout.showSellPrincipal ? (
+                  <button
+                    type="button"
+                    disabled={!costBasisTonSol || costBasisTonSol <= 0}
+                    onClick={() => void runSellInitial()}
+                    className={cn(
+                      'btn-press ml-auto rounded border px-1 py-px text-[8px] font-semibold transition',
+                      costBasisTonSol > 0 ? 'border-rose-400/35 text-rose-200' : 'cursor-not-allowed opacity-45',
+                    )}
+                  >
+                    Init
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             </div>
 
-            {instantUi.showPnlRow ? (
+            {presetLayout.showPnlFloor ? (
               <div
                 className="mt-auto flex min-h-[26px] shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-white/[0.06] pt-2 text-[11px]"
                 role="group"

@@ -1,23 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Globe, Loader2 } from 'lucide-react';
 import { WalletAnalyticsHeader } from '@/components/wallet/analytics/WalletAnalyticsHeader';
 import { WalletBalancePanel } from '@/components/wallet/analytics/WalletBalancePanel';
-import {
-  WalletIntelActivityDemo,
-  WalletIntelTop100Demo,
-  WalletIntelTransfersDemo,
-} from '@/components/wallet/analytics/WalletIntelDemoPanels';
+import { WalletIntelActivityDemo } from '@/components/wallet/analytics/WalletIntelDemoPanels';
 import { WalletPerformancePanel } from '@/components/wallet/analytics/WalletPerformancePanel';
 import { WalletPnlChart } from '@/components/wallet/analytics/WalletPnlChart';
 import { WalletPositionsTable } from '@/components/wallet/analytics/WalletPositionsTable';
+import { buildDemoWalletAnalyticsPayload } from '@/lib/dev/demoWalletAnalyticsPayload';
 import {
   demoWalletActivityRows,
   demoWalletPositions,
-  demoWalletTop100Rows,
-  demoWalletTransferRows,
 } from '@/lib/dev/demoWalletIntelRows';
 import type { WalletAnalyticsPayload } from '@/lib/wallet-analytics/types';
 import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
@@ -26,19 +21,25 @@ import type { PnlSharePayload } from '@/lib/share/types';
 import { cn } from '@/lib/utils/cn';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useWalletLabelsStore } from '@/store/walletLabels';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 
 type AnalyticsResponse = {
   timeframe: WalletAnalyticsTimeframe;
   data: WalletAnalyticsPayload;
 };
 
-const TABS = [
-  'Active Positions',
-  'History',
-  'Top 100',
-  'Activity',
-  'Transfers',
-] as const;
+type DeskTabId = 'most_profitable' | 'active_positions' | 'trades_history' | 'dev_tokens';
+
+const DESK_TABS: { id: DeskTabId; label: string }[] = [
+  { id: 'most_profitable', label: 'Most Profitable' },
+  { id: 'active_positions', label: 'Active Positions' },
+  { id: 'trades_history', label: 'Trades History' },
+  { id: 'dev_tokens', label: 'Dev Tokens' },
+];
+
+/** Above CompactInstantTradePanel `z-[240]` and token tooltips; below alert-rule popout ~630. */
+const WALLET_INTEL_Z = 'z-[560]';
 
 export function WalletAnalyticsModal() {
   const open = useWalletIntelStore((s) => s.walletOpen);
@@ -46,66 +47,117 @@ export function WalletAnalyticsModal() {
   const closeWallet = useWalletIntelStore((s) => s.closeWallet);
   const openShare = useWalletIntelStore((s) => s.openShare);
 
+  const [walletSnapshot, setWalletSnapshot] = useState(wallet);
+  /* eslint-disable react-hooks/set-state-in-effect -- retain wallet for overlay exit animation */
+  useEffect(() => {
+    if (wallet) setWalletSnapshot(wallet);
+  }, [wallet]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const displayWallet = wallet ?? walletSnapshot;
+  const { mounted: overlayMounted, visible: overlayVisible } = useOverlayPresence(
+    open && Boolean(displayWallet),
+  );
+
   const byLabel = useWalletLabelsStore((s) => s.byAddress);
 
   const [tf, setTf] = useState<WalletAnalyticsTimeframe>('30d');
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Active Positions');
-  const [labelDraft, setLabelDraft] = useState('');
+  const [deskTab, setDeskTab] = useState<DeskTabId>('most_profitable');
+  const [posSearch, setPosSearch] = useState('');
+  const [labelDraftState, setLabelDraftState] = useState<{ address: string; value: string }>({
+    address: '',
+    value: '',
+  });
 
-  useEffect(() => {
-    if (!wallet?.address) return;
-    const existing = byLabel[wallet.address]?.label;
-    setLabelDraft(existing ?? '');
-  }, [wallet?.address, byLabel]);
+  const walletAddress = displayWallet?.address;
+  const walletChain = displayWallet?.chain;
+  const walletRowDemo = displayWallet?.rowDemo ?? false;
+  const labelDraft =
+    walletAddress && labelDraftState.address === walletAddress
+      ? labelDraftState.value
+      : walletAddress
+        ? byLabel[walletAddress]?.label ?? ''
+        : '';
 
   const q = useQuery({
-    queryKey: ['wallet-analytics', wallet?.address, tf, wallet?.rowDemo ?? false],
-    enabled: Boolean(open && wallet?.address),
+    queryKey: ['wallet-analytics', walletAddress, tf, walletRowDemo],
+    enabled: Boolean(open && walletAddress),
     queryFn: async (): Promise<AnalyticsResponse> => {
       const res = await fetch(
-        `/api/wallet/${encodeURIComponent(wallet!.address)}/analytics?tf=${encodeURIComponent(tf)}`,
+        `/api/wallet/${encodeURIComponent(walletAddress!)}/analytics?tf=${encodeURIComponent(tf)}`,
       );
       if (!res.ok) throw new Error('wallet_analytics_failed');
       return res.json() as Promise<AnalyticsResponse>;
     },
+    retry: 1,
   });
 
-  const data = q.data?.data;
+  const apiPayload = q.data?.data;
 
-  const displayData = useMemo((): WalletAnalyticsPayload | undefined => {
-    if (!data || !wallet) return data;
-    if (!wallet.rowDemo) return data;
-    const demos = demoWalletPositions(wallet.address, wallet.chain);
+  const mergedFromApi = useMemo((): WalletAnalyticsPayload | undefined => {
+    if (!apiPayload || !walletAddress || !walletChain) return undefined;
+    if (!walletRowDemo) return apiPayload;
+    const demos = demoWalletPositions(walletAddress, walletChain);
     return {
-      ...data,
-      positions: demos.length > 0 ? demos : data.positions,
+      ...apiPayload,
+      positions: demos.length > 0 ? demos : apiPayload.positions,
     };
-  }, [data, wallet]);
+  }, [apiPayload, walletAddress, walletChain, walletRowDemo]);
+
+  const fallbackDemo = useMemo(
+    () =>
+      walletAddress && walletChain
+        ? buildDemoWalletAnalyticsPayload(walletAddress, walletChain, tf)
+        : undefined,
+    [walletAddress, walletChain, tf],
+  );
+
+  /** API failed or unreachable — show full client-side demo so layout + Share PnL still work. */
+  const isOfflineDemo = Boolean(!q.isLoading && q.isError);
+
+  const effectiveData = useMemo((): WalletAnalyticsPayload | undefined => {
+    if (!walletAddress) return undefined;
+    if (q.isLoading) return undefined;
+    if (mergedFromApi) return mergedFromApi;
+    return fallbackDemo;
+  }, [walletAddress, q.isLoading, mergedFromApi, fallbackDemo]);
+
+  const displayPositions = useMemo(() => {
+    if (!effectiveData) return [];
+    let r = effectiveData.positions;
+    const sq = posSearch.trim().toLowerCase();
+    if (sq) {
+      r = r.filter(
+        (p) =>
+          p.symbol.toLowerCase().includes(sq) ||
+          p.mint.toLowerCase().includes(sq) ||
+          (p.name?.toLowerCase().includes(sq) ?? false),
+      );
+    }
+    if (deskTab === 'most_profitable') {
+      return [...r].sort((a, b) => (b.pnlUsd ?? -Infinity) - (a.pnlUsd ?? -Infinity));
+    }
+    return r;
+  }, [effectiveData, posSearch, deskTab]);
+
+  const showExtraDemos = Boolean(walletRowDemo || isOfflineDemo);
 
   const demoActivity = useMemo(
-    () => (wallet?.rowDemo && wallet.address ? demoWalletActivityRows(wallet.address) : []),
-    [wallet?.rowDemo, wallet?.address],
-  );
-  const demoTop100 = useMemo(
-    () => (wallet?.rowDemo && wallet.address ? demoWalletTop100Rows(wallet.address) : []),
-    [wallet?.rowDemo, wallet?.address],
-  );
-  const demoTransfers = useMemo(
-    () => (wallet?.rowDemo && wallet.address ? demoWalletTransferRows(wallet.address) : []),
-    [wallet?.rowDemo, wallet?.address],
+    () => (walletAddress && showExtraDemos ? demoWalletActivityRows(walletAddress) : []),
+    [walletAddress, showExtraDemos],
   );
 
   const shareFromRow = (row: WalletPositionRow) => {
-    if (!wallet) return;
+    if (!displayWallet || !effectiveData) return;
     const trimmed = labelDraft.trim();
     const payload: PnlSharePayload = {
-      walletAddress: wallet.address,
+      walletAddress: displayWallet.address,
       walletLabel: trimmed || null,
       tokenMint: row.mint,
       tokenTicker: row.symbol,
       tokenName: row.name,
       tokenIconUrl: row.imageUrl,
-      chain: wallet.chain,
+      chain: displayWallet.chain,
       timeframe: tf,
       pnlUsd: row.pnlUsd,
       pnlPct: row.pnlPct,
@@ -117,16 +169,17 @@ export function WalletAnalyticsModal() {
     openShare(payload);
   };
 
-  if (!open || !wallet) return null;
+  if (!overlayMounted || !displayWallet) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[130] flex animate-in fade-in items-center justify-center p-3 duration-200 sm:p-6"
-      role="presentation"
-    >
+    <div className={cn('fixed inset-0 flex items-center justify-center p-3 sm:p-6', WALLET_INTEL_Z)} role="presentation">
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+        className={cn(
+          'absolute inset-0 bg-black/70 backdrop-blur-md',
+          overlayBackdropClasses(overlayVisible),
+          'fill-mode-forwards',
+        )}
         aria-label="Close wallet analytics"
         onClick={() => closeWallet()}
       />
@@ -134,93 +187,121 @@ export function WalletAnalyticsModal() {
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative flex max-h-[min(92vh,920px)] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-white/[0.09]',
-          'bg-[rgba(6,10,16,0.94)] shadow-[0_40px_120px_-36px_rgba(0,0,0,0.95)] backdrop-blur-xl',
+          'relative flex h-[min(92vh,880px)] max-h-[min(92vh,880px)] w-full max-w-[1220px] flex-col overflow-hidden rounded-xl border border-white/[0.06] fill-mode-forwards',
+          'bg-[#080a0e]/[0.99] shadow-[0_18px_72px_-34px_rgba(0,0,0,0.95)] backdrop-blur-xl',
+          overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="max-h-[min(92vh,920px)] overflow-y-auto px-4 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <WalletAnalyticsHeader
-            address={wallet.address}
-            chain={wallet.chain}
+            address={displayWallet.address}
+            chain={displayWallet.chain}
             labelDraft={labelDraft}
-            onLabelChange={setLabelDraft}
+            onLabelChange={(value) =>
+              setLabelDraftState({ address: displayWallet.address, value })
+            }
             timeframe={tf}
             onTimeframe={(next) => setTf(next)}
             onClose={() => closeWallet()}
+            onRefresh={() => void q.refetch()}
           />
 
           {q.isLoading ? (
-            <div className="flex items-center justify-center py-24 text-fg-muted">
+            <div className="flex min-h-[560px] items-center justify-center py-24 text-fg-muted">
               <Loader2 className="h-6 w-6 animate-spin" strokeWidth={2} />
             </div>
-          ) : q.isError || !displayData ? (
-            <p className="py-16 text-center text-[13px] text-signal-bear">
-              Could not load wallet intelligence. Try again shortly.
-            </p>
+          ) : !effectiveData ? (
+            <div className="flex min-h-[560px] flex-col items-center justify-center px-6 py-16">
+              <p className="text-center text-[13px] text-signal-bear">
+                Could not load wallet intelligence. Try again shortly.
+              </p>
+            </div>
           ) : (
             <>
-              {wallet.rowDemo ? (
-                <p className="mt-2 rounded-lg border border-accent-primary/25 bg-accent-primary/10 px-3 py-2 text-[11px] text-accent-primary">
-                  Preview demo rows are layered on live snapshot headers — use{' '}
-                  <strong className="font-semibold">Share PnL</strong> on positions to open the composer.
-                </p>
-              ) : null}
-              <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                <WalletBalancePanel data={displayData} currency="USD" />
-                <div className="flex min-h-[220px] flex-col rounded-xl border border-border-subtle/80 bg-bg-base/40 p-4 lg:col-span-1">
-                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-fg-muted">
-                    PNL
-                  </h3>
-                  <WalletPnlChart points={displayData.chart} className="mt-3 min-h-[180px] flex-1" />
+              {isOfflineDemo ? (
+                <div className="mx-3 mt-2 flex h-7 items-center gap-2 rounded-md border border-amber-300/[0.13] bg-amber-300/[0.035] px-2.5 text-[10px] font-medium text-amber-100/70 sm:mx-4">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300/65" aria-hidden />
+                  <span>
+                    <span className="font-semibold text-amber-100/80">Demo mode</span> · synthetic wallet data shown
+                  </span>
                 </div>
-                <WalletPerformancePanel data={displayData} timeframe={tf} />
+              ) : null}
+              {!isOfflineDemo && walletRowDemo ? (
+                <div className="mx-3 mt-2 flex h-7 items-center gap-2 rounded-md border border-white/[0.07] bg-white/[0.025] px-2.5 text-[10px] font-medium text-fg-muted sm:mx-4">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent-primary/60" aria-hidden />
+                  Preview rows · Share PnL is enabled on positions
+                </div>
+              ) : null}
+              <div className="mx-3 mt-2 grid overflow-hidden rounded-lg border border-white/[0.07] bg-[#090c11]/70 lg:grid-cols-[0.86fr_1.2fr_0.98fr] lg:divide-x lg:divide-white/[0.06] sm:mx-4">
+                <WalletBalancePanel data={effectiveData} currency="USD" />
+                <div className="flex min-h-[206px] flex-col border-t border-white/[0.06] p-3 lg:border-t-0">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted/90">
+                    Realized PNL
+                  </h3>
+                  <WalletPnlChart points={effectiveData.chart} className="mt-1.5 min-h-[174px] flex-1" />
+                </div>
+                <WalletPerformancePanel data={effectiveData} timeframe={tf} />
               </div>
 
-              <div className="mt-6 border-b border-border-subtle/70">
-                <div className="flex gap-1 overflow-x-auto pb-px">
-                  {TABS.map((t) => (
+              <div className="mx-3 mt-3 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.06] pb-0 sm:mx-4">
+                <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-2">
+                  {DESK_TABS.map((t) => (
                     <button
-                      key={t}
+                      key={t.id}
                       type="button"
-                      onClick={() => setTab(t)}
+                      onClick={() => setDeskTab(t.id)}
                       className={cn(
-                        'whitespace-nowrap rounded-t-lg px-3 py-2 text-[11px] font-semibold transition',
-                        tab === t
-                          ? 'bg-bg-hover text-accent-primary ring-1 ring-border-subtle'
+                        'relative shrink-0 whitespace-nowrap px-1 pb-2 text-[11px] font-semibold transition',
+                        deskTab === t.id
+                          ? 'text-emerald-200 after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:rounded-sm after:bg-emerald-400/90'
                           : 'text-fg-muted hover:text-fg-secondary',
                       )}
                     >
-                      {t}
+                      {t.label}
                     </button>
                   ))}
                 </div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {(deskTab === 'most_profitable' || deskTab === 'active_positions') ? (
+                    <input
+                      type="search"
+                      value={posSearch}
+                      onChange={(e) => setPosSearch(e.target.value)}
+                      placeholder="Search by name or address"
+                      className="h-8 w-[min(100%,220px)] rounded-md border border-white/[0.08] bg-black/35 px-2.5 text-[11px] text-fg-primary outline-none placeholder:text-fg-muted/70 focus:border-emerald-500/35"
+                    />
+                  ) : null}
+                  <span className="inline-flex items-center gap-1 rounded-md border border-white/[0.07] bg-black/25 px-2 py-1 text-[10px] font-medium text-fg-muted">
+                    <Globe className="h-3 w-3 opacity-80" strokeWidth={2} aria-hidden />
+                    USD
+                  </span>
+                </div>
               </div>
 
-              <div className="mt-4">
-                {tab === 'Active Positions' ? (
-                  <WalletPositionsTable
-                    rows={displayData.positions}
-                    timeframe={tf}
-                    onShareRow={shareFromRow}
-                  />
-                ) : tab === 'Activity' && wallet.rowDemo ? (
-                  <WalletIntelActivityDemo rows={demoActivity} />
-                ) : tab === 'Top 100' && wallet.rowDemo ? (
-                  <WalletIntelTop100Demo rows={demoTop100} />
-                ) : tab === 'Transfers' && wallet.rowDemo ? (
-                  <WalletIntelTransfersDemo rows={demoTransfers} />
-                ) : tab === 'History' && wallet.rowDemo ? (
-                  <WalletIntelActivityDemo rows={demoActivity} />
+              <div className="mx-3 min-h-[380px] sm:mx-4">
+                {deskTab === 'most_profitable' || deskTab === 'active_positions' ? (
+                  <WalletPositionsTable rows={displayPositions} timeframe={tf} onShareRow={shareFromRow} />
+                ) : deskTab === 'trades_history' ? (
+                  showExtraDemos ? (
+                    <WalletIntelActivityDemo rows={demoActivity} />
+                  ) : (
+                    <div className="flex min-h-[320px] items-center justify-center rounded-b-lg border border-t-0 border-white/[0.07] bg-[#070a0f]/45 px-4 py-9 text-center text-[12px] text-fg-muted">
+                      Trade history is indexed as activity streams online — demo mode shows sample rows.
+                    </div>
+                  )
                 ) : (
-                  <div className="rounded-xl border border-border-subtle/60 bg-bg-base/30 px-4 py-12 text-center text-[13px] text-fg-muted">
-                    {tab} feed is coming online — pinned wallet intelligence stays on Positions for now.
+                  <div className="flex min-h-[280px] flex-col items-center justify-center rounded-b-lg border border-t-0 border-white/[0.07] bg-[#070a0f]/45 px-4 py-12 text-center">
+                    <p className="text-[12px] font-medium text-fg-secondary">Dev tokens</p>
+                    <p className="mt-2 max-w-sm text-[11px] leading-relaxed text-fg-muted">
+                      Cross-launch tokens from this deployer will appear here when the index is wired.
+                    </p>
                   </div>
                 )}
               </div>
 
-              {displayData.statsComputedAt ? (
-                <p className="mt-6 text-[10px] text-fg-muted">
+              {effectiveData.statsComputedAt ? (
+                <p className="mx-3 mb-3 mt-2 text-[10px] text-fg-muted sm:mx-4">
                   Indexed stats refreshed from telemetry when available — chart illustrates the selected
                   window.
                 </p>

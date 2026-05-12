@@ -111,7 +111,7 @@ export function AlertRulesDockPanel() {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2 pr-3">
         <AlertRulesSection embedInFloatingPanel />
       </div>
     </aside>

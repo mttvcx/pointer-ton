@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type ReactNode } from 'react';
-import { ExternalLink, Lock, Shield, User, Bot } from 'lucide-react';
+import { Bot, Copy, ExternalLink, Lock, Shield, User, Wallet } from 'lucide-react';
 import { TokenImage } from '@/components/shared/TokenImage';
 import {
   formatAgeShort,
@@ -11,9 +11,11 @@ import {
 } from '@/lib/utils/formatters';
 import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
+import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { PulseSocialModel } from '@/lib/tokens/pulseSocialLinks';
 import { agentBuybackPctFromMetadata } from '@/lib/tokens/pulseRichMetadata';
+import { useWalletIntelStore } from '@/store/walletIntelStore';
 
 function isTwitterishUrl(url: string): boolean {
   try {
@@ -410,6 +412,137 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
           Dev ~{formatPercent(devPct, { decimals: 0 })} of supply (snapshot)
         </p>
       ) : null}
+    </div>
+  );
+}
+
+export function DevWalletIntelHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
+  const { token, snapshot } = bundle;
+  const dev = token.creator_wallet;
+  const openWallet = useWalletIntelStore((s) => s.openWallet);
+  if (!dev) return null;
+
+  const explorer = explorerAddressUrl(dev);
+  const devPct = snapshot?.dev_holding_pct;
+  const top10 = snapshot?.top10_holder_pct;
+  const holders = snapshot?.holder_count;
+  const seeded = token.initial_liquidity_sol;
+  const fundedAt = token.initial_liquidity_at;
+  const locked = token.is_lp_locked === true;
+
+  const copyDev = () => {
+    void navigator.clipboard?.writeText(dev);
+  };
+
+  return (
+    <div className="overflow-hidden rounded-xl">
+      <div className="flex items-start justify-between gap-2 border-b border-white/[0.08] px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#9ca3af]">
+            Dev wallet
+          </p>
+          <p className="mt-1 truncate font-mono text-[12px] font-semibold text-white" title={dev}>
+            {shortenAddress(dev, 6)}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={copyDev}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#9ca3af] transition hover:bg-white/[0.05] hover:text-white"
+            aria-label="Copy dev wallet"
+          >
+            <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+          <a
+            href={explorer}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#9ca3af] transition hover:bg-white/[0.05] hover:text-white"
+            aria-label="Open dev wallet"
+          >
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+          </a>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-px bg-white/[0.07]">
+        <DevStat
+          label="Seeded"
+          value={seeded != null ? `${formatNumber(seeded, { decimals: 2 })}` : '-'}
+          sub={fundedAt ? `${formatAgeShort(fundedAt)} ago` : 'funding'}
+        />
+        <DevStat
+          label="Dev held"
+          value={devPct != null ? formatPercent(devPct, { decimals: 1 }) : '-'}
+          tone={devPct != null && devPct <= 5 ? 'good' : devPct != null && devPct > 20 ? 'bad' : 'neutral'}
+          sub={locked ? 'LP locked' : 'snapshot'}
+        />
+        <DevStat
+          label="Holders"
+          value={holders != null ? formatNumber(holders, { decimals: 0, compact: true }) : '-'}
+          sub="current"
+        />
+        <DevStat
+          label="Top 10"
+          value={top10 != null ? formatPercent(top10, { decimals: 1 }) : '-'}
+          tone={top10 != null && top10 > 40 ? 'bad' : 'neutral'}
+          sub="supply"
+        />
+      </div>
+
+      <div className="flex items-center gap-1.5 px-2.5 py-2">
+        <button
+          type="button"
+          onClick={() =>
+            openWallet({
+              address: dev,
+              chain: appChainForWalletAddress(dev),
+              rowDemo: true,
+            })
+          }
+          className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 text-[10px] font-semibold text-[#d1d5db] transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
+        >
+          <Wallet className="h-3 w-3" strokeWidth={2} />
+          Track
+        </button>
+        <a
+          href={explorer}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 text-[10px] font-semibold text-[#d1d5db] transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
+        >
+          <ExternalLink className="h-3 w-3" strokeWidth={2} />
+          Open
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function DevStat({
+  label,
+  value,
+  sub,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone?: 'neutral' | 'good' | 'bad';
+}) {
+  return (
+    <div className="bg-[#0f1419] px-3 py-2">
+      <p className="text-[9px] uppercase tracking-[0.1em] text-[#9ca3af]">{label}</p>
+      <p
+        className={cn(
+          'mt-1 tabular-nums text-[12px] font-semibold',
+          tone === 'good' ? 'text-emerald-300' : tone === 'bad' ? 'text-rose-300' : 'text-white',
+        )}
+      >
+        {value}
+      </p>
+      <p className="mt-0.5 truncate text-[9px] text-[#9ca3af]">{sub}</p>
     </div>
   );
 }

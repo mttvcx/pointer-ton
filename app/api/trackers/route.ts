@@ -13,14 +13,14 @@ import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { enrichTrackedWalletAddresses } from '@/lib/trackers/enrichAddresses';
 import type { AppChainId } from '@/lib/chains/appChain';
-import { isAppChainId } from '@/lib/chains/appChain';
+import { APP_CHAIN_IDS, isAppChainId } from '@/lib/chains/appChain';
 import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const AppChainEnum = z.enum(['sol', 'ton', 'bnb', 'base']);
+const AppChainEnum = z.enum(APP_CHAIN_IDS as unknown as [AppChainId, ...AppChainId[]]);
 
 const PatchBodySchema = z
   .object({

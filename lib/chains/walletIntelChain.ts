@@ -6,6 +6,10 @@ export function appChainForWalletAddress(addr: string): AppChainId {
   const k = inferMintKind(addr.trim());
   if (k === 'sol') return 'sol';
   if (k === 'ton') return 'ton';
+  if (k === 'btc') {
+    /** No BTC L1 toggle; intel surface follows Sol rails for now. */
+    return 'sol';
+  }
   if (k === 'evm') return 'bnb';
   return 'sol';
 }

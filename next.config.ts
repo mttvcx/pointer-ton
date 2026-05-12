@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname),
   },
 
+  // Hide the floating Next.js dev indicator ("N + 2 Issues" red pill). We
+  // surface our own dismissible Issues chip in the bottom status bar instead,
+  // so the chrome stays consistent with the rest of the trading dock.
+  devIndicators: false,
+
   // Token images come from many CDNs. Restrict to a known-safe set; expand
   // as new launchpads appear.
   images: {

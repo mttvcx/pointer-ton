@@ -1,6 +1,8 @@
 'use client';
 
 import { History, ImageIcon, X } from 'lucide-react';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
 
 type Props = {
@@ -12,20 +14,27 @@ type Props = {
  * Axiom-style empty deposit history sheet (cross-chain list not wired yet).
  */
 export function DepositHistoryModal({ open, onOpenChange }: Props) {
-  if (!open) return null;
+  const { mounted, visible } = useOverlayPresence(open);
+
+  if (!mounted) return null;
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
+        className={cn(
+          'absolute inset-0 bg-black/70 backdrop-blur-[2px]',
+          overlayBackdropClasses(visible),
+          'fill-mode-forwards',
+        )}
         aria-label="Close deposit history"
         onClick={() => onOpenChange(false)}
       />
       <div
         className={cn(
           'relative z-[1] flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-[#1b1f2a] bg-[#080d14] shadow-2xl',
-          'font-sans text-[12px]',
+          'fill-mode-forwards font-sans text-[12px]',
+          overlayPanelClasses(visible),
         )}
         role="dialog"
         aria-modal="true"
@@ -60,7 +69,7 @@ export function DepositHistoryModal({ open, onOpenChange }: Props) {
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="btn-press focus-ring w-full rounded-full bg-[#5865F2] py-2.5 text-[13px] font-semibold text-[#0a0a0f] transition hover:brightness-105"
+            className="btn-press focus-ring w-full rounded-xl bg-accent-primary py-2.5 text-[13px] font-semibold text-fg-inverse transition hover:bg-accent-primary/95"
           >
             Done
           </button>

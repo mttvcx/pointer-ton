@@ -1,7 +1,11 @@
 import type { AppChainId } from '@/lib/chains/appChain';
 import { APP_CHAIN_IDS } from '@/lib/chains/appChain';
 
-/** Static PNGs in /public/chains — replace files to swap artwork. */
+/**
+ * Chain artwork in /public/chains.
+ * BTC is the official Bitcoin orange mark (SVG, vector); SOL / BNB / BASE / TON
+ * use the official high-res PNGs the team provided (transparent backgrounds).
+ */
 export const CHAIN_ICON_PNG: Record<AppChainId, string> = {
   sol: '/chains/sol.png',
   bnb: '/chains/bnb.png',

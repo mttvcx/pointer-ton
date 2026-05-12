@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BarChart3, Wallet, Zap } from 'lucide-react';
+import { Activity, ArrowUpDown, BarChart3, HelpCircle, Wallet, Zap } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd, formatDuration, formatNumber, formatRelativeTime, formatAgeShort } from '@/lib/utils/formatters';
@@ -17,7 +17,10 @@ import { Skeleton } from '@/components/shared/Skeleton';
 import { syntheticTradesForMint, syntheticTopTradersForMint } from '@/lib/dev/demoTokenFixtures';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
+import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
+import type { TraderDeskFilter } from '@/lib/walletIdentity/traderFilters';
+import { traderRowMatchesFilter, TRADER_FILTER_OPTIONS } from '@/lib/walletIdentity/traderFilters';
 import { useUIStore } from '@/store/ui';
 
 /** Rough native/USD for converting USD notionals in the “native units” column toggle (UI preview). */
@@ -43,10 +46,64 @@ const TABS: { id: TabId; label: string }[] = [
 
 function PlaceholderTab({ title, body }: { title: string; body: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
-      <p className="text-[12px] font-semibold text-[#d1d5db]">{title}</p>
-      <p className="max-w-sm text-[11px] leading-snug text-[#6b7280]">{body}</p>
+    <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 p-8 text-center">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="max-w-sm text-xs leading-snug text-muted-foreground">{body}</p>
     </div>
+  );
+}
+
+/**
+ * Header cell with consistent uppercase tracking + a subtle sort indicator that
+ * fades in on hover. No sorting wired yet — affordance only.
+ */
+function SortableTh({
+  children,
+  className,
+  align = 'left',
+}: {
+  children: React.ReactNode;
+  className?: string;
+  align?: 'left' | 'right' | 'center';
+}) {
+  const justify =
+    align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start';
+  return (
+    <th
+      className={cn(
+        'group/th py-2 align-middle font-medium leading-tight',
+        align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
+        className,
+      )}
+    >
+      <span className={cn('inline-flex items-center gap-1', justify)}>
+        <span>{children}</span>
+        <ArrowUpDown
+          className="h-3 w-3 opacity-0 transition-opacity duration-100 group-hover/th:opacity-60"
+          strokeWidth={2}
+          aria-hidden
+        />
+      </span>
+    </th>
+  );
+}
+
+function RealPnlInfoTooltip({ sym }: { sym: string }) {
+  return (
+    <span className="group/info relative inline-flex items-center" tabIndex={0} aria-label="What is Real. PnL?">
+      <HelpCircle
+        className="h-3 w-3 cursor-help text-muted-foreground/70 transition-colors group-hover/info:text-foreground"
+        strokeWidth={2}
+      />
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 w-64 rounded-md border border-border/60 bg-background/95 px-2.5 py-2 text-[11px] font-normal normal-case leading-snug tracking-normal text-muted-foreground opacity-0 shadow-lg backdrop-blur transition-opacity duration-100 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
+      >
+        <span className="font-semibold text-foreground">Realized PnL</span> ranks wallets on{' '}
+        <span className="font-semibold text-foreground">{sym}</span> only (Pointer fills · FIFO desk). Same
+        terminal pattern as majors: token-scoped, not global best traders on-chain.
+      </span>
+    </span>
   );
 }
 
@@ -65,10 +122,12 @@ export function TokenActivityTabs({
 }) {
   const [tab, setTab] = useState<TabId>('trades');
   const [onlyTracked, setOnlyTracked] = useState(false);
+  const [traderDeskFilter, setTraderDeskFilter] = useState<TraderDeskFilter>('all');
   const [tradesPanel, setTradesPanel] = useState(true);
   const [tableUsd, setTableUsd] = useState(true);
   const uiDemo = useUiDemoMode();
   const { isTracked } = useTrackedWalletsLookup();
+  const { resolveLabel } = useWalletLabels();
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
   const nativeUsdHint = NATIVE_USD_HINT[activeChain];
@@ -133,44 +192,39 @@ export function TokenActivityTabs({
       );
     }
     return (
-      <div className="h-full min-h-0 overflow-auto">
-        <table className="w-full border-collapse text-left text-[10px]">
-          <thead className="sticky top-0 z-[1] bg-[#080d14] text-[#6b7280]">
-            <tr className="border-b border-[#1b1f2a]">
-              <th className="px-2 py-1.5 font-semibold uppercase tracking-wide">Time</th>
-              <th className="px-2 py-1.5 font-semibold uppercase tracking-wide">Side</th>
-              <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wide">
-                TON
-              </th>
-              <th className="px-2 py-1.5 text-right font-semibold uppercase tracking-wide">Px</th>
+      <div className="w-full">
+        <table className="w-full border-collapse text-left text-xs tabular-nums">
+          <thead className="sticky top-0 z-[1] border-b border-border/50 bg-muted/20 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Time</th>
+              <th className="px-3 py-2 font-medium">Side</th>
+              <th className="px-3 py-2 text-right font-medium">{nativeSym}</th>
+              <th className="px-3 py-2 text-right font-medium">Px</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((t, i) => (
+            {rows.map((t) => (
               <tr
                 key={t.id}
-                className={cn(
-                  'border-b border-[#1b1f2a]/80',
-                  i % 2 === 1 ? 'bg-[#0f1219]' : 'bg-transparent',
-                )}
+                className="cursor-pointer border-b border-border/40 transition-colors duration-100 even:bg-muted/5 hover:bg-muted/30"
               >
-                <td className="px-2 py-1.5 tabular-nums text-[#9ca3af]">
+                <td className="px-3 py-2 align-middle text-muted-foreground">
                   {formatRelativeTime(t.submitted_at)}
                 </td>
-                <td className="px-2 py-1.5">
+                <td className="px-3 py-2 align-middle">
                   <span
                     className={cn(
-                      'font-semibold uppercase',
-                      t.side === 'buy' ? 'text-[#34d399]' : 'text-[#fb7185]',
+                      'font-medium capitalize',
+                      t.side === 'buy' ? 'text-emerald-400' : 'text-rose-400',
                     )}
                   >
                     {t.side}
                   </span>
                 </td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-[#f3f4f6]">
+                <td className="px-3 py-2 text-right align-middle text-foreground">
                   {t.amount_sol != null ? formatNumber(t.amount_sol, { decimals: 4 }) : '\u2014'}
                 </td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-[#9ca3af]">
+                <td className="px-3 py-2 text-right align-middle text-muted-foreground">
                   {t.price_usd_at_fill != null
                     ? tableUsd
                       ? `$${formatNumber(t.price_usd_at_fill, { decimals: 4 })}`
@@ -199,67 +253,115 @@ export function TokenActivityTabs({
     const showSynthetic =
       uiDemo && !tradersQ.isLoading && (raw.length === 0 || tradersQ.isError);
     const rows = showSynthetic ? syntheticTopTradersForMint(mint) : raw;
-    const displayRows = onlyTracked ? rows.filter((w) => isTracked(w.wallet_address)) : rows;
+    const afterTrack = onlyTracked ? rows.filter((w) => isTracked(w.wallet_address)) : rows;
+    const displayRows =
+      traderDeskFilter === 'all'
+        ? afterTrack
+        : afterTrack.filter((w) =>
+            traderRowMatchesFilter({
+              row: w,
+              creatorWallet,
+              tracked: isTracked(w.wallet_address),
+              labelDisp: resolveLabel(w.wallet_address, 5),
+              filter: traderDeskFilter,
+            }),
+          );
     const maxBuy = displayRows.reduce((m, w) => Math.max(m, w.buy_usd), 0);
     const maxSell = displayRows.reduce((m, w) => Math.max(m, w.sell_usd), 0);
     const fmtUsdCell = (v: number) =>
       tableUsd ? formatCompactUsd(v) : `${formatNumber(v / nativeUsdHint, { decimals: 4 })} ${nativeSym}`;
 
     if (displayRows.length === 0) {
+      const lensEmpty = traderDeskFilter !== 'all' && afterTrack.length > 0;
       return (
         <div className="p-4">
           <EmptyState
             icon={BarChart3}
-            title={onlyTracked ? 'No tracked traders here' : 'No ranked traders'}
+            title={
+              lensEmpty
+                ? 'No wallets match filter'
+                : onlyTracked
+                  ? 'No tracked traders here'
+                  : 'No ranked traders'
+            }
             description={
-              onlyTracked
-                ? 'Add wallets in Trackers, then filter this table to them.'
-                : 'Ranks appear once we have confirmed in-app trades on this mint.'
+              lensEmpty
+                ? 'Loosen desk filters / pick “All”.'
+                : onlyTracked
+                  ? 'Add wallets in Trackers, then filter this table to them.'
+                  : 'Desk ranks only include Pointer fills seen on this mint (FIFO realized PnL).'
             }
           />
         </div>
       );
     }
     return (
-      <div className="h-full min-h-0 overflow-auto">
-        <p className="border-b border-[#1b1f2a] px-2 py-1.5 text-[9px] leading-snug text-[#6b7280]">
-          <span className="font-semibold text-[#9ca3af]">R. PnL</span> on{' '}
-          <span className="font-semibold text-[#d1d5db]">{sym}</span> — confirmed Pointer fills, FIFO. Not
-          platform-wide.
-        </p>
+      <div className="w-full">
+        <div className="border-b border-border/50 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-1">
+            {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTraderDeskFilter(id)}
+                className={cn(
+                  'btn-press inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium transition-colors',
+                  traderDeskFilter === id
+                    ? 'bg-muted/60 text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[56rem] w-full border-collapse text-left text-[9px]">
-            <thead className="sticky top-0 z-[1] bg-[#080d14] text-[#6b7280]">
-              <tr className="border-b border-[#1b1f2a]">
-                <th className="w-7 px-1 py-1 text-center font-semibold uppercase">#</th>
-                <th className="min-w-[7.5rem] px-1.5 py-1 font-semibold uppercase tracking-wide">
-                  Wallet
-                </th>
-                <th className="min-w-[6.5rem] px-1.5 py-1 font-semibold uppercase leading-tight tracking-wide">
-                  <span className="block">{nativeSym} Balance</span>
-                  <span className="block text-[8px] font-normal capitalize opacity-80">(Last Active)</span>
-                </th>
-                <th className="min-w-[7.5rem] px-1.5 py-1 font-semibold uppercase leading-tight tracking-wide">
+          <table className="w-full min-w-[60rem] border-collapse text-left text-sm tabular-nums">
+            <thead className="sticky top-0 z-[1] border-b border-border/50 bg-muted/20 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <SortableTh className="w-10 px-2 text-center">#</SortableTh>
+                <SortableTh className="min-w-[12rem] px-3">Wallet</SortableTh>
+                <SortableTh className="w-28 px-3" align="right">
+                  <span className="block">{nativeSym} balance</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+                    Last active
+                  </span>
+                </SortableTh>
+                <SortableTh className="w-36 px-3" align="right">
                   <span className="block">Bought</span>
-                  <span className="block text-[8px] font-normal capitalize opacity-80">(Avg Buy)</span>
-                </th>
-                <th className="min-w-[7.5rem] px-1.5 py-1 font-semibold uppercase leading-tight tracking-wide">
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+                    Avg buy
+                  </span>
+                </SortableTh>
+                <SortableTh className="w-36 px-3" align="right">
                   <span className="block">Sold</span>
-                  <span className="block text-[8px] font-normal capitalize opacity-80">(Avg Sell)</span>
-                </th>
-                <th className="min-w-[4rem] px-1.5 py-1 font-semibold uppercase tracking-wide">R. PnL</th>
-                <th className="min-w-[5rem] px-1.5 py-1 font-semibold uppercase tracking-wide">Remaining</th>
-                <th className="min-w-[4rem] px-1.5 py-1 font-semibold uppercase tracking-wide">Funding</th>
-                <th className="min-w-[3.25rem] px-1.5 py-1 text-right font-semibold uppercase tracking-wide">
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+                    Avg sell
+                  </span>
+                </SortableTh>
+                <SortableTh className="w-28 px-3" align="right">
+                  <span className="inline-flex items-center justify-end gap-1">
+                    Real. PnL
+                    <RealPnlInfoTooltip sym={sym} />
+                  </span>
+                </SortableTh>
+                <SortableTh className="w-24 px-3" align="right">
+                  Remaining
+                </SortableTh>
+                <SortableTh className="w-20 px-3" align="right">
+                  Funding
+                </SortableTh>
+                <SortableTh className="w-16 px-3" align="right">
                   Held
-                </th>
+                </SortableTh>
               </tr>
             </thead>
             <tbody>
               {displayRows.map((w, i) => {
                 const pnl = w.realized_pnl_usd;
                 const pnlTone =
-                  pnl > 0 ? 'text-[#34d399]' : pnl < 0 ? 'text-[#fb7185]' : 'text-[#9ca3af]';
+                  pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-rose-400' : 'text-muted-foreground';
                 const lastAct = w.last_trade_at ? formatAgeShort(w.last_trade_at) : '\u2014';
                 const held =
                   w.held_seconds != null && w.held_seconds > 0 ? formatDuration(w.held_seconds) : '\u2014';
@@ -268,82 +370,86 @@ export function TokenActivityTabs({
                 return (
                   <tr
                     key={w.wallet_address}
-                    className={cn(
-                      'border-b border-[#1b1f2a]/80',
-                      i % 2 === 1 ? 'bg-[#0f1219]' : '',
-                    )}
+                    className="group h-12 cursor-pointer border-b border-border/40 transition-colors duration-100 even:bg-muted/5 hover:bg-muted/30"
                   >
-                    <td className="px-1 py-1 text-center tabular-nums text-[#6b7280]">{i + 1}</td>
-                    <td className="px-1.5 py-1 align-top">
-                      <div className="flex items-start gap-0.5">
-                        <Wallet className="mt-0.5 h-3 w-3 shrink-0 text-[#4b5563]" strokeWidth={2} />
+                    <td className="px-2 text-center align-middle text-muted-foreground">{i + 1}</td>
+                    <td className="px-3 align-middle">
+                      <div className="flex items-center gap-2">
+                        <Wallet
+                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60"
+                          strokeWidth={2}
+                        />
                         <div className="min-w-0">
-                          <TopTraderWalletCell mint={mint} wallet={w.wallet_address} sym={sym} />
+                          <TopTraderWalletCell
+                            mint={mint}
+                            wallet={w.wallet_address}
+                            sym={sym}
+                            topTraderRow={w}
+                            rank={i + 1}
+                            creatorWallet={creatorWallet}
+                          />
                         </div>
                       </div>
                     </td>
-                    <td className="px-1.5 py-1 align-top tabular-nums leading-tight text-[#9ca3af]">
-                      <div className="flex flex-wrap items-baseline gap-x-1">
-                        <span className="text-[#4b5563]">{'\u2014'}</span>
-                        <span className="text-[#6b7280]">({lastAct})</span>
-                      </div>
+                    <td className="px-3 text-right align-middle">
+                      <div className="text-sm font-medium text-foreground">{'\u2014'}</div>
+                      <div className="text-xs text-muted-foreground/70">{lastAct}</div>
                     </td>
-                    <td className="px-1.5 py-1 align-top leading-tight">
-                      <div className="font-semibold tabular-nums text-[#34d399]">{fmtUsdCell(w.buy_usd)}</div>
-                      <div className="mt-0.5 h-1 w-full max-w-[5rem] overflow-hidden rounded-full bg-[#1b1f2a]">
+                    <td className="px-3 text-right align-middle">
+                      <div className="text-sm font-medium text-foreground">{fmtUsdCell(w.buy_usd)}</div>
+                      <div className="mx-auto ml-auto mt-1 h-0.5 w-20 overflow-hidden rounded-full bg-muted/40">
                         <div
-                          className="h-full rounded-full bg-[#34d399]"
+                          className="h-full rounded-full bg-emerald-500/40"
                           style={{ width: `${buyBar}%` }}
                         />
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-1 text-[8px] text-[#6b7280]">
+                      <div className="mt-1 flex items-baseline justify-end gap-1.5 text-xs text-muted-foreground/70">
                         <span>
                           {formatNumber(w.buy_token_qty, { compact: true })} / {w.buy_count}
                         </span>
-                        <span className="shrink-0 text-[#34d399]">
-                          {w.avg_buy_usd_per_token != null
-                            ? `(${tableUsd ? formatCompactUsd(w.avg_buy_usd_per_token) : '—'})`
-                            : '\u2014'}
-                        </span>
+                        {w.avg_buy_usd_per_token != null ? (
+                          <span className="text-emerald-400/70">
+                            ({tableUsd ? formatCompactUsd(w.avg_buy_usd_per_token) : '—'})
+                          </span>
+                        ) : null}
                       </div>
                     </td>
-                    <td className="px-1.5 py-1 align-top leading-tight">
-                      <div className="font-semibold tabular-nums text-[#fb7185]">{fmtUsdCell(w.sell_usd)}</div>
-                      <div className="mt-0.5 h-1 w-full max-w-[5rem] overflow-hidden rounded-full bg-[#1b1f2a]">
+                    <td className="px-3 text-right align-middle">
+                      <div className="text-sm font-medium text-foreground">{fmtUsdCell(w.sell_usd)}</div>
+                      <div className="ml-auto mt-1 h-0.5 w-20 overflow-hidden rounded-full bg-muted/40">
                         <div
-                          className="h-full rounded-full bg-[#fb7185]/90"
+                          className="h-full rounded-full bg-rose-500/40"
                           style={{ width: `${sellBar}%` }}
                         />
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-1 text-[8px] text-[#6b7280]">
+                      <div className="mt-1 flex items-baseline justify-end gap-1.5 text-xs text-muted-foreground/70">
                         <span>
                           {formatNumber(w.sell_token_qty, { compact: true })} / {w.sell_count}
                         </span>
-                        <span className="shrink-0 text-[#fb7185]">
-                          {w.avg_sell_usd_per_token != null
-                            ? `(${tableUsd ? formatCompactUsd(w.avg_sell_usd_per_token) : '—'})`
-                            : '\u2014'}
-                        </span>
+                        {w.avg_sell_usd_per_token != null ? (
+                          <span className="text-rose-400/70">
+                            ({tableUsd ? formatCompactUsd(w.avg_sell_usd_per_token) : '—'})
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td
                       className={cn(
-                        'px-1.5 py-1 align-top text-right text-[9px] font-semibold tabular-nums',
+                        'px-3 text-right align-middle text-sm font-semibold',
                         pnlTone,
                       )}
                     >
                       {pnl >= 0 ? '+' : ''}
-                      {tableUsd ? formatCompactUsd(pnl) : `${formatNumber(pnl / nativeUsdHint, { decimals: 2 })} ${nativeSym}`}
+                      {tableUsd
+                        ? formatCompactUsd(pnl)
+                        : `${formatNumber(pnl / nativeUsdHint, { decimals: 2 })} ${nativeSym}`}
                     </td>
-                    <td className="px-1.5 py-1 align-top leading-tight text-[#9ca3af]">
-                      <div className="tabular-nums">{'\u2014'}</div>
-                      <div className="mt-0.5 h-1 w-full max-w-[4.5rem] rounded-full bg-[#1b1f2a]" />
-                      <div className="mt-0.5 text-[8px] text-[#4b5563]">{'\u2014'}</div>
+                    <td className="px-3 text-right align-middle">
+                      <div className="text-sm font-medium text-foreground">{'\u2014'}</div>
+                      <div className="text-xs text-muted-foreground/70">{'\u2014'}</div>
                     </td>
-                    <td className="px-1.5 py-1 align-top text-[#6b7280]">{'\u2014'}</td>
-                    <td className="px-1.5 py-1 text-right align-top tabular-nums text-[#9ca3af]">
-                      {held}
-                    </td>
+                    <td className="px-3 text-right align-middle text-muted-foreground">{'\u2014'}</td>
+                    <td className="px-3 text-right align-middle text-muted-foreground">{held}</td>
                   </tr>
                 );
               })}
@@ -360,6 +466,9 @@ export function TokenActivityTabs({
     mint,
     sym,
     onlyTracked,
+    traderDeskFilter,
+    creatorWallet,
+    resolveLabel,
     isTracked,
     tableUsd,
     nativeSym,
@@ -380,80 +489,87 @@ export function TokenActivityTabs({
   };
 
   return (
-    <div
-      className="flex h-full min-h-0 flex-col border-t border-[#1b1f2a] bg-[#080d14] font-sans text-[12px]"
-     
-    >
-      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-[#1b1f2a] px-2 py-1">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'btn-press rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all duration-150',
-              tab === t.id
-                ? 'bg-white/10 text-[#f9fafb]'
-                : 'text-[#6b7280] hover:text-[#d1d5db]',
-            )}
-          >
-            {tabLabel(t)}
-          </button>
-        ))}
-        {tab === 'traders' ? (
-          <button
-            type="button"
-            onClick={() => setOnlyTracked((o) => !o)}
-            className={cn(
-              'btn-press rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-all',
-              onlyTracked
-                ? 'border-[#38bdf8]/40 bg-[#38bdf8]/10 text-[#7dd3fc]'
-                : 'border-[#1b1f2a] text-[#6b7280] hover:border-[#2d3548]',
-            )}
-          >
-            Only Tracked
-          </button>
-        ) : null}
-        {showTableControls ? (
-          <>
-            <label className="ml-1 flex cursor-pointer items-center gap-1 text-[10px] text-[#6b7280]">
-              <input
-                type="checkbox"
-                checked={tradesPanel}
-                onChange={(e) => setTradesPanel(e.target.checked)}
-                className="h-3 w-3 rounded border-[#1b1f2a]"
-              />
-              Trades Panel
-            </label>
+    <div className="flex flex-col border-t border-border bg-background font-sans text-sm">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border/60 px-3">
+        <nav className="flex shrink-0 items-stretch gap-1" aria-label="Token activity">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'btn-press relative inline-flex h-9 items-center px-3 text-xs font-medium tracking-tight transition-colors',
+                  active
+                    ? 'text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-t-sm after:bg-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                aria-current={active ? 'page' : undefined}
+              >
+                {tabLabel(t)}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="ml-2 flex flex-wrap items-center gap-1.5">
+          {tab === 'traders' ? (
             <button
               type="button"
-              onClick={() => setTableUsd((u) => !u)}
+              onClick={() => setOnlyTracked((o) => !o)}
               className={cn(
-                'rounded-full border px-2 py-0.5 tabular-nums text-[10px] font-semibold',
-                tableUsd
-                  ? 'border-[#38bdf8]/40 text-[#7dd3fc]'
-                  : 'border-[#1b1f2a] text-[#6b7280]',
+                'btn-press inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium transition-colors',
+                onlyTracked
+                  ? 'bg-muted/60 text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
               )}
             >
-              USD
+              Only Tracked
             </button>
-          </>
-        ) : null}
-        <div className="ml-auto flex items-center gap-1.5">
+          ) : null}
+          {showTableControls ? (
+            <>
+              <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 px-1.5 text-xs text-muted-foreground hover:text-foreground">
+                <input
+                  type="checkbox"
+                  checked={tradesPanel}
+                  onChange={(e) => setTradesPanel(e.target.checked)}
+                  className="h-3 w-3 rounded border-border bg-background"
+                />
+                Trades Panel
+              </label>
+              <button
+                type="button"
+                onClick={() => setTableUsd((u) => !u)}
+                className={cn(
+                  'btn-press inline-flex h-7 items-center rounded-md px-2.5 text-xs font-semibold tabular-nums transition-colors',
+                  tableUsd
+                    ? 'bg-muted/60 text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                )}
+              >
+                USD
+              </button>
+            </>
+          ) : null}
+        </div>
+        <div className="ml-auto flex items-center gap-2 py-1.5">
           {onOpenInstantTrade ? (
             <button
               type="button"
               onClick={onOpenInstantTrade}
-              className="btn-press focus-ring inline-flex items-center gap-1 rounded-md bg-[#6366f1] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-md transition hover:brightness-110"
+              className="btn-press focus-ring inline-flex h-8 items-center gap-1.5 rounded-md bg-[#6366f1] px-3 text-xs font-semibold tracking-tight text-white shadow-sm transition hover:brightness-110"
             >
-              <Zap className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+              <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
               Instant Trade
             </button>
           ) : null}
-          <span className="text-[9px] tabular-nums text-[#4b5563]">{sym}</span>
+          <span className="text-[10px] tabular-nums uppercase tracking-wider text-muted-foreground/70">
+            {sym}
+          </span>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="w-full">
         {tab === 'trades' ? (
           tradesPanel ? (
             activityBody
@@ -476,14 +592,16 @@ export function TokenActivityTabs({
             body="Open limit / TWAP orders on this mint will appear here in a future release."
           />
         ) : null}
-        {tab === 'holders' ? <HoldersTable mint={mint} /> : null}
+        {tab === 'holders' ? (
+          <HoldersTable mint={mint} tokenSymbol={sym} creatorWallet={creatorWallet} />
+        ) : null}
         {tab === 'traders' ? tradersBody : null}
         {tab === 'dev_tokens' ? (
-          <div className="h-full min-h-0 overflow-auto">
+          <div className="w-full">
             <div className="border-b border-[#1b1f2a] p-2 text-[10px] text-[#6b7280]">
               Creator / deployer analytics for this token.
             </div>
-            <DevSection creatorWallet={creatorWallet} dev={dev} />
+            <DevSection creatorWallet={creatorWallet} mint={mint} tokenSymbol={sym} dev={dev} />
             <PlaceholderTab
               title="Dev token list"
               body="Cross-mint “dev wallet” history is not indexed yet; this tab reserves Axiom-style space."

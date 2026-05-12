@@ -161,10 +161,12 @@ function CompactFeeStrip({
   slippageBps,
   priorityLamports,
   jitoLamports,
+  nativeQuoteSym,
 }: {
   slippageBps: number;
   priorityLamports: number;
   jitoLamports: number;
+  nativeQuoteSym: string;
 }) {
   const gas = formatNumber(lamportsToSol(BigInt(Math.max(0, priorityLamports))), {
     decimals: 3,
@@ -177,10 +179,12 @@ function CompactFeeStrip({
         Slip {(slipPct < 1 ? slipPct.toFixed(2) : slipPct.toFixed(1))}%
       </span>
       <span className="opacity-40">·</span>
-      <span className="tabular-nums">Gas {gas}</span>
+      <span className="tabular-nums">
+        Gas {gas} {nativeQuoteSym}
+      </span>
       <span className="opacity-40">·</span>
       <span className="tabular-nums text-signal-warn">
-        Tip {tip}
+        Tip {tip} {nativeQuoteSym}
         <span className="ml-0.5" aria-hidden>
           ⚠
         </span>
@@ -271,6 +275,7 @@ export function BuySellPanel({
 }) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
   const qc = useQueryClient();
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -669,18 +674,18 @@ export function BuySellPanel({
     }
     return `${formatNumber(lamportsToSol(BigInt(quote.summary.amountOutRaw)), {
       decimals: 5,
-    })} TON`;
-  }, [quote, decimals, symbol]);
+    })} ${nativeSym}`;
+  }, [quote, decimals, symbol, nativeSym]);
 
   const formattedPay = useMemo(() => {
     if (!quote?.summary.amountInRaw) return null;
     if (quote.side === 'buy') {
       return `${formatNumber(lamportsToSol(BigInt(quote.summary.amountInRaw)), {
         decimals: 4,
-      })} TON`;
+      })} ${nativeSym}`;
     }
     return `${formatNumber(rawToUi(quote.summary.amountInRaw, decimals), { decimals: 4 })} ${symbol ?? 'tokens'}`;
-  }, [quote, decimals, symbol]);
+  }, [quote, decimals, symbol, nativeSym]);
 
   const runTrade = useCallback(async () => {
     if (!wallet) {
@@ -708,7 +713,7 @@ export function BuySellPanel({
     }
 
     if (tab === 'buy' && (buyAmountSol == null || buyAmountSol <= 0)) {
-      toast.error('Enter TON amount');
+      toast.error(`Enter ${nativeSym} amount`);
       return;
     }
     if (tab === 'sell' && !sellAmountTokenRaw) {
@@ -812,6 +817,7 @@ export function BuySellPanel({
   }, [
     wallet,
     activeChain,
+    nativeSym,
     getAccessToken,
     submitFromQuote,
     tab,
@@ -871,9 +877,9 @@ export function BuySellPanel({
     <div
       ref={walletPickerShellRef}
       data-mint={mint}
-      className="relative flex h-full max-h-[calc(100vh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-bg-base text-[12px] text-white"
+      className="relative flex w-full min-w-0 flex-col bg-[#080d14] text-[12px] text-white"
     >
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-2 pb-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="space-y-2 px-3 py-2 pb-5">
         {extendedTape ? <TradeTapeStrip m={extendedTape} /> : (
           <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] px-2 py-1.5 text-[11px] text-[#6b7280]">
             6h Vol - <span className="text-[#34d399]">Buys -</span> <span className="text-[#fb7185]">Sells -</span> Net -
@@ -929,7 +935,14 @@ export function BuySellPanel({
         {tab === 'buy' ? (
           <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] p-2">
             <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#8b93a3]">Amount</div>
-            <TradeAmountInput value={buyCustomSol} onChange={onBuyCustom} placeholder={activePresetSol != null ? String(activePresetSol) : '0.0'} suffix="TON" icon="sol" aria-label="TON amount to buy" />
+            <TradeAmountInput
+              value={buyCustomSol}
+              onChange={onBuyCustom}
+              placeholder={activePresetSol != null ? String(activePresetSol) : '0.0'}
+              suffix={nativeSym}
+              icon="sol"
+              aria-label={`${nativeSym} amount to buy`}
+            />
             <div className="mt-1 grid grid-cols-5 overflow-hidden rounded border border-[#1b1f2a] text-center text-[12px] font-semibold">
               {axiomBuyAmounts.map((s) => <button key={s} type="button" onClick={() => pickBuyPreset(s)} className={cn('border-r border-[#1b1f2a] py-1.5 tabular-nums last:border-r-0 hover:bg-white/5', activePresetSol === Number(s) ? 'text-[#38d99c]' : 'text-white')}>{s}</button>)}
               <button type="button" className="py-1.5 text-[#8b93a3] hover:bg-white/5">%</button>
@@ -947,7 +960,12 @@ export function BuySellPanel({
         )}
 
         <div className="flex flex-wrap items-center gap-1 rounded-md border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[10px] text-[#8b93a3]">
-          <CompactFeeStrip slippageBps={effectiveSlippageBps} priorityLamports={activePreset?.priority_fee_lamports ?? 0} jitoLamports={activePreset?.jito_tip_lamports ?? 0} />
+          <CompactFeeStrip
+            slippageBps={effectiveSlippageBps}
+            priorityLamports={activePreset?.priority_fee_lamports ?? 0}
+            jitoLamports={activePreset?.jito_tip_lamports ?? 0}
+            nativeQuoteSym={nativeSym}
+          />
           <span className="ml-auto inline-flex items-center gap-1"><input type="checkbox" checked={dynamicSlippage} onChange={(e) => setDynamicSlippage(e.target.checked)} className="h-3 w-3 rounded border-[#1b1f2a]" />Dynamic</span>
         </div>
 

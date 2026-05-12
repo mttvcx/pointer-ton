@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { CHAIN_DROPDOWN_LABEL, CHAIN_ICON_PNG, CHAIN_TICKER, ORDERED_CHAINS } from '@/lib/chains/chainAssets';
+import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
+import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 
@@ -15,6 +17,7 @@ export function ChainSelectDropdown({ className }: { className?: string }) {
   const setActiveChain = useUIStore((s) => s.setActiveChain);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const { mounted: menuMounted, visible: menuVisible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
 
   useEffect(() => {
     if (!open) return;
@@ -54,11 +57,14 @@ export function ChainSelectDropdown({ className }: { className?: string }) {
         />
       </button>
 
-      {open ? (
+      {menuMounted ? (
         <div
           role="listbox"
           aria-label="Select network"
-          className="absolute right-0 top-[calc(100%+6px)] z-[100] min-w-[12.5rem] overflow-hidden rounded-xl border bg-[#12151c] py-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)]"
+          className={cn(
+            'absolute right-0 top-[calc(100%+6px)] z-[140] min-w-[12.5rem] overflow-hidden rounded-xl border bg-[#12151c] py-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] fill-mode-forwards',
+            popoverPanelClasses(menuVisible),
+          )}
           style={{ borderColor: '#2a2f3a' }}
         >
           {ORDERED_CHAINS.map((id: AppChainId) => {

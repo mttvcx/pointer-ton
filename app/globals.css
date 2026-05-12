@@ -362,6 +362,31 @@
   }
 }
 
+/* Perps: infinite prediction ticker (GPU transform, pauses on hover). */
+@keyframes perps-prediction-ticker {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.perps-ticker-track {
+  animation: perps-prediction-ticker 78s linear infinite;
+  will-change: transform;
+}
+
+.perps-ticker-root:hover .perps-ticker-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perps-ticker-track {
+    animation: none;
+  }
+}
+
 /* Sonner: align the toast theme with our terminal palette. */
 [data-sonner-toaster] {
   --normal-bg: var(--bg-base);

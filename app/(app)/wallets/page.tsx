@@ -1,14 +1,13 @@
-import type { Metadata } from 'next';
-import { WalletsManage } from '@/components/wallets/WalletsManage';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Wallets',
-};
-
-export default function WalletsPage() {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col bg-[#080d14] px-2 py-2 pb-[calc(var(--app-bottombar-h)+12px)]">
-      <WalletsManage className="min-h-0 flex-1" />
-    </div>
-  );
+export default async function WalletsRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<{ wallet?: string }>;
+}) {
+  const { wallet } = await searchParams;
+  const qs = wallet
+    ? `?tab=trackers&wallet=${encodeURIComponent(wallet)}`
+    : '?tab=trackers';
+  redirect(`/portfolio${qs}`);
 }

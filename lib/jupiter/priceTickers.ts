@@ -4,21 +4,27 @@ import 'server-only';
 const JUPITER_PRICE_V3_BASE =
   process.env.JUPITER_PRICE_API_URL?.replace(/\/$/, '') ?? 'https://api.jup.ag/price/v3';
 
-/** Wrapped assets on Solana Jupiter still prices BTC/ETH in USD accurately enough for a header ticker. */
+/** Wrapped / native assets Jupiter prices in USD for light tickers UI. */
 export const JUPITER_TICKER_MINTS = {
   // Wormhole wrapped BTC (real BTC USD peg). Avoid 9n4nb... (mispriced / wrong feed).
   BTC: '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh',
   // Portal (Wormhole) WETH on Solana.
   ETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
+  /** Canonical wrapped SOL pseudo-mint (chart + header SOL/USD peg). */
+  SOL: 'So11111111111111111111111111111111111111112',
 } as const;
 
 const COINGECKO_TON_ID = 'the-open-network';
+const COINGECKO_BNB_ID = 'binancecoin';
 
 /** Sentinel mint for TON rows (not a Solana mint; not sent to Jupiter). */
 export const TON_TICKER_MINT = 'ton-native';
 
+/** Sentinel mint for CoinGecko BNB spot (multi-chain ticker rail). */
+export const BNB_TICKER_MINT = 'bnb-native';
+
 export type TickerQuote = {
-  symbol: 'BTC' | 'ETH' | 'TON';
+  symbol: keyof typeof JUPITER_TICKER_MINTS | 'TON' | 'BNB';
   mint: string;
   usdPrice: number | null;
   // Percent change, e.g. 1.29 means +1.29%.
@@ -27,7 +33,7 @@ export type TickerQuote = {
 
 type PriceRow = { usdPrice?: number; priceChange24h?: number | null };
 
-async function fetchBtcEthJupiterQuotes(): Promise<TickerQuote[]> {
+async function fetchBtcEthSolJupiterQuotes(): Promise<TickerQuote[]> {
   const ids = Object.values(JUPITER_TICKER_MINTS);
   const url = `${JUPITER_PRICE_V3_BASE}?ids=${encodeURIComponent(ids.join(','))}`;
   const headers: HeadersInit = { Accept: 'application/json' };
@@ -56,6 +62,38 @@ async function fetchBtcEthJupiterQuotes(): Promise<TickerQuote[]> {
       };
     },
   );
+}
+
+/**
+ * BNB spot in USD + 24h change via CoinGecko public API (no key required at low volume).
+ */
+export async function fetchBnbUsdFromCoinGecko(): Promise<{
+  usdPrice: number | null;
+  priceChange24h: number | null;
+}> {
+  const params = new URLSearchParams({
+    ids: COINGECKO_BNB_ID,
+    vs_currencies: 'usd',
+    include_24hr_change: 'true',
+  });
+  const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?${params}`, {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    return { usdPrice: null, priceChange24h: null };
+  }
+  const json = (await res.json()) as Record<
+    string,
+    { usd?: number; usd_24h_change?: number } | undefined
+  >;
+  const row = json[COINGECKO_BNB_ID];
+  const usdPrice = typeof row?.usd === 'number' && Number.isFinite(row.usd) ? row.usd : null;
+  const priceChange24h =
+    row?.usd_24h_change != null && Number.isFinite(row.usd_24h_change)
+      ? row.usd_24h_change
+      : null;
+  return { usdPrice, priceChange24h };
 }
 
 /**
@@ -91,14 +129,24 @@ export async function fetchTonUsdFromCoinGecko(): Promise<{
 }
 
 export async function fetchJupiterTickerQuotes(): Promise<TickerQuote[]> {
-  const [btcEth, ton] = await Promise.all([fetchBtcEthJupiterQuotes(), fetchTonUsdFromCoinGecko()]);
+  const [jupiterRows, ton, bnb] = await Promise.all([
+    fetchBtcEthSolJupiterQuotes(),
+    fetchTonUsdFromCoinGecko(),
+    fetchBnbUsdFromCoinGecko(),
+  ]);
   const tonRow: TickerQuote = {
     symbol: 'TON',
     mint: TON_TICKER_MINT,
     usdPrice: ton.usdPrice,
     priceChange24h: ton.priceChange24h,
   };
-  return [...btcEth, tonRow];
+  const bnbRow: TickerQuote = {
+    symbol: 'BNB',
+    mint: BNB_TICKER_MINT,
+    usdPrice: bnb.usdPrice,
+    priceChange24h: bnb.priceChange24h,
+  };
+  return [...jupiterRows, tonRow, bnbRow];
 }
 
 /** Spot USD price for arbitrary Solana mints (e.g. limit-alert cron, charts). */

@@ -13,6 +13,17 @@ function seedNum(addr: string): number {
  * Rich demo positions so Share PnL / composer can be exercised from any wallet row click
  * (merged into wallet intel when `rowDemo` is enabled).
  */
+const DEMO_TOKENS: { symbol: string; name: string; mint: string }[] = [
+  { symbol: 'WIF', name: 'dogwifhat', mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm' },
+  { symbol: 'BONK', name: 'Bonk', mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
+  { symbol: 'JUP', name: 'Jupiter', mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN' },
+  {
+    symbol: 'RAY',
+    name: 'Raydium',
+    mint: '4k3Dyjzvzp8eM528UX3Ac7MFXQPHYXG2qbqEHxMwWKGg',
+  },
+];
+
 export function demoWalletPositions(walletAddress: string, chain: AppChainId): WalletPositionRow[] {
   const s = seedNum(walletAddress);
   const mk = (i: number): WalletPositionRow => {
@@ -22,25 +33,28 @@ export function demoWalletPositions(walletAddress: string, chain: AppChainId): W
     const pnlUsd = -3200 + ((s + i * 311) % 9000);
     const invested = bought - rem * 0.4;
     const pnlPct = invested > 0 ? (pnlUsd / invested) * 100 : 0;
-    const tickers = ['KIDO', 'USELESS', 'WIF', 'BONK', 'POPCAT'];
-    const names = ['Kido Cats', 'Useless Coin', 'dogwifhat', 'Bonk', 'Popcat'];
-    const t = tickers[i % tickers.length]!;
-    const demoMint = `Demo${t}${i}${walletAddress.slice(0, 4)}`;
+    const tok = DEMO_TOKENS[i % DEMO_TOKENS.length]!;
+    const activity = ['9h', '3d', '11m', '2d'][i % 4]!;
+    const bTxn = 1 + ((s + i * 3) % 28);
+    const sTxn = 1 + ((s + i * 5) % 32);
     return {
-      mint: demoMint,
-      symbol: t,
-      name: names[i % names.length] ?? t,
+      mint: tok.mint,
+      symbol: tok.symbol,
+      name: tok.name,
       imageUrl: null,
       decimals: 6,
       chain,
       boughtUsd: bought,
       boughtTokenUi: bought / 0.24,
+      boughtTxnCount: bTxn,
       soldUsd: sold,
       soldTokenUi: sold / 0.23,
+      soldTxnCount: sTxn,
       remainingUsd: rem,
       remainingTokenUi: rem / 0.25,
       pnlUsd,
       pnlPct,
+      lastActivityLabel: activity,
     };
   };
   return [mk(0), mk(1), mk(2), mk(3)];

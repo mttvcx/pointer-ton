@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import type { MevMode } from '@/lib/trading/mevMode';
 import { cn } from '@/lib/utils/cn';
 import type { PresetSlot } from '@/store/trading';
+import { useUIStore } from '@/store/ui';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
 
 type FullPreset = {
   slot: PresetSlot;
@@ -33,6 +35,8 @@ function PresetEditorForm({
 }) {
   const { getAccessToken } = usePointerAuth();
   const qc = useQueryClient();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
   const [name, setName] = useState(preset.name);
   const [amountsStr, setAmountsStr] = useState(preset.buy_amounts_sol.join(','));
   const [slippageBps, setSlippageBps] = useState(preset.slippage_bps);
@@ -116,7 +120,7 @@ function PresetEditorForm({
           </label>
           <label className="block space-y-1">
             <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Buy chips (TON)
+              Buy chips ({nativeSym})
             </span>
             <input
               value={amountsStr}

@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { CopyButton } from '@/components/shared/CopyButton';
+import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { formatDuration, formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
-import { shortenAddress } from '@/lib/utils/addresses';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import { syntheticCreatorDev } from '@/lib/dev/demoTokenFixtures';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
@@ -13,9 +13,13 @@ import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 export function DevSection({
   creatorWallet,
   dev,
+  mint,
+  tokenSymbol,
 }: {
   creatorWallet: string | null;
   dev: DevWalletStatsRow | null;
+  mint?: string;
+  tokenSymbol?: string | null;
 }) {
   const uiDemo = useUiDemoMode();
   const effectiveDev = useMemo(() => {
@@ -37,7 +41,7 @@ export function DevSection({
 
   if (!effectiveDev) {
     return (
-      <CreatorCard wallet={creatorWallet}>
+      <CreatorCard wallet={creatorWallet} mint={mint} tokenSymbol={tokenSymbol}>
         <p className="mt-2 text-[12px] leading-snug text-fg-secondary">
           Dev reputation aggregates appear once indexer backfill runs for this wallet.
         </p>
@@ -50,6 +54,8 @@ export function DevSection({
   return (
     <CreatorCard
       wallet={effectiveDev.wallet_address}
+      mint={mint}
+      tokenSymbol={tokenSymbol}
       title={dev ? 'Creator track record' : 'Creator track record (demo)'}
     >
       <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -93,10 +99,14 @@ export function DevSection({
 
 function CreatorCard({
   wallet,
+  mint,
+  tokenSymbol,
   title = 'Creator',
   children,
 }: {
   wallet: string;
+  mint?: string;
+  tokenSymbol?: string | null;
   title?: string;
   children: React.ReactNode;
 }) {
@@ -111,14 +121,24 @@ function CreatorCard({
           {title}
         </h2>
       </div>
-      <p className="mt-1 inline-flex items-center gap-1 tabular-nums text-[11px] tabular-nums" title={wallet}>
+      <p className="mt-1 inline-flex flex-wrap items-center gap-2 text-[11px]" title={wallet}>
+        <WalletIdentityAnchor
+          address={wallet}
+          mint={mint}
+          tokenSymbol={tokenSymbol ?? undefined}
+          creatorWallet={wallet}
+          href={`/wallet/${encodeURIComponent(wallet)}`}
+          preferIntelModal
+          truncate={5}
+          isDev
+        />
+        <CopyButton value={wallet} iconOnly label="Copy creator wallet" toastLabel="Creator wallet copied" />
         <Link
           href={`/wallet/${wallet}`}
-          className="text-fg-secondary transition hover:text-accent-primary"
+          className="text-[10px] text-fg-muted underline-offset-4 transition hover:text-accent-primary hover:underline"
         >
-          {shortenAddress(wallet, 5)}
+          Desk
         </Link>
-        <CopyButton value={wallet} iconOnly label="Copy creator wallet" toastLabel="Creator wallet copied" />
       </p>
       {children}
     </section>

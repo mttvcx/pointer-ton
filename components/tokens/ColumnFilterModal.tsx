@@ -479,7 +479,11 @@ export function ColumnFilterModal({
               </div>
               <p className="text-[10px] text-fg-muted">Quote token (when data is available)</p>
               <div className="space-y-1">
-                <Toggle label="TON" checked={filters.quoteSol} onChange={(v) => setFilters((f) => ({ ...f, quoteSol: v }))} />
+                <Toggle
+                  label={quoteNativeSymbol}
+                  checked={filters.quoteSol}
+                  onChange={(v) => setFilters((f) => ({ ...f, quoteSol: v }))}
+                />
                 <Toggle label="USDC" checked={filters.quoteUsdc} onChange={(v) => setFilters((f) => ({ ...f, quoteUsdc: v }))} />
                 <Toggle label="USD1" checked={filters.quoteUsd1} onChange={(v) => setFilters((f) => ({ ...f, quoteUsd1: v }))} />
               </div>

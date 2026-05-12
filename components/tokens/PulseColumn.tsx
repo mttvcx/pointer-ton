@@ -40,10 +40,8 @@ const COLUMN_LABEL: Record<PulseColumnId, string> = {
   migrated: 'Migrated',
 };
 
-function pulseRowSlotHeightFallback(): number {
-  /** SSR / pre-measure only — live board height is viewport ÷ 6 (fixed; never grows with quick-buy). */
-  return 96;
-}
+/** Taller Pulse rows — page scroll lives on `<main>`; row height ≈ readability, not viewport÷6. */
+const ROW_SLOT_PX = 118;
 
 export function PulseColumn({
   column,
@@ -56,7 +54,8 @@ export function PulseColumn({
   const qc = useQueryClient();
   const uiDemo = useUiDemoMode();
   const { authenticated, getAccessToken } = usePointerAuth();
-  const parentRef = useRef<HTMLDivElement>(null);
+  const listMountRef = useRef<HTMLDivElement>(null);
+  const scrollMainRef = useRef<Element | null>(null);
   const activeChain = useUIStore((s) => s.activeChain);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -64,8 +63,6 @@ export function PulseColumn({
   const [guestDisplayPatch, setGuestDisplayPatch] = useState<Partial<ColumnDisplayOptions>>({});
   const displayPopoverRef = useRef<HTMLDivElement>(null);
   const shareAppliedRef = useRef(false);
-
-  const [listViewportH, setListViewportH] = useState(0);
 
   const buyButtonStyle = usePulseColumnStore((s) => s.byColumn[column].buyButtonStyle);
   const quickBuySol = usePulseColumnStore((s) => s.byColumn[column].quickBuySol);
@@ -281,39 +278,36 @@ export function PulseColumn({
     [columnFiltered, sortBy, sortDir],
   );
 
-  useLayoutEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-    const measure = () => {
-      const next = Math.floor(el.getBoundingClientRect().height);
-      if (next > 0) setListViewportH(next);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const rowSize = useMemo(() => {
-    if (listViewportH <= 0) return pulseRowSlotHeightFallback();
-    /** Exactly six token rows — height is never derived from row content (quick-buy size cannot stretch rows). */
-    const h = Math.floor(listViewportH / 6);
-    return Math.max(64, h);
-  }, [listViewportH]);
+  const rowSize = ROW_SLOT_PX;
 
   /* eslint-disable react-hooks/incompatible-library */
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollMainRef.current as HTMLElement | null,
     estimateSize: () => rowSize,
-    overscan: 12,
+    overscan: 10,
     getItemKey: (i) => visibleRows[i]?.token.mint ?? i,
   });
   /* eslint-enable react-hooks/incompatible-library */
 
+  useLayoutEffect(() => {
+    const mainEl = listMountRef.current?.closest('main');
+    scrollMainRef.current = mainEl ?? document.documentElement;
+    rowVirtualizer.measure();
+  }, [rowVirtualizer, column]);
+
   useEffect(() => {
     rowVirtualizer.measure();
-  }, [listViewportH, rowVirtualizer, visibleRows.length, rowSize]);
+  }, [rowVirtualizer, visibleRows.length, rowSize]);
+
+  const trackPulseFlashMint = useUIStore((s) => s.trackPulseHighlightMint);
+  useLayoutEffect(() => {
+    const mint = trackPulseFlashMint?.trim();
+    if (!mint || visibleRows.length === 0) return;
+    const ix = visibleRows.findIndex((b) => b.token.mint === mint);
+    if (ix < 0) return;
+    rowVirtualizer.scrollToIndex(ix, { align: 'center' });
+  }, [trackPulseFlashMint, visibleRows, rowVirtualizer]);
 
   const dotClass = PULSE_COLUMN_ACCENT_DOT[column];
   const title = COLUMN_LABEL[column];
@@ -322,10 +316,10 @@ export function PulseColumn({
   return (
     <section
       className={cn(
-        'flex min-h-0 min-w-0 flex-1 basis-0 flex-col border-r border-border-subtle bg-bg-base last:border-r-0',
+        'flex min-w-0 flex-1 flex-col self-start border-r border-border-subtle bg-bg-base last:border-r-0 xl:min-h-0 xl:basis-0',
       )}
     >
-      <header className="shrink-0 space-y-2 border-b border-border-subtle bg-bg-base px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
+      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-base/97 px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)] backdrop-blur-sm">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -397,7 +391,7 @@ export function PulseColumn({
         }}
       />
 
-      <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={listMountRef} className="w-full">
         {query.isLoading ? (
           <div>
             {Array.from({ length: 8 }, (_, i) => (

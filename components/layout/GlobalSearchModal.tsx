@@ -39,6 +39,8 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { formatCompactUsd } from '@/lib/utils/formatters';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelFromTopClasses } from '@/lib/ui/overlayMotion';
 import { useRecentTradeMintsStore } from '@/store/recentTradeMints';
 import { useUIStore } from '@/store/ui';
 
@@ -154,8 +156,9 @@ export function GlobalSearchModal() {
   const densityWrapRef = useRef<HTMLDivElement | null>(null);
   const [busy, setBusy] = useState(false);
   const uiDemo = useUiDemoMode();
-  const [entered, setEntered] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+
+  const { mounted: overlayMounted, visible } = useOverlayPresence(open);
 
   /** Active protocol filters: empty set = show all tokens. Non-empty = keep rows matching any selected protocol. */
   const [activeProtocols, setActiveProtocols] = useState<Set<ProtocolId>>(() => new Set());
@@ -206,26 +209,6 @@ export function GlobalSearchModal() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, setOpen]);
-
-  useEffect(() => {
-    let rafOuter = 0;
-    let rafInner = 0;
-    if (!open) {
-      const tid = window.setTimeout(() => setEntered(false), 0);
-      return () => clearTimeout(tid);
-    }
-    const enterTid = window.setTimeout(() => {
-      setEntered(false);
-      rafOuter = window.requestAnimationFrame(() => {
-        rafInner = window.requestAnimationFrame(() => setEntered(true));
-      });
-    }, 0);
-    return () => {
-      clearTimeout(enterTid);
-      window.cancelAnimationFrame(rafOuter);
-      window.cancelAnimationFrame(rafInner);
-    };
-  }, [open]);
 
   useEffect(() => {
     if (!densityMenuOpen) return;
@@ -340,7 +323,7 @@ export function GlobalSearchModal() {
     }
   }, [filtered, sortMode]);
 
-  if (!open) return null;
+  if (!overlayMounted) return null;
 
   const rowPadding = compactRows ? 'py-1.5 min-h-[64px]' : 'py-2 min-h-[74px]';
 
@@ -349,17 +332,17 @@ export function GlobalSearchModal() {
       <button
         type="button"
         className={cn(
-          'absolute inset-0 bg-black/50 backdrop-blur-[6px] transition-opacity duration-200 ease-out motion-reduce:transition-none',
-          entered ? 'opacity-100' : 'opacity-0',
+          'absolute inset-0 bg-black/50 backdrop-blur-[6px]',
+          overlayBackdropClasses(visible),
+          'fill-mode-forwards motion-reduce:transition-opacity motion-reduce:duration-200',
         )}
         aria-label="Close search"
         onClick={() => setOpen(false)}
       />
       <div
         className={cn(
-          'relative z-10 flex w-full max-h-[73vh] max-w-[min(680px,100%)] origin-top flex-col overflow-hidden rounded-[11px] shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)]',
-          'transition-[opacity,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none',
-          entered ? 'scale-100 opacity-100' : 'scale-[0.985] opacity-0',
+          'relative z-10 flex w-full max-h-[73vh] max-w-[min(680px,100%)] origin-top flex-col overflow-hidden rounded-[11px] fill-mode-forwards shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)] motion-reduce:transition-none',
+          overlayPanelFromTopClasses(visible),
         )}
         style={{ backgroundColor: MODAL_BG, borderWidth: 1, borderStyle: 'solid', borderColor: MODAL_BORDER }}
         role="dialog"

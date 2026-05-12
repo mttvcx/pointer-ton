@@ -4,6 +4,9 @@
  * Enable either:
  * - `NEXT_PUBLIC_UI_DEMO_MODE=1` or `true` in .env.local (rebuild after change), or
  * - In the browser console: `localStorage.setItem('pointer-ui-demo','1')` then reload.
+ *
+ * Explore only: in `next dev`, empty indexer responses are backfilled with demo bubbles automatically.
+ * Force on with `?explore_demo=1`, or force real empty state with `?explore_demo=0`.
  */
 
 export const UI_DEMO_STORAGE_KEY = 'pointer-ui-demo';

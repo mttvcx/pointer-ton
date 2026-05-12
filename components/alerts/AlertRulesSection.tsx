@@ -96,7 +96,8 @@ function ToggleRow({ children }: { children: React.ReactNode }) {
   return <div className="inline-flex items-center gap-2">{children}</div>;
 }
 
-function openAlertRulesPopout() {
+/** Detached Pulse alert builder — reused from Explore and other shells. */
+export function openAlertRulesPopoutDetached() {
   const header = document.querySelector('header');
   const top = Math.round((header?.getBoundingClientRect().bottom ?? 72) + 8);
   const w = Math.min(440, Math.max(300, Math.round(window.innerWidth * 0.38)));
@@ -322,7 +323,7 @@ export function AlertRulesSection({
                 </button>
                 <button
                   type="button"
-                  onClick={() => openAlertRulesPopout()}
+                  onClick={() => openAlertRulesPopoutDetached()}
                   className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
                   title="Pop out — drag, resize, dock to edge"
                   aria-label="Pop out alert builder"

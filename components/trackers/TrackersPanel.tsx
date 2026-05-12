@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
@@ -11,23 +10,30 @@ import {
   BellOff,
   Layers,
   Loader2,
-  Radio,
   Search,
-  Settings2,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
+import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { isValidTrackedWalletAddress } from '@/lib/chains/mintKind';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatAgeShort, formatLastActiveShort, formatNumber, rawToUi } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
+import { useWalletIntelStore } from '@/store/walletIntelStore';
+import { useActiveWalletStore } from '@/store/activeWallet';
+import { generateEmbeddedWalletForChain } from '@/lib/wallets/embeddedCreate';
+import { kolStorageKey, readStoredKolRows, type KolHandleRow as KolRow } from '@/lib/track/kolHandlesLocal';
+import { xProfileUrl } from '@/lib/utils/xSearch';
+import Link from 'next/link';
 import { ConfirmModal, GlassModal } from '@/components/ui/GlassModal';
 
 const AX_BG = '#0b0d12';
@@ -54,7 +60,6 @@ type EnrichmentMap = Record<string, EnrichmentEntry>;
 type ViewTab = 'all' | 'wallet_manager' | 'live_trades' | 'monitor' | 'kols';
 
 const VIEW_TABS: { id: ViewTab; label: string }[] = [
-  { id: 'all', label: 'All' },
   { id: 'wallet_manager', label: 'Wallet Manager' },
   { id: 'live_trades', label: 'Live Trades' },
   { id: 'monitor', label: 'Monitor' },
@@ -71,75 +76,6 @@ function walletEmoji(addr: string): string {
 }
 
 type GroupId = 'all' | 'main' | 'test' | 'fast' | 'whales';
-
-type KolRow = { id: string; name: string; handle: string; wallet: string; followers: string };
-
-/** Demo KOLs: deterministic v4 wallet addresses on TON (valid `Address.parse`). */
-const INITIAL_KOL_ROWS: KolRow[] = [
-  { id: 'k1', name: 'Ozark', handle: '@ozarkm', wallet: 'EQDXWFihDsLUEJM5z2HPiFxjxBKvZuLcuY9alCu00i7vJaZa', followers: '3947' },
-  { id: 'k2', name: 'Cupsey', handle: '@cupsey', wallet: 'EQBMPsBatosg8z8WFMAm4IKzzk9oNVDjVINaZJgKL7UKBphA', followers: '2188' },
-  { id: 'k3', name: 'Kadenox', handle: '@kadenox', wallet: 'EQBPauSJUSd-lRxePlW-S3wxb1m4ZilvBFTaeytfMqmBj84c', followers: '1735' },
-  { id: 'k4', name: '1simple', handle: '@simple_unique', wallet: 'EQCGECIaOBhYcTj77EqQmVC5qupOS2iJ7Ixzfj-tp0dPd2I8', followers: '1512' },
-  { id: 'k5', name: 'LimoonLambo', handle: '@limoonlambo', wallet: 'EQDSsGG5WYliTh4n7bDKANc-mCqrHwsCJSr-oRNOe-xN49q1', followers: '1409' },
-  { id: 'k6', name: 'dandiono45', handle: '@dandiono45', wallet: 'EQC-5bzneBaxgeIUoPUtTI-R3Tm_g-Pm87EctIyLbVdPRvdt', followers: '1288' },
-  { id: 'k7', name: 'Tii', handle: '@tinnews', wallet: 'EQC4HnbbC_XOfJFblcEPQwikzr_eUGFJZIdwdfJSq2kNaXJe', followers: '1194' },
-  { id: 'k8', name: 'Henn100x', handle: '@henn100x', wallet: 'EQDS36Lp3cbqvKBRqn0LNRKxKiqNTOj2se__DNgfLuh0RfF-', followers: '1091' },
-  { id: 'k9', name: 'Danny', handle: '@danny', wallet: 'EQDVhxI-CWaTsPrZO1X58pSIETmMF4DPht6aiQlu88keu9y5', followers: '988' },
-  { id: 'k10', name: 'YieldYolo', handle: '@yieldyolo', wallet: 'EQBv9lbU6I0eXg8UZuGxVwNeMsCQm4mQ9-KVuH4A1Qydloee', followers: '912' },
-  { id: 'k11', name: 'Kev', handle: '@kev', wallet: 'EQDJgAtxmV0O6Py1jjbfeCzJ1l3vH3U2BRkcwiBEIh8VtN8p', followers: '854' },
-  { id: 'k12', name: 'Ghostee', handle: '@ghostee', wallet: 'EQA-zLyMNoRdJ6hPraacQJwsVbo6wExGIR7-T9dj5coOnOGZ', followers: '801' },
-];
-
-/** Demo Solana KOL placeholders — distinct list from TON; replaces when you switch chain. */
-const INITIAL_KOL_ROWS_SOL: KolRow[] = [
-  { id: 's1', name: 'SOL KOL A', handle: '@sol_a', wallet: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', followers: '2100' },
-  { id: 's2', name: 'SOL KOL B', handle: '@sol_b', wallet: '5ZWj7a1f8tWkjBESHKgrLmXshuXx6mvKULojCCA3hg8d', followers: '1840' },
-  { id: 's3', name: 'SOL KOL C', handle: '@sol_c', wallet: 'GKNeKHqYJZwVMCfvA4n6mJTH3pZvd3f6VK5N9yRQnaXm', followers: '1200' },
-  { id: 's4', name: 'SOL KOL D', handle: '@sol_d', wallet: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', followers: '980' },
-  { id: 's5', name: 'SOL KOL E', handle: '@sol_e', wallet: 'Vote111111111111111111111111111111111111111', followers: '760' },
-  { id: 's6', name: 'SOL KOL F', handle: '@sol_f', wallet: 'So11111111111111111111111111111111111111112', followers: '540' },
-];
-
-const INITIAL_KOL_ROWS_EVM: KolRow[] = [
-  { id: 'e1', name: 'EVM KOL A', handle: '@evm_a', wallet: '0xd8dA6BF26964af9D7eEd9e03E53415D37aA96045', followers: '3200' },
-  { id: 'e2', name: 'EVM KOL B', handle: '@evm_b', wallet: '0x28C6c06298d514Db089934071355E5743bf21d60', followers: '2100' },
-  { id: 'e3', name: 'EVM KOL C', handle: '@evm_c', wallet: '0x47ac0Fb4F2D84898e4D9E7bDaDaBb6c6CFe9b794', followers: '1500' },
-];
-
-function kolStorageKey(chain: AppChainId): string {
-  return `pointer-kol-feed-list-${chain}`;
-}
-
-function defaultKolRows(chain: AppChainId): KolRow[] {
-  if (chain === 'ton') return INITIAL_KOL_ROWS.map((r) => ({ ...r }));
-  if (chain === 'sol') return INITIAL_KOL_ROWS_SOL.map((r) => ({ ...r }));
-  return INITIAL_KOL_ROWS_EVM.map((r) => ({ ...r }));
-}
-
-function readStoredKolRows(chain: AppChainId): KolRow[] {
-  if (typeof window === 'undefined') return defaultKolRows(chain);
-  try {
-    const raw = localStorage.getItem(kolStorageKey(chain));
-    if (!raw) return defaultKolRows(chain);
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed) || parsed.length === 0) return defaultKolRows(chain);
-    return parsed
-      .filter((x): x is KolRow => {
-        if (!x || typeof x !== 'object') return false;
-        const o = x as Record<string, unknown>;
-        return typeof o.id === 'string' && typeof o.wallet === 'string';
-      })
-      .map((r) => ({
-        id: r.id,
-        name: typeof r.name === 'string' ? r.name : shortenAddress(r.wallet, 4),
-        handle: typeof r.handle === 'string' ? r.handle : '',
-        wallet: r.wallet,
-        followers: typeof r.followers === 'string' ? r.followers : '0',
-      }));
-  } catch {
-    return defaultKolRows(chain);
-  }
-}
 
 function filterTrackersByGroup(
   rows: TrackerRow[],
@@ -301,9 +237,15 @@ export function TrackersPanel({
   const { authenticated, getAccessToken } = usePointerAuth();
   const queryClient = useQueryClient();
   const activeChain = useUIStore((s) => s.activeChain);
+  const openWalletIntel = useWalletIntelStore((s) => s.openWallet);
+  const setActiveWalletAddress = useActiveWalletStore((s) => s.setActiveWalletAddress);
 
   const [viewTab, setViewTab] = useState<ViewTab>('wallet_manager');
   const [tableSearch, setTableSearch] = useState('');
+  const [creatingEmbedded, setCreatingEmbedded] = useState(false);
+  const [newWalletPrivateKey, setNewWalletPrivateKey] = useState<string | null>(null);
+  const [newWalletAddress, setNewWalletAddress] = useState<string | null>(null);
+  const [revealPrivateKey, setRevealPrivateKey] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState('');
@@ -313,14 +255,18 @@ export function TrackersPanel({
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
   const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows(useUIStore.getState().activeChain));
-  const [kolWalletFocus, setKolWalletFocus] = useState<string | null>(null);
+  const [selectedKolId, setSelectedKolId] = useState<string | null>(null);
   const [removeAllConfirmOpen, setRemoveAllConfirmOpen] = useState(false);
   const lastPrefillRef = useRef<string | null>(null);
   const kolHydratingRef = useRef(false);
 
+  const keyRevealOpen = Boolean(newWalletPrivateKey && newWalletAddress);
+  const { mounted: keyRevealMounted, visible: keyRevealVisible } = useOverlayPresence(keyRevealOpen);
+
   useEffect(() => {
     kolHydratingRef.current = true;
-    setKolRows(readStoredKolRows(activeChain));
+    const nextRows = readStoredKolRows(activeChain);
+    queueMicrotask(() => setKolRows(nextRows));
   }, [activeChain]);
 
   useEffect(() => {
@@ -330,6 +276,9 @@ export function TrackersPanel({
     }
     try {
       localStorage.setItem(kolStorageKey(activeChain), JSON.stringify(kolRows));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('pointer-kol-rows-updated'));
+      }
     } catch {
       /* ignore quota */
     }
@@ -482,7 +431,7 @@ export function TrackersPanel({
     );
   }, [listQuery.data?.trackers]);
 
-  const enrichment = listQuery.data?.enrichment ?? {};
+  const enrichment = useMemo(() => listQuery.data?.enrichment ?? {}, [listQuery.data?.enrichment]);
 
   const groupFiltered = useMemo(
     () => filterTrackersByGroup(sorted, selectedGroup, enrichment),
@@ -506,7 +455,57 @@ export function TrackersPanel({
     );
   }, [groupFiltered, tableSearch]);
 
-  const isWalletView = viewTab === 'all' || viewTab === 'wallet_manager';
+  const isWalletView = viewTab === 'wallet_manager';
+  const openWallet = useCallback(
+    (walletAddress: string) => openWalletIntel({ address: walletAddress, chain: activeChain, rowDemo: true }),
+    [activeChain, openWalletIntel],
+  );
+
+  const onCreateEmbedded = useCallback(async () => {
+    setCreatingEmbedded(true);
+    try {
+      const { address: createdAddress, privateKeyDisplay } = await generateEmbeddedWalletForChain(activeChain);
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const res = await fetch('/api/wallets/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          wallet_address: createdAddress,
+          is_imported: true,
+          label: 'Embedded',
+        }),
+      });
+      const json: unknown = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          json && typeof json === 'object' && 'message' in json
+            ? String((json as { message: unknown }).message)
+            : 'Could not create wallet';
+        if (res.status === 409) {
+          toast.info('This wallet is already on your account');
+          return;
+        }
+        throw new Error(message);
+      }
+      setNewWalletAddress(createdAddress);
+      setNewWalletPrivateKey(privateKeyDisplay);
+      setRevealPrivateKey(false);
+      setActiveWalletAddress(createdAddress);
+      void queryClient.invalidateQueries({ queryKey: ['wallets-my'] });
+      void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      toast.success('Embedded wallet created');
+    } catch (e) {
+      toast.error('Could not create embedded wallet', {
+        description: e instanceof Error ? e.message : 'Unknown error',
+      });
+    } finally {
+      setCreatingEmbedded(false);
+    }
+  }, [activeChain, getAccessToken, queryClient, setActiveWalletAddress]);
 
   const exportJson = useCallback(() => {
     const blob = new Blob([JSON.stringify({ trackers: sorted }, null, 2)], {
@@ -596,9 +595,136 @@ export function TrackersPanel({
       className={cn('flex min-h-0 min-w-0 flex-1 flex-col text-[12px]', className)}
       style={{ color: '#e5e7eb' }}
     >
-      {/* Sub-header control bar */}
+      {keyRevealMounted && newWalletPrivateKey && newWalletAddress ? (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4" role="presentation">
+          <button
+            type="button"
+            className={cn(
+              'absolute inset-0 bg-black/70 backdrop-blur-sm',
+              overlayBackdropClasses(keyRevealVisible),
+              'fill-mode-forwards',
+            )}
+            aria-label="Dismiss"
+            onClick={() => {
+              setNewWalletPrivateKey(null);
+              setNewWalletAddress(null);
+              setRevealPrivateKey(false);
+            }}
+          />
+          <div
+            className={cn(
+              'relative z-[1] max-h-[min(90dvh,640px)] w-full max-w-lg overflow-y-auto rounded-xl border border-[#1b1f2a] bg-[#11141b] p-4 shadow-2xl fill-mode-forwards',
+              overlayPanelClasses(keyRevealVisible),
+            )}
+            role="dialog"
+            aria-modal
+            aria-label="Save private key"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-[15px] font-semibold text-white">Save your private key</h2>
+            <p className="mt-2 text-[12px] leading-snug text-[#9ca3af]">
+              This backs up{' '}
+              <span className="tabular-nums text-fg-primary">{shortenAddress(newWalletAddress, 6)}</span>.
+              Store it offline. Anyone with this key controls the wallet.
+            </p>
+            <div
+              className={cn(
+                'mt-3 rounded-lg border border-[#1b1f2a] bg-[#080d14] p-3 font-mono text-[11px] leading-relaxed text-[#d1d5db] transition-all duration-150',
+                !revealPrivateKey && 'blur-md select-none',
+              )}
+            >
+              {newWalletPrivateKey}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#1b1f2a] bg-[#080d14] px-3 py-1.5 text-[11px] font-semibold text-[#d1d5db] hover:bg-white/[0.04]"
+                onClick={() => setRevealPrivateKey((v) => !v)}
+              >
+                {revealPrivateKey ? 'Hide key' : 'Reveal key'}
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-[#5865F2] px-3 py-1.5 text-[11px] font-semibold text-white"
+                onClick={() => {
+                  void navigator.clipboard.writeText(newWalletPrivateKey);
+                  toast.success('Private key copied');
+                }}
+              >
+                Copy key
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-[#1b1f2a] bg-[#080d14] px-3 py-1.5 text-[11px] text-[#d1d5db] hover:bg-white/[0.04]"
+                onClick={() => {
+                  setNewWalletPrivateKey(null);
+                  setNewWalletAddress(null);
+                  setRevealPrivateKey(false);
+                }}
+              >
+                I saved it
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <header
+        className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
+        style={{ borderColor: AX_BORDER, backgroundColor: '#0b1018' }}
+      >
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[16px] font-semibold leading-tight text-white">Wallets</h1>
+            <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-0.5 text-[10px] text-[#9ca3af]">
+              {sorted.length} tracked
+            </span>
+            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
+              {groupCounts.all} active
+            </span>
+            <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-0.5 text-[10px] text-[#9ca3af]">
+              {kolRows.length} KOLs
+            </span>
+          </div>
+          <p className="mt-0.5 text-[11px] text-[#7b8494]">
+            Manage embedded, linked, and tracked wallets.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            disabled={creatingEmbedded}
+            onClick={() => void onCreateEmbedded()}
+            className="rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-[11px] font-semibold text-[#d1d5db] transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {creatingEmbedded ? 'Creating...' : 'Create Embedded'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-[11px] font-semibold text-[#d1d5db] transition hover:bg-white/[0.06] hover:text-white"
+          >
+            Import
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="rounded-md bg-[#5865F2] px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:brightness-110"
+          >
+            Add Wallet
+          </button>
+          <button
+            type="button"
+            onClick={exportJson}
+            disabled={sorted.length === 0}
+            className="rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-[11px] font-semibold text-[#d1d5db] transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Export
+          </button>
+        </div>
+      </header>
+
       <div
-        className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b px-2 py-1.5"
+        className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-t-lg border border-b-0 px-2 py-1.5"
         style={{ borderColor: AX_BORDER, backgroundColor: AX_BG }}
       >
         <div className="flex min-w-0 max-w-[100%] flex-[1_1_auto] flex-wrap items-center gap-0.5 sm:max-w-[55%] md:max-w-[50%]">
@@ -638,70 +764,11 @@ export function TrackersPanel({
             type="button"
             disabled={sorted.length === 0 || removeAllMutation.isPending}
             onClick={() => setRemoveAllConfirmOpen(true)}
-            className="rounded px-1.5 py-1 text-[10px] font-semibold tracking-wide text-[#f87171] hover:underline disabled:opacity-40"
+            className="rounded px-1.5 py-1 text-[10px] font-semibold tracking-wide text-[#f87171] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
           >
             Remove all
           </button>
-          <button
-            type="button"
-            onClick={() => setImportOpen(true)}
-            className="rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#d1d5db]"
-            style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}
-          >
-            Import
-          </button>
-          <button
-            type="button"
-            onClick={exportJson}
-            disabled={sorted.length === 0}
-            className="rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#d1d5db] disabled:opacity-40"
-            style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}
-          >
-            Export
-          </button>
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="rounded bg-[#5865F2] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#0a0a0f] hover:brightness-105"
-          >
-            Add Wallet
-          </button>
-          <Link
-            href="/wallets"
-            className="inline-flex h-7 w-7 items-center justify-center rounded border text-[#6b7280] hover:bg-white/5 hover:text-white"
-            style={{ borderColor: AX_BORDER }}
-            title="Settings"
-          >
-            <Settings2 className="h-3.5 w-3.5" strokeWidth={2} />
-          </Link>
-          <button
-            type="button"
-            onClick={() => toast.message('Notifications', { description: 'Tracker digest settings ship next.' })}
-            className="inline-flex h-7 w-7 items-center justify-center rounded border text-[#6b7280] hover:bg-white/5 hover:text-white"
-            style={{ borderColor: AX_BORDER }}
-            title="Notifications"
-          >
-            <Bell className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            onClick={() => toast.message('Feed', { description: 'Signal routing is Pulse + webhooks in later phases.' })}
-            className="inline-flex h-7 w-7 items-center justify-center rounded border text-[#f87171] hover:bg-white/5"
-            style={{ borderColor: AX_BORDER }}
-            title="Feed / signals"
-          >
-            <Radio className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
         </div>
-      </div>
-
-      <div
-        className="mx-3 mt-2 rounded-lg border px-3 py-2 text-[11px] text-[#9ca3af]"
-        style={{ borderColor: '#2a3644', backgroundColor: '#10141c' }}
-      >
-        Tracking <span className="font-semibold text-white">{nativeTicker(activeChain)}</span> wallets. Balances
-        and activity wiring follow your header chain; native refreshes are fastest on Solana (Helius) and TON
-        (TonAPI); EVM rows show watchlist + explorer links first.
       </div>
 
       {listQuery.isLoading ? (
@@ -769,6 +836,7 @@ export function TrackersPanel({
                 removeMutation={removeMutation}
                 notifyMutation={notifyMutation}
                 nativeSym={nativeTicker(activeChain)}
+                onOpenWallet={openWallet}
               />
             ) : viewTab === 'kols' ? (
               <KolsList
@@ -777,7 +845,9 @@ export function TrackersPanel({
                   setKolRows((prev) => prev.filter((r) => r.id !== id));
                   toast.success('Removed from list');
                 }}
-                onWalletClick={(addr) => setKolWalletFocus(addr)}
+                selectedId={selectedKolId}
+                onSelect={(id) => setSelectedKolId(id)}
+                onWalletClick={openWallet}
               />
             ) : (
               <MonitorGrid />
@@ -789,23 +859,11 @@ export function TrackersPanel({
               activeChain={activeChain}
               viewTab={viewTab}
               rows={kolRows}
-              onRemove={(id) => {
-                setKolRows((prev) => prev.filter((r) => r.id !== id));
-                toast.success('Removed from list');
-              }}
-              onWalletClick={(addr) => setKolWalletFocus(addr)}
+              onWalletClick={openWallet}
             />
           </aside>
         </div>
       )}
-
-      {kolWalletFocus ? (
-        <KolWalletPopup
-          address={kolWalletFocus}
-          chainTicker={nativeTicker(activeChain)}
-          onClose={() => setKolWalletFocus(null)}
-        />
-      ) : null}
 
       <AddWalletDialog
         open={addOpen}
@@ -890,45 +948,6 @@ export function TrackersPanel({
   );
 }
 
-function KolWalletPopup({
-  address,
-  chainTicker,
-  onClose,
-}: {
-  address: string;
-  chainTicker: string;
-  onClose: () => void;
-}) {
-  return (
-    <GlassModal
-      open
-      onClose={onClose}
-      title="Wallet"
-      description="KOL monitor shortcut"
-      chainTicker={chainTicker}
-      zClass="z-[90]"
-      maxWidthClass="max-w-md"
-    >
-      <p className="break-all font-mono text-[12px] leading-relaxed text-fg-primary">{address}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <CopyButton
-          value={address}
-          label="Copy address"
-          className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-fg-primary hover:bg-white/[0.08]"
-        >
-          Copy
-        </CopyButton>
-        <Link
-          href={`/wallet/${encodeURIComponent(address)}`}
-          className="inline-flex items-center rounded-xl bg-accent-primary px-3 py-2 text-[12px] font-semibold text-fg-inverse hover:brightness-110"
-        >
-          Open in Pointer
-        </Link>
-      </div>
-    </GlassModal>
-  );
-}
-
 function FragmentRow({
   tracker,
   rowBg,
@@ -937,6 +956,7 @@ function FragmentRow({
   expanded,
   onToggleRules,
   onRemove,
+  onOpenWallet,
   removePending,
   onNotify,
   notifyPending,
@@ -948,6 +968,7 @@ function FragmentRow({
   expanded: boolean;
   onToggleRules: () => void;
   onRemove: () => void;
+  onOpenWallet: () => void;
   removePending: boolean;
   onNotify: (n: boolean) => void;
   notifyPending: boolean;
@@ -968,7 +989,17 @@ function FragmentRow({
   return (
     <>
       <tr
-        className="border-b transition-colors hover:bg-white/[0.03]"
+        tabIndex={0}
+        role="button"
+        aria-label={`Open wallet analytics for ${displayName}`}
+        onClick={onOpenWallet}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenWallet();
+          }
+        }}
+        className="cursor-pointer border-b transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#5865F2]/70"
         style={{ borderColor: AX_BORDER, backgroundColor: rowBg }}
         {...hoverProps}
       >
@@ -983,7 +1014,19 @@ function FragmentRow({
             <div className="min-w-0">
               <div className="truncate font-medium text-white">{displayName}</div>
               <div className="flex items-center gap-0.5 tabular-nums text-[10px] text-[#6b7280]">
-                <span className="truncate">{shortenAddress(tracker.walletAddress, 5)}</span>
+                <span
+                  className="max-w-[14rem] truncate"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <WalletIdentityAnchor
+                    address={tracker.walletAddress}
+                    href={`/wallet/${encodeURIComponent(tracker.walletAddress)}`}
+                    preferIntelModal
+                    truncate={5}
+                  />
+                </span>
                 <CopyButton
                   value={tracker.walletAddress}
                   iconOnly
@@ -1005,7 +1048,10 @@ function FragmentRow({
             <button
               type="button"
               disabled={notifyPending}
-              onClick={() => onNotify(!tracker.notify)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onNotify(!tracker.notify);
+              }}
               className={cn(
                 'rounded p-1 text-[#f87171] hover:bg-white/5',
                 tracker.notify ? 'text-[#5eead4]' : 'text-[#f87171]/80',
@@ -1020,16 +1066,23 @@ function FragmentRow({
               label="Copy"
               iconClassName="h-7 w-7 rounded p-1 text-[#f87171] hover:bg-white/5"
             />
-            <Link
-              href={`/wallet/${tracker.walletAddress}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded p-1 text-[#f87171] hover:bg-white/5"
-              title="Wallet profile / activity"
-            >
-              <Activity className="h-3.5 w-3.5" strokeWidth={2} />
-            </Link>
             <button
               type="button"
-              onClick={onToggleRules}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenWallet();
+              }}
+              className="inline-flex h-7 w-7 items-center justify-center rounded p-1 text-[#f87171] hover:bg-white/5"
+              title="Wallet analytics"
+            >
+              <Activity className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleRules();
+              }}
               className={cn('inline-flex h-7 w-7 items-center justify-center rounded p-1 hover:bg-white/5', expanded ? 'text-[#7dd3fc]' : 'text-[#6b7280]')}
               title="Wallet rules"
             >
@@ -1039,7 +1092,10 @@ function FragmentRow({
               type="button"
               aria-label="Remove tracker"
               disabled={removePending}
-              onClick={onRemove}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
               className="inline-flex h-7 w-7 items-center justify-center rounded p-1 text-[#f87171] hover:bg-white/5 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -1068,6 +1124,7 @@ function WalletManagerTable({
   removeMutation,
   notifyMutation,
   nativeSym,
+  onOpenWallet,
 }: {
   filtered: TrackerRow[];
   enrichment: EnrichmentMap;
@@ -1076,6 +1133,7 @@ function WalletManagerTable({
   removeMutation: ReturnType<typeof useMutation<void, Error, string>>;
   notifyMutation: ReturnType<typeof useMutation<void, Error, { walletAddress: string; notify: boolean }>>;
   nativeSym: string;
+  onOpenWallet: (walletAddress: string) => void;
 }) {
   return (
     <table className="w-full border-collapse text-left text-[11px]">
@@ -1113,6 +1171,7 @@ function WalletManagerTable({
               expanded={expandedRuleId === t.id}
               onToggleRules={() => setExpandedRuleId((id) => (id === t.id ? null : t.id))}
               onRemove={() => removeMutation.mutate(t.walletAddress)}
+              onOpenWallet={() => onOpenWallet(t.walletAddress)}
               removePending={addrDeleting}
               onNotify={(n) => notifyMutation.mutate({ walletAddress: t.walletAddress, notify: n })}
               notifyPending={notifyMutation.isPending}
@@ -1180,10 +1239,14 @@ function MonitorGrid() {
 
 function KolsList({
   rows,
+  selectedId,
+  onSelect,
   onRemove,
   onWalletClick,
 }: {
   rows: KolRow[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onWalletClick: (walletAddress: string) => void;
 }) {
@@ -1215,15 +1278,26 @@ function KolsList({
             <button
               key={row.id}
               type="button"
-              onClick={() => onWalletClick(row.wallet)}
-              className="flex w-full items-center gap-2 rounded px-2 py-2.5 text-left transition hover:bg-white/5"
+              onClick={() => onSelect(row.id)}
+              className={cn(
+                'flex w-full items-center gap-2 rounded px-2 py-2.5 text-left transition hover:bg-white/5',
+                selectedId === row.id && 'bg-white/[0.07] text-white',
+              )}
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#20263a] text-[11px] text-[#9ca3af]">
                 {(row.name[0] ?? '?').toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-semibold text-white">{row.name}</div>
-                <div className="truncate text-[11px] text-[#6b7280]">{row.handle}</div>
+                <a
+                  href={`https://x.com/${row.handle.replace(/^@/, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="truncate text-[11px] text-[#6b7280] hover:text-[#5eead4]"
+                >
+                  {row.handle}
+                </a>
               </div>
               <span className="shrink-0 text-[11px] text-[#6b7280]">#{i + 1}</span>
             </button>
@@ -1272,116 +1346,100 @@ function SecondaryPanel({
   activeChain,
   viewTab,
   rows,
-  onRemove,
   onWalletClick,
 }: {
   activeChain: AppChainId;
   viewTab: ViewTab;
   rows: KolRow[];
-  onRemove: (id: string) => void;
   onWalletClick: (walletAddress: string) => void;
 }) {
-  const [headerTab, setHeaderTab] = useState(0);
-  const [listTab, setListTab] = useState<'my' | 'top'>('my');
-
   const showRows = viewTab === 'kols' ? rows : rows.slice(0, Math.min(8, rows.length));
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex border-b text-[11px]" style={{ borderColor: AX_BORDER }}>
-        {(['Customize Feed', 'Twitter Alerts', 'Socials'] as const).map((label, i) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setHeaderTab(i)}
-            className={cn(
-              'px-2 py-2 font-semibold transition',
-              headerTab === i ? 'text-white' : 'text-[#6b7280] hover:text-white',
-            )}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="space-y-2 border-b p-3" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
+        <div className="text-[12px] font-semibold leading-tight text-white">Track · X triggers</div>
+        <p className="text-[10px] leading-snug text-[#8b929e]">
+          Turn trusted tweets into trading triggers. Full builder, ingestion simulator, Pulse highlights, caps, and
+          histories live here.
+        </p>
+        <Link
+          href="/track"
+          prefetch
+          className="flex w-full items-center justify-center rounded-md bg-[#5865F2] px-3 py-2 text-[11px] font-semibold text-white transition hover:brightness-110"
+        >
+          Open Track workspace
+        </Link>
       </div>
-      {headerTab === 0 ? (
-        <>
-          <div className="border-b p-2 text-[10px] text-[#9ca3af]" style={{ borderColor: AX_BORDER }}>
-            Tracked X handles for <span className="font-semibold text-white">{nativeTicker(activeChain)}</span>{' '}
-            (saved in this browser per network). Click a handle or use Remove to edit your list.
-          </div>
-          <div className="flex items-center gap-2 border-b p-2" style={{ borderColor: AX_BORDER }}>
-            <button
-              type="button"
-              onClick={() => setListTab('my')}
-              className={cn(
-                'rounded px-2 py-1.5 text-[10px] font-semibold transition',
-                listTab === 'my' ? 'bg-white/10 text-white' : 'text-[#6b7280] hover:text-white',
-              )}
-            >
-              My List
-            </button>
-            <button
-              type="button"
-              onClick={() => setListTab('top')}
-              className={cn(
-                'rounded px-2 py-1.5 text-[10px] font-semibold transition',
-                listTab === 'top' ? 'bg-white/10 text-white' : 'text-[#6b7280] hover:text-white',
-              )}
-            >
-              Top Subscriptions
-            </button>
-            <span className="ml-auto text-[10px] text-[#9ca3af]">{rows.length} saved</span>
-          </div>
+      <div className="border-b px-2 py-1.5 text-[10px] text-[#6b7280]" style={{ borderColor: AX_BORDER }}>
+        Handles you track on <span className="font-semibold text-white">{nativeTicker(activeChain)}</span>. Click{' '}
+        <span className="text-[#aab8cf]">@handle</span> to open X; wallet column opens Pointer intel.
+      </div>
+      <div
+        className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-1 border-b px-2 py-2 text-[10px] font-medium text-[#6b7280]"
+        style={{ borderColor: AX_BORDER }}
+      >
+        <span className="pl-0.5">Handle</span>
+        <span className="justify-self-center px-2">Tweets</span>
+        <span className="justify-self-center px-2">Alerts</span>
+        <span className="justify-self-end pr-0.5">More</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto pb-16">
+        {showRows.map((row, i) => (
           <div
-            className="grid grid-cols-4 border-b px-2 py-2 text-[10px] font-medium text-[#6b7280]"
-            style={{ borderColor: AX_BORDER }}
+            key={`${row.id}-feed`}
+            className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-1 border-b px-2 py-2 text-[11px]"
+            style={{
+              borderColor: AX_BORDER,
+              backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B,
+            }}
           >
-            <span>Handle</span>
-            <span>Tweets</span>
-            <span>Profile</span>
-            <span className="text-right">Actions</span>
+            <div className="min-w-0">
+              <a
+                href={xProfileUrl(row.handle)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block truncate font-semibold text-[#d4eaff] underline-offset-4 hover:text-white hover:underline"
+              >
+                {row.handle.startsWith('@') ? row.handle : `@${row.handle}`}
+              </a>
+              <button
+                type="button"
+                onClick={() => onWalletClick(row.wallet)}
+                className="mt-0.5 truncate text-left font-mono text-[9px] text-[#556075] hover:text-[#93c5fd]"
+              >
+                {shortenAddress(row.wallet, 5)}
+              </button>
+            </div>
+            <span className="justify-self-center text-[18px]" title="Tracked for tweet firehose (beta wiring)">
+              <span className="text-[#58b4ff]" aria-hidden>
+                𝕏
+              </span>
+            </span>
+            <span className="justify-self-center text-[18px]" title="Alerts when rule fires">
+              <Bell className="h-5 w-5 text-[#5eead4]" strokeWidth={2} aria-hidden />
+            </span>
+            <button
+              type="button"
+              title="Follows wallets you monitor (Pulse overlay)"
+              onClick={() => onWalletClick(row.wallet)}
+              className="justify-self-end inline-flex items-center rounded-md border border-white/10 px-1.5 py-1 hover:bg-white/[0.05]"
+              aria-label="Wallet intel"
+            >
+              <Layers className="h-5 w-5 text-[#f472b6]" strokeWidth={2} />
+            </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-auto">
-            {listTab === 'my'
-              ? showRows.map((row, i) => (
-                  <div
-                    key={`${row.id}-feed`}
-                    className="grid grid-cols-4 border-b px-2 py-2.5 text-[10px] leading-snug"
-                    style={{ borderColor: AX_BORDER, backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onWalletClick(row.wallet)}
-                      className="truncate text-left text-white hover:text-[#7dd3fc] hover:underline"
-                    >
-                      {row.handle}
-                    </button>
-                    <span className="text-[#9ca3af]">—</span>
-                    <span className="text-[#5eead4]">Live</span>
-                    <div className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => onRemove(row.id)}
-                        className="font-semibold text-[#fb7185] hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))
-              : null}
-            {listTab === 'top' ? (
-              <div className="p-3 text-[11px] text-[#6b7280]">Browse top subscriptions in a future update.</div>
-            ) : null}
+        ))}
+        {!showRows.length ? (
+          <div className="p-6 text-[11px] text-[#5c6575]">
+            Empty list — seed KOLs from the Wallet Manager ▸ KOLs tab or{' '}
+            <Link prefetch href="/track" className="text-[#7dd3fc] hover:underline">
+              Track Handles
+            </Link>
+            .
           </div>
-        </>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-auto p-3 text-[11px] text-[#6b7280]">
-          {headerTab === 1
-            ? 'Twitter alert routing for new TON listings is wired from the Alert Builder.'
-            : 'Social connectors (Telegram, etc.) ship in a later release.'}
-        </div>
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }

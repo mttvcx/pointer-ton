@@ -694,7 +694,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                       ) : (
                         points.breakdown.map((row) => (
                           <tr key={row.event_type} className="border-b border-border-subtle/80 last:border-0">
-                            <td className="px-3 py-2 font-mono text-[11px] text-fg-secondary">{row.event_type}</td>
+                            <td className="px-3 py-2 text-[11px] text-fg-secondary">{row.event_type}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-fg-primary">{formatNumber(row.total)}</td>
                           </tr>
                         ))

@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import type { PresetSlot } from '@/store/trading';
+import { useUIStore } from '@/store/ui';
+import { nativePriorityFeeDenomLabel, nativeTicker } from '@/lib/chains/nativeCurrency';
 
 export type AdvancedTradingPreset = {
   slot: PresetSlot;
@@ -37,6 +39,10 @@ function FormBody({
   const [jitoTip, setJitoTip] = useState(preset.jito_tip_lamports);
   const [autoFee, setAutoFee] = useState(preset.auto_fee);
   const [maxFeeSol, setMaxFeeSol] = useState(preset.max_fee_sol);
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
+  const prioUnit = nativePriorityFeeDenomLabel(activeChain);
+  const isSolTradingUi = activeChain === 'sol';
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -58,8 +64,8 @@ function FormBody({
     mutationFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const maxSol = Number(maxFeeSol);
-      if (!Number.isFinite(maxSol) || maxSol < 0.000001 || maxSol > 5) {
+      const maxNative = Number(maxFeeSol);
+      if (!Number.isFinite(maxNative) || maxNative < 0.000001 || maxNative > 5) {
         throw new Error('max_fee_sol');
       }
       const res = await fetch('/api/presets', {
@@ -73,7 +79,7 @@ function FormBody({
           priority_fee_lamports: Math.min(5_000_000, Math.max(0, Math.round(priorityLamports))),
           jito_tip_lamports: Math.min(5_000_000, Math.max(0, Math.round(jitoTip))),
           auto_fee: autoFee,
-          max_fee_sol: maxSol,
+          max_fee_sol: maxNative,
         }),
       });
       const json: unknown = await res.json();
@@ -94,7 +100,9 @@ function FormBody({
     onError: (e) => {
       const msg = e instanceof Error ? e.message : '';
       if (msg === 'max_fee_sol') {
-        toast.error('Invalid max fee', { description: 'Use a value between 0.000001 and 5 TON.' });
+        toast.error('Invalid max fee', {
+          description: `Use a value between 0.000001 and 5 ${nativeSym}.`,
+        });
         return;
       }
       toast.error('Could not save', {
@@ -130,62 +138,74 @@ function FormBody({
             the preset editor (gear).
           </p>
 
+          {!isSolTradingUi ? (
+            <p className="rounded border border-border-subtle/80 bg-bg-hover/24 px-2 py-1.5 text-[10px] leading-snug text-fg-muted">
+              Jito bundles and Solana priority caps below apply when executing on{' '}
+              <span className="font-semibold text-fg-secondary">Solana</span>. Values are kept in your
+              preset when you hop chains.
+            </p>
+          ) : null}
+
+          {isSolTradingUi ? (
+            <>
+              <label className="block space-y-1">
+                <span className="font-semibold uppercase tracking-wide text-fg-muted">
+                  Jito tip (lamports)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={5_000_000}
+                  step={1}
+                  value={jitoTip}
+                  onChange={(e) => setJitoTip(Number(e.target.value))}
+                  className="focus-ring w-full border border-border-subtle bg-transparent px-2 py-1.5 tabular-nums text-fg-primary"
+                />
+                <span className="block text-[10px] text-fg-muted">
+                  Used when landing is Jito (reduced MEV). Higher tips can improve bundle inclusion
+                  under load.
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 border-t border-border-subtle pt-2">
+                <input
+                  type="checkbox"
+                  checked={autoFee}
+                  onChange={(e) => setAutoFee(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border-subtle"
+                />
+                <span className="text-fg-secondary">Auto priority fee (RPC landing)</span>
+              </label>
+
+              <label className="block space-y-1">
+                <span className="font-semibold uppercase tracking-wide text-fg-muted">
+                  Priority fee cap / fixed ({prioUnit})
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={5_000_000}
+                  step={1}
+                  value={priorityLamports}
+                  onChange={(e) => setPriorityLamports(Number(e.target.value))}
+                  disabled={autoFee}
+                  className={cn(
+                    'focus-ring w-full border border-border-subtle bg-transparent px-2 py-1.5 tabular-nums text-fg-primary',
+                    autoFee && 'cursor-not-allowed opacity-50',
+                  )}
+                />
+                <span className="block text-[10px] text-fg-muted">
+                  {autoFee
+                    ? 'Disabled while auto fee is on; the router picks a level up to the max below.'
+                    : 'Fixed compute / priority budget on RPC-style routes (off or secure MEV).'}
+                </span>
+              </label>
+            </>
+          ) : null}
+
           <label className="block space-y-1">
             <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Jito tip (nanotons)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={5_000_000}
-              step={1}
-              value={jitoTip}
-              onChange={(e) => setJitoTip(Number(e.target.value))}
-              className="focus-ring w-full border border-border-subtle bg-transparent px-2 py-1.5 tabular-nums text-fg-primary"
-            />
-            <span className="block text-[10px] text-fg-muted">
-              Used when landing is Jito (reduced MEV). Higher tips can improve bundle inclusion under
-              load.
-            </span>
-          </label>
-
-          <label className="flex items-center gap-2 border-t border-border-subtle pt-2">
-            <input
-              type="checkbox"
-              checked={autoFee}
-              onChange={(e) => setAutoFee(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-border-subtle"
-            />
-            <span className="text-fg-secondary">Auto priority fee (RPC landing)</span>
-          </label>
-
-          <label className="block space-y-1">
-            <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Priority fee cap / fixed (nanotons)
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={5_000_000}
-              step={1}
-              value={priorityLamports}
-              onChange={(e) => setPriorityLamports(Number(e.target.value))}
-              disabled={autoFee}
-              className={cn(
-                'focus-ring w-full border border-border-subtle bg-transparent px-2 py-1.5 tabular-nums text-fg-primary',
-                autoFee && 'cursor-not-allowed opacity-50',
-              )}
-            />
-            <span className="block text-[10px] text-fg-muted">
-              {autoFee
-                ? 'Disabled while auto fee is on; the router picks a level up to the max below.'
-                : 'Fixed compute / priority budget on RPC-style routes (off or secure MEV).'}
-            </span>
-          </label>
-
-          <label className="block space-y-1">
-            <span className="font-semibold uppercase tracking-wide text-fg-muted">
-              Max total fee (TON)
+              Max total fee ({nativeSym})
             </span>
             <input
               type="number"
@@ -197,8 +217,17 @@ function FormBody({
               className="focus-ring w-full border border-border-subtle bg-transparent px-2 py-1.5 tabular-nums text-fg-primary"
             />
             <span className="block text-[10px] text-fg-muted">
-              Upper bound on swap-side priority spend (converted to nanotons). Current:{' '}
-              {formatNumber(maxFeeSol, { decimals: 4 })} TON.
+              {isSolTradingUi ? (
+                <>
+                  Upper bound on swap-side priority spend (converted to {prioUnit}). Current:{' '}
+                  {formatNumber(maxFeeSol, { decimals: 4 })} {nativeSym}.
+                </>
+              ) : (
+                <>
+                  Upper-bound hint for routed fees denominated in {nativeSym}. Current:{' '}
+                  {formatNumber(maxFeeSol, { decimals: 4 })} {nativeSym}.
+                </>
+              )}
             </span>
           </label>
         </div>

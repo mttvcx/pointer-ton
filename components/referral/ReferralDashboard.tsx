@@ -271,7 +271,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
                       <p className="truncate text-[10px] text-fg-muted">pointer.xyz · referral</p>
                     </div>
                   </div>
-                  <p className="mt-3 flex-1 break-all font-mono text-[11px] leading-relaxed text-fg-secondary">
+                  <p className="mt-3 flex-1 break-all text-[11px] leading-relaxed text-fg-secondary">
                     {shareUrl || '…'}
                   </p>
                   <button
@@ -439,7 +439,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-5 whitespace-pre-line rounded-xl border border-white/[0.08] bg-bg-sunken/80 p-4 font-mono text-[11px] leading-relaxed text-fg-secondary ring-1 ring-white/[0.04]">
+            <div className="mt-5 whitespace-pre-line rounded-xl border border-white/[0.08] bg-bg-sunken/80 p-4 text-[11px] leading-relaxed text-fg-secondary ring-1 ring-white/[0.04]">
               {xShareMessage}
             </div>
             <div className="mt-5 flex flex-wrap gap-2">

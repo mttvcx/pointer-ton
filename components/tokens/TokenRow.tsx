@@ -1,7 +1,8 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { useMemo, type MouseEvent, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { ArrowUpRight, Eye, Loader2, Zap } from 'lucide-react';
 import { NumberDisplay } from '@/components/shared/NumberDisplay';
 import { WalletDisplay } from '@/components/shared/WalletDisplay';
@@ -9,6 +10,10 @@ import { PulseRowMetaPills } from '@/components/tokens/PulseRowMetaPills';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
 import { PulseRowVolMc } from '@/components/tokens/PulseRowVolMc';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
+import {
+  DevWalletIntelHoverPanel,
+  PulseRichHover,
+} from '@/components/tokens/PulseRichPopovers';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { RiskFlags } from '@/components/tokens/RiskFlags';
@@ -20,9 +25,12 @@ import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatAgeShort, formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { useUIStore } from '@/store/ui';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseRowDensity } from '@/store/pulseColumns';
 import type { PulseTokenBundle } from '@/types/tokens';
+
+type UltraActionKey = 'primaryBuy' | 'secondBuy' | 'secondSell';
 
 export function TokenRow({
   bundle,
@@ -59,7 +67,12 @@ export function TokenRow({
   slotHeight?: number;
   quoteSymbol?: string;
 }) {
+  const router = useRouter();
   const { token, snapshot } = bundle;
+  const trackPulseFlashMint = useUIStore((s) => s.trackPulseHighlightMint);
+  const pulseFlashHighlight =
+    Boolean(trackPulseFlashMint) && token.mint === trackPulseFlashMint;
+
   const demoMetrics = useMemo(
     () => syntheticPulseVolMc(token.mint),
     [token.mint],
@@ -163,18 +176,21 @@ export function TokenRow({
   /** Filled quick-buy chrome when not in Ultra (Ultra uses outline-only buttons). */
   const filledBuyStyle: Exclude<BuyButtonStyle, 'ultra'> =
     buyButtonStyle === 'ultra' ? 'medium' : buyButtonStyle;
+  const [activeUltraAction, setActiveUltraAction] = useState<UltraActionKey | null>(null);
+
+  useEffect(() => {
+    if (!pulseBuyBusy) setActiveUltraAction(null);
+  }, [pulseBuyBusy]);
 
   const showPumpCorner = token.launch_pad === 'pump.fun';
 
+  /** Uniform `XXXX…XXXX` caption — same length per row, grey at 70% so it reads as metadata, not chrome. */
   const mintCaption = (
     <span
-      className="max-w-[5rem] truncate text-center tabular-nums text-[9px] leading-tight text-fg-muted/85"
+      className="block w-[5.25rem] truncate text-center font-mono tabular-nums text-[9px] leading-tight text-fg-muted/70"
       title={token.mint}
     >
       {shortenAddress(token.mint, 4)}
-      {token.mint.toLowerCase().endsWith('pump') ? (
-        <span className="text-emerald-400/75"> Â· launchpad</span>
-      ) : null}
     </span>
   );
 
@@ -201,10 +217,36 @@ export function TokenRow({
   function triggerQuickBuy() {
     if (pulseBuyDisabled || pulseBuyBusy) return;
     if (quickBuySol == null || !Number.isFinite(quickBuySol) || quickBuySol <= 0) return;
+    setActiveUltraAction('primaryBuy');
     onPulseQuickBuy?.();
   }
 
+  const tokenPath = `/token/${token.mint}`;
   const nameTitle = `${ticker} â€” ${name}`;
+
+  const isInteractiveClickTarget = (target: EventTarget | null) =>
+    target instanceof HTMLElement &&
+    Boolean(
+      target.closest(
+        'a,button,input,select,textarea,[role="button"],[data-row-click-skip="true"]',
+      ),
+    );
+
+  const openToken = () => {
+    router.push(tokenPath);
+  };
+
+  const onTokenAreaClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (isInteractiveClickTarget(e.target)) return;
+    openToken();
+  };
+
+  const onTokenAreaKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.defaultPrevented || isInteractiveClickTarget(e.target)) return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    openToken();
+  };
 
   /** Single primary line: ticker + full name never wrap (Axiom-style). */
   const nameCluster = (
@@ -239,14 +281,21 @@ export function TokenRow({
   );
 
   const identityCluster = nameCluster;
-  const ageSpan = (
+  /**
+   * Terminal-style age chip. Lives on the LEFT of the icon strip (was top-right of name row).
+   * Recent (<60s) gets the green seconds tint Terminal uses to flag fresh listings.
+   */
+  const ageLabel = formatAgeShort(token.created_at);
+  const ageIsSeconds = ageLabel.endsWith('s');
+  const ageBadge = (
     <span
       className={cn(
-        'shrink-0 whitespace-nowrap tabular-nums tabular-nums text-fg-muted',
-        metricSize,
+        'shrink-0 whitespace-nowrap tabular-nums leading-none',
+        'text-[13px] font-semibold',
+        ageIsSeconds ? 'text-signal-bull' : 'text-fg-secondary',
       )}
     >
-      {formatAgeShort(token.created_at)}
+      {ageLabel}
     </span>
   );
 
@@ -264,7 +313,7 @@ export function TokenRow({
         mcUsd={mcUsd}
         showVol={showVol}
         showMc={showMc}
-        size={slotHeight != null ? 'compact' : volMcSize}
+        size={slotHeight != null ? 'normal' : volMcSize}
         justify="end"
         layout={volMcLayout}
       />
@@ -327,14 +376,16 @@ export function TokenRow({
         }
         if (showDev && token.creator_wallet) {
           metrics.push(
-            <span key="dev" className="inline-flex items-center gap-1" title={token.creator_wallet}>
+            <span key="dev" className="inline-flex items-center gap-1">
               <span className="text-fg-muted">dev</span>
-              <WalletDisplay
-                address={token.creator_wallet}
-                href={`/wallet/${encodeURIComponent(token.creator_wallet)}`}
-                truncate={3}
-                preferIntelModal
-              />
+              <PulseRichHover wide panel={<DevWalletIntelHoverPanel bundle={bundle} />}>
+                <WalletDisplay
+                  address={token.creator_wallet}
+                  href={`/wallet/${encodeURIComponent(token.creator_wallet)}`}
+                  truncate={3}
+                  preferIntelModal
+                />
+              </PulseRichHover>
             </span>,
           );
         }
@@ -357,6 +408,8 @@ export function TokenRow({
           ? 'h-full min-h-0 max-h-full overflow-hidden'
           : rowMinH,
         trackedDev && 'bg-accent-primary/[0.08]',
+        pulseFlashHighlight &&
+          'z-[25] shadow-[inset_0_0_0_2px_rgba(251,191,36,0.75)] backdrop-brightness-[1.08]',
         'hover:bg-bg-hover',
       )}
       style={slotHeight != null ? { height: slotHeight } : undefined}
@@ -378,44 +431,63 @@ export function TokenRow({
           is only on avatar + title lines.
         */}
         <div
+          role="link"
+          tabIndex={0}
+          aria-label={`Open ${ticker} token`}
+          onClick={onTokenAreaClick}
+          onKeyDown={onTokenAreaKeyDown}
           className={cn(
-            'relative z-0 flex min-h-0 min-w-0 flex-1 items-center px-3',
+            'relative z-0 flex min-h-0 min-w-0 flex-1 cursor-pointer items-center px-3 outline-none focus-visible:bg-bg-hover/80',
             effectivePy,
+            /**
+             * Reservation MUST match the Ultra dock width formula below or token info
+             * bleeds under the action column when the Pulse column is narrow.
+             * `clamp()` lets the dock shrink with the column instead of pinning at min-w.
+             */
             reserveRightActionCol &&
-              'pr-[calc(min(19.5rem,48%)+0.5rem)]',
+              'pr-[calc(clamp(7.5rem,32%,14rem)+0.5rem)]',
           )}
           {...hoverProps}
         >
           <div className="flex h-full min-h-0 w-full min-w-0 items-center gap-3">
             <Link
-              href={`/token/${token.mint}`}
+              href={tokenPath}
               className="shrink-0 outline-none focus-visible:bg-bg-hover rounded-md"
             >
               {avatarStack}
             </Link>
             <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-center overflow-hidden">
               <Link
-                href={`/token/${token.mint}`}
+                href={tokenPath}
                 className="block min-w-0 outline-none focus-visible:bg-bg-hover rounded-sm"
               >
                 <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
                   {identityCluster}
-                  {ageSpan}
                   {heroMcBlock}
                 </div>
               </Link>
-              <PulseRowSocialStrip
-                bundle={bundle}
-                traits={{
-                  cashback: showTraitIcons && traits.cashback,
-                  feeShare: showTraitIcons && traits.feeShare,
-                  agent: showTraitIcons && traits.agent,
-                }}
-                compact
-                glyphSize={
-                  layoutDensity === 'compact' ? 20 : layoutDensity === 'expanded' ? 28 : 24
-                }
-              />
+              <div className="flex min-w-0 items-center gap-2">
+                {ageBadge}
+                <PulseRowSocialStrip
+                  bundle={bundle}
+                  traits={{
+                    cashback: showTraitIcons && traits.cashback,
+                    feeShare: showTraitIcons && traits.feeShare,
+                    agent: showTraitIcons && traits.agent,
+                  }}
+                  compact
+                  glyphSize={
+                    slotHeight != null
+                      ? /** Sized so each glyph reads at the same visual weight as the LIQ / TX / dev row beneath it. */
+                        22
+                      : layoutDensity === 'compact'
+                        ? 20
+                        : layoutDensity === 'expanded'
+                          ? 24
+                          : 22
+                  }
+                />
+              </div>
               <PulseRowMetaPills bundle={bundle} />
               {metricsStrip}
             </div>
@@ -429,13 +501,36 @@ export function TokenRow({
           ultraChrome && (hasPrimaryBuy || showSecondBuy || showSecondSell) ? (
             <div
               className={cn(
-                'pointer-events-none absolute inset-y-0 right-0 z-20 flex items-stretch justify-end pr-2',
+                'pointer-events-none absolute inset-y-0 right-0 z-20 flex items-stretch justify-end',
+                slotHeight != null ? 'pr-0' : 'pr-2',
                 slotHeight == null && 'min-h-[3.5rem]',
               )}
             >
+              {slotHeight != null ? (
+                <div
+                  className="pointer-events-none absolute inset-y-0 right-0 z-[19] flex h-full justify-end pr-0"
+                  aria-hidden
+                >
+                  <div
+                    className={cn(
+                      /** Width MUST match the Ultra dock clamp below + the click-target reservation. */
+                      'h-full w-[clamp(7.5rem,32%,14rem)] shrink-0 rounded-l-[6px]',
+                      'bg-gradient-to-l from-[#0b1119]/72 via-[#0b1119]/38 to-transparent opacity-0 backdrop-blur-sm backdrop-saturate-150',
+                      'shadow-[inset_1px_0_0_rgba(255,255,255,0.03)]',
+                      'transition-opacity duration-150 group-hover:opacity-100',
+                    )}
+                  />
+                </div>
+              ) : null}
               <div
                 className={cn(
-                  'pointer-events-auto relative flex h-full min-h-0 w-[min(19.5rem,48%)] min-w-[13rem] max-w-[22rem] shrink-0 flex-col gap-0.5',
+                  /**
+                   * Ultra dock width — single source of truth shared with the backdrop slab
+                   * (above) and the click-target `pr-[calc(...)]` reservation. `clamp()` collapses
+                   * gracefully when the Pulse column is narrow so the dock never forces
+                   * column overflow at 100% Chrome zoom.
+                   */
+                  'pointer-events-auto relative z-[21] flex h-full min-h-0 w-[clamp(7.5rem,32%,14rem)] min-w-0 shrink-0 flex-col gap-0.5',
                 )}
               >
                 {(showVol || showMc) && !splitPairStrip ? (
@@ -468,7 +563,7 @@ export function TokenRow({
                           />
                         </div>
                       ) : null}
-                      <div className="relative z-[21] flex min-h-0 flex-1 items-stretch">
+                      <div className="relative z-[21] flex min-h-0 flex-1 items-stretch justify-end">
                       {showSecondSell ? (
                         <UltraSellZone
                           pct={secondSellPct}
@@ -476,9 +571,10 @@ export function TokenRow({
                             e.preventDefault();
                             e.stopPropagation();
                             if (pulseBuyDisabled || pulseBuyBusy) return;
+                            setActiveUltraAction('secondSell');
                             onPulseQuickSell?.();
                           }}
-                          loading={pulseBuyBusy}
+                          loading={pulseBuyBusy && activeUltraAction === 'secondSell'}
                           disabled={pulseBuyDisabled}
                         />
                       ) : showSecondBuy && secondBuySol > 0 ? (
@@ -489,9 +585,10 @@ export function TokenRow({
                             e.preventDefault();
                             e.stopPropagation();
                             if (pulseBuyDisabled || pulseBuyBusy) return;
+                            setActiveUltraAction('secondBuy');
                             onPulseSecondBuy?.();
                           }}
-                          loading={pulseBuyBusy}
+                          loading={pulseBuyBusy && activeUltraAction === 'secondBuy'}
                           disabled={pulseBuyDisabled}
                         />
                       ) : null}
@@ -511,13 +608,13 @@ export function TokenRow({
                           />
                         </div>
                       ) : null}
-                      <div className="relative z-[21] flex min-h-0 flex-1 items-stretch">
+                      <div className="relative z-[21] flex min-h-0 flex-1 items-stretch justify-end">
                       {hasPrimaryBuy ? (
                         <UltraQuickBuyZone
                           quickBuySol={quickBuySol}
                           quoteSymbol={quoteSymbol}
                           onBuy={onQuickBuy}
-                          loading={pulseBuyBusy}
+                          loading={pulseBuyBusy && activeUltraAction === 'primaryBuy'}
                           disabled={pulseBuyDisabled}
                         />
                       ) : null}
@@ -525,7 +622,7 @@ export function TokenRow({
                     </div>
                   </>
                 ) : (
-                  <div className="flex min-h-0 min-w-0 flex-1 items-stretch">
+                  <div className="flex min-h-0 min-w-0 flex-1 items-stretch justify-end gap-1.5">
                     {showSecondSell ? (
                       <UltraSellZone
                         pct={secondSellPct}
@@ -533,9 +630,10 @@ export function TokenRow({
                           e.preventDefault();
                           e.stopPropagation();
                           if (pulseBuyDisabled || pulseBuyBusy) return;
+                          setActiveUltraAction('secondSell');
                           onPulseQuickSell?.();
                         }}
-                        loading={pulseBuyBusy}
+                        loading={pulseBuyBusy && activeUltraAction === 'secondSell'}
                         disabled={pulseBuyDisabled}
                       />
                     ) : null}
@@ -547,9 +645,10 @@ export function TokenRow({
                           e.preventDefault();
                           e.stopPropagation();
                           if (pulseBuyDisabled || pulseBuyBusy) return;
+                          setActiveUltraAction('secondBuy');
                           onPulseSecondBuy?.();
                         }}
-                        loading={pulseBuyBusy}
+                        loading={pulseBuyBusy && activeUltraAction === 'secondBuy'}
                         disabled={pulseBuyDisabled}
                       />
                     ) : null}
@@ -558,7 +657,7 @@ export function TokenRow({
                         quickBuySol={quickBuySol}
                         quoteSymbol={quoteSymbol}
                         onBuy={onQuickBuy}
-                        loading={pulseBuyBusy}
+                        loading={pulseBuyBusy && activeUltraAction === 'primaryBuy'}
                         disabled={pulseBuyDisabled}
                       />
                     ) : null}
@@ -866,10 +965,11 @@ function UltraQuickBuyZone({
       onClick={onBuy}
       disabled={disabled || loading}
       className={cn(
-        'focus-ring relative z-[21] flex h-full min-h-0 max-h-full w-full flex-col items-end justify-end rounded-[5px] border border-emerald-400/90 bg-transparent p-2 pb-2.5 pr-2.5 font-sans font-semibold tabular-nums tracking-normal text-emerald-400 transition',
-        'shadow-[0_0_14px_-14px_rgba(52,211,153,0.38)]',
-        'hover:border-emerald-300/95 hover:bg-emerald-400/[0.06] hover:shadow-[0_0_18px_-12px_rgba(52,211,153,0.48)]',
-        'active:border-emerald-300 active:bg-emerald-400/12',
+        /** Square outline (1:1) — height drives size, max-w-full keeps it from overflowing narrow columns. */
+        'focus-ring relative z-[21] flex aspect-square h-full min-h-0 max-h-full max-w-full flex-col items-end justify-end rounded-[5px] border border-emerald-400/90 bg-transparent p-2 pb-2.5 pr-2.5 font-sans font-semibold tabular-nums tracking-normal text-emerald-400 transition-all duration-200',
+        'shadow-[0_0_14px_-14px_rgba(52,211,153,0.38)] backdrop-blur-none',
+        'hover:border-emerald-300/95 hover:bg-emerald-400/[0.08] hover:shadow-[0_0_18px_-12px_rgba(52,211,153,0.48)] hover:backdrop-blur-[6px]',
+        'active:border-emerald-300 active:bg-emerald-400/12 active:backdrop-blur-sm',
         'disabled:pointer-events-none disabled:opacity-55',
       )}
       title={`Quick trade: ${labelAmount} ${quoteSymbol} on this mint`}
@@ -912,10 +1012,11 @@ function UltraSellZone({
       onClick={onSell}
       disabled={disabled || loading}
       className={cn(
-        'focus-ring relative z-[21] flex h-full min-h-0 max-h-full w-full flex-col items-end justify-end rounded-[5px] border border-rose-400/85 bg-transparent p-2 pb-2.5 pr-2.5 font-semibold tabular-nums text-rose-300 transition',
-        'shadow-[0_0_12px_-14px_rgba(251,113,133,0.32)]',
-        'hover:border-rose-300/95 hover:bg-rose-500/[0.08] hover:shadow-[0_0_16px_-12px_rgba(251,113,133,0.42)]',
-        'active:bg-rose-500/14',
+        /** Square outline (1:1) — same sizing rule as UltraQuickBuyZone. */
+        'focus-ring relative z-[21] flex aspect-square h-full min-h-0 max-h-full max-w-full flex-col items-end justify-end rounded-[5px] border border-rose-400/85 bg-transparent p-2 pb-2.5 pr-2.5 font-semibold tabular-nums text-rose-300 transition-all duration-200',
+        'shadow-[0_0_12px_-14px_rgba(251,113,133,0.32)] backdrop-blur-none',
+        'hover:border-rose-300/95 hover:bg-rose-500/[0.1] hover:shadow-[0_0_16px_-12px_rgba(251,113,133,0.42)] hover:backdrop-blur-[6px]',
+        'active:bg-rose-500/14 active:backdrop-blur-sm',
         'disabled:pointer-events-none disabled:opacity-55',
       )}
       title={`Sell ${pct}% of your balance for this token`}

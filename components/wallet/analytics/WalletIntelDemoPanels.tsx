@@ -6,24 +6,24 @@ import type { DemoActivityRow, DemoTop100Row, DemoTransferRow } from '@/lib/dev/
 
 export function WalletIntelActivityDemo({ rows }: { rows: DemoActivityRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border-subtle/80">
+    <div className="overflow-x-auto rounded-b-lg border border-t-0 border-white/[0.07] bg-[#070a0f]/45">
       <table className="w-full min-w-[520px] border-collapse text-left text-[11px]">
         <thead>
-          <tr className="border-b border-border-subtle/80 bg-black/25 text-[10px] uppercase tracking-wide text-fg-muted">
-            <th className="px-3 py-2 font-semibold">Time</th>
-            <th className="px-3 py-2 font-semibold">Type</th>
-            <th className="px-3 py-2 font-semibold">Detail</th>
+          <tr className="border-b border-white/[0.065] bg-white/[0.018] text-[8.5px] uppercase tracking-[0.09em] text-fg-muted/90">
+            <th className="px-3 py-1.5 font-semibold">Time</th>
+            <th className="px-3 py-1.5 font-semibold">Type</th>
+            <th className="px-3 py-1.5 font-semibold">Detail</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-b border-border-subtle/40 hover:bg-bg-hover/60">
+            <tr key={r.id} className="border-b border-white/[0.035] hover:bg-white/[0.028]">
               <td className="px-3 py-2 tabular-nums text-fg-muted">{r.timeLabel}</td>
               <td
                 className={cn(
                   'px-3 py-2 font-semibold',
-                  r.tone === 'bull' && 'text-signal-bull',
-                  r.tone === 'bear' && 'text-signal-bear',
+                  r.tone === 'bull' && 'text-emerald-300/90',
+                  r.tone === 'bear' && 'text-rose-300/90',
                   r.tone === 'muted' && 'text-fg-secondary',
                 )}
               >
@@ -34,8 +34,8 @@ export function WalletIntelActivityDemo({ rows }: { rows: DemoActivityRow[] }) {
           ))}
         </tbody>
       </table>
-      <p className="border-t border-border-subtle/50 px-3 py-2 text-[10px] text-fg-muted">
-        Demo activity rows — indexer feed wiring is separate.
+      <p className="border-t border-white/[0.045] px-3 py-1.5 text-[9.5px] text-fg-muted">
+        Demo activity rows
       </p>
     </div>
   );
@@ -43,19 +43,19 @@ export function WalletIntelActivityDemo({ rows }: { rows: DemoActivityRow[] }) {
 
 export function WalletIntelTop100Demo({ rows }: { rows: DemoTop100Row[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border-subtle/80">
+    <div className="overflow-x-auto rounded-b-lg border border-t-0 border-white/[0.07] bg-[#070a0f]/45">
       <table className="w-full min-w-[480px] border-collapse text-left text-[11px]">
         <thead>
-          <tr className="border-b border-border-subtle/80 bg-black/25 text-[10px] uppercase tracking-wide text-fg-muted">
-            <th className="px-3 py-2 font-semibold">#</th>
-            <th className="px-3 py-2 font-semibold">Entity</th>
-            <th className="px-3 py-2 text-right font-semibold">Volume</th>
-            <th className="px-3 py-2 text-right font-semibold">PnL</th>
+          <tr className="border-b border-white/[0.065] bg-white/[0.018] text-[8.5px] uppercase tracking-[0.09em] text-fg-muted/90">
+            <th className="px-3 py-1.5 font-semibold">#</th>
+            <th className="px-3 py-1.5 font-semibold">Entity</th>
+            <th className="px-3 py-1.5 text-right font-semibold">Volume</th>
+            <th className="px-3 py-1.5 text-right font-semibold">PnL</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.rank} className="border-b border-border-subtle/40 hover:bg-bg-hover/60">
+            <tr key={r.rank} className="border-b border-white/[0.035] hover:bg-white/[0.028]">
               <td className="px-3 py-2 tabular-nums text-fg-muted">{r.rank}</td>
               <td className="px-3 py-2 font-medium text-fg-primary">{r.label}</td>
               <td className="px-3 py-2 text-right tabular-nums text-fg-secondary">
@@ -64,7 +64,7 @@ export function WalletIntelTop100Demo({ rows }: { rows: DemoTop100Row[] }) {
               <td
                 className={cn(
                   'px-3 py-2 text-right tabular-nums font-semibold',
-                  r.pnlUsd >= 0 ? 'text-signal-bull' : 'text-signal-bear',
+                  r.pnlUsd >= 0 ? 'text-emerald-300/90' : 'text-rose-300/90',
                 )}
               >
                 {formatCompactUsd(r.pnlUsd)}
@@ -73,8 +73,8 @@ export function WalletIntelTop100Demo({ rows }: { rows: DemoTop100Row[] }) {
           ))}
         </tbody>
       </table>
-      <p className="border-t border-border-subtle/50 px-3 py-2 text-[10px] text-fg-muted">
-        Demo leaderboard slice — not on-chain verified.
+      <p className="border-t border-white/[0.045] px-3 py-1.5 text-[9.5px] text-fg-muted">
+        Demo leaderboard slice
       </p>
     </div>
   );
@@ -82,23 +82,23 @@ export function WalletIntelTop100Demo({ rows }: { rows: DemoTop100Row[] }) {
 
 export function WalletIntelTransfersDemo({ rows }: { rows: DemoTransferRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border-subtle/80">
+    <div className="overflow-x-auto rounded-b-lg border border-t-0 border-white/[0.07] bg-[#070a0f]/45">
       <table className="w-full min-w-[420px] border-collapse text-left text-[11px]">
         <thead>
-          <tr className="border-b border-border-subtle/80 bg-black/25 text-[10px] uppercase tracking-wide text-fg-muted">
-            <th className="px-3 py-2 font-semibold">Direction</th>
-            <th className="px-3 py-2 font-semibold">Asset</th>
-            <th className="px-3 py-2 font-semibold">Amount</th>
-            <th className="px-3 py-2 font-semibold">When</th>
+          <tr className="border-b border-white/[0.065] bg-white/[0.018] text-[8.5px] uppercase tracking-[0.09em] text-fg-muted/90">
+            <th className="px-3 py-1.5 font-semibold">Direction</th>
+            <th className="px-3 py-1.5 font-semibold">Asset</th>
+            <th className="px-3 py-1.5 font-semibold">Amount</th>
+            <th className="px-3 py-1.5 font-semibold">When</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-b border-border-subtle/40 hover:bg-bg-hover/60">
+            <tr key={r.id} className="border-b border-white/[0.035] hover:bg-white/[0.028]">
               <td
                 className={cn(
                   'px-3 py-2 font-semibold',
-                  r.dir === 'In' ? 'text-signal-bull' : 'text-signal-bear',
+                  r.dir === 'In' ? 'text-emerald-300/90' : 'text-rose-300/90',
                 )}
               >
                 {r.dir}
@@ -110,8 +110,8 @@ export function WalletIntelTransfersDemo({ rows }: { rows: DemoTransferRow[] }) 
           ))}
         </tbody>
       </table>
-      <p className="border-t border-border-subtle/50 px-3 py-2 text-[10px] text-fg-muted">
-        Demo transfers — RPC-backed history ships separately.
+      <p className="border-t border-white/[0.045] px-3 py-1.5 text-[9.5px] text-fg-muted">
+        Demo transfers
       </p>
     </div>
   );

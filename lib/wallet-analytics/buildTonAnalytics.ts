@@ -50,6 +50,7 @@ export async function buildTonWalletAnalytics(params: {
     stableCoinBalanceUsd: null,
     walletAgeLabel: null,
     nativeBalanceLabel: tonBal,
+    funding: null,
     chart,
     positions: [],
     performance: {

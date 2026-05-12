@@ -25,6 +25,24 @@ const H_GRIP = 4;
 const MIN_CHART = 200;
 const MIN_TABS = 120;
 
+/** Upper bound for chart height from viewport chrome (main scroll is one column; row drag should not explode when the left column is very tall). */
+function chartSplitAvailPx(): number {
+  if (typeof window === 'undefined') return MIN_CHART + MIN_TABS + H_GRIP + 400;
+  const viewportH = window.innerHeight;
+  const topBar =
+    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-topbar-h')) ||
+    48;
+  const bottomBar =
+    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-bottombar-h')) ||
+    40;
+  const chrome = topBar + bottomBar + 140;
+  return Math.max(MIN_CHART + MIN_TABS + H_GRIP, viewportH - chrome);
+}
+
+function maxChartHeightPx(): number {
+  return chartSplitAvailPx() - MIN_TABS;
+}
+
 function ColResizeGrip({
   ariaLabel,
   onPointerDown,
@@ -165,19 +183,16 @@ export function TokenDetailView({
   }, []);
 
   useEffect(() => {
-    const el = leftColRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const H = el.clientHeight;
-      const avail = H - H_GRIP;
-      if (avail < MIN_CHART + MIN_TABS) return;
+    const sync = () => {
+      const avail = chartSplitAvailPx();
       setChartH((ch) => {
-        if (ch == null) return Math.round((avail * 62) / 100);
-        return clamp(ch, MIN_CHART, avail - MIN_TABS);
+        if (ch == null) return Math.round(Math.min(480, (avail * 58) / 100));
+        return clamp(ch, MIN_CHART, maxChartHeightPx());
       });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
   }, []);
 
   const maxRightForContainer = useCallback((containerW: number) => {
@@ -220,12 +235,13 @@ export function TokenDetailView({
       if (!parent) return;
       const chartEl = parent.children[0] as HTMLElement | undefined;
       const H = parent.clientHeight;
-      const avail = H - H_GRIP;
-      if (avail < MIN_CHART + MIN_TABS) return;
+      const parentAvail = H - H_GRIP;
+      const maxChart = Math.min(maxChartHeightPx(), parentAvail - MIN_TABS);
+      if (maxChart < MIN_CHART) return;
       const measured =
         chartH ??
-        (chartEl ? Math.round(chartEl.getBoundingClientRect().height) : Math.round((avail * 62) / 100));
-      const baseline = clamp(measured, MIN_CHART, avail - MIN_TABS);
+        (chartEl ? Math.round(chartEl.getBoundingClientRect().height) : Math.round((parentAvail * 62) / 100));
+      const baseline = clamp(measured, MIN_CHART, maxChart);
       dragRow.current = true;
       startRow.current = { y: e.clientY, chartH: baseline };
       if (chartH == null) setChartH(baseline);
@@ -237,11 +253,10 @@ export function TokenDetailView({
   const onRowMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRow.current || !leftColRef.current) return;
     const H = leftColRef.current.clientHeight;
-    const avail = H - H_GRIP;
+    const parentAvail = H - H_GRIP;
+    const maxChart = Math.min(maxChartHeightPx(), parentAvail - MIN_TABS);
     const delta = e.clientY - startRow.current.y;
-    const next = Math.round(
-      clamp(startRow.current.chartH + delta, MIN_CHART, avail - MIN_TABS),
-    );
+    const next = Math.round(clamp(startRow.current.chartH + delta, MIN_CHART, maxChart));
     setChartH(next);
   }, []);
 
@@ -257,22 +272,22 @@ export function TokenDetailView({
   return (
     <>
       <UiDemoModeBanner />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col">
         <div
           ref={containerRef}
-          className="flex h-full min-h-0 flex-1 flex-col border-b border-border-subtle lg:flex-row lg:overflow-hidden"
+          className="flex w-full min-w-0 flex-1 flex-col border-b border-border-subtle lg:flex-row"
         >
           <div
             ref={leftColRef}
             className={cn(
-              'flex min-h-[300px] min-w-0 flex-col bg-bg-base lg:min-h-0',
+              'flex min-w-0 flex-col bg-[#080d14] lg:min-h-0',
               lg && 'min-w-[360px] flex-1',
             )}
           >
             <div
               className={cn(
-                'flex min-h-0 w-full min-w-0 flex-col px-0.5 pt-0.5',
-                chartH != null ? 'shrink-0' : 'min-h-0 flex-[1.6] basis-0',
+                'flex w-full min-w-0 flex-col px-0.5 pt-0.5',
+                chartH != null ? 'shrink-0' : 'min-h-[200px] shrink-0',
               )}
               style={
                 chartH != null
@@ -290,7 +305,7 @@ export function TokenDetailView({
               onPointerUp={onRowUp}
             />
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col basis-0 bg-bg-base">
+            <div className="flex min-w-0 flex-col bg-[#080d14]">
               <TokenActivityTabs
                 mint={mint}
                 symbol={symbol}
@@ -310,29 +325,27 @@ export function TokenDetailView({
 
           <div
             className={cn(
-              'flex min-h-[320px] w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-bg-base lg:min-h-0 lg:border-t-0 lg:border-l',
+              'flex w-full min-w-0 shrink-0 flex-col border-t border-[#1b1f2a] bg-[#080d14] lg:min-h-0 lg:border-l lg:border-t-0',
             )}
             style={lg ? { width: rightStackW } : undefined}
           >
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-              <BuySellPanel
-                key={
-                  mint +
-                  (limitAlertForPanel?.id ?? '') +
-                  String(initialBuySol ?? '') +
-                  initialTradeSide
-                }
-                mint={mint}
-                symbol={symbol}
-                tokenName={tokenName}
-                decimals={decimals}
-                limitAlertOrder={limitAlertForPanel}
-                initialBuySol={initialBuySol}
-                initialTradeSide={initialTradeSide}
-                marketSnapshot={marketSnapshot ?? null}
-                onRequestInstantTrade={() => setInstantTradeOpen(true)}
-              />
-            </div>
+            <BuySellPanel
+              key={
+                mint +
+                (limitAlertForPanel?.id ?? '') +
+                String(initialBuySol ?? '') +
+                initialTradeSide
+              }
+              mint={mint}
+              symbol={symbol}
+              tokenName={tokenName}
+              decimals={decimals}
+              limitAlertOrder={limitAlertForPanel}
+              initialBuySol={initialBuySol}
+              initialTradeSide={initialTradeSide}
+              marketSnapshot={marketSnapshot ?? null}
+              onRequestInstantTrade={() => setInstantTradeOpen(true)}
+            />
           </div>
         </div>
         <TokenPageDockFooter mint={mint} symbol={symbol} />

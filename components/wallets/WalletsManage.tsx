@@ -14,8 +14,11 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatNumber, lamportsToSol } from '@/lib/utils/formatters';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
 import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
+import { OS, WalletMonogram, WalletTableRowShell } from '@/components/portfolio/walletOs';
 import { useActiveWalletStore } from '@/store/activeWallet';
 import { generateEmbeddedWalletForChain } from '@/lib/wallets/embeddedCreate';
 
@@ -207,6 +210,9 @@ export function WalletsManage({ className }: { className?: string }) {
     : 0;
   const linkedCount = chainRows.length;
 
+  const keyRevealOpen = Boolean(newWalletPrivateKey && newWalletAddress);
+  const { mounted: keyRevealMounted, visible: keyRevealVisible } = useOverlayPresence(keyRevealOpen);
+
   return (
     <>
       <ImportWalletModal
@@ -214,13 +220,31 @@ export function WalletsManage({ className }: { className?: string }) {
         onClose={() => setImportOpen(false)}
         onImported={persistImportedPointerRow}
       />
-      {newWalletPrivateKey && newWalletAddress ? (
-        <div className="fixed inset-0 z-[700] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      {keyRevealMounted && newWalletPrivateKey && newWalletAddress ? (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4" role="presentation">
+          <button
+            type="button"
+            className={cn(
+              'absolute inset-0 bg-black/70 backdrop-blur-sm',
+              overlayBackdropClasses(keyRevealVisible),
+              'fill-mode-forwards',
+            )}
+            aria-label="Dismiss"
+            onClick={() => {
+              setNewWalletPrivateKey(null);
+              setNewWalletAddress(null);
+              setRevealPrivateKey(false);
+            }}
+          />
           <div
-            className="max-h-[min(90dvh,640px)] w-full max-w-lg overflow-y-auto rounded-xl border border-[#1b1f2a] bg-[#11141b] p-4 shadow-2xl"
+            className={cn(
+              'relative z-[1] max-h-[min(90dvh,640px)] w-full max-w-lg overflow-y-auto rounded-xl border border-[#1b1f2a] bg-[#11141b] p-4 shadow-2xl fill-mode-forwards',
+              overlayPanelClasses(keyRevealVisible),
+            )}
             role="dialog"
             aria-modal
             aria-label="Save private key"
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <h2 className="text-[15px] font-semibold text-white">Save your private key</h2>
             <p className="mt-2 text-[12px] leading-snug text-[#9ca3af]">
@@ -287,7 +311,7 @@ export function WalletsManage({ className }: { className?: string }) {
         </div>
       ) : null}
       <div className={cn('flex min-h-0 flex-1 flex-col gap-2', className)}>
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-[#1b1f2a] bg-[#11141b] px-3 py-2">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle/80 bg-bg-elevated px-3 py-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-[16px] font-semibold leading-tight text-white">Wallets</h1>
@@ -299,13 +323,7 @@ export function WalletsManage({ className }: { className?: string }) {
               </span>
             </div>
             <p className="mt-0.5 text-[12px] text-[#8b93a3]">
-              {activeChain === 'sol'
-                ? 'Manage embedded and linked Solana wallets'
-                : activeChain === 'ton'
-                  ? 'Manage embedded and linked TON wallets'
-                  : activeChain === 'bnb'
-                    ? 'Manage embedded and linked BNB Chain wallets'
-                    : 'Manage embedded and linked Base wallets'}
+              Embedded, imported, and linked wallets for this chain. Set which wallet executes trades.
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -328,15 +346,15 @@ export function WalletsManage({ className }: { className?: string }) {
         </header>
 
         <div className="grid min-h-0 flex-1 grid-cols-12 gap-2 overflow-hidden">
-          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#1b1f2a] bg-[#11141b] lg:col-span-8">
-            <div className="grid grid-cols-[1.25fr_1.4fr_0.7fr_0.8fr_3rem] border-b border-[#1b1f2a] bg-[#151826] px-3 py-2 text-[11px] font-semibold text-[#6b7280]">
+          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-elevated lg:col-span-8">
+            <div className="grid grid-cols-[1.25fr_1.4fr_0.7fr_0.8fr_3rem] border-b border-border-subtle bg-bg-base px-3 py-2 text-[11px] font-semibold tracking-tight text-[#64748b]">
               <div>Wallet</div>
               <div>Address</div>
               <div className="text-right">Balance</div>
               <div className="text-right">Status</div>
               <div className="text-right">Actions</div>
             </div>
-            <div className="min-h-0 flex-1 overflow-auto">
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-auto px-1.5 pb-2 pt-1.5 [scrollbar-width:thin]">
               {chainRows.length === 0 ? (
                 <div className="flex min-h-[260px] flex-col items-center justify-center gap-2 text-center text-[12px] text-[#8b93a3]">
                   <p className="font-semibold text-white">No {nativeSym} wallets yet</p>
@@ -346,25 +364,27 @@ export function WalletsManage({ className }: { className?: string }) {
                   </button>
                 </div>
               ) : (
-                chainRows.map((w, i) => {
+                chainRows.map((w) => {
                   const sol = w.balance_lamports ? lamportsToSol(BigInt(w.balance_lamports)) : 0;
                   const isActiveTrading = activeWalletAddress === w.wallet_address;
                   return (
-                    <div
-                      key={w.id}
-                      className="grid grid-cols-[1.25fr_1.4fr_0.7fr_0.8fr_3rem] items-center border-b border-[#1b1f2a] px-3 py-2 text-[12px] last:border-b-0 hover:bg-white/[0.03]"
-                      style={{ backgroundColor: i % 2 === 0 ? '#080d14' : '#121622' }}
-                    >
+                    <WalletTableRowShell key={w.id} selected={isActiveTrading} className="px-2 py-1.5">
+                      <div className="grid grid-cols-[1.25fr_1.4fr_0.7fr_0.8fr_3rem] items-center gap-1 text-[12px]">
                       <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <WalletMonogram address={w.wallet_address} label={w.label} />
+                          <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <WalletLabelEditor
                             wallet={w}
                             onSave={(label) => patchMutation.mutate({ id: w.id, body: { label } })}
                           />
-                          {w.is_primary ? <span className="rounded-full bg-[#5865F2]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#8da2ff]">Primary</span> : null}
-                          {isActiveTrading ? <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">Primary wallet</span> : null}
+                          {w.is_primary ? <span className="shrink-0 rounded-full border border-[#4a62d6]/35 bg-[#2f3f8a]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#8da2ff]">Primary</span> : null}
+                          {isActiveTrading ? <span className="shrink-0 rounded-full border border-cyan-900/40 bg-cyan-950/40 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-200/95">Trading</span> : null}
                         </div>
-                        {w.is_imported ? <div className="mt-0.5 text-[10px] text-[#8b93a3]">View-only imported key</div> : null}
+                        {w.is_imported ? <div className="mt-0.5 text-[10px] text-[#8b93a3]">Imported key</div> : <div className="mt-0.5 text-[10px] text-[#6d8098]">Embedded</div>}
+                          </div>
+                        </div>
                       </div>
                       <div className="flex min-w-0 items-center gap-1.5 text-[#9ca3af]">
                         <span className="truncate tabular-nums">{shortenAddress(w.wallet_address, 8)}</span>
@@ -400,16 +420,22 @@ export function WalletsManage({ className }: { className?: string }) {
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
                         {actionOpenId === w.id ? (
-                          <div className="absolute right-0 top-8 z-30 w-36 overflow-hidden rounded-md border border-[#1b1f2a] bg-[#151826] p-1 shadow-2xl">
-                            <button type="button" onClick={() => { setActiveWalletAddress(w.wallet_address); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Star className="h-3.5 w-3.5" /> Set primary</button>
-                            <button type="button" onClick={() => { toast.info('Click the wallet name to rename'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Pencil className="h-3.5 w-3.5" /> Rename</button>
-                            <button type="button" onClick={() => { onExportKeyInfo(w); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><KeyRound className="h-3.5 w-3.5" /> Export key</button>
-                            <button type="button" disabled={patchMutation.isPending} onClick={() => { patchMutation.mutate({ id: w.id, body: { is_archived: !w.is_archived } }); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/5"><Shield className="h-3.5 w-3.5" /> {w.is_archived ? 'Unarchive' : 'Archive'}</button>
-                            <button type="button" onClick={() => { toast.info('Delete wallet is not available yet'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#fb7185] hover:bg-white/5"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                          <div className={cn(
+                            'absolute right-0 top-8 z-30 w-40 overflow-hidden rounded-xl p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-150',
+                            OS.border,
+                            OS.glass,
+                          )}
+                          >
+                            <button type="button" onClick={() => { setActiveWalletAddress(w.wallet_address); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Star className="h-3.5 w-3.5" /> Set primary</button>
+                            <button type="button" onClick={() => { toast.info('Click the wallet name to rename'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Pencil className="h-3.5 w-3.5" /> Rename</button>
+                            <button type="button" onClick={() => { onExportKeyInfo(w); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><KeyRound className="h-3.5 w-3.5" /> Export key</button>
+                            <button type="button" disabled={patchMutation.isPending} onClick={() => { patchMutation.mutate({ id: w.id, body: { is_archived: !w.is_archived } }); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Shield className="h-3.5 w-3.5" /> {w.is_archived ? 'Unarchive' : 'Archive'}</button>
+                            <button type="button" onClick={() => { toast.info('Delete wallet is not available yet'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#fb7185] hover:bg-white/[0.06]"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
                           </div>
                         ) : null}
                       </div>
                     </div>
+                    </WalletTableRowShell>
                   );
                 })
               )}
@@ -417,19 +443,22 @@ export function WalletsManage({ className }: { className?: string }) {
           </section>
 
           <aside className="col-span-12 min-h-0 space-y-2 overflow-auto lg:col-span-4">
-            <section className="rounded-lg border border-[#1b1f2a] bg-[#11141b] p-3">
+            <section className="rounded-lg border border-border-subtle bg-bg-elevated p-3">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold text-white">Primary wallet</h2>
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">Live</span>
+                <h2 className="text-[13px] font-semibold text-white">Active wallet</h2>
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">Trading</span>
               </div>
               {activeWallet ? (
                 <div className="space-y-2">
-                  <div>
+                  <div className="flex items-start gap-2.5">
+                    <WalletMonogram address={activeWallet.wallet_address} label={activeWallet.label} />
+                    <div className="min-w-0">
                     <div className="font-semibold text-white">{activeWallet.label?.trim() || 'Untitled wallet'}</div>
                     <div className="mt-0.5 truncate text-[11px] tabular-nums text-[#8b93a3]">{shortenAddress(activeWallet.wallet_address, 10)}</div>
+                    </div>
                   </div>
                   <div className="rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-2">
-                    <div className="text-[10px] text-[#6b7280]">Balance</div>
+                <div className="text-[10px] text-[#64748b]">Balance</div>
                     <div className="mt-0.5 text-[18px] font-semibold tabular-nums text-white">
                       {formatNumber(activeBalance, { decimals: 4 })} {nativeSym}
                     </div>
@@ -445,24 +474,27 @@ export function WalletsManage({ className }: { className?: string }) {
                   </div>
                 </div>
               ) : (
-                <div className="text-[12px] text-[#8b93a3]">No primary wallet selected.</div>
+                <div className="text-[12px] text-[#8b93a3]">Pick a wallet to route capital and sign swaps.</div>
               )}
             </section>
 
-            <section className="rounded-lg border border-[#1b1f2a] bg-[#11141b] p-3">
-              <div className="mb-2 flex items-center gap-2"><ArrowRightLeft className="h-4 w-4 text-[#5865F2]" /><h2 className="text-[13px] font-semibold text-white">Distribution</h2></div>
+            <section className="rounded-lg border border-border-subtle bg-bg-elevated p-3">
+              <div className="mb-2 flex items-center gap-2"><ArrowRightLeft className="h-4 w-4 text-[#5865F2]" /><h2 className="text-[13px] font-semibold text-white">Capital routing</h2></div>
               <p className="text-[12px] leading-snug text-[#9ca3af]">
-                Move {nativeSym} between wallets and consolidate low-balance accounts with safe execution preview.
+                Move balances between wallets with a preview split before you send. Heavy flows run from Portfolio.
               </p>
               <div className="mt-3 flex gap-1.5">
                 <Link href="/portfolio" className="flex-1 rounded-md border border-[#1b1f2a] bg-[#080d14] px-2 py-1.5 text-center text-[11px] text-[#d1d5db] hover:bg-white/[0.04]">View Portfolio</Link>
                 <Link href="/portfolio?tab=wallets" className="flex-1 rounded-md bg-[#5865F2] px-2 py-1.5 text-center text-[11px] font-semibold text-[#05070d]">Start transfer</Link>
               </div>
-              <p className="mt-2 text-[10px] text-[#6b7280]">Transfers use your selected trading wallet and preview before execution.</p>
+              <p className="mt-2 text-[10px] text-[#64748b]">Uses your active trading wallet with an on-screen preview before broadcast.</p>
             </section>
 
-            <section className="rounded-lg border border-[#1b1f2a] bg-[#11141b] p-3">
-              <div className="mb-2 flex items-center gap-2"><Shield className="h-4 w-4 text-[#fb7185]" /><h2 className="text-[13px] font-semibold text-white">Security</h2></div>
+            <section className="rounded-lg border border-border-subtle bg-bg-elevated p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-[#fb7185]" />
+                <h2 className="text-[13px] font-semibold text-white">Security</h2>
+              </div>
               <div className="space-y-2 text-[12px] text-[#9ca3af]">
                 <div className="flex justify-between"><span>Linked wallets</span><span className="font-semibold tabular-nums text-white">{linkedCount}</span></div>
                 <div className="flex justify-between">

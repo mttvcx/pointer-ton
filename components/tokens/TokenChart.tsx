@@ -32,6 +32,8 @@ import {
   persistChartOverlays,
   type ChartOverlayFlags,
 } from '@/lib/chart/tokenChartOverlays';
+import { nativeTicker, nativeUsdTickerSymbol } from '@/lib/chains/nativeCurrency';
+import { useUIStore } from '@/store/ui';
 
 const OVERLAYS_EVT = 'pointer-chart-overlays';
 
@@ -60,29 +62,29 @@ type ScaleExtra = 'normal' | 'log' | 'percent';
 function applyBarTransform(
   v: number,
   quote: QuoteMode,
-  solUsd: number | null,
+  nativeUsdSpot: number | null,
   showMc: boolean,
   supply: number | null,
 ) {
   let x = v;
   if (showMc && supply != null && supply > 0) x *= supply;
-  if (quote === 'sol' && solUsd != null && solUsd > 0) x /= solUsd;
+  if (quote === 'sol' && nativeUsdSpot != null && nativeUsdSpot > 0) x /= nativeUsdSpot;
   return x;
 }
 
 function mapBar(
   b: ChartResponse['bars'][0],
   quote: QuoteMode,
-  solUsd: number | null,
+  nativeUsdSpot: number | null,
   showMc: boolean,
   supply: number | null,
 ): CandlestickData {
   return {
     time: b.time as Time,
-    open: applyBarTransform(b.open, quote, solUsd, showMc, supply),
-    high: applyBarTransform(b.high, quote, solUsd, showMc, supply),
-    low: applyBarTransform(b.low, quote, solUsd, showMc, supply),
-    close: applyBarTransform(b.close, quote, solUsd, showMc, supply),
+    open: applyBarTransform(b.open, quote, nativeUsdSpot, showMc, supply),
+    high: applyBarTransform(b.high, quote, nativeUsdSpot, showMc, supply),
+    low: applyBarTransform(b.low, quote, nativeUsdSpot, showMc, supply),
+    close: applyBarTransform(b.close, quote, nativeUsdSpot, showMc, supply),
   };
 }
 
@@ -116,17 +118,21 @@ export function TokenChart({
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const { authenticated, getAccessToken } = usePointerAuth();
 
-  const solUsdQ = useQuery({
-    queryKey: ['sol-usd-spot'],
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeUsdSymbol = nativeUsdTickerSymbol(activeChain);
+  const nativeSym = nativeTicker(activeChain);
+
+  const nativeUsdSpotQ = useQuery({
+    queryKey: ['native-usd-spot', nativeUsdSymbol],
     queryFn: async () => {
       const r = await fetch('/api/prices/tickers');
       const j = (await r.json()) as { tickers?: { symbol: string; usdPrice: number | null }[] };
-      const hit = j.tickers?.find((t) => t.symbol === 'TON');
+      const hit = j.tickers?.find((t) => t.symbol === nativeUsdSymbol);
       return hit?.usdPrice ?? null;
     },
     staleTime: 60_000,
   });
-  const solUsd = solUsdQ.data ?? null;
+  const nativeUsdSpot = nativeUsdSpotQ.data ?? null;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['token-chart', mint, interval],
@@ -160,22 +166,22 @@ export function TokenChart({
     const bars = data?.bars;
     if (!bars?.length) return null;
     const b = bars[bars.length - 1]!;
-    const o = applyBarTransform(b.open, quoteMode, solUsd, showMc, supply);
-    const h = applyBarTransform(b.high, quoteMode, solUsd, showMc, supply);
-    const l = applyBarTransform(b.low, quoteMode, solUsd, showMc, supply);
-    const c = applyBarTransform(b.close, quoteMode, solUsd, showMc, supply);
+    const o = applyBarTransform(b.open, quoteMode, nativeUsdSpot, showMc, supply);
+    const h = applyBarTransform(b.high, quoteMode, nativeUsdSpot, showMc, supply);
+    const l = applyBarTransform(b.low, quoteMode, nativeUsdSpot, showMc, supply);
+    const c = applyBarTransform(b.close, quoteMode, nativeUsdSpot, showMc, supply);
     const ch = c - o;
     const pct = o !== 0 ? (ch / o) * 100 : 0;
     return { o, h, l, c, ch, pct };
-  }, [data?.bars, quoteMode, solUsd, showMc, supply]);
+  }, [data?.bars, quoteMode, nativeUsdSpot, showMc, supply]);
 
   const fmtPx = useCallback(
     (v: number) => {
-      if (quoteMode === 'sol') return `${formatNumber(v, { decimals: 5 })} TON`;
+      if (quoteMode === 'sol') return `${formatNumber(v, { decimals: 5 })} ${nativeSym}`;
       if (showMc) return formatCompactUsd(v);
       return formatCompactUsd(v);
     },
-    [quoteMode, showMc],
+    [quoteMode, showMc, nativeSym],
   );
 
   useEffect(() => {
@@ -270,7 +276,7 @@ export function TokenChart({
     if (!series || !chart || !data?.bars) return;
 
     const candle: CandlestickData[] = data.bars.map((b) =>
-      mapBar(b, quoteMode, solUsd, showMc, supply),
+      mapBar(b, quoteMode, nativeUsdSpot, showMc, supply),
     );
     series.setData(candle);
 
@@ -287,7 +293,7 @@ export function TokenChart({
     series.setMarkers(markers);
 
     chart.timeScale().fitContent();
-  }, [data, markersRes, authenticated, quoteMode, solUsd, showMc, supply, hideAllBubbles, overlays]);
+  }, [data, markersRes, authenticated, quoteMode, nativeUsdSpot, showMc, supply, hideAllBubbles, overlays]);
 
   const patchOverlays = (patch: Partial<ChartOverlayFlags>) => {
     setOverlays((prev) => {
@@ -308,7 +314,7 @@ export function TokenChart({
     });
   };
 
-  const pairTitle = `${tick}${quoteMode === 'usd' ? '/USD' : '/TON'} on Pointer · ${interval}`;
+  const pairTitle = `${tick}${quoteMode === 'usd' ? '/USD' : `/${nativeSym}`} on Pointer · ${interval}`;
 
   return (
     <div
@@ -392,7 +398,7 @@ export function TokenChart({
         >
           <span className={quoteMode === 'usd' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>USD</span>
           <span className="mx-0.5 text-[#374151]">/</span>
-          <span className={quoteMode === 'sol' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>TON</span>
+          <span className={quoteMode === 'sol' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>{nativeSym}</span>
         </button>
         <button
           type="button"

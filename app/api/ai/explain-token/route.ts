@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const Body = z
   .object({
-    mint: z.string().refine(isValidTokenMintParam, 'invalid mint'),
+    mint: z.string().refine((m) => isValidTokenMintParam(m), 'invalid mint'),
     mode: z.enum(['fast', 'deep']).default('fast'),
   })
   .strict();

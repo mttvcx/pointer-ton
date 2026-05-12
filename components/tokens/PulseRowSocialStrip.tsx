@@ -9,6 +9,7 @@ import type { PulseTokenBundle } from '@/types/tokens';
 import { isPumpLiveFromMetadata } from '@/lib/tokens/pulseRichMetadata';
 import { PulseGlyphMask, PulseLuminanceGlyph, PULSE_GLYPH, PULSE_INSTAGRAM_SRC, PULSE_BRAND_SRC } from '@/components/tokens/PulseGlyphMask';
 import { formatNumber } from '@/lib/utils/formatters';
+import { xLiveSearchContractUrl } from '@/lib/utils/xSearch';
 import {
   PulseRichHover,
   TwitterProfileHoverPanel,
@@ -22,11 +23,12 @@ type GlyphKey = keyof typeof PULSE_GLYPH;
 
 const MS_PER_DAY = 86_400_000;
 
-/** Tight hit targets; gap-0 so icon + stat read as one unit (Axiom-style). */
+/** Row icon hit targets — slightly padded for readability and tap/click confidence. */
 const iconHit = cn(
   'group inline-flex shrink-0 items-center justify-center gap-0',
-  'border-0 bg-transparent p-0 shadow-none outline-none ring-0',
-  'transition-[filter,opacity] duration-100 ease-out',
+  'border-0 bg-transparent px-1 py-0.5 shadow-none outline-none ring-0',
+  'rounded-md hover:bg-white/[0.06] active:bg-white/[0.09]',
+  'transition-[filter,opacity,background-color] duration-100 ease-out',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#70C0E8]/40 focus-visible:ring-offset-0',
 );
 
@@ -124,24 +126,6 @@ function ExternalGlyphLink({
         <PulseGlyphMask name={glyph} size={glyphPx} />
       </a>
     </WithHoverTooltip>
-  );
-}
-
-function InternalGlyphLink({
-  href,
-  label,
-  glyph,
-  glyphPx,
-}: {
-  href: string;
-  label: string;
-  glyph: GlyphKey;
-  glyphPx: number;
-}) {
-  return (
-    <Link href={href} aria-label={label} title={label} className={iconHit}>
-      <PulseGlyphMask name={glyph} size={glyphPx} />
-    </Link>
   );
 }
 
@@ -330,7 +314,7 @@ export function PulseRowSocialStrip({
 
   return (
     <div className={cn('min-w-0 font-sans', compact ? 'mt-0.5' : 'mt-1')}>
-      <div className="flex min-w-0 flex-nowrap items-center gap-x-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex min-w-0 flex-nowrap items-center gap-x-1 overflow-x-auto overflow-y-hidden overscroll-x-contain py-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {profile?.url ? (
           <PulseRichHover
             wide
@@ -517,7 +501,14 @@ export function PulseRowSocialStrip({
           </PulseRichHover>
         ) : null}
 
-        <InternalGlyphLink href={tokenPath} label="Token details" glyph="search" glyphPx={sx} />
+        <ExternalGlyphLink
+          href={xLiveSearchContractUrl(bundle.token.mint)}
+          label="Search contract on X"
+          glyph="search"
+          previewTitle="Search this contract on X"
+          previewSubtitle="Opens X live search with the full mint address"
+          glyphPx={sx}
+        />
 
         {model.twitterCommunity?.url ? (
           <ExternalCommunityStatLink

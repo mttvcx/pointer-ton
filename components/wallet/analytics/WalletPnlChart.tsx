@@ -30,23 +30,50 @@ export function WalletPnlChart({
     const chart = createChart(el, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'rgba(148,163,184,0.85)',
-        fontSize: 11,
+        textColor: 'rgba(117,128,146,0.58)',
+        fontSize: 9,
+        fontFamily:
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       },
       grid: {
-        vertLines: { color: 'rgba(255,255,255,0.04)' },
-        horzLines: { color: 'rgba(255,255,255,0.04)' },
+        vertLines: { color: 'rgba(255,255,255,0.018)' },
+        horzLines: { color: 'rgba(255,255,255,0.025)' },
       },
-      crosshair: { mode: CrosshairMode.Hidden },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: 'rgba(255,255,255,0.1)', labelVisible: false, width: 1 },
+        horzLine: { color: 'rgba(255,255,255,0.06)', labelVisible: false, width: 1 },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(255,255,255,0.06)',
+        scaleMargins: { top: 0.12, bottom: 0.16 },
+      },
+      timeScale: {
+        borderColor: 'rgba(255,255,255,0.06)',
+        timeVisible: false,
+        secondsVisible: false,
+      },
+      handleScale: false,
+      handleScroll: false,
     });
 
     const series = chart.addAreaSeries({
-      lineColor: '#2dd4bf',
-      topColor: 'rgba(45,212,191,0.35)',
-      bottomColor: 'rgba(45,212,191,0.02)',
+      lineColor: 'rgba(45,212,191,0.72)',
+      topColor: 'rgba(45,212,191,0.08)',
+      bottomColor: 'rgba(45,212,191,0.005)',
       lineWidth: 2,
+      priceLineVisible: true,
+      lastValueVisible: true,
+      priceLineColor: 'rgba(45,212,191,0.36)',
+      priceLineWidth: 1,
+      priceFormat: {
+        type: 'price',
+        precision: 0,
+        minMove: 1,
+      },
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 2,
+      lastPriceAnimation: 0,
     });
 
     chartRef.current = chart;
@@ -81,9 +108,9 @@ export function WalletPnlChart({
   }, [points]);
 
   return (
-    <div className={cn('relative min-h-[200px] flex-1', className)}>
+    <div className={cn('relative min-h-[174px] flex-1', className)}>
       <div ref={wrapRef} className="absolute inset-0" />
-      <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1.5 opacity-40">
+      <div className="pointer-events-none absolute bottom-1.5 left-2 flex items-center gap-1.5 opacity-18">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/branding/logo-bird.svg" alt="" width={18} height={18} />
         <span className="text-[9px] font-semibold uppercase tracking-wider text-fg-muted">pointer.</span>

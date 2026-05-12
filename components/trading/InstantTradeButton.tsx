@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ExternalLink, Trash2, Zap, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
-import { explorerAddressUrl, isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
+import { explorerAddressUrl, isValidPublicKey, shortenAddress, SOL_MINT } from '@/lib/utils/addresses';
+import {
+  SOL_DEMO_MINT_BONK,
+  SOL_DEMO_MINT_USDC,
+} from '@/lib/utils/solDemoMints';
 import {
   TON_DEMO_JETTON_A,
   TON_DEMO_JETTON_B,
@@ -14,12 +18,8 @@ import {
 } from '@/lib/utils/tonDemoMints';
 import { cn } from '@/lib/utils/cn';
 import { useRecentTradeMintsStore } from '@/store/recentTradeMints';
-
-const SHORTCUTS = [
-  { label: 'TON', mint: TON_NATIVE_UI_MINT },
-  { label: 'USDT', mint: TON_DEMO_JETTON_A },
-  { label: 'ADDR', mint: TON_DEMO_JETTON_B },
-] as const;
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { useUIStore } from '@/store/ui';
 
 const SELL_PCTS = [25, 50, 75, 100] as const;
 
@@ -27,6 +27,8 @@ type TradeSideUi = 'buy' | 'sell';
 
 export function InstantTradeButton() {
   const router = useRouter();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState<TradeSideUi>('buy');
   const [mintInput, setMintInput] = useState('');
@@ -37,6 +39,21 @@ export function InstantTradeButton() {
 
   const recents = useRecentTradeMintsStore((s) => s.mints);
   const clearRecents = useRecentTradeMintsStore((s) => s.clearRecents);
+
+  const tradeShortcuts = useMemo(() => {
+    if (activeChain === 'sol') {
+      return [
+        { label: nativeSym, mint: SOL_MINT },
+        { label: 'BONK', mint: SOL_DEMO_MINT_BONK },
+        { label: 'USDC', mint: SOL_DEMO_MINT_USDC },
+      ];
+    }
+    return [
+      { label: nativeSym, mint: TON_NATIVE_UI_MINT },
+      { label: 'USDT', mint: TON_DEMO_JETTON_A },
+      { label: 'ADDR', mint: TON_DEMO_JETTON_B },
+    ];
+  }, [activeChain, nativeSym]);
 
   useEffect(() => {
     if (!open) return;
@@ -64,7 +81,14 @@ export function InstantTradeButton() {
   function goToToken() {
     const raw = mintInput.trim();
     if (!isValidPublicKey(raw)) {
-      toast.error('Invalid mint', { description: 'Paste a valid TON jetton master or wallet address.' });
+      toast.error('Invalid mint', {
+        description:
+          activeChain === 'sol'
+            ? 'Paste a valid Solana mint or token account.'
+            : activeChain === 'ton'
+              ? 'Paste a valid TON jetton master or wallet address.'
+              : 'Paste a valid contract address for the selected chain.',
+      });
       return;
     }
     if (side === 'buy') {
@@ -178,7 +202,7 @@ export function InstantTradeButton() {
 
               <p className="mt-3 text-[11px] leading-snug text-fg-secondary">
                 {side === 'buy'
-                  ? 'Open the token page with optional TON size pre-filled. USD sizing on-chart is next; you always sign with Privy on the token screen.'
+                  ? `Open the token page with optional ${nativeSym} buy size pre-filled. USD sizing on-chart is next; you always sign with Privy on the token screen.`
                   : 'Jump to the token on the Sell tab. Set percent chips here for your workflow (full % routing on-token is expanding).'}
               </p>
 
@@ -218,7 +242,7 @@ export function InstantTradeButton() {
                 {side === 'buy' ? (
                   <div>
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-                      Size (TON)
+                      Size ({nativeSym})
                     </span>
                     <div className="mt-1 flex flex-wrap gap-1">
                       <button
@@ -263,7 +287,7 @@ export function InstantTradeButton() {
                         setBuySolCustom(e.target.value);
                         setBuySolAttach(null);
                       }}
-                      placeholder="Custom TON amount"
+                      placeholder={`Custom ${nativeSym} amount`}
                       className="focus-ring mt-2 w-full rounded-md border border-border-subtle bg-bg-base px-2.5 py-2 tabular-nums text-[12px] text-fg-primary placeholder:text-fg-muted"
                     />
                   </div>
@@ -327,7 +351,7 @@ export function InstantTradeButton() {
                           target="_blank"
                           rel="noreferrer"
                           className="shrink-0 rounded p-1 text-fg-muted hover:text-fg-secondary"
-                          aria-label="TON explorer"
+                          aria-label="Open in block explorer"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -343,7 +367,7 @@ export function InstantTradeButton() {
                   Shortcuts
                 </span>
                 <div className="mt-2 flex flex-col gap-2">
-                  {SHORTCUTS.map(({ label, mint }) => (
+                  {tradeShortcuts.map(({ label, mint }) => (
                     <Link
                       key={mint}
                       href={shortcutHref(mint)}

@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
 
 export type GlassModalProps = {
@@ -43,7 +45,9 @@ export function GlassModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  const { mounted, visible } = useOverlayPresence(open);
+
+  if (!mounted) return null;
 
   const hasHeader = Boolean(title || chainTicker || description);
 
@@ -51,7 +55,11 @@ export function GlassModal({
     <div className={cn('fixed inset-0 flex items-center justify-center p-4', zClass)}>
       <button
         type="button"
-        className="absolute inset-0 bg-[rgba(3,5,10,0.58)] backdrop-blur-md"
+        className={cn(
+          'absolute inset-0 bg-[rgba(3,5,10,0.58)] backdrop-blur-md',
+          overlayBackdropClasses(visible),
+          'fill-mode-forwards',
+        )}
         aria-label="Dismiss"
         onClick={onClose}
       />
@@ -59,9 +67,10 @@ export function GlassModal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative w-full overflow-hidden rounded-2xl border border-white/[0.09]',
+          'relative w-full overflow-hidden rounded-2xl border border-white/[0.09] fill-mode-forwards',
           'bg-[rgba(8,13,20,0.82)] shadow-[0_28px_72px_-28px_rgba(0,0,0,0.88)] backdrop-blur-xl backdrop-saturate-150',
           maxWidthClass,
+          overlayPanelClasses(visible),
           className,
         )}
         onClick={(e) => e.stopPropagation()}

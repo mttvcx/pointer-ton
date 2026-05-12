@@ -25,11 +25,14 @@ import {
   formatPercent,
   formatPriceUsd,
 } from '@/lib/utils/formatters';
-import { explorerTokenUrl, shortenAddress } from '@/lib/utils/addresses';
+import { shortenAddress } from '@/lib/utils/addresses';
 import type { Tables } from '@/lib/supabase/types';
 import type { TokenMarketSnapshotRow, TokenRow } from '@/lib/db/tokens';
 import { cn } from '@/lib/utils/cn';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import { explorerTokenAriaLabel, explorerTokenHrefFromMint } from '@/lib/chains/mintKind';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { useUIStore } from '@/store/ui';
 
 export function TokenHeader({
   token,
@@ -62,6 +65,9 @@ export function TokenHeader({
     staleTime: 45_000,
   });
   const proTraders = extQ.data?.metrics.proTraders ?? null;
+
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
 
   const [overlays, setOverlays] = useState<ChartOverlayFlags>(() => readChartOverlays());
 
@@ -131,10 +137,10 @@ export function TokenHeader({
           <MetricChip label="Supply" value={supplyLabel ?? '—'} />
           <MetricChip
             label="Fees"
-            value={feesSol != null ? `${formatNumber(feesSol, { decimals: 3 })} TON` : '—'}
+            value={feesSol != null ? `${formatNumber(feesSol, { decimals: 3 })} ${nativeSym}` : '—'}
           />
           <MetricChip
-            label="B.Curve"
+            label="Bonding"
             value={
               bonding.fillPct != null ? formatPercent(bonding.fillPct, { decimals: 1 }) : '—'
             }
@@ -150,7 +156,7 @@ export function TokenHeader({
             }
           />
           <MetricChip
-            label="Pro"
+            label="Pros"
             value={proTraders != null ? String(proTraders) : extQ.isLoading ? '…' : '—'}
           />
         </div>
@@ -198,12 +204,12 @@ export function TokenHeader({
           <ToggleChip
             on={overlays.trackedOnly}
             onToggle={() => patchOverlays({ trackedOnly: !overlays.trackedOnly })}
-            label="Trk"
+            label="Tracked"
           />
           <ToggleChip
             on={overlays.alertBubbles}
             onToggle={() => patchOverlays({ alertBubbles: !overlays.alertBubbles })}
-            label="Bub"
+            label="Alerts"
           />
           <LaunchpadBadge launchPad={token.launch_pad} />
           <LaunchpadSubBadges token={token} snapshot={snapshot} variant="detail" />
@@ -211,7 +217,13 @@ export function TokenHeader({
           <Link href="/pulse" className="focus-ring rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#e5e7eb]" aria-label="Pulse">
             <ExternalLink className="h-3.5 w-3.5" />
           </Link>
-          <a href={explorerTokenUrl(mint)} target="_blank" rel="noreferrer" className="focus-ring rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#a78bfa]" aria-label="TON explorer">
+          <a
+            href={explorerTokenHrefFromMint(mint, activeChain)}
+            target="_blank"
+            rel="noreferrer"
+            className="focus-ring rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#a78bfa]"
+            aria-label={explorerTokenAriaLabel(activeChain)}
+          >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
           <Settings className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2} />
@@ -266,7 +278,7 @@ function ToggleChip({
       type="button"
       onClick={onToggle}
       className={cn(
-        'shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide transition',
+        'shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium tracking-tight transition',
         on
           ? 'border-[#38bdf8]/50 bg-[#38bdf8]/15 text-[#7dd3fc]'
           : 'border-[#1b1f2a] text-[#6b7280] hover:border-[#2d3548] hover:text-[#9ca3af]',

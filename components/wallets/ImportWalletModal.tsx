@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useImportWallet } from '@/lib/auth/solanaShims';
 import { Eye, EyeOff, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
 
 export function ImportWalletModal({
@@ -20,6 +22,7 @@ export function ImportWalletModal({
   const [keyText, setKeyText] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { mounted, visible } = useOverlayPresence(open);
 
   async function submit() {
     const trimmed = keyText.trim();
@@ -48,19 +51,32 @@ export function ImportWalletModal({
     }
   }
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex animate-in fade-in items-center justify-center bg-black/70 p-4 duration-200"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="import-wallet-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="presentation"
     >
+      <button
+        type="button"
+        className={cn(
+          'absolute inset-0 bg-black/70',
+          overlayBackdropClasses(visible),
+          'fill-mode-forwards',
+        )}
+        aria-label="Close import wallet"
+        onClick={() => !busy && onClose()}
+      />
       <div
         className={cn(
-          'relative w-full max-w-[312px] animate-in zoom-in-95 fade-in rounded border border-[#2a2f3a] bg-[#17191f] shadow-2xl duration-200',
+          'relative w-full max-w-[312px] rounded border border-[#2a2f3a] bg-[#17191f] shadow-2xl fill-mode-forwards',
+          overlayPanelClasses(visible),
         )}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-wallet-title"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-4">
           <h2 id="import-wallet-title" className="flex-1 text-center text-[16px] font-semibold text-[#d1d5db]">

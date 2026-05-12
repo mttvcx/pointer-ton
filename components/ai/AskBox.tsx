@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { ArrowUp, Loader2, Sparkles } from 'lucide-react';
+import { POINTER_COPILOT_QUICK_ASK_EVENT } from '@/lib/copilot/quickAsk';
 import { cn } from '@/lib/utils/cn';
 import type { TooltipOutput } from '@/lib/ai/schemas';
 import type { EntityRef } from '@/store/ui';
@@ -31,8 +32,6 @@ interface AskResult {
   modelUsed: string;
   costUsd: number;
 }
-
-const QUICK_ASK_EVENT = 'pointer-copilot-quick-ask';
 
 /**
  * Quick term explainer. Phase 1 wires the `tooltip` pipeline only - chat with
@@ -105,13 +104,14 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
       if (!authenticated || mutation.isPending) return;
       submitRef.current(ce.detail);
     }
-    window.addEventListener(QUICK_ASK_EVENT, onQuickAsk as EventListener);
-    return () => window.removeEventListener(QUICK_ASK_EVENT, onQuickAsk as EventListener);
+    window.addEventListener(POINTER_COPILOT_QUICK_ASK_EVENT, onQuickAsk as EventListener);
+    return () =>
+      window.removeEventListener(POINTER_COPILOT_QUICK_ASK_EVENT, onQuickAsk as EventListener);
   }, [authenticated, mutation.isPending]);
 
   return (
     <div
-      className="rounded-2xl border px-3 py-3 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
+      className="rounded-xl border px-3 py-2.5"
       style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card }}
     >
       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: COPILOT.text }}>

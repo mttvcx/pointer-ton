@@ -10,14 +10,13 @@ import {
   Compass,
   Radio,
   Sparkles,
-  Users,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
-import { formatNumber, lamportsToSol } from '@/lib/utils/formatters';
+import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
-import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { nativeTicker, nativeUsdTickerSymbol } from '@/lib/chains/nativeCurrency';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { useTradingStore } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
@@ -87,16 +86,7 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
     staleTime: 25_000,
   });
 
-  const tickerSymbol =
-    activeChain === 'sol'
-      ? 'SOL'
-      : activeChain === 'ton'
-        ? 'TON'
-        : activeChain === 'bnb'
-          ? 'BNB'
-          : activeChain === 'base'
-            ? 'ETH'
-            : 'SOL';
+  const tickerSymbol = nativeUsdTickerSymbol(activeChain);
 
   const tickersQ = useQuery({
     queryKey: ['dock-native-usd', tickerSymbol],
@@ -108,10 +98,7 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
     staleTime: 60_000,
   });
 
-  const solBal =
-    portfolioQ.data?.solLamports != null
-      ? lamportsToSol(BigInt(portfolioQ.data.solLamports))
-      : null;
+  const solBal = parseLamportsStringToSol(portfolioQ.data?.solLamports);
   const nativeUsd = tickersQ.data;
 
   return (
@@ -131,7 +118,6 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
         </span>
         <div className="hidden h-3 w-px bg-[#1b1f2a] sm:block" aria-hidden />
         <DockNav href="/wallets" icon={Wallet} label="Wallet" />
-        <DockNav href="/trackers" icon={Users} label="Track" />
         <DockNav href="/pulse" icon={Compass} label="Pulse" />
         <DockNav href="/portfolio" icon={CircleDollarSign} label="PnL" />
         <DockNav href="/points" icon={Sparkles} label="Alpha" />

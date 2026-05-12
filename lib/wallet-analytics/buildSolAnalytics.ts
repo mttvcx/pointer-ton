@@ -4,9 +4,11 @@ import { getTokensByMints } from '@/lib/db/tokens';
 import type { WalletStatsRow } from '@/lib/db/wallets';
 import { fetchUsdPricesForMints } from '@/lib/jupiter/priceTickers';
 import { getSolBalanceLamports } from '@/lib/solana/recent-activity';
+import { findRecentIncomingSolFunding } from '@/lib/solana/walletFunding';
 import { listNonZeroSplBalances } from '@/lib/solana/wallet-token-balances';
 import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
 import { lamportsToSol } from '@/lib/utils/formatters';
+import type { WalletFundingInfo } from '@/lib/wallet-analytics/types';
 import type {
   WalletAnalyticsChartPoint,
   WalletAnalyticsTimeframe,
@@ -192,6 +194,24 @@ export async function buildSolWalletAnalytics(params: {
   /** Placeholder split when realized not stored separately */
   const realizedPnlUsd = totalPnlUsd != null ? totalPnlUsd * 0.42 : null;
 
+  let funding: WalletFundingInfo | null = null;
+  try {
+    const incoming = await findRecentIncomingSolFunding(address);
+    if (incoming) {
+      const sol = lamportsToSol(incoming.lamportsReceived);
+      const periodLabel =
+        timeframe === '1d' ? '1d' : timeframe === '7d' ? '7d' : timeframe === '30d' ? '30d' : 'Max';
+      funding = {
+        fromAddress: incoming.fromAddress,
+        fundingTxSignature: incoming.signature,
+        amountSol: Number.isFinite(sol) ? sol : null,
+        periodLabel,
+      };
+    }
+  } catch {
+    funding = null;
+  }
+
   return {
     address,
     chain: 'sol',
@@ -204,6 +224,7 @@ export async function buildSolWalletAnalytics(params: {
     stableCoinBalanceUsd: stableUsd > 0 ? stableUsd : null,
     walletAgeLabel: null,
     nativeBalanceLabel: null,
+    funding,
     chart,
     positions,
     performance: {

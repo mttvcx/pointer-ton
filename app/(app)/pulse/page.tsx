@@ -32,7 +32,7 @@ export default async function PulsePage({
   return (
     <div
       data-onboarding="pulse-feed"
-      className="flex h-full min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden"
+      className="flex w-full min-w-0 flex-1 flex-col gap-0 xl:flex-row xl:flex-nowrap xl:items-start"
     >
       <PulseColumn column="new" initialShare={initialNew} />
       <PulseColumn column="stretch" initialShare={initialStretch} />

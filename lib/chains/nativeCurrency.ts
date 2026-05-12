@@ -14,3 +14,27 @@ export function nativeTicker(chain: AppChainId): string {
       return 'TON';
   }
 }
+
+/**
+ * Symbol exposed by `/api/prices/tickers` for native spot when pricing USD conversion.
+ */
+export function nativeUsdTickerSymbol(chain: AppChainId): 'SOL' | 'TON' | 'BNB' | 'ETH' {
+  switch (chain) {
+    case 'sol':
+      return 'SOL';
+    case 'bnb':
+      return 'BNB';
+    case 'base':
+      return 'ETH';
+    case 'ton':
+    default:
+      return 'TON';
+  }
+}
+
+/** Sub-unit labels for deterministic priority knobs (Solana presets use lamports; TON uses nanotons). */
+export function nativePriorityFeeDenomLabel(chain: AppChainId): string {
+  if (chain === 'sol') return 'lamports';
+  if (chain === 'ton') return 'nanotons';
+  return 'µ-units';
+}

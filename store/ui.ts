@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppChainId } from '@/lib/chains/appChain';
-import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
+import { DEFAULT_APP_CHAIN, normalizePersistedAppChain } from '@/lib/chains/appChain';
 
 /**
  * Lightweight UI state shared across the layout shell.
@@ -66,7 +66,7 @@ interface UIState {
   searchQuery: string;
   searchOpen: boolean;
 
-  /** Selected network in the header toggle (TON is fully wired; others are UI preview). */
+  /** Selected network in the header toggle (Sol · BNB · Base · TON; no Bitcoin L1). */
   activeChain: AppChainId;
 
   setHovered: (entity: EntityRef | null) => void;
@@ -119,6 +119,11 @@ interface UIState {
   setSearchQuery: (q: string) => void;
   setSearchOpen: (open: boolean) => void;
   setActiveChain: (chain: AppChainId) => void;
+
+  /** Automation / Track: flash a Pulse row by mint (non-persisted). */
+  trackPulseHighlightMint: string | null;
+  flashTrackPulseMint: (mint: string, ms?: number) => void;
+  clearTrackPulseFlash: () => void;
 }
 
 const PANEL_DEFAULT = 380;
@@ -186,6 +191,7 @@ export const useUIStore = create<UIState>()(
       searchQuery: '',
       searchOpen: false,
       activeChain: DEFAULT_APP_CHAIN,
+      trackPulseHighlightMint: null,
 
       setHovered: (entity) => {
         if (sameEntity(entity, get().hoveredEntity)) return;
@@ -294,9 +300,29 @@ export const useUIStore = create<UIState>()(
       setSearchQuery: (q) => set({ searchQuery: q }),
       setSearchOpen: (open) => set({ searchOpen: open }),
       setActiveChain: (chain) => set({ activeChain: chain }),
+
+      flashTrackPulseMint: (mint, ms = 12_000) => {
+        const trimmed = mint.trim();
+        if (!trimmed) return;
+        set({ trackPulseHighlightMint: trimmed });
+        window.setTimeout(() => {
+          const cur = useUIStore.getState().trackPulseHighlightMint;
+          if (cur === trimmed) set({ trackPulseHighlightMint: null });
+        }, ms);
+      },
+      clearTrackPulseFlash: () => set({ trackPulseHighlightMint: null }),
     }),
     {
       name: 'pointer-ui',
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<UIState>;
+        const chain = normalizePersistedAppChain(p.activeChain);
+        return {
+          ...current,
+          ...p,
+          ...(chain !== null ? { activeChain: chain } : {}),
+        };
+      },
       partialize: (s) => ({
         panelCollapsed: s.panelCollapsed,
         lastCopilotAlertsReadAt: s.lastCopilotAlertsReadAt,

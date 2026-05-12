@@ -152,7 +152,7 @@ export default async function WalletDetailPage({
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Link
-              href={`/trackers?wallet=${encodeURIComponent(address)}`}
+              href={`/wallets?wallet=${encodeURIComponent(address)}`}
               prefetch={false}
               className="focus-ring rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-[11px] font-medium text-fg-secondary transition hover:border-border-default hover:text-fg-primary"
               title="Add this address to your wallet trackers"
@@ -249,7 +249,7 @@ export default async function WalletDetailPage({
                         {row.sublabel ? (
                           <p className="text-[11px] leading-snug text-fg-muted">{row.sublabel}</p>
                         ) : null}
-                        <p className="font-mono text-[10px] text-fg-muted/90">
+                        <p className="text-[10px] tabular-nums text-fg-muted/90">
                           Slot {formatNumber(row.slot, { decimals: 0 })}
                         </p>
                       </div>

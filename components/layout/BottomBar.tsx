@@ -3,21 +3,25 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { useEffect, useState } from 'react';
 import {
   Activity,
+  AlertCircle,
   CircleDollarSign,
   Compass,
   Globe,
   Headphones,
-  Radio,
+  Radar,
   Sparkles,
-  Users,
   Wallet,
+  X,
 } from 'lucide-react';
+import { DiagnosticsTriggerButton, BugReportDrawer } from '@/components/reports/BugReportDrawer';
+import { snapshotRecentClientErrors } from '@/lib/reports/clientErrorRing';
 import { cn } from '@/lib/utils/cn';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
-import { formatNumber, lamportsToSol } from '@/lib/utils/formatters';
+import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
@@ -102,7 +106,51 @@ function BottomBarVerticalTicker({ rows, chain }: { rows: TickerRow[]; chain: Ap
   );
 }
 
+function IssuesIndicator({ onOpenDiagnostics }: { onOpenDiagnostics: () => void }) {
+  const [count, setCount] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const tick = () => {
+      if (!active) return;
+      setCount(snapshotRecentClientErrors().length);
+    };
+    tick();
+    const id = window.setInterval(tick, 3000);
+    return () => {
+      active = false;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  if (dismissed || count === 0) return null;
+
+  return (
+    <span className="inline-flex h-5 items-center gap-1 rounded-md bg-rose-500/12 px-1.5 text-[10px] font-semibold text-rose-300">
+      <AlertCircle className="h-3 w-3" strokeWidth={2} aria-hidden />
+      <button
+        type="button"
+        onClick={onOpenDiagnostics}
+        className="tabular-nums underline-offset-2 hover:underline"
+        title="Open diagnostics"
+      >
+        {count} Issue{count === 1 ? '' : 's'}
+      </button>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="rounded-sm p-0.5 text-rose-300/70 transition-colors hover:text-rose-200"
+        aria-label="Dismiss issues badge"
+      >
+        <X className="h-2.5 w-2.5" strokeWidth={2.5} />
+      </button>
+    </span>
+  );
+}
+
 export function BottomBar() {
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const { getAccessToken, authenticated } = usePointerAuth();
   const { activePresetSlot } = useTradingStore();
   const activeChain = useUIStore((s) => s.activeChain);
@@ -208,18 +256,13 @@ export function BottomBar() {
 
   const rows = tickersQ.data ?? [];
 
-  const solBal =
-    portfolioQ.data?.solLamports != null
-      ? lamportsToSol(BigInt(portfolioQ.data.solLamports))
-      : null;
+  const solBal = parseLamportsStringToSol(portfolioQ.data?.solLamports);
 
   const rowForActive = myWalletsQ.data?.wallets?.find((w) => w.wallet_address === activeAddress);
   const tonBalUi =
-    activeChain === 'ton' && rowForActive?.balance_lamports
-      ? lamportsToSol(BigInt(rowForActive.balance_lamports))
-      : activeChain === 'ton'
-        ? 0
-        : null;
+    activeChain === 'ton'
+      ? parseLamportsStringToSol(rowForActive?.balance_lamports ?? null) ?? 0
+      : null;
 
   const barBal =
     activeChain === 'sol' ? solBal : activeChain === 'ton' ? tonBalUi : null;
@@ -228,19 +271,19 @@ export function BottomBar() {
     presetsQ.data?.presets?.find((p) => p.slot === activePresetSlot)?.name ?? `S${activePresetSlot}`;
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-50 flex min-h-11 shrink-0 border-t pb-[env(safe-area-inset-bottom,0px)] text-[10px] tabular-nums text-[#9ca3af]"
-      style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}
-    >
+    <>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 flex min-h-11 shrink-0 border-t pb-[env(safe-area-inset-bottom,0px)] text-[10px] tabular-nums text-[#9ca3af]"
+        style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}
+      >
       <div className="flex min-h-11 w-full min-w-0 items-center gap-2 overflow-x-auto px-2 sm:gap-2 sm:px-2.5">
         <div className="hidden min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-r pr-2 sm:flex" style={{ borderColor: '#1b1f2a' }}>
           <span className="rounded border px-1 py-px text-[9px] tabular-nums font-semibold text-[#5eead4]" style={{ borderColor: '#1b1f2a' }}>
             PRESET {activePresetSlot}
           </span>
           <DockLink href="/wallets" icon={Wallet} label="Wallet" />
-          <DockLink href="/trackers" icon={Users} label="Social" />
           <DockLink href="/pulse" icon={Compass} label="Discover" />
-          <DockLink href="/pulse" icon={Radio} label="Pulse" />
+          <DockLink href="/track" icon={Radar} label="Track" />
           <DockLink href="/portfolio" icon={CircleDollarSign} label="PnL" />
           <DockLink href="/points" icon={Sparkles} label="Alpha" />
         </div>
@@ -293,12 +336,14 @@ export function BottomBar() {
 
         <div className="min-w-0 flex-1" aria-hidden />
 
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-px text-[9px] font-semibold text-emerald-300">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <IssuesIndicator onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
+          <span className="hidden items-center gap-0.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-px text-[9px] font-semibold text-emerald-300 md:inline-flex">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
             Stable
           </span>
-          <span className="text-[9px] font-semibold text-[#4b5563]">US-E</span>
+          <span className="hidden text-[9px] font-semibold text-[#4b5563] lg:inline">US-E</span>
+          <DiagnosticsTriggerButton compactMobile onClick={() => setDiagnosticsOpen(true)} />
           <button type="button" className="rounded p-1 text-[#4b5563] hover:bg-white/5 hover:text-[#9ca3af]" title="Help">
             <Globe className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
@@ -311,6 +356,13 @@ export function BottomBar() {
         </div>
       </div>
     </div>
+      <BugReportDrawer
+        open={diagnosticsOpen}
+        onClose={() => setDiagnosticsOpen(false)}
+        connectionStatusLabel="Stable"
+        regionLabel="US-E"
+      />
+    </>
   );
 }
 
