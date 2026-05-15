@@ -305,7 +305,9 @@ export function TokenRow({
         // !important so the elevation CSS rule (same specificity) can't out-win the tracked-dev tint.
         trackedDev && '!bg-accent-primary/[0.08]',
         pulseFlashHighlight && 'row-active z-[25]',
-        'hover:bg-bg-hover',
+        // Column panel is bg-raised; rows pop on hover via a translucent
+        // white overlay so the highlight reads across every theme.
+        'hover:bg-white/[0.04]',
       )}
       style={slotHeight != null ? { height: slotHeight } : undefined}
     >

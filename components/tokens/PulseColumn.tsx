@@ -32,14 +32,21 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import { useUIStore } from '@/store/ui';
+import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 /**
- * Locked per-row slot height. The virtualizer's `estimateSize` and the
- * absolute-positioned row wrapper share this number. Row density (Compact /
- * Default / Spaced) controls horizontal gap between columns, NOT row size.
+ * Pulse row slot height per density mode. Both the virtualizer's
+ * `estimateSize` and the absolute-positioned slot wrapper read from this so
+ * Compact ↔ Tabled actually swap row footprint without re-mounting the list.
+ *
+ *  - `compact` — current multi-line layout (avatar + identity + social strip).
+ *  - `tabled`  — Axiom-style denser footprint; same content but tighter.
  */
-const ROW_SLOT_PX = 118;
+const ROW_SLOT_PX_BY_DENSITY = {
+  compact: 118,
+  tabled: 88,
+} as const;
 
 const COLUMN_LABEL: Record<PulseColumnId, string> = {
   new: 'New',
@@ -283,7 +290,9 @@ export function PulseColumn({
     [columnFiltered, sortBy, sortDir],
   );
 
-  const rowSize = ROW_SLOT_PX;
+  const { prefs } = usePreferences();
+  const isTabled = prefs.rowDensity === 'tabled';
+  const rowSize = ROW_SLOT_PX_BY_DENSITY[prefs.rowDensity];
 
   /* eslint-disable react-hooks/incompatible-library */
   const rowVirtualizer = useVirtualizer({
@@ -326,10 +335,13 @@ export function PulseColumn({
         // Bounded height + flex-col so the row list scrolls inside the column
         // independently of the page. min-h-0 lets the inner overflow region
         // shrink to fit; h-full anchors it to the parent's bounded box.
-        'flex h-full min-h-0 min-w-0 flex-1 flex-col border-r border-border-subtle bg-bg-base last:border-r-0',
+        // bg-bg-raised + border + rounded gives each column a grey "panel"
+        // look against the darker page bg, so the gap between columns
+        // reads as a real separation (Axiom-style, across all themes).
+        'pulse-column flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised',
       )}
     >
-      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-base px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
+      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-raised px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -400,6 +412,23 @@ export function PulseColumn({
           void presetsQuery.refetch();
         }}
       />
+
+      {isTabled ? (
+        <div
+          className={cn(
+            'shrink-0 border-b border-border-subtle bg-bg-raised px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted',
+            'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3',
+          )}
+          aria-hidden
+        >
+          <span className="truncate">Token</span>
+          <span className="flex items-center gap-4 tabular-nums">
+            <span>Vol</span>
+            <span>Mkt Cap</span>
+            <span className="w-14 text-right">Buy</span>
+          </span>
+        </div>
+      ) : null}
 
       <div
         ref={listMountRef}

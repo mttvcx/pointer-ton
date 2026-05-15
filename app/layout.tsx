@@ -32,7 +32,7 @@ const THEME_BOOTSTRAP_SCRIPT = `(function(){try{var d=document.documentElement;v
  * The fallbacks here MUST mirror DEFAULT_PREFERENCES in
  * `lib/preferences/preferences.ts` — keep them in sync.
  */
-const PREFERENCES_BOOTSTRAP_SCRIPT = `(function(){try{var r=document.documentElement;var raw=localStorage.getItem('pointer.preferences');var p={};if(raw){try{p=JSON.parse(raw)||{};}catch(e){p={};}}r.setAttribute('data-row-density',p.rowDensity==='compact'||p.rowDensity==='spaced'?p.rowDensity:'default');r.setAttribute('data-row-separators',p.rowSeparators===false?'false':'true');r.setAttribute('data-row-elevation',p.rowElevation===false?'false':'true');r.setAttribute('data-action-divider',p.actionZoneDivider===false?'false':'true');r.setAttribute('data-avatar-size',p.avatarSize==='small'||p.avatarSize==='large'?p.avatarSize:'default');}catch(e){}})();`;
+const PREFERENCES_BOOTSTRAP_SCRIPT = `(function(){try{var r=document.documentElement;var raw=localStorage.getItem('pointer.preferences');var p={};if(raw){try{p=JSON.parse(raw)||{};}catch(e){p={};}}r.setAttribute('data-row-density',p.rowDensity==='tabled'?'tabled':'compact');r.setAttribute('data-row-separators',p.rowSeparators===false?'false':'true');r.setAttribute('data-row-elevation',p.rowElevation===false?'false':'true');r.setAttribute('data-action-divider',p.actionZoneDivider===false?'false':'true');r.setAttribute('data-avatar-size',p.avatarSize==='small'||p.avatarSize==='large'?p.avatarSize:'default');}catch(e){}})();`;
 
 const inter = Inter({
   subsets: ['latin'],

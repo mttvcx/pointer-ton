@@ -105,14 +105,13 @@ export function DisplayPopover() {
           </header>
 
           <div className="space-y-4">
-            <PrefField label="Row density">
+            <PrefField label="Row layout">
               <SegmentedControl
                 value={prefs.rowDensity}
                 onChange={(v) => setPref('rowDensity', v)}
                 options={[
                   { value: 'compact', label: 'Compact' },
-                  { value: 'default', label: 'Default' },
-                  { value: 'spaced', label: 'Spaced' },
+                  { value: 'tabled', label: 'Tabled' },
                 ]}
               />
             </PrefField>

@@ -640,19 +640,16 @@
  * surfaces (Squads, Portfolio, Token detail) get their own hooks later.
  */
 
-/* Row density — controls HORIZONTAL gap between the three Pulse columns
-   (New / Stretch / Migrated). Density does NOT change row height; the row
-   slot is locked at the virtualizer level in PulseColumn for predictable
-   scrolling. */
-:root[data-row-density='compact'] .pulse-columns {
-  gap: 0;
-}
-:root[data-row-density='default'] .pulse-columns,
-:root:not([data-row-density]) .pulse-columns {
+/* Pulse column layout mode (Compact ↔ Tabled).
+   The horizontal gap between the three grey column panels stays constant.
+   Tabled mode forces a strong hairline between every row so the column
+   reads as a true table — independent of the row-separators toggle. */
+.pulse-columns {
   gap: 0.5rem;
 }
-:root[data-row-density='spaced'] .pulse-columns {
-  gap: 1.5rem;
+
+:root[data-row-density='tabled'] .pulse-row {
+  border-bottom: 1px solid rgb(var(--border-subtle-rgb) / 1);
 }
 
 /* Row separators — 1px bottom hairline between rows. */
@@ -663,9 +660,12 @@
   border-bottom: 1px solid transparent;
 }
 
-/* Row elevation — rows lift above page bg with the raised surface token. */
+/* Row elevation — rows sit on top of the column panel (which now provides
+   the grey "card" tier). When elevation is ON, give rows a very subtle
+   white overlay so they read as raised against the panel without colliding
+   with the panel's own bg-raised tone. */
 :root[data-row-elevation='true'] .pulse-row {
-  background-color: rgb(var(--bg-raised-rgb) / 1);
+  background-color: rgb(255 255 255 / 0.025);
 }
 :root[data-row-elevation='false'] .pulse-row {
   background-color: transparent;

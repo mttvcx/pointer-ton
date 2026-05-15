@@ -12,7 +12,16 @@
 
 import { z } from 'zod';
 
-export const RowDensitySchema = z.enum(['compact', 'default', 'spaced']);
+/**
+ * Pulse row density. Two modes:
+ *   - `compact`  — current/default look (multi-line rows, social strip visible).
+ *   - `tabled`   — Axiom-style: header strip per column, strong row separators,
+ *                  slightly denser slot. Cross-theme; purely a layout pref.
+ *
+ * Legacy persisted values ('default' / 'spaced') are migrated to 'compact'
+ * by `withDefaults` below — no schema fail.
+ */
+export const RowDensitySchema = z.enum(['compact', 'tabled']);
 export type RowDensity = z.infer<typeof RowDensitySchema>;
 
 export const AvatarSizeSchema = z.enum(['small', 'default', 'large']);
@@ -29,7 +38,7 @@ export const PreferencesSchema = z.object({
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
 export const DEFAULT_PREFERENCES: Preferences = {
-  rowDensity: 'default',
+  rowDensity: 'compact',
   rowSeparators: true,
   rowElevation: true,
   actionZoneDivider: true,
@@ -48,5 +57,10 @@ export function isPreferences(value: unknown): value is Preferences {
  * or stored an old shape — unknown keys are tolerated, missing keys fall back.
  */
 export function withDefaults(input: Partial<Preferences> | null | undefined): Preferences {
-  return { ...DEFAULT_PREFERENCES, ...(input ?? {}) };
+  const merged = { ...DEFAULT_PREFERENCES, ...(input ?? {}) } as Preferences;
+  // Migrate legacy density values ('default' / 'spaced') → 'compact'.
+  if ((merged.rowDensity as string) !== 'compact' && (merged.rowDensity as string) !== 'tabled') {
+    merged.rowDensity = 'compact';
+  }
+  return merged;
 }
