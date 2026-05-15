@@ -603,7 +603,7 @@ export function PulseRowSocialStrip({
                 <img
                   src="/icons/twitter-profile.png"
                   alt="Twitter profile"
-                  className="h-4 w-4 shrink-0 object-contain opacity-90 transition-opacity hover:opacity-100"
+                  className="h-5 w-5 shrink-0 object-contain opacity-90 transition-opacity hover:opacity-100"
                 />
               </a>
             </StripTip>
@@ -627,7 +627,7 @@ export function PulseRowSocialStrip({
                   src="/icons/twitter-tweet.png"
                   alt="Twitter tweet"
                   className={cn(
-                    'h-4 w-4 shrink-0 object-contain opacity-90 transition-opacity hover:opacity-100',
+                    'h-5 w-5 shrink-0 object-contain opacity-90 transition-opacity hover:opacity-100',
                     tweetStale === true && 'rounded-sm ring-2 ring-signal-warn/45',
                   )}
                 />
@@ -828,9 +828,9 @@ export function PulseRowSocialStrip({
         {showDsStrip ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex cursor-default items-center gap-0.5">
-                <Shield className="h-4 w-4 shrink-0 text-signal-bear" strokeWidth={2.25} aria-hidden />
-                <span className="text-xs font-medium tabular-nums text-signal-bear">
+              <span className="flex cursor-default items-center gap-1">
+                <Shield className="h-5 w-5 shrink-0 text-signal-bear" strokeWidth={2.25} aria-hidden />
+                <span className="text-sm font-medium tabular-nums text-signal-bear">
                   {Math.round(devPct!)}%
                 </span>
               </span>
@@ -842,9 +842,9 @@ export function PulseRowSocialStrip({
         {showLiquidity && liqDisplay != null ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex cursor-default items-center gap-0.5">
-                <Droplets className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
-                <span className="text-xs tabular-nums text-fg-secondary">{liqDisplay}</span>
+              <span className="flex cursor-default items-center gap-1">
+                <Droplets className="h-5 w-5 shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
+                <span className="text-sm tabular-nums text-fg-secondary">{liqDisplay}</span>
               </span>
             </TooltipTrigger>
             <TooltipContent>Liquidity</TooltipContent>
@@ -854,9 +854,9 @@ export function PulseRowSocialStrip({
         {showTxCount && txns != null ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex cursor-default items-center gap-0.5">
-                <Activity className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
-                <span className="text-xs tabular-nums text-fg-secondary">
+              <span className="flex cursor-default items-center gap-1">
+                <Activity className="h-5 w-5 shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
+                <span className="text-sm tabular-nums text-fg-secondary">
                   {formatNumber(txns, { decimals: 0 })}
                 </span>
               </span>
@@ -870,16 +870,15 @@ export function PulseRowSocialStrip({
             <TooltipTrigger asChild>
               <Link
                 href={`/wallet/${encodeURIComponent(devWalletAddr)}`}
-                className="flex cursor-default items-center gap-0.5"
+                className="flex cursor-default items-center"
+                aria-label={`Dev wallet ${devWalletAddr}`}
                 data-row-click-skip="true"
               >
-                <ChefHat className="h-4 w-4 shrink-0 text-signal-warn" strokeWidth={2.25} aria-hidden />
-                <span className="font-mono text-xs text-fg-secondary">
-                  {devWalletAddr.slice(0, 4)}…{devWalletAddr.slice(-4)}
-                </span>
+                <ChefHat className="h-5 w-5 shrink-0 text-signal-warn" strokeWidth={2.25} aria-hidden />
               </Link>
             </TooltipTrigger>
-            <TooltipContent>Dev wallet: {devWalletAddr}</TooltipContent>
+            {/* Tooltip is the full address only — no "Dev wallet:" prefix. */}
+            <TooltipContent className="font-mono">{devWalletAddr}</TooltipContent>
           </Tooltip>
         ) : null}
       </div>

@@ -640,25 +640,19 @@
  * surfaces (Squads, Portfolio, Token detail) get their own hooks later.
  */
 
-/* Row density — controls min-height + vertical padding on .pulse-row. */
-:root[data-row-density='compact'] .pulse-row {
-  --row-min-h: 56px;
-  --row-pad-y: 0.375rem;
+/* Row density — controls HORIZONTAL gap between the three Pulse columns
+   (New / Stretch / Migrated). Density does NOT change row height; the row
+   slot is locked at the virtualizer level in PulseColumn for predictable
+   scrolling. */
+:root[data-row-density='compact'] .pulse-columns {
+  gap: 0;
 }
-:root[data-row-density='default'] .pulse-row,
-:root:not([data-row-density]) .pulse-row {
-  --row-min-h: 72px;
-  --row-pad-y: 0.625rem;
+:root[data-row-density='default'] .pulse-columns,
+:root:not([data-row-density]) .pulse-columns {
+  gap: 0.5rem;
 }
-:root[data-row-density='spaced'] .pulse-row {
-  --row-min-h: 92px;
-  --row-pad-y: 0.875rem;
-}
-
-.pulse-row {
-  min-height: var(--row-min-h);
-  padding-top: var(--row-pad-y);
-  padding-bottom: var(--row-pad-y);
+:root[data-row-density='spaced'] .pulse-columns {
+  gap: 1.5rem;
 }
 
 /* Row separators — 1px bottom hairline between rows. */

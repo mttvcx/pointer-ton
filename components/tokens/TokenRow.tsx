@@ -356,7 +356,6 @@ export function TokenRow({
                 >
                   <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
                     {identityCluster}
-                    {ageBadge}
                     {heroMcBlock}
                   </div>
                 </Link>
@@ -374,19 +373,25 @@ export function TokenRow({
                   </div>
                 ) : null}
               </div>
-              <PulseRowSocialStrip
-                bundle={bundle}
-                traits={{
-                  cashback: showTraitIcons && traits.cashback,
-                  feeShare: showTraitIcons && traits.feeShare,
-                  agent: showTraitIcons && traits.agent,
-                }}
-                compact
-                glyphSize={16}
-                showLiquidity={showLiq}
-                showTxCount={showHolders}
-                showDevWallet={showDev}
-              />
+              <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
+                {/* Age moves to the LEFT of the icon strip so it reads as
+                    a leading timestamp (Axiom-style) instead of trailing
+                    the symbol/name on the line above. */}
+                {ageBadge}
+                <PulseRowSocialStrip
+                  bundle={bundle}
+                  traits={{
+                    cashback: showTraitIcons && traits.cashback,
+                    feeShare: showTraitIcons && traits.feeShare,
+                    agent: showTraitIcons && traits.agent,
+                  }}
+                  compact
+                  glyphSize={20}
+                  showLiquidity={showLiq}
+                  showTxCount={showHolders}
+                  showDevWallet={showDev}
+                />
+              </div>
             </div>
           </div>
         </div>

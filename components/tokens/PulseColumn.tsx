@@ -32,21 +32,14 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import { useUIStore } from '@/store/ui';
-import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 /**
- * Slot height per density tier. Density is a global user preference
- * (Display popover / Settings modal); the virtualizer's `estimateSize`
- * AND the absolute-positioned row wrapper both read this so spacing
- * actually changes between Compact / Default / Spaced. Mirrors the
- * `--row-min-h` ladder in `app/globals.css` (Preferences block).
+ * Locked per-row slot height. The virtualizer's `estimateSize` and the
+ * absolute-positioned row wrapper share this number. Row density (Compact /
+ * Default / Spaced) controls horizontal gap between columns, NOT row size.
  */
-const ROW_SLOT_PX_BY_DENSITY = {
-  compact: 96,
-  default: 118,
-  spaced: 144,
-} as const;
+const ROW_SLOT_PX = 118;
 
 const COLUMN_LABEL: Record<PulseColumnId, string> = {
   new: 'New',
@@ -290,8 +283,7 @@ export function PulseColumn({
     [columnFiltered, sortBy, sortDir],
   );
 
-  const { prefs } = usePreferences();
-  const rowSize = ROW_SLOT_PX_BY_DENSITY[prefs.rowDensity];
+  const rowSize = ROW_SLOT_PX;
 
   /* eslint-disable react-hooks/incompatible-library */
   const rowVirtualizer = useVirtualizer({
@@ -304,8 +296,10 @@ export function PulseColumn({
   /* eslint-enable react-hooks/incompatible-library */
 
   useLayoutEffect(() => {
-    const mainEl = listMountRef.current?.closest('main');
-    scrollMainRef.current = mainEl ?? document.documentElement;
+    // Each column scrolls its own row list (not the page <main>) so the three
+    // columns scroll independently. Virtualizer reads measurements off this
+    // element; fall back to documentElement for legacy/non-overflow cases.
+    scrollMainRef.current = listMountRef.current ?? document.documentElement;
     rowVirtualizer.measure();
   }, [rowVirtualizer, column]);
 
@@ -329,10 +323,13 @@ export function PulseColumn({
   return (
     <section
       className={cn(
-        'flex min-w-0 flex-1 flex-col self-start border-r border-border-subtle bg-bg-base last:border-r-0 xl:min-h-0 xl:basis-0',
+        // Bounded height + flex-col so the row list scrolls inside the column
+        // independently of the page. min-h-0 lets the inner overflow region
+        // shrink to fit; h-full anchors it to the parent's bounded box.
+        'flex h-full min-h-0 min-w-0 flex-1 flex-col border-r border-border-subtle bg-bg-base last:border-r-0',
       )}
     >
-      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-base/97 px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)] backdrop-blur-sm">
+      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-base px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -404,7 +401,10 @@ export function PulseColumn({
         }}
       />
 
-      <div ref={listMountRef} className="w-full">
+      <div
+        ref={listMountRef}
+        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
+      >
         {query.isLoading ? (
           <div>
             {Array.from({ length: 8 }, (_, i) => (
