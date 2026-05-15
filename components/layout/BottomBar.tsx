@@ -27,6 +27,8 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
 import { useTradingStore } from '@/store/trading';
 import type { AppChainId } from '@/lib/chains/appChain';
+import { WalletPickerPopover } from '@/components/wallets/WalletPickerPopover';
+import { TradingSettingsPopover } from '@/components/trading/TradingSettingsPopover';
 
 type PresetRow = { slot: 1 | 2 | 3; name: string };
 
@@ -280,10 +282,13 @@ export function BottomBar() {
       <div className="fixed bottom-0 left-0 right-0 z-50 flex min-h-11 shrink-0 border-t border-border-subtle bg-bg-base pb-[env(safe-area-inset-bottom,0px)] text-[10px] tabular-nums text-fg-secondary">
       <div className="flex min-h-11 w-full min-w-0 items-center gap-2 overflow-x-auto px-2 sm:gap-2 sm:px-2.5">
         <div className="hidden min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-r border-border-subtle pr-2 sm:flex">
-          <span className="rounded border border-border-subtle px-1 py-px text-[9px] font-semibold tabular-nums text-accent-primary">
+          <TradingSettingsPopover className="cursor-pointer rounded border border-border-subtle px-1 py-px text-[9px] font-semibold tabular-nums text-accent-primary transition-colors hover:border-border-default hover:bg-white/[0.04]">
             PRESET {activePresetSlot}
-          </span>
-          <DockLink href="/wallets" icon={Wallet} label="Wallet" />
+          </TradingSettingsPopover>
+          <WalletPickerPopover className="inline-flex cursor-pointer items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg-primary">
+            <Wallet className="h-3 w-3 shrink-0 opacity-90" strokeWidth={2} />
+            <span className="hidden xl:inline">Wallet</span>
+          </WalletPickerPopover>
           <DockLink href="/pulse" icon={Compass} label="Discover" />
           <DockLink href="/track" icon={Radar} label="Track" />
           <DockLink href="/portfolio" icon={CircleDollarSign} label="PnL" />

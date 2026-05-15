@@ -36,7 +36,11 @@ export default async function PulsePage({
         // so each column can scroll independently inside its bounded box.
         // px-* gives both screen edges breathing room so V/MC numbers
         // never sit flush against the viewport edge.
-        'pulse-columns flex h-full min-h-0 w-full min-w-0 flex-1 flex-col px-2 sm:px-3 lg:px-4',
+        // pt-2/pb-3: the rounded `bg-bg-raised` column panels need padding
+        // above/below them so the rounded corners are visible (otherwise
+        // they butt directly into the top-bar / bottom-bar and read as
+        // straight edges).
+        'pulse-columns flex h-full min-h-0 w-full min-w-0 flex-1 flex-col px-2 pb-3 pt-8 sm:px-3 sm:pt-10 lg:px-4 lg:pt-12',
         'xl:flex-row xl:flex-nowrap xl:items-stretch',
       )}
     >

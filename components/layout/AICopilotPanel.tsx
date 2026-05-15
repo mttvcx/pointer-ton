@@ -43,20 +43,47 @@ const FLOAT_CORNER = 12;
 const MIN_FLOAT_H = 200;
 const COPILOT_DOCK_ZONE_PX = 88;
 
-/** Panel chrome colors (matches `ContextCard` COPILOT tokens + layout-specific fields). */
+/**
+ * Panel chrome — all values are CSS-variable strings so the side co-pilot
+ * panel recolors automatically when the user switches between Pointer, Axiom,
+ * and Terminal themes. Previously this was a hardcoded blueish glass palette
+ * (`#0077b6` accent / `#7f8aa3` muted / fixed rgba bg). With these `rgb(var(...))`
+ * strings, the panel now reads from the same `--bg-raised-rgb` / `--border-subtle-rgb`
+ * / `--accent-primary-rgb` / `--fg-*-rgb` triplets defined in `app/globals.css`
+ * under each `:root[data-theme=...]` block.
+ */
 const COPILOT_CHROME = {
   /** Glass panels — translucent so backdrop blur reads through */
-  card: 'rgba(17, 20, 27, 0.52)',
-  border: 'rgba(255, 255, 255, 0.09)',
-  muted: '#7f8aa3',
-  text: '#f5f7ff',
-  accent: '#0077b6',
-  cyan: '#34d5ff',
-  bg: 'rgba(8, 13, 20, 0.42)',
-  success: '#28e0a0',
+  card: 'rgb(var(--bg-raised-rgb) / 0.55)',
+  border: 'rgb(var(--border-subtle-rgb) / 1)',
+  muted: 'rgb(var(--fg-muted-rgb) / 1)',
+  text: 'rgb(var(--fg-primary-rgb) / 1)',
+  accent: 'rgb(var(--accent-primary-rgb) / 1)',
+  cyan: 'rgb(var(--accent-glow-rgb) / 1)',
+  bg: 'rgb(var(--bg-base-rgb) / 0.48)',
+  success: 'rgb(var(--signal-bull-rgb) / 1)',
   glass:
-    'linear-gradient(180deg, rgba(17,20,27,0.55) 0%, rgba(8,13,20,0.48) 55%, rgba(6,9,14,0.5) 100%)',
+    'linear-gradient(180deg, rgb(var(--bg-raised-rgb) / 0.55) 0%, rgb(var(--bg-base-rgb) / 0.48) 55%, rgb(var(--bg-sunken-rgb) / 0.5) 100%)',
 } as const;
+
+/**
+ * Theme-aware alpha helpers — produce `rgb(var(--token-rgb) / α)` strings.
+ * Replaces the previous `${HEX}AA` string-concat trick which only worked
+ * because the constants were 6-char hex literals. With CSS-var-backed values
+ * we cannot just append hex alpha digits; use these to compose translucent
+ * fills, borders, and shadows.
+ */
+function withAlpha(token: 'accent' | 'cyan' | 'border' | 'fg', alpha: number): string {
+  const v =
+    token === 'accent'
+      ? 'var(--accent-primary-rgb)'
+      : token === 'cyan'
+        ? 'var(--accent-glow-rgb)'
+        : token === 'border'
+          ? 'var(--border-subtle-rgb)'
+          : 'var(--fg-primary-rgb)';
+  return `rgb(${v} / ${alpha})`;
+}
 
 type FloatEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -591,16 +618,16 @@ export function AICopilotPanel() {
         )}
         style={{
           borderColor: COPILOT_CHROME.border,
-          background: `linear-gradient(180deg, rgba(17,20,27,0.58) 0%, rgba(8,13,20,0.38) 100%)`,
+          background: COPILOT_CHROME.glass,
         }}
       >
         <div className="flex min-w-0 items-center gap-2">
           <span
             className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
             style={{
-              borderColor: `${COPILOT_CHROME.accent}55`,
-              boxShadow: `0 0 16px -4px ${COPILOT_CHROME.accent}66`,
-              backgroundColor: 'rgba(21, 25, 36, 0.65)',
+              borderColor: withAlpha('accent', 0.33),
+              boxShadow: `0 0 16px -4px ${withAlpha('accent', 0.4)}`,
+              backgroundColor: 'rgb(var(--bg-sunken-rgb) / 0.65)',
             }}
           >
             <Sparkles className="h-4 w-4" style={{ color: COPILOT_CHROME.cyan }} strokeWidth={2.25} />
@@ -615,10 +642,10 @@ export function AICopilotPanel() {
                 style={{
                   borderColor:
                     copilotStatus === 'armed'
-                      ? `${COPILOT_CHROME.cyan}55`
+                      ? withAlpha('cyan', 0.33)
                       : copilotStatus === 'watching'
-                        ? `${COPILOT_CHROME.accent}44`
-                        : `${COPILOT_CHROME.border}`,
+                        ? withAlpha('accent', 0.27)
+                        : COPILOT_CHROME.border,
                   color:
                     copilotStatus === 'armed'
                       ? COPILOT_CHROME.cyan
@@ -627,15 +654,15 @@ export function AICopilotPanel() {
                         : COPILOT_CHROME.muted,
                   backgroundColor:
                     copilotStatus === 'idle'
-                      ? 'rgba(15, 18, 24, 0.55)'
+                      ? 'rgb(var(--bg-sunken-rgb) / 0.55)'
                       : copilotStatus === 'watching'
-                        ? `${COPILOT_CHROME.accent}12`
-                        : `${COPILOT_CHROME.cyan}10`,
+                        ? withAlpha('accent', 0.07)
+                        : withAlpha('cyan', 0.06),
                   boxShadow:
                     copilotStatus === 'armed'
-                      ? `0 0 12px -2px ${COPILOT_CHROME.cyan}55`
+                      ? `0 0 12px -2px ${withAlpha('cyan', 0.33)}`
                       : copilotStatus === 'watching'
-                        ? `0 0 10px -2px ${COPILOT_CHROME.accent}40`
+                        ? `0 0 10px -2px ${withAlpha('accent', 0.25)}`
                         : 'none',
                 }}
               >
@@ -669,7 +696,7 @@ export function AICopilotPanel() {
               className="focus-ring rounded px-1.5 py-1"
               style={{
                 color: displayMode === 'panel' ? COPILOT_CHROME.cyan : COPILOT_CHROME.muted,
-                backgroundColor: displayMode === 'panel' ? `${COPILOT_CHROME.accent}22` : 'transparent',
+                backgroundColor: displayMode === 'panel' ? withAlpha('accent', 0.13) : 'transparent',
               }}
             >
               <PanelRight className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -685,7 +712,7 @@ export function AICopilotPanel() {
               className="focus-ring rounded px-1.5 py-1"
               style={{
                 color: displayMode === 'pill' ? COPILOT_CHROME.cyan : COPILOT_CHROME.muted,
-                backgroundColor: displayMode === 'pill' ? `${COPILOT_CHROME.accent}22` : 'transparent',
+                backgroundColor: displayMode === 'pill' ? withAlpha('accent', 0.13) : 'transparent',
               }}
             >
               <Pill className="h-3.5 w-3.5" strokeWidth={2.25} />

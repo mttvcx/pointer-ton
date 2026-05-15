@@ -432,7 +432,7 @@ export function PulseColumn({
 
       <div
         ref={listMountRef}
-        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
+        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-bg-raised"
       >
         {query.isLoading ? (
           <div>

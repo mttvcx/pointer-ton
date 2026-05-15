@@ -8,7 +8,7 @@ import { ArrowDownToLine, ChevronDown, ExternalLink, LogOut, Search, Settings } 
 import { useQuery } from '@tanstack/react-query';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
 import { ChainSelectDropdown } from '@/components/layout/ChainSelectDropdown';
-import { CopilotPillTopbarCollapsed } from '@/components/ai/CopilotPill';
+import { CopilotTopbarStrip } from '@/components/ai/CopilotTopbarStrip';
 import { WebPushControls } from '@/components/layout/WebPushControls';
 import { APP_NAV } from '@/components/layout/navConfig';
 import { DepositHistoryModal } from '@/components/wallet/DepositHistoryModal';
@@ -215,7 +215,7 @@ export function Topbar() {
       </Link>
 
       <nav
-        className="flex max-w-[42%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-none sm:gap-1 md:max-w-none [&::-webkit-scrollbar]:hidden"
+        className="flex max-w-[36%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[28%] sm:gap-1 md:max-w-[26%] lg:max-w-none [&::-webkit-scrollbar]:hidden"
         aria-label="Primary"
       >
         {APP_NAV.map((item) => {
@@ -251,8 +251,11 @@ export function Topbar() {
         })}
       </nav>
 
-      <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 hidden w-full max-w-[min(520px,calc(100vw-220px))] -translate-x-1/2 -translate-y-1/2 justify-center xl:flex">
-        <CopilotPillTopbarCollapsed />
+      {/* Embedded co-pilot strip in the top-bar middle slot. Wider than the old
+          floating pill (Task P): more breathing room for insight text + inline
+          action chips. Click → expand the existing `CopilotPillExpandedCard`. */}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 hidden w-full max-w-[min(820px,calc(100vw-280px))] -translate-x-1/2 -translate-y-1/2 justify-center sm:flex">
+        <CopilotTopbarStrip />
       </div>
 
         <div className="relative z-50 flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">

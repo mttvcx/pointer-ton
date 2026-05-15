@@ -388,7 +388,7 @@ export function TokenRow({
                     agent: showTraitIcons && traits.agent,
                   }}
                   compact
-                  glyphSize={20}
+                  glyphSize={24}
                   showLiquidity={showLiq}
                   showTxCount={showHolders}
                   showDevWallet={showDev}
