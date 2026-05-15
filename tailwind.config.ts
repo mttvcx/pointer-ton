@@ -165,6 +165,28 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'scale(0.94)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        /** Cluely-style drop-down sheet — bar stretches outward then drops content down. */
+        'copilot-sheet-in': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(-6px) scaleX(0.92) scaleY(0.6)',
+            transformOrigin: 'top center',
+          },
+          '55%': {
+            opacity: '1',
+            transform: 'translateY(0px) scaleX(1) scaleY(0.6)',
+            transformOrigin: 'top center',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0px) scaleX(1) scaleY(1)',
+            transformOrigin: 'top center',
+          },
+        },
+        'copilot-sheet-out': {
+          '0%': { opacity: '1', transform: 'translateY(0px) scaleY(1)', transformOrigin: 'top center' },
+          '100%': { opacity: '0', transform: 'translateY(-4px) scaleY(0.85)', transformOrigin: 'top center' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 160ms ease-out',
@@ -174,6 +196,8 @@ const config: Config = {
         'copilot-pill-in': 'copilot-pill-in 200ms ease-out forwards',
         'copilot-pill-out': 'copilot-pill-out 200ms ease-out forwards',
         'copilot-card-enter': 'copilot-card-enter 380ms cubic-bezier(0.22, 0.9, 0.22, 1) both',
+        'copilot-sheet-in': 'copilot-sheet-in 340ms cubic-bezier(0.22, 0.9, 0.22, 1) both',
+        'copilot-sheet-out': 'copilot-sheet-out 180ms cubic-bezier(0.4, 0, 1, 1) both',
       },
     },
   },

@@ -610,25 +610,14 @@ function CopilotPillFreeFloat() {
   );
 }
 
+/**
+ * Pill host is now a thin wrapper around the alerts read-state sync only.
+ * The collapsed bar + drop-down sheet are owned by `CopilotHeaderBar`
+ * (rendered in the top bar in any mode), and the centered expanded modal /
+ * draggable free-float surfaces are retired in the Cluely-style rehaul.
+ */
 export function CopilotPillHost() {
   const mode = useUIStore((s) => s.copilotDisplayMode);
-  const expanded = useUIStore((s) => s.copilotPillExpanded);
-  const setExpanded = useUIStore((s) => s.setCopilotPillExpanded);
-  const entity = useUIStore(selectActiveEntity);
-
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    queueMicrotask(() => setMounted(true));
-  }, []);
-
-  if (mode !== 'pill' || !mounted) return null;
-
-  return (
-    <>
-      <CopilotPillAlertsSync />
-      <CopilotPillFreeFloat />
-      {expanded ? <CopilotPillExpandedCard onClose={() => setExpanded(false)} entity={entity} /> : null}
-    </>
-  );
+  if (mode !== 'pill') return null;
+  return <CopilotPillAlertsSync />;
 }
