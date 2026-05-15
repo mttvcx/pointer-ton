@@ -297,26 +297,26 @@
 }
 
 :root[data-theme='terminal'] {
-  /* Backgrounds — near-black with green tint.
-     bg-base is the page; bg-raised is the row "lift" tier. Pointer keeps a
-     ~7-pt RGB delta between them so rows visibly float; mirror that here so
-     `data-row-elevation='true'` actually reads. */
+  /* Backgrounds — near-black page, distinctly grey-green row "lift" tier.
+     Pointer keeps a perceptible delta between page and row; mirror that here
+     by making bg-raised a clear notch lighter so `data-row-elevation='true'`
+     actually shows behind every Pulse row instead of blending into black. */
   --bg-base: #060a08;
-  --bg-raised: #111815;
-  --bg-sunken: #040705;
-  --bg-hover: #1a231e;
+  --bg-raised: #1a2520;
+  --bg-sunken: #030504;
+  --bg-hover: #243430;
   --bg-base-rgb: 6 10 8;
-  --bg-raised-rgb: 17 24 21;
-  --bg-sunken-rgb: 4 7 5;
-  --bg-hover-rgb: 26 35 30;
+  --bg-raised-rgb: 26 37 32;
+  --bg-sunken-rgb: 3 5 4;
+  --bg-hover-rgb: 36 52 48;
 
-  /* Borders — dark with green tint, lifted slightly so separators read on bg-raised */
-  --border-subtle: #1f2c26;
-  --border-default: #2a3b33;
-  --border-strong: #3a5046;
-  --border-subtle-rgb: 31 44 38;
-  --border-default-rgb: 42 59 51;
-  --border-strong-rgb: 58 80 70;
+  /* Borders — dark with green tint; subtle reads against the new bg-raised */
+  --border-subtle: #243430;
+  --border-default: #314641;
+  --border-strong: #425d55;
+  --border-subtle-rgb: 36 52 48;
+  --border-default-rgb: 49 70 65;
+  --border-strong-rgb: 66 93 85;
 
   /* Foreground — off-white primary, grey-green secondary */
   --fg-primary: #e8ede9;

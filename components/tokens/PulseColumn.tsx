@@ -32,7 +32,21 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import { useUIStore } from '@/store/ui';
+import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import type { PulseTokenBundle } from '@/types/tokens';
+
+/**
+ * Slot height per density tier. Density is a global user preference
+ * (Display popover / Settings modal); the virtualizer's `estimateSize`
+ * AND the absolute-positioned row wrapper both read this so spacing
+ * actually changes between Compact / Default / Spaced. Mirrors the
+ * `--row-min-h` ladder in `app/globals.css` (Preferences block).
+ */
+const ROW_SLOT_PX_BY_DENSITY = {
+  compact: 96,
+  default: 118,
+  spaced: 144,
+} as const;
 
 const COLUMN_LABEL: Record<PulseColumnId, string> = {
   new: 'New',
@@ -41,8 +55,6 @@ const COLUMN_LABEL: Record<PulseColumnId, string> = {
 };
 
 /** Taller Pulse rows — page scroll lives on `<main>`; row height ≈ readability, not viewport÷6. */
-const ROW_SLOT_PX = 118;
-
 export function PulseColumn({
   column,
   initialShare,
@@ -278,7 +290,8 @@ export function PulseColumn({
     [columnFiltered, sortBy, sortDir],
   );
 
-  const rowSize = ROW_SLOT_PX;
+  const { prefs } = usePreferences();
+  const rowSize = ROW_SLOT_PX_BY_DENSITY[prefs.rowDensity];
 
   /* eslint-disable react-hooks/incompatible-library */
   const rowVirtualizer = useVirtualizer({
