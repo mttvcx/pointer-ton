@@ -31,9 +31,12 @@ import { useUIStore } from '@/store/ui';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 
-const FILTER_MODAL_BG = '#151820';
-const FILTER_MODAL_BORDER = '#2a2f3a';
-const FILTER_FIELD_BG = '#0f1118';
+// Resolve through theme CSS vars so the modal recolors with the active theme.
+// `--bg-hover` is closest to the prior `#151820`; `--border-default` is the
+// exact match for `#2a2f3a`; `--bg-raised` is closest to the prior `#0f1118`.
+const FILTER_MODAL_BG = 'var(--bg-hover)';
+const FILTER_MODAL_BORDER = 'var(--border-default)';
+const FILTER_FIELD_BG = 'var(--bg-raised)';
 
 const PROTOCOL_LABEL: Record<PulseProtocolId, string> = {
   ton: 'TON Index',
@@ -362,7 +365,7 @@ export function ColumnFilterModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-md p-1 text-[#6b7280] transition hover:bg-white/[0.06] hover:text-white"
+          className="absolute right-3 top-3 z-10 rounded-md p-1 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
           aria-label="Close filters"
         >
           <X className="h-4 w-4" />
@@ -377,17 +380,17 @@ export function ColumnFilterModal({
 
         <div className="space-y-2 border-b px-4 py-3" style={{ borderColor: FILTER_MODAL_BORDER }}>
           <label className="block space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
               Preset name
             </span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="focus-ring w-full rounded-[10px] border bg-transparent px-3 py-2 text-[12px] text-white outline-none transition focus:border-[#5865F2]/70"
+              className="focus-ring w-full rounded-[10px] border bg-transparent px-3 py-2 text-[12px] text-fg-primary outline-none transition focus:border-accent-primary/70"
               style={{ borderColor: FILTER_MODAL_BORDER, backgroundColor: FILTER_FIELD_BG }}
             />
           </label>
-          <div className="flex flex-wrap items-center gap-2 text-[10px] text-[#6b7280]">
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-fg-muted">
             <span className="font-medium">Sort</span>
             <select
               value={sortBy}

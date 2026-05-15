@@ -36,22 +36,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!data) {
     return {
       metadataBase: new URL(origin),
-      title: 'Share card',
     };
   }
 
   const sym = data.symbol ?? shortenAddress(data.mint, 4);
-  const pnl =
-    data.side === 'sell' && data.displayRealizedPnlUsd != null
-      ? ` - realized ${formatUsd(data.displayRealizedPnlUsd)}`
-      : '';
-  const title = `${sym} ${data.side}${pnl}`;
+  // Browser tab title intentionally falls back to the root `default` ("Pointer | …").
+  // Social-card titles (openGraph / twitter) keep the rich token-side label.
   const description = `${data.side.toUpperCase()} ${sym} on ${APP_NAME}.`;
   const ogImage = httpsImageForOg(data.imageUrl) ?? `${origin}/branding/pointer-mark.png`;
 
   return {
     metadataBase: new URL(origin),
-    title,
     description,
     openGraph: {
       title: `${sym} on ${APP_NAME}`,

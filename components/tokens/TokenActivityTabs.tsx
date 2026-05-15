@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, ArrowUpDown, BarChart3, HelpCircle, Wallet, Zap } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -54,35 +54,39 @@ function PlaceholderTab({ title, body }: { title: string; body: string }) {
 }
 
 /**
- * Header cell with consistent uppercase tracking + a subtle sort indicator that
- * fades in on hover. No sorting wired yet — affordance only.
+ * Header cell — uppercase comes from thead; subtitles use explicit `normal-case`.
+ * Sort glyph: hover-only unless `sortGlyph` disabled (non-sort columns).
  */
 function SortableTh({
   children,
   className,
   align = 'left',
+  sortGlyph = true,
 }: {
   children: React.ReactNode;
   className?: string;
   align?: 'left' | 'right' | 'center';
+  sortGlyph?: boolean;
 }) {
   const justify =
     align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start';
   return (
     <th
       className={cn(
-        'group/th py-2 align-middle font-medium leading-tight',
+        'group/th px-3 py-2 align-middle font-medium leading-tight',
         align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
         className,
       )}
     >
       <span className={cn('inline-flex items-center gap-1', justify)}>
         <span>{children}</span>
-        <ArrowUpDown
-          className="h-3 w-3 opacity-0 transition-opacity duration-100 group-hover/th:opacity-60"
-          strokeWidth={2}
-          aria-hidden
-        />
+        {sortGlyph ? (
+          <ArrowUpDown
+            className="h-3 w-3 shrink-0 text-fg-muted opacity-0 transition-opacity duration-100 group-hover/th:opacity-100"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ) : null}
       </span>
     </th>
   );
@@ -112,18 +116,23 @@ export function TokenActivityTabs({
   symbol,
   creatorWallet,
   dev,
+  tradesPanel,
+  onTradesPanelChange,
+  onLiveTradesSnapshot,
   onOpenInstantTrade,
 }: {
   mint: string;
   symbol: string | null;
   creatorWallet: string | null;
   dev: DevWalletStatsRow | null;
+  tradesPanel: boolean;
+  onTradesPanelChange: (v: boolean) => void;
+  onLiveTradesSnapshot?: (s: { rows: TradeRow[]; isLoading: boolean }) => void;
   onOpenInstantTrade?: () => void;
 }) {
   const [tab, setTab] = useState<TabId>('trades');
   const [onlyTracked, setOnlyTracked] = useState(false);
   const [traderDeskFilter, setTraderDeskFilter] = useState<TraderDeskFilter>('all');
-  const [tradesPanel, setTradesPanel] = useState(true);
   const [tableUsd, setTableUsd] = useState(true);
   const uiDemo = useUiDemoMode();
   const { isTracked } = useTrackedWalletsLookup();
@@ -166,6 +175,21 @@ export function TokenActivityTabs({
 
   const sym = symbol ?? 'TOK';
 
+  const tradeRowsForTable = useMemo((): TradeRow[] => {
+    if (tradesQ.isLoading && !tradesQ.data) return [];
+    const raw = tradesQ.data?.trades ?? [];
+    const showSynthetic =
+      uiDemo && !tradesQ.isLoading && tradesQ.data != null && (raw.length === 0 || tradesQ.isError);
+    return showSynthetic ? syntheticTradesForMint(mint) : raw;
+  }, [tradesQ.data, tradesQ.isLoading, tradesQ.isError, uiDemo, mint]);
+
+  useEffect(() => {
+    onLiveTradesSnapshot?.({
+      rows: tradeRowsForTable,
+      isLoading: tradesQ.isLoading,
+    });
+  }, [tradeRowsForTable, tradesQ.isLoading, onLiveTradesSnapshot]);
+
   const activityBody = useMemo(() => {
     if (tradesQ.isLoading) {
       return (
@@ -176,11 +200,7 @@ export function TokenActivityTabs({
         </div>
       );
     }
-    const raw = tradesQ.data?.trades ?? [];
-    const showSynthetic =
-      uiDemo && !tradesQ.isLoading && (raw.length === 0 || tradesQ.isError);
-    const rows = showSynthetic ? syntheticTradesForMint(mint) : raw;
-    if (rows.length === 0) {
+    if (tradeRowsForTable.length === 0) {
       return (
         <div className="p-4">
           <EmptyState
@@ -203,7 +223,7 @@ export function TokenActivityTabs({
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) => (
+            {tradeRowsForTable.map((t) => (
               <tr
                 key={t.id}
                 className="cursor-pointer border-b border-border/40 transition-colors duration-100 even:bg-muted/5 hover:bg-muted/30"
@@ -237,7 +257,7 @@ export function TokenActivityTabs({
         </table>
       </div>
     );
-  }, [tradesQ.data?.trades, tradesQ.isLoading, tradesQ.isError, uiDemo, mint, tableUsd, nativeSym, nativeUsdHint]);
+  }, [tradeRowsForTable, tradesQ.isLoading, tableUsd, nativeSym, nativeUsdHint]);
 
   const tradersBody = useMemo(() => {
     if (tradersQ.isLoading) {
@@ -297,62 +317,64 @@ export function TokenActivityTabs({
     }
     return (
       <div className="w-full">
-        <div className="border-b border-border/50 px-3 py-2">
-          <div className="flex flex-wrap items-center gap-1">
-            {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTraderDeskFilter(id)}
-                className={cn(
-                  'btn-press inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium transition-colors',
-                  traderDeskFilter === id
-                    ? 'bg-muted/60 text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-3 pb-2">
+          {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTraderDeskFilter(id)}
+              className={cn(
+                'btn-press inline-flex h-6 items-center rounded border px-2 text-[10px] font-medium uppercase tracking-wide transition-colors',
+                traderDeskFilter === id
+                  ? 'border-border bg-bg-hover text-fg-primary'
+                  : 'border-border-subtle bg-transparent text-fg-muted hover:bg-bg-hover',
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[60rem] border-collapse text-left text-sm tabular-nums">
-            <thead className="sticky top-0 z-[1] border-b border-border/50 bg-muted/20 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <table className="w-full min-w-0 border-collapse text-left tabular-nums">
+            <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-sunken text-[10px] font-medium uppercase tracking-wider text-fg-muted">
               <tr>
-                <SortableTh className="w-10 px-2 text-center">#</SortableTh>
-                <SortableTh className="min-w-[12rem] px-3">Wallet</SortableTh>
-                <SortableTh className="w-28 px-3" align="right">
+                <SortableTh className="w-10" align="center" sortGlyph={false}>
+                  #
+                </SortableTh>
+                <SortableTh className="min-w-[180px]" align="left">
+                  Wallet
+                </SortableTh>
+                <SortableTh className="w-[100px]" align="right">
                   <span className="block">{nativeSym} balance</span>
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+                  <span className="mt-px block font-mono text-[10px] font-normal normal-case tracking-normal text-fg-muted">
                     Last active
                   </span>
                 </SortableTh>
-                <SortableTh className="w-36 px-3" align="right">
+                <SortableTh className="w-[130px]" align="right">
                   <span className="block">Bought</span>
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+                  <span className="mt-px block font-mono text-[10px] font-normal normal-case tracking-normal text-fg-muted">
                     Avg buy
                   </span>
                 </SortableTh>
-                <SortableTh className="w-36 px-3" align="right">
+                <SortableTh className="w-[130px]" align="right">
                   <span className="block">Sold</span>
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+                  <span className="mt-px block font-mono text-[10px] font-normal normal-case tracking-normal text-fg-muted">
                     Avg sell
                   </span>
                 </SortableTh>
-                <SortableTh className="w-28 px-3" align="right">
-                  <span className="inline-flex items-center justify-end gap-1">
-                    Real. PnL
+                <SortableTh className="w-[100px]" align="right">
+                  <span className="inline-flex items-center justify-end gap-1 normal-case">
+                    <span className="uppercase tracking-wider">Real. PnL</span>
                     <RealPnlInfoTooltip sym={sym} />
                   </span>
                 </SortableTh>
-                <SortableTh className="w-24 px-3" align="right">
+                <SortableTh className="w-[90px]" align="right">
                   Remaining
                 </SortableTh>
-                <SortableTh className="w-20 px-3" align="right">
+                <SortableTh className="w-[90px]" align="right">
                   Funding
                 </SortableTh>
-                <SortableTh className="w-16 px-3" align="right">
+                <SortableTh className="w-[90px]" align="right">
                   Held
                 </SortableTh>
               </tr>
@@ -361,7 +383,11 @@ export function TokenActivityTabs({
               {displayRows.map((w, i) => {
                 const pnl = w.realized_pnl_usd;
                 const pnlTone =
-                  pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-rose-400' : 'text-muted-foreground';
+                  pnl > 0
+                    ? 'text-signal-bull'
+                    : pnl < 0
+                      ? 'text-signal-bear'
+                      : 'text-fg-muted';
                 const lastAct = w.last_trade_at ? formatAgeShort(w.last_trade_at) : '\u2014';
                 const held =
                   w.held_seconds != null && w.held_seconds > 0 ? formatDuration(w.held_seconds) : '\u2014';
@@ -370,13 +396,18 @@ export function TokenActivityTabs({
                 return (
                   <tr
                     key={w.wallet_address}
-                    className="group h-12 cursor-pointer border-b border-border/40 transition-colors duration-100 even:bg-muted/5 hover:bg-muted/30"
+                    className={cn(
+                      'group h-11 cursor-pointer border-b border-border-subtle bg-bg-raised transition-colors duration-100',
+                      'hover:bg-bg-hover last:border-b-0',
+                    )}
                   >
-                    <td className="px-2 text-center align-middle text-muted-foreground">{i + 1}</td>
-                    <td className="px-3 align-middle">
-                      <div className="flex items-center gap-2">
+                    <td className="px-3 text-center align-middle font-mono text-xs tabular-nums text-fg-muted">
+                      {i + 1}
+                    </td>
+                    <td className="min-w-[180px] px-3 align-middle">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <Wallet
-                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60"
+                          className="h-3.5 w-3.5 shrink-0 text-fg-muted"
                           strokeWidth={2}
                         />
                         <div className="min-w-0">
@@ -392,50 +423,54 @@ export function TokenActivityTabs({
                       </div>
                     </td>
                     <td className="px-3 text-right align-middle">
-                      <div className="text-sm font-medium text-foreground">{'\u2014'}</div>
-                      <div className="text-xs text-muted-foreground/70">{lastAct}</div>
+                      <div className="font-mono text-xs tabular-nums text-fg-muted">{'\u2014'}</div>
+                      <div className="mt-px font-mono text-[10px] text-fg-muted">{lastAct}</div>
                     </td>
-                    <td className="px-3 text-right align-middle">
-                      <div className="text-sm font-medium text-foreground">{fmtUsdCell(w.buy_usd)}</div>
-                      <div className="mx-auto ml-auto mt-1 h-0.5 w-20 overflow-hidden rounded-full bg-muted/40">
+                    <td className="w-[130px] px-3 text-right align-middle">
+                      <div className="font-mono text-xs tabular-nums text-fg-primary">{fmtUsdCell(w.buy_usd)}</div>
+                      <div className="mx-auto mt-1 h-0.5 w-[4.75rem] max-w-full overflow-hidden rounded-full bg-muted/40">
                         <div
                           className="h-full rounded-full bg-emerald-500/40"
                           style={{ width: `${buyBar}%` }}
                         />
                       </div>
-                      <div className="mt-1 flex items-baseline justify-end gap-1.5 text-xs text-muted-foreground/70">
-                        <span>
+                      <div className="mt-1 text-right font-mono text-[10px] leading-snug text-fg-muted">
+                        <span className="block">
                           {formatNumber(w.buy_token_qty, { compact: true })} / {w.buy_count}
                         </span>
                         {w.avg_buy_usd_per_token != null ? (
-                          <span className="text-emerald-400/70">
-                            ({tableUsd ? formatCompactUsd(w.avg_buy_usd_per_token) : '—'})
+                          <span className="block">
+                            {tableUsd ? formatCompactUsd(w.avg_buy_usd_per_token) : '—'}
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="block">{'—'}</span>
+                        )}
                       </div>
                     </td>
-                    <td className="px-3 text-right align-middle">
-                      <div className="text-sm font-medium text-foreground">{fmtUsdCell(w.sell_usd)}</div>
-                      <div className="ml-auto mt-1 h-0.5 w-20 overflow-hidden rounded-full bg-muted/40">
+                    <td className="w-[130px] px-3 text-right align-middle">
+                      <div className="font-mono text-xs tabular-nums text-fg-primary">{fmtUsdCell(w.sell_usd)}</div>
+                      <div className="ml-auto mt-1 h-0.5 w-[4.75rem] max-w-full overflow-hidden rounded-full bg-muted/40">
                         <div
                           className="h-full rounded-full bg-rose-500/40"
                           style={{ width: `${sellBar}%` }}
                         />
                       </div>
-                      <div className="mt-1 flex items-baseline justify-end gap-1.5 text-xs text-muted-foreground/70">
-                        <span>
+                      <div className="mt-1 text-right font-mono text-[10px] leading-snug text-fg-muted">
+                        <span className="block">
                           {formatNumber(w.sell_token_qty, { compact: true })} / {w.sell_count}
                         </span>
                         {w.avg_sell_usd_per_token != null ? (
-                          <span className="text-rose-400/70">
-                            ({tableUsd ? formatCompactUsd(w.avg_sell_usd_per_token) : '—'})
+                          <span className="block">
+                            {tableUsd ? formatCompactUsd(w.avg_sell_usd_per_token) : '—'}
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="block">{'—'}</span>
+                        )}
                       </div>
                     </td>
                     <td
                       className={cn(
-                        'px-3 text-right align-middle text-sm font-semibold',
+                        'px-3 text-right align-middle font-mono text-xs tabular-nums',
                         pnlTone,
                       )}
                     >
@@ -444,12 +479,21 @@ export function TokenActivityTabs({
                         ? formatCompactUsd(pnl)
                         : `${formatNumber(pnl / nativeUsdHint, { decimals: 2 })} ${nativeSym}`}
                     </td>
-                    <td className="px-3 text-right align-middle">
-                      <div className="text-sm font-medium text-foreground">{'\u2014'}</div>
-                      <div className="text-xs text-muted-foreground/70">{'\u2014'}</div>
+                    <td className="w-[90px] px-3 text-right align-middle">
+                      <div className="font-mono text-xs tabular-nums text-fg-muted">{'\u2014'}</div>
+                      <div className="mt-px font-mono text-[10px] text-fg-muted">{'\u2014'}</div>
                     </td>
-                    <td className="px-3 text-right align-middle text-muted-foreground">{'\u2014'}</td>
-                    <td className="px-3 text-right align-middle text-muted-foreground">{held}</td>
+                    <td className="w-[90px] px-3 text-right align-middle font-mono text-xs tabular-nums text-fg-muted">
+                      {'\u2014'}
+                    </td>
+                    <td
+                      className={cn(
+                        'w-[90px] px-3 text-right align-middle font-mono text-xs tabular-nums',
+                        held === '\u2014' ? 'text-fg-muted' : 'text-fg-primary',
+                      )}
+                    >
+                      {held}
+                    </td>
                   </tr>
                 );
               })}
@@ -533,7 +577,7 @@ export function TokenActivityTabs({
                 <input
                   type="checkbox"
                   checked={tradesPanel}
-                  onChange={(e) => setTradesPanel(e.target.checked)}
+                  onChange={(e) => onTradesPanelChange(e.target.checked)}
                   className="h-3 w-3 rounded border-border bg-background"
                 />
                 Trades Panel
@@ -558,7 +602,7 @@ export function TokenActivityTabs({
             <button
               type="button"
               onClick={onOpenInstantTrade}
-              className="btn-press focus-ring inline-flex h-8 items-center gap-1.5 rounded-md bg-[#6366f1] px-3 text-xs font-semibold tracking-tight text-white shadow-sm transition hover:brightness-110"
+              className="btn-press focus-ring inline-flex h-8 items-center gap-1.5 rounded-md bg-accent-primary px-3 text-xs font-semibold tracking-tight text-fg-inverse shadow-sm transition hover:brightness-110"
             >
               <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
               Instant Trade
@@ -598,7 +642,7 @@ export function TokenActivityTabs({
         {tab === 'traders' ? tradersBody : null}
         {tab === 'dev_tokens' ? (
           <div className="w-full">
-            <div className="border-b border-[#1b1f2a] p-2 text-[10px] text-[#6b7280]">
+            <div className="border-b border-border-subtle p-2 text-[10px] text-fg-muted">
               Creator / deployer analytics for this token.
             </div>
             <DevSection creatorWallet={creatorWallet} mint={mint} tokenSymbol={sym} dev={dev} />

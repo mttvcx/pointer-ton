@@ -1036,7 +1036,7 @@ export function CompactInstantTradePanel({
                     type="button"
                     onClick={() => void runBuy(sol)}
                     className={cn(
-                      'btn-press flex items-center justify-center border border-emerald-400/45 bg-transparent text-center font-sans font-semibold text-emerald-400/95 transition hover:bg-emerald-500/[0.08] active:bg-emerald-500/[0.12]',
+                      'btn-press flex items-center justify-center border border-border-subtle bg-bg-sunken text-center font-sans font-medium text-fg-secondary transition hover:border-signal-bull/35 hover:bg-signal-bull/10 hover:text-signal-bull active:bg-signal-bull/15',
                       presetLayout.chipCls,
                     )}
                   >
@@ -1142,7 +1142,7 @@ export function CompactInstantTradePanel({
                       void (sellMode === 'pct' ? runSell(pct) : runSellSolOut(pct))
                     }
                     className={cn(
-                      'btn-press flex items-center justify-center border border-rose-400/45 bg-transparent text-center font-sans font-semibold text-rose-400/95 transition hover:bg-rose-500/[0.08] active:bg-rose-500/[0.12]',
+                      'btn-press flex items-center justify-center border border-border-subtle bg-bg-sunken text-center font-sans font-medium text-fg-secondary transition hover:border-signal-bear/35 hover:bg-signal-bear/10 hover:text-signal-bear active:bg-signal-bear/15',
                       presetLayout.chipCls,
                     )}
                   >

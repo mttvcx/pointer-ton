@@ -271,7 +271,7 @@ export function AlertRulesSection({
   }
 
   const inputCls =
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0077b6]/35 focus-visible:ring-offset-0 w-full rounded-xl border px-3 py-2.5 text-[13px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition';
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35 focus-visible:ring-offset-0 w-full rounded-xl border px-3 py-2.5 text-[13px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition';
 
   return (
     <div className="flex flex-col gap-3">
@@ -580,7 +580,7 @@ export function AlertRulesSection({
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="w-full rounded-xl py-2.5 text-[13px] font-semibold shadow-[0_8px_24px_-8px_rgba(0,119,182,0.55)] transition hover:brightness-105 active:scale-[0.99] disabled:opacity-45"
+              className="w-full rounded-xl py-2.5 text-[13px] font-semibold shadow-[0_8px_24px_-8px_rgb(var(--accent-primary-rgb)/0.55)] transition hover:brightness-105 active:scale-[0.99] disabled:opacity-45"
               style={{
                 backgroundImage: `linear-gradient(135deg, ${UI.accent} 0%, #5f8bff 100%)`,
                 color: '#080d14',

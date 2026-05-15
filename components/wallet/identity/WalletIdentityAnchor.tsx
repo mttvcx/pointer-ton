@@ -256,7 +256,7 @@ export function WalletIdentityAnchor({
     <>
       <span
         ref={anchorRef}
-        className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5"
+        className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
         onMouseEnter={() => {
           scheduleCompact();
         }}

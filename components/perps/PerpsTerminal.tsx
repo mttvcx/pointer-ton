@@ -402,7 +402,7 @@ function ChartShell({
               className={cn(
                 'rounded px-2 py-1 text-[10px] font-semibold tabular-nums transition-colors',
                 tf === t
-                  ? 'bg-accent-primary/20 text-accent-glow shadow-[inset_0_0_0_1px_rgba(0,163,224,0.28)]'
+                  ? 'bg-accent-primary/20 text-accent-glow shadow-[inset_0_0_0_1px_rgb(var(--accent-glow-rgb)/0.28)]'
                   : 'text-fg-muted hover:bg-white/[0.05] hover:text-fg-secondary',
               )}
             >

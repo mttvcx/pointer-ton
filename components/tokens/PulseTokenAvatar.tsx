@@ -2,7 +2,6 @@
 
 import Image from 'next/image';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { TokenImage } from '@/components/shared/TokenImage';
 import { getPulseBondingRingState, PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
 import { cn } from '@/lib/utils/cn';
 import type { PulseColumnId } from '@/lib/utils/constants';
@@ -61,7 +60,7 @@ function progressStrokeColor(
 
 export function PulseTokenAvatar({
   bundle,
-  size = 48,
+  size,
   className,
   showRing = true,
   /** Bright TON launchpad frame (on-curve) — Axiom-style outline outside the image. */
@@ -80,14 +79,21 @@ export function PulseTokenAvatar({
   launchpadCorner?: boolean;
   columnId?: PulseColumnId;
 }) {
+  void size;
   const { token } = bundle;
   const showPumpDock = launchpadCorner && token.launch_pad === 'pump.fun';
   const pathRef = useRef<SVGPathElement | null>(null);
   const { d, lengthApprox } = useMemo(
-    () => buildRoundedRectRingPath(size, STROKE, CORNER_RX),
-    [size],
+    () => buildRoundedRectRingPath(64, STROKE, CORNER_RX),
+    [],
   );
   const [pathLen, setPathLen] = useState(lengthApprox);
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(token.image_url) && !imageFailed;
+  const fallbackInitials = (token.symbol ?? token.name ?? '??')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 2)
+    .toUpperCase();
 
   const { fillPct, migrated } = getPulseBondingRingState(bundle);
   const displayMigrated = migrated || columnId === 'migrated';
@@ -122,29 +128,45 @@ export function PulseTokenAvatar({
       const L = el.getTotalLength();
       if (L > 0) setPathLen(L);
     }
-  }, [d, size, displayMigrated, showRing]);
+  }, [d, displayMigrated, showRing]);
 
   return (
     <div
       className={cn(
-        'relative shrink-0 rounded-lg ring-1 ring-border-subtle',
+        // `pulse-avatar` is the preference hook for avatar size — replaces the
+        // previous `h-16 w-16` lock. Default size is 3rem (48px); compact 2.5rem,
+        // large 3.5rem. Controlled via `:root[data-avatar-size]` in globals.css.
+        'pulse-avatar relative shrink-0 rounded-lg',
         pumpFrame && 'shadow-[0_0_0_2px_rgba(52,211,153,0.9)]',
         className,
       )}
-      style={{ width: size, height: size }}
     >
-      <TokenImage
-        src={token.image_url}
-        alt={token.symbol ?? 'Token'}
-        size={size}
-        className="relative z-0 !rounded-lg !ring-0"
-      />
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Pulse rows render thousands of arbitrary token thumbnails; next/image loader overhead isn't worth it here.
+        <img
+          src={token.image_url!}
+          alt={token.symbol ?? 'Token'}
+          width={64}
+          height={64}
+          loading="lazy"
+          decoding="async"
+          onError={() => setImageFailed(true)}
+          className="relative z-0 block h-full w-full rounded-lg object-cover"
+        />
+      ) : (
+        <div
+          className="relative z-0 flex h-full w-full items-center justify-center rounded-lg"
+          aria-hidden
+        >
+          <span className="text-[10px] font-bold uppercase text-fg-muted">{fallbackInitials}</span>
+        </div>
+      )}
       {showRing ? (
       <svg
         className="pointer-events-none absolute inset-0 z-10 h-full w-full"
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
+        width={64}
+        height={64}
+        viewBox={`0 0 ${64} ${64}`}
         aria-hidden
       >
         {displayMigrated ? (
@@ -199,9 +221,9 @@ export function PulseTokenAvatar({
           <Image
             src="/icons/pumpfun.webp"
             alt="pump.fun"
-            width={14}
-            height={14}
-            className="h-3.5 w-3.5 rounded-full"
+            width={20}
+            height={20}
+            className="h-5 w-5 rounded-full"
           />
         </a>
       ) : null}

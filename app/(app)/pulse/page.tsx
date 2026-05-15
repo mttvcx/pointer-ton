@@ -4,10 +4,6 @@ import {
   type ColumnPresetSharePayload,
 } from '@/lib/tokens/columnPresetModel';
 
-export const metadata = {
-  title: 'Pulse',
-};
-
 export default async function PulsePage({
   searchParams,
 }: {

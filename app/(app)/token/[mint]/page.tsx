@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { EntityLocker } from '@/components/ai/EntityLocker';
 import { TokenDetailView } from '@/components/tokens/TokenDetailView';
@@ -9,16 +10,38 @@ import { ensureTokenRowFromDas } from '@/lib/helius/feed';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 import { extractSupplyTokens } from '@/lib/tokens/metadataHints';
 
+/** Compact USD market-cap label (e.g. "$121M" / "$1.4B" / "$640K"). */
+function formatMcUsd(mc: number): string {
+  if (!Number.isFinite(mc) || mc <= 0) return '';
+  if (mc >= 1_000_000_000) return `$${(mc / 1_000_000_000).toFixed(1)}B`;
+  if (mc >= 1_000_000) return `$${(mc / 1_000_000).toFixed(0)}M`;
+  if (mc >= 1_000) return `$${(mc / 1_000).toFixed(0)}K`;
+  return `$${mc.toFixed(0)}`;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ mint: string }>;
-}) {
+}): Promise<Metadata> {
   const { mint } = await params;
   const short = mint.length > 12 ? `${mint.slice(0, 4)}\u2026${mint.slice(-4)}` : mint;
-  return {
-    title: `Token ${short}`,
-  };
+  try {
+    // Reuse the same fetches the page itself runs; React/Next will dedupe.
+    const [token, snapshot] = await Promise.all([
+      ensureTokenRowFromDas(mint),
+      getLatestSnapshotForMint(mint),
+    ]);
+    const symbol = (token?.symbol ?? '').trim() || short;
+    const mcStr = formatMcUsd(Number(snapshot?.market_cap_usd ?? 0));
+    const title = mcStr ? `${symbol} ${mcStr} | Pointer` : `${symbol} | Pointer`;
+    return {
+      title,
+      description: `Trade ${symbol} on Pointer`,
+    };
+  } catch {
+    return { title: `Token ${short} | Pointer` };
+  }
 }
 
 export default async function TokenDetailPage({

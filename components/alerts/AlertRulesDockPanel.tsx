@@ -73,7 +73,7 @@ export function AlertRulesDockPanel() {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize alert builder width"
-        className="absolute right-0 top-0 z-20 h-full w-2 translate-x-1/2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/30"
+        className="absolute right-0 top-0 z-20 h-full w-2 translate-x-1/2 cursor-col-resize bg-transparent hover:bg-accent-primary/30"
         onPointerDown={onResizePointerDown}
         onPointerMove={onResizePointerMove}
         onPointerUp={onResizePointerUp}

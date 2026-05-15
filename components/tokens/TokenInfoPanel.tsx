@@ -112,7 +112,7 @@ function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
             <div className={cn(item.valueClass, item.label !== 'Dex Paid' && 'truncate')}>
               {item.value}
             </div>
-            <div className="mt-0.5 text-[10px] text-fg-muted">{item.label}</div>
+            <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg-muted">{item.label}</div>
           </div>
         ))}
       </div>

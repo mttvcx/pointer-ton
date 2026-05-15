@@ -568,7 +568,7 @@ export function AICopilotPanel() {
             onPointerMove={onResizePointerMove}
             onPointerUp={onResizePointerUp}
             onPointerCancel={onResizePointerUp}
-            className="absolute right-0 top-0 z-20 h-full w-2 translate-x-1/2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/35"
+            className="absolute right-0 top-0 z-20 h-full w-2 translate-x-1/2 cursor-col-resize bg-transparent hover:bg-accent-primary/35"
           />
         ) : (
           <div
@@ -579,7 +579,7 @@ export function AICopilotPanel() {
             onPointerMove={onResizePointerMove}
             onPointerUp={onResizePointerUp}
             onPointerCancel={onResizePointerUp}
-            className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-[#0077b6]/35"
+            className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent hover:bg-accent-primary/35"
           />
         )
       ) : null}
@@ -970,11 +970,13 @@ export function CopilotToggleButton() {
             : 'Show co-pilot'
       }
       data-onboarding="copilot"
-      className="btn-press focus-ring flex shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-bg-base px-1.5 py-1 text-[11px] font-medium text-fg-secondary transition-all duration-150 hover:border-accent-primary/40 hover:text-fg-primary sm:px-2 sm:text-xs"
+      className="btn-press focus-ring flex shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-bg-base px-2 py-1 text-[11px] font-medium text-fg-secondary transition-all duration-150 hover:border-accent-primary/40 hover:text-fg-primary lg:px-2.5 lg:text-xs"
     >
-      <Sparkles className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2.25} />
-      {displayMode === 'pill' ? 'Co-pilot' : open ? 'Expand' : 'Co-pilot'}
-      <ChevronsRight className="hidden h-3 w-3 sm:block" />
+      <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent-primary" strokeWidth={2.25} />
+      <span className="hidden lg:inline">
+        {displayMode === 'pill' ? 'Co-pilot' : open ? 'Expand' : 'Co-pilot'}
+      </span>
+      <ChevronsRight className="h-3 w-3 shrink-0" />
     </button>
   );
 }

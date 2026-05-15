@@ -8,7 +8,7 @@ export const squadElevatedClass =
   'border-[#283440] bg-gradient-to-b from-[#151c28]/98 via-[#0d1219] to-[#080b10] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_8px_32px_-28px_rgba(0,0,0,0.9)]';
 
 export const squadCardHoverInteractiveClass =
-  'transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-px hover:border-[#3f6078]/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(46,132,188,0.11),0_12px_40px_-18px_rgba(0,0,0,0.7)] active:translate-y-0';
+  'transition-colors duration-150 hover:border-border';
 
 type PanelTone = 'default' | 'premium' | 'inset';
 
@@ -88,10 +88,10 @@ export function SquadChip({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[10.5px] font-semibold tracking-tight transition',
+        'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium tracking-tight transition-colors',
         selected
-          ? 'border-[#2a9bc8]/55 bg-[#1d2c3d] text-fg-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-          : 'border-[#252b36] bg-[#0a0e14] text-fg-muted hover:border-[#38475a] hover:bg-[#10161f] hover:text-fg-secondary',
+          ? 'bg-accent-ethos/10 text-accent-ethos ring-1 ring-inset ring-accent-ethos/25'
+          : 'bg-bg-sunken text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
       )}
     >
       {icon}

@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import {
+  AlertCircle,
+  ArrowUpDown,
+  ChefHat,
+  Crosshair,
+  Filter,
+  Fish,
+  Target,
+  User,
+} from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useQuery } from '@tanstack/react-query';
 import { TokenChart } from '@/components/tokens/TokenChart';
@@ -13,10 +23,18 @@ import { TokenPageDockFooter } from '@/components/tokens/TokenPageDockFooter';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { Tables } from '@/lib/supabase/types';
+import { shortenAddress } from '@/lib/utils/addresses';
+import { formatAgeShort, formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
+import {
+  persistChartOverlays,
+  readChartOverlays,
+  type ChartOverlayFlags,
+} from '@/lib/chart/tokenChartOverlays';
 import { cn } from '@/lib/utils/cn';
 import { noteRecentTradeMint } from '@/store/recentTradeMints';
 
 type LimitOrderRow = Tables<'limit_orders'>;
+type MintTradeRow = Tables<'trades'>;
 
 const MIN_LEFT_COL = 380;
 const MIN_RIGHT_STACK = 280;
@@ -65,7 +83,7 @@ function ColResizeGrip({
       onPointerCancel={onPointerUp}
       className="group relative z-20 hidden w-1 shrink-0 cursor-col-resize bg-transparent lg:block"
     >
-      <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-[#1b1f2a] group-hover:bg-[#38bdf8]/50" />
+      <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-border-subtle group-hover:bg-accent-glow/50" />
     </div>
   );
 }
@@ -92,13 +110,170 @@ function RowResizeGrip({
       onPointerCancel={onPointerUp}
       className="group relative z-20 hidden h-1 w-full shrink-0 cursor-row-resize bg-transparent lg:block"
     >
-      <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-[#1b1f2a] group-hover:bg-[#38bdf8]/50" />
+      <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-border-subtle group-hover:bg-accent-glow/50" />
     </div>
   );
 }
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
+}
+
+function tradeMcSnapshot(t: MintTradeRow): string {
+  const px = t.price_usd_at_fill;
+  const amt = t.amount_token;
+  if (px == null || amt == null || !Number.isFinite(px) || !Number.isFinite(amt)) return '\u2014';
+  const v = px * amt;
+  if (!Number.isFinite(v) || v === 0) return '\u2014';
+  return formatCompactUsd(v);
+}
+
+function optionalTradeBool(row: MintTradeRow, key: string): boolean {
+  const r = row as Record<string, unknown>;
+  return r[key] === true;
+}
+
+function TokenLiveTradesSidePanel({
+  rows,
+  isLoading,
+}: {
+  rows: MintTradeRow[];
+  isLoading: boolean;
+}) {
+  const [overlays, setOverlays] = useState<ChartOverlayFlags>(() => readChartOverlays());
+
+  useEffect(() => {
+    const sync = () => setOverlays(readChartOverlays());
+    window.addEventListener('pointer-chart-overlays', sync);
+    return () => window.removeEventListener('pointer-chart-overlays', sync);
+  }, []);
+
+  const patchOverlays = useCallback((patch: Partial<ChartOverlayFlags>) => {
+    setOverlays((prev) => {
+      const next = { ...prev, ...patch };
+      persistChartOverlays(next);
+      return next;
+    });
+  }, []);
+
+  return (
+    <div className="flex min-w-[220px] max-w-[280px] shrink-0 flex-1 flex-col overflow-hidden border-l border-border-subtle bg-bg-raised lg:max-w-none lg:flex-none lg:basis-[240px]">
+      <div className="flex items-center gap-1 border-b border-border-subtle px-3 py-2">
+        <button
+          type="button"
+          className="filter-pill shrink-0"
+          data-active={overlays.devTrades ? true : undefined}
+          onClick={() => patchOverlays({ devTrades: !overlays.devTrades })}
+        >
+          <Filter className="h-3 w-3 shrink-0" aria-hidden />
+          <span>Dev</span>
+        </button>
+        <button
+          type="button"
+          className="filter-pill shrink-0"
+          data-active={overlays.trackedOnly ? true : undefined}
+          onClick={() => patchOverlays({ trackedOnly: !overlays.trackedOnly })}
+        >
+          <Filter className="h-3 w-3 shrink-0" aria-hidden />
+          <span>Tracked</span>
+        </button>
+        <button
+          type="button"
+          className="filter-pill shrink-0"
+          data-active={overlays.alertBubbles ? true : undefined}
+          onClick={() => patchOverlays({ alertBubbles: !overlays.alertBubbles })}
+        >
+          <User className="h-3 w-3 shrink-0" aria-hidden />
+          <span>You</span>
+        </button>
+        <button
+          type="button"
+          className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+          aria-label="Sort trades"
+        >
+          <ArrowUpDown className="h-3 w-3" aria-hidden />
+        </button>
+      </div>
+      <div className="flex items-center border-b border-border-subtle bg-bg-sunken px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+        <span className="w-[68px] shrink-0">Amount</span>
+        <span className="w-[58px] shrink-0">MC</span>
+        <span className="min-w-0 flex-1">Trader</span>
+        <span className="shrink-0">Age</span>
+      </div>
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="space-y-2 p-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="h-6 animate-pulse rounded bg-bg-sunken/80" />
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="px-3 py-4 text-center text-[11px] text-fg-muted">No trades indexed yet.</p>
+        ) : (
+          rows.map((t) => {
+            const sol = t.amount_sol;
+            const solStr = sol != null ? formatNumber(sol, { decimals: 4 }) : '\u2014';
+            const bull = t.side === 'buy';
+            const traderShort = shortenAddress(t.user_id, 4);
+            const mc = tradeMcSnapshot(t);
+            const isDev = optionalTradeBool(t, 'isDev');
+            const isSniper = optionalTradeBool(t, 'isSniper');
+            const isWhale = optionalTradeBool(t, 'isWhale');
+            const isTracked = optionalTradeBool(t, 'isTracked');
+            const isInsider = optionalTradeBool(t, 'isInsider');
+
+            return (
+              <div
+                key={t.id}
+                className="flex items-center border-b border-border-subtle/30 px-3 py-1 text-xs transition-colors last:border-b-0 hover:bg-bg-hover"
+              >
+                <span
+                  className={cn(
+                    'w-[68px] shrink-0 font-mono tabular-nums',
+                    bull ? 'text-signal-bull' : 'text-signal-bear',
+                  )}
+                >
+                  ≡ {solStr}
+                </span>
+                <span className="w-[58px] shrink-0 font-mono tabular-nums text-fg-secondary">{mc}</span>
+                <div className="flex min-w-0 flex-1 items-center gap-1">
+                  <span className="truncate font-mono text-fg-secondary" title={t.user_id}>
+                    {traderShort}
+                  </span>
+                  {isDev ? (
+                    <span title="Dev wallet">
+                      <ChefHat className="h-3 w-3 shrink-0 text-signal-warn" aria-hidden />
+                    </span>
+                  ) : null}
+                  {isSniper ? (
+                    <span title="Sniper">
+                      <Crosshair className="h-3 w-3 shrink-0 text-signal-bear" aria-hidden />
+                    </span>
+                  ) : null}
+                  {isWhale ? (
+                    <span title="Whale">
+                      <Fish className="h-3 w-3 shrink-0 text-signal-info" aria-hidden />
+                    </span>
+                  ) : null}
+                  {isTracked ? (
+                    <span title="Tracked">
+                      <Target className="h-3 w-3 shrink-0 text-accent-primary" aria-hidden />
+                    </span>
+                  ) : null}
+                  {isInsider ? (
+                    <span title="Insider">
+                      <AlertCircle className="h-3 w-3 shrink-0 text-signal-bear" aria-hidden />
+                    </span>
+                  ) : null}
+                </div>
+                <span className="ml-2 shrink-0 text-[10px] text-fg-muted">{formatAgeShort(t.submitted_at)}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function TokenDetailView({
@@ -140,6 +315,11 @@ export function TokenDetailView({
   const [chartH, setChartH] = useState<number | null>(null);
   const [lg, setLg] = useState(false);
   const [instantTradeOpen, setInstantTradeOpen] = useState(false);
+  const [tradesPanel, setTradesPanel] = useState(true);
+  const [liveTrades, setLiveTrades] = useState<{ rows: MintTradeRow[]; isLoading: boolean }>({
+    rows: [],
+    isLoading: true,
+  });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const leftColRef = useRef<HTMLDivElement>(null);
@@ -280,13 +460,13 @@ export function TokenDetailView({
           <div
             ref={leftColRef}
             className={cn(
-              'flex min-w-0 flex-col bg-[#080d14] lg:min-h-0',
+              'flex min-w-0 flex-col bg-bg-base lg:min-h-0',
               lg && 'min-w-[360px] flex-1',
             )}
           >
             <div
               className={cn(
-                'flex w-full min-w-0 flex-col px-0.5 pt-0.5',
+                'flex w-full min-w-0 flex-row',
                 chartH != null ? 'shrink-0' : 'min-h-[200px] shrink-0',
               )}
               style={
@@ -295,7 +475,12 @@ export function TokenDetailView({
                   : { minHeight: MIN_CHART }
               }
             >
-              <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0.5 pt-0.5">
+                <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
+              </div>
+              {tradesPanel ? (
+                <TokenLiveTradesSidePanel rows={liveTrades.rows} isLoading={liveTrades.isLoading} />
+              ) : null}
             </div>
 
             <RowResizeGrip
@@ -305,12 +490,15 @@ export function TokenDetailView({
               onPointerUp={onRowUp}
             />
 
-            <div className="flex min-w-0 flex-col bg-[#080d14]">
+            <div className="flex min-w-0 flex-col bg-bg-base">
               <TokenActivityTabs
                 mint={mint}
                 symbol={symbol}
                 creatorWallet={creatorWallet}
                 dev={dev}
+                tradesPanel={tradesPanel}
+                onTradesPanelChange={setTradesPanel}
+                onLiveTradesSnapshot={setLiveTrades}
                 onOpenInstantTrade={() => setInstantTradeOpen(true)}
               />
             </div>
@@ -325,7 +513,7 @@ export function TokenDetailView({
 
           <div
             className={cn(
-              'flex w-full min-w-0 shrink-0 flex-col border-t border-[#1b1f2a] bg-[#080d14] lg:min-h-0 lg:border-l lg:border-t-0',
+              'flex w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-bg-base lg:min-h-0 lg:border-l lg:border-t-0',
             )}
             style={lg ? { width: rightStackW } : undefined}
           >

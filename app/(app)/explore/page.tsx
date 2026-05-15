@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { ExploreTokensPanel } from '@/components/explore/ExploreTokensPanel';
 
 export const metadata: Metadata = {
-  title: 'Explore',
   description: 'Live mindshare across tokens, wallets, and social signals.',
 };
 

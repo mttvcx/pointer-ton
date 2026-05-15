@@ -24,6 +24,7 @@ import {
   DEMO_SQUADS,
   DEMO_TRADERS,
 } from '@/lib/squads/demo';
+import { ChainIcon } from '@/components/squads/ChainIcon';
 import { SquadPanel } from '@/components/squads/squadsPrimitives';
 import { cn } from '@/lib/utils/cn';
 
@@ -50,7 +51,7 @@ export function SquadRoomMvp({ slug }: { slug: string }) {
       <div className="flex flex-wrap items-start gap-3">
         <Link
           href="/squads/my"
-          className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-[#252b36] px-2.5 text-[11px] font-semibold text-fg-muted hover:border-[#2f3d4d] hover:text-fg-secondary"
+          className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-border-subtle px-2.5 text-[11px] font-semibold text-fg-muted transition hover:border-border hover:text-accent-ethos"
         >
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.2} />
           My squads
@@ -65,40 +66,65 @@ export function SquadRoomMvp({ slug }: { slug: string }) {
               <p className="mt-0.5 max-w-[70ch] text-[11.5px] leading-snug text-fg-muted">{desc}</p>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-            {squad?.chains?.map((ch) => (
-              <span
-                key={ch}
-                className="rounded border border-[#27303d] px-1.5 py-px font-medium text-fg-secondary"
-              >
-                {ch === 'sol' ? 'Solana' : ch === 'ton' ? 'TON' : ch === 'base' ? 'Base' : ch === 'hyperliquid' ? 'Hyperliquid' : ch}
-              </span>
-            ))}
-            <span className="rounded border border-[#2a4558] bg-[#1a2836] px-1.5 py-px text-[10px] font-semibold text-[#93c5fd]">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+            {squad?.chains?.map((ch) =>
+              ch === 'multi' ? (
+                <span
+                  key={ch}
+                  className="rounded bg-bg-sunken px-1.5 py-px font-medium text-fg-muted"
+                  title="Multi-chain"
+                >
+                  Multi-chain
+                </span>
+              ) : (
+                <span
+                  key={ch}
+                  className="flex h-6 w-6 items-center justify-center rounded bg-bg-sunken"
+                  title={
+                    ch === 'sol'
+                      ? 'Solana'
+                      : ch === 'ton'
+                        ? 'TON'
+                        : ch === 'base'
+                          ? 'Base'
+                          : ch === 'hyperliquid'
+                            ? 'Hyperliquid'
+                            : String(ch)
+                  }
+                >
+                  <ChainIcon chain={ch} size={12} />
+                </span>
+              ),
+            )}
+            <span className="rounded-md bg-accent-ethos/10 px-2 py-0.5 text-[10px] font-semibold text-accent-ethos">
               {squad?.trustMode ?? 'Trusted room'}
             </span>
             <span className="text-fg-muted">
-              {squad?.members ?? '—'} members · signal {squad?.signalGrade ?? '—'}
+              {squad?.members ?? '—'} members ·{' '}
+              <span className="font-semibold tabular-nums text-accent-ethos">
+                signal {squad?.signalGrade ?? '—'}
+              </span>
             </span>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-[#1b2129] pb-0.5">
+      <div className="relative flex flex-wrap gap-1 border-b border-border-subtle">
         {ROOM_TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-t-md border border-b-0 px-3 py-2 text-[11px] font-semibold transition',
-              tab === id
-                ? 'border-[#2a4558] bg-[#0d1117] text-fg-primary'
-                : 'border-transparent text-fg-muted hover:text-fg-secondary',
+              'relative inline-flex items-center gap-1.5 px-3 pb-2.5 pt-1 text-[11px] font-semibold transition',
+              tab === id ? 'text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
             )}
           >
             <Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
             {label}
+            {tab === id ? (
+              <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-accent-ethos" aria-hidden />
+            ) : null}
           </button>
         ))}
       </div>
@@ -118,7 +144,7 @@ export function SquadRoomMvp({ slug }: { slug: string }) {
         <aside className="space-y-3">
           <SquadPanel padding="p-3">
             <div className="flex items-center gap-2 text-[11px] font-semibold text-fg-primary">
-              <Bell className="h-3.5 w-3.5 text-[#67bffd]" strokeWidth={2.2} />
+              <Bell className="h-3.5 w-3.5 text-accent-ethos" strokeWidth={2.2} />
               Shared alerts
             </div>
             <ul className="mt-2 space-y-2 text-[11px]">
@@ -165,7 +191,7 @@ function FeedTab({
     <>
       <SquadPanel padding="p-0" className="overflow-hidden">
         <div className="flex items-center gap-2 border-b border-[#1b2129] px-3 py-2">
-          <Activity className="h-4 w-4 text-[#67bffd]" strokeWidth={2.2} />
+          <Activity className="h-4 w-4 text-accent-ethos" strokeWidth={2.2} />
           <span className="text-[11px] font-semibold tracking-tight text-fg-secondary">Room feed</span>
         </div>
         <ul className="max-h-[220px] divide-y divide-[#1b2129] overflow-y-auto">
@@ -200,7 +226,7 @@ function FeedTab({
                 </span>
                 <Link
                   href={`/token/${t.mint}`}
-                  className="rounded-md border border-[#2f3d4f] px-2 py-1 text-[10px] font-semibold text-[#67bffd] hover:bg-white/[0.04]"
+                  className="rounded-md border border-[#2f3d4f] px-2 py-1 text-[10px] font-semibold text-accent-ethos hover:bg-white/[0.04]"
                 >
                   Open
                 </Link>
@@ -220,7 +246,7 @@ function FeedTab({
         <ul className="space-y-2 px-3 py-3 text-[11.5px]">
           {DEMO_CHAT.map((m) => (
             <li key={m.id} className="leading-snug">
-              <span className="font-semibold text-[#67bffd]">{m.who}</span>
+              <span className="font-semibold text-accent-ethos">{m.who}</span>
               <span className="text-fg-muted"> · {m.at} — </span>
               <span className="text-fg-secondary">{m.text}</span>
             </li>
@@ -266,7 +292,7 @@ function WatchlistTab() {
       <p className="text-[12px] font-semibold text-fg-primary">Watchlist</p>
       <p className="mt-1 text-[11.5px] text-fg-muted">
         Same mints open in{' '}
-        <Link href="/pulse" className="text-[#67bffd] hover:underline">
+        <Link href="/pulse" className="text-accent-ethos hover:underline">
           Pulse
         </Link>{' '}
         and token routes — one market stack, shared context here.
@@ -278,7 +304,7 @@ function WatchlistTab() {
             className="flex items-center justify-between gap-2 rounded-md border border-[#252b36] bg-[#0a0e14] px-2.5 py-2 text-[11px]"
           >
             <span className="font-medium text-fg-primary">{t.symbol}</span>
-            <Link href={`/token/${t.mint}`} className="text-[#67bffd] hover:underline">
+            <Link href={`/token/${t.mint}`} className="text-accent-ethos hover:underline">
               Trade
             </Link>
           </li>
@@ -311,7 +337,7 @@ function SignalsTab({
       </ul>
       <button
         type="button"
-        className="mt-4 w-full rounded-md bg-[#1f6daa] py-2 text-[11px] font-semibold text-white hover:bg-[#287fc4]"
+        className="mt-4 w-full rounded-md bg-accent-ethos py-2 text-[11px] font-semibold text-bg-base transition-colors hover:bg-accent-ethos-soft"
         onClick={() =>
           openCopilotQuickAsk({
             entity: { type: 'token', id: firstMint, label: name },
@@ -337,7 +363,7 @@ function NotesTab() {
         {notes.map((n) => (
           <li key={n.id} className="rounded-md border border-[#252b36] bg-[#0a0e14] p-3">
             <p className="text-[10px] text-fg-muted">
-              <span className="font-semibold text-[#67bffd]">{n.who}</span> · {n.t}
+              <span className="font-semibold text-accent-ethos">{n.who}</span> · {n.t}
             </p>
             <p className="mt-1 text-[11.5px] text-fg-secondary">{n.body}</p>
           </li>
@@ -357,7 +383,7 @@ function VotesTab() {
         <div className="mt-3 flex gap-2">
           <button
             type="button"
-            className="flex-1 rounded-md bg-[#1f6daa] py-2 text-[11px] font-semibold text-white hover:bg-[#287fc4]"
+            className="flex-1 rounded-md bg-accent-ethos py-2 text-[11px] font-semibold text-bg-base transition-colors hover:bg-accent-ethos-soft"
             onClick={() => toast.success('Vote recorded')}
           >
             Approve

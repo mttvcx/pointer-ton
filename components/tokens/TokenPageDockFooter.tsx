@@ -34,7 +34,7 @@ function DockNav({
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#6b7280] transition hover:bg-white/5 hover:text-[#d1d5db]"
+      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-fg-muted transition hover:bg-white/5 hover:text-fg-secondary"
     >
       <Icon className="h-3 w-3 opacity-90" strokeWidth={2} />
       <span className="hidden sm:inline">{label}</span>
@@ -102,33 +102,33 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
   const nativeUsd = tickersQ.data;
 
   return (
-    <div className="flex w-full shrink-0 flex-col gap-0.5 border-t border-[#1b1f2a] bg-[#0b0d12] px-2 py-1 text-[10px] text-[#9ca3af]">
+    <div className="flex w-full shrink-0 flex-col gap-0.5 border-t border-border-subtle bg-bg-base px-2 py-1 text-[10px] text-fg-secondary">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-        <span className="hidden font-semibold uppercase tracking-wide text-[#4b5563] sm:inline">
+        <span className="hidden font-semibold uppercase tracking-wide text-fg-muted sm:inline">
           Dock
         </span>
-        <span className="max-w-[8rem] truncate text-[10px] text-[#6b7280]" title={mint}>
+        <span className="max-w-[8rem] truncate text-[10px] text-fg-muted" title={mint}>
           {symbol ?? '-'}{' '}
           <span className="tabular-nums opacity-70">
             {mint.slice(0, 4)}...
           </span>
         </span>
-        <span className="rounded border border-[#1b1f2a] px-1.5 py-px tabular-nums text-[10px] text-[#5eead4]">
+        <span className="rounded border border-border-subtle px-1.5 py-px tabular-nums text-[10px] text-signal-bull">
           PRESET {activePresetSlot}
         </span>
-        <div className="hidden h-3 w-px bg-[#1b1f2a] sm:block" aria-hidden />
+        <div className="hidden h-3 w-px bg-border-subtle sm:block" aria-hidden />
         <DockNav href="/wallets" icon={Wallet} label="Wallet" />
         <DockNav href="/pulse" icon={Compass} label="Pulse" />
         <DockNav href="/portfolio" icon={CircleDollarSign} label="PnL" />
         <DockNav href="/points" icon={Sparkles} label="Alpha" />
         <div className="ml-auto flex flex-wrap items-center gap-x-2 tabular-nums">
-          <span className="inline-flex items-center gap-0.5 text-[#6b7280]">
+          <span className="inline-flex items-center gap-0.5 text-fg-muted">
             <ArrowLeftRight className="h-3 w-3" strokeWidth={2} />
             {nativeSym} ${nativeUsd != null ? formatNumber(nativeUsd, { decimals: 2 }) : '-'}
           </span>
           <span>
             Bal{' '}
-            <span className="tabular-nums text-[#e5e7eb]">
+            <span className="tabular-nums text-fg-primary">
               {activeChain === 'sol' && solBal != null
                 ? `${formatNumber(solBal, { decimals: 3 })} ${nativeSym}`
                 : activeChain === 'sol'
@@ -145,8 +145,8 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
             <Radio className="h-2.5 w-2.5" strokeWidth={2} />
             RPC
           </span>
-          <span className="text-[#4b5563]">US</span>
-          <span className="text-[#4b5563]" title="Placeholder">
+          <span className="text-fg-muted">US</span>
+          <span className="text-fg-muted" title="Placeholder">
             <Activity className="inline h-3 w-3" strokeWidth={2} />
           </span>
         </div>

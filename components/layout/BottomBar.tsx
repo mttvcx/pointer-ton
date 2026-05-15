@@ -124,6 +124,11 @@ function IssuesIndicator({ onOpenDiagnostics }: { onOpenDiagnostics: () => void 
     };
   }, []);
 
+  // Hidden in production: end users don't need a live error counter; they have
+  // the silent diagnostics drawer (DiagnosticsTriggerButton) if they want to
+  // report something. Dev keeps the counter so engineers see issues in their
+  // sessions. Mirrors the comment in next.config.ts about chrome consistency.
+  if (process.env.NODE_ENV === 'production') return null;
   if (dismissed || count === 0) return null;
 
   return (
@@ -272,13 +277,10 @@ export function BottomBar() {
 
   return (
     <>
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex min-h-11 shrink-0 border-t pb-[env(safe-area-inset-bottom,0px)] text-[10px] tabular-nums text-[#9ca3af]"
-        style={{ borderColor: '#1b1f2a', backgroundColor: '#080d14' }}
-      >
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex min-h-11 shrink-0 border-t border-border-subtle bg-bg-base pb-[env(safe-area-inset-bottom,0px)] text-[10px] tabular-nums text-fg-secondary">
       <div className="flex min-h-11 w-full min-w-0 items-center gap-2 overflow-x-auto px-2 sm:gap-2 sm:px-2.5">
-        <div className="hidden min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-r pr-2 sm:flex" style={{ borderColor: '#1b1f2a' }}>
-          <span className="rounded border px-1 py-px text-[9px] tabular-nums font-semibold text-[#5eead4]" style={{ borderColor: '#1b1f2a' }}>
+        <div className="hidden min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-r border-border-subtle pr-2 sm:flex">
+          <span className="rounded border border-border-subtle px-1 py-px text-[9px] font-semibold tabular-nums text-accent-primary">
             PRESET {activePresetSlot}
           </span>
           <DockLink href="/wallets" icon={Wallet} label="Wallet" />
@@ -342,15 +344,15 @@ export function BottomBar() {
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
             Stable
           </span>
-          <span className="hidden text-[9px] font-semibold text-[#4b5563] lg:inline">US-E</span>
+          <span className="hidden text-[9px] font-semibold text-fg-muted lg:inline">US-E</span>
           <DiagnosticsTriggerButton compactMobile onClick={() => setDiagnosticsOpen(true)} />
-          <button type="button" className="rounded p-1 text-[#4b5563] hover:bg-white/5 hover:text-[#9ca3af]" title="Help">
+          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-secondary" title="Help">
             <Globe className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
-          <button type="button" className="rounded p-1 text-[#4b5563] hover:bg-white/5 hover:text-[#9ca3af]" title="Support">
+          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-secondary" title="Support">
             <Headphones className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
-          <button type="button" className="rounded p-1 text-[#4b5563] hover:bg-white/5 hover:text-[#9ca3af]" title="Activity">
+          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-secondary" title="Activity">
             <Activity className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
@@ -378,7 +380,7 @@ function DockLink({
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-[#6b7280] transition hover:bg-white/[0.06] hover:text-[#e5e7eb]"
+      className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg-primary"
     >
       <Icon className="h-3 w-3 shrink-0 opacity-90" strokeWidth={2} />
       <span className="hidden xl:inline">{label}</span>

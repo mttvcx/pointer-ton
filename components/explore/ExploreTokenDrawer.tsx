@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ArrowUpRight,
   BellPlus,
+  ChevronDown,
   Copy,
   ExternalLink,
   Loader2,
@@ -63,6 +64,12 @@ export function ExploreTokenDrawer({
       ? quickSol
       : BUY_PRESETS_SOL[1]!;
 
+  const [aiOverviewOpen, setAiOverviewOpen] = useState(true);
+
+  useEffect(() => {
+    if (item?.tokenAddress) setAiOverviewOpen(true);
+  }, [item?.tokenAddress]);
+
   const { mounted, visible } = useOverlayPresence(open && Boolean(item));
 
   useEffect(() => {
@@ -83,7 +90,12 @@ export function ExploreTokenDrawer({
   const explorer = explorerUrlForAccount(item.tokenAddress);
 
   return (
-    <div className="fixed inset-0 z-[520] flex justify-end" role="presentation">
+    <div
+      className="fixed inset-0 z-[520] flex items-center justify-center p-4 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="explore-token-drawer-title"
+    >
       <button
         type="button"
         className={cn(
@@ -94,16 +106,16 @@ export function ExploreTokenDrawer({
         aria-label="Close"
         onClick={onClose}
       />
-      <aside
+      <div
         className={cn(
-          'relative flex h-full w-full max-w-md flex-col border-l border-white/[0.08]',
-          'bg-[rgba(8,13,20,0.94)] shadow-[-24px_0_64px_-24px_rgba(0,0,0,0.75)] backdrop-blur-xl',
+          'relative flex max-h-[min(760px,calc(100vh-48px))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border-subtle',
+          'bg-bg-raised shadow-[0_24px_80px_-24px_rgba(0,0,0,0.85)] backdrop-blur-xl',
           overlayPanelClasses(visible),
           'fill-mode-forwards',
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-3.5">
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle px-4 py-3.5">
           <div className="flex min-w-0 gap-3">
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-bg-base ring-1 ring-white/10">
               {item.iconUrl ? (
@@ -143,13 +155,13 @@ export function ExploreTokenDrawer({
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-fg-muted transition hover:bg-white/[0.05] hover:text-fg-primary"
-            aria-label="Close drawer"
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </button>
         </header>
 
-        <div className="flex shrink-0 flex-wrap gap-2 border-b border-white/[0.05] px-4 py-2.5">
+        <div className="flex shrink-0 flex-wrap gap-2 border-b border-border-subtle bg-bg-sunken/35 px-4 py-3">
           <button
             type="button"
             disabled={!authenticated}
@@ -224,7 +236,7 @@ export function ExploreTokenDrawer({
           </a>
         </div>
 
-        <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-3">
+        <div className="scrollbar-thin flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-3">
           {demoFixture ? (
             <div className="mb-3 rounded-lg border border-amber-500/22 bg-amber-500/[0.07] px-3 py-2 text-[10px] leading-snug text-amber-50/95">
               Demo fixture — wallet and KOL deltas are synthetic so you can review the surface. They are not live indexed
@@ -232,43 +244,79 @@ export function ExploreTokenDrawer({
             </div>
           ) : null}
 
-          {/* AI Overview card — structured, first-class. */}
-          <section className="rounded-2xl border border-accent-primary/25 bg-gradient-to-br from-accent-primary/[0.08] via-accent-primary/[0.025] to-transparent p-3.5">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="inline-flex items-center gap-1.5 text-[12px] font-semibold tracking-tight text-fg-primary">
-                <Sparkles className="h-3.5 w-3.5 text-accent-primary" /> AI Overview
+          {/* AI Overview — collapsible for smooth layout; default open */}
+          <section className="overflow-hidden rounded-2xl border border-accent-primary/25 bg-gradient-to-br from-accent-primary/[0.08] via-accent-primary/[0.025] to-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <button
+              type="button"
+              aria-expanded={aiOverviewOpen}
+              onClick={() => setAiOverviewOpen((o) => !o)}
+              className={cn(
+                'flex w-full items-center justify-between gap-3 rounded-t-2xl px-3.5 py-3 text-left transition-colors',
+                'hover:bg-accent-primary/[0.06]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(14,20,28)]',
+                'motion-reduce:transition-none',
+              )}
+            >
+              <h3 className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold tracking-tight text-fg-primary">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent-primary" aria-hidden /> AI Overview
               </h3>
-              <span className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
-                {demoFixture ? 'Synthesis · demo' : 'Synthesis · Pointer fields'}
-              </span>
-            </div>
-            <dl className="mt-2.5 grid gap-1.5 text-[11px] leading-snug">
-              <Insight k="What it is" v={overview.whatItIs} />
-              <Insight k="Why it's moving" v={overview.whyMoving} />
-              <Insight k="Wallet signal" v={overview.walletSignal} />
-              <Insight k="Social signal" v={overview.socialSignal} />
-              <Insight k="Narrative" v={overview.narrative} />
-              <Insight k="Risks" v={overview.risks} tone={item.riskScore >= 60 ? 'risk' : 'normal'} />
-              <Insight k="What changed" v={overview.whatChanged} />
-            </dl>
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-2.5">
-              <button
-                type="button"
-                disabled={!authenticated}
-                title={!authenticated ? 'Sign in to use Co-pilot' : 'Ask Co-pilot for a deep overview'}
-                onClick={() =>
-                  openCopilotQuickAsk({
-                    entity: { type: 'token', id: item.tokenAddress, label: item.ticker },
-                    question: aiOverviewQuestion(item.ticker),
-                  })
-                }
-                className="rounded-lg bg-accent-primary/95 px-3 py-1.5 text-[11px] font-semibold text-fg-inverse hover:bg-accent-primary disabled:opacity-35"
-              >
-                Ask Co-pilot
-              </button>
-              <span className="text-[9.5px] text-fg-muted/85">
-                Built from live Pointer fields · Co-pilot adds narrative and source-checks on request.
-              </span>
+              <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                <span className="hidden truncate rounded-full border border-border-subtle bg-bg-sunken/80 px-2 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-fg-muted sm:inline-flex">
+                  {demoFixture ? 'Synthesis · demo' : 'Synthesis · Pointer fields'}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 shrink-0 text-fg-muted transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+                    aiOverviewOpen && 'rotate-180',
+                  )}
+                  strokeWidth={2.2}
+                  aria-hidden
+                />
+              </div>
+            </button>
+            <div
+              className={cn(
+                'grid overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none',
+                aiOverviewOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+              )}
+            >
+              <div className="min-h-0 overflow-hidden border-t border-border-subtle">
+                <div className="px-3.5 pb-3.5 pt-1">
+                  <span className="mb-3 inline-flex sm:hidden rounded-full border border-border-subtle bg-bg-sunken/80 px-2 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+                    {demoFixture ? 'Synthesis · demo' : 'Synthesis · Pointer fields'}
+                  </span>
+                  <dl className="grid gap-1.5 text-[11px] leading-snug">
+                    <Insight k="What it is" v={overview.whatItIs} />
+                    <Insight k="Why it's moving" v={overview.whyMoving} />
+                    <Insight k="Wallet signal" v={overview.walletSignal} />
+                    <Insight k="Social signal" v={overview.socialSignal} />
+                    <Insight k="Narrative" v={overview.narrative} />
+                    <Insight k="Risks" v={overview.risks} tone={item.riskScore >= 60 ? 'risk' : 'normal'} />
+                    <Insight k="What changed" v={overview.whatChanged} />
+                  </dl>
+                  <div className="mt-3 flex flex-col gap-2 border-t border-border-subtle pt-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <button
+                      type="button"
+                      disabled={!authenticated}
+                      title={
+                        !authenticated ? 'Sign in to use Co-pilot' : 'Ask Co-pilot for a deep overview'
+                      }
+                      onClick={() =>
+                        openCopilotQuickAsk({
+                          entity: { type: 'token', id: item.tokenAddress, label: item.ticker },
+                          question: aiOverviewQuestion(item.ticker),
+                        })
+                      }
+                      className="shrink-0 rounded-lg bg-accent-primary/95 px-3 py-1.5 text-[11px] font-semibold text-fg-inverse transition hover:bg-accent-primary disabled:opacity-35"
+                    >
+                      Ask Co-pilot
+                    </button>
+                    <span className="text-[9.5px] leading-snug text-fg-muted">
+                      Built from live Pointer fields · Co-pilot adds narrative and source-checks on request.
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -443,7 +491,7 @@ export function ExploreTokenDrawer({
             </p>
           </section>
         </div>
-      </aside>
+      </div>
     </div>
   );
 }

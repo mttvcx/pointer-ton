@@ -3,7 +3,6 @@ import { Suspense } from 'react';
 import { BetaGateClient } from './BetaClient';
 
 export const metadata: Metadata = {
-  title: 'Beta access',
   description: 'Enter your Pointer invite code.',
 };
 

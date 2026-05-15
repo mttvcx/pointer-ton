@@ -1,19 +1,12 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Eye, Loader2, Zap } from 'lucide-react';
-import { NumberDisplay } from '@/components/shared/NumberDisplay';
-import { WalletDisplay } from '@/components/shared/WalletDisplay';
-import { PulseRowMetaPills } from '@/components/tokens/PulseRowMetaPills';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
 import { PulseRowVolMc } from '@/components/tokens/PulseRowVolMc';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
-import {
-  DevWalletIntelHoverPanel,
-  PulseRichHover,
-} from '@/components/tokens/PulseRichPopovers';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { RiskFlags } from '@/components/tokens/RiskFlags';
@@ -23,7 +16,7 @@ import { syntheticPulseVolMc } from '@/lib/dev/demoTokenFixtures';
 import type { BuyButtonStyle, ColumnDisplayOptions } from '@/lib/tokens/columnPresetModel';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
 import { shortenAddress } from '@/lib/utils/addresses';
-import { formatAgeShort, formatNumber } from '@/lib/utils/formatters';
+import { formatAgeShort } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 import type { PulseColumnId } from '@/lib/utils/constants';
@@ -100,7 +93,6 @@ export function TokenRow({
       ? snapshot.market_cap_usd
       : demoMetrics.mcUsd;
 
-  const txnsStrip = snapshot?.txns_1h ?? snapshot?.txns_5m ?? null;
   const showMc = display?.showMc ?? true;
   const showLiq = display?.showLiq ?? true;
   const showVol = display?.showVol ?? true;
@@ -288,76 +280,9 @@ export function TokenRow({
       />
     ) : null;
 
-  const axiomVolMcForStrip = !heroMc && (showVol || showMc) && !ultraChrome ? (
-    <div className="mt-1">
-      <PulseRowVolMc
-        vol={vol}
-        mcUsd={mcUsd}
-        showVol={showVol}
-        showMc={showMc}
-        size={volMcSize}
-        justify="start"
-      />
-    </div>
-  ) : null;
-
   /** Reserve horizontal space so token info never sits under the fixed right-side action column (Ultra / quick-buy). */
   const reserveRightActionCol =
     ultraChrome && (hasPrimaryBuy || showSecondBuy || showSecondSell);
-
-  const metricsStrip = (
-    <div
-      className={cn(
-        'flex flex-wrap items-center gap-x-3 gap-y-1 leading-snug',
-        slotHeight != null && 'max-w-full overflow-hidden',
-      )}
-    >
-      {axiomVolMcForStrip}
-      {(() => {
-        const metrics: ReactNode[] = [];
-        if (showLiq) {
-          metrics.push(
-            <Metric
-              key="liq"
-              label="LIQ"
-              value={
-                <NumberDisplay value={snapshot?.liquidity_usd} compact className="text-xs text-fg-secondary" />
-              }
-            />,
-          );
-        }
-        if (showHolders) {
-          metrics.push(
-            <Metric
-              key="tx"
-              label="TX"
-              value={
-                <span className="text-xs text-fg-secondary">
-                  {txnsStrip != null ? formatNumber(txnsStrip, { decimals: 0 }) : '--'}
-                </span>
-              }
-            />,
-          );
-        }
-        if (showDev && token.creator_wallet) {
-          metrics.push(
-            <span key="dev" className="inline-flex items-center gap-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">dev</span>
-              <PulseRichHover wide panel={<DevWalletIntelHoverPanel bundle={bundle} />}>
-                <WalletDisplay
-                  address={token.creator_wallet}
-                  href={`/wallet/${encodeURIComponent(token.creator_wallet)}`}
-                  truncate={3}
-                  preferIntelModal
-                />
-              </PulseRichHover>
-            </span>,
-          );
-        }
-        return metrics;
-      })()}
-    </div>
-  );
 
   return (
     <div
@@ -368,11 +293,17 @@ export function TokenRow({
           : undefined
       }
       className={cn(
-        'focus-ring group relative flex items-stretch rounded-lg border border-border-subtle bg-bg-raised outline-none transition-colors duration-100',
+        // `pulse-row` is the preference hook (bg / min-height / pad-y / hairline)
+        // driven by data-* on <html>. Existing `bg-bg-raised` / border / py-*
+        // /min-h on the outer have been removed so the CSS rule wins; `rounded-lg`
+        // is kept so the focus ring + hover bg still hug the corner radius.
+        'pulse-row group relative flex items-stretch rounded-lg border-0 outline-none transition-colors duration-100',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40 focus-visible:ring-offset-0',
         slotHeight != null
           ? 'h-full min-h-0 max-h-full overflow-hidden'
-          : rowMinH,
-        trackedDev && 'bg-accent-primary/[0.08]',
+          : null,
+        // !important so the elevation CSS rule (same specificity) can't out-win the tracked-dev tint.
+        trackedDev && '!bg-accent-primary/[0.08]',
         pulseFlashHighlight && 'row-active z-[25]',
         'hover:bg-bg-hover',
       )}
@@ -382,9 +313,7 @@ export function TokenRow({
         aria-hidden
         className={cn(
           'pointer-events-none absolute inset-y-0 left-0 w-px transition',
-          trackedDev
-            ? 'bg-accent-primary opacity-100'
-            : 'bg-accent-primary opacity-0 group-hover:opacity-100',
+          trackedDev ? 'bg-accent-primary opacity-100' : 'opacity-0',
         )}
       />
 
@@ -419,32 +348,45 @@ export function TokenRow({
             >
               {avatarStack}
             </Link>
-            <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-center space-y-1.5 overflow-hidden">
-              <Link
-                href={tokenPath}
-                className="block min-w-0 outline-none focus-visible:bg-bg-hover rounded-sm"
-              >
-                <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
-                  {identityCluster}
-                  {heroMcBlock}
-                </div>
-              </Link>
-              <div className="flex min-w-0 items-center gap-2">
-                {ageBadge}
-                <PulseRowSocialStrip
-                  bundle={bundle}
-                  traits={{
-                    cashback: showTraitIcons && traits.cashback,
-                    feeShare: showTraitIcons && traits.feeShare,
-                    agent: showTraitIcons && traits.agent,
-                  }}
-                  compact
-                  /** Locked to 14px (h-3.5 w-3.5) per Pulse polish iteration — earlier 12px read invisible. */
-                  glyphSize={14}
-                />
+            <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-center space-y-2 overflow-hidden">
+              <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
+                <Link
+                  href={tokenPath}
+                  className="block min-w-0 flex-1 overflow-hidden outline-none focus-visible:bg-bg-hover rounded-sm"
+                >
+                  <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
+                    {identityCluster}
+                    {ageBadge}
+                    {heroMcBlock}
+                  </div>
+                </Link>
+                {!ultraChrome && !heroMc && (showVol || showMc) ? (
+                  <div className="pointer-events-none shrink-0 tabular-nums">
+                    <PulseRowVolMc
+                      vol={vol}
+                      mcUsd={mcUsd}
+                      showVol={showVol}
+                      showMc={showMc}
+                      size={volMcSize}
+                      justify="end"
+                      layout="inline"
+                    />
+                  </div>
+                ) : null}
               </div>
-              <PulseRowMetaPills bundle={bundle} />
-              {metricsStrip}
+              <PulseRowSocialStrip
+                bundle={bundle}
+                traits={{
+                  cashback: showTraitIcons && traits.cashback,
+                  feeShare: showTraitIcons && traits.feeShare,
+                  agent: showTraitIcons && traits.agent,
+                }}
+                compact
+                glyphSize={16}
+                showLiquidity={showLiq}
+                showTxCount={showHolders}
+                showDevWallet={showDev}
+              />
             </div>
           </div>
         </div>
@@ -456,27 +398,15 @@ export function TokenRow({
           ultraChrome && (hasPrimaryBuy || showSecondBuy || showSecondSell) ? (
             <div
               className={cn(
-                'pointer-events-none absolute inset-y-0 right-0 z-20 flex items-stretch justify-end',
+                // `pulse-row-action` provides the optional vertical divider via
+                // the global preferences CSS. `pl-3` keeps action content off
+                // the new border-left when the divider preference is on.
+                'pulse-row-action pointer-events-none absolute inset-y-0 right-0 z-20 flex items-stretch justify-end pl-3',
                 slotHeight != null ? 'pr-0' : 'pr-2',
                 slotHeight == null && 'min-h-[3.5rem]',
               )}
             >
-              {slotHeight != null ? (
-                <div
-                  className="pointer-events-none absolute inset-y-0 right-0 z-[19] flex h-full justify-end pr-0"
-                  aria-hidden
-                >
-                  <div
-                    className={cn(
-                      /** Width MUST match the Ultra dock clamp below + the click-target reservation. */
-                      'h-full w-[clamp(7.5rem,32%,14rem)] shrink-0 rounded-l-[6px]',
-                      'bg-gradient-to-l from-[#0b1119]/72 via-[#0b1119]/38 to-transparent opacity-0 backdrop-blur-sm backdrop-saturate-150',
-                      'shadow-[inset_1px_0_0_rgba(255,255,255,0.03)]',
-                      'transition-opacity duration-150 group-hover:opacity-100',
-                    )}
-                  />
-                </div>
-              ) : null}
+              {/* Right-side action column sits flat against the row — no container fill, no border. */}
               <div
                 className={cn(
                   /**
@@ -629,7 +559,9 @@ export function TokenRow({
           ) : !ultraChrome ? (
             <div
               className={cn(
-                'pointer-events-none absolute inset-y-0 right-0 z-20 flex items-end gap-1.5 pb-2.5 pr-2',
+                // Mirrors the Ultra branch — same preference hook so the divider
+                // pref applies to both chrome modes.
+                'pulse-row-action pointer-events-none absolute inset-y-0 right-0 z-20 flex items-end gap-1.5 pb-2.5 pl-3 pr-2',
                 effectivePy,
               )}
             >
@@ -759,15 +691,6 @@ export function TokenRow({
         ) : null}
       </>
     </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-baseline gap-1">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">{label}</span>
-      {value}
-    </span>
   );
 }
 

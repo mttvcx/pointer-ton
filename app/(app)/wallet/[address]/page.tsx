@@ -20,17 +20,6 @@ import {
 } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ address: string }>;
-}) {
-  const { address } = await params;
-  const short =
-    address.length > 12 ? `${address.slice(0, 4)}\u2026${address.slice(-4)}` : address;
-  return { title: `Wallet ${short}` };
-}
-
 function explorerButtonLabel(kind: ReturnType<typeof inferMintKind>): string {
   if (kind === 'sol') return 'Solscan';
   if (kind === 'ton') return 'Tonviewer';

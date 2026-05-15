@@ -31,7 +31,7 @@ function PodiumCard({ entry, placing, emphasize, highlightYou }: PodiumCardProps
       className={cn(
         'relative flex flex-col justify-end overflow-hidden rounded-md border bg-bg-base px-4 pb-4 pt-10 transition-all duration-200',
         emphasize
-          ? 'min-h-[168px] border-accent-primary/40 shadow-[0_0_32px_rgba(0,119,182,0.12)]'
+          ? 'min-h-[168px] border-accent-primary/40 shadow-[0_0_32px_rgb(var(--accent-primary-rgb)/0.12)]'
           : 'min-h-[132px] border-border-subtle',
         highlightYou && 'ring-1 ring-accent-primary/60',
       )}

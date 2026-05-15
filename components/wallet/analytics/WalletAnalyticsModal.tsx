@@ -176,7 +176,7 @@ export function WalletAnalyticsModal() {
       <button
         type="button"
         className={cn(
-          'absolute inset-0 bg-black/70 backdrop-blur-md',
+          'absolute inset-0 z-40 bg-bg-base/75 backdrop-blur-sm',
           overlayBackdropClasses(overlayVisible),
           'fill-mode-forwards',
         )}
@@ -187,8 +187,8 @@ export function WalletAnalyticsModal() {
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative flex h-[min(92vh,880px)] max-h-[min(92vh,880px)] w-full max-w-[1220px] flex-col overflow-hidden rounded-xl border border-white/[0.06] fill-mode-forwards',
-          'bg-[#080a0e]/[0.99] shadow-[0_18px_72px_-34px_rgba(0,0,0,0.95)] backdrop-blur-xl',
+          'relative z-50 flex h-[min(92vh,880px)] max-h-[min(92vh,880px)] w-full max-w-[1220px] flex-col overflow-hidden rounded-xl border border-border-subtle fill-mode-forwards',
+          'bg-bg-raised shadow-panel',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
@@ -233,18 +233,16 @@ export function WalletAnalyticsModal() {
                   Preview rows · Share PnL is enabled on positions
                 </div>
               ) : null}
-              <div className="mx-3 mt-2 grid overflow-hidden rounded-lg border border-white/[0.07] bg-[#090c11]/70 lg:grid-cols-[0.86fr_1.2fr_0.98fr] lg:divide-x lg:divide-white/[0.06] sm:mx-4">
+              <div className="mx-3 mt-2 grid overflow-hidden rounded-lg border border-border-subtle bg-bg-sunken/40 lg:grid-cols-[0.86fr_1.2fr_0.98fr] lg:divide-x lg:divide-border-subtle sm:mx-4">
                 <WalletBalancePanel data={effectiveData} currency="USD" />
-                <div className="flex min-h-[206px] flex-col border-t border-white/[0.06] p-3 lg:border-t-0">
-                  <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted/90">
-                    Realized PNL
-                  </h3>
+                <div className="flex min-h-[206px] flex-col border-t border-border-subtle p-3 lg:border-t-0">
+                  <h3 className="mb-3 text-xs font-semibold text-fg-primary">REALIZED PNL</h3>
                   <WalletPnlChart points={effectiveData.chart} className="mt-1.5 min-h-[174px] flex-1" />
                 </div>
                 <WalletPerformancePanel data={effectiveData} timeframe={tf} />
               </div>
 
-              <div className="mx-3 mt-3 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.06] pb-0 sm:mx-4">
+              <div className="mx-3 mt-3 flex flex-wrap items-end justify-between gap-3 border-b border-border-subtle pb-0 sm:mx-4">
                 <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-2">
                   {DESK_TABS.map((t) => (
                     <button
@@ -252,9 +250,9 @@ export function WalletAnalyticsModal() {
                       type="button"
                       onClick={() => setDeskTab(t.id)}
                       className={cn(
-                        'relative shrink-0 whitespace-nowrap px-1 pb-2 text-[11px] font-semibold transition',
+                        'relative shrink-0 whitespace-nowrap px-2 pb-1 text-xs transition',
                         deskTab === t.id
-                          ? 'text-emerald-200 after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:rounded-sm after:bg-emerald-400/90'
+                          ? 'font-semibold text-fg-primary after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-accent-primary'
                           : 'text-fg-muted hover:text-fg-secondary',
                       )}
                     >
@@ -269,11 +267,11 @@ export function WalletAnalyticsModal() {
                       value={posSearch}
                       onChange={(e) => setPosSearch(e.target.value)}
                       placeholder="Search by name or address"
-                      className="h-8 w-[min(100%,220px)] rounded-md border border-white/[0.08] bg-black/35 px-2.5 text-[11px] text-fg-primary outline-none placeholder:text-fg-muted/70 focus:border-emerald-500/35"
+                      className="h-7 w-[min(100%,220px)] rounded border border-border-subtle bg-bg-sunken px-2.5 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
                     />
                   ) : null}
-                  <span className="inline-flex items-center gap-1 rounded-md border border-white/[0.07] bg-black/25 px-2 py-1 text-[10px] font-medium text-fg-muted">
-                    <Globe className="h-3 w-3 opacity-80" strokeWidth={2} aria-hidden />
+                  <span className="inline-flex h-5 items-center rounded border border-border-subtle bg-bg-sunken px-2 text-[10px] text-fg-muted transition-colors hover:text-fg-primary">
+                    <Globe className="mr-1 h-3 w-3 opacity-80" strokeWidth={2} aria-hidden />
                     USD
                   </span>
                 </div>

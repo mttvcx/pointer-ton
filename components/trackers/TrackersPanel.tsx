@@ -6,12 +6,18 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
   Activity,
   AlignJustify,
+  BarChart3,
   Bell,
   BellOff,
+  ExternalLink,
   Layers,
   Loader2,
+  MessageCircle,
+  Rss,
   Search,
   Trash2,
+  Wallet,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
@@ -142,15 +148,6 @@ function groupIcon(g: GroupId): string {
   }
 }
 
-const MONITOR_CARDS = [
-  { name: 'KING', subtitle: 'Official', icon: '👑', age: '29s', mc: '$3.69K', liq: '$7.5K', tx: '3', last: '7s', buys: '3', bought: '$280.7', sells: '0', sold: '$0', pnl: '-$31.28', remaining: '$249.9', wallet: 'otta' },
-  { name: 'Apple', subtitle: 'Apple', icon: '🍎', age: '19h', mc: '$1.95M', liq: '$127K', tx: '1', last: '19s', buys: '1', bought: '$170.2', sells: '0', sold: '$0', pnl: '-$0.203', remaining: '$16.81', wallet: 'YENNI' },
-  { name: 'PEPPER', subtitle: 'CatGPT', icon: '🌶️', age: '8m', mc: '$8.46K', liq: '$8.61K', tx: '8', last: '1m', buys: '1', bought: '$277.4', sells: '7', sold: '$316.1', pnl: '-$24.09', remaining: '$0', wallet: 'Unprof...' },
-  { name: 'toly', subtitle: 'toly', icon: '🟩', age: '2m', mc: '$1B', liq: '$5.11K', tx: '1', last: '2m', buys: '0', bought: '$0', sells: '1', sold: '$2.55K', pnl: '+$1.07B', remaining: '$1.07B', wallet: 'Unprof...' },
-  { name: 'bruh', subtitle: 'bruh is', icon: '🧟', age: '5m', mc: '$463.5', liq: '$904.5', tx: '23', last: '3m', buys: '21', bought: '$42.26', sells: '2', sold: '$59.67', pnl: '-$24.09', remaining: '$0', wallet: 'Unprof...' },
-  { name: 'ELMER', subtitle: 'underdog', icon: '🐶', age: '3m', mc: '$157K', liq: '$22.8K', tx: '8', last: '3m', buys: '1', bought: '$1.38K', sells: '7', sold: '$1.36K', pnl: '-$18.61', remaining: '$0', wallet: 'YENNI' },
-];
-
 function AddWalletDialog({
   open,
   onClose,
@@ -255,7 +252,7 @@ export function TrackersPanel({
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
   const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows(useUIStore.getState().activeChain));
-  const [selectedKolId, setSelectedKolId] = useState<string | null>(null);
+  const [socialsOpen, setSocialsOpen] = useState(false);
   const [removeAllConfirmOpen, setRemoveAllConfirmOpen] = useState(false);
   const lastPrefillRef = useRef<string | null>(null);
   const kolHydratingRef = useRef(false);
@@ -592,7 +589,7 @@ export function TrackersPanel({
 
   return (
     <div
-      className={cn('flex min-h-0 min-w-0 flex-1 flex-col text-[12px]', className)}
+      className={cn('flex h-full min-h-0 min-w-0 flex-1 flex-col text-[12px]', className)}
       style={{ color: '#e5e7eb' }}
     >
       {keyRevealMounted && newWalletPrivateKey && newWalletAddress ? (
@@ -694,21 +691,21 @@ export function TrackersPanel({
             type="button"
             disabled={creatingEmbedded}
             onClick={() => void onCreateEmbedded()}
-            className="rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-[11px] font-semibold text-[#d1d5db] transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-8 rounded border border-border-subtle bg-bg-sunken px-3 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {creatingEmbedded ? 'Creating...' : 'Create Embedded'}
+            {creatingEmbedded ? 'Creating…' : 'Create Embedded'}
           </button>
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-[11px] font-semibold text-[#d1d5db] transition hover:bg-white/[0.06] hover:text-white"
+            className="h-8 rounded border border-border-subtle bg-bg-sunken px-3 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
           >
             Import
           </button>
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="rounded-md bg-[#5865F2] px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:brightness-110"
+            className="h-8 rounded bg-accent-primary px-3 text-xs font-medium text-fg-primary transition-colors hover:bg-accent-glow"
           >
             Add Wallet
           </button>
@@ -716,91 +713,62 @@ export function TrackersPanel({
             type="button"
             onClick={exportJson}
             disabled={sorted.length === 0}
-            className="rounded-md border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5 text-[11px] font-semibold text-[#d1d5db] transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-8 rounded border border-border-subtle bg-bg-sunken px-3 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             Export
+          </button>
+          <button
+            type="button"
+            onClick={() => setSocialsOpen((v) => !v)}
+            data-active={socialsOpen ? 'true' : 'false'}
+            className={cn(
+              'ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary',
+              socialsOpen && 'bg-bg-hover text-fg-primary',
+            )}
+            title={socialsOpen ? 'Hide X triggers' : 'Show X triggers'}
+            aria-pressed={socialsOpen}
+          >
+            <MessageCircle className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>
       </header>
 
-      <div
-        className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-t-lg border border-b-0 px-2 py-1.5"
-        style={{ borderColor: AX_BORDER, backgroundColor: AX_BG }}
-      >
-        <div className="flex min-w-0 max-w-[100%] flex-[1_1_auto] flex-wrap items-center gap-0.5 sm:max-w-[55%] md:max-w-[50%]">
-          <AlignJustify className="mr-1 hidden h-3.5 w-3.5 shrink-0 text-[#6b7280] sm:block" strokeWidth={2} />
-          {VIEW_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setViewTab(t.id)}
-              className={cn(
-                'whitespace-nowrap rounded px-2 py-1 text-[11px] font-semibold transition',
-                viewTab === t.id ? 'bg-white/10 text-white' : 'text-[#6b7280] hover:bg-white/5 hover:text-[#d1d5db]',
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="order-3 flex min-w-0 w-full flex-[1_1_200px] sm:order-none sm:w-auto sm:max-w-md">
-          <div
-            className="flex w-full items-center gap-1 rounded border px-2 py-0.5"
-            style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}
-          >
-            <Search className="h-3 w-3 shrink-0 text-[#6b7280]" strokeWidth={2} />
-            <input
-              value={tableSearch}
-              onChange={(e) => setTableSearch(e.target.value)}
-              placeholder="Search by name or addr…"
-              className="min-w-0 flex-1 border-0 bg-transparent py-1 text-[11px] text-white outline-none placeholder:text-[#4b5563]"
-            />
-          </div>
-        </div>
-
-        <div className="ml-auto flex flex-[0_0_auto] flex-wrap items-center gap-1">
-          <button
-            type="button"
-            disabled={sorted.length === 0 || removeAllMutation.isPending}
-            onClick={() => setRemoveAllConfirmOpen(true)}
-            className="rounded px-1.5 py-1 text-[10px] font-semibold tracking-wide text-[#f87171] hover:underline disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Remove all
-          </button>
-        </div>
-      </div>
-
       {listQuery.isLoading ? (
         <div className="flex flex-1 items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-[#5865F2]" />
+          <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-12 overflow-hidden" style={{ backgroundColor: AX_BG }}>
-          <aside className="relative z-10 col-span-12 min-h-0 border-r md:col-span-2" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
-            <div className="border-b px-2 py-2" style={{ borderColor: AX_BORDER }}>
+        <div
+          className="flex min-h-0 flex-1 border-t border-border-subtle"
+          style={{ backgroundColor: AX_BG }}
+        >
+          <aside className="flex w-[220px] shrink-0 flex-col border-r border-border-subtle bg-bg-raised">
+            <div className="border-b border-border-subtle px-2 py-2">
               <button
                 type="button"
                 onClick={() => setSelectedGroup('all')}
                 className={cn(
                   'flex w-full items-center justify-between rounded px-2 py-2 text-[11px] transition',
-                  selectedGroup === 'all' ? 'border bg-[#1c2030] text-white' : 'text-[#9ca3af] hover:bg-white/5',
+                  selectedGroup === 'all'
+                    ? 'border border-accent-primary bg-bg-hover text-fg-primary'
+                    : 'text-fg-secondary hover:bg-bg-hover',
                 )}
-                style={{ borderColor: selectedGroup === 'all' ? '#5865F2' : 'transparent' }}
               >
                 <span className="inline-flex items-center gap-1.5">
                   <span>{groupIcon('all')}</span>All
                 </span>
-                <span className="text-[#6b7280]">{groupCounts.all}</span>
+                <span className="text-fg-muted">{groupCounts.all}</span>
               </button>
             </div>
             <div className="px-2 py-2">
-              <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-[#9ca3af]">
+              <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-fg-muted">
                 <span>Groups</span>
                 <button
                   type="button"
-                  className="text-[#9ca3af] hover:text-white"
-                  onClick={() => toast.message('Custom groups', { description: 'Saved groups ship in a later release.' })}
+                  className="text-fg-muted hover:text-fg-primary"
+                  onClick={() =>
+                    toast.message('Custom groups', { description: 'Saved groups ship in a later release.' })
+                  }
                 >
                   +
                 </button>
@@ -812,56 +780,95 @@ export function TrackersPanel({
                   onClick={() => setSelectedGroup(g)}
                   className={cn(
                     'mb-1 flex w-full items-center justify-between rounded px-2 py-2 text-[11px] transition',
-                    selectedGroup === g ? 'border bg-[#1c2030] text-white' : 'text-[#9ca3af] hover:bg-white/5',
+                    selectedGroup === g
+                      ? 'border border-accent-primary bg-bg-hover text-fg-primary'
+                      : 'text-fg-secondary hover:bg-bg-hover',
                   )}
-                  style={{ borderColor: selectedGroup === g ? '#5865F2' : 'transparent' }}
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <span>{groupIcon(g)}</span>
                     {groupLabel(g)}
                   </span>
-                  <span className="text-[#6b7280]">{groupCounts[g]}</span>
+                  <span className="text-fg-muted">{groupCounts[g]}</span>
                 </button>
               ))}
             </div>
           </aside>
 
-          <main className="col-span-12 min-h-0 overflow-auto md:col-span-7">
-            {isWalletView ? (
-              <WalletManagerTable
-                filtered={filtered}
-                enrichment={enrichment}
-                expandedRuleId={expandedRuleId}
-                setExpandedRuleId={setExpandedRuleId}
-                removeMutation={removeMutation}
-                notifyMutation={notifyMutation}
-                nativeSym={nativeTicker(activeChain)}
-                onOpenWallet={openWallet}
-              />
-            ) : viewTab === 'kols' ? (
-              <KolsList
-                rows={kolRows}
-                onRemove={(id) => {
-                  setKolRows((prev) => prev.filter((r) => r.id !== id));
-                  toast.success('Removed from list');
-                }}
-                selectedId={selectedKolId}
-                onSelect={(id) => setSelectedKolId(id)}
-                onWalletClick={openWallet}
-              />
-            ) : (
-              <MonitorGrid />
-            )}
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                <AlignJustify className="mr-1 hidden h-3.5 w-3.5 shrink-0 text-fg-muted sm:block" strokeWidth={2} />
+                {VIEW_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setViewTab(t.id)}
+                    className="tracker-tab whitespace-nowrap"
+                    data-active={viewTab === t.id ? 'true' : 'false'}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex min-w-[10rem] max-w-md flex-1">
+                <div className="flex w-full items-center gap-2 rounded border border-border-subtle bg-bg-sunken px-2 py-1">
+                  <Search className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2} />
+                  <input
+                    value={tableSearch}
+                    onChange={(e) => setTableSearch(e.target.value)}
+                    placeholder="Search by name or addr…"
+                    className="min-w-0 flex-1 border-0 bg-transparent py-0.5 text-xs text-fg-primary outline-none placeholder:text-fg-muted"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={sorted.length === 0 || removeAllMutation.isPending}
+                onClick={() => setRemoveAllConfirmOpen(true)}
+                className="shrink-0 rounded px-2 py-1 text-[10px] font-semibold tracking-wide text-signal-bear hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Remove all
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto">
+              {isWalletView ? (
+                <WalletManagerTable
+                  filtered={filtered}
+                  enrichment={enrichment}
+                  expandedRuleId={expandedRuleId}
+                  setExpandedRuleId={setExpandedRuleId}
+                  removeMutation={removeMutation}
+                  notifyMutation={notifyMutation}
+                  nativeSym={nativeTicker(activeChain)}
+                  onOpenWallet={openWallet}
+                />
+              ) : viewTab === 'live_trades' ? (
+                <LiveTradesEmptyState />
+              ) : viewTab === 'monitor' ? (
+                <MonitorEmptyState />
+              ) : viewTab === 'kols' ? (
+                <KolsManagerTable
+                  rows={kolRows}
+                  onRemove={(id) => {
+                    setKolRows((prev) => prev.filter((r) => r.id !== id));
+                    toast.success('Removed from list');
+                  }}
+                  onWalletClick={openWallet}
+                  activeChain={activeChain}
+                />
+              ) : null}
+            </div>
           </main>
 
-          <aside className="col-span-12 min-h-0 border-l md:col-span-3" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
-            <SecondaryPanel
-              activeChain={activeChain}
-              viewTab={viewTab}
-              rows={kolRows}
-              onWalletClick={openWallet}
-            />
-          </aside>
+          {socialsOpen ? (
+            <aside className="flex w-[320px] shrink-0 flex-col overflow-hidden border-l border-border-subtle bg-bg-raised">
+              <SecondaryPanel rows={kolRows} onWalletClick={openWallet} onClose={() => setSocialsOpen(false)} />
+            </aside>
+          ) : null}
         </div>
       )}
 
@@ -948,6 +955,26 @@ export function TrackersPanel({
   );
 }
 
+function LiveTradesEmptyState() {
+  return (
+    <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-8 text-center">
+      <Activity className="mb-3 h-8 w-8 text-fg-muted" strokeWidth={2} aria-hidden />
+      <p className="text-sm text-fg-secondary">Live trades from tracked wallets will appear here</p>
+      <p className="mt-1 text-xs text-fg-muted">Add wallets in Wallet Manager to start tracking</p>
+    </div>
+  );
+}
+
+function MonitorEmptyState() {
+  return (
+    <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-8 text-center">
+      <Activity className="mb-3 h-8 w-8 text-fg-muted" strokeWidth={2} aria-hidden />
+      <p className="text-sm text-fg-secondary">Monitor view</p>
+      <p className="mt-1 text-xs text-fg-muted">Real-time activity dashboard across all tracked wallets</p>
+    </div>
+  );
+}
+
 function FragmentRow({
   tracker,
   rowBg,
@@ -999,21 +1026,21 @@ function FragmentRow({
             onOpenWallet();
           }
         }}
-        className="cursor-pointer border-b transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#5865F2]/70"
-        style={{ borderColor: AX_BORDER, backgroundColor: rowBg }}
+        className="cursor-pointer border-b border-border-subtle transition-colors hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/50"
+        style={{ backgroundColor: rowBg }}
         {...hoverProps}
       >
-        <td className="whitespace-nowrap px-1.5 py-1.5 align-middle tabular-nums text-[#6b7280]">
+        <td className="whitespace-nowrap px-3 py-2 align-middle text-xs text-fg-muted tabular-nums">
           {formatAgeShort(tracker.createdAt)}
         </td>
-        <td className="max-w-[14rem] px-1.5 py-1.5 align-middle">
+        <td className="max-w-[18rem] px-3 py-2 align-middle">
           <div className="flex min-w-0 items-center gap-1">
             <span className="shrink-0 text-[13px] leading-none" aria-hidden>
               {walletEmoji(tracker.walletAddress)}
             </span>
             <div className="min-w-0">
-              <div className="truncate font-medium text-white">{displayName}</div>
-              <div className="flex items-center gap-0.5 tabular-nums text-[10px] text-[#6b7280]">
+              <div className="truncate text-sm font-medium text-fg-primary">{displayName}</div>
+              <div className="flex min-w-0 items-center gap-0.5 tabular-nums text-[10px] text-fg-muted">
                 <span
                   className="max-w-[14rem] truncate"
                   onClick={(e) => e.stopPropagation()}
@@ -1031,20 +1058,22 @@ function FragmentRow({
                   value={tracker.walletAddress}
                   iconOnly
                   label="Copy address"
-                  iconClassName="h-5 w-5 rounded text-[#6b7280] opacity-80 hover:bg-white/5 hover:text-white"
+                  iconClassName="h-3 w-3 rounded text-fg-muted opacity-80 hover:bg-bg-hover hover:text-fg-primary"
                 />
               </div>
             </div>
           </div>
         </td>
-        <td className="whitespace-nowrap px-1.5 py-1.5 align-middle tabular-nums font-medium text-[#5eead4]">
-          {tonUi != null ? formatNumber(tonUi, { decimals: tonUi < 1 ? 4 : 2 }) : '—'}
+        <td className="whitespace-nowrap px-3 py-2 align-middle text-right">
+          <span className="font-mono text-xs tabular-nums text-fg-primary">
+            {tonUi != null ? formatNumber(tonUi, { decimals: tonUi < 1 ? 4 : 2 }) : '—'}
+          </span>
         </td>
-        <td className="whitespace-nowrap px-1.5 py-1.5 align-middle tabular-nums text-[#6b7280]">
+        <td className="whitespace-nowrap px-3 py-2 align-middle text-xs text-fg-muted tabular-nums">
           {lastUnix != null ? formatLastActiveShort(lastUnix) : '—'}
         </td>
-        <td className="px-1.5 py-1.5 align-middle">
-          <div className="flex items-center justify-end gap-0">
+        <td className="group/act whitespace-nowrap px-3 py-2 align-middle">
+          <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               disabled={notifyPending}
@@ -1053,29 +1082,48 @@ function FragmentRow({
                 onNotify(!tracker.notify);
               }}
               className={cn(
-                'rounded p-1 text-[#f87171] hover:bg-white/5',
-                tracker.notify ? 'text-[#5eead4]' : 'text-[#f87171]/80',
+                'rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary',
+                tracker.notify ? 'text-signal-bull' : '',
               )}
-              title={tracker.notify ? 'Notifications on' : 'Notifications off'}
+              aria-label={tracker.notify ? 'Notifications on' : 'Notifications off'}
             >
-              {tracker.notify ? <Bell className="h-3.5 w-3.5" strokeWidth={2} /> : <BellOff className="h-3.5 w-3.5" strokeWidth={2} />}
+              {tracker.notify ? (
+                <Bell className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />
+              ) : (
+                <BellOff className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />
+              )}
             </button>
-            <CopyButton
-              value={tracker.walletAddress}
-              iconOnly
-              label="Copy"
-              iconClassName="h-7 w-7 rounded p-1 text-[#f87171] hover:bg-white/5"
-            />
+            <a
+              href={`https://x.com/search?q=${encodeURIComponent(tracker.walletAddress)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+              aria-label="Search wallet on X"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ExternalLink className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} aria-hidden />
+            </a>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toast.message('Feed subscriptions', { description: 'Wallet activity RSS is not wired yet.' });
+              }}
+              className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+              aria-label="RSS"
+            >
+              <Rss className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />
+            </button>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenWallet();
               }}
-              className="inline-flex h-7 w-7 items-center justify-center rounded p-1 text-[#f87171] hover:bg-white/5"
-              title="Wallet analytics"
+              className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+              aria-label="Wallet analytics"
             >
-              <Activity className="h-3.5 w-3.5" strokeWidth={2} />
+              <BarChart3 className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />
             </button>
             <button
               type="button"
@@ -1083,10 +1131,13 @@ function FragmentRow({
                 e.stopPropagation();
                 onToggleRules();
               }}
-              className={cn('inline-flex h-7 w-7 items-center justify-center rounded p-1 hover:bg-white/5', expanded ? 'text-[#7dd3fc]' : 'text-[#6b7280]')}
-              title="Wallet rules"
+              className={cn(
+                'rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary',
+                expanded && 'text-accent-glow',
+              )}
+              aria-label="Wallet rules"
             >
-              <Layers className="h-3.5 w-3.5" strokeWidth={2} />
+              <Layers className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />
             </button>
             <button
               type="button"
@@ -1096,9 +1147,9 @@ function FragmentRow({
                 e.stopPropagation();
                 onRemove();
               }}
-              className="inline-flex h-7 w-7 items-center justify-center rounded p-1 text-[#f87171] hover:bg-white/5 disabled:opacity-50"
+              className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-signal-bear disabled:opacity-50"
             >
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+              <Trash2 className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />
             </button>
           </div>
         </td>
@@ -1135,17 +1186,38 @@ function WalletManagerTable({
   nativeSym: string;
   onOpenWallet: (walletAddress: string) => void;
 }) {
+  if (filtered.length === 0) {
+    return (
+      <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-8 text-center">
+        <Wallet className="mb-3 h-8 w-8 text-fg-muted" strokeWidth={2} aria-hidden />
+        <p className="text-sm text-fg-secondary">No tracked wallets in this group</p>
+        <p className="mt-1 max-w-sm text-xs text-fg-muted">
+          Try another sidebar group, clear search, or add a wallet — rows list from your saved trackers for the
+          active chain.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <table className="w-full border-collapse text-left text-[11px]">
-      <thead className="sticky top-0 z-[1]" style={{ backgroundColor: AX_PANEL }}>
-        <tr className="border-b" style={{ borderColor: AX_BORDER }}>
-          <th className="whitespace-nowrap px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Created</th>
-          <th className="min-w-[8rem] px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Name</th>
-          <th className="whitespace-nowrap px-1.5 py-2 font-semibold uppercase tracking-wide text-[#6b7280]">
+    <table className="w-full border-collapse text-left">
+      <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-sunken">
+        <tr>
+          <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+            Created
+          </th>
+          <th className="min-w-[8rem] px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+            Name
+          </th>
+          <th className="px-3 py-2 text-right text-[10px] font-medium uppercase tracking-wider text-fg-muted">
             Balance ({nativeSym})
           </th>
-          <th className="whitespace-nowrap px-1.5 py-1 font-semibold uppercase tracking-wide text-[#6b7280]">Last Active</th>
-          <th className="w-24 px-1.5 py-1 text-right font-semibold uppercase tracking-wide text-[#6b7280]">Actions</th>
+          <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+            Last Active
+          </th>
+          <th className="w-40 px-3 py-2 text-right text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+            Actions
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -1183,73 +1255,18 @@ function WalletManagerTable({
   );
 }
 
-function MonitorGrid() {
-  return (
-    <div className="grid grid-cols-1 gap-2 p-2 xl:grid-cols-2">
-      {MONITOR_CARDS.map((card) => (
-        <article key={`${card.name}-${card.wallet}`} className="rounded border" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
-          <div className="flex items-start justify-between border-b p-2" style={{ borderColor: AX_BORDER }}>
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded bg-[#20263a] text-[17px]">{card.icon}</span>
-              <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold text-white">{card.name} <span className="font-medium text-[#6b7280]">{card.subtitle}</span></div>
-                <div className="text-[10px] text-[#5eead4]">● {card.age}</div>
-              </div>
-            </div>
-            <div className="text-right text-[11px]">
-              <span className="text-[#5eead4]">{card.buys} / {card.bought}</span>
-              <span className="mx-1 text-[#6b7280]">·</span>
-              <span className="text-[#fb7185]">{card.sells} / {card.sold}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 px-2 py-1 text-[10px] text-[#9ca3af]">
-            <span>H 1</span>
-            <span>MC <b className="font-semibold text-[#5eead4]">{card.mc}</b></span>
-            <span>L <b className="font-semibold text-white">{card.liq}</b></span>
-            <span>TX <b className="font-semibold text-white">{card.tx}</b></span>
-            <span>Last TX <b className="font-semibold text-white">{card.last}</b></span>
-          </div>
-          <table className="w-full text-[10px]">
-            <thead style={{ backgroundColor: AX_ROW_B }}>
-              <tr className="text-[#6b7280]">
-                <th className="px-2 py-1 text-left font-medium">Wallet</th>
-                <th className="px-2 py-1 text-left font-medium">Time in Trade</th>
-                <th className="px-2 py-1 text-right font-medium">Bought</th>
-                <th className="px-2 py-1 text-right font-medium">Sold</th>
-                <th className="px-2 py-1 text-right font-medium">PNL</th>
-                <th className="px-2 py-1 text-right font-medium">Remaining</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-2 py-2 text-white">{card.wallet}</td>
-                <td className="px-2 py-2 text-[#9ca3af]">{card.age}</td>
-                <td className="px-2 py-2 text-right text-[#5eead4]">{card.bought}</td>
-                <td className="px-2 py-2 text-right text-[#fb7185]">{card.sold}</td>
-                <td className={cn('px-2 py-2 text-right', card.pnl.startsWith('+') ? 'text-[#5eead4]' : 'text-[#fb7185]')}>{card.pnl}</td>
-                <td className="px-2 py-2 text-right text-white">{card.remaining}</td>
-              </tr>
-            </tbody>
-          </table>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function KolsList({
+function KolsManagerTable({
   rows,
-  selectedId,
-  onSelect,
   onRemove,
   onWalletClick,
+  activeChain,
 }: {
   rows: KolRow[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onWalletClick: (walletAddress: string) => void;
+  activeChain: AppChainId;
 }) {
+  const nativeSym = nativeTicker(activeChain);
   const [kolSearch, setKolSearch] = useState('');
   const filtered = useMemo(() => {
     const s = kolSearch.trim().toLowerCase();
@@ -1262,182 +1279,230 @@ function KolsList({
     );
   }, [rows, kolSearch]);
 
+  if (rows.length === 0) {
+    return (
+      <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-8 text-center">
+        <Layers className="mb-3 h-8 w-8 text-fg-muted" strokeWidth={2} aria-hidden />
+        <p className="text-sm text-fg-secondary">No KOLs in your list yet</p>
+        <p className="mt-1 text-xs text-fg-muted">
+          Seed KOL handles from Track or add wallets that map to influencer alerts.
+        </p>
+        <Link
+          href="/track"
+          prefetch
+          className="btn-press mt-4 rounded bg-accent-primary px-4 py-2 text-xs font-semibold text-fg-inverse hover:bg-accent-glow"
+        >
+          Add KOL
+        </Link>
+      </div>
+    );
+  }
+
+  if (filtered.length === 0) {
+    return (
+      <div className="flex h-full min-h-[200px] flex-col items-center justify-center px-8 text-center">
+        <Search className="mb-3 h-7 w-7 text-fg-muted" strokeWidth={2} />
+        <p className="text-sm text-fg-secondary">No KOL matches this search</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid min-h-0 grid-cols-12">
-      <div className="col-span-5 border-r p-2" style={{ borderColor: AX_BORDER }}>
-        <div className="mb-2 rounded border px-2 py-1.5" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
-          <input
-            value={kolSearch}
-            onChange={(e) => setKolSearch(e.target.value)}
-            className="w-full bg-transparent text-[11px] outline-none placeholder:text-[#4b5563]"
-            placeholder="Search KOLs…"
-          />
-        </div>
-        <div className="space-y-0.5">
+    <div className="flex min-h-0 flex-col gap-2 p-2">
+      <div className="flex max-w-md items-center gap-2 rounded border border-border-subtle bg-bg-sunken px-2 py-1">
+        <Search className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2} />
+        <input
+          value={kolSearch}
+          onChange={(e) => setKolSearch(e.target.value)}
+          placeholder="Search KOLs…"
+          className="min-w-0 flex-1 border-0 bg-transparent py-0.5 text-xs text-fg-primary outline-none placeholder:text-fg-muted"
+        />
+      </div>
+      <table className="w-full border-collapse overflow-hidden rounded border border-border-subtle">
+        <thead className="border-b border-border-subtle bg-bg-sunken">
+          <tr>
+            <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-fg-muted">KOL</th>
+            <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+              Handle
+            </th>
+            <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+              Wallet ({nativeSym})
+            </th>
+            <th className="px-3 py-2 text-right text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+              Followers
+            </th>
+            <th className="px-3 py-2 text-right text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
           {filtered.map((row, i) => (
-            <button
+            <tr
               key={row.id}
-              type="button"
-              onClick={() => onSelect(row.id)}
-              className={cn(
-                'flex w-full items-center gap-2 rounded px-2 py-2.5 text-left transition hover:bg-white/5',
-                selectedId === row.id && 'bg-white/[0.07] text-white',
-              )}
+              className="border-b border-border-subtle hover:bg-bg-hover"
+              style={{ backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B }}
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#20263a] text-[11px] text-[#9ca3af]">
-                {(row.name[0] ?? '?').toUpperCase()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-semibold text-white">{row.name}</div>
+              <td className="px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-bg-sunken text-[10px] font-bold text-fg-muted">
+                    {(row.name[0] ?? '?').toUpperCase()}
+                  </span>
+                  <span className="text-sm font-medium text-fg-primary">{row.name}</span>
+                </div>
+              </td>
+              <td className="px-3 py-2">
                 <a
-                  href={`https://x.com/${row.handle.replace(/^@/, '')}`}
+                  href={`https://x.com/${encodeURIComponent(row.handle.replace(/^@/, ''))}`}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="truncate text-[11px] text-[#6b7280] hover:text-[#5eead4]"
+                  className="text-xs font-medium text-accent-glow hover:underline"
                 >
-                  {row.handle}
+                  {row.handle.startsWith('@') ? row.handle : `@${row.handle}`}
                 </a>
-              </div>
-              <span className="shrink-0 text-[11px] text-[#6b7280]">#{i + 1}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="col-span-7 min-h-0 overflow-auto">
-        <table className="w-full text-[11px]">
-          <tbody>
-            {filtered.map((row, i) => (
-              <tr
-                key={`${row.id}-addr`}
-                className="border-b"
-                style={{ borderColor: AX_BORDER, backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B }}
-              >
-                <td className="px-2 py-2.5">
+              </td>
+              <td className="max-w-[12rem] px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => onWalletClick(row.wallet)}
+                  className="truncate text-left font-mono text-xs text-fg-muted hover:text-fg-primary hover:underline"
+                >
+                  {shortenAddress(row.wallet, 6)}
+                </button>
+              </td>
+              <td className="px-3 py-2 text-right text-xs tabular-nums text-fg-secondary">{row.followers}</td>
+              <td className="px-3 py-2">
+                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                  <a
+                    href={`https://x.com/${encodeURIComponent(row.handle.replace(/^@/, ''))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+                    aria-label="Open on X"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+                  </a>
                   <button
                     type="button"
+                    className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+                    aria-label="Alerts placeholder"
+                    onClick={() =>
+                      toast.message('KOL alerts', { description: 'Rule alerts for this handle ship with Track workspace.' })
+                    }
+                  >
+                    <Bell className="h-3.5 w-3.5" strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+                    aria-label="Wallet intel"
                     onClick={() => onWalletClick(row.wallet)}
-                    className="max-w-[14rem] truncate text-left font-mono text-white hover:text-[#7dd3fc] hover:underline"
                   >
-                    {shortenAddress(row.wallet, 6)}
+                    <Layers className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
-                </td>
-                <td className="whitespace-nowrap px-2 py-2.5 text-right text-[#9ca3af]">—</td>
-                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-[#d1d5db]">{row.followers}</td>
-                <td className="px-2 py-2.5 text-right">
                   <button
                     type="button"
+                    className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-signal-bear"
+                    aria-label="Remove KOL"
                     onClick={() => onRemove(row.id)}
-                    className="font-semibold text-[#fb7185] hover:underline"
                   >
-                    Remove
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function SecondaryPanel({
-  activeChain,
-  viewTab,
   rows,
   onWalletClick,
+  onClose,
 }: {
-  activeChain: AppChainId;
-  viewTab: ViewTab;
   rows: KolRow[];
   onWalletClick: (walletAddress: string) => void;
+  onClose: () => void;
 }) {
-  const showRows = viewTab === 'kols' ? rows : rows.slice(0, Math.min(8, rows.length));
-
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="space-y-2 border-b p-3" style={{ borderColor: AX_BORDER, backgroundColor: AX_PANEL }}>
-        <div className="text-[12px] font-semibold leading-tight text-white">Track · X triggers</div>
-        <p className="text-[10px] leading-snug text-[#8b929e]">
-          Turn trusted tweets into trading triggers. Full builder, ingestion simulator, Pulse highlights, caps, and
-          histories live here.
-        </p>
-        <Link
-          href="/track"
-          prefetch
-          className="flex w-full items-center justify-center rounded-md bg-[#5865F2] px-3 py-2 text-[11px] font-semibold text-white transition hover:brightness-110"
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
+        <span className="text-xs font-semibold text-fg-primary">X Triggers</span>
+        <button
+          type="button"
+          className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+          aria-label="Close panel"
+          onClick={onClose}
         >
-          Open Track workspace
-        </Link>
+          <X className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
       </div>
-      <div className="border-b px-2 py-1.5 text-[10px] text-[#6b7280]" style={{ borderColor: AX_BORDER }}>
-        Handles you track on <span className="font-semibold text-white">{nativeTicker(activeChain)}</span>. Click{' '}
-        <span className="text-[#aab8cf]">@handle</span> to open X; wallet column opens Pointer intel.
-      </div>
-      <div
-        className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-1 border-b px-2 py-2 text-[10px] font-medium text-[#6b7280]"
-        style={{ borderColor: AX_BORDER }}
+      <Link
+        href="/track"
+        prefetch
+        className="mx-3 my-2 flex h-8 w-[calc(100%-1.5rem)] items-center justify-center rounded bg-accent-primary/15 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/25"
       >
-        <span className="pl-0.5">Handle</span>
-        <span className="justify-self-center px-2">Tweets</span>
-        <span className="justify-self-center px-2">Alerts</span>
-        <span className="justify-self-end pr-0.5">More</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto pb-16">
-        {showRows.map((row, i) => (
+        Open Track workspace
+      </Link>
+      <div className="min-h-0 flex-1 overflow-auto overflow-x-hidden">
+        {rows.map((row) => (
           <div
-            key={`${row.id}-feed`}
-            className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-1 border-b px-2 py-2 text-[11px]"
-            style={{
-              borderColor: AX_BORDER,
-              backgroundColor: i % 2 === 0 ? AX_ROW_A : AX_ROW_B,
-            }}
+            key={`${row.id}-side`}
+            className="flex items-center justify-between border-b border-border-subtle px-3 py-2 transition-colors hover:bg-bg-hover"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 flex flex-col gap-0.5">
               <a
                 href={xProfileUrl(row.handle)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block truncate font-semibold text-[#d4eaff] underline-offset-4 hover:text-white hover:underline"
+                className="truncate text-xs font-medium text-accent-glow hover:underline"
               >
-                {row.handle.startsWith('@') ? row.handle : `@${row.handle}`}
+                @{row.handle.replace(/^@/, '')}
               </a>
               <button
                 type="button"
                 onClick={() => onWalletClick(row.wallet)}
-                className="mt-0.5 truncate text-left font-mono text-[9px] text-[#556075] hover:text-[#93c5fd]"
+                className="truncate text-left font-mono text-[10px] text-fg-muted hover:text-fg-primary"
               >
                 {shortenAddress(row.wallet, 5)}
               </button>
             </div>
-            <span className="justify-self-center text-[18px]" title="Tracked for tweet firehose (beta wiring)">
-              <span className="text-[#58b4ff]" aria-hidden>
-                𝕏
-              </span>
-            </span>
-            <span className="justify-self-center text-[18px]" title="Alerts when rule fires">
-              <Bell className="h-5 w-5 text-[#5eead4]" strokeWidth={2} aria-hidden />
-            </span>
-            <button
-              type="button"
-              title="Follows wallets you monitor (Pulse overlay)"
-              onClick={() => onWalletClick(row.wallet)}
-              className="justify-self-end inline-flex items-center rounded-md border border-white/10 px-1.5 py-1 hover:bg-white/[0.05]"
-              aria-label="Wallet intel"
-            >
-              <Layers className="h-5 w-5 text-[#f472b6]" strokeWidth={2} />
-            </button>
+            <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <a
+                href={xProfileUrl(row.handle)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+                aria-label="X profile"
+              >
+                <ExternalLink className="h-3 w-3" strokeWidth={2} />
+              </a>
+              <button
+                type="button"
+                className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+                aria-label="Alerts"
+                onClick={() => toast.message('Alerts', { description: 'Configure in Track workspace.' })}
+              >
+                <Bell className="h-3 w-3" strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="rounded p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+                aria-label="Wallet layers"
+                onClick={() => onWalletClick(row.wallet)}
+              >
+                <Layers className="h-3 w-3" strokeWidth={2} />
+              </button>
+            </div>
           </div>
         ))}
-        {!showRows.length ? (
-          <div className="p-6 text-[11px] text-[#5c6575]">
-            Empty list — seed KOLs from the Wallet Manager ▸ KOLs tab or{' '}
-            <Link prefetch href="/track" className="text-[#7dd3fc] hover:underline">
-              Track Handles
-            </Link>
-            .
-          </div>
+        {rows.length === 0 ? (
+          <p className="px-3 py-4 text-center text-[11px] text-fg-muted">
+            No handles — add KOLs in the KOLs tab or open Track.
+          </p>
         ) : null}
       </div>
     </div>

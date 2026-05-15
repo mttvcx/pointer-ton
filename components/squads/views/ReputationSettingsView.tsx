@@ -114,9 +114,9 @@ export function ReputationSettingsView() {
   return (
     <div className="grid min-h-0 gap-6 lg:grid-cols-[1fr_300px]">
       <SquadPanel tone="premium" className="ring-1 ring-[#334b63]/28">
-        <div className="flex flex-wrap items-start gap-3 border-b border-[#1b2129] pb-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md border border-[#2a4558] bg-[#0a0e14]">
-            <Shield className="h-4 w-4 text-[#7ebef2]" strokeWidth={2.2} />
+        <div className="flex flex-wrap items-start gap-3 border-b border-border-subtle pb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-ethos/10">
+            <Shield className="h-4 w-4 text-accent-ethos" strokeWidth={2.2} />
           </div>
           <div>
             <h2 className="text-[14px] font-semibold text-fg-primary">Reputation settings</h2>
@@ -128,8 +128,8 @@ export function ReputationSettingsView() {
 
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
           <div className="space-y-3">
-            <label className="grid gap-1.5 text-[11px]">
-              <span className="text-fg-muted">Pointer display name</span>
+            <label className="grid gap-1.5">
+              <span className="mb-1.5 text-xs font-medium text-fg-muted">Pointer display name</span>
               <div className="relative">
                 <input
                   value={ident.displayName ?? ''}
@@ -137,7 +137,7 @@ export function ReputationSettingsView() {
                   onChange={(e) =>
                     setIdent((i) => ({ ...i, displayName: e.target.value || null }))
                   }
-                  className="w-full rounded-md border border-[#2c3545] bg-[#0a0e14] px-2.5 py-2 pr-10 text-[12px] font-medium text-fg-primary outline-none focus:border-[#406c9e]"
+                  className="h-9 w-full rounded-md border border-border-subtle bg-bg-sunken px-3 pr-10 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-ethos/50 focus:outline-none focus:ring-1 focus:ring-accent-ethos/20"
                 />
                 {displayLenOk && dn.length > 0 ? (
                   <Check
@@ -151,8 +151,8 @@ export function ReputationSettingsView() {
               </span>
             </label>
 
-            <label className="grid gap-1.5 text-[11px]">
-              <span className="text-fg-muted">X username (optional)</span>
+            <label className="grid gap-1.5">
+              <span className="mb-1.5 text-xs font-medium text-fg-muted">X username (optional)</span>
               <input
                 value={ident.xUsername ? `@${ident.xUsername.replace(/^@/, '')}` : ''}
                 onChange={(e) => {
@@ -160,12 +160,12 @@ export function ReputationSettingsView() {
                   setIdent((i) => ({ ...i, xUsername: raw || null }));
                 }}
                 placeholder="@username"
-                className="rounded-md border border-[#2c3545] bg-[#0a0e14] px-2.5 py-2 text-[12px] text-fg-primary outline-none focus:border-[#406c9e]"
+                className="h-9 rounded-md border border-border-subtle bg-bg-sunken px-3 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-ethos/50 focus:outline-none focus:ring-1 focus:ring-accent-ethos/20"
               />
             </label>
 
-            <div className="grid gap-1.5 text-[11px]">
-              <span className="text-fg-muted">Telegram / Discord handle (optional)</span>
+            <div className="grid gap-1.5">
+              <span className="mb-1.5 text-xs font-medium text-fg-muted">Telegram / Discord handle (optional)</span>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   value={ident.telegramUsername ?? ''}
@@ -173,7 +173,7 @@ export function ReputationSettingsView() {
                     setIdent((i) => ({ ...i, telegramUsername: e.target.value.trim() || null }))
                   }
                   placeholder="Telegram"
-                  className="rounded-md border border-[#2c3545] bg-[#0a0e14] px-2.5 py-2 text-[12px] text-fg-primary outline-none focus:border-[#406c9e]"
+                  className="h-9 rounded-md border border-border-subtle bg-bg-sunken px-3 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-ethos/50 focus:outline-none focus:ring-1 focus:ring-accent-ethos/20"
                 />
                 <input
                   value={ident.discordId ?? ''}
@@ -181,26 +181,26 @@ export function ReputationSettingsView() {
                     setIdent((i) => ({ ...i, discordId: e.target.value.trim() || null }))
                   }
                   placeholder="Discord"
-                  className="rounded-md border border-[#2c3545] bg-[#0a0e14] px-2.5 py-2 text-[12px] text-fg-primary outline-none focus:border-[#406c9e]"
+                  className="h-9 rounded-md border border-border-subtle bg-bg-sunken px-3 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-ethos/50 focus:outline-none focus:ring-1 focus:ring-accent-ethos/20"
                 />
               </div>
             </div>
 
-            <label className="grid gap-1.5 text-[11px]">
-              <span className="text-fg-muted">Ethereum address (optional)</span>
+            <label className="grid gap-1.5">
+              <span className="mb-1.5 text-xs font-medium text-fg-muted">Ethereum address (optional)</span>
               <input
                 value={ident.ethereumAddress ?? ''}
                 onChange={(e) =>
                   setIdent((i) => ({ ...i, ethereumAddress: e.target.value.trim() || null }))
                 }
                 placeholder="0x…"
-                className="rounded-md border border-[#2c3545] bg-[#0a0e14] px-2.5 py-2 text-[11px] tabular-nums tracking-tight text-fg-primary outline-none focus:border-[#406c9e]"
+                className="h-9 rounded-md border border-border-subtle bg-bg-sunken px-3 font-mono text-sm tabular-nums tracking-tight text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-ethos/50 focus:outline-none focus:ring-1 focus:ring-accent-ethos/20"
               />
               <span className="text-[10px] text-fg-muted">Used to link your Ethos identity.</span>
             </label>
           </div>
 
-          <div className="divide-y divide-[#1f2835] overflow-hidden rounded-md border border-[#252b36] bg-[#0a0e14]">
+          <div className="divide-y divide-border-subtle overflow-hidden rounded-lg border border-border-subtle bg-bg-sunken">
             <ToggleRow
               title="Show Ethos badge publicly"
               description="Display your Ethos verification badge on your profile and in Squads."
@@ -266,7 +266,7 @@ export function ReputationSettingsView() {
             Your Solana and TON wallets are never shared.{' '}
             <button
               type="button"
-              className="font-medium text-[#67bffd] underline-offset-2 hover:underline"
+              className="font-medium text-accent-ethos underline-offset-2 transition hover:text-accent-glow hover:underline"
               onClick={() =>
                 toast.message('Wallet privacy', {
                   description:
@@ -284,7 +284,7 @@ export function ReputationSettingsView() {
           type="button"
           onClick={() => void save()}
           disabled={saving || !displayLenOk}
-          className="mt-5 w-full rounded-md bg-[#1f6daa] py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#287fc4] disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-5 h-10 w-full rounded-md bg-accent-ethos text-sm font-semibold text-bg-base transition-colors hover:bg-accent-ethos-soft disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save reputation settings'}
         </button>
@@ -297,9 +297,9 @@ export function ReputationSettingsView() {
       </SquadPanel>
 
       <SquadPanel tone="premium" className="ring-1 ring-[#334b63]/28">
-        <div className="flex flex-wrap items-start gap-3 border-b border-[#1b2129] pb-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md border border-[#2a4558] bg-[#0a0e14]">
-            <Shield className="h-4 w-4 text-[#7ebef2]" strokeWidth={2.2} />
+        <div className="flex flex-wrap items-start gap-3 border-b border-border-subtle pb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-ethos/10">
+            <Shield className="h-4 w-4 text-accent-ethos" strokeWidth={2.2} />
           </div>
           <div>
             <h2 className="text-[14px] font-semibold text-fg-primary">How reputation works</h2>
@@ -310,30 +310,30 @@ export function ReputationSettingsView() {
           </div>
         </div>
 
-        <ul className="mt-4 space-y-3 text-[11.5px]">
-          <ExplainerRow
-            tone="text-[#6ee7b7] bg-[#6ee7b7]/10 border-[#6ee7b7]/25"
+        <ul className="mt-4 space-y-0 text-[11.5px]">
+          <NumberedExplainer
+            index={1}
             title="Source-attributed signals"
             body="Activity, performance, and community feedback from on-chain and social sources."
           />
-          <ExplainerRow
-            tone="text-[#7ebef2] bg-[#1f6daa]/12 border-[#2a9bc8]/35"
+          <NumberedExplainer
+            index={2}
             title="Optional identities"
             body="Ethos ties on-chain handles to identities you verify. Useful context—not a substitute for homework."
           />
-          <ExplainerRow
-            tone="text-[#fbbf24] bg-[#fbbf24]/8 border-[#fbbf24]/30"
+          <NumberedExplainer
+            index={3}
             title="No forced doxxing"
             body="Nothing is required to participate. You choose what to link and what to show."
           />
-          <ExplainerRow
-            tone="text-[#c4b5fd] bg-[#7c3aed]/12 border-[#7c3aed]/30"
+          <NumberedExplainer
+            index={4}
             title="Privacy first"
             body="We never share your Solana or TON wallets. They stay encrypted and private."
           />
         </ul>
 
-        <p className="mt-4 flex items-center gap-2 border-t border-[#1b2129] pt-3 text-[10.5px] text-fg-muted">
+        <p className="mt-4 flex items-center gap-2 border-t border-border-subtle pt-3 text-[10.5px] text-fg-muted">
           <LockMini />
           You&apos;re in control. Show less anytime.
         </p>
@@ -372,8 +372,8 @@ function ToggleRow({
   return (
     <div className="flex items-start justify-between gap-4 px-3 py-3">
       <div>
-        <p className="text-[12px] font-semibold text-fg-primary">{title}</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-fg-muted">{description}</p>
+        <p className="text-sm font-medium text-fg-primary">{title}</p>
+        <p className="mt-0.5 text-xs leading-snug text-fg-muted">{description}</p>
       </div>
       <button
         type="button"
@@ -382,7 +382,7 @@ function ToggleRow({
         onClick={() => onToggle(!on)}
         className={cn(
           'relative mt-1 h-[28px] w-[46px] shrink-0 rounded-full transition-colors',
-          on ? 'bg-[#1f6daa]' : 'bg-[#343f4f]',
+          on ? 'bg-accent-ethos' : 'bg-[#343f4f]',
         )}
       >
         <span
@@ -396,19 +396,16 @@ function ToggleRow({
   );
 }
 
-function ExplainerRow({
-  tone,
-  title,
-  body,
-}: {
-  tone: string;
-  title: string;
-  body: string;
-}) {
+function NumberedExplainer({ index, title, body }: { index: number; title: string; body: string }) {
   return (
-    <li className={cn('rounded-md border px-3 py-2.5', tone)}>
-      <p className="text-[12px] font-semibold text-fg-primary">{title}</p>
-      <p className="mt-1 text-[11px] leading-relaxed opacity-90">{body}</p>
+    <li className="flex items-start gap-2.5 border-t border-border-subtle/50 py-2.5 first:border-t-0 first:pt-0">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-ethos/10 text-xs font-bold tabular-nums text-accent-ethos">
+        {index}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-fg-primary">{title}</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-fg-muted">{body}</p>
+      </div>
     </li>
   );
 }

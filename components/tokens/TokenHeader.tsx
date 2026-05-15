@@ -1,15 +1,13 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, ExternalLink, Eye, Globe, Minimize2, Search, Settings, Star } from 'lucide-react';
+import { Bell, ExternalLink, Globe, Minimize2, Search, Send, Settings, Share2 } from 'lucide-react';
 import { CopyButton } from '@/components/shared/CopyButton';
-import { TokenHeaderAvatar } from '@/components/tokens/TokenHeaderAvatar';
+import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { RiskFlags } from '@/components/tokens/RiskFlags';
-import { readChartOverlays, persistChartOverlays, type ChartOverlayFlags } from '@/lib/chart/tokenChartOverlays';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import { getPulseSocialModel } from '@/lib/tokens/pulseSocialLinks';
 import {
@@ -34,6 +32,51 @@ import { explorerTokenAriaLabel, explorerTokenHrefFromMint } from '@/lib/chains/
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
 
+const iconRow =
+  'inline-flex h-3.5 w-3.5 shrink-0 cursor-pointer text-fg-muted transition-colors hover:text-fg-primary';
+
+function pickPriceChange24hPct(ext: unknown): number | null {
+  if (ext == null || typeof ext !== 'object' || Array.isArray(ext)) return null;
+  const o = ext as Record<string, unknown>;
+  for (const k of ['priceChange24hPct', 'price_change_24h_pct', 'chg24hPct', 'change24hPct'] as const) {
+    const v = o[k];
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const n = Number(v.replace(/%/g, ''));
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
+function pickAthMultiplier(ext: unknown): number | null {
+  if (ext == null || typeof ext !== 'object' || Array.isArray(ext)) return null;
+  const o = ext as Record<string, unknown>;
+  for (const k of ['athMultiple', 'ath_multiple', 'athX', 'ath_x'] as const) {
+    const v = o[k];
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const n = Number(v.replace(/x$/i, ''));
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
+function pickAthUsd(ext: unknown): number | null {
+  if (ext == null || typeof ext !== 'object' || Array.isArray(ext)) return null;
+  const o = ext as Record<string, unknown>;
+  for (const k of ['athUsd', 'ath_usd', 'ath_price_usd', 'allTimeHighUsd'] as const) {
+    const v = o[k];
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const n = Number(v.replace(/[$,]/g, ''));
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
 export function TokenHeader({
   token,
   snapshot,
@@ -45,14 +88,13 @@ export function TokenHeader({
 }) {
   const ticker = token.symbol ?? '???';
   const name = token.name ?? 'Unknown';
-  const top10 = snapshot?.top10_holder_pct;
 
   const bundle: PulseTokenBundle = { token, snapshot };
   const bonding = getPulseBondingRingState(bundle);
   const supplyRaw = extractSupplyTokens(token.raw_metadata);
   const supplyLabel = formatSupplyHint(supplyRaw);
   const feesSol = extractGlobalFeesSol(snapshot?.extended_metrics);
-  const marketCapLabel = formatCompactUsd(snapshot?.market_cap_usd);
+  const extJson = snapshot?.extended_metrics;
 
   const extQ = useQuery({
     queryKey: ['token-header-metrics', mint],
@@ -69,222 +111,217 @@ export function TokenHeader({
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
 
-  const [overlays, setOverlays] = useState<ChartOverlayFlags>(() => readChartOverlays());
-
-  useEffect(() => {
-    const sync = () => setOverlays(readChartOverlays());
-    sync();
-    window.addEventListener('pointer-chart-overlays', sync);
-    return () => window.removeEventListener('pointer-chart-overlays', sync);
-  }, []);
-
-  const patchOverlays = useCallback((patch: Partial<ChartOverlayFlags>) => {
-    setOverlays((prev) => {
-      const next = { ...prev, ...patch };
-      persistChartOverlays(next);
-      return next;
-    });
-  }, []);
-
   const tw = token.twitter_handle?.replace(/^@/, '').trim();
   const xUrl = tw ? `https://x.com/${encodeURIComponent(tw)}` : null;
-  const xSearchUrl = `https://x.com/search?q=${encodeURIComponent(mint)}&src=typed_query&f=live`;
 
   const pulseSocial = useMemo(() => getPulseSocialModel({ token, snapshot }), [token, snapshot]);
 
+  const priceChangePct = pickPriceChange24hPct(extJson);
+  const athUsd = pickAthUsd(extJson);
+  const athMult = pickAthMultiplier(extJson);
+  const focalPrimary = useMemo(() => {
+    if (snapshot?.market_cap_usd != null && Number.isFinite(snapshot.market_cap_usd)) {
+      return formatCompactUsd(snapshot.market_cap_usd);
+    }
+    const px = formatPriceUsd(snapshot?.price_usd);
+    return px !== '\u2014' ? px : '\u2014';
+  }, [snapshot?.market_cap_usd, snapshot?.price_usd]);
+
+  const bondingValue =
+    bonding.fillPct != null ? formatPercent(bonding.fillPct, { decimals: 1 }) : '\u2014';
+
+  const priceStr = formatPriceUsd(snapshot?.price_usd);
+  const liquidityStr = formatCompactUsd(snapshot?.liquidity_usd);
+  const supplyDisplay = supplyLabel ?? '\u2014';
+  const feesDisplay =
+    feesSol != null ? `${formatNumber(feesSol, { decimals: 3 })} ${nativeSym}` : '\u2014';
+  const athPrimary = athUsd != null ? formatCompactUsd(athUsd) : '\u2014';
+
+  const prosValue =
+    proTraders != null ? String(proTraders) : extQ.isLoading ? '\u2026' : '\u2014';
+  const prosMuted = prosValue === '\u2014' || prosValue === '\u2026' || prosValue === '0';
+
+  const athSub =
+    athMult != null && Number.isFinite(athMult) && athPrimary !== '\u2014'
+      ? `${athMult.toFixed(1)}x`
+      : undefined;
+
+  const holdersValue =
+    snapshot?.holder_count != null ? formatNumber(snapshot.holder_count, { decimals: 0 }) : '\u2014';
+
+  const stats = [
+    { label: 'Price', value: priceStr },
+    { label: 'Liquidity', value: liquidityStr },
+    { label: 'Supply', value: supplyDisplay },
+    { label: 'Fees', value: feesDisplay },
+    { label: 'Bonding', value: bondingValue, accent: true as const },
+    {
+      label: 'ATH',
+      value: athPrimary,
+      sub: athSub,
+    },
+    { label: 'Holders', value: holdersValue },
+    { label: 'Pros', value: prosValue, prosMuted },
+  ];
+
+  const mintShort = shortenAddress(mint, 5);
+
   return (
-    <div
-      className="border-b border-[#1b1f2a] bg-[#080d14] font-sans"
-     
-    >
-      <div className="mx-auto flex h-[56px] max-w-[1800px] items-center gap-3 overflow-hidden px-2 sm:px-3">
-        <div className="flex min-w-[220px] shrink-0 items-center gap-2">
-          <TokenHeaderAvatar src={token.image_url} alt={ticker} mint={mint} size={36} />
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <h1 className="truncate text-[16px] font-semibold leading-tight text-[#f3f4f6]">{ticker}</h1>
-              <span className="truncate text-[13px] text-[#9ca3af]">{name}</span>
-              <CopyButton value={mint} toastLabel="Mint copied" label="Copy mint" className="shrink-0 text-[#6b7280]" />
-              <Star className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={2} />
-            </div>
-            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] leading-none text-[#9ca3af]">
-              <span className="font-semibold tabular-nums text-emerald-400">{formatAgeShort(token.created_at)}</span>
-              <span className="truncate tabular-nums">{shortenAddress(mint, 5)}</span>
-              {token.creator_wallet ? (
-                <>
-                  <span className="text-[#374151]">•</span>
-                  <CopyButton
-                    value={token.creator_wallet}
-                    toastLabel="Creator copied"
-                    label="Copy creator"
-                    className="text-[#9ca3af]"
-                  >
-                    dev {shortenAddress(token.creator_wallet, 4)}
-                  </CopyButton>
-                </>
+    <div className="min-w-0 border-b border-border-subtle bg-bg-raised font-sans">
+      <div className="scrollbar-thin flex h-16 min-w-0 items-center gap-3 overflow-x-auto px-4">
+        {/* Left — identity */}
+        <div className="flex shrink-0 items-center gap-2.5">
+          <PulseTokenAvatar
+            bundle={bundle}
+            size={40}
+            showRing={false}
+            launchpadCorner={token.launch_pad === 'pump.fun'}
+            className="shrink-0"
+          />
+
+          <div className="flex flex-col gap-0.5">
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-base font-bold text-fg-primary">{ticker}</span>
+
+              <span className="ml-1 shrink-0">
+                <CopyButton
+                  value={mint}
+                  toastLabel="Mint copied"
+                  label="Copy mint"
+                  iconOnly
+                  iconClassName="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+                />
+              </span>
+              {token.website_url ? (
+                <a
+                  href={token.website_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex shrink-0"
+                  aria-label="Website"
+                  title="Website"
+                >
+                  <Globe className={iconRow} strokeWidth={2} />
+                </a>
               ) : null}
+              {xUrl ? (
+                <a href={xUrl} target="_blank" rel="noreferrer" className="inline-flex shrink-0" aria-label="Twitter / X">
+                  <svg className={iconRow} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+              ) : null}
+              {pulseSocial.telegram ? (
+                <a
+                  href={pulseSocial.telegram}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex shrink-0"
+                  aria-label="Telegram"
+                  title="Telegram"
+                >
+                  <Send className={iconRow} strokeWidth={2} />
+                </a>
+              ) : null}
+              <button
+                type="button"
+                className={cn(iconRow, 'inline-flex shrink-0 rounded')}
+                aria-label="Search"
+                tabIndex={-1}
+              >
+                <Search className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className={cn(iconRow, 'inline-flex shrink-0 rounded')}
+                aria-label="Notifications"
+                tabIndex={-1}
+              >
+                <Bell className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="flex min-w-0 max-w-[20rem] items-center gap-2 truncate text-[10px] leading-none">
+              <span className="shrink-0 text-fg-secondary">{name}</span>
+              <span className="shrink-0 font-mono tabular-nums text-fg-muted">{formatAgeShort(token.created_at)}</span>
+              <span className="min-w-0 truncate font-mono text-fg-muted">{mintShort}</span>
             </div>
           </div>
         </div>
 
-        <div className="shrink-0 px-1 text-[20px] font-semibold leading-none tabular-nums text-[#f3f4f6]">
-          {marketCapLabel}
+        {/* Middle — focal + stats */}
+        <div className="scrollbar-thin flex min-w-0 flex-1 items-center gap-6 overflow-x-auto pl-4">
+          <div className="flex shrink-0 flex-col">
+            <span className="text-xl font-bold tabular-nums leading-none text-fg-primary">{focalPrimary}</span>
+            {priceChangePct != null ? (
+              <span
+                className={cn(
+                  'mt-0.5 text-[10px] font-medium tabular-nums leading-tight',
+                  priceChangePct >= 0 ? 'text-signal-bull' : 'text-signal-bear',
+                )}
+              >
+                {priceChangePct >= 0 ? '+' : ''}
+                {priceChangePct.toFixed(2)}%
+              </span>
+            ) : null}
+          </div>
+
+          {stats.map((stat) => {
+            const mutedBase =
+              stat.value === '\u2014' || stat.value === '\u2026' || stat.value === '';
+
+            let valueClassName = mutedBase ? 'text-fg-muted' : 'text-fg-primary';
+            if ('accent' in stat && stat.accent && stat.value !== '\u2014') {
+              valueClassName = 'text-signal-warn';
+            }
+            if ('prosMuted' in stat && stat.prosMuted && stat.value !== '\u2014') {
+              valueClassName = 'text-fg-muted';
+            }
+
+            return (
+              <div key={stat.label} className="flex shrink-0 flex-col gap-0.5">
+                <span className="text-[10px] uppercase leading-none tracking-wider text-fg-muted">
+                  {stat.label}
+                </span>
+                <span className={`text-xs font-semibold tabular-nums leading-none ${valueClassName}`}>
+                  {stat.value}
+                </span>
+                {'sub' in stat && stat.sub ? (
+                  <span className="text-[10px] font-medium tabular-nums leading-none text-signal-bull">
+                    {stat.sub}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center gap-5 overflow-x-auto [scrollbar-width:none]">
-          <MetricChip label="Price" value={formatPriceUsd(snapshot?.price_usd)} />
-          <MetricChip label="Liquidity" value={formatCompactUsd(snapshot?.liquidity_usd)} />
-          <MetricChip label="Supply" value={supplyLabel ?? '—'} />
-          <MetricChip
-            label="Fees"
-            value={feesSol != null ? `${formatNumber(feesSol, { decimals: 3 })} ${nativeSym}` : '—'}
-          />
-          <MetricChip
-            label="Bonding"
-            value={
-              bonding.fillPct != null ? formatPercent(bonding.fillPct, { decimals: 1 }) : '—'
-            }
-            valueClass={bonding.fillPct != null && bonding.fillPct >= 85 ? 'text-[#5eead4]' : undefined}
-          />
-          <MetricChip label="ATH" value="—" />
-          <MetricChip
-            label="Holders"
-            value={
-              snapshot?.holder_count != null
-                ? formatNumber(snapshot.holder_count, { decimals: 0 })
-                : '—'
-            }
-          />
-          <MetricChip
-            label="Pros"
-            value={proTraders != null ? String(proTraders) : extQ.isLoading ? '…' : '—'}
-          />
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          {xUrl ? (
-            <a href={xUrl} target="_blank" rel="noreferrer" className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#94a3b8]" aria-label="Twitter / X">
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-            </a>
+        {/* Right */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {token.launch_pad && token.launch_pad !== 'pump.fun' ? (
+            <LaunchpadBadge launchPad={token.launch_pad} />
           ) : null}
-          {pulseSocial.telegram ? (
+          <LaunchpadSubBadges token={token} snapshot={snapshot} variant="detail" />
+          <RiskFlags token={token as Tables<'tokens'>} snapshot={snapshot} className="shrink-0" />
+          <span className="hidden h-5 w-px shrink-0 bg-border-subtle sm:inline-block" aria-hidden />
+          <div className="flex items-center gap-1">
             <a
-              href={pulseSocial.telegram}
+              href={explorerTokenHrefFromMint(mint, activeChain)}
               target="_blank"
               rel="noreferrer"
-              className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#94a3b8]"
-              aria-label="Telegram"
-              title="Telegram"
+              className={cn('focus-ring inline-flex rounded', iconRow)}
+              aria-label={explorerTokenAriaLabel(activeChain)}
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.13-.31-1.09-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
-              </svg>
+              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
             </a>
-          ) : null}
-          {token.website_url ? (
-            <a href={token.website_url} target="_blank" rel="noreferrer" className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#94a3b8]" aria-label="Website">
-              <Globe className="h-3.5 w-3.5" strokeWidth={2} />
-            </a>
-          ) : null}
-          <button type="button" className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[12px] tabular-nums text-[#9ca3af] hover:bg-white/5" title="Holders (snapshot)">
-            <Eye className="h-3.5 w-3.5 opacity-80" strokeWidth={2} />
-            {snapshot?.holder_count != null ? formatNumber(snapshot.holder_count, { decimals: 0 }) : '—'}
-          </button>
-          <a href={xSearchUrl} target="_blank" rel="noreferrer" className="rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#94a3b8]" aria-label="Search contract address on X" title="Search CA on X">
-            <Search className="h-3.5 w-3.5" strokeWidth={2} />
-          </a>
-          <span className="mx-1 h-5 w-px bg-[#1b1f2a]" />
-          <ToggleChip
-            on={overlays.devTrades}
-            onToggle={() => patchOverlays({ devTrades: !overlays.devTrades })}
-            label="Dev"
-          />
-          <ToggleChip
-            on={overlays.trackedOnly}
-            onToggle={() => patchOverlays({ trackedOnly: !overlays.trackedOnly })}
-            label="Tracked"
-          />
-          <ToggleChip
-            on={overlays.alertBubbles}
-            onToggle={() => patchOverlays({ alertBubbles: !overlays.alertBubbles })}
-            label="Alerts"
-          />
-          <LaunchpadBadge launchPad={token.launch_pad} />
-          <LaunchpadSubBadges token={token} snapshot={snapshot} variant="detail" />
-          <RiskFlags token={token as Tables<'tokens'>} snapshot={snapshot} className="ml-0.5" />
-          <Link href="/pulse" className="focus-ring rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#e5e7eb]" aria-label="Pulse">
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-          <a
-            href={explorerTokenHrefFromMint(mint, activeChain)}
-            target="_blank"
-            rel="noreferrer"
-            className="focus-ring rounded p-1 text-[#6b7280] hover:bg-white/5 hover:text-[#a78bfa]"
-            aria-label={explorerTokenAriaLabel(activeChain)}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-          <Settings className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2} />
-          <Bell className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2} />
-          <Minimize2 className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2} />
+            <button type="button" className={cn('focus-ring inline-flex rounded', iconRow)} aria-label="Share">
+              <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <Settings className={cn(iconRow)} strokeWidth={2} aria-hidden />
+            <Minimize2 className={cn(iconRow)} strokeWidth={2} aria-hidden />
+          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function MetricChip({
-  label,
-  value,
-  valueClass,
-  sub,
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-  sub?: string;
-}) {
-  return (
-    <span
-      className="inline-flex shrink-0 flex-col gap-0.5 leading-none"
-      title={sub}
-    >
-      <span className="text-[11px] font-medium text-[#6b7280]">{label}</span>
-      <span
-        className={cn(
-          'text-[14px] font-semibold tabular-nums text-[#f9fafb]',
-          valueClass,
-        )}
-      >
-        {value}
-      </span>
-    </span>
-  );
-}
-
-function ToggleChip({
-  label,
-  on,
-  onToggle,
-}: {
-  label: string;
-  on: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        'shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium tracking-tight transition',
-        on
-          ? 'border-[#38bdf8]/50 bg-[#38bdf8]/15 text-[#7dd3fc]'
-          : 'border-[#1b1f2a] text-[#6b7280] hover:border-[#2d3548] hover:text-[#9ca3af]',
-      )}
-    >
-      {label}
-    </button>
   );
 }

@@ -142,7 +142,7 @@ export function WebPushControls({ className }: { className?: string }) {
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
     return (
       <span
-        className={cn('hidden text-[10px] text-fg-muted sm:inline', className)}
+        className={cn('hidden text-[10px] text-fg-muted lg:inline', className)}
         title="Unblock notifications in browser settings"
       >
         Push blocked
@@ -156,7 +156,7 @@ export function WebPushControls({ className }: { className?: string }) {
       disabled={busy}
       onClick={() => void (subscribed ? unsubscribe() : subscribe())}
       className={cn(
-        'focus-ring flex h-8 items-center gap-1 rounded-md border border-border-subtle px-2 text-[11px] font-medium transition-all duration-150',
+        'focus-ring flex h-8 items-center gap-1 rounded-md border border-border-subtle px-2 text-[11px] font-medium transition-all duration-150 lg:px-2.5',
         subscribed
           ? 'border-signal-bull/30 text-signal-bull hover:border-signal-bull/50'
           : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
@@ -168,8 +168,8 @@ export function WebPushControls({ className }: { className?: string }) {
           : 'Enable browser push for alerts'
       }
     >
-      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bell className="h-3.5 w-3.5" />}
-      <span className="hidden sm:inline">{subscribed ? 'Push on' : 'Push'}</span>
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Bell className="h-3.5 w-3.5 shrink-0" />}
+      <span className="hidden lg:inline">{subscribed ? 'Push on' : 'Push'}</span>
     </button>
   );
 }

@@ -22,18 +22,19 @@ wallet tracking, AI co-pilot panel.
 
 ```bash
 npm install
-cp .env.example .env.local       # fill in keys
+cp .env.example .env.local       # fill in keys (Privy + Supabase for auth/data)
 npm run gen:types                # one-time: generate Supabase types
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open **http://127.0.0.1:3001** — dev is pinned to port **3001** in `package.json` (not :3000). Set `NEXT_PUBLIC_APP_URL` in `.env.local` to the same origin. Use `npm run dev:3000` if you prefer port 3000 and update `.env.local` accordingly.
 
 ## Scripts
 
 | script               | purpose                                  |
 | -------------------- | ---------------------------------------- |
-| `npm run dev`        | Start Next.js dev server                 |
+| `npm run dev`        | Start Next.js dev server on port **3001** |
+| `npm run dev:3000`   | Same, on port **3000**                   |
 | `npm run build`      | Production build                         |
 | `npm run start`      | Run production build                     |
 | `npm run lint`       | ESLint                                   |

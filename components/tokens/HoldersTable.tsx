@@ -80,12 +80,10 @@ export function HoldersTable({
 
   return (
     <section className="font-sans">
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Top holders
-        </h2>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <h2 className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">TOP HOLDERS</h2>
         {filled ? (
-          <span className="rounded-md bg-muted/40 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+          <span className="ml-auto text-xs text-fg-muted tabular-nums">
             {holderDeskFilter !== 'all' ? `${visibleRows.length}/` : null}
             {filled.holders.length}
           </span>
@@ -120,17 +118,17 @@ export function HoldersTable({
         />
       ) : filled ? (
         <>
-          <div className="flex flex-wrap items-center gap-1 border-b border-border/50 px-3 pb-2">
+          <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-3 pb-2">
             {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setHolderDeskFilter(id)}
                 className={cn(
-                  'btn-press inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium transition-colors',
+                  'btn-press inline-flex h-6 items-center rounded border px-2 text-[10px] font-medium uppercase tracking-wide transition-colors',
                   holderDeskFilter === id
-                    ? 'bg-muted/60 text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                    ? 'border-border bg-bg-hover text-fg-primary'
+                    : 'border-border-subtle bg-transparent text-fg-muted hover:bg-bg-hover',
                 )}
               >
                 {label}
@@ -138,22 +136,22 @@ export function HoldersTable({
             ))}
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm tabular-nums">
-              <thead className="sticky top-0 z-[1] border-b border-border/50 bg-muted/20 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <table className="w-full min-w-0 border-collapse text-left tabular-nums">
+              <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-sunken text-[10px] font-medium uppercase tracking-wider text-fg-muted">
                 <tr>
-                  <HoldersTh className="w-10 px-3" align="left">
+                  <HoldersTh className="w-10" align="left" showSortGlyph={false}>
                     #
                   </HoldersTh>
-                  <HoldersTh className="min-w-[14rem] px-3" align="left">
+                  <HoldersTh className="min-w-[180px]" align="left">
                     Wallet
                   </HoldersTh>
-                  <HoldersTh className="w-24 px-3" align="right">
+                  <HoldersTh className="w-[100px]" align="right">
                     % supply
                   </HoldersTh>
-                  <HoldersTh className="w-28 px-3" align="right">
+                  <HoldersTh className="w-[100px]" align="right">
                     Balance
                   </HoldersTh>
-                  <HoldersTh className="w-24 px-3" align="left">
+                  <HoldersTh className="w-[90px]" align="left" showSortGlyph={false}>
                     Flags
                   </HoldersTh>
                 </tr>
@@ -182,28 +180,35 @@ function HoldersTh({
   children,
   className,
   align = 'left',
+  showSortGlyph = true,
 }: {
   children: React.ReactNode;
   className?: string;
   align?: 'left' | 'right';
+  showSortGlyph?: boolean;
 }) {
   return (
     <th
       className={cn(
-        'group/th py-2 align-middle font-medium leading-tight',
+        'group/th px-3 py-2 align-middle leading-tight',
         align === 'right' ? 'text-right' : 'text-left',
         className,
       )}
     >
       <span
-        className={cn('inline-flex items-center gap-1', align === 'right' ? 'justify-end' : 'justify-start')}
+        className={cn(
+          'inline-flex items-center gap-1',
+          align === 'right' ? 'justify-end' : 'justify-start',
+        )}
       >
         <span>{children}</span>
-        <ArrowUpDown
-          className="h-3 w-3 opacity-0 transition-opacity duration-100 group-hover/th:opacity-60"
-          strokeWidth={2}
-          aria-hidden
-        />
+        {showSortGlyph ? (
+          <ArrowUpDown
+            className="h-3 w-3 shrink-0 text-fg-muted opacity-0 transition-opacity duration-100 group-hover/th:opacity-100"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ) : null}
       </span>
     </th>
   );
@@ -229,13 +234,20 @@ function HolderRowView({
     ),
   );
 
+  const balanceUi = formatUiAmount(row.amount_raw, decimals);
+
   return (
     <tr
-      className="group h-12 cursor-pointer border-b border-border/40 transition-colors duration-100 last:border-0 even:bg-muted/5 hover:bg-muted/30"
+      className={cn(
+        'group h-11 cursor-pointer border-b border-border-subtle bg-bg-raised transition-colors duration-100',
+        'hover:bg-bg-hover last:border-b-0',
+      )}
       {...hoverProps}
     >
-      <td className="px-3 align-middle text-muted-foreground">{row.rank ?? '\u2014'}</td>
-      <td className="max-w-[260px] px-3 align-middle" title={row.wallet_address}>
+      <td className="px-3 align-middle font-mono text-xs tabular-nums text-fg-muted">
+        {row.rank ?? '\u2014'}
+      </td>
+      <td className="min-w-[180px] px-3 align-middle" title={row.wallet_address}>
         <span className="inline-flex items-center gap-1.5">
           <WalletIdentityAnchor
             address={row.wallet_address}
@@ -247,22 +259,32 @@ function HolderRowView({
             truncate={5}
             isDev={!!row.is_dev}
             isSniper={!!row.is_sniper}
-            className="text-foreground hover:text-accent-primary"
+            className="text-xs text-fg-secondary hover:text-accent-primary"
           />
           <CopyButton
             value={row.wallet_address}
             iconOnly
             label="Copy holder address"
             toastLabel="Wallet address copied"
-            iconClassName="opacity-0 transition-opacity duration-100 group-hover:opacity-100"
+            iconClassName="text-fg-muted opacity-0 transition-opacity duration-100 hover:text-fg-primary group-hover:opacity-100 [&_svg]:h-3.5 [&_svg]:w-3.5"
           />
         </span>
       </td>
-      <td className="px-3 text-right align-middle text-sm font-medium text-foreground">
+      <td
+        className={cn(
+          'px-3 text-right align-middle font-mono text-xs tabular-nums',
+          row.pct_of_supply != null ? 'text-fg-primary' : 'text-fg-muted',
+        )}
+      >
         {row.pct_of_supply != null ? formatPercent(row.pct_of_supply) : '\u2014'}
       </td>
-      <td className="px-3 text-right align-middle text-muted-foreground">
-        {formatUiAmount(row.amount_raw, decimals)}
+      <td
+        className={cn(
+          'px-3 text-right align-middle font-mono text-xs tabular-nums',
+          balanceUi !== '\u2014' ? 'text-fg-primary' : 'text-fg-muted',
+        )}
+      >
+        {balanceUi}
       </td>
       <td className="px-3 align-middle">
         <span className="inline-flex flex-wrap items-center gap-1">

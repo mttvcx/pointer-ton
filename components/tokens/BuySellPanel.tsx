@@ -305,7 +305,7 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
             <div className={cn(item.valueClass, item.label !== 'Dex Paid' && 'truncate')}>
               {item.value}
             </div>
-            <div className="mt-0.5 text-[10px] text-fg-muted">{item.label}</div>
+            <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg-muted">{item.label}</div>
           </div>
         ))}
       </div>
@@ -958,21 +958,21 @@ export function BuySellPanel({
     <div
       ref={walletPickerShellRef}
       data-mint={mint}
-      className="relative flex w-full min-w-0 flex-col bg-[#080d14] text-[12px] text-white"
+      className="relative flex w-full min-w-0 flex-col bg-bg-base text-[12px] text-fg-primary"
     >
       <div className="space-y-2 px-3 py-2 pb-5">
         {extendedTape ? <TradeTapeStrip m={extendedTape} /> : (
-          <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] px-2 py-1.5 text-[11px] text-[#6b7280]">
-            6h Vol - <span className="text-[#34d399]">Buys -</span> <span className="text-[#fb7185]">Sells -</span> Net -
+          <div className="rounded-md border border-border-subtle bg-bg-raised px-2 py-1.5 text-[11px] text-fg-muted">
+            6h Vol - <span className="text-signal-bull">Buys -</span> <span className="text-signal-bear">Sells -</span> Net -
           </div>
         )}
 
         {!walletsReady ? (
-          <p className="flex items-center gap-2 rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[11px] text-[#9ca3af]">
+          <p className="flex items-center gap-2 rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px] text-fg-secondary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading wallet...
           </p>
         ) : !wallet ? (
-          <p className="rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[11px] text-signal-warn">
+          <p className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px] text-signal-warn">
             {activeChain === 'ton'
               ? 'No TON wallet linked. Connect with TonConnect after sign-in.'
               : `No ${nativeTicker(activeChain)} wallet selected. Add or connect a wallet for this network.`}
@@ -984,38 +984,38 @@ export function BuySellPanel({
           <button type="button" disabled={panelMode === 'limit_mcap'} onClick={() => setTab('sell')} className={cn('btn-press focus-ring flex flex-1 h-8 items-center justify-center rounded text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40', tab === 'sell' ? 'cta-bear' : 'bg-bg-sunken text-fg-muted hover:text-fg-secondary')}>Sell</button>
         </div>
 
-        <div className="flex min-w-0 items-center gap-1 border-b border-[#1b1f2a] pb-1">
+        <div className="flex min-w-0 items-center gap-1 border-b border-border-subtle pb-1">
           {([['market', 'Market'], ['limit_mcap', 'Limit'], ['advanced', 'Adv.']] as const).map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setTradePanelMode(id)} className={cn('rounded px-2 py-1 text-[12px] font-semibold transition', panelMode === id ? 'bg-white/10 text-white' : 'text-[#8b93a3] hover:text-white')}>{label}</button>
+            <button key={id} type="button" onClick={() => setTradePanelMode(id)} className={cn('rounded px-2 py-1 text-[12px] font-semibold transition', panelMode === id ? 'bg-white/10 text-fg-primary' : 'text-fg-secondary hover:text-fg-primary')}>{label}</button>
           ))}
           <div className="relative ml-auto">
             <button
               type="button"
               onClick={() => setWalletMenuOpen((v) => !v)}
-              className="flex items-center gap-1 rounded-full border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[10px] text-[#9ca3af] hover:bg-white/[0.04] hover:text-white"
+              className="flex items-center gap-1 rounded-full border border-border-subtle bg-bg-raised px-2 py-1 text-[10px] text-fg-secondary hover:bg-white/[0.04] hover:text-fg-primary"
               aria-expanded={walletMenuOpen}
               aria-label="Select trading wallets"
             >
               <Wallet className="h-3 w-3" />
               <span className="tabular-nums">{activeWalletCount}</span>
-              <Coins className="h-3 w-3 text-[#5865F2]" />
+              <Coins className="h-3 w-3 text-accent-primary" />
               <span className="tabular-nums">{solBalPreview ?? '0.0000'}</span>
             </button>
           </div>
         </div>
 
-        {limitAlertOrder?.status === 'triggered' ? <div className="rounded border border-signal-warn/40 bg-signal-warn/10 px-2 py-1.5 text-[10px] leading-snug text-[#d1d5db]"><span className="font-semibold text-signal-warn">Limit alert fired</span> - spot reached your ${limitAlertOrder.trigger_price_usd} target.</div> : null}
+        {limitAlertOrder?.status === 'triggered' ? <div className="rounded border border-signal-warn/40 bg-signal-warn/10 px-2 py-1.5 text-[10px] leading-snug text-fg-secondary"><span className="font-semibold text-signal-warn">Limit alert fired</span> - spot reached your ${limitAlertOrder.trigger_price_usd} target.</div> : null}
 
         {panelMode === 'limit_mcap' ? (
-          <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] p-2">
-            <div className="mb-1 flex items-center justify-between text-[10px] text-[#8b93a3]"><span>MKT cap target</span><span className="tabular-nums text-white">{targetMcUsd != null ? formatCompactUsd(targetMcUsd) : '-'}</span></div>
-            <input type="range" min={-100} max={100} step={1} value={limitMcSliderPct} onChange={(e) => setLimitMcSliderPct(Number(e.target.value))} className="h-2 w-full cursor-pointer accent-[#5865F2]" aria-label="Market cap offset percent" />
+          <div className="rounded-md border border-border-subtle bg-bg-raised p-2">
+            <div className="mb-1 flex items-center justify-between text-[10px] text-fg-secondary"><span>MKT cap target</span><span className="tabular-nums text-fg-primary">{targetMcUsd != null ? formatCompactUsd(targetMcUsd) : '-'}</span></div>
+            <input type="range" min={-100} max={100} step={1} value={limitMcSliderPct} onChange={(e) => setLimitMcSliderPct(Number(e.target.value))} className="h-2 w-full cursor-pointer accent-accent-primary" aria-label="Market cap offset percent" />
           </div>
         ) : null}
 
         {tab === 'buy' ? (
-          <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] p-2">
-            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#8b93a3]">Amount</div>
+          <div className="rounded-md border border-border-subtle bg-bg-raised p-2">
+            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-fg-secondary">Amount</div>
             <TradeAmountInput
               value={buyCustomSol}
               onChange={onBuyCustom}
@@ -1046,8 +1046,8 @@ export function BuySellPanel({
             </div>
           </div>
         ) : (
-          <div className="rounded-md border border-[#1b1f2a] bg-[#11141b] p-2">
-            <div className="mb-1 flex items-center justify-between text-[10px] text-[#8b93a3]"><span>Amount</span><span className="tabular-nums">Bal {formatNumber(rawToUi(balanceRaw, decimals), { decimals: 4 })} {sym}</span></div>
+          <div className="rounded-md border border-border-subtle bg-bg-raised p-2">
+            <div className="mb-1 flex items-center justify-between text-[10px] text-fg-secondary"><span>Amount</span><span className="tabular-nums">Bal {formatNumber(rawToUi(balanceRaw, decimals), { decimals: 4 })} {sym}</span></div>
             <div className="mt-1 grid grid-cols-5 gap-1.5">
               {SELL_PCTS.map((p) => (
                 <button
@@ -1060,7 +1060,7 @@ export function BuySellPanel({
                   className={cn(
                     'btn-press focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium tabular-nums transition-all duration-100',
                     !sellUseCustom && sellPct === p
-                      ? 'border-accent-primary/40 bg-accent-primary/15 text-accent-primary'
+                      ? 'border-signal-bear/40 bg-signal-bear/15 text-signal-bear'
                       : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border hover:bg-bg-hover hover:text-fg-primary',
                   )}
                 >
@@ -1073,7 +1073,7 @@ export function BuySellPanel({
                 className={cn(
                   'btn-press focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium transition-all duration-100',
                   sellUseCustom
-                    ? 'border-accent-primary/40 bg-accent-primary/15 text-accent-primary'
+                    ? 'border-signal-bear/40 bg-signal-bear/15 text-signal-bear'
                     : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border hover:bg-bg-hover hover:text-fg-primary',
                 )}
               >
@@ -1103,13 +1103,13 @@ export function BuySellPanel({
         </div>
 
         <div className="rounded-md border border-border-subtle bg-bg-base px-2 py-1.5">
-          <label className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-white"><input type="checkbox" checked={advancedOpen && panelMode === 'advanced'} onChange={(e) => { setAdvancedOpen(e.target.checked); if (e.target.checked) setTradePanelMode('advanced'); }} className="h-3.5 w-3.5 rounded border-[#1b1f2a]" />Advanced Trading Strategy</label>
-          {panelMode === 'advanced' && advancedOpen ? <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">{([['migration', 'Migration'], ['dev_sell', 'Dev Sell'], ['trail_sl', 'Trail SL'], ['dca', 'DCA']] as const).map(([id, label]) => <button key={id} type="button" onClick={() => setAdvStrategy(id)} className={cn('rounded border border-[#1b1f2a] px-2 py-1 font-semibold', advStrategy === id ? 'bg-[#5865F2]/20 text-white' : 'text-[#8b93a3]')}>{label}</button>)}</div> : null}
+          <label className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-fg-primary"><input type="checkbox" checked={advancedOpen && panelMode === 'advanced'} onChange={(e) => { setAdvancedOpen(e.target.checked); if (e.target.checked) setTradePanelMode('advanced'); }} className="h-3.5 w-3.5 rounded border-border-subtle" />Advanced Trading Strategy</label>
+          {panelMode === 'advanced' && advancedOpen ? <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">{([['migration', 'Migration'], ['dev_sell', 'Dev Sell'], ['trail_sl', 'Trail SL'], ['dca', 'DCA']] as const).map(([id, label]) => <button key={id} type="button" onClick={() => setAdvStrategy(id)} className={cn('rounded border border-border-subtle px-2 py-1 font-semibold', advStrategy === id ? 'bg-accent-primary/20 text-fg-primary' : 'text-fg-secondary')}>{label}</button>)}</div> : null}
         </div>
 
-        {quote && !quoteStale ? <div className="rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[11px]"><div className="flex justify-between gap-2 text-[#8b93a3]"><span>You pay</span><span className="tabular-nums text-white">{formattedPay ?? '-'}</span></div><div className="mt-0.5 flex justify-between gap-2 text-[#8b93a3]"><span>You receive</span><span className="tabular-nums text-white">{formattedReceive ?? '-'}</span></div></div> : null}
+        {quote && !quoteStale ? <div className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px]"><div className="flex justify-between gap-2 text-fg-secondary"><span>You pay</span><span className="tabular-nums text-fg-primary">{formattedPay ?? '-'}</span></div><div className="mt-0.5 flex justify-between gap-2 text-fg-secondary"><span>You receive</span><span className="tabular-nums text-fg-primary">{formattedReceive ?? '-'}</span></div></div> : null}
         {quoteStale ? <p className="text-[10px] text-signal-warn">Settings changed. Tap the action button for a fresh quote.</p> : null}
-        {tradingBlockedImported ? <p className="rounded border border-[#1b1f2a] bg-[#11141b] px-2 py-1 text-[10px] leading-snug text-[#9ca3af]">Imported wallets are view-only for swaps right now. Switch to an embedded Pointer wallet to trade.</p> : null}
+        {tradingBlockedImported ? <p className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[10px] leading-snug text-fg-secondary">Imported wallets are view-only for swaps right now. Switch to an embedded Pointer wallet to trade.</p> : null}
 
         <button type="button" disabled={!wallet || tradingBlockedImported || (panelMode === 'limit_mcap' && targetMcUsd == null)} onClick={() => { if (panelMode === 'limit_mcap') { toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' }); return; } void runTrade(); }} className={cn('btn-press focus-ring sticky bottom-0 z-[1] flex w-full items-center justify-center gap-2 rounded-lg h-10 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50', tab === 'buy' ? 'cta-bull' : 'cta-bear')}>
           {panelMode === 'limit_mcap' && targetMcUsd != null ? `Buy @ ${formatCompactUsd(targetMcUsd)} MC` : `${tab === 'buy' ? 'Buy' : 'Sell'} ${ctaSym}`}
@@ -1168,10 +1168,9 @@ export function BuySellPanel({
 
       {walletMenuOpen ? (
         <div
-          className="absolute right-3 top-[104px] z-[80] w-[350px] max-w-[calc(100%-24px)] overflow-hidden rounded-md border bg-[#14161d] shadow-2xl"
-          style={{ borderColor: '#2a2f3a' }}
+          className="absolute right-3 top-[104px] z-[80] w-[350px] max-w-[calc(100%-24px)] overflow-hidden rounded-md border border-border bg-bg-hover shadow-2xl"
         >
-          <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: '#2a2f3a' }}>
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <div className="flex min-w-0 items-center gap-1">
               <button
                 type="button"
@@ -1202,7 +1201,7 @@ export function BuySellPanel({
             <button
               type="button"
               onClick={() => toast.info('Wallet selector settings coming soon')}
-              className="rounded p-1 text-[#8b93a3] hover:bg-white/5 hover:text-white"
+              className="rounded p-1 text-fg-secondary hover:bg-white/5 hover:text-fg-primary"
               aria-label="Wallet selector settings"
             >
               <Settings className="h-3.5 w-3.5" />
@@ -1225,12 +1224,12 @@ export function BuySellPanel({
                     setActiveWalletAddress(w.wallet_address);
                   }}
                   className="grid w-full grid-cols-[1.5rem_1fr_auto_auto] items-center gap-2 border-b px-3 py-2 text-left hover:bg-white/[0.04]"
-                  style={{ borderColor: '#1b1f2a' }}
+                  style={{ borderColor: 'var(--border-subtle)' }}
                 >
                   <span
                     className={cn(
                       'flex h-4 w-4 items-center justify-center rounded border text-[10px]',
-                      selected ? 'border-[#38d99c] bg-[#38d99c] text-[#04120d]' : 'border-[#3b4252]',
+                      selected ? 'border-signal-bull bg-signal-bull text-fg-inverse' : 'border-border-strong',
                     )}
                   >
                     {selected ? '✓' : ''}
@@ -1239,19 +1238,19 @@ export function BuySellPanel({
                     <span className="block truncate text-[12px] font-semibold text-white">
                       {w.label?.trim() || `Wallet ${i + 1}`}
                     </span>
-                    <span className="block truncate text-[10px] text-[#8b93a3]">
+                    <span className="block truncate text-[10px] text-fg-secondary">
                       {w.is_imported ? 'View-only' : 'Trading'} · {w.wallet_address.slice(0, 5)}...{w.wallet_address.slice(-4)}
                     </span>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] tabular-nums text-[#cbd5e1]">
-                    <Coins className="h-3 w-3 text-[#5865F2]" /> {sol}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] tabular-nums text-fg-secondary">
+                    <Coins className="h-3 w-3 text-accent-primary" /> {sol}
                   </span>
-                  <span className="rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] text-[#8b93a3]">0</span>
+                  <span className="rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] text-fg-secondary">0</span>
                 </button>
               );
             })}
             {walletMenuRows.length === 0 ? (
-              <div className="px-3 py-6 text-center text-[11px] text-[#8b93a3]">No wallets found</div>
+              <div className="px-3 py-6 text-center text-[11px] text-fg-secondary">No wallets found</div>
             ) : null}
           </div>
         </div>

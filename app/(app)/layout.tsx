@@ -22,6 +22,7 @@ import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeS
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { useUIStore } from '@/store/ui';
 import { APP_NAME } from '@/lib/utils/constants';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
   const rail = useUIStore((s) => s.copilotRailSide);
@@ -126,7 +127,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
+    <TooltipProvider delayDuration={300}>
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
       <Topbar />
       <GlobalSearchModal />
       <WalletAnalyticsHost />
@@ -148,6 +150,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <ClientBugDiagnosticsBootstrap />
       <FirstTimeSpotlightOnboarding />
       <FeatureAnnouncementGate />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

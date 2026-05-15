@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { CHAIN_DROPDOWN_LABEL, CHAIN_ICON_PNG, CHAIN_TICKER, ORDERED_CHAINS } from '@/lib/chains/chainAssets';
@@ -13,6 +14,7 @@ import { useUIStore } from '@/store/ui';
  * Axiom-style chain control: compact pill with logo + ticker + chevron, rounded menu.
  */
 export function ChainSelectDropdown({ className }: { className?: string }) {
+  const router = useRouter();
   const activeChain = useUIStore((s) => s.activeChain);
   const setActiveChain = useUIStore((s) => s.setActiveChain);
   const [open, setOpen] = useState(false);
@@ -37,7 +39,7 @@ export function ChainSelectDropdown({ className }: { className?: string }) {
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5865F2]/35',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
           'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border-subtle bg-transparent px-2.5 pr-1.5 text-[11px] font-semibold tracking-wide text-fg-secondary',
           'transition hover:border-border-default hover:bg-bg-hover hover:text-fg-primary',
         )}
@@ -62,10 +64,9 @@ export function ChainSelectDropdown({ className }: { className?: string }) {
           role="listbox"
           aria-label="Select network"
           className={cn(
-            'absolute right-0 top-[calc(100%+6px)] z-[140] min-w-[12.5rem] overflow-hidden rounded-xl border bg-[#12151c] py-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] fill-mode-forwards',
+            'absolute right-0 top-[calc(100%+6px)] z-[140] min-w-[12.5rem] overflow-hidden rounded-xl border border-border-subtle bg-bg-raised py-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] fill-mode-forwards',
             popoverPanelClasses(menuVisible),
           )}
-          style={{ borderColor: '#2a2f3a' }}
         >
           {ORDERED_CHAINS.map((id: AppChainId) => {
             const on = id === activeChain;
@@ -78,10 +79,13 @@ export function ChainSelectDropdown({ className }: { className?: string }) {
                 onClick={() => {
                   setActiveChain(id);
                   setOpen(false);
+                  router.push('/pulse');
                 }}
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] transition-colors',
-                  on ? 'bg-white/[0.09] text-white' : 'text-[#c9cdd4] hover:bg-white/[0.06] hover:text-white',
+                  on
+                    ? 'bg-white/[0.09] text-fg-primary'
+                    : 'text-fg-secondary hover:bg-white/[0.06] hover:text-fg-primary',
                 )}
               >
                 <img
@@ -93,7 +97,7 @@ export function ChainSelectDropdown({ className }: { className?: string }) {
                   draggable={false}
                 />
                 <span className="min-w-0 flex-1 font-medium">{CHAIN_DROPDOWN_LABEL[id]}</span>
-                <span className="shrink-0 tabular-nums text-[10px] text-[#6b7280]">{CHAIN_TICKER[id]}</span>
+                <span className="shrink-0 tabular-nums text-[10px] text-fg-muted">{CHAIN_TICKER[id]}</span>
               </button>
             );
           })}

@@ -28,17 +28,17 @@ export function WalletBalancePanel({
 
   return (
     <div className="flex min-h-0 flex-col p-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-muted/90">Balance</h3>
-        <span className="rounded border border-white/[0.055] bg-white/[0.025] px-1.5 py-0.5 text-[8.5px] font-semibold text-fg-muted">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold text-fg-primary">BALANCE</h3>
+        <span className="rounded border border-border-subtle bg-bg-sunken px-1.5 py-0.5 text-[8.5px] font-semibold uppercase tracking-wide text-fg-muted">
           {currency}
         </span>
       </div>
 
-      <dl className="mt-3 space-y-2 text-[11.5px]">
+      <dl className="space-y-2 text-xs">
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">Total value</dt>
-          <dd className="tabular-nums text-[16px] font-semibold tracking-tight text-fg-primary">
+          <dd className="text-2xl font-bold tabular-nums text-fg-primary">
             {data.totalValueUsd != null ? formatCompactUsd(data.totalValueUsd) : '—'}
           </dd>
         </div>
@@ -46,10 +46,10 @@ export function WalletBalancePanel({
           <dt className="text-fg-muted">Unrealized PNL</dt>
           <dd
             className={cn(
-              'tabular-nums text-[13px] font-semibold tracking-tight',
-              pos(data.unrealizedPnlUsd) === 'bull' && 'text-emerald-300/90',
-              pos(data.unrealizedPnlUsd) === 'bear' && 'text-rose-300/90',
-              pos(data.unrealizedPnlUsd) === 'default' && 'text-fg-secondary',
+              'text-lg font-semibold tabular-nums',
+              pos(data.unrealizedPnlUsd) === 'bull' && 'text-signal-bull',
+              pos(data.unrealizedPnlUsd) === 'bear' && 'text-signal-bear',
+              pos(data.unrealizedPnlUsd) === 'default' && 'text-fg-muted',
             )}
           >
             {data.unrealizedPnlUsd != null ? formatCompactUsd(data.unrealizedPnlUsd) : '—'}
@@ -57,7 +57,7 @@ export function WalletBalancePanel({
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">Current balance</dt>
-          <dd className="tabular-nums font-medium text-fg-secondary/95">
+          <dd className="text-sm font-medium tabular-nums text-fg-primary">
             {data.chain === 'ton' && data.nativeBalanceLabel
               ? data.nativeBalanceLabel
               : data.tradeableBalanceUsd != null
@@ -67,14 +67,14 @@ export function WalletBalancePanel({
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">Stable balance</dt>
-          <dd className="tabular-nums font-medium text-fg-secondary/95">
+          <dd className="text-sm font-medium tabular-nums text-fg-primary">
             {data.stableCoinBalanceUsd != null ? formatCompactUsd(data.stableCoinBalanceUsd) : '—'}
           </dd>
         </div>
       </dl>
 
-      <div className="mt-3 border-t border-white/[0.055] pt-2.5">
-        <p className="text-[8.5px] font-semibold uppercase tracking-[0.1em] text-fg-muted">Funded</p>
+      <div className="mt-3 border-t border-border-subtle pt-2.5">
+        <p className="text-[10px] uppercase tracking-wider text-fg-muted">Funded</p>
         {funding && data.chain === 'sol' ? (
           <div className="mt-1.5 space-y-1">
             <div className="flex items-center justify-between gap-2">
@@ -101,7 +101,7 @@ export function WalletBalancePanel({
                 ) : null}
               </a>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] tabular-nums text-fg-muted">
+            <div className="flex items-center gap-1.5 text-xs tabular-nums text-fg-secondary">
               <span>{funding.periodLabel ?? '—'}</span>
               <span className="text-fg-muted/60">•</span>
               <span className="inline-flex items-center gap-0.5 font-medium text-fg-secondary">

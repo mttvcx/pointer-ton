@@ -30,4 +30,4 @@ export function useOverlayPresence(open: boolean, exitMs: number = DEFAULT_EXIT_
 }
 
 export const OVERLAY_ANIM_CLOSE_MS = DEFAULT_EXIT_MS;
-export const POPOVER_ANIM_CLOSE_MS = 155;
+export const POPOVER_ANIM_CLOSE_MS = 220;

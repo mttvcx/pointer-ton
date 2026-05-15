@@ -10,7 +10,7 @@ import { APP_NAME, APP_TAGLINE } from '@/lib/utils/constants';
 export default function LandingPage() {
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(0,119,182,0.15),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgb(var(--accent-primary-rgb)/0.15),transparent_60%)]" />
 
       <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-base px-3 py-1 text-xs uppercase tracking-[0.02em] text-fg-muted">
         <span className="h-1.5 w-1.5 rounded-full bg-accent-primary shadow-glow-sm" />

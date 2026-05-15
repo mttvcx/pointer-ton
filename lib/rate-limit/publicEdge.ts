@@ -62,19 +62,28 @@ export async function enforcePublicApiRateLimit(
   }
 
   const ip = clientIp(request);
-  const { success, reset } = await limiter.limit(ip);
+  try {
+    const { success, reset } = await limiter.limit(ip);
 
-  if (success) return null;
+    if (success) return null;
 
-  const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
-  return NextResponse.json(
-    { error: 'rate_limited', message: 'Too many requests. Try again shortly.' },
-    {
-      status: 429,
-      headers: {
-        'Retry-After': String(retryAfter),
-        'Cache-Control': 'no-store',
+    const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: 'rate_limited', message: 'Too many requests. Try again shortly.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfter),
+          'Cache-Control': 'no-store',
+        },
       },
-    },
-  );
+    );
+  } catch (err) {
+    /** Invalid URL/token, firewall, or transient Up outage — otherwise middleware 500-blankets Pulse + `/api/tokens/*`. */
+    console.warn(
+      '[rate-limit] Upstash Redis unavailable; skipping public API rate limit:',
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
 }

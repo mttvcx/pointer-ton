@@ -320,12 +320,12 @@ export function TokenChart({
     <div
       ref={outerRef}
       className={cn(
-        'flex h-full min-h-0 flex-1 flex-col border border-[#1b1f2a] bg-[#080d14]',
+        'flex h-full min-h-0 flex-1 flex-col border border-border-subtle bg-bg-base',
         edgeToEdge ? 'rounded-none border-x-0 border-t-0' : 'rounded-sm',
       )}
     >
       {/* Chart toolbar */}
-      <div className="flex min-h-[2rem] flex-wrap items-center gap-x-1 gap-y-0.5 border-b border-[#1b1f2a] px-1 py-0.5 text-[11px]">
+      <div className="flex min-h-[2rem] flex-wrap items-center gap-x-1 gap-y-0.5 border-b border-border-subtle px-1 py-0.5 text-[11px]">
         <div className="flex flex-wrap items-center gap-0">
           {INTERVALS.map((iv) => (
             <button
@@ -335,18 +335,18 @@ export function TokenChart({
               className={cn(
                 'btn-press px-2 py-1 tabular-nums text-[11px] font-semibold tabular-nums transition-colors',
                 interval === iv
-                  ? 'text-[#5eead4]'
-                  : 'text-[#6b7280] hover:text-fg-secondary',
+                  ? 'text-signal-bull'
+                  : 'text-fg-muted hover:text-fg-secondary',
               )}
             >
               {iv}
             </button>
           ))}
         </div>
-        <span className="hidden h-4 w-px bg-[#1b1f2a] md:inline-block" aria-hidden />
+        <span className="hidden h-4 w-px bg-border-subtle md:inline-block" aria-hidden />
         <button
           type="button"
-          className="btn-press rounded px-2 py-1 text-[11px] font-medium text-[#9ca3af] hover:text-fg-secondary"
+          className="btn-press rounded px-2 py-1 text-[11px] font-medium text-fg-secondary hover:text-fg-primary"
           onClick={() => toast.message('Indicators', { description: 'Study library (RSI, VWAP, etc.) is planned.' })}
         >
           Indicators
@@ -354,14 +354,14 @@ export function TokenChart({
         <div className="relative">
           <button
             type="button"
-            className="btn-press inline-flex items-center gap-0.5 rounded px-2 py-1 text-[11px] font-medium text-[#9ca3af] hover:text-fg-secondary"
+            className="btn-press inline-flex items-center gap-0.5 rounded px-2 py-1 text-[11px] font-medium text-fg-secondary hover:text-fg-primary"
             onClick={() => setDisplayOpen((o) => !o)}
           >
             Display Options
             <ChevronDown className="h-3 w-3 opacity-80" />
           </button>
           {displayOpen ? (
-            <div className="absolute left-0 top-full z-[50] mt-0.5 min-w-[11rem] rounded-md border border-[#1b1f2a] bg-[#12151c] py-1 shadow-xl">
+            <div className="absolute left-0 top-full z-[50] mt-0.5 min-w-[11rem] rounded-md border border-border-subtle bg-bg-raised py-1 shadow-xl">
               <DisplayToggleRow
                 label="Dev trades"
                 on={overlays.devTrades}
@@ -385,34 +385,34 @@ export function TokenChart({
           onClick={() => setHideAllBubbles((h) => !h)}
           className={cn(
             'btn-press rounded px-2 py-1 text-[11px] font-medium',
-            hideAllBubbles ? 'text-[#5eead4]' : 'text-[#9ca3af] hover:text-fg-secondary',
+            hideAllBubbles ? 'text-signal-bull' : 'text-fg-secondary hover:text-fg-primary',
           )}
         >
           {hideAllBubbles ? 'Show bubbles' : 'Hide All Bubbles'}
         </button>
-        <span className="hidden h-4 w-px bg-[#1b1f2a] lg:inline-block" aria-hidden />
+        <span className="hidden h-4 w-px bg-border-subtle lg:inline-block" aria-hidden />
         <button
           type="button"
           onClick={() => setQuoteMode((q) => (q === 'usd' ? 'sol' : 'usd'))}
           className="btn-press rounded px-2 py-1 tabular-nums text-[11px] font-semibold"
         >
-          <span className={quoteMode === 'usd' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>USD</span>
-          <span className="mx-0.5 text-[#374151]">/</span>
-          <span className={quoteMode === 'sol' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>{nativeSym}</span>
+          <span className={quoteMode === 'usd' ? 'text-signal-bull' : 'text-fg-muted'}>USD</span>
+          <span className="mx-0.5 text-fg-muted/70">/</span>
+          <span className={quoteMode === 'sol' ? 'text-signal-bull' : 'text-fg-muted'}>{nativeSym}</span>
         </button>
         <button
           type="button"
           onClick={() => setAxisMode((a) => (a === 'price' ? 'mc' : 'price'))}
           className="btn-press rounded px-2 py-1 tabular-nums text-[11px] font-semibold"
         >
-          <span className={axisMode === 'mc' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>MC</span>
-          <span className="mx-0.5 text-[#374151]">/</span>
-          <span className={axisMode === 'price' ? 'text-[#5eead4]' : 'text-[#6b7280]'}>Px</span>
+          <span className={axisMode === 'mc' ? 'text-signal-bull' : 'text-fg-muted'}>MC</span>
+          <span className="mx-0.5 text-fg-muted/70">/</span>
+          <span className={axisMode === 'price' ? 'text-signal-bull' : 'text-fg-muted'}>Px</span>
         </button>
         <div className="flex items-center gap-0.5">
           <button
             type="button"
-            className="btn-press rounded p-1 text-[#6b7280] hover:text-fg-secondary"
+            className="btn-press rounded p-1 text-fg-muted hover:text-fg-secondary"
             title="Undo zoom"
             onClick={() => toast.message('Undo', { description: 'Connect TradingView undo stack later.' })}
           >
@@ -420,7 +420,7 @@ export function TokenChart({
           </button>
           <button
             type="button"
-            className="btn-press rounded p-1 text-[#6b7280] hover:text-fg-secondary"
+            className="btn-press rounded p-1 text-fg-muted hover:text-fg-secondary"
             title="Redo"
             onClick={() => toast.message('Redo', { description: 'Connect redo stack later.' })}
           >
@@ -430,14 +430,14 @@ export function TokenChart({
         <div className="ml-auto flex items-center gap-0.5">
           <select
             aria-label="Chart data provider"
-            className="h-7 max-w-[7rem] cursor-pointer rounded border border-[#1b1f2a] bg-[#080d14] px-1.5 text-[10px] text-fg-secondary"
+            className="h-7 max-w-[7rem] cursor-pointer rounded border border-border-subtle bg-bg-base px-1.5 text-[10px] text-fg-secondary"
             disabled
           >
             <option>Pointer</option>
           </select>
           <button
             type="button"
-            className="btn-press rounded p-1 text-[#6b7280] hover:text-fg-secondary"
+            className="btn-press rounded p-1 text-fg-muted hover:text-fg-secondary"
             title="Chart settings"
             onClick={() =>
               document.querySelector<HTMLElement>('[data-mint="' + mint + '"]')?.scrollIntoView({
@@ -450,7 +450,7 @@ export function TokenChart({
           </button>
           <button
             type="button"
-            className="btn-press rounded p-1 text-[#6b7280] hover:text-fg-secondary"
+            className="btn-press rounded p-1 text-fg-muted hover:text-fg-secondary"
             title="Fullscreen chart"
             onClick={() => void onFullscreen()}
           >
@@ -458,7 +458,7 @@ export function TokenChart({
           </button>
           <button
             type="button"
-            className="btn-press rounded p-1 text-[#6b7280] hover:text-fg-secondary"
+            className="btn-press rounded p-1 text-fg-muted hover:text-fg-secondary"
             title="Snapshot"
             onClick={() =>
               toast.message('Snapshot', { description: 'Use your OS screenshot tools for now.' })
@@ -470,14 +470,14 @@ export function TokenChart({
       </div>
 
       {/* OHLC strip */}
-      <div className="border-b border-[#1b1f2a] px-2 py-0.5">
-        <div className="text-[11px] leading-tight text-[#9ca3af]">
-          <span className="font-medium text-[#d1d5db]">{pairTitle}</span>
+      <div className="border-b border-border-subtle px-2 py-0.5">
+        <div className="text-[11px] leading-tight text-fg-secondary">
+          <span className="font-medium text-fg-primary">{pairTitle}</span>
         </div>
         <div
           className={cn(
             'mt-0.5 tabular-nums text-[11px] font-semibold tabular-nums',
-            lastOhlc != null && lastOhlc.ch < 0 ? 'text-[#fb7185]' : 'text-[#34d399]',
+            lastOhlc != null && lastOhlc.ch < 0 ? 'text-signal-bear' : 'text-signal-bull',
           )}
         >
           {lastOhlc ? (
@@ -487,7 +487,7 @@ export function TokenChart({
               {fmtPx(lastOhlc.ch)} ({formatPercent(lastOhlc.pct, { decimals: 2 })})
             </>
           ) : (
-            <span className="text-[#6b7280]">No OHLC yet</span>
+            <span className="text-fg-muted">No OHLC yet</span>
           )}
         </div>
       </div>
@@ -495,25 +495,25 @@ export function TokenChart({
       <div className="relative min-h-0 flex-1">
         <div ref={wrapRef} className="absolute inset-0 h-full min-h-0 w-full" />
         {isLoading ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#080d14] text-[12px] text-[#6b7280]">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-base text-[12px] text-fg-muted">
             Loading{'\u2026'}
           </div>
         ) : null}
         {isError ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#080d14] text-[12px] text-[#fb7185]">
+          <div className="absolute inset-0 flex items-center justify-center bg-bg-base text-[12px] text-signal-bear">
             Could not load price history.
           </div>
         ) : null}
       </div>
 
       {/* Bottom chart controls */}
-      <div className="flex items-center justify-end gap-2 border-t border-[#1b1f2a] px-2 py-0.5 tabular-nums text-[10px]">
+      <div className="flex items-center justify-end gap-2 border-t border-border-subtle px-2 py-0.5 tabular-nums text-[10px]">
         <button
           type="button"
           onClick={() => setScaleExtra('percent')}
           className={cn(
             'btn-press rounded px-1.5 py-0.5 uppercase',
-            scaleExtra === 'percent' ? 'text-[#5eead4]' : 'text-[#6b7280] hover:text-fg-secondary',
+            scaleExtra === 'percent' ? 'text-signal-bull' : 'text-fg-muted hover:text-fg-secondary',
           )}
           title="Percentage scale"
         >
@@ -524,7 +524,7 @@ export function TokenChart({
           onClick={() => setScaleExtra('log')}
           className={cn(
             'btn-press rounded px-1.5 py-0.5 uppercase',
-            scaleExtra === 'log' ? 'text-[#5eead4]' : 'text-[#6b7280] hover:text-fg-secondary',
+            scaleExtra === 'log' ? 'text-signal-bull' : 'text-fg-muted hover:text-fg-secondary',
           )}
           title="Logarithmic scale"
         >
@@ -535,7 +535,7 @@ export function TokenChart({
           onClick={() => setScaleExtra('normal')}
           className={cn(
             'btn-press rounded px-1.5 py-0.5 uppercase',
-            scaleExtra === 'normal' ? 'text-[#5eead4]' : 'text-[#6b7280] hover:text-fg-secondary',
+            scaleExtra === 'normal' ? 'text-signal-bull' : 'text-fg-muted hover:text-fg-secondary',
           )}
           title="Auto / linear"
         >
@@ -565,7 +565,7 @@ function DisplayToggleRow({
       <span
         className={cn(
           'h-2 w-2 shrink-0 rounded-full',
-          on ? 'bg-[#38bdf8]' : 'bg-[#4b5563]',
+          on ? 'bg-accent-glow' : 'bg-fg-muted',
         )}
       />
     </button>

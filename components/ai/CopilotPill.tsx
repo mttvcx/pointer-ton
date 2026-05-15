@@ -96,7 +96,10 @@ function PillInsightCrossfade({ insight }: { insight: ReturnType<typeof useCopil
   }, [stack.prev?.key]);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 items-stretch self-stretch overflow-hidden px-2">
+    // pointer-events-none on the whole insight area: text is purely
+    // presentational — clicks must reach the parent shell's onClick (drag /
+    // expand handlers) regardless of where the cursor lands inside the pill.
+    <div className="pointer-events-none flex min-h-0 min-w-0 flex-1 items-stretch self-stretch overflow-hidden px-2">
       <div className="relative min-h-0 min-w-0 flex-1">
         {stack.prev ? (
           <div
@@ -110,7 +113,7 @@ function PillInsightCrossfade({ insight }: { insight: ReturnType<typeof useCopil
         <div
           key={`in-${stack.cur.key}`}
           className={cn(
-            'absolute inset-x-0 top-0 bottom-0 flex items-center',
+            'pointer-events-none absolute inset-x-0 top-0 bottom-0 flex items-center',
             stack.prev ? 'animate-copilot-pill-in' : null,
           )}
         >

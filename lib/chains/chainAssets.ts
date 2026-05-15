@@ -13,6 +13,21 @@ export const CHAIN_ICON_PNG: Record<AppChainId, string> = {
   ton: '/chains/ton.png',
 };
 
+/**
+ * Squads + coarse chain slug → raster/SVG logo under `/public/chains`.
+ * Keys are lowercase. Missing slugs omit an entry ({@link ChainIcon} returns null).
+ */
+export const chainLogoSrc: Record<string, string> = {
+  sol: '/chains/sol.png',
+  solana: '/chains/solana.png',
+  ton: '/chains/ton.png',
+  base: '/chains/base.png',
+  bnb: '/chains/bnb.png',
+  hyperliquid: '/chains/hyperliquid.svg',
+  ethereum: '/chains/eth.svg',
+  eth: '/chains/eth.svg',
+};
+
 export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {
   sol: 'Solana',
   bnb: 'BNB',

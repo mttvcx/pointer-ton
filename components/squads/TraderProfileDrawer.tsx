@@ -62,7 +62,11 @@ export function TraderProfileDrawer({
   const demo = payload.mode === 'demo' ? payload.trader : null;
 
   return (
-    <div className="fixed inset-0 z-[540] flex justify-end" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[540] flex items-center justify-center p-4 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+    >
       <button
         type="button"
         className={cn(
@@ -73,15 +77,15 @@ export function TraderProfileDrawer({
         aria-label="Close profile"
         onClick={onClose}
       />
-      <aside
+      <div
         className={cn(
-          'relative flex h-full w-full max-w-md flex-col border-l border-white/[0.08]',
-          'bg-[rgba(8,13,20,0.96)] shadow-[-24px_0_64px_-24px_rgba(0,0,0,0.75)] backdrop-blur-xl',
+          'relative flex max-h-[min(640px,calc(100vh-48px))] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border-subtle',
+          'bg-bg-raised shadow-[0_24px_80px_-24px_rgba(0,0,0,0.85)] backdrop-blur-xl',
           overlayPanelClasses(visible),
           'fill-mode-forwards',
         )}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] p-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle p-4">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-muted">
               Operator profile
@@ -105,7 +109,7 @@ export function TraderProfileDrawer({
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4">
           {demo ? (
             <DemoBody t={demo} />
           ) : liveQ.isLoading ? (
@@ -119,7 +123,7 @@ export function TraderProfileDrawer({
             <LiveBody data={liveQ.data} />
           ) : null}
 
-          <div className="mt-auto grid gap-2 border-t border-white/[0.06] pt-4">
+          <div className="mt-auto grid gap-2 border-t border-border-subtle pt-4">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -148,7 +152,7 @@ export function TraderProfileDrawer({
             ) : null}
           </div>
         </div>
-      </aside>
+      </div>
     </div>
   );
 }

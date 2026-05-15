@@ -15,32 +15,38 @@ const config: Config = {
     },
     extend: {
       colors: {
+        // Theme-aware tokens — resolve through CSS vars so `data-theme` on <html>
+        // can recolor the app without rebuilding. `<alpha-value>` is Tailwind's
+        // placeholder for opacity modifiers like `bg-bg-base/40`.
         bg: {
-          base: '#080D14',
-          raised: '#0E141C',
-          sunken: '#05080D',
-          hover: '#141820',
+          base: 'rgb(var(--bg-base-rgb) / <alpha-value>)',
+          raised: 'rgb(var(--bg-raised-rgb) / <alpha-value>)',
+          sunken: 'rgb(var(--bg-sunken-rgb) / <alpha-value>)',
+          hover: 'rgb(var(--bg-hover-rgb) / <alpha-value>)',
         },
         border: {
-          subtle: '#1b1f2a',
-          DEFAULT: '#2A2F3A',
-          strong: '#3A4150',
+          subtle: 'rgb(var(--border-subtle-rgb) / <alpha-value>)',
+          DEFAULT: 'rgb(var(--border-default-rgb) / <alpha-value>)',
+          strong: 'rgb(var(--border-strong-rgb) / <alpha-value>)',
         },
         fg: {
-          primary: '#E8EBF0',
-          secondary: '#9BA3B0',
-          muted: '#6B7280',
-          inverse: '#080D14',
+          primary: 'rgb(var(--fg-primary-rgb) / <alpha-value>)',
+          secondary: 'rgb(var(--fg-secondary-rgb) / <alpha-value>)',
+          muted: 'rgb(var(--fg-muted-rgb) / <alpha-value>)',
+          inverse: 'rgb(var(--fg-inverse-rgb) / <alpha-value>)',
         },
         accent: {
-          primary: '#0077B6',
-          glow: '#00A3E0',
+          primary: 'rgb(var(--accent-primary-rgb) / <alpha-value>)',
+          glow: 'rgb(var(--accent-glow-rgb) / <alpha-value>)',
+          ethos: 'rgb(var(--accent-ethos-rgb) / <alpha-value>)',
+          'ethos-soft': 'rgb(var(--accent-ethos-soft-rgb) / <alpha-value>)',
+          'ethos-dim': 'rgb(var(--accent-ethos-dim-rgb) / <alpha-value>)',
         },
         signal: {
-          bull: '#3DDC97',
-          bear: '#FF5E78',
-          warn: '#FFB547',
-          info: '#5EBBFF',
+          bull: 'rgb(var(--signal-bull-rgb) / <alpha-value>)',
+          bear: 'rgb(var(--signal-bear-rgb) / <alpha-value>)',
+          warn: 'rgb(var(--signal-warn-rgb) / <alpha-value>)',
+          info: 'rgb(var(--signal-info-rgb) / <alpha-value>)',
         },
         // shadcn token bridge - points all shadcn primitives at our palette
         background: '#080D14',
@@ -66,8 +72,8 @@ const config: Config = {
           foreground: '#9BA3B0',
         },
         destructive: {
-          DEFAULT: '#FF5E78',
-          foreground: '#080D14',
+          DEFAULT: 'rgb(var(--signal-bear-rgb) / <alpha-value>)',
+          foreground: 'rgb(var(--fg-inverse-rgb) / <alpha-value>)',
         },
         input: '#2A2F3A',
         ring: '#0077B6',
@@ -82,6 +88,20 @@ const config: Config = {
           'Roboto',
           'Arial',
           'sans-serif',
+        ],
+        mono: [
+          '"SF Mono"',
+          '"Fira Code"',
+          '"Fira Mono"',
+          '"Roboto Mono"',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Monaco',
+          'Consolas',
+          '"Liberation Mono"',
+          '"Courier New"',
+          'monospace',
         ],
       },
       fontSize: {
@@ -100,9 +120,13 @@ const config: Config = {
         lg: '10px',
       },
       boxShadow: {
-        glow: '0 0 24px -4px rgba(0, 119, 182, 0.45)',
-        'glow-sm': '0 0 12px -2px rgba(0, 119, 182, 0.35)',
-        panel: '0 1px 0 0 rgba(255,255,255,0.03) inset, 0 0 0 1px #1F232C',
+        // Semantic glows now follow --accent-primary across themes.
+        glow: '0 0 24px -4px rgb(var(--accent-primary-rgb) / 0.45)',
+        'glow-sm': '0 0 12px -2px rgb(var(--accent-primary-rgb) / 0.35)',
+        // Panel hairline: previously a frozen `#1F232C`. Now tracks the theme's
+        // subtle border (visually equivalent in Pointer; recolors on Axiom/Terminal).
+        panel:
+          '0 1px 0 0 rgba(255,255,255,0.03) inset, 0 0 0 1px rgb(var(--border-subtle-rgb) / 1)',
       },
       keyframes: {
         'fade-in': {

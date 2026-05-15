@@ -3,20 +3,16 @@
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Activity, ArrowRight, Eye, Lock, ShieldCheck, Sparkles } from 'lucide-react';
+import { Activity, ArrowRight, Lock, ShieldCheck, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ChainFocus } from '@/lib/squads/types';
 import { DEMO_SQUADS } from '@/lib/squads/demo';
 import type { DemoSquad } from '@/lib/squads/demo';
 import { squadRoomCardMeta } from '@/lib/squads/traderCardMeta';
 import { SquadGlassModal } from '@/components/squads/SquadGlassModal';
-import {
-  SquadChip,
-  SquadPanel,
-  SquadSortShell,
-  squadCardHoverInteractiveClass,
-} from '@/components/squads/squadsPrimitives';
+import { SquadChip, SquadPanel, SquadSortShell, squadCardHoverInteractiveClass } from '@/components/squads/squadsPrimitives';
 import { cn } from '@/lib/utils/cn';
+import { ChainIcon } from '@/components/squads/ChainIcon';
+import { EthosGlyph } from '@/components/squads/EthosWordmark';
 
 const MEMBER_RING: Record<string, string[]> = {
   'archon-desk': ['CR', 'HE', 'VO'],
@@ -82,15 +78,19 @@ export function RecruitSquadsView() {
                 All chains
               </SquadChip>
               <SquadChip selected={chains.has('sol')} onClick={() => toggleChain('sol')}>
+                <ChainIcon chain="sol" size={12} />
                 Solana
               </SquadChip>
               <SquadChip selected={chains.has('ton')} onClick={() => toggleChain('ton')}>
+                <ChainIcon chain="ton" size={12} />
                 TON
               </SquadChip>
               <SquadChip selected={chains.has('base')} onClick={() => toggleChain('base')}>
+                <ChainIcon chain="base" size={12} />
                 Base
               </SquadChip>
               <SquadChip selected={chains.has('hyperliquid')} onClick={() => toggleChain('hyperliquid')}>
+                <ChainIcon chain="hyperliquid" size={12} />
                 Hyperliquid
               </SquadChip>
               <SquadChip>Room type</SquadChip>
@@ -118,96 +118,139 @@ export function RecruitSquadsView() {
                 <li key={s.id}>
                   <article
                     className={cn(
-                      'relative overflow-hidden rounded-lg border border-[#2a3548] bg-gradient-to-b from-[#141c28]/98 to-[#090c11] shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition',
+                      'overflow-hidden rounded-lg border border-border-subtle bg-bg-raised transition-colors hover:border-border',
                       squadCardHoverInteractiveClass,
-                      meta.spotlight === 'invite_high' &&
-                        'ring-1 ring-[#8b7cc9]/35 ring-offset-2 ring-offset-[#05070a]',
                     )}
                   >
                     {meta.spotlight !== 'standard' ? (
-                      <SpotlightRibbon
-                        secure={meta.spotlight === 'invite_high'}
-                        label={
-                          meta.spotlight === 'invite_high'
-                            ? 'Invite only · high signal'
-                            : 'High signal room'
-                        }
-                      />
+                      <div className="flex items-center gap-1.5 rounded-t-lg bg-accent-ethos/10 px-4 py-1.5">
+                        {meta.spotlight === 'invite_high' ? (
+                          <Lock className="h-3 w-3 shrink-0 text-accent-ethos" strokeWidth={2.2} />
+                        ) : (
+                          <Sparkles className="h-3 w-3 shrink-0 text-accent-ethos" strokeWidth={2.2} />
+                        )}
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent-ethos">
+                          {meta.spotlight === 'invite_high' ? (
+                            <>
+                              <span>Invite only</span>
+                              <span className="mx-1 font-normal opacity-60">·</span>
+                              <span>high signal</span>
+                            </>
+                          ) : (
+                            'High signal room'
+                          )}
+                        </span>
+                      </div>
                     ) : null}
-                    <div className={cn('p-4', meta.spotlight !== 'standard' ? 'pt-8' : null)}>
-                      <div className="flex flex-wrap items-start gap-4">
-                        <div className="relative">
-                          <div className="absolute -left-px -top-px h-3 w-3 rounded-full border border-[#0d1117] bg-[#4ade80] shadow-[0_0_12px_-2px_#22c55e]" />
-                          <div className="flex h-[52px] w-[52px] items-center justify-center rounded-md border border-[#3d4d63] bg-[#0f141f] text-[14px] font-bold ring-2 ring-black/65">
-                            {s.monogram}
-                          </div>
-                          <MiniAvatarStack initials={initials} />
+                    <div className={cn('px-4 pb-4', meta.spotlight !== 'standard' ? 'pt-3' : 'pt-4')}>
+                      <div className="flex flex-wrap items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-bg-sunken text-sm font-bold text-fg-secondary">
+                          {s.monogram}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                            <h3 className="text-[15px] font-semibold tracking-tight text-fg-primary">
-                              {s.name}
-                            </h3>
+                            <h3 className="text-base font-bold tracking-tight text-fg-primary">{s.name}</h3>
                             <VisibilityPill visibility={s.visibility} />
                             <Grade grade={s.signalGrade} />
                           </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <MiniAvatarStack
+                              members={initials.slice(0, 4).map((ini, idx) => ({
+                                id: `${s.slug}-${idx}`,
+                                initials: ini,
+                              }))}
+                              totalMembers={s.members}
+                            />
+                            <span className="text-xs text-fg-muted">{s.members} members</span>
+                          </div>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-[10.5px]">
-                            <span className="inline-flex items-center gap-1 rounded border border-emerald-900/55 bg-emerald-950/25 px-1.5 py-px font-semibold uppercase tracking-wide text-emerald-200/90">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-bg-sunken px-1.5 py-px font-semibold uppercase tracking-wide text-fg-secondary">
                               <Activity className="h-3 w-3" strokeWidth={2.2} />
                               {meta.lastActive}
                             </span>
-                            <span className="rounded border border-[#354155]/85 bg-black/35 px-1.5 py-px text-[10px] font-medium text-[#aec7e8]">
+                            <span className="rounded-md bg-bg-sunken px-1.5 py-px text-[10px] font-medium text-fg-muted">
                               {meta.pulseLine}
                             </span>
                           </div>
-                          <p className="mt-2 max-w-[66ch] text-[12px] leading-relaxed text-fg-secondary">
-                            {s.shortDescription}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {s.chains.map((c) => (
-                              <ChainChip key={c} c={c} />
-                            ))}
+                          <p className="mt-2 max-w-[66ch] text-xs leading-snug text-fg-secondary">{s.shortDescription}</p>
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {s.chains.map((c) =>
+                              c === 'multi' ? (
+                                <span
+                                  key={c}
+                                  className="inline-flex items-center gap-1 rounded-md bg-bg-sunken px-1.5 py-0.5 text-[10px] font-medium text-fg-secondary"
+                                  title="Multi-chain"
+                                >
+                                  Multi-chain
+                                </span>
+                              ) : (
+                                <span
+                                  key={c}
+                                  className="inline-flex h-5 items-center gap-1 rounded-md bg-bg-sunken px-1.5 text-[10px] font-medium text-fg-secondary"
+                                  title={
+                                    c === 'sol'
+                                      ? 'Solana'
+                                      : c === 'ton'
+                                        ? 'TON'
+                                        : c === 'base'
+                                          ? 'Base'
+                                          : c === 'hyperliquid'
+                                            ? 'Hyperliquid'
+                                            : 'BNB'
+                                  }
+                                >
+                                  <ChainIcon chain={c} size={11} />
+                                </span>
+                              ),
+                            )}
                           </div>
-                          <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
-                            <StatDd label="Members">
-                              {s.members}
-                            </StatDd>
-                            <StatDd label="Open seats" accent accentClass="text-[#fde68a]">
-                              {s.openSeatsCount}
-                            </StatDd>
-                            <StatDd label="Ethos floor" className="col-span-2 sm:col-span-1">
-                              ≥{s.ethosFloor.toLocaleString()}
-                            </StatDd>
-                            <StatDd label="Trust gate" className="col-span-2 sm:col-span-2">
-                              {s.trustRequirement}
-                            </StatDd>
+
+                          <div className="mt-3 grid grid-cols-4 divide-x divide-border-subtle overflow-hidden rounded border border-border-subtle">
+                            <StatCell label="Members">{s.members}</StatCell>
+                            <StatCell label="Open seats">{s.openSeatsCount}</StatCell>
+                            <StatCell label="Ethos floor">
+                              <span className="inline-flex items-center gap-1">
+                                <EthosGlyph className="h-2 w-2" />
+                                <span className="font-bold tabular-nums text-accent-ethos">
+                                  ≥{s.ethosFloor.toLocaleString()}
+                                </span>
+                              </span>
+                            </StatCell>
+                            <StatCell label="Signal">
+                              <span className="tabular-nums">{s.signalGrade === 'high' ? 'High' : 'Medium'}</span>
+                            </StatCell>
+                          </div>
+
+                          <div className="mt-3 flex flex-col gap-0.5">
+                            <span className="text-[10px] uppercase tracking-[0.16em] text-fg-muted">Trust gate</span>
+                            <span className="text-xs text-fg-secondary">{s.trustRequirement}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="mt-5 flex flex-wrap gap-2 border-t border-white/[0.05] pt-4">
+
+                      <div className="mt-4 flex gap-2">
                         <button
                           type="button"
-                          className="order-1 inline-flex min-h-[38px] min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-md bg-[#1f7ab8] py-2.5 text-[12px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:bg-[#268fcc] sm:order-none sm:flex-none sm:px-6"
+                          className="flex h-9 flex-1 items-center justify-center rounded-md bg-accent-ethos text-sm font-semibold text-bg-base transition-colors hover:bg-accent-ethos-soft"
                           onClick={() => setApplySquad(s)}
                         >
                           Apply
-                          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.2} />
                         </button>
                         <button
                           type="button"
-                          className="order-3 inline-flex min-h-[38px] flex-[1_1_40%] items-center justify-center gap-1.5 rounded-md border border-[#466484]/75 bg-[#121a2566] px-4 py-2.5 text-[11.5px] font-semibold text-fg-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[#5c7fac] hover:bg-[#17202e] sm:order-none sm:flex-none"
+                          className="flex h-9 shrink-0 items-center justify-center rounded-md bg-bg-sunken px-3 text-sm font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
                           onClick={() => setPreview(s)}
                         >
-                          <Eye className="h-3.5 w-3.5" strokeWidth={2.2} />
-                          Preview room
+                          Preview
                         </button>
-                        <Link
-                          href={`/squads/room/${s.slug}`}
-                          className="order-2 inline-flex min-h-[38px] flex-[1_1_28%] items-center justify-center rounded-md border border-dashed border-[#3d4f64]/95 bg-black/30 px-3 py-2.5 text-[11px] font-semibold text-[#8ec8f8] hover:border-[#5b7faa] hover:bg-[#0f1622] hover:text-[#bde3ff] sm:order-none"
-                        >
-                          Enter room
-                        </Link>
                       </div>
+                      <Link
+                        href={`/squads/room/${s.slug}`}
+                        className="mt-2 flex w-full items-center justify-center text-xs font-medium text-accent-ethos hover:text-accent-glow"
+                      >
+                        Enter room
+                        <ArrowRight className="ml-0.5 h-3 w-3 shrink-0" strokeWidth={2.2} />
+                      </Link>
                     </div>
                   </article>
                 </li>
@@ -223,8 +266,8 @@ export function RecruitSquadsView() {
               className="pointer-events-none absolute -right-6 -top-20 h-40 w-40 rounded-full bg-[#274c7a]/22 blur-[50px]"
             />
             <div className="relative flex items-start gap-2 border-b border-white/[0.06] pb-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[#35608c]/55 bg-black/35">
-                <ShieldCheck className="h-4 w-4 text-[#73befa]" strokeWidth={2.2} />
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-ethos/10">
+                <ShieldCheck className="h-4 w-4 text-accent-ethos" strokeWidth={2.2} />
               </div>
               <div>
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-fg-secondary">
@@ -244,7 +287,7 @@ export function RecruitSquadsView() {
                 'Join & contribute — watchlists, votes, alerts.',
               ].map((line, i) => (
                 <li key={line} className="relative flex gap-3 pl-1">
-                  <span className="relative z-[1] flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#3f5f86]/65 bg-[#101925] text-[11px] font-bold text-[#8ecdff] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <span className="relative z-[1] flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-ethos/10 text-[11px] font-bold text-accent-ethos tabular-nums">
                     {i + 1}
                   </span>
                   <span className="leading-snug">{line}</span>
@@ -261,9 +304,10 @@ export function RecruitSquadsView() {
                   </p>
                   <Link
                     href="/squads/reputation"
-                    className="mt-3 flex w-full items-center justify-center rounded-md border border-[#3d556f] bg-[#0e141d] py-2 text-[11px] font-semibold text-fg-primary transition hover:border-[#5c7faa] hover:bg-[#131c28]"
+                    className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-bg-sunken py-2 text-xs font-medium text-accent-ethos transition-colors hover:bg-bg-hover hover:text-accent-glow"
                   >
                     View reputation
+                    <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
                   </Link>
                 </div>
               </div>
@@ -282,7 +326,7 @@ export function RecruitSquadsView() {
             </p>
             <Link
               href={`/squads/room/${preview.slug}`}
-              className="inline-flex w-full justify-center rounded-md bg-[#1f7ab8] py-2.5 text-[12px] font-semibold text-white hover:bg-[#268fcc]"
+              className="inline-flex w-full justify-center rounded-lg bg-accent-ethos py-2.5 text-xs font-semibold text-bg-base transition hover:bg-accent-ethos-soft"
               onClick={() => setPreview(null)}
             >
               Open full room workspace
@@ -299,13 +343,13 @@ export function RecruitSquadsView() {
               Message (optional)
               <textarea
                 rows={4}
-                className="resize-none rounded-md border border-[#2c3545] bg-[#0a0e14] px-2.5 py-2 text-[12px] text-fg-primary outline-none focus:border-[#3d6ea3]"
+                className="resize-none rounded-md border border-border-subtle bg-bg-sunken px-2.5 py-2 text-xs text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-ethos/50 focus:outline-none focus:ring-1 focus:ring-accent-ethos/20"
                 placeholder="Briefly describe your lane, sizing, and what you contribute."
               />
             </label>
             <button
               type="button"
-              className="w-full rounded-md bg-[#1f7ab8] py-2.5 text-[12px] font-semibold text-white hover:bg-[#268fcc]"
+              className="w-full rounded-lg bg-accent-ethos py-2.5 text-xs font-semibold text-bg-base transition hover:bg-accent-ethos-soft"
               onClick={() => confirmApply(applySquad)}
             >
               Send application
@@ -317,70 +361,39 @@ export function RecruitSquadsView() {
   );
 }
 
-function SpotlightRibbon({ secure, label }: { secure: boolean; label: string }) {
+function MiniAvatarStack({
+  members,
+  totalMembers,
+}: {
+  members: { id: string; initials: string }[];
+  totalMembers: number;
+}) {
+  const extra = Math.max(0, totalMembers - members.length);
   return (
-    <div className="absolute left-0 right-0 top-0 flex justify-center">
-      <div className="flex items-center gap-1 rounded-b-lg border-x border-b border-[#466484]/65 bg-[#152030]/92 px-3 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#bde2ff] shadow-[0_6px_20px_-8px_rgba(0,0,0,0.75)] backdrop-blur-sm">
-        {secure ? (
-          <Lock className="h-3 w-3 opacity-90" strokeWidth={2.2} />
-        ) : (
-          <Sparkles className="h-3 w-3 text-[#fde68a] opacity-90" strokeWidth={2.2} />
-        )}
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function MiniAvatarStack({ initials }: { initials: string[] }) {
-  return (
-    <div className="absolute bottom-[-6px] right-[-14px] flex -space-x-2">
-      {initials.slice(0, 3).map((m, i) => (
+    <div className="flex -space-x-1.5">
+      {members.map((m) => (
         <div
-          key={`${m}-${i}`}
+          key={m.id}
           title="Member preview"
-          className={cn(
-            'relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0f141f] bg-gradient-to-br from-[#1c283d] to-[#101827] text-[9px] font-bold text-[#cae4ff]',
-            i === 2 && '-mr-px',
-          )}
+          className="relative flex h-6 w-6 items-center justify-center rounded-full bg-bg-sunken text-[9px] font-bold text-fg-secondary ring-2 ring-bg-raised"
         >
-          {m}
+          {m.initials}
         </div>
       ))}
+      {extra > 0 ? (
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bg-sunken text-[9px] font-semibold text-fg-muted ring-2 ring-bg-raised">
+          +{extra}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function StatDd({
-  label,
-  children,
-  accent,
-  accentClass,
-  className,
-}: {
-  label: string;
-  children: ReactNode;
-  accent?: boolean;
-  accentClass?: string;
-  className?: string;
-}) {
+function StatCell({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div
-      className={cn(
-        'rounded-md border border-[#303b4f]/95 bg-black/38 px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-        accent && 'border-yellow-950/65 bg-yellow-950/12',
-        className,
-      )}
-    >
-      <p className="text-[8.5px] font-bold uppercase tracking-wide text-fg-muted">{label}</p>
-      <p
-        className={cn(
-          'mt-1 text-[11.5px] font-semibold tabular-nums tracking-tight text-fg-primary',
-          accent && accentClass,
-        )}
-      >
-        {children}
-      </p>
+    <div className="flex flex-col bg-bg-raised px-3 py-2">
+      <span className="text-[10px] uppercase tracking-wider text-fg-muted">{label}</span>
+      <span className="mt-0.5 text-sm font-semibold tabular-nums text-fg-primary">{children}</span>
     </div>
   );
 }
@@ -396,10 +409,10 @@ function VisibilityPill({ visibility }: { visibility: DemoSquad['visibility'] })
           : 'Private';
   const cls =
     visibility === 'public'
-      ? 'border-emerald-900/65 text-emerald-200/95 bg-emerald-950/[0.38]'
+      ? 'bg-emerald-950/38 text-emerald-200'
       : visibility === 'request_to_join'
-        ? 'border-sky-900/65 text-[#bae6fd]/95 bg-[#0c4a6e]/24'
-        : 'border-purple-950/85 text-purple-100/92 bg-purple-950/26';
+        ? 'bg-signal-info/10 text-signal-info'
+        : 'bg-fg-muted/15 text-fg-secondary';
   return (
     <span className={cn('rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]', cls)}>
       {label}
@@ -410,33 +423,9 @@ function VisibilityPill({ visibility }: { visibility: DemoSquad['visibility'] })
 function Grade({ grade }: { grade: DemoSquad['signalGrade'] }) {
   const label = grade === 'high' ? 'Signal · high' : 'Signal · medium';
   const cls =
-    grade === 'high'
-      ? 'border-teal-950/85 text-teal-100/93 bg-teal-950/22'
-      : 'border-amber-950/80 text-amber-100/90 bg-amber-950/[0.26]';
+    grade === 'high' ? 'bg-signal-bull/15 text-signal-bull' : 'bg-accent-ethos/10 text-accent-ethos';
   return (
     <span className={cn('rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]', cls)}>
-      {label}
-    </span>
-  );
-}
-
-function ChainChip({ c }: { c: ChainFocus }) {
-  const label =
-    c === 'sol'
-      ? 'Solana'
-      : c === 'ton'
-        ? 'TON'
-        : c === 'base'
-          ? 'Base'
-          : c === 'hyperliquid'
-            ? 'Hyperliquid'
-            : c === 'bnb'
-              ? 'BNB'
-              : c === 'multi'
-                ? 'Multi-chain'
-                : c;
-  return (
-    <span className="rounded-md border border-[#364151]/92 bg-black/42 px-2 py-0.5 text-[10px] font-medium text-[#b8cae4] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       {label}
     </span>
   );

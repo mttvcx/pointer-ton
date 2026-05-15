@@ -89,7 +89,7 @@ export function TokenHeaderAvatar({
   if (!src) {
     return (
       <div
-        className={cn('shrink-0 rounded-md bg-bg-hover ring-1 ring-border-subtle', className)}
+        className={cn('shrink-0 rounded-lg bg-bg-hover ring-1 ring-border-subtle', className)}
         style={{ width: size, height: size }}
         aria-hidden
       />
@@ -102,7 +102,7 @@ export function TokenHeaderAvatar({
         type="button"
         onClick={openLens}
         className={cn(
-          'group relative overflow-hidden rounded-md ring-1 ring-border-subtle focus-ring',
+          'group relative overflow-hidden rounded-lg ring-1 ring-border-subtle focus-ring',
           className,
         )}
         style={{ width: size, height: size }}

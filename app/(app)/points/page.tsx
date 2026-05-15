@@ -3,7 +3,6 @@ import { Suspense } from 'react';
 import { PointsDashboard } from '@/components/points/PointsDashboard';
 
 export const metadata: Metadata = {
-  title: 'Points',
   description: 'Pointer points balance and leaderboard',
 };
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { ArrowUp, Loader2, Sparkles } from 'lucide-react';
+import { ArrowUp, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { POINTER_COPILOT_QUICK_ASK_EVENT } from '@/lib/copilot/quickAsk';
 import { cn } from '@/lib/utils/cn';
 import type { TooltipOutput } from '@/lib/ai/schemas';
@@ -133,7 +133,7 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
           placeholder="Ask about bonding curve, holders, risk, or entry…"
           aria-label="Ask Pointer"
           className={cn(
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0077b6]/50',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/50',
             'h-11 w-full rounded-full border pr-11 pl-4 text-[13px] placeholder:font-normal',
             'disabled:opacity-50',
           )}
@@ -169,7 +169,7 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
             type="button"
             disabled={!authenticated || mutation.isPending}
             onClick={() => submit(s)}
-            className="rounded-full border px-2 py-0.5 text-[10px] font-medium transition hover:border-[#0077b6]/40 hover:text-[#f5f7ff] disabled:opacity-50"
+            className="rounded-full border px-2 py-0.5 text-[10px] font-medium transition hover:border-accent-primary/40 hover:text-fg-primary disabled:opacity-50"
             style={{
               borderColor: COPILOT.border,
               backgroundColor: COPILOT.elevated,
@@ -182,9 +182,15 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
       </div>
 
       {mutation.isError ? (
-        <p className="mt-2 text-[11px] text-amber-400/95">
-          {(mutation.error as Error)?.message ?? 'Request failed'}
-        </p>
+        <div className="mt-2 flex flex-col gap-1.5 rounded border border-signal-bear/20 bg-signal-bear/10 p-2">
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-signal-bear" />
+            <span className="text-xs font-medium text-signal-bear">AI unavailable</span>
+          </div>
+          <p className="text-[11px] leading-relaxed text-fg-muted">
+            The AI assistant is temporarily unavailable. Token data and trading features are unaffected.
+          </p>
+        </div>
       ) : null}
 
       {history.length > 0 ? (

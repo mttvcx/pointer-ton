@@ -14,7 +14,7 @@ import { useUIStore } from '@/store/ui';
 const TF: WalletAnalyticsTimeframe[] = ['1d', '7d', '30d', 'max'];
 
 const controlBtn =
-  'focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-muted transition hover:bg-white/[0.045] hover:text-fg-primary';
+  'focus-ring inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary';
 
 export function WalletAnalyticsHeader({
   address,
@@ -41,12 +41,12 @@ export function WalletAnalyticsHeader({
   const chainTicker = CHAIN_TICKER[chain];
 
   return (
-    <div className="border-b border-white/[0.06] bg-[#070910]/98 px-3 py-3 sm:px-4">
+    <div className="border-b border-border-subtle bg-bg-sunken/50 px-3 py-3 sm:px-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-muted">Track wallet</p>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-fg-muted">TRACK WALLET</p>
           <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
-            <span className="break-all font-mono text-[12px] font-medium leading-snug text-fg-primary" title={address}>
+            <span className="break-all font-mono text-sm leading-snug text-fg-secondary" title={address}>
               {address}
             </span>
             <CopyButton
@@ -57,7 +57,7 @@ export function WalletAnalyticsHeader({
             />
             <button
               type="button"
-              className={cn(controlBtn, 'h-7 w-7')}
+              className="ml-1.5 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg text-fg-muted transition-colors hover:text-fg-primary"
               title="Rename / label"
               onClick={() => {
                 renameRef.current?.focus();
@@ -72,13 +72,13 @@ export function WalletAnalyticsHeader({
             value={labelDraft}
             onChange={(e) => onLabelChange(e.target.value)}
             placeholder="Private label (optional)"
-            className="mt-2 h-8 w-full max-w-md rounded-md border border-white/[0.08] bg-black/30 px-2.5 text-[11px] text-fg-primary outline-none transition placeholder:text-fg-muted/70 focus:border-accent-primary/35"
+            className="mt-2 h-8 w-full max-w-md rounded-md border border-border-subtle bg-bg-sunken px-2.5 text-xs text-fg-primary outline-none transition placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Link
               href={`/wallets?wallet=${encodeURIComponent(address)}`}
               prefetch={false}
-              className="text-[10px] font-semibold text-accent-primary hover:underline"
+              className="text-xs text-accent-primary transition-colors hover:text-accent-glow"
             >
               Track in list
             </Link>
@@ -87,7 +87,7 @@ export function WalletAnalyticsHeader({
               href={explorer}
               target="_blank"
               rel="noreferrer"
-              className="text-[10px] font-medium text-fg-muted hover:text-fg-secondary"
+              className="text-xs text-accent-primary transition-colors hover:text-accent-glow"
             >
               Explorer
             </a>
@@ -112,17 +112,17 @@ export function WalletAnalyticsHeader({
 
           <div className="mx-0.5 hidden h-5 w-px bg-white/[0.08] sm:block" />
 
-          <div className="flex h-8 items-center gap-0.5 rounded-lg border border-white/[0.08] bg-black/25 p-0.5">
+          <div className="flex h-8 items-center gap-0.5 rounded-lg border border-border-subtle bg-bg-sunken p-0.5">
             {TF.map((tf) => (
               <button
                 key={tf}
                 type="button"
                 onClick={() => onTimeframe(tf)}
                 className={cn(
-                  'rounded-md px-2.5 py-1 text-[10px] font-semibold tabular-nums transition',
+                  'border-b-2 px-2 py-1 text-xs transition-colors',
                   timeframe === tf
-                    ? 'bg-emerald-500/20 text-emerald-200 shadow-[inset_0_0_0_1px_rgba(52,211,153,0.25)]'
-                    : 'text-fg-muted hover:bg-white/[0.04] hover:text-fg-secondary',
+                    ? 'border-accent-primary font-semibold text-fg-primary'
+                    : 'border-transparent text-fg-muted hover:text-fg-secondary',
                 )}
               >
                 {tf === 'max' ? 'Max' : tf}
@@ -130,7 +130,12 @@ export function WalletAnalyticsHeader({
             ))}
           </div>
 
-          <button type="button" title="Close" onClick={onClose} className={cn(controlBtn, 'ml-0.5')}>
+          <button
+            type="button"
+            title="Close"
+            onClick={onClose}
+            className="focus-ring ml-0.5 inline-flex h-7 w-7 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+          >
             <X className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>

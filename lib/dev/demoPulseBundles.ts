@@ -155,6 +155,8 @@ export function syntheticPulseFeedItems(
   if (chain === 'sol') {
     const s1 = solBundle(SOL_DEMO_MINT_BONK, 'BONK', 'Bonk', 'pump.fun', 4, 52_000_000, 3_200_000, {
       decimals: 5,
+      // DEMO: testing Twitter hover preview
+      twitter_handle: 'https://x.com/elonmusk',
     });
     const s2 = solBundle(SOL_DEMO_MINT_USDC, 'USDC', 'USD Coin', null, 12, 8_000_000_000, 45_000_000, {
       decimals: 6,

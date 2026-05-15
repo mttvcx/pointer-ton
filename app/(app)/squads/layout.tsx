@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { SquadsHubShell } from '@/components/squads/SquadsHubShell';
 
 export const metadata: Metadata = {
-  title: 'Squads',
   description: 'Trusted operator rooms and trader discovery on Pointer',
 };
 

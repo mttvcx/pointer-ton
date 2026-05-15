@@ -1,10 +1,4 @@
-import type { Metadata } from 'next';
-
 import { TrackWorkspaceClient } from './TrackWorkspaceClient';
-
-export const metadata: Metadata = {
-  title: 'Track',
-};
 
 export default function TrackPage() {
   return (

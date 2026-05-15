@@ -247,7 +247,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
                       type="button"
                       disabled={vanityMut.isPending || vanity.length < 4}
                       onClick={() => vanityMut.mutate(vanity)}
-                      className="focus-ring btn-press rounded-xl bg-accent-primary px-5 py-2.5 text-[12px] font-semibold text-fg-inverse shadow-[0_0_24px_-8px_rgba(0,119,182,0.55)] disabled:opacity-40"
+                      className="focus-ring btn-press rounded-xl bg-accent-primary px-5 py-2.5 text-[12px] font-semibold text-fg-inverse shadow-[0_0_24px_-8px_rgb(var(--accent-primary-rgb)/0.55)] disabled:opacity-40"
                     >
                       {vanityMut.isPending ? 'Saving…' : 'Save'}
                     </button>

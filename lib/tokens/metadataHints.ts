@@ -9,12 +9,26 @@ function asNum(v: unknown): number | null {
   return null;
 }
 
-/** Returns a UI string like "1B" / "1.2M" or null. */
+/** Trims redundant fractional zeros ("1.00" → "1") for compact suffixes. */
+function trimFracFixed(s: string): string {
+  return s.replace(/\.?0+$/, '');
+}
+
+/** Returns a UI string like "1B" / "1.2M" or null — token counts, not USD. */
 export function formatSupplyHint(raw: number | null): string | null {
   if (raw == null || !Number.isFinite(raw) || raw <= 0) return null;
-  if (raw >= 1e9) return `${(raw / 1e9).toFixed(raw >= 1e10 ? 0 : 2)}B`;
-  if (raw >= 1e6) return `${(raw / 1e6).toFixed(raw >= 1e7 ? 0 : 2)}M`;
-  if (raw >= 1e3) return `${(raw / 1e3).toFixed(1)}K`;
+  if (raw >= 1e9) {
+    const dec = Number.isInteger(raw / 1e9) ? 0 : 2;
+    return `${trimFracFixed((raw / 1e9).toFixed(dec))}B`;
+  }
+  if (raw >= 1e6) {
+    const dec = Number.isInteger(raw / 1e6) ? 0 : 2;
+    return `${trimFracFixed((raw / 1e6).toFixed(dec))}M`;
+  }
+  if (raw >= 1e3) {
+    const dec = Number.isInteger(raw / 1e3) ? 0 : 2;
+    return `${trimFracFixed((raw / 1e3).toFixed(dec))}K`;
+  }
   return String(Math.round(raw));
 }
 

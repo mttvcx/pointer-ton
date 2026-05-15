@@ -4,51 +4,52 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 
-const LINKS: { href: string; label: string; badge?: number }[] = [
-  { href: '/squads/discover-traders', label: 'Discover traders' },
-  { href: '/squads/recruit', label: 'Recruit' },
-  { href: '/squads/looking', label: 'Looking for squad' },
-  { href: '/squads/my', label: 'My squads' },
-  { href: '/squads/inbox', label: 'Invites & requests', badge: 3 },
-  { href: '/squads/reputation', label: 'Reputation' },
+const TABS: { key: string; href: string; label: string; count?: number }[] = [
+  { key: 'discover', href: '/squads/discover-traders', label: 'Discover' },
+  { key: 'recruit', href: '/squads/recruit', label: 'Recruit' },
+  { key: 'looking', href: '/squads/looking', label: 'Looking' },
+  { key: 'my', href: '/squads/my', label: 'My squads' },
+  { key: 'inbox', href: '/squads/inbox', label: 'Invites', count: 3 },
+  { key: 'reputation', href: '/squads/reputation', label: 'Reputation' },
 ];
 
 export function SquadsSubnav() {
   const pathname = usePathname();
 
   return (
-    <nav className="-mx-1 flex gap-px overflow-x-auto pb-px" aria-label="Squads sections">
-      {LINKS.map(({ href, label, badge }) => {
+    <nav
+      className="flex items-center gap-1 overflow-x-auto border-b border-border-subtle px-4"
+      aria-label="Squads sections"
+    >
+      {TABS.map((t) => {
         let active =
-          pathname === href || (href !== '/squads' && pathname?.startsWith(href + '/'));
-        if (href === '/squads/my' && pathname?.startsWith('/squads/room')) {
+          pathname === t.href || (t.href !== '/squads' && pathname?.startsWith(t.href + '/'));
+        if (t.key === 'my' && pathname?.startsWith('/squads/room')) {
           active = true;
         }
         return (
           <Link
-            key={href}
-            href={href}
+            key={t.href}
+            href={t.href}
             className={cn(
-              'relative whitespace-nowrap rounded-t-md px-3 py-2 text-[11.5px] font-semibold transition',
-              active
-                ? 'text-fg-primary'
-                : 'text-fg-muted hover:bg-white/[0.03] hover:text-fg-secondary',
+              'relative whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors',
+              active ? 'text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
             )}
           >
-            {active ? (
+            {t.label}
+            {t.count != null ? (
               <span
-                className="pointer-events-none absolute inset-x-1 bottom-0 h-px bg-[#5ebffb]"
-                aria-hidden
-              />
+                className={cn(
+                  'ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                  active ? 'bg-accent-ethos/15 text-accent-ethos' : 'bg-bg-sunken text-fg-muted',
+                )}
+              >
+                {t.count}
+              </span>
             ) : null}
-            <span className="relative inline-flex items-center gap-2">
-              {label}
-              {badge != null ? (
-                <span className="rounded bg-[#1e2630] px-1.5 py-px text-[9.5px] font-bold text-fg-muted ring-1 ring-[#2a323d] tabular-nums">
-                  {badge}
-                </span>
-              ) : null}
-            </span>
+            {active ? (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-ethos" aria-hidden />
+            ) : null}
           </Link>
         );
       })}

@@ -33,6 +33,7 @@ export function TopTraderWalletCell({
       topTraderRow={topTraderRow ?? null}
       rank={rank ?? null}
       creatorWallet={creatorWallet ?? null}
+      className="text-xs text-fg-secondary hover:text-accent-primary"
     />
   );
 }

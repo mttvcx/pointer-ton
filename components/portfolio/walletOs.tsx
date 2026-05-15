@@ -109,10 +109,8 @@ export function PortfolioWalletSelector({
         type="button"
         onClick={() => onOpenChange(!open)}
         className={cn(
-          OS.trigger,
-          'inline-flex min-w-[220px] max-w-[min(420px,92vw)] items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition',
-          'hover:border-[#4a6d94]/95 hover:shadow-[0_0_0_1px_rgba(56,130,200,0.12),inset_0_1px_0_rgba(255,255,255,0.08)]',
-          open && 'border-[#4f7ab8]/55 ring-1 ring-[#3b82c4]/35',
+          'inline-flex min-w-[200px] max-w-[min(420px,92vw)] items-center justify-between gap-2 rounded-lg border border-border-subtle bg-bg-raised px-3 text-left text-xs font-medium text-fg-primary shadow-none transition hover:bg-bg-hover',
+          open && 'border-accent-primary/35 ring-1 ring-accent-primary/25',
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -123,25 +121,31 @@ export function PortfolioWalletSelector({
             label={selectedId === 'all' ? 'ALL' : selectedDisplayName}
           />
           <span className="min-w-0">
-            <span className="block truncate text-[13px] font-semibold tracking-tight text-white">
+            <span className="block truncate text-xs font-semibold tracking-tight text-fg-primary">
               {selectedDisplayName}
             </span>
-            <span className="mt-0.5 block truncate text-[10px] font-medium text-[#7d8ea3]">
+            <span className="mt-0.5 block truncate text-[10px] font-medium text-fg-muted">
               {selectedWallet
                 ? shortenAddress(selectedWallet.wallet_address, 6)
                 : `Combined · ${allVisible.length} wallet${allVisible.length === 1 ? '' : 's'}`}
             </span>
           </span>
         </span>
-        <span className="flex shrink-0 flex-col items-end gap-0.5">
-          <span className="text-[12px] font-semibold tabular-nums tracking-tight text-[#7cdbcc]">
-            {formatNumber(selectedId === 'all' ? combinedNative : balanceOf(selectedWallet?.balance_lamports), {
-              decimals: 4,
-            })}{' '}
-            <span className="text-[10px] font-semibold text-[#5eead4]/80">{nativeSym}</span>
+        <span className="flex shrink-0 items-center gap-1">
+          <span className="flex h-7 shrink-0 items-center gap-1 rounded border border-border-subtle bg-bg-sunken px-2 font-mono text-xs tabular-nums text-fg-primary">
+            <span
+              className="h-3.5 w-3.5 shrink-0 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195]"
+              aria-hidden
+            />
+            <span className="tabular-nums">
+              {formatNumber(selectedId === 'all' ? combinedNative : balanceOf(selectedWallet?.balance_lamports), {
+                decimals: 4,
+              })}
+            </span>
+            <span className="text-[10px] font-medium text-fg-muted">{nativeSym}</span>
           </span>
           <ChevronDown
-            className={cn('h-3.5 w-3.5 shrink-0 text-[#6b8299] transition duration-200', open && 'rotate-180')}
+            className={cn('h-3.5 w-3.5 shrink-0 text-fg-muted transition duration-200', open && 'rotate-180')}
           />
         </span>
       </button>

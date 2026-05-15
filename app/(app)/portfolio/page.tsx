@@ -1,9 +1,4 @@
-import type { Metadata } from 'next';
 import { PortfolioDashboard } from '@/components/portfolio/PortfolioDashboard';
-
-export const metadata: Metadata = {
-  title: 'Portfolio',
-};
 
 const VALID_TABS = ['spot', 'wallets', 'trackers'] as const;
 type PortfolioTabParam = (typeof VALID_TABS)[number];

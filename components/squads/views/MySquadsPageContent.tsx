@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Pin } from 'lucide-react';
+import { Bell, MessageSquare, Pin } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import type { ChainFocus, SquadSummary } from '@/lib/squads/types';
 import { DEMO_ROOM_ACTIVITIES, DEMO_SQUADS } from '@/lib/squads/demo';
+import { ChainIcon } from '@/components/squads/ChainIcon';
 import {
   SquadMonogram,
   SquadPanel,
@@ -60,7 +61,7 @@ export function MySquadsPageContent() {
 
   if (squadsQ.isLoading) {
     return (
-      <div className="rounded-lg border border-[#1b2129] bg-[#0d1117]/95 p-4 text-[12px] text-fg-muted">
+      <div className="rounded-lg border border-border-subtle bg-bg-raised p-4 text-xs text-fg-muted">
         Loading your squads…
       </div>
     );
@@ -110,11 +111,18 @@ export function MySquadsPageContent() {
   return (
     <div className="grid min-h-0 gap-5 lg:grid-cols-[1fr_280px]">
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <SummaryPill label="Active squads" value={String(roomRows.length)} />
-          <SummaryPill label="Unread updates" value={String(summary.unread)} />
-          <SummaryPill label="Open votes" value={String(summary.votes)} />
-          <SummaryPill label="Shared alerts" value={String(summary.alerts)} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Active squads', value: String(roomRows.length) },
+            { label: 'Unread updates', value: String(summary.unread) },
+            { label: 'Open votes', value: String(summary.votes) },
+            { label: 'Shared alerts', value: String(summary.alerts) },
+          ].map((s) => (
+            <div key={s.label} className="rounded-lg border border-border-subtle bg-bg-raised p-3 transition-colors hover:border-border">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-fg-muted">{s.label}</p>
+              <p className="mt-0.5 text-2xl font-bold tabular-nums text-fg-primary">{s.value}</p>
+            </div>
+          ))}
         </div>
 
         <ul className="flex flex-col gap-2">
@@ -133,22 +141,16 @@ export function MySquadsPageContent() {
       </div>
 
       <aside className="space-y-3 lg:sticky lg:top-[calc(var(--app-header-offset,0px)+8px)] lg:self-start">
-        <SquadPanel padding="p-3" tone="premium" className="ring-1 ring-[#374b63]/35">
+        <SquadPanel padding="p-3" tone="premium" className="border border-border-subtle">
           <h3 className="flex items-center gap-2 text-[12px] font-semibold text-fg-primary">
-            <Bell className="h-3.5 w-3.5 text-[#6aa7e6]" strokeWidth={2.2} />
+            <Bell className="h-3.5 w-3.5 text-accent-ethos" strokeWidth={2.2} />
             Recent activity
           </h3>
-          <ul className="mt-3 space-y-2.5">
-            {DEMO_ROOM_ACTIVITIES.slice(0, 5).map((a, i) => (
-              <li
-                key={a.id}
-                className={cn(
-                  'flex gap-3 border-l-2 py-1 pl-2.5 text-[11px]',
-                  i === 0 ? 'border-l-[#3b82c8]' : 'border-l-transparent opacity-92',
-                )}
-              >
-                <span className="w-14 shrink-0 text-[10px] font-medium tabular-nums text-fg-muted">{a.ago}</span>
-                <span className="leading-snug text-fg-secondary">{a.text}</span>
+          <ul className="mt-3 divide-y divide-border-subtle/50">
+            {DEMO_ROOM_ACTIVITIES.slice(0, 5).map((a) => (
+              <li key={a.id} className="flex items-start gap-2 border-b border-border-subtle/50 py-2 last:border-0 last:pb-0">
+                <span className="mt-0.5 w-10 shrink-0 tabular-nums text-[10px] text-fg-muted">{a.ago}</span>
+                <span className="text-xs leading-relaxed text-fg-secondary">{a.text}</span>
               </li>
             ))}
           </ul>
@@ -197,22 +199,27 @@ const ROOM_FEED_PREVIEW: Record<string, string> = {
   'ton-signal': 'Pinned liquidity read · refreshed 42m ago',
 };
 
-function SummaryPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex min-w-[112px] flex-1 flex-col rounded-xl border border-[#35506c]/55 bg-gradient-to-b from-[#152232]/95 to-[#080c12] px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-black/25">
-      <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-fg-muted">{label}</span>
-      <span className="mt-1 text-[17px] font-semibold tabular-nums leading-tight tracking-tight text-fg-primary">
-        {value}
-      </span>
-    </div>
-  );
-}
-
 const MEMBER_RING: Record<string, string[]> = {
   'archon-desk': ['CR', 'HE', 'VO'],
   'perimeter-hl': ['HE', 'VO', 'CR'],
   'ton-signal': ['VO', 'HE', 'CR'],
 };
+
+function roomBannerClass(badge: string): string {
+  const b = badge.toLowerCase();
+  if (b.includes('invite')) return 'bg-fg-muted/15 text-fg-secondary';
+  if (b.includes('public')) return 'bg-signal-info/10 text-signal-info';
+  if (b.includes('verified')) return 'bg-accent-ethos/10 text-accent-ethos';
+  return 'bg-accent-ethos/10 text-accent-ethos';
+}
+
+function roomBannerText(badge: string): string {
+  const b = badge.toLowerCase();
+  if (b.includes('invite')) return 'INVITE ONLY';
+  if (b.includes('public')) return 'PUBLIC ROOM';
+  if (b.includes('verified')) return 'VERIFIED ACCESS';
+  return 'LIVE';
+}
 
 function chainLabel(c: ChainFocus): string {
   switch (c) {
@@ -237,122 +244,137 @@ function RoomCard({ room }: { room: RoomCardModel }) {
   const s = DEMO_SQUADS.find((x) => x.slug === room.slug);
   const feedLine = ROOM_FEED_PREVIEW[room.slug] ?? DEMO_ROOM_ACTIVITIES[0]?.text ?? 'Room digest updating';
   const stack = MEMBER_RING[room.slug] ?? ['OP', 'Q1', 'Q2'];
+  const digestLines = feedLine.split(' · ').map((x) => x.trim()).filter(Boolean);
 
   return (
-    <SquadPanel
-      tone="premium"
-      className={cn('relative overflow-hidden', squadCardHoverInteractiveClass)}
+    <article
+      className={cn(
+        'overflow-hidden rounded-lg border border-border-subtle bg-bg-raised transition-colors hover:border-border',
+        squadCardHoverInteractiveClass,
+      )}
     >
       <div
-        aria-hidden
-        className="pointer-events-none absolute -right-8 top-0 h-32 w-32 rounded-full bg-[#2e5f8f]/16 blur-[48px]"
-      />
-      <div className="relative flex flex-wrap gap-4">
-        <div className="flex gap-3">
-          <div className="relative">
-            <div className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-[#0d1117] bg-[#4ade80]" />
-            <SquadMonogram
-              size="lg"
-              className="border border-[#3a4b5f] bg-[#111820] text-[14px] font-bold"
-            >
-              {room.monogram}
-            </SquadMonogram>
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-[15px] font-semibold tracking-tight text-fg-primary">{room.name}</h3>
-              <span className="rounded border border-[#2f4a62]/65 bg-[#1a2836]/85 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[#7ebef2] ring-1 ring-inset ring-white/[0.04]">
-                {room.badge}
-              </span>
-            </div>
-            <p className="mt-1 max-w-[62ch] text-[11.5px] leading-snug text-fg-muted">{room.shortDescription}</p>
+        className={cn(
+          'flex items-center gap-1.5 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em]',
+          roomBannerClass(room.badge),
+        )}
+      >
+        {roomBannerText(room.badge)}
+      </div>
 
-            <div className="mt-2 rounded-lg border border-[#2f3c4d]/85 bg-black/42 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-fg-muted">Latest in room</p>
-              <p className="mt-0.5 text-[11px] leading-snug text-[#cdd9e9]">{feedLine}</p>
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {room.chains.map((ch) => (
-                <span
-                  key={ch}
-                  className="rounded border border-[#334555] bg-black/38 px-1.5 py-px text-[10px] text-fg-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                >
-                  {chainLabel(ch)}
-                </span>
-              ))}
-            </div>
-            <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px]">
-              <div className="flex gap-1.5">
-                <dt className="text-fg-muted">Trust</dt>
-                <dd className="font-medium text-fg-secondary">{room.trustMode}</dd>
-              </div>
-              <div className="flex gap-1.5">
-                <dt className="text-fg-muted">Updates</dt>
-                <dd className="font-semibold tabular-nums text-fg-primary">{room.recentActivityCount}</dd>
-              </div>
-              {s ? (
-                <div className="flex gap-1.5">
-                  <dt className="text-fg-muted">Open seats</dt>
-                  <dd className="font-semibold tabular-nums text-[#fde68a]">{s.openSeatsCount}</dd>
-                </div>
-              ) : null}
-            </dl>
-          </div>
-        </div>
-
-        <div className="ml-auto flex flex-col items-end gap-2">
-          <div className="flex -space-x-2.5">
-            {stack.slice(0, 3).map((m, i) => (
-              <div
-                key={`${m}-${i}`}
-                className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#0d1117] bg-gradient-to-br from-[#1c283d] to-[#101827] text-[10px] font-bold text-[#e2ecfa]',
-                  i === 2 && 'opacity-95',
-                )}
-                title="Member"
+      <div className="relative p-4 pt-3">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex min-w-0 flex-1 gap-3">
+            <div className="relative shrink-0">
+              <div className="absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-bg-raised bg-signal-bull" />
+              <SquadMonogram
+                size="lg"
+                className="border border-border-subtle bg-bg-sunken text-sm font-bold text-fg-secondary"
               >
-                {m}
+                {room.monogram}
+              </SquadMonogram>
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-bold tracking-tight text-fg-primary">{room.name}</h3>
+              <p className="mt-1 max-w-[62ch] text-xs leading-snug text-fg-muted">{room.shortDescription}</p>
+
+              <div className="mt-3 space-y-1 rounded-md bg-bg-sunken p-2.5 text-xs">
+                {digestLines.map((line, i) => (
+                  <div key={`${room.slug}-digest-${i}`} className="flex gap-1.5 leading-snug text-fg-secondary">
+                    <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2} />
+                    <span>{line}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-            <div className="flex h-9 min-w-9 items-center justify-center rounded-full border-2 border-[#0d1117] bg-[#151c26] px-1.5 text-[10px] font-semibold tabular-nums text-fg-muted">
-              +{Math.max(0, room.members - 3)}
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {room.chains.map((ch) => (
+                  <span
+                    key={ch}
+                    className="flex h-5 w-5 items-center justify-center rounded bg-bg-sunken"
+                    title={chainLabel(ch)}
+                  >
+                    {ch === 'multi' ? (
+                      <span className="text-[9px] font-semibold text-fg-muted">+</span>
+                    ) : (
+                      <ChainIcon chain={ch} size={11} />
+                    )}
+                  </span>
+                ))}
+              </div>
+              <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+                <div className="flex gap-1.5">
+                  <dt className="text-fg-muted">Trust</dt>
+                  <dd className="font-medium text-fg-secondary">{room.trustMode}</dd>
+                </div>
+                <div className="flex gap-1.5">
+                  <dt className="text-fg-muted">Updates</dt>
+                  <dd className="font-semibold tabular-nums text-fg-primary">{room.recentActivityCount}</dd>
+                </div>
+                {s ? (
+                  <div className="flex gap-1.5">
+                    <dt className="text-fg-muted">Open seats</dt>
+                    <dd className="font-semibold tabular-nums text-accent-ethos">{s.openSeatsCount}</dd>
+                  </div>
+                ) : null}
+              </dl>
             </div>
           </div>
-          <span className="text-[10px] font-medium text-fg-muted">{room.members} members</span>
+
+          <div className="ml-auto flex shrink-0 flex-col items-end gap-2">
+            <div className="flex -space-x-1.5">
+              {stack.slice(0, 3).map((m, i) => (
+                <div
+                  key={`${m}-${i}`}
+                  className={cn(
+                    'flex h-6 w-6 items-center justify-center rounded-full bg-bg-sunken text-[9px] font-bold text-fg-secondary ring-2 ring-bg-raised',
+                    i === 2 && 'opacity-95',
+                  )}
+                  title="Member"
+                >
+                  {m}
+                </div>
+              ))}
+              <div className="flex h-6 min-w-6 items-center justify-center rounded-full bg-bg-sunken px-1 text-[9px] font-semibold tabular-nums text-fg-muted ring-2 ring-bg-raised">
+                +{Math.max(0, room.members - 3)}
+              </div>
+            </div>
+            <span className="text-[10px] font-medium text-fg-muted">{room.members} members</span>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border-subtle/50 pt-4">
+          <Link
+            href={`/squads/room/${room.slug}`}
+            className="inline-flex h-9 min-w-[140px] flex-1 items-center justify-center rounded-md bg-accent-ethos text-sm font-semibold text-bg-base transition-colors hover:bg-accent-ethos-soft"
+          >
+            Enter room
+          </Link>
+          <button
+            type="button"
+            className="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-bg-sunken px-3 text-sm font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
+            onClick={() =>
+              toast.message('Activity', {
+                description: `Alerts and votes for ${room.name} appear in-room.`,
+              })
+            }
+          >
+            View activity
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-bg-sunken px-3 text-sm font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
+            onClick={() =>
+              toast.message('Notifications', {
+                description: `Mute alerts or votes independently for ${room.name}.`,
+              })
+            }
+          >
+            <Bell className="h-3.5 w-3.5" strokeWidth={2} />
+            Notifications
+          </button>
         </div>
       </div>
-
-      <div className="relative mt-4 flex flex-wrap gap-2 border-t border-white/[0.06] pt-4">
-        <Link
-          href={`/squads/room/${room.slug}`}
-          className="inline-flex min-h-[38px] flex-[1_1_160px] items-center justify-center rounded-lg bg-[#1f7ab8] px-4 py-2.5 text-[11.5px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-[#268fcc]"
-        >
-          Enter room
-        </Link>
-        <button
-          type="button"
-          className="inline-flex min-h-[38px] flex-1 items-center justify-center rounded-lg border border-[#405a77]/85 bg-[#121a24]/90 px-3 py-2.5 text-[11px] font-semibold text-fg-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#5f7eab] hover:bg-[#171f2b]"
-          onClick={() =>
-            toast.message('Activity', {
-              description: `Alerts and votes for ${room.name} appear in-room.`,
-            })
-          }
-        >
-          View activity
-        </button>
-        <button
-          type="button"
-          className="inline-flex min-h-[38px] flex-1 items-center justify-center rounded-lg border border-dashed border-[#394b60] bg-black/30 px-3 py-2.5 text-[11px] font-semibold text-[#8eb6d9] hover:border-[#5b7694] hover:text-[#bde3ff]"
-          onClick={() =>
-            toast.message('Notifications', {
-              description: `Mute alerts or votes independently for ${room.name}.`,
-            })
-          }
-        >
-          Notifications
-        </button>
-      </div>
-    </SquadPanel>
+    </article>
   );
 }
