@@ -159,7 +159,7 @@ export function PerpsTerminal() {
   );
 
   return (
-    <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] min-w-0 flex-col bg-[#05070b] text-fg-primary">
+    <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] min-w-0 flex-col bg-bg-base text-fg-primary">
       <div className="shrink-0 border-b border-white/[0.06] bg-[#080b11] px-2 py-1.5">
         <div className="flex min-w-0 items-stretch gap-1.5 overflow-x-auto">
           {PAIRS.map((p) => {

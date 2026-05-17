@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -24,7 +25,6 @@ import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { APP_NAME } from '@/lib/utils/constants';
 import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
-import { RewardsClaimModal } from '@/components/rewards/RewardsClaimModal';
 import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
 
 function displayInviteName(user: {
@@ -51,8 +51,6 @@ export function ReferralDashboard({ className }: { className?: string }) {
   const applyValue = applyDraft || urlApplyCode;
   const [vanity, setVanity] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
-  const [claimModalOpen, setClaimModalOpen] = useState(false);
-
   const operatorLabel = displayInviteName(user);
 
   const headers = useCallback(async () => {
@@ -335,13 +333,12 @@ export function ReferralDashboard({ className }: { className?: string }) {
                     </p>
                     <p className="mt-1 text-[11px] text-fg-muted">SOL · payouts follow roadmap</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setClaimModalOpen(true)}
+                  <Link
+                    href="/points?tab=rewards#rewards-claim-hub"
                     className="focus-ring btn-press shrink-0 rounded-xl border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-50 ring-1 ring-cyan-400/22 transition hover:bg-cyan-500/15"
                   >
-                    Claim
-                  </button>
+                    Checkpoint
+                  </Link>
                 </div>
               </GlassPanel>
             </div>
@@ -492,7 +489,6 @@ export function ReferralDashboard({ className }: { className?: string }) {
         </div>
       ) : null}
 
-      <RewardsClaimModal open={claimModalOpen} onOpenChange={setClaimModalOpen} />
     </div>
   );
 }

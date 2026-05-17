@@ -10,14 +10,12 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
   Compass,
   Loader2,
   Radio,
   Search,
   Share2,
   Shield,
-  Sparkles,
   Trophy,
   Users,
   Zap,
@@ -25,10 +23,11 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
-import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
+import { formatNumber } from '@/lib/utils/formatters';
 import type { LeaderboardPageResult } from '@/lib/points/leaderboardTypes';
+import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
 import { ReferralDashboard } from '@/components/referral/ReferralDashboard';
-import { RewardsClaimModal } from '@/components/rewards/RewardsClaimModal';
+import { RewardsClaimHub } from '@/components/rewards/RewardsClaimHub';
 import { CampaignRadarSection } from '@/components/points/CampaignRadar';
 import { ChainGlyph } from '@/components/points/ChainGlyph';
 import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
@@ -221,11 +220,20 @@ export function PointsDashboard({ className }: { className?: string }) {
 
   const [searchLb, setSearchLb] = useState('');
   const [lbPage, setLbPage] = useState(1);
-  const [claimModalOpen, setClaimModalOpen] = useState(false);
 
   useEffect(() => {
     setLbPage(1);
   }, [searchLb]);
+
+  useEffect(() => {
+    if (tab !== 'rewards') return;
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#rewards-claim-hub') return;
+    const id = window.setTimeout(() => {
+      document.getElementById('rewards-claim-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [tab]);
 
   const pointsQ = useQuery({
     queryKey: ['points-me'],
@@ -377,8 +385,8 @@ export function PointsDashboard({ className }: { className?: string }) {
           <div className="relative space-y-6 p-4 sm:p-5 lg:p-6">
             {/* Hero */}
             <GlassPanel variant="hero" glow="cyan" className="p-5 sm:p-6 lg:p-7">
-              <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
-                <div className="max-w-xl space-y-4">
+              <div className="grid gap-8 lg:grid-cols-3 lg:items-start lg:gap-6 xl:gap-8">
+                <div className="min-w-0 space-y-4 lg:max-w-none">
                   <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-bg-sunken/90 px-3 py-1.5 text-[11px] text-fg-secondary shadow-inner ring-1 ring-cyan-500/15">
                     <Radio className="h-3.5 w-3.5 text-accent-glow" aria-hidden />
                     <span className="tabular-nums font-medium text-fg-primary">{POINTS_SEASON_LABEL}</span>
@@ -398,7 +406,13 @@ export function PointsDashboard({ className }: { className?: string }) {
                     identity. Social accounts unlock credibility and creator flows; they do not mint points for posts or
                     replies.
                   </p>
-                  <div className="flex flex-wrap gap-2.5 pt-1">
+                  <div className="flex flex-col gap-3 pt-1">
+                    <p className="max-w-xl rounded-xl border border-white/[0.08] bg-bg-sunken/50 px-4 py-3 text-[11px] leading-relaxed text-fg-secondary ring-1 ring-cyan-500/10">
+                      <span className="font-semibold text-accent-glow">Rewards checkpoint</span> lives in the center
+                      column — claim referral SOL, redeemable Points, and cashback inline with rank progress and live
+                      referral timing.
+                    </p>
+                    <div className="flex flex-wrap gap-2.5">
                     <button
                       type="button"
                       onClick={() => setTab('referral')}
@@ -419,18 +433,23 @@ export function PointsDashboard({ className }: { className?: string }) {
                       <Share2 className="h-3.5 w-3.5" />
                       Copy invite link
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setClaimModalOpen(true)}
-                      className="focus-ring btn-press inline-flex items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3.5 py-2.5 text-[12px] font-semibold text-emerald-100 ring-1 ring-emerald-400/20 transition hover:bg-emerald-500/14"
-                    >
-                      <CircleDollarSign className="h-3.5 w-3.5" />
-                      Claim
-                    </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="relative w-full lg:max-w-[380px]">
+                <div className="min-w-0 lg:min-h-[320px]">
+                  <RewardsClaimHub
+                    rankTierLabel={rankState.tier.label}
+                    nextTierLabel={rankState.next?.label ?? null}
+                    rankProgress01={rankState.progressToNext}
+                    lifetimePointsDisplay={points.totalPoints}
+                    referralRecent={earnings.recent.slice(0, 12)}
+                    referralPendingSol={earnings.sums.pendingSol}
+                    referralPaidSol={earnings.sums.paidSol}
+                  />
+                </div>
+
+                <div className="relative w-full min-w-0 lg:max-w-none">
                   <div className="absolute -left-8 -top-8 hidden h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.18)_0%,transparent_70%)] blur-2xl lg:block" />
                   <div className="relative flex flex-col gap-4 rounded-2xl border border-white/10 bg-gradient-to-b from-bg-hover/55 to-bg-base/75 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_48px_-28px_rgba(0,0,0,0.85)] ring-1 ring-cyan-400/20 backdrop-blur-md">
                     <div className="flex items-start gap-4">
@@ -459,8 +478,11 @@ export function PointsDashboard({ className }: { className?: string }) {
                             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
                               Total points
                             </p>
-                            <p className="mt-1 flex items-center gap-1.5 text-[22px] font-semibold tabular-nums tracking-tight text-fg-primary">
-                              <Sparkles className="h-5 w-5 text-accent-glow drop-shadow-[0_0_12px_rgba(0,163,224,0.55)]" aria-hidden />
+                            <p className="mt-1 flex items-center gap-2 text-[22px] font-semibold tabular-nums tracking-tight text-fg-primary">
+                              <PointerBirdMark
+                                size={24}
+                                className="opacity-95 drop-shadow-[0_0_12px_rgb(var(--accent-primary-rgb)/0.45)]"
+                              />
                               {formatNumber(points.totalPoints)}
                             </p>
                           </div>
@@ -727,86 +749,47 @@ export function PointsDashboard({ className }: { className?: string }) {
               </GlassPanel>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
-              <GlassPanel variant="quiet" className="p-4">
-                <h3 className="mb-1 text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Settlement</h3>
-                <p className="mb-4 text-[11px] leading-relaxed text-fg-secondary">
-                  Claims and reward pools follow seasonal disclosure. Nothing here incentivizes posting on social
-                  platforms.
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl border border-white/[0.06] bg-bg-base/50 px-2 py-2.5 text-center ring-1 ring-white/[0.03]">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Pending</p>
-                    <p className="text-[15px] font-semibold tabular-nums text-fg-muted">—</p>
-                  </div>
-                  <div className="rounded-xl border border-white/[0.06] bg-bg-base/50 px-2 py-2.5 text-center ring-1 ring-white/[0.03]">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Ready</p>
-                    <p className="text-[15px] font-semibold tabular-nums text-fg-muted">—</p>
-                  </div>
-                  <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.07] px-2 py-2.5 text-center ring-1 ring-cyan-400/15">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Season</p>
-                    <p className="text-[13px] font-semibold text-fg-primary">
-                      {POINTS_SEASON_LABEL.split('—')[0]?.trim() ?? 'S1'}
-                    </p>
-                  </div>
+            <GlassPanel variant="quiet" className="p-4 lg:col-span-3">
+              <h3 className="mb-1 text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Settlement</h3>
+              <p className="mb-4 text-[11px] leading-relaxed text-fg-secondary">
+                Claims and reward pools follow seasonal disclosure. Live referral timing streams in the Rewards
+                checkpoint card above — no duplicate ledger table here.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-white/[0.06] bg-bg-base/50 px-3 py-2.5 text-center ring-1 ring-white/[0.03]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Pending SOL</p>
+                  <p className="text-[15px] font-semibold tabular-nums text-accent-glow">
+                    {formatNumber(earnings.sums.pendingSol, { decimals: 4 })}
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  className="mt-4 w-full cursor-not-allowed rounded-xl border border-white/[0.06] bg-bg-sunken/80 py-2.5 text-[12px] font-medium text-fg-muted ring-1 ring-white/[0.04]"
-                >
-                  No claim available
-                </button>
-              </GlassPanel>
-
-              <GlassPanel variant="quiet" glow="cyan" className="p-4 lg:col-span-2">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
-                  <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Referral activity</h3>
-                  <div className="flex gap-3 text-[11px] tabular-nums text-fg-secondary">
-                    <span>
-                      Codes <span className="text-fg-primary">{refCode.usesCount}</span>
-                    </span>
-                    <span>
-                      Referred <span className="text-fg-primary">{refCode.referredCount}</span>
-                    </span>
-                  </div>
+                <div className="rounded-xl border border-white/[0.06] bg-bg-base/50 px-3 py-2.5 text-center ring-1 ring-white/[0.03]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Paid SOL</p>
+                  <p className="text-[15px] font-semibold tabular-nums text-fg-primary">
+                    {formatNumber(earnings.sums.paidSol, { decimals: 4 })}
+                  </p>
                 </div>
-                <div className="max-h-52 overflow-auto rounded-lg border border-border-subtle">
-                  {earnings.recent.length === 0 ? (
-                    <div className="px-3 py-10 text-center text-[12px] text-fg-muted">No referral fees yet</div>
-                  ) : (
-                    <table className="w-full border-collapse text-left text-[12px]">
-                      <thead className="sticky top-0 bg-bg-raised/95 backdrop-blur">
-                        <tr className="border-b border-border-subtle">
-                          <th className="px-3 py-2 font-medium text-fg-muted">Type</th>
-                          <th className="px-3 py-2 text-right font-medium text-fg-muted">SOL</th>
-                          <th className="px-3 py-2 text-right font-medium text-fg-muted">Status</th>
-                          <th className="px-3 py-2 text-right font-medium text-fg-muted">Age</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {earnings.recent.map((r, i) => (
-                          <tr
-                            key={r.id}
-                            className={cn(
-                              'border-b border-border-subtle/80 last:border-0',
-                              i % 2 === 0 ? 'bg-bg-base/40' : 'bg-transparent',
-                            )}
-                          >
-                            <td className="px-3 py-2 text-fg-primary">Referral fee</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-signal-bull">
-                              {formatNumber(r.amountSol, { decimals: 5 })}
-                            </td>
-                            <td className="px-3 py-2 text-right text-fg-secondary">{r.paidOut ? 'Paid' : 'Pending'}</td>
-                            <td className="px-3 py-2 text-right text-fg-muted">{formatRelativeTime(r.createdAt)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.07] px-3 py-2.5 text-center ring-1 ring-cyan-400/15">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Season</p>
+                  <p className="text-[13px] font-semibold text-fg-primary">
+                    {POINTS_SEASON_LABEL.split('—')[0]?.trim() ?? 'S1'}
+                  </p>
                 </div>
-              </GlassPanel>
-            </div>
+                <div className="rounded-xl border border-white/[0.06] bg-bg-sunken/60 px-3 py-2.5 ring-1 ring-white/[0.04]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Attribution</p>
+                  <p className="mt-1 text-[11px] tabular-nums text-fg-secondary">
+                    Codes <span className="font-semibold text-fg-primary">{refCode.usesCount}</span>
+                    <span className="mx-1 text-fg-muted">·</span>
+                    Referred <span className="font-semibold text-fg-primary">{refCode.referredCount}</span>
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="#rewards-claim-hub"
+                className="focus-ring btn-press mt-4 flex w-full items-center justify-center rounded-xl border border-cyan-400/35 bg-cyan-500/10 py-2.5 text-[12px] font-semibold text-cyan-50 ring-1 ring-cyan-400/22 transition hover:bg-cyan-500/15"
+              >
+                Jump to Rewards checkpoint
+              </Link>
+            </GlassPanel>
           </div>
         </div>
       ) : null}
@@ -1020,7 +1003,6 @@ export function PointsDashboard({ className }: { className?: string }) {
           </div>
         </div>
       ) : null}
-      <RewardsClaimModal open={claimModalOpen} onOpenChange={setClaimModalOpen} />
     </div>
   );
 }

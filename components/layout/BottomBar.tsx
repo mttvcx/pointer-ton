@@ -282,10 +282,10 @@ export function BottomBar() {
       <div className="fixed bottom-0 left-0 right-0 z-50 flex min-h-11 shrink-0 border-t border-border-subtle bg-bg-base pb-[env(safe-area-inset-bottom,0px)] text-[10px] tabular-nums text-fg-secondary">
       <div className="flex min-h-11 w-full min-w-0 items-center gap-2 overflow-x-auto px-2 sm:gap-2 sm:px-2.5">
         <div className="hidden min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-r border-border-subtle pr-2 sm:flex">
-          <TradingSettingsPopover className="cursor-pointer rounded border border-border-subtle px-1 py-px text-[9px] font-semibold tabular-nums text-accent-primary transition-colors hover:border-border-default hover:bg-white/[0.04]">
+          <TradingSettingsPopover className="cursor-pointer rounded border border-border-subtle px-1 py-px text-[9px] font-semibold tabular-nums text-accent-primary transition-colors hover:border-border-default hover:bg-bg-hover/70">
             PRESET {activePresetSlot}
           </TradingSettingsPopover>
-          <WalletPickerPopover className="inline-flex cursor-pointer items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg-primary">
+          <WalletPickerPopover className="inline-flex cursor-pointer items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-fg-muted transition-colors hover:bg-bg-hover/80 hover:text-fg-primary">
             <Wallet className="h-3 w-3 shrink-0 opacity-90" strokeWidth={2} />
             <span className="hidden xl:inline">Wallet</span>
           </WalletPickerPopover>
@@ -345,19 +345,19 @@ export function BottomBar() {
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <IssuesIndicator onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
-          <span className="hidden items-center gap-0.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-px text-[9px] font-semibold text-emerald-300 md:inline-flex">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          <span className="hidden items-center gap-0.5 rounded-full border border-signal-bull/35 bg-signal-bull/10 px-1.5 py-px text-[9px] font-semibold text-signal-bull md:inline-flex">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-signal-bull" />
             Stable
           </span>
           <span className="hidden text-[9px] font-semibold text-fg-muted lg:inline">US-E</span>
           <DiagnosticsTriggerButton compactMobile onClick={() => setDiagnosticsOpen(true)} />
-          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-secondary" title="Help">
+          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-hover/60 hover:text-fg-secondary" title="Help">
             <Globe className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
-          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-secondary" title="Support">
+          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-hover/60 hover:text-fg-secondary" title="Support">
             <Headphones className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
-          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-secondary" title="Activity">
+          <button type="button" className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-hover/60 hover:text-fg-secondary" title="Activity">
             <Activity className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
@@ -385,7 +385,7 @@ function DockLink({
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg-primary"
+      className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-fg-muted transition-colors hover:bg-bg-hover/80 hover:text-fg-primary"
     >
       <Icon className="h-3 w-3 shrink-0 opacity-90" strokeWidth={2} />
       <span className="hidden xl:inline">{label}</span>
