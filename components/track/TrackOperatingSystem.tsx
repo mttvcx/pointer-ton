@@ -2,9 +2,26 @@
 
 import Link from 'next/link';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, History, Layers, Radar, ShieldAlert } from 'lucide-react';
+import {
+  BellRing,
+  ChevronRight,
+  Cpu,
+  ExternalLink,
+  HistoryIcon,
+  Layers,
+  Plus,
+  Power,
+  Radar,
+  RefreshCcw,
+  Search,
+  Settings,
+  ShieldAlert,
+  Sparkles,
+  Trash2,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import type {
@@ -25,21 +42,33 @@ import type { PulseColumnId } from '@/lib/utils/constants';
 import { xProfileUrl } from '@/lib/utils/xSearch';
 import type { PulseTokenBundle } from '@/types/tokens';
 
-const BORDER = '#1b1f2a';
-const PANEL = '#0c0f14';
+/**
+ * Track / "Trading trigger engine" — Task TR2 revamp.
+ *
+ * Visual model: a single elevated *grey plate* (`bg-bg-hover`) holds the entire
+ * workspace, with content sections inset on the page's `bg-bg-base`. That gives
+ * the Axiom-style "terminal" depth without resorting to a wall of outlined
+ * cards on a dark page (which was the prior shell). Status, tabs, KPIs, and
+ * primary actions all live in one thin top strip so the body is mostly content.
+ *
+ * No theme is hardcoded — everything resolves through Tailwind tokens
+ * (`bg-bg-*`, `text-fg-*`, `text-signal-*`, `border-border-subtle`, etc).
+ */
+
 const TRACK_TABS = [
-  { id: 'x_feed' as const, label: 'X Feed' },
-  { id: 'handles' as const, label: 'Handles' },
-  { id: 'alert_rules' as const, label: 'Alerts' },
-  { id: 'auto_buy' as const, label: 'Auto-Buy Rules' },
-  { id: 'auto_launch' as const, label: 'Auto-Launch Rules' },
-  { id: 'history' as const, label: 'History' },
-  { id: 'settings' as const, label: 'Settings' },
+  { id: 'x_feed' as const, label: 'Engine', icon: Cpu },
+  { id: 'handles' as const, label: 'Handles', icon: Radar },
+  { id: 'alert_rules' as const, label: 'Alerts', icon: BellRing },
+  { id: 'auto_buy' as const, label: 'Auto-Buy', icon: Zap },
+  { id: 'auto_launch' as const, label: 'Launch', icon: Sparkles },
+  { id: 'history' as const, label: 'History', icon: HistoryIcon },
+  { id: 'settings' as const, label: 'Settings', icon: Settings },
 ];
 
 type TrackTabId = (typeof TRACK_TABS)[number]['id'];
 
-/** Pull a thin slice of Pulse so simulate + highlight approximate live rows. */
+type EngineTone = 'bull' | 'warn' | 'bear';
+
 function usePulseSample(chain: string) {
   const col: PulseColumnId = 'new';
   return useQuery({
@@ -61,9 +90,7 @@ export function TrackOperatingSystem({
   kolHandlesPreview: KolHandleRow[];
 }) {
   const activeChain = useUIStore((s) => s.activeChain);
-  const tabState = useState<TrackTabId>('x_feed');
-  const tab = tabState[0];
-  const setTab = tabState[1];
+  const [tab, setTab] = useState<TrackTabId>('x_feed');
 
   const global = useTrackAutomationStore((s) => s.global);
   const rules = useTrackAutomationStore((s) => s.rules);
@@ -72,15 +99,10 @@ export function TrackOperatingSystem({
   const setGlobalPatch = useTrackAutomationStore((s) => s.setGlobalPatch);
   const upsertRule = useTrackAutomationStore((s) => s.upsertRule);
   const removeRule = useTrackAutomationStore((s) => s.removeRule);
-  const simulateTweet = useTrackAutomationStore((s) => s.simulateTweet);
   const purgeHistory = useTrackAutomationStore((s) => s.purgeHistory);
-  const flashMint = useUIStore((s) => s.flashTrackPulseMint);
 
   const pulseQ = usePulseSample(activeChain);
-  const pulseBundles = pulseQ.data ?? [];
-
-  const [simHandle, setSimHandle] = useState('@ansem');
-  const [simTweet, setSimTweet] = useState('just launched — CA below 👇 DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263 pump.fun/next');
+  const pulseBundles = useMemo(() => pulseQ.data ?? [], [pulseQ.data]);
 
   const [builder, setBuilder] = useState<Partial<StoredAutomationRule> | null>(null);
 
@@ -95,13 +117,69 @@ export function TrackOperatingSystem({
     return rules;
   }, [rules, tab]);
 
+  const counts = useMemo(
+    () => ({
+      alert_rules: rules.filter((r) => r.category === 'alert').length,
+      auto_buy: rules.filter((r) => r.category === 'auto_buy').length,
+      auto_launch: rules.filter((r) => r.category === 'auto_launch').length,
+      history: history.length,
+    }),
+    [rules, history],
+  );
+
+  const insights = useMemo(() => {
+    const dayMs = 24 * 3600 * 1000;
+    const cutoff = Date.now() - dayMs;
+    const todays = history.filter((h) => new Date(h.atIso).getTime() > cutoff);
+    const fires = todays.filter((h) => h.result === 'ok').length;
+    const fails = todays.filter((h) => h.result === 'failed').length;
+    const skipped = todays.filter((h) => h.result === 'skipped').length;
+    const avgConf =
+      todays.length > 0
+        ? todays.reduce((sum, h) => sum + h.aiConfidence01, 0) / todays.length
+        : 0;
+    const handleTally = new Map<string, number>();
+    for (const h of todays) {
+      const k = normalizeXHandle(h.handle);
+      if (!k) continue;
+      handleTally.set(k, (handleTally.get(k) ?? 0) + 1);
+    }
+    const topHandle = Array.from(handleTally.entries()).sort((a, b) => b[1] - a[1])[0];
+    const intentTally = new Map<string, number>();
+    for (const h of todays) {
+      const k = h.intentBucket ?? 'irrelevant';
+      intentTally.set(k, (intentTally.get(k) ?? 0) + 1);
+    }
+    const topIntent = Array.from(intentTally.entries()).sort((a, b) => b[1] - a[1])[0];
+    return {
+      total: todays.length,
+      fires,
+      fails,
+      skipped,
+      avgConf,
+      topHandle: topHandle ? { handle: topHandle[0], count: topHandle[1] } : null,
+      topIntent: topIntent ? { bucket: topIntent[0], count: topIntent[1] } : null,
+    };
+  }, [history]);
+
+  const engineState = useMemo<{ tone: EngineTone; label: string }>(() => {
+    if (global.killSwitchActive) return { tone: 'bear', label: 'Killswitch' };
+    if (!global.automationEnabledUi) return { tone: 'warn', label: 'Alerts only' };
+    return { tone: 'bull', label: 'Live' };
+  }, [global]);
+
   const startNewRuleTemplate = useCallback(
     (cat: StoredAutomationRule['category']) => {
       const iso = new Date().toISOString();
       const base: StoredAutomationRule = {
         id: nanoid(),
         category: cat,
-        name: cat === 'auto_buy' ? 'New auto-buy rule' : cat === 'auto_launch' ? 'New auto-launch rule' : 'New alert rule',
+        name:
+          cat === 'auto_buy'
+            ? 'New auto-buy rule'
+            : cat === 'auto_launch'
+              ? 'New auto-launch rule'
+              : 'New alert rule',
         enabled: false,
         createdAtIso: iso,
         updatedAtIso: iso,
@@ -109,11 +187,7 @@ export function TrackOperatingSystem({
         chainHint: activeChain,
         triggersEnabled: cloneTriggers(),
         executionMode:
-          cat === 'alert'
-            ? 'alert_only'
-            : cat === 'auto_buy'
-              ? 'auto_buy'
-              : 'one_click',
+          cat === 'alert' ? 'alert_only' : cat === 'auto_buy' ? 'auto_buy' : 'one_click',
         executionTiming: 'precheck_then_buy',
         riskMode: 'strict',
         failureHandling: 'alert_only_after_failure',
@@ -152,142 +226,62 @@ export function TrackOperatingSystem({
     [activeChain],
   );
 
-  function runSimulator() {
-    const ev = {
-      id: `sim_${Date.now()}`,
-      handle: simHandle,
-      text: simTweet,
-      urls: [],
-      tweetUrl: 'https://x.com/i/simulation',
-      createdAtIso: new Date().toISOString(),
-    };
-    const rows = simulateTweet(ev, pulseBundles);
-    rows.forEach((r) =>
-      toast.info(r.ruleName ?? 'Rule matched', {
-        description: `${r.detectedMint ? `${shortenMint(r.detectedMint)} · ` : ''}${(r.aiConfidence01 * 100).toFixed(0)}% parse score`,
-      }),
-    );
-    if (!rows.length) {
-      toast.message('No rules matched toggles/handles.', {
-        description: 'Tune triggers or widen the handle roster.',
-      });
-    }
-    const mintHit = rows.find((r) => r.detectedMint)?.detectedMint;
-    if (mintHit) {
-      flashMint(mintHit);
-      toast.success('Highlighted matching mint on Pulse (if visible in New lane).');
-    }
-  }
+  const enabledCount = rules.filter((r) => r.enabled).length;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 text-[12px]" style={{ color: '#e5e7eb' }}>
-      <header
-        className="flex shrink-0 flex-wrap items-start justify-between gap-3 rounded-lg border px-3 py-3"
-        style={{ borderColor: BORDER, backgroundColor: '#0b1018' }}
-      >
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
-              <Radar className="h-3 w-3" strokeWidth={2} aria-hidden /> Track
-            </span>
-            {global.killSwitchActive ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-100">
-                <ShieldAlert className="h-3 w-3" strokeWidth={2} aria-hidden /> Automation paused
-              </span>
-            ) : null}
-          </div>
-          <h1 className="text-[18px] font-semibold tracking-tight text-white">Trading trigger engine</h1>
-          <p className="max-w-xl text-[12px] text-[#8b929e]">
-            Monitor X handles you trust and fire alerts—or staged execution—when their posts match your rules.
-          </p>
-          <p className="max-w-xl pt-1 text-[11px] leading-relaxed text-[#6d7482]">
-            Alerts default to the safest path. Auto-buy and auto-launch stay off until you enable them explicitly.
-          </p>
-        </div>
-        <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-          <Link
-            href="/pulse"
-            prefetch
-            className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold text-[#dbeafe] hover:border-white/20 hover:text-white"
-          >
-            Open Pulse
-          </Link>
-          <Link
-            href="/wallets"
-            prefetch
-            className="rounded-md border border-white/10 px-3 py-1.5 text-[11px] font-semibold text-[#dbeafe] hover:border-white/20 hover:bg-white/[0.04]"
-          >
-            Wallet trackers
-          </Link>
-        </div>
-      </header>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col text-fg-primary">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-hover shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_8px_28px_-22px_rgba(0,0,0,0.65)]">
+        <PlateHeader
+          engineState={engineState}
+          global={global}
+          tab={tab}
+          setTab={setTab}
+          counts={counts}
+          insights={insights}
+          ruleCount={rules.length}
+          enabledCount={enabledCount}
+          onTogglePause={() => setGlobalPatch({ killSwitchActive: !global.killSwitchActive })}
+          onToggleAutomationMaster={() =>
+            setGlobalPatch({ automationEnabledUi: !global.automationEnabledUi })
+          }
+        />
 
-      <div
-        className="flex min-h-[520px] min-w-0 flex-1 shrink-0 flex-col gap-2 lg:flex-row"
-        style={{ backgroundColor: PANEL }}
-      >
-        {/* Main rail */}
-        <div
-          className="flex min-h-0 min-w-0 flex-[1.6] flex-col overflow-hidden rounded-lg border lg:rounded-r-none lg:border-r-0"
-          style={{ borderColor: BORDER }}
-        >
-          <div className="flex flex-wrap gap-0 border-b px-2" style={{ borderColor: BORDER, backgroundColor: '#080d14' }}>
-            {TRACK_TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  'whitespace-nowrap border-b-[2px] px-3 py-2 text-[11px] font-semibold transition',
-                  tab === t.id
-                    ? '-mb-[1px] border-signal-info text-white'
-                    : 'border-transparent text-[#6b7280] hover:text-[#dbeafe]',
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-auto p-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden p-2 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+          <Pane>
             {tab === 'x_feed' ? (
-              <div className="space-y-3">
-                <p className="text-[13px] leading-snug text-[#9ca3af]">
-                  Live feed ingestion is staged. Use the simulator to rehearse parsing, Pulse highlights, and history lines.
-                  Fast timings buy first and finish risk scans after; conservative modes gate execution or stay alert-only.
-                </p>
-                <SimulatorPanel
-                  activeChain={activeChain}
-                  simHandle={simHandle}
-                  simTweet={simTweet}
-                  onHandle={setSimHandle}
-                  onTweet={setSimTweet}
-                  pulseLoading={pulseQ.isLoading}
-                  pulseRows={pulseBundles.length}
-                  onRun={runSimulator}
-                />
-              </div>
-            ) : null}
-
-            {tab === 'handles' ? (
-              <HandlesTable
-                kolHandlesPreview={kolHandlesPreview}
-                onOpenProfile={(h) => window.open(xProfileUrl(h), '_blank', 'noopener,noreferrer')}
+              <EngineConsole
+                activeChain={activeChain}
+                pulseLoading={pulseQ.isLoading}
+                pulseRows={pulseBundles.length}
               />
             ) : null}
-
-            {tab === 'history' ? (
-              <HistoryTable history={history} onClear={() => purgeHistory()} />
+            {tab === 'handles' ? (
+              <HandlesPanel
+                kolHandlesPreview={kolHandlesPreview}
+                onOpenProfile={(h) =>
+                  window.open(xProfileUrl(h), '_blank', 'noopener,noreferrer')
+                }
+              />
             ) : null}
-
+            {tab === 'history' ? (
+              <HistoryPanel history={history} onClear={() => purgeHistory()} />
+            ) : null}
             {tab === 'settings' ? (
               <SettingsPanel global={global} setGlobalPatch={setGlobalPatch} />
             ) : null}
-
             {tab === 'alert_rules' || tab === 'auto_buy' || tab === 'auto_launch' ? (
-              <RulesTable
+              <RulesPanel
                 tab={tab}
                 rules={filteredRules}
+                onNew={() =>
+                  startNewRuleTemplate(
+                    tab === 'alert_rules'
+                      ? 'alert'
+                      : tab === 'auto_buy'
+                        ? 'auto_buy'
+                        : 'auto_launch',
+                  )
+                }
                 onEdit={(rule) => setBuilder(rule)}
                 onRemove={(id) => removeRule(id)}
                 onDuplicate={(rule) =>
@@ -301,63 +295,48 @@ export function TrackOperatingSystem({
                 }
               />
             ) : null}
-          </div>
-        </div>
+          </Pane>
 
-        {/* Rule builder */}
-        <aside
-          className="flex min-h-0 max-w-xl flex-[0.95] shrink-0 flex-col overflow-auto rounded-lg border lg:rounded-l-none"
-          style={{ borderColor: BORDER, backgroundColor: '#10141f' }}
-        >
-          <div className="border-b px-3 py-2" style={{ borderColor: BORDER }}>
-            <div className="flex items-center gap-2 text-[12px] font-semibold text-white">
-              <Layers className="h-4 w-4 text-accent-primary" strokeWidth={2} aria-hidden />
-              Rule builder
-            </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-[#7b8494]">
-              Attach handles, choose triggers and execution posture, cooldowns, and wallet routing. Production swaps remain behind explicit confirmations.
-            </p>
-          </div>
-          <div className="space-y-2 p-3">
-            {!builder ? (
-              <EmptyBuilder
+          <Pane>
+            {builder ? (
+              <RuleBuilderCard
+                rule={builder}
+                onChange={(p) =>
+                  setBuilder((prev) => ({ ...prev, ...p }) as StoredAutomationRule)
+                }
+                onSave={() => {
+                  if (!(builder.name && builder.id)) return;
+                  upsertRule({
+                    ...(builder as StoredAutomationRule),
+                    updatedAtIso: new Date().toISOString(),
+                  });
+                  toast.success('Rule saved locally.');
+                  setBuilder(null);
+                }}
+                onCancel={() => setBuilder(null)}
+              />
+            ) : (
+              <SideInsights
+                insights={insights}
                 onNewAlert={() => startNewRuleTemplate('alert')}
                 onNewBuy={() => startNewRuleTemplate('auto_buy')}
                 onNewLaunch={() => startNewRuleTemplate('auto_launch')}
               />
-            ) : (
-              <RuleDraftForm rule={builder} onChange={(p) => setBuilder((prev) => ({ ...prev, ...p }) as StoredAutomationRule)} />
             )}
-            <div className="flex gap-2">
-              {!builder ? null : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      upsertRule({
-                        ...(builder as StoredAutomationRule),
-                        updatedAtIso: new Date().toISOString(),
-                      })
-                    }
-                    disabled={!(builder.name && builder.id)}
-                    className="flex-1 rounded-md bg-accent-primary px-3 py-2 text-[11px] font-semibold text-fg-inverse hover:brightness-110 disabled:opacity-50"
-                  >
-                    Save locally
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBuilder(null)}
-                    className="rounded-md border border-white/15 px-3 py-2 text-[11px] font-semibold text-[#cfe2ff]"
-                  >
-                    Cancel
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </aside>
+          </Pane>
+        </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- shared shells / helpers ---------- */
+
+function Pane({ children }: { children: ReactNode }) {
+  return (
+    <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-border-subtle bg-bg-base">
+      {children}
+    </section>
   );
 }
 
@@ -371,130 +350,377 @@ function shortenWallet(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function SimulatorPanel(props: {
-  activeChain: string;
-  simHandle: string;
-  simTweet: string;
-  onHandle: (s: string) => void;
-  onTweet: (s: string) => void;
-  pulseLoading: boolean;
-  pulseRows: number;
-  onRun: () => void;
+function toneText(tone: EngineTone) {
+  return tone === 'bull'
+    ? 'text-signal-bull'
+    : tone === 'warn'
+      ? 'text-signal-warn'
+      : 'text-signal-bear';
+}
+
+function toneDot(tone: EngineTone) {
+  return tone === 'bull'
+    ? 'bg-signal-bull'
+    : tone === 'warn'
+      ? 'bg-signal-warn'
+      : 'bg-signal-bear';
+}
+
+/* ---------- top plate header ---------- */
+
+function PlateHeader({
+  engineState,
+  global,
+  tab,
+  setTab,
+  counts,
+  insights,
+  ruleCount,
+  enabledCount,
+  onTogglePause,
+  onToggleAutomationMaster,
+}: {
+  engineState: { tone: EngineTone; label: string };
+  global: AutomationGlobalSettings;
+  tab: TrackTabId;
+  setTab: (id: TrackTabId) => void;
+  counts: { alert_rules: number; auto_buy: number; auto_launch: number; history: number };
+  insights: { total: number; avgConf: number; skipped: number };
+  ruleCount: number;
+  enabledCount: number;
+  onTogglePause: () => void;
+  onToggleAutomationMaster: () => void;
 }) {
   return (
-    <section className="space-y-2 rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: '#0f131c' }}>
-      <div className="flex flex-wrap justify-between gap-2">
-        <div>
-          <div className="text-[13px] font-semibold text-white">Simulator · {props.activeChain.toUpperCase()}</div>
-          <div className="text-[11px] text-[#718096]">
-            {props.pulseLoading ? 'Loading Pulse sample…' : `${props.pulseRows} live rows cached for mint matching`}
-          </div>
-        </div>
-        <button
-          type="button"
-          className="rounded-md bg-emerald-500/90 px-3 py-1.5 text-[11px] font-semibold text-[#08110c] hover:bg-emerald-400"
-          onClick={props.onRun}
-        >
-          Run simulation
-        </button>
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-2.5 py-1.5">
+      {/* status pill */}
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-base px-2 py-1 text-[11px] font-semibold',
+          toneText(engineState.tone),
+        )}
+        title="Engine state"
+      >
+        <span
+          className={cn(
+            'h-1.5 w-1.5 rounded-full',
+            toneDot(engineState.tone),
+            engineState.tone === 'bull' && 'animate-pulse-soft',
+          )}
+        />
+        {engineState.label}
+      </span>
+
+      {/* tabs */}
+      <div className="ml-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {TRACK_TABS.map((t) => {
+          const active = tab === t.id;
+          const Icon = t.icon;
+          const count =
+            t.id === 'alert_rules'
+              ? counts.alert_rules
+              : t.id === 'auto_buy'
+                ? counts.auto_buy
+                : t.id === 'auto_launch'
+                  ? counts.auto_launch
+                  : t.id === 'history'
+                    ? counts.history
+                    : null;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'btn-press inline-flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-[11px] font-semibold transition-colors',
+                active
+                  ? 'bg-bg-base text-fg-primary'
+                  : 'text-fg-muted hover:bg-bg-base/60 hover:text-fg-primary',
+              )}
+            >
+              <Icon className="h-3 w-3" strokeWidth={2} aria-hidden />
+              {t.label}
+              {count != null && count > 0 ? (
+                <span
+                  className={cn(
+                    'rounded px-1 py-px text-[9px] font-bold tabular-nums',
+                    active ? 'bg-bg-hover text-fg-secondary' : 'bg-bg-base text-fg-muted',
+                  )}
+                >
+                  {count}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
-      <label className="block space-y-1">
-        <span className="text-[10px] font-medium tracking-tight text-[#8892a8]">Handle</span>
-        <input
-          value={props.simHandle}
-          onChange={(e) => props.onHandle(e.target.value)}
-          className="w-full rounded-md border border-white/10 bg-[#0b0f17] px-2 py-1.5 text-[12px] text-white outline-none focus:ring-1 focus:ring-emerald-500/70"
-          placeholder="@handle"
+
+      {/* inline KPI strip + actions */}
+      <div className="flex shrink-0 items-center gap-2 text-[11px] text-fg-muted">
+        <KpiInline
+          items={[
+            { label: '24h', value: insights.total.toLocaleString() },
+            {
+              label: 'conf',
+              value: `${Math.round(insights.avgConf * 100)}%`,
+              tone:
+                insights.avgConf > 0.7
+                  ? 'bull'
+                  : insights.avgConf > 0.4
+                    ? 'warn'
+                    : undefined,
+            },
+            { label: 'rules', value: `${enabledCount}/${ruleCount}` },
+            { label: 'skip', value: insights.skipped.toLocaleString() },
+          ]}
         />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-[10px] font-medium tracking-tight text-[#8892a8]">Tweet</span>
-        <textarea
-          value={props.simTweet}
-          onChange={(e) => props.onTweet(e.target.value)}
-          rows={4}
-          className="w-full resize-none rounded-md border border-white/10 bg-[#0b0f17] px-2 py-1.5 text-[12px] text-white outline-none focus:ring-1 focus:ring-emerald-500/70"
-          placeholder="$TICK CA pump.fun/…"
-        />
-      </label>
-    </section>
+        <span className="h-4 w-px shrink-0 bg-border-subtle" aria-hidden />
+        <HeaderIconButton
+          onClick={onToggleAutomationMaster}
+          tone={global.automationEnabledUi ? 'bull' : 'muted'}
+          title={`Automation master · ${global.automationEnabledUi ? 'On' : 'Off'}`}
+        >
+          <Power className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+        </HeaderIconButton>
+        <HeaderIconButton
+          onClick={onTogglePause}
+          tone={global.killSwitchActive ? 'bear' : 'muted'}
+          title={global.killSwitchActive ? 'Clear killswitch' : 'Killswitch'}
+        >
+          <ShieldAlert className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+        </HeaderIconButton>
+        <Link
+          href="/pulse"
+          prefetch
+          className="btn-press inline-flex items-center gap-1 rounded border border-border-subtle bg-bg-base px-2 py-1 text-[11px] font-semibold text-fg-secondary hover:bg-bg-hover hover:text-fg-primary"
+          title="Open Pulse"
+        >
+          Pulse
+          <ChevronRight className="h-3 w-3" strokeWidth={2} aria-hidden />
+        </Link>
+      </div>
+    </div>
   );
 }
 
-function HandlesTable(props: {
+function KpiInline({
+  items,
+}: {
+  items: { label: string; value: string; tone?: 'bull' | 'warn' | 'bear' }[];
+}) {
+  return (
+    <div className="hidden items-center gap-2 md:flex">
+      {items.map((it, i) => (
+        <span key={`${it.label}-${i}`} className="inline-flex items-center gap-1 whitespace-nowrap">
+          <span className="text-[10px] uppercase tracking-[0.12em] text-fg-muted">{it.label}</span>
+          <span
+            className={cn(
+              'tabular-nums font-semibold',
+              it.tone === 'bull'
+                ? 'text-signal-bull'
+                : it.tone === 'warn'
+                  ? 'text-signal-warn'
+                  : it.tone === 'bear'
+                    ? 'text-signal-bear'
+                    : 'text-fg-secondary',
+            )}
+          >
+            {it.value}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function HeaderIconButton({
+  children,
+  onClick,
+  tone,
+  title,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  tone: 'bull' | 'bear' | 'muted';
+  title: string;
+}) {
+  const cls =
+    tone === 'bull'
+      ? 'border-signal-bull/40 bg-signal-bull/10 text-signal-bull hover:bg-signal-bull/20'
+      : tone === 'bear'
+        ? 'border-signal-bear/40 bg-signal-bear/10 text-signal-bear hover:bg-signal-bear/20'
+        : 'border-border-subtle bg-bg-base text-fg-secondary hover:bg-bg-hover hover:text-fg-primary';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className={cn(
+        'btn-press inline-flex h-6 w-6 items-center justify-center rounded border transition-colors',
+        cls,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ---------- engine console (x_feed tab) ---------- */
+
+function EngineConsole(props: {
+  activeChain: string;
+  pulseLoading: boolean;
+  pulseRows: number;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+            X ingest
+          </div>
+          <div className="truncate text-[11px] text-fg-secondary">
+            {props.activeChain.toUpperCase()} ·{' '}
+            {props.pulseLoading
+              ? 'loading sample…'
+              : `${props.pulseRows.toLocaleString()} live rows cached for cross-check`}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
+        <p className="text-[12px] leading-relaxed text-fg-secondary">
+          Tracked tweets from your allow-listed accounts arrive here via the terminal ingest pipe. Rules
+          run on those live posts only — no mocked “Run” previews.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- handles tab ---------- */
+
+function HandlesPanel({
+  kolHandlesPreview,
+  onOpenProfile,
+}: {
   kolHandlesPreview: KolHandleRow[];
   onOpenProfile: (handle: string) => void;
 }) {
-  const { kolHandlesPreview, onOpenProfile } = props;
   const [find, setFind] = useState('');
   const rows = kolHandlesPreview.filter((r) => {
     const q = find.trim().replace(/^@/, '').toLowerCase();
     if (!q) return true;
     return (
-      normalizeXHandle(r.handle).includes(q) ||
-      normalizeXHandle(r.name).includes(q)
+      normalizeXHandle(r.handle).includes(q) || normalizeXHandle(r.name).includes(q)
     );
   });
 
   return (
-    <section className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        <input
-          value={find}
-          onChange={(e) => setFind(e.target.value)}
-          placeholder="Find handle..."
-          className="min-w-[200px] flex-1 rounded-md border border-white/10 bg-[#080d14] px-3 py-1.5 text-[12px] text-white outline-none focus:ring-1 focus:ring-signal-info/70"
-        />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-2">
+        <label className="relative min-w-[200px] flex-1">
+          <Search
+            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted"
+            strokeWidth={2}
+            aria-hidden
+          />
+          <input
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            placeholder="Find handle…"
+            className="w-full rounded-md border border-border-subtle bg-bg-hover py-1.5 pl-7 pr-3 text-[12px] text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
+          />
+        </label>
+        <span className="shrink-0 tabular-nums text-[11px] text-fg-muted">
+          {rows.length} handles
+        </span>
       </div>
-      <table className="w-full overflow-hidden rounded-md border border-white/10 text-left text-[11px]">
-        <thead className="bg-white/[0.04] tracking-tight text-[#8b929e]" style={{ fontSize: '10px' }}>
-          <tr className="border-b border-white/10">
-            <th className="px-3 py-2 font-semibold">Handle</th>
-            <th className="hidden px-2 py-2 font-semibold sm:table-cell">Label</th>
-            <th className="px-3 py-2 text-right font-semibold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <table className="w-full text-left text-[12px]">
+          <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-base text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
             <tr>
-              <td colSpan={3} className="px-3 py-12 text-center text-[#677386]">
-                No handles listed yet — add wallets with X profiles from Trackers or paste handles straight into rules.
-              </td>
+              <th className="px-3 py-2 font-semibold">Handle</th>
+              <th className="hidden px-3 py-2 font-semibold sm:table-cell">Label</th>
+              <th className="px-3 py-2 text-right font-semibold">Actions</th>
             </tr>
-          ) : (
-            rows.map((r, i) => (
-              <tr key={r.id} className={cn('border-t border-white/5', i % 2 === 0 ? 'bg-[#090d13]' : 'bg-[#0d1119]')}>
-                <td className="max-w-[12rem] px-3 py-2 align-middle font-semibold text-white">
-                  <button
-                    type="button"
-                    onClick={() => onOpenProfile(r.handle)}
-                    className="truncate text-[#cfe2ff] hover:text-white hover:underline"
-                  >
-                    {r.handle.startsWith('@') ? r.handle : `@${r.handle}`}
-                  </button>
-                  <div className="mt-1 text-[10px] tabular-nums tracking-tight text-[#5c6575]">{shortenWallet(r.wallet)}</div>
-                </td>
-                <td className="hidden px-2 py-2 align-middle text-[#9ca3af] sm:table-cell">{r.name}</td>
-                <td className="px-3 py-2 align-middle text-right">
-                  <a
-                    href={xProfileUrl(r.handle)}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1 rounded border border-white/10 px-2 py-1 text-[10px] font-semibold text-[#b8cce8] hover:border-white/20"
-                  >
-                    X <ExternalLink className="h-3 w-3" aria-hidden strokeWidth={2} />
-                  </a>
+          </thead>
+          <tbody className="divide-y divide-border-subtle">
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-3 py-12 text-center text-[12px] text-fg-muted">
+                  No handles yet.
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </section>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.id} className="transition-colors hover:bg-bg-hover">
+                  <td className="max-w-[14rem] px-3 py-1.5 align-middle">
+                    <button
+                      type="button"
+                      onClick={() => onOpenProfile(r.handle)}
+                      className="truncate text-[12px] font-semibold text-fg-primary hover:text-accent-primary"
+                    >
+                      {r.handle.startsWith('@') ? r.handle : `@${r.handle}`}
+                    </button>
+                    <div className="mt-0.5 font-mono text-[10px] tabular-nums text-fg-muted">
+                      {shortenWallet(r.wallet)}
+                    </div>
+                  </td>
+                  <td className="hidden px-3 py-1.5 align-middle text-fg-secondary sm:table-cell">
+                    {r.name}
+                  </td>
+                  <td className="px-3 py-1.5 align-middle text-right">
+                    <a
+                      href={xProfileUrl(r.handle)}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-1 rounded border border-border-subtle bg-bg-hover px-2 py-1 text-[10px] font-semibold text-fg-secondary transition-colors hover:bg-bg-base hover:text-fg-primary"
+                    >
+                      X <ExternalLink className="h-3 w-3" aria-hidden strokeWidth={2} />
+                    </a>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
-function HistoryTable({
+/* ---------- history tab ---------- */
+
+type IntentTone = { label: string; tone: 'bull' | 'warn' | 'info' | 'muted' };
+const FALLBACK_INTENT: IntentTone = { label: 'Noise', tone: 'muted' };
+const INTENT_TONE: Record<string, IntentTone> = {
+  token_call: { label: 'Token call', tone: 'bull' },
+  launch_announcement: { label: 'Launch', tone: 'info' },
+  news_catalyst: { label: 'News', tone: 'warn' },
+  kol_signal: { label: 'KOL signal', tone: 'info' },
+  irrelevant: FALLBACK_INTENT,
+};
+function intentFor(bucket: string | null | undefined): IntentTone {
+  if (!bucket) return FALLBACK_INTENT;
+  return INTENT_TONE[bucket] ?? FALLBACK_INTENT;
+}
+function intentBadgeCls(t: 'bull' | 'warn' | 'info' | 'muted'): string {
+  switch (t) {
+    case 'bull':
+      return 'border-signal-bull/35 bg-signal-bull/10 text-signal-bull';
+    case 'warn':
+      return 'border-signal-warn/35 bg-signal-warn/10 text-signal-warn';
+    case 'info':
+      return 'border-signal-info/35 bg-signal-info/10 text-signal-info';
+    default:
+      return 'border-border-subtle bg-bg-hover text-fg-muted';
+  }
+}
+
+function HistoryPanel({
   history,
   onClear,
 }: {
@@ -515,99 +741,222 @@ function HistoryTable({
   }, [history, fq]);
 
   return (
-    <section className="space-y-2">
-      <div className="flex gap-2">
-        <History className="h-5 w-5 text-accent-primary/80" strokeWidth={2} aria-hidden />
-        <input
-          value={fq}
-          onChange={(e) => setFq(e.target.value)}
-          className="min-w-[200px] flex-1 rounded-md border border-white/10 bg-[#090d13] px-3 py-1.5 text-[12px] text-white outline-none focus:ring-1 focus:ring-accent-primary/40"
-          placeholder="Filter handle · mint · rule…"
-        />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-2">
+        <label className="relative min-w-[200px] flex-1">
+          <HistoryIcon
+            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted"
+            strokeWidth={2}
+            aria-hidden
+          />
+          <input
+            value={fq}
+            onChange={(e) => setFq(e.target.value)}
+            className="w-full rounded-md border border-border-subtle bg-bg-hover py-1.5 pl-7 pr-3 text-[12px] text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
+            placeholder="Filter handle · mint · rule…"
+          />
+        </label>
         <button
           type="button"
           onClick={onClear}
           disabled={history.length === 0}
-          className="rounded-md border border-white/10 px-2 py-1.5 text-[11px] font-semibold text-[#f5b5b8] hover:border-white/20 disabled:opacity-40"
+          className="btn-press inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-bg-hover px-2.5 py-1.5 text-[11px] font-semibold text-fg-secondary transition-colors hover:bg-bg-base hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
+          <Trash2 className="h-3 w-3" strokeWidth={2} aria-hidden />
           Clear
         </button>
       </div>
-      <div className="max-h-[55vh] overflow-auto rounded-lg border border-white/10 bg-[#0b0f17]">
-        <table className="w-full text-left text-[11px]">
-          <thead className="sticky top-0 z-[1] border-b border-white/10 bg-[#111621] tracking-tight text-[#8490a8]" style={{ fontSize: '10px' }}>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <table className="w-full text-left text-[12px]">
+          <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-base text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
             <tr>
-              <th className="whitespace-nowrap px-3 py-2 font-semibold">Time</th>
-              <th className="whitespace-nowrap px-3 py-2 font-semibold">Handle</th>
-              <th className="min-w-[8rem] px-3 py-2 font-semibold">Tweet</th>
-              <th className="whitespace-nowrap px-3 py-2 font-semibold">Mint</th>
-              <th className="whitespace-nowrap px-3 py-2 font-semibold">Confidence</th>
-              <th className="whitespace-nowrap px-3 py-2 font-semibold">Result</th>
+              <th className="whitespace-nowrap px-3 py-2">Time</th>
+              <th className="whitespace-nowrap px-3 py-2">Handle</th>
+              <th className="min-w-[10rem] px-3 py-2">Tweet</th>
+              <th className="whitespace-nowrap px-3 py-2">Mint</th>
+              <th className="whitespace-nowrap px-3 py-2">Conf</th>
+              <th className="whitespace-nowrap px-3 py-2">Intent</th>
+              <th className="whitespace-nowrap px-3 py-2">Result</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border-subtle">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-10 text-center text-[#738091]">
-                  No automation events yet — run a simulation or wait for live ingest.
+                <td colSpan={7} className="px-3 py-12 text-center text-[12px] text-fg-muted">
+                  No automation events yet.
                 </td>
               </tr>
             ) : (
-              filtered.map((h) => (
-                <tr key={h.id} className="border-t border-white/[0.04] hover:bg-white/[0.015]">
-                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-[#8b969f]">{new Date(h.atIso).toLocaleString()}</td>
-                  <td className="text-[11px] text-[#cce5ff]">@{normalizeXHandle(h.handle)}</td>
-                  <td className="max-w-xs truncate px-3 py-2 text-[11px]" title={h.tweetSnippet}>{h.tweetSnippet}</td>
-                  <td className="tabular-nums text-[11px]" title={h.detectedMint ?? ''}>
-                    {h.detectedMint ? shortenMint(h.detectedMint) : '—'}
-                  </td>
-                  <td className="whitespace-nowrap tabular-nums text-[11px]">{(h.aiConfidence01 * 100).toFixed(0)}%</td>
-                  <td className="whitespace-nowrap">
-                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', h.result === 'ok' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/12 text-amber-100')}>
-                      {h.result}
-                    </span>
-                  </td>
-                </tr>
-              ))
+              filtered.map((h) => {
+                const intent = intentFor(h.intentBucket);
+                return (
+                  <tr key={h.id} className="transition-colors hover:bg-bg-hover">
+                    <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-fg-muted">
+                      {new Date(h.atIso).toLocaleString()}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5 text-fg-primary">
+                      @{normalizeXHandle(h.handle)}
+                    </td>
+                    <td
+                      className="max-w-xs truncate px-3 py-1.5 text-fg-secondary"
+                      title={h.tweetSnippet}
+                    >
+                      {h.tweetSnippet}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-3 py-1.5 font-mono tabular-nums text-fg-primary"
+                      title={h.detectedMint ?? ''}
+                    >
+                      {h.detectedMint ? shortenMint(h.detectedMint) : '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5">
+                      <div className="flex w-24 items-center gap-2">
+                        <ConfidenceBar value01={h.aiConfidence01} />
+                        <span className="shrink-0 tabular-nums text-[11px] text-fg-secondary">
+                          {(h.aiConfidence01 * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                          intentBadgeCls(intent.tone),
+                        )}
+                      >
+                        {intent.label}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-1.5">
+                      <ResultPill result={h.result} />
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
-    </section>
+    </div>
   );
 }
+
+function ConfidenceBar({ value01, className }: { value01: number; className?: string }) {
+  const pct = Math.max(0, Math.min(1, value01)) * 100;
+  return (
+    <div
+      className={cn('h-1.5 w-full overflow-hidden rounded-full bg-bg-hover', className)}
+      role="progressbar"
+      aria-valuenow={Math.round(pct)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-accent-primary via-accent-glow to-signal-bull"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+function ResultPill({ result }: { result: 'ok' | 'failed' | 'skipped' }) {
+  const cls =
+    result === 'ok'
+      ? 'border-signal-bull/40 bg-signal-bull/12 text-signal-bull'
+      : result === 'failed'
+        ? 'border-signal-bear/40 bg-signal-bear/12 text-signal-bear'
+        : 'border-border-subtle bg-bg-hover text-fg-muted';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize',
+        cls,
+      )}
+    >
+      {result}
+    </span>
+  );
+}
+
+/* ---------- settings tab ---------- */
 
 function SettingsPanel(props: {
   global: AutomationGlobalSettings;
   setGlobalPatch: (p: Partial<AutomationGlobalSettings>) => void;
 }) {
   const { global, setGlobalPatch } = props;
-
   return (
-    <div className="space-y-4">
-      <ToggleRow title="Pause all automation" active={global.killSwitchActive} onToggle={() => setGlobalPatch({ killSwitchActive: !global.killSwitchActive })} />
-      <ToggleRow title="Automation master (syncs when server rollout matches)" active={global.automationEnabledUi} onToggle={() => setGlobalPatch({ automationEnabledUi: !global.automationEnabledUi })} />
-      <p className="text-[11px] leading-relaxed text-[#8490a8]">
-        Per-trade caps, daily loss limits, cooldowns per handle or mint, and execution logs apply here once account sync ships. Until then these values tune previews only.
-      </p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <NumericField label="Max SOL per trade" value={global.maxSolPerTrade} on={(n) => setGlobalPatch({ maxSolPerTrade: n })} />
-        <NumericField label="Max SOL per day" value={global.maxSolPerDay} on={(n) => setGlobalPatch({ maxSolPerDay: n })} />
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+      <div className="space-y-2">
+        <ToggleRow
+          title="Pause all automation"
+          subtitle="Visible emergency stop. Blocks alerts + buys until cleared."
+          active={global.killSwitchActive}
+          tone="bear"
+          onToggle={() => setGlobalPatch({ killSwitchActive: !global.killSwitchActive })}
+        />
+        <ToggleRow
+          title="Automation master"
+          subtitle="Server rollout-gated. Syncs with your account once enabled."
+          active={global.automationEnabledUi}
+          tone="bull"
+          onToggle={() => setGlobalPatch({ automationEnabledUi: !global.automationEnabledUi })}
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <NumericField
+          label="Max SOL · trade"
+          value={global.maxSolPerTrade}
+          on={(n) => setGlobalPatch({ maxSolPerTrade: n })}
+        />
+        <NumericField
+          label="Max SOL · day"
+          value={global.maxSolPerDay}
+          on={(n) => setGlobalPatch({ maxSolPerDay: n })}
+        />
       </div>
     </div>
   );
 }
 
-function ToggleRow(props: { title: string; active: boolean; onToggle: () => void }) {
+function ToggleRow(props: {
+  title: string;
+  subtitle: string;
+  active: boolean;
+  tone: 'bull' | 'bear';
+  onToggle: () => void;
+}) {
+  const onCls =
+    props.tone === 'bull'
+      ? 'border-signal-bull/40 bg-signal-bull/10 text-signal-bull'
+      : 'border-signal-bear/40 bg-signal-bear/10 text-signal-bear';
   return (
     <button
       type="button"
       onClick={props.onToggle}
-      className="flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 transition hover:bg-white/[0.03]"
-      style={{ borderColor: BORDER }}
+      className="btn-press flex w-full items-center justify-between gap-3 rounded-md border border-border-subtle bg-bg-hover px-3 py-2 text-left transition-colors hover:bg-bg-base"
     >
-      <span className="text-left font-semibold text-white">{props.title}</span>
-      <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', props.active ? 'bg-emerald-500/25 text-emerald-100' : 'bg-[#1c2234] text-[#8f9bb8]')}>
+      <div className="min-w-0 space-y-0.5">
+        <div className="text-[12px] font-semibold text-fg-primary">{props.title}</div>
+        <div className="text-[10px] text-fg-muted">{props.subtitle}</div>
+      </div>
+      <span
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+          props.active ? onCls : 'border-border-subtle bg-bg-base text-fg-muted',
+        )}
+      >
+        <span
+          className={cn(
+            'h-1.5 w-1.5 rounded-full',
+            props.active
+              ? props.tone === 'bull'
+                ? 'bg-signal-bull'
+                : 'bg-signal-bear'
+              : 'bg-fg-muted',
+          )}
+        />
         {props.active ? 'On' : 'Off'}
       </span>
     </button>
@@ -621,7 +970,9 @@ function NumericField(props: {
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-[11px] text-[#8c97ad]">{props.label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+        {props.label}
+      </span>
       <input
         inputMode="decimal"
         value={props.value ?? ''}
@@ -632,229 +983,485 @@ function NumericField(props: {
           if (Number.isFinite(n)) props.on(n);
         }}
         placeholder="Unset"
-        className="w-full rounded-md border border-white/12 bg-[#080d14] px-3 py-1.5 tabular-nums text-[13px] text-white outline-none focus:ring-1 focus:ring-accent-primary/50"
+        className="w-full rounded-md border border-border-subtle bg-bg-hover px-3 py-1.5 text-[13px] tabular-nums text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
       />
     </label>
   );
 }
 
-function RulesTable(props: {
+/* ---------- rules tab ---------- */
+
+function RulesPanel(props: {
   tab: Exclude<TrackTabId, 'x_feed' | 'handles' | 'history' | 'settings'>;
   rules: StoredAutomationRule[];
+  onNew: () => void;
   onEdit: (r: StoredAutomationRule) => void;
   onRemove: (id: string) => void;
   onDuplicate: (r: StoredAutomationRule) => void;
 }) {
-  if (props.rules.length === 0) {
-    return (
-      <div className="rounded-lg border px-6 py-10 text-center text-[12px] leading-relaxed text-[#7c8796]" style={{ borderColor: BORDER }}>
-        No rules in this lane yet — start from the rule builder.
-      </div>
-    );
-  }
   return (
-    <table className="w-full rounded-lg border text-left text-[11px]" style={{ borderColor: BORDER }}>
-      <thead className="sticky top-0 z-[2] tracking-tight" style={{ backgroundColor: '#0f1420', color: '#7e8b9f', fontSize: '10px' }}>
-        <tr className="border-b" style={{ borderColor: BORDER }}>
-          <th className="px-3 py-2 font-semibold">Rule</th>
-          <th className="px-3 py-2 font-semibold">Handles</th>
-          <th className="hidden px-2 py-2 font-semibold md:table-cell">Mode</th>
-          <th className="hidden px-2 py-2 font-semibold lg:table-cell">Buy</th>
-          <th className="px-3 py-2 font-semibold">Status</th>
-          <th className="px-3 py-2 text-right font-semibold">Edit</th>
-        </tr>
-      </thead>
-      <tbody>
-        {props.rules.map((rule, ix) => (
-          <tr key={rule.id} className="border-t" style={{ borderColor: BORDER, backgroundColor: ix % 2 === 0 ? '#0a0e15' : '#0d121a' }}>
-            <td className="px-3 py-2">
-              <div className="font-semibold text-white">{rule.name}</div>
-              <div className="text-[10px] text-[#6d7788] capitalize">{rule.category.replace('_', ' ')} · {rule.riskMode} risk lane</div>
-            </td>
-            <td className="max-w-[8rem] px-3 py-2 text-[#b7cfff]">{rule.handles.length ? rule.handles.map((h) => `@${normalizeXHandle(h)}`).join(', ') : 'All (empty roster)'}</td>
-            <td className="hidden px-2 py-2 text-[11px] text-[#9fb4d9] capitalize md:table-cell">{rule.executionMode.replace('_', ' ')}</td>
-            <td className="hidden px-2 py-2 lg:table-cell">
-              <span className="tabular-nums text-[11px] text-[#cae6ff]">
-                {rule.buySizeSol != null ? `${rule.buySizeSol} SOL` : '—'}
-              </span>
-            </td>
-            <td className="px-3 py-2">
-              <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', rule.enabled ? 'bg-emerald-500/22 text-emerald-100' : 'bg-[#1d2237] text-[#8490a8]')}>
-                {rule.enabled ? 'Active' : 'Disabled'}
-              </span>
-            </td>
-            <td className="space-x-2 px-3 py-2 text-right">
-              <button type="button" onClick={() => props.onEdit(rule)} className="font-semibold text-[#cfe2ff] hover:underline">
-                Edit
-              </button>
-              <button type="button" onClick={() => props.onDuplicate(rule)} className="text-[#aab8d9] hover:underline">
-                Copy
-              </button>
-              <button type="button" className="text-[#fca5a5] hover:underline" onClick={() => props.onRemove(rule.id)}>
-                Remove
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+          {props.tab === 'alert_rules'
+            ? 'Alert rules'
+            : props.tab === 'auto_buy'
+              ? 'Auto-buy rules'
+              : 'Launch watcher rules'}
+        </span>
+        <button
+          type="button"
+          onClick={props.onNew}
+          className="btn-press inline-flex items-center gap-1.5 rounded-md border border-accent-primary/40 bg-accent-primary/15 px-2.5 py-1 text-[11px] font-semibold text-accent-primary transition-colors hover:bg-accent-primary/25"
+        >
+          <Plus className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+          New
+        </button>
+      </div>
 
-function EmptyBuilder(props: { onNewAlert: () => void; onNewBuy: () => void; onNewLaunch: () => void }) {
-  return (
-    <div className="space-y-2 rounded-lg border border-dashed border-white/10 p-6 text-[12px] text-[#7e8ea2]">
-      <p className="font-medium text-[#9fb0c4]">Pick a template:</p>
-      <div className="flex flex-col gap-2">
-        <button type="button" onClick={props.onNewAlert} className="rounded-md border border-white/10 px-4 py-2 text-left text-[11px] font-semibold text-white hover:bg-white/[0.04]">
-          Alerts only — toasts and sounds, no execution
-        </button>
-        <button type="button" onClick={props.onNewBuy} className="rounded-md border border-white/15 px-4 py-2 text-left text-[11px] font-semibold text-[#c7daf7] hover:bg-white/[0.04]">
-          Auto-buy preset — killswitch-gated, CA confidence checks on
-        </button>
-        <button type="button" onClick={props.onNewLaunch} className="rounded-md border border-white/15 px-4 py-2 text-left text-[11px] font-semibold text-[#c7daf7] hover:bg-white/[0.04]">
-          Launch watcher — bonding curve and fresh-deploy filters
-        </button>
-      </div>
-      <p className="text-[11px] leading-snug text-[#8490a8]">
-        Execution uses your <strong className="text-white">primary wallet</strong> unless a per-rule wallet is set. Pointer never stores private keys in this panel.
-      </p>
+      {props.rules.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center px-6 py-12 text-center text-[12px] text-fg-muted">
+          No rules in this lane.
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <table className="w-full text-left text-[12px]">
+            <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-base text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+              <tr>
+                <th className="px-3 py-2">Rule</th>
+                <th className="px-3 py-2">Handles</th>
+                <th className="hidden px-3 py-2 md:table-cell">Mode</th>
+                <th className="hidden px-3 py-2 lg:table-cell">Buy</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {props.rules.map((rule) => (
+                <tr key={rule.id} className="transition-colors hover:bg-bg-hover">
+                  <td className="px-3 py-1.5">
+                    <div className="font-semibold text-fg-primary">{rule.name}</div>
+                    <div className="text-[10px] capitalize text-fg-muted">
+                      {rule.category.replace('_', ' ')} · {rule.riskMode}
+                    </div>
+                  </td>
+                  <td className="max-w-[10rem] truncate px-3 py-1.5 text-fg-secondary">
+                    {rule.handles.length
+                      ? rule.handles.map((h) => `@${normalizeXHandle(h)}`).join(', ')
+                      : 'All'}
+                  </td>
+                  <td className="hidden px-3 py-1.5 capitalize text-fg-secondary md:table-cell">
+                    {rule.executionMode.replace('_', ' ')}
+                  </td>
+                  <td className="hidden px-3 py-1.5 lg:table-cell">
+                    <span className="tabular-nums text-fg-secondary">
+                      {rule.buySizeSol != null ? `${rule.buySizeSol} SOL` : '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                        rule.enabled
+                          ? 'border-signal-bull/40 bg-signal-bull/12 text-signal-bull'
+                          : 'border-border-subtle bg-bg-hover text-fg-muted',
+                      )}
+                    >
+                      {rule.enabled ? 'Active' : 'Off'}
+                    </span>
+                  </td>
+                  <td className="space-x-2 whitespace-nowrap px-3 py-1.5 text-right">
+                    <button
+                      type="button"
+                      onClick={() => props.onEdit(rule)}
+                      className="text-[11px] font-semibold text-accent-primary hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => props.onDuplicate(rule)}
+                      className="text-[11px] text-fg-secondary hover:underline"
+                    >
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[11px] text-signal-bear hover:underline"
+                      onClick={() => props.onRemove(rule.id)}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-function RuleDraftForm(props: {
+/* ---------- side rail · insights (default) ---------- */
+
+function SideInsights(props: {
+  insights: {
+    total: number;
+    fires: number;
+    fails: number;
+    skipped: number;
+    avgConf: number;
+    topHandle: { handle: string; count: number } | null;
+    topIntent: { bucket: string; count: number } | null;
+  };
+  onNewAlert: () => void;
+  onNewBuy: () => void;
+  onNewLaunch: () => void;
+}) {
+  const { insights } = props;
+  const intent = insights.topIntent ? intentFor(insights.topIntent.bucket) : null;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="shrink-0 border-b border-border-subtle px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+        24h snapshot
+      </div>
+
+      <div className="space-y-3 p-3">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.12em] text-fg-muted">
+            <span>AI confidence · avg</span>
+            <span className="tabular-nums text-fg-secondary">
+              {Math.round(insights.avgConf * 100)}%
+            </span>
+          </div>
+          <ConfidenceBar value01={insights.avgConf} />
+        </div>
+
+        <div className="grid grid-cols-4 gap-1.5 text-center">
+          <MiniStat label="Total" value={insights.total} tone="muted" />
+          <MiniStat label="Fired" value={insights.fires} tone="bull" />
+          <MiniStat label="Failed" value={insights.fails} tone="bear" />
+          <MiniStat label="Skipped" value={insights.skipped} tone="muted" />
+        </div>
+
+        <div className="space-y-2 rounded-md border border-border-subtle bg-bg-hover px-2.5 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-[0.12em] text-fg-muted">
+              Top handle
+            </span>
+            <span className="truncate text-[11px] font-semibold text-fg-primary">
+              {insights.topHandle ? `@${insights.topHandle.handle}` : '—'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-[0.12em] text-fg-muted">
+              Top intent
+            </span>
+            {intent ? (
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full border px-1.5 py-px text-[10px] font-semibold',
+                  intentBadgeCls(intent.tone),
+                )}
+              >
+                {intent.label}
+              </span>
+            ) : (
+              <span className="text-[11px] text-fg-muted">—</span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+            New rule
+          </div>
+          <TemplateButton
+            label="Alerts only"
+            sub="Toasts + sounds. No execution."
+            icon={<BellRing className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />}
+            onClick={props.onNewAlert}
+          />
+          <TemplateButton
+            label="Auto-buy preset"
+            sub="Killswitch-gated. CA confidence required."
+            icon={<Zap className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />}
+            onClick={props.onNewBuy}
+          />
+          <TemplateButton
+            label="Launch watcher"
+            sub="Fresh-deploy phrasing + curve filters."
+            icon={<Sparkles className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />}
+            onClick={props.onNewLaunch}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: 'bull' | 'bear' | 'muted';
+}) {
+  const cls =
+    tone === 'bull'
+      ? 'text-signal-bull'
+      : tone === 'bear'
+        ? 'text-signal-bear'
+        : 'text-fg-primary';
+  return (
+    <div className="rounded-md border border-border-subtle bg-bg-hover py-1.5">
+      <div className={cn('text-base font-semibold tabular-nums leading-none', cls)}>
+        {value.toLocaleString()}
+      </div>
+      <div className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-fg-muted">{label}</div>
+    </div>
+  );
+}
+
+function TemplateButton({
+  label,
+  sub,
+  icon,
+  onClick,
+}: {
+  label: string;
+  sub: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="btn-press flex w-full items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg-hover px-2.5 py-2 text-left transition-colors hover:bg-bg-base hover:text-fg-primary"
+    >
+      <span className="min-w-0">
+        <span className="block text-[12px] font-semibold text-fg-primary">{label}</span>
+        <span className="block text-[10px] text-fg-muted">{sub}</span>
+      </span>
+      <span className="shrink-0 text-fg-secondary">{icon}</span>
+    </button>
+  );
+}
+
+/* ---------- side rail · rule builder ---------- */
+
+function RuleBuilderCard(props: {
   rule: Partial<StoredAutomationRule>;
   onChange: (p: Partial<StoredAutomationRule>) => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   const { rule, onChange } = props;
   const t = rule.triggersEnabled ?? cloneTriggers();
+  const canSave = Boolean(rule.name && rule.id);
 
   return (
-    <div className="space-y-4 text-[12px]">
-      <label className="space-y-1">
-        <div className="text-[11px] text-[#8c94a9]">Name</div>
-        <input value={rule.name ?? ''} onChange={(e) => onChange({ name: e.target.value })} className="w-full rounded-md border border-white/10 bg-[#0b0f17] px-3 py-1.5 text-white outline-none focus:ring-1 focus:ring-accent-primary/50" />
-      </label>
-
-      <label className="space-y-1">
-        <div className="text-[11px] text-[#8c94a9]">Handles (@ optional, newline or comma-separated)</div>
-        <textarea
-          value={(rule.handles ?? []).join('\n')}
-          onChange={(e) =>
-            onChange({
-              handles: e.target.value
-                .split(/[\n,]+/)
-                .map((s) => normalizeXHandle(s))
-                .filter(Boolean),
-            })
-          }
-          rows={3}
-          className="w-full rounded-md border border-white/12 bg-[#0b0f17] px-3 py-1.5 text-white outline-none focus:ring-1 focus:ring-accent-primary/50"
-        />
-      </label>
-
-      <div className="space-y-1">
-        <div className="text-[11px] text-[#8c94a9]">Trigger toggles</div>
-        <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-          {(Object.entries(t) as [AutomationTriggerType, boolean][]).map(([k, v]) => (
-            <label key={String(k)} className="flex cursor-pointer justify-between rounded border border-transparent px-1 py-0.5 text-[11px] hover:bg-white/[0.03]">
-              <span className="text-[#cdd7ef] capitalize">{triggerLabel(k)}</span>
-              <input
-                type="checkbox"
-                checked={v}
-                onChange={(e) => onChange({ triggersEnabled: { ...t, [k]: e.target.checked } })}
-              />
-            </label>
-          ))}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-accent-primary" strokeWidth={2.25} aria-hidden />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+            Rule builder
+          </span>
         </div>
+        <button
+          type="button"
+          onClick={props.onCancel}
+          className="inline-flex items-center gap-1 rounded border border-border-subtle bg-bg-hover px-2 py-1 text-[10px] font-semibold text-fg-secondary hover:bg-bg-base hover:text-fg-primary"
+        >
+          <RefreshCcw className="h-3 w-3" strokeWidth={2} aria-hidden />
+          Close
+        </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1">
-          <span className="text-[11px] text-[#8892aa]">Mode</span>
-          <select
-            value={rule.executionMode ?? 'alert_only'}
-            onChange={(e) => onChange({ executionMode: e.target.value as StoredAutomationRule['executionMode'] })}
-            className="w-full rounded-md border border-white/10 bg-[#0b0f17] px-2 py-2 text-[12px]"
-          >
-            <option value="alert_only">Alert only</option>
-            <option value="one_click">One-click buy</option>
-            <option value="auto_buy">Full auto-buy</option>
-          </select>
-          {rule.executionMode === 'auto_buy' ? (
-            <p className="mt-1 text-[11px] text-[#fcd34d]/90">Dangerous lane — requires killswitch cleared + automation master + confirmations server-side.</p>
-          ) : null}
-        </label>
-        <label className="space-y-1">
-          <span className="text-[11px] text-[#8892aa]">Timing</span>
-          <select
-            value={rule.executionTiming ?? 'precheck_then_buy'}
-            onChange={(e) => onChange({ executionTiming: e.target.value as StoredAutomationRule['executionTiming'] })}
-            className="w-full rounded-md border border-white/12 bg-[#0b0f17] px-2 py-2 text-[12px]"
-          >
-            <option value="precheck_then_buy">Fast pre-check, then buy</option>
-            <option value="instant_then_scan">Instant buy first, scan after</option>
-          </select>
-          {rule.executionTiming === 'instant_then_scan' ? (
-            <p className="mt-1 text-[11px] text-[#facc15]/90">
-              Instant mode prioritizes speed. Risk checks may complete after execution.
-            </p>
-          ) : null}
-        </label>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="space-y-1">
-          <span className="text-[11px] text-[#8892aa]">Buy size (SOL)</span>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 text-[12px]">
+        <FieldShell label="Name">
           <input
-            value={rule.buySizeSol ?? ''}
-            onChange={(e) => {
-              const raw = e.target.value.trim();
-              if (raw === '') {
-                onChange({ buySizeSol: null });
-                return;
-              }
-              const n = Number(raw);
-              if (!Number.isFinite(n)) return;
-              onChange({ buySizeSol: n });
-            }}
-            className="w-full rounded-md border border-white/10 bg-[#0b0f17] px-2 py-1.5 text-[12px] text-white"
+            value={rule.name ?? ''}
+            onChange={(e) => onChange({ name: e.target.value })}
+            className="w-full rounded-md border border-border-subtle bg-bg-hover px-2.5 py-1.5 text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
           />
-        </label>
-        <label className="space-y-1">
-          <span className="text-[11px] text-[#8892aa]">Slippage bps</span>
-          <input
-            type="number"
-            value={rule.slippageBps ?? ''}
+        </FieldShell>
+
+        <FieldShell label="Handles" hint="newline or comma">
+          <textarea
+            value={(rule.handles ?? []).join('\n')}
             onChange={(e) =>
               onChange({
-                slippageBps: e.target.value ? Number(e.target.value) : null,
+                handles: e.target.value
+                  .split(/[\n,]+/)
+                  .map((s) => normalizeXHandle(s))
+                  .filter(Boolean),
               })
             }
-            className="w-full rounded-md border border-white/10 bg-[#0b0f17] px-2 py-1.5 text-[12px]"
+            rows={3}
+            className="w-full resize-none rounded-md border border-border-subtle bg-bg-hover px-2.5 py-1.5 text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
           />
-        </label>
-        <label className="space-y-1">
-          <span className="text-[11px] text-[#8892aa]">Fixed mint CA (optional)</span>
+        </FieldShell>
+
+        <FieldShell label="Triggers">
+          <div className="space-y-px rounded-md border border-border-subtle bg-bg-hover p-1">
+            {(Object.entries(t) as [AutomationTriggerType, boolean][]).map(([k, v]) => (
+              <label
+                key={String(k)}
+                className="flex cursor-pointer items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] hover:bg-bg-base"
+              >
+                <span className="text-fg-secondary">{triggerLabel(k)}</span>
+                <input
+                  type="checkbox"
+                  checked={v}
+                  onChange={(e) =>
+                    onChange({ triggersEnabled: { ...t, [k]: e.target.checked } })
+                  }
+                  className="h-3.5 w-3.5 rounded border-border-subtle accent-accent-primary"
+                />
+              </label>
+            ))}
+          </div>
+        </FieldShell>
+
+        <div className="grid grid-cols-2 gap-2">
+          <FieldShell label="Mode">
+            <select
+              value={rule.executionMode ?? 'alert_only'}
+              onChange={(e) =>
+                onChange({
+                  executionMode: e.target.value as StoredAutomationRule['executionMode'],
+                })
+              }
+              className="w-full cursor-pointer rounded-md border border-border-subtle bg-bg-hover px-2 py-1.5 text-fg-primary outline-none transition focus:border-accent-primary/60"
+            >
+              <option value="alert_only">Alert only</option>
+              <option value="one_click">One-click</option>
+              <option value="auto_buy">Auto-buy</option>
+            </select>
+          </FieldShell>
+          <FieldShell label="Timing">
+            <select
+              value={rule.executionTiming ?? 'precheck_then_buy'}
+              onChange={(e) =>
+                onChange({
+                  executionTiming: e.target.value as StoredAutomationRule['executionTiming'],
+                })
+              }
+              className="w-full cursor-pointer rounded-md border border-border-subtle bg-bg-hover px-2 py-1.5 text-fg-primary outline-none transition focus:border-accent-primary/60"
+            >
+              <option value="precheck_then_buy">Pre-check first</option>
+              <option value="instant_then_scan">Instant, scan after</option>
+            </select>
+          </FieldShell>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <FieldShell label="Buy (SOL)">
+            <input
+              value={rule.buySizeSol ?? ''}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                if (raw === '') return onChange({ buySizeSol: null });
+                const n = Number(raw);
+                if (Number.isFinite(n)) onChange({ buySizeSol: n });
+              }}
+              className="w-full rounded-md border border-border-subtle bg-bg-hover px-2.5 py-1.5 tabular-nums text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
+            />
+          </FieldShell>
+          <FieldShell label="Slip bps">
+            <input
+              type="number"
+              value={rule.slippageBps ?? ''}
+              onChange={(e) =>
+                onChange({ slippageBps: e.target.value ? Number(e.target.value) : null })
+              }
+              className="w-full rounded-md border border-border-subtle bg-bg-hover px-2.5 py-1.5 tabular-nums text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
+            />
+          </FieldShell>
+        </div>
+
+        <FieldShell label="Fixed mint CA" hint="optional">
           <input
             value={rule.fixedMintCa ?? ''}
             onChange={(e) => onChange({ fixedMintCa: e.target.value.trim() || null })}
-            className="w-full rounded-md border border-white/10 bg-[#0b0f17] px-2 py-1.5 tabular-nums text-[11px] tracking-tight text-white"
+            className="w-full rounded-md border border-border-subtle bg-bg-hover px-2.5 py-1.5 font-mono text-[11px] tabular-nums text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
+          />
+        </FieldShell>
+
+        <FieldShell label="Keywords" hint="comma separated">
+          <input
+            value={(rule.keywords ?? []).join(', ')}
+            onChange={(e) =>
+              onChange({
+                keywords: e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              })
+            }
+            className="w-full rounded-md border border-border-subtle bg-bg-hover px-2.5 py-1.5 text-fg-primary outline-none transition focus:border-accent-primary/60 focus:ring-1 focus:ring-accent-primary/40"
+          />
+        </FieldShell>
+
+        <label className="flex cursor-pointer items-center justify-between rounded-md border border-border-subtle bg-bg-hover px-3 py-2 text-[11px]">
+          <span className="text-fg-secondary">Enabled locally</span>
+          <input
+            type="checkbox"
+            checked={rule.enabled ?? false}
+            onChange={(e) => onChange({ enabled: e.target.checked })}
+            className="h-3.5 w-3.5 rounded border-border-subtle accent-accent-primary"
           />
         </label>
       </div>
 
-      <label className="space-y-1">
-        <span className="text-[11px] text-[#8892aa]">Keywords (comma)</span>
-        <input value={(rule.keywords ?? []).join(', ')} onChange={(e) => onChange({ keywords: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} className="w-full rounded-md border border-white/12 bg-[#0b0f17] px-2 py-1.5" />
-      </label>
-
-      <label className="inline-flex gap-3 text-[11px] text-[#cdd7ef]">
-        <input type="checkbox" checked={rule.enabled ?? false} onChange={(e) => onChange({ enabled: e.target.checked })} />
-        Rule enabled locally
-      </label>
+      <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-3 py-2">
+        <button
+          type="button"
+          onClick={props.onSave}
+          disabled={!canSave}
+          className="btn-press flex-1 rounded-md bg-accent-primary px-3 py-2 text-[11px] font-semibold text-fg-inverse hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={props.onCancel}
+          className="btn-press rounded-md border border-border-subtle bg-bg-hover px-3 py-2 text-[11px] font-semibold text-fg-secondary hover:bg-bg-base hover:text-fg-primary"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
+  );
+}
+
+function FieldShell({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+        {label}
+        {hint ? (
+          <span className="ml-1 font-normal normal-case tracking-normal text-fg-muted/80">
+            · {hint}
+          </span>
+        ) : null}
+      </span>
+      {children}
+    </label>
   );
 }
 
@@ -869,11 +1476,11 @@ function triggerLabel(k: AutomationTriggerType): string {
     case 'launch_link':
       return 'Launch link';
     case 'keywords':
-      return 'Configured keywords';
+      return 'Keywords';
     case 'ai_semantic_intent':
       return 'Semantic intent';
     case 'pulse_visible_token':
-      return 'Matched Pulse mint';
+      return 'Pulse mint match';
     case 'fresh_launch_style':
       return 'Fresh launch phrasing';
     default:

@@ -5,7 +5,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ArrowDownWideNarrow } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowDownWideNarrow,
+  PanelsLeftRight,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { ColumnFilterModal, type ColumnPresetRowDto } from '@/components/tokens/ColumnFilterModal';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -31,6 +37,7 @@ import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
 import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -44,8 +51,9 @@ import type { PulseTokenBundle } from '@/types/tokens';
  *  - `tabled`  — Axiom-style denser footprint; same content but tighter.
  */
 const ROW_SLOT_PX_BY_DENSITY = {
-  compact: 118,
-  tabled: 88,
+  compact: 138,
+  /** Tabled + metric icon row — slightly taller for 28px capsules + PNG glyphs. */
+  tabled: 116,
 } as const;
 
 const COLUMN_LABEL: Record<PulseColumnId, string> = {
@@ -69,6 +77,8 @@ export function PulseColumn({
   const listMountRef = useRef<HTMLDivElement>(null);
   const scrollMainRef = useRef<Element | null>(null);
   const activeChain = useUIStore((s) => s.activeChain);
+  const twitterRailSide = usePulseTwitterRailStore((s) => s.side);
+  const cycleTwitterRail = usePulseTwitterRailStore((s) => s.cycleSide);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [displayPopoverOpen, setDisplayPopoverOpen] = useState(false);
@@ -341,7 +351,11 @@ export function PulseColumn({
         'pulse-column flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised',
       )}
     >
-      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-raised px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
+      {/**
+       * Header: brighter grey (`bg-bg-hover`) so it reads as a distinct band
+       * above the row list — Axiom parity. Border-b separates it from rows.
+       */}
+      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-hover px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -354,20 +368,71 @@ export function PulseColumn({
             {column === 'new' ? (
               <span className="text-[9px] tabular-nums text-fg-muted/80">&lt; 30m</span>
             ) : null}
+            {column === 'new' && activeChain === 'sol' ? (
+              <button
+                type="button"
+                title={
+                  twitterRailSide === 'hidden'
+                    ? 'Show X listens rail'
+                    : twitterRailSide === 'left'
+                      ? 'Move X listens right'
+                      : 'Hide X listens rail'
+                }
+                onClick={() => cycleTwitterRail()}
+                className="btn-press focus-ring flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-hover hover:text-accent-primary"
+              >
+                <PanelsLeftRight className="h-3 w-3" strokeWidth={2.25} aria-hidden />
+              </button>
+            ) : null}
           </div>
 
+          {/**
+           * Search is capped (`max-w-[14rem]`) so the inline quick-buy SOL
+           * chip below has room — Axiom parity (search + amount enterer + chips).
+           * Pill-rounded (`rounded-full`) to match Axiom's softer header inputs.
+           */}
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search symbol or name..."
             className={cn(
-              'min-w-[120px] flex-1 rounded-sm border border-transparent px-2 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
+              'min-w-[100px] max-w-[14rem] flex-1 rounded-full border border-transparent px-3 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
               'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
               'hover:border-white/15',
             )}
             aria-label={`Search ${title}`}
           />
+
+          {/**
+           * Quick-buy SOL amount enterer for this column. Bound to the
+           * `quickBuySol` slot in `usePulseColumnStore`, so every Ultra / filled
+           * button in this column's rows fires at this size. Number input keeps
+           * mobile decimal keypad without the browser spinner.
+           */}
+          <label
+            className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken px-2 transition-colors focus-within:border-accent-primary/45 focus-within:bg-bg-raised hover:border-border-default"
+            title={`Quick-buy amount in ${quoteSymbol} for ${title}`}
+          >
+            <Zap
+              className="h-3 w-3 shrink-0 fill-accent-primary/40 text-accent-primary"
+              strokeWidth={2.4}
+              aria-hidden
+            />
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={0}
+              value={Number.isFinite(quickBuySol) ? quickBuySol : 0}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setQuickBuySol(column, Number.isFinite(next) && next >= 0 ? next : 0);
+              }}
+              className="w-9 bg-transparent text-[11px] font-semibold tabular-nums text-fg-primary outline-none placeholder:text-fg-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              aria-label={`Quick-buy amount for ${title} in ${quoteSymbol}`}
+            />
+          </label>
 
           <span className="shrink-0 rounded-full bg-fg-muted/10 px-2 py-0.5 tabular-nums text-[10px] tabular-nums text-fg-muted">
             {visibleRows.length}
@@ -416,7 +481,9 @@ export function PulseColumn({
       {isTabled ? (
         <div
           className={cn(
-            'shrink-0 border-b border-border-subtle bg-bg-raised px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted',
+            // Sub-header mirrors the main header tone so the whole top strip
+            // reads as one band sitting above the row list.
+            'shrink-0 border-b border-border-subtle bg-bg-hover px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted',
             'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3',
           )}
           aria-hidden
@@ -432,7 +499,12 @@ export function PulseColumn({
 
       <div
         ref={listMountRef}
-        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-bg-raised"
+        /**
+         * Scroll/list region. `bg-white/[0.025]` matches the elevated `.pulse-row`
+         * overlay defined in globals.css, so empty space below the last row reads
+         * with the same brightness as the rows themselves (no dark gap).
+         */
+        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-white/[0.025]"
       >
         {query.isLoading ? (
           <div>

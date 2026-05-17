@@ -12,19 +12,24 @@ export type AlertsTickerItem = {
   createdAt: string;
 };
 
-export function useAlertsTickerQuery() {
+/**
+ * `@param options.pollAggressively` — Pulse / rail surfaces poll even while the copilot overlay is tucked away.
+ */
+export function useAlertsTickerQuery(options?: { pollAggressively?: boolean }) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const copilotSurfaceOpen = useUIStore(selectCopilotSurfaceOpen);
+  const aggressive = Boolean(options?.pollAggressively);
+  const enabled = authenticated && (aggressive || copilotSurfaceOpen);
 
   return useQuery({
-    queryKey: ['alerts-ticker'],
-    enabled: authenticated && copilotSurfaceOpen,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    queryKey: ['alerts-ticker', aggressive ? 'pulse' : 'default'],
+    enabled,
+    refetchInterval: aggressive ? 8000 : 30_000,
+    staleTime: aggressive ? 4000 : 15_000,
     queryFn: async (): Promise<AlertsTickerItem[]> => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const res = await fetch('/api/alerts/ticker?limit=15', {
+      const res = await fetch(`/api/alerts/ticker?limit=${aggressive ? 35 : 15}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json: unknown = await res.json();

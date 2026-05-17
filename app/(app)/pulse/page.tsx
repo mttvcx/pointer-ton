@@ -1,9 +1,8 @@
-import { PulseColumn } from '@/components/tokens/PulseColumn';
+import { PulsePageLayout } from '@/components/tokens/PulsePageLayout';
 import {
   decodeColumnPresetShare,
   type ColumnPresetSharePayload,
 } from '@/lib/tokens/columnPresetModel';
-import { cn } from '@/lib/utils/cn';
 
 export default async function PulsePage({
   searchParams,
@@ -27,26 +26,10 @@ export default async function PulsePage({
   }
 
   return (
-    <div
-      data-onboarding="pulse-feed"
-      className={cn(
-        // `pulse-columns` is the hook the Display preference uses to set
-        // horizontal gap between the three columns (compact/default/spaced).
-        // h-full + min-h-0 anchors the inner columns to the available height
-        // so each column can scroll independently inside its bounded box.
-        // px-* gives both screen edges breathing room so V/MC numbers
-        // never sit flush against the viewport edge.
-        // pt-2/pb-3: the rounded `bg-bg-raised` column panels need padding
-        // above/below them so the rounded corners are visible (otherwise
-        // they butt directly into the top-bar / bottom-bar and read as
-        // straight edges).
-        'pulse-columns flex h-full min-h-0 w-full min-w-0 flex-1 flex-col px-2 pb-3 pt-8 sm:px-3 sm:pt-10 lg:px-4 lg:pt-12',
-        'xl:flex-row xl:flex-nowrap xl:items-stretch',
-      )}
-    >
-      <PulseColumn column="new" initialShare={initialNew} />
-      <PulseColumn column="stretch" initialShare={initialStretch} />
-      <PulseColumn column="migrated" initialShare={initialMigrated} />
-    </div>
+    <PulsePageLayout
+      initialNew={initialNew}
+      initialStretch={initialStretch}
+      initialMigrated={initialMigrated}
+    />
   );
 }

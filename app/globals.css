@@ -18,7 +18,7 @@
    * Top bar baseline height; bottom bar is 2.75rem + home-indicator inset.
    */
   :root {
-    --app-topbar-h: calc(64px + env(safe-area-inset-top, 0px));
+    --app-topbar-h: calc(56px + env(safe-area-inset-top, 0px));
     --app-bottombar-h: calc(2.75rem + env(safe-area-inset-bottom, 0px));
   }
 

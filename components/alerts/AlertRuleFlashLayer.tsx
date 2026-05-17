@@ -3,7 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
-import { ALERT_TYPE_ALERT_RULE } from '@/lib/alerts/alertRuleModel';
+import {
+  POINTER_ALERT_UX_PREVIEW_EVT,
+  type AlertUxPreviewDetail,
+} from '@/lib/alerts/alertUxPreview';
+import {
+  ALERT_TYPE_ALERT_RULE,
+  ALERT_TYPE_TWITTER_LISTEN,
+} from '@/lib/alerts/alertRuleModel';
 import { cn } from '@/lib/utils/cn';
 
 type FlashPayload = {
@@ -43,7 +50,7 @@ export function AlertRuleFlashLayer() {
     for (const a of data) {
       if (seenIds.current.has(a.id)) continue;
       seenIds.current.add(a.id);
-      if (a.type !== ALERT_TYPE_ALERT_RULE) continue;
+      if (a.type !== ALERT_TYPE_ALERT_RULE && a.type !== ALERT_TYPE_TWITTER_LISTEN) continue;
       const f = readFlashFromPayload(a.payload);
       if (f?.enabled === false) continue;
       const color = f?.color && /^#[0-9A-Fa-f]{6}$/.test(f.color) ? f.color : '#7C5CFF';
@@ -59,6 +66,26 @@ export function AlertRuleFlashLayer() {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     };
   }, [authenticated, data]);
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    function onPreview(e: Event) {
+      const ce = e as CustomEvent<AlertUxPreviewDetail>;
+      const raw = ce.detail?.color ?? '#0077B6';
+      const color = /^#[0-9A-Fa-f]{6}$/.test(raw) ? raw : '#7C5CFF';
+      const opacity = ce.detail?.size === 'large' ? 0.22 : 0.12;
+      requestAnimationFrame(() => {
+        setFlash({ color, opacity });
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => setFlash(null), 420);
+      });
+    }
+    window.addEventListener(POINTER_ALERT_UX_PREVIEW_EVT, onPreview as EventListener);
+    return () => {
+      window.removeEventListener(POINTER_ALERT_UX_PREVIEW_EVT, onPreview as EventListener);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   if (!flash) return null;
 

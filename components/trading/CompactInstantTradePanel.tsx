@@ -7,7 +7,8 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeftRight,
-  ExternalLink,
+  Check,
+  ChevronDown,
   GripVertical,
   Keyboard,
   Pencil,
@@ -16,9 +17,10 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { SAMPLE_WALLET_GROUPS, getRecentGroups } from '@/lib/trade/sampleWalletGroups';
 import { BUY_PRESETS_SOL, DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import type { MevMode } from '@/lib/trading/mevMode';
-import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
+import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { useSpotTradeExecution } from '@/lib/hooks/useSpotTradeExecution';
 import { useTradingStore, type PresetSlot, INSTANT_TRADE_WALLET_CAP } from '@/store/trading';
@@ -42,8 +44,9 @@ const BOUNDS_KEY = 'pointer-instant-compact-trade-bounds-v1';
 const LEGACY_POS_KEY = 'pointer-instant-trade-pos-v1';
 const SLOT_OVERRIDES_KEY = 'pointer-instant-trade-slot-overrides-v1';
 
-const MIN_W = 256;
-const MIN_H = 298;
+/** Stops resize before internal overflow; pairing with viewport bottom inset avoids covering the SOL dock. */
+const MIN_W = 312;
+const MIN_H = 364;
 /** Default size when no saved bounds — roomy enough that preset chips breathe. */
 const DEFAULT_BOUNDS = { x: 56, y: 72, w: 340, h: 504 } as const;
 /** Axiom-style bright blue “editing preset values” treatment. */
@@ -53,10 +56,27 @@ const DEFAULT_SELL_PCT = [0.5, 1, 2, 3, 5, 10, 25, 100] as const;
 const DEFAULT_SELL_SOL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 const INSTANT_FILL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 
-/** Below this width: only first row of presets (4 chips). */
-const PRESET_NARROW_W = 296;
-/** At or above (unless narrow): lay out all 8 presets — threshold tightens slightly when taller. */
-const PRESET_SINGLE_ROW_W = 524;
+/**
+ * At or above this height: full 8 chips in two rows (`grid-cols-4`).
+ * Below: only the usual *top row* presets (cells 1–4) — one row total, not eight across.
+ */
+const PRESET_TWO_ROW_MIN_H = 468;
+
+const EDGE_INSET = 8;
+
+/** Keep the floating shell above `--app-bottombar-h` (+ small gutter) like `InstantTradeButton`. */
+function viewportBottomReservePx(): number {
+  if (typeof window === 'undefined') return 72;
+  try {
+    const gutter = 12;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--app-bottombar-h');
+    let barPx = Number.parseFloat(raw);
+    if (!Number.isFinite(barPx)) barPx = 52; // ~ `--app-bottombar-h` baseline (44px+) + fudge
+    return gutter + barPx;
+  } catch {
+    return 72;
+  }
+}
 
 type TradingPresetApi = {
   slot: PresetSlot;
@@ -175,6 +195,25 @@ function persistSlotOverrides(payload: SlotPersistV2) {
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
+}
+
+/** Enforce instant-trade mins and keep on-screen (matches resize clamps — avoids saved tiny bounds + inner scroll). */
+function clampInstantTradeBounds(b: { x: number; y: number; w: number; h: number }): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
+  if (typeof window === 'undefined') {
+    return { ...b, w: Math.max(MIN_W, b.w), h: Math.max(MIN_H, b.h) };
+  }
+  const maxR = window.innerWidth - EDGE_INSET;
+  const maxB = window.innerHeight - viewportBottomReservePx();
+  const w = Math.max(MIN_W, Math.min(b.w, maxR - EDGE_INSET));
+  const h = Math.max(MIN_H, Math.min(b.h, maxB - EDGE_INSET));
+  const x = clamp(b.x, EDGE_INSET, Math.max(EDGE_INSET, maxR - w));
+  const y = clamp(b.y, EDGE_INSET, Math.max(EDGE_INSET, maxB - h));
+  return { x, y, w, h };
 }
 
 function parseBoundsJson(raw: string | null): { x: number; y: number; w: number; h: number } | null {
@@ -368,10 +407,12 @@ function applyResize(
     h = MIN_H;
   }
 
-  const maxR = window.innerWidth - 8;
-  const maxB = window.innerHeight - 8;
-  x = clamp(x, 8, maxR - MIN_W);
-  y = clamp(y, 8, maxB - MIN_H);
+  const insetB = viewportBottomReservePx();
+  const maxR = window.innerWidth - EDGE_INSET;
+  const maxB = window.innerHeight - insetB;
+
+  x = clamp(x, EDGE_INSET, maxR - MIN_W);
+  y = clamp(y, EDGE_INSET, maxB - MIN_H);
   w = clamp(w, MIN_W, maxR - x);
   h = clamp(h, MIN_H, maxB - y);
   if (x + w > maxR) w = maxR - x;
@@ -424,6 +465,30 @@ export function CompactInstantTradePanel({
 
   const [presetEditorSlot, setPresetEditorSlot] = useState<PresetSlot | null>(null);
   const [advancedModalSlot, setAdvancedModalSlot] = useState<PresetSlot | null>(null);
+
+  /**
+   * Task BB — wallet-group switcher (top row).
+   * Sample data only; real persistence lands in a follow-up task.
+   */
+  const [activeWalletGroupId, setActiveWalletGroupId] = useState<string>(
+    SAMPLE_WALLET_GROUPS[0]?.id ?? 'g1',
+  );
+  const [walletGroupMenuOpen, setWalletGroupMenuOpen] = useState(false);
+  const recentWalletGroups = useMemo(() => getRecentGroups(SAMPLE_WALLET_GROUPS, 5), []);
+  const overflowWalletGroups = useMemo(
+    () => SAMPLE_WALLET_GROUPS.filter((g) => !recentWalletGroups.find((r) => r.id === g.id)),
+    [recentWalletGroups],
+  );
+  const walletGroupMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!walletGroupMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (walletGroupMenuRef.current?.contains(e.target as Node)) return;
+      setWalletGroupMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [walletGroupMenuOpen]);
 
   const dragStart = useRef<{
     kind: 'move' | 'resize';
@@ -485,7 +550,7 @@ export function CompactInstantTradePanel({
   useEffect(() => {
     if (!open) return;
     const raf = requestAnimationFrame(() => {
-      setBounds(readBoundsForWallet(wallet?.address ?? null));
+      setBounds(clampInstantTradeBounds(readBoundsForWallet(wallet?.address ?? null)));
       setSlotBundle(readSlotOverrides() ?? migrateLegacySlots());
       setInstantUi(readInstantTradeUiSettings());
     });
@@ -637,53 +702,65 @@ export function CompactInstantTradePanel({
   const presetLayout = useMemo(() => {
     const w = bounds.w;
     const h = bounds.h;
-    const tall = h >= 400;
-    const xlH = h >= 492;
-    const narrowOnlyFirstRow = w < (tall ? PRESET_NARROW_W + 12 : PRESET_NARROW_W);
-    const wideBreak = xlH ? PRESET_SINGLE_ROW_W - 44 : PRESET_SINGLE_ROW_W;
-    const singleRowEight = w >= wideBreak && !narrowOnlyFirstRow;
-    let chipCls =
-      'h-7 max-h-7 min-h-[28px] rounded-full px-0 text-[10px] font-semibold leading-none tabular-nums';
-    if (w >= 420 && h >= 432) {
-      chipCls =
-        'h-8 max-h-8 min-h-[32px] rounded-full px-0 text-[11px] font-semibold leading-none tabular-nums';
+    const twoRowGrid = h >= PRESET_TWO_ROW_MIN_H;
+    const topRowOnlyCompact = !twoRowGrid;
+    const gridCols = 'grid-cols-4';
+    const gridGapCls = twoRowGrid ? 'gap-0.5' : 'gap-0.5';
+
+    // Axiom-like flexible scale: both width and height grow touch targets when there is room.
+    const short = Math.min(w, h);
+    const long = Math.max(w, h);
+
+    let chipBox =
+      'h-6 max-h-6 min-h-[24px] rounded-md px-0 text-[9px] font-semibold leading-none tabular-nums';
+    if (short >= 300 && h >= 396) {
+      chipBox =
+        'h-7 max-h-7 min-h-[28px] rounded-md px-0 text-[10px] font-semibold leading-none tabular-nums';
     }
-    if (w >= 460 && xlH) {
-      chipCls =
-        'h-10 max-h-10 min-h-[40px] rounded-full px-0 text-[12px] font-semibold leading-none tabular-nums';
+    if (short >= 318 && h >= 430) {
+      chipBox =
+        'h-8 max-h-8 min-h-[32px] rounded-md px-0 text-[11px] font-semibold leading-none tabular-nums';
+    }
+    if (short >= 332 && h >= 462) {
+      chipBox =
+        'h-9 max-h-9 min-h-[36px] rounded-md px-0 text-[12px] font-semibold leading-none tabular-nums';
+    }
+    if (short >= 344 && h >= 492 && long >= 512) {
+      chipBox =
+        'h-10 max-h-10 min-h-[40px] rounded-md px-0 text-[12px] font-semibold leading-none tabular-nums';
     }
 
-    const showDenseTradeMeta = h >= 356;
-    const showAdvToggle = h >= 374;
-    const showSellPrincipal = h >= 396;
-    const showPnlFloor = instantUi.showPnlRow && h >= 340;
-
-    const microMetaStrip = !showDenseTradeMeta && h >= 320;
+    let metaText = 'text-[10px] leading-snug';
+    let metaIcon = 'h-3 w-3';
+    if (short >= 312 && h >= 404) {
+      metaText = 'text-[11px] leading-snug';
+      metaIcon = 'h-3.5 w-3.5';
+    }
+    if (short >= 328 && h >= 438) {
+      metaText = 'text-xs leading-snug';
+      metaIcon = 'h-4 w-4';
+    }
 
     return {
-      narrowOnlyFirstRow,
-      singleRowEight,
-      gridCols: singleRowEight ? 'grid-cols-8' : 'grid-cols-4',
-      chipCls,
-      showDenseTradeMeta,
-      showAdvToggle,
-      showSellPrincipal,
-      showPnlFloor,
-      microMetaStrip,
+      twoRowGrid,
+      topRowOnlyCompact,
+      gridCols,
+      gridGapCls,
+      chipCls: chipBox,
+      metaText,
+      metaIcon,
     };
-  }, [bounds.w, bounds.h, instantUi.showPnlRow]);
+  }, [bounds.w, bounds.h]);
 
-  const buyChips = presetLayout.narrowOnlyFirstRow ? buyValues.slice(0, 4) : buyValues;
-  const sellChips = presetLayout.narrowOnlyFirstRow ? sellValues.slice(0, 4) : sellValues;
+  const buyChips =
+    editSlots || !presetLayout.topRowOnlyCompact ? buyValues : buyValues.slice(0, 4);
+  const sellChips =
+    editSlots || !presetLayout.topRowOnlyCompact ? sellValues : sellValues.slice(0, 4);
 
   const netSessionPnl = lifetimeStats.sellTon - lifetimeStats.buyTon;
-  const netPct = lifetimeStats.buyTon > 0 ? (netSessionPnl / lifetimeStats.buyTon) * 100 : null;
-  /** Naive session “still deployed” TON (buy flow − sell flow); strip-only hint. */
+  const netPctForTitle =
+    lifetimeStats.buyTon > 0 ? (netSessionPnl / lifetimeStats.buyTon) * 100 : null;
   const remainingTon = Math.max(0, lifetimeStats.buyTon - lifetimeStats.sellTon);
-  const pnlPctInside =
-    lifetimeStats.buyTon > 0 && netPct != null
-      ? `${netPct >= 0 ? '+' : ''}${formatNumber(netPct, { decimals: 1 })}%`
-      : '+0%';
 
   const spendAssetOptions = useMemo(() => {
     const t = nativeTicker(activeChain);
@@ -754,13 +831,13 @@ export function CompactInstantTradePanel({
     if (!d) return;
     const dx = e.clientX - d.px;
     const dy = e.clientY - d.py;
-    const maxW = window.innerWidth - 8;
-    const maxH = window.innerHeight - 8;
+    const maxW = window.innerWidth - EDGE_INSET;
+    const maxBottomY = window.innerHeight - viewportBottomReservePx();
     setBounds((prev) => {
       let next = prev;
       if (d.kind === 'move') {
-        const nx = clamp(d.rx + dx, 8, maxW - d.rw);
-        const ny = clamp(d.ry + dy, 8, maxH - d.rh);
+        const nx = clamp(d.rx + dx, EDGE_INSET, maxW - d.rw);
+        const ny = clamp(d.ry + dy, EDGE_INSET, maxBottomY - d.rh);
         next = { ...prev, x: nx, y: ny };
       } else if (d.edge) {
         next = applyResize(d.edge, d.rx, d.ry, d.rw, d.rh, dx, dy);
@@ -782,6 +859,39 @@ export function CompactInstantTradePanel({
     persistBoundsForWallet(boundsRef.current, wallet?.address ?? null);
   }, [wallet?.address]);
 
+  /** Must run before any early return — otherwise opening the panel changes hook count (React crashes). */
+  const selectAllWallets = useCallback(() => {
+    if (!walletRows) return;
+    clearInstantTradeWalletShortlist();
+    let count = 0;
+    for (const w of walletRows) {
+      if (count >= INSTANT_TRADE_WALLET_CAP) break;
+      const canSign = signingWalletAddresses.has(w.wallet_address);
+      if (w.is_archived || !w.is_active || !canSign) continue;
+      toggleInstantTradeWallet(w.wallet_address);
+      count += 1;
+    }
+  }, [walletRows, signingWalletAddresses, clearInstantTradeWalletShortlist, toggleInstantTradeWallet]);
+
+  const selectAllWalletsWithBalance = useCallback(() => {
+    if (!walletRows) return;
+    clearInstantTradeWalletShortlist();
+    let count = 0;
+    for (const w of walletRows) {
+      if (count >= INSTANT_TRADE_WALLET_CAP) break;
+      const canSign = signingWalletAddresses.has(w.wallet_address);
+      if (w.is_archived || !w.is_active || !canSign) continue;
+      const sol =
+        w.balance_lamports != null && w.balance_lamports !== ''
+          ? lamportsToSol(BigInt(w.balance_lamports))
+          : 0;
+      if (sol > 0) {
+        toggleInstantTradeWallet(w.wallet_address);
+        count += 1;
+      }
+    }
+  }, [walletRows, signingWalletAddresses, clearInstantTradeWalletShortlist, toggleInstantTradeWallet]);
+
   if (!mounted || !open) return null;
 
   const feeHint = activePreset
@@ -794,8 +904,8 @@ export function CompactInstantTradePanel({
   const panel = (
     <div
       className={cn(
-        'fixed z-[240] flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[rgba(8,10,18,0.52)] font-sans shadow-[0_24px_48px_-16px_rgba(0,0,0,0.65)] backdrop-blur-xl backdrop-saturate-150 transition-[opacity,transform,box-shadow] duration-150 ease-out',
-        grabbed && 'scale-[1.015] opacity-[0.88] shadow-[0_28px_64px_-12px_rgba(0,0,0,0.75)] ring-1 ring-white/12',
+        'fixed z-[240] flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised font-sans shadow-[0_24px_48px_-16px_rgba(0,0,0,0.65)] transition-[opacity,transform,box-shadow] duration-150 ease-out',
+        grabbed && 'scale-[1.015] opacity-[0.88] shadow-[0_28px_64px_-12px_rgba(0,0,0,0.75)] ring-1 ring-border-subtle',
       )}
       style={{ left: bounds.x, top: bounds.y, width: bounds.w, height: bounds.h }}
       role="dialog"
@@ -876,7 +986,89 @@ export function CompactInstantTradePanel({
         onPointerCancel={onDragUp}
       />
 
-      <div className="relative z-10 flex shrink-0 items-center gap-0.5 border-b border-white/[0.08] px-1.5 py-1 pl-2">
+      {/**
+       * Task BB — wallet-group switcher (top row).
+       * Top 5 by recency render as inline pills; the rest fall into a
+       * chevron dropdown anchored to the right. Sample data only.
+       */}
+      <div className="relative z-10 flex shrink-0 items-center gap-1 border-b border-border-subtle px-1.5 py-1">
+        <div
+          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="Recent wallet groups"
+        >
+          {recentWalletGroups.map((g) => {
+            const active = activeWalletGroupId === g.id;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setActiveWalletGroupId(g.id)}
+                title={`${g.label} · ${g.walletCount} wallet${g.walletCount === 1 ? '' : 's'}`}
+                className={cn(
+                  'btn-press h-6 shrink-0 rounded-md border px-2 text-[10px] font-semibold transition-colors',
+                  active
+                    ? 'border-accent-primary/55 bg-accent-primary/15 text-accent-primary'
+                    : 'border-border-subtle bg-transparent text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                )}
+              >
+                {g.label}
+              </button>
+            );
+          })}
+        </div>
+        {overflowWalletGroups.length > 0 ? (
+          <div className="relative shrink-0" ref={walletGroupMenuRef}>
+            <button
+              type="button"
+              onClick={() => setWalletGroupMenuOpen((v) => !v)}
+              className={cn(
+                'btn-press flex h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary',
+                walletGroupMenuOpen && 'bg-bg-hover text-fg-primary',
+              )}
+              aria-expanded={walletGroupMenuOpen}
+              aria-haspopup="listbox"
+              title="More wallet groups"
+            >
+              <ChevronDown className="h-3 w-3" strokeWidth={2} />
+            </button>
+            {walletGroupMenuOpen ? (
+              <div
+                role="listbox"
+                className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-md border border-border-subtle bg-bg-raised p-1 shadow-2xl"
+              >
+                {overflowWalletGroups.map((g) => {
+                  const active = activeWalletGroupId === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      role="option"
+                      aria-selected={active}
+                      type="button"
+                      onClick={() => {
+                        setActiveWalletGroupId(g.id);
+                        setWalletGroupMenuOpen(false);
+                      }}
+                      className={cn(
+                        'flex h-7 w-full items-center justify-between gap-2 rounded px-2 text-left text-[11px] transition-colors',
+                        active
+                          ? 'bg-accent-primary/15 text-accent-primary'
+                          : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                      )}
+                    >
+                      <span className="truncate">{g.label}</span>
+                      <span className="shrink-0 tabular-nums text-[9px] text-fg-muted">
+                        {g.walletCount}w
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="relative z-10 flex shrink-0 items-center gap-0.5 border-b border-border-subtle px-1.5 py-1 pl-2">
         <Keyboard className="h-3 w-3 shrink-0 text-fg-muted/70" aria-hidden />
         {([1, 2, 3] as const).map((slot) => (
           <button
@@ -979,14 +1171,18 @@ export function CompactInstantTradePanel({
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-2 pb-1.5 pt-1 text-[10px]">
         {!walletsReady ? (
-          <p className="text-fg-muted">Loading...</p>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-1.5 pt-1 text-[10px]">
+            <p className="text-fg-muted">Loading...</p>
+          </div>
         ) : !authenticated || !wallet ? (
-          <p className="text-signal-warn">Sign in with an embedded wallet to trade.</p>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-1.5 pt-1 text-[10px]">
+            <p className="text-signal-warn">Sign in with an embedded wallet to trade.</p>
+          </div>
         ) : (
-          <div className="flex min-h-full flex-col">
-            <div className="shrink-0">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2 pt-1 text-[10px]">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="shrink-0 pb-1.5">
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold uppercase tracking-wide text-fg-muted">Buy</span>
               <div className="flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5">
@@ -1012,7 +1208,7 @@ export function CompactInstantTradePanel({
                 ))}
               </div>
             </div>
-            <div className={cn('mt-0.5 grid gap-0.5', presetLayout.gridCols)}>
+            <div className={cn('mt-0.5 grid', presetLayout.gridGapCls, presetLayout.gridCols)}>
               {buyChips.map((sol, i) =>
                 editSlots ? (
                   <input
@@ -1036,7 +1232,8 @@ export function CompactInstantTradePanel({
                     type="button"
                     onClick={() => void runBuy(sol)}
                     className={cn(
-                      'btn-press flex items-center justify-center border border-border-subtle bg-bg-sunken text-center font-sans font-medium text-fg-secondary transition hover:border-signal-bull/35 hover:bg-signal-bull/10 hover:text-signal-bull active:bg-signal-bull/15',
+                      // Task BB: Buy = green outline, transparent fill.
+                      'btn-press flex items-center justify-center border border-signal-bull/45 bg-transparent text-center font-sans font-semibold text-signal-bull transition hover:border-signal-bull hover:bg-signal-bull/10 active:bg-signal-bull/15',
                       presetLayout.chipCls,
                     )}
                   >
@@ -1045,30 +1242,33 @@ export function CompactInstantTradePanel({
                 ),
               )}
             </div>
-            {presetLayout.showDenseTradeMeta ? (
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
-                <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
-                <span>{feeHint}</span>
-                <span className="inline-flex items-center gap-0.5">
-                  <Shield className="h-2.5 w-2.5" /> On
-                </span>
-                {presetLayout.showAdvToggle ? (
-                  <label className="ml-auto inline-flex cursor-pointer items-center gap-1 text-[8px] text-fg-secondary">
-                    <input
-                      type="checkbox"
-                      checked={advChecked}
-                      onChange={(e) => setAdvChecked(e.target.checked)}
-                      className="h-2.5 w-2.5 rounded border-border-subtle"
-                    />
-                    Adv.
-                  </label>
-                ) : null}
-              </div>
-            ) : presetLayout.microMetaStrip ? (
-              <div className="mt-0.5 truncate text-[8px] text-fg-muted">
-                {(effectiveSlippageBps / 100).toFixed(2)}% slip · prio/jito {feeHint} · shield on
-              </div>
-            ) : null}
+            <div
+              className={cn(
+                'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
+                presetLayout.metaText,
+              )}
+            >
+              <span className="font-medium tabular-nums">
+                {(effectiveSlippageBps / 100).toFixed(2)}% slip
+              </span>
+              <span className="tabular-nums text-fg-muted">{feeHint}</span>
+              <span className="inline-flex items-center gap-1">
+                <Shield
+                  className={cn(presetLayout.metaIcon, 'shrink-0 text-fg-muted')}
+                  aria-hidden
+                />{' '}
+                On
+              </span>
+              <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={advChecked}
+                  onChange={(e) => setAdvChecked(e.target.checked)}
+                  className="h-3 w-3 rounded border-border-subtle accent-accent-primary"
+                />
+                Adv.
+              </label>
+            </div>
 
             <div className="mt-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
               <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-fg-muted">
@@ -1106,7 +1306,7 @@ export function CompactInstantTradePanel({
                 {uiBal} {tick}
               </span>
             </div>
-            <div className={cn('mt-0.5 grid gap-0.5', presetLayout.gridCols)}>
+            <div className={cn('mt-0.5 grid', presetLayout.gridGapCls, presetLayout.gridCols)}>
               {sellChips.map((pct, i) =>
                 editSlots ? (
                   <input
@@ -1142,7 +1342,8 @@ export function CompactInstantTradePanel({
                       void (sellMode === 'pct' ? runSell(pct) : runSellSolOut(pct))
                     }
                     className={cn(
-                      'btn-press flex items-center justify-center border border-border-subtle bg-bg-sunken text-center font-sans font-medium text-fg-secondary transition hover:border-signal-bear/35 hover:bg-signal-bear/10 hover:text-signal-bear active:bg-signal-bear/15',
+                      // Task BB: Sell = red outline, transparent fill.
+                      'btn-press flex items-center justify-center border border-signal-bear/45 bg-transparent text-center font-sans font-semibold text-signal-bear transition hover:border-signal-bear hover:bg-signal-bear/10 active:bg-signal-bear/15',
                       presetLayout.chipCls,
                     )}
                   >
@@ -1151,260 +1352,278 @@ export function CompactInstantTradePanel({
                 ),
               )}
             </div>
-            {presetLayout.showDenseTradeMeta ? (
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] text-fg-muted">
-                <span>{(effectiveSlippageBps / 100).toFixed(2)}% slip</span>
-                <span>{feeHint}</span>
-                <span className="inline-flex items-center gap-0.5">
-                  <Shield className="h-2.5 w-2.5" /> On
-                </span>
-                {presetLayout.showSellPrincipal ? (
-                  <button
-                    type="button"
-                    title={`Sell enough to recover tracked ${nativeSym} in (principal); profit stays in tokens`}
-                    disabled={!costBasisTonSol || costBasisTonSol <= 0}
-                    onClick={() => void runSellInitial()}
-                    className={cn(
-                      'btn-press ml-auto rounded-md border px-1.5 py-0.5 text-[8px] font-semibold transition',
-                      costBasisTonSol > 0
-                        ? 'border-rose-400/35 text-rose-300/95 hover:border-rose-400/55 hover:bg-rose-500/[0.08]'
-                        : 'cursor-not-allowed border-white/10 text-fg-muted opacity-50',
-                    )}
-                  >
-                    Sell Init.{costBasisTonSol > 0 ? ` ${fmtSolChip(costBasisTonSol)}` : ''}
-                  </button>
-                ) : null}
-              </div>
-            ) : presetLayout.microMetaStrip ? (
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[8px] text-fg-muted">
-                <span>sell presets · slip {(effectiveSlippageBps / 100).toFixed(2)}%</span>
-                {presetLayout.showSellPrincipal ? (
-                  <button
-                    type="button"
-                    disabled={!costBasisTonSol || costBasisTonSol <= 0}
-                    onClick={() => void runSellInitial()}
-                    className={cn(
-                      'btn-press ml-auto rounded border px-1 py-px text-[8px] font-semibold transition',
-                      costBasisTonSol > 0 ? 'border-rose-400/35 text-rose-200' : 'cursor-not-allowed opacity-45',
-                    )}
-                  >
-                    Init
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+            <div
+              className={cn(
+                'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
+                presetLayout.metaText,
+              )}
+            >
+              <span className="font-medium tabular-nums">
+                {(effectiveSlippageBps / 100).toFixed(2)}% slip
+              </span>
+              <span className="tabular-nums text-fg-muted">{feeHint}</span>
+              <span className="inline-flex items-center gap-1">
+                <Shield
+                  className={cn(presetLayout.metaIcon, 'shrink-0 text-fg-muted')}
+                  aria-hidden
+                />{' '}
+                On
+              </span>
+              <button
+                type="button"
+                title={`Sell enough to recover tracked ${nativeSym} in (principal); profit stays in tokens`}
+                disabled={!costBasisTonSol || costBasisTonSol <= 0}
+                onClick={() => void runSellInitial()}
+                className={cn(
+                  'btn-press ml-auto rounded-md border px-1.5 py-0.5 font-semibold transition',
+                  presetLayout.metaText,
+                  costBasisTonSol > 0
+                    ? 'border-rose-400/35 text-rose-300/95 hover:border-rose-400/55 hover:bg-rose-500/[0.08]'
+                    : 'cursor-not-allowed border-border-subtle text-fg-muted opacity-50',
+                )}
+              >
+                Sell Init.{costBasisTonSol > 0 ? ` ${fmtSolChip(costBasisTonSol)}` : ''}
+              </button>
             </div>
-
-            {presetLayout.showPnlFloor ? (
+            </div>
+            {instantUi.showPnlRow ? (
               <div
-                className="mt-auto flex min-h-[26px] shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-white/[0.06] pt-2 text-[11px]"
+                className="mt-auto grid shrink-0 grid-cols-4 divide-x divide-border-subtle border-t border-border-subtle px-0 py-2 text-[11px]"
                 role="group"
                 aria-label={`Instant trade stats · ${nativeSym}`}
               >
-                <span
-                  className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-400"
-                  title="Bought"
-                >
-                  <span className="sr-only">Bought </span>
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                  {formatNumber(lifetimeStats.buyTon, { decimals: 4 })}
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 tabular-nums font-semibold text-rose-400"
-                  title="Sold"
-                >
-                  <span className="sr-only">Sold </span>
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                  {formatNumber(lifetimeStats.sellTon, { decimals: 4 })}
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 tabular-nums font-semibold text-amber-400"
-                  title="Remaining"
-                >
-                  <span className="sr-only">Remaining </span>
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                  {formatNumber(remainingTon, { decimals: 4 })}
-                </span>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 tabular-nums font-semibold',
-                    netSessionPnl >= 0 ? 'text-emerald-400' : 'text-rose-400',
-                  )}
-                  title="PnL"
-                >
-                  <span className="sr-only">PnL </span>
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                  {netSessionPnl >= 0 ? '+' : ''}
-                  {formatNumber(netSessionPnl, { decimals: 4 })}
-                  <span className="text-fg-secondary">({pnlPctInside})</span>
-                </span>
+                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                  <span
+                    className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-400"
+                    title="Bought"
+                  >
+                    <span className="sr-only">Bought </span>
+                    <img
+                      src={CHAIN_ICON_PNG[activeChain]}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      draggable={false}
+                    />
+                    {formatNumber(lifetimeStats.buyTon, { decimals: 4 })}
+                  </span>
+                </div>
+                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                  <span
+                    className="inline-flex items-center gap-1 tabular-nums font-semibold text-rose-400"
+                    title="Sold"
+                  >
+                    <span className="sr-only">Sold </span>
+                    <img
+                      src={CHAIN_ICON_PNG[activeChain]}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      draggable={false}
+                    />
+                    {formatNumber(lifetimeStats.sellTon, { decimals: 4 })}
+                  </span>
+                </div>
+                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                  <span
+                    className="inline-flex items-center gap-1 tabular-nums font-semibold text-amber-400"
+                    title="Remaining"
+                  >
+                    <span className="sr-only">Remaining </span>
+                    <img
+                      src={CHAIN_ICON_PNG[activeChain]}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      draggable={false}
+                    />
+                    {formatNumber(remainingTon, { decimals: 4 })}
+                  </span>
+                </div>
+                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                  <span
+                    className={cn(
+                      'inline-flex min-w-0 max-w-full items-center justify-center gap-1 truncate tabular-nums font-semibold',
+                      netSessionPnl >= 0 ? 'text-emerald-400' : 'text-rose-400',
+                    )}
+                    title={
+                      netPctForTitle != null
+                        ? `PnL — ${netPctForTitle >= 0 ? '+' : ''}${formatNumber(netPctForTitle, { decimals: 1 })}%`
+                        : 'PnL'
+                    }
+                  >
+                    <span className="sr-only">PnL </span>
+                    <img
+                      src={CHAIN_ICON_PNG[activeChain]}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      draggable={false}
+                    />
+                    <span className="min-w-0 truncate tracking-tight">
+                      {netSessionPnl >= 0 ? '+' : ''}
+                      {formatNumber(netSessionPnl, { decimals: 4 })}
+                    </span>
+                  </span>
+                </div>
               </div>
             ) : null}
+            </div>
           </div>
         )}
-        </div>
       </div>
     </div>
   );
 
+  /** Wallet popover markup (callbacks are declared above early return — see Task BC wallet menu). */
   const walletMenuDrop =
     walletMenuOpen && (walletRows?.length ?? 0) > 0 && walletPopoverPos
       ? createPortal(
           <div
             ref={walletPopoverRef}
-            role="listbox"
+            role="dialog"
+            aria-label="Select wallets"
             style={{
               position: 'fixed',
               top: walletPopoverPos.top,
               right: walletPopoverPos.right,
-              width: 'min(18rem, calc(100vw - 16px))',
+              width: 'min(20rem, calc(100vw - 16px))',
               zIndex: 520,
             }}
-            className="overflow-hidden rounded-lg border border-border-subtle bg-bg-base/98 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+            className="overflow-hidden rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-2 py-1">
-              <span className="text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
-                Trading wallet
-              </span>
-              {instantTradeWalletShortlist.length > 0 ? (
-                <button
-                  type="button"
-                  className="text-[9px] font-medium text-accent-primary hover:underline"
-                  onClick={() => clearInstantTradeWalletShortlist()}
-                >
-                  Clear multi
-                </button>
-              ) : null}
+            <div className="mb-3 flex gap-2">
+              <button
+                type="button"
+                onClick={selectAllWallets}
+                disabled={!walletRows || walletRows.length === 0}
+                className="btn-press focus-ring h-7 flex-1 rounded bg-bg-sunken px-2 text-[11px] font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={selectAllWalletsWithBalance}
+                disabled={!walletRows || walletRows.length === 0}
+                className="btn-press focus-ring h-7 flex-1 rounded bg-bg-sunken px-2 text-[11px] font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Select All with Balance
+              </button>
             </div>
-            <p className="border-b border-border-subtle px-2 py-1 text-[8px] leading-snug text-fg-muted">
-              Row = signer · check up to {INSTANT_TRADE_WALLET_CAP} for shortlist
-            </p>
-            <div className="max-h-[min(42vh,280px)] overflow-y-auto overscroll-contain">
+
+            <div className="max-h-[min(48vh,288px)] space-y-1 overflow-y-auto pr-1">
               {walletRows!.map((w) => {
                 const canSign = signingWalletAddresses.has(w.wallet_address);
                 const unusable = w.is_archived || !w.is_active || !canSign;
-                const isSel = w.wallet_address === (activeWalletAddress ?? wallet?.address);
+                const isActive = w.wallet_address === (activeWalletAddress ?? wallet?.address);
                 const inShort = instantTradeWalletShortlist.includes(w.wallet_address);
                 const shortlistFull = instantTradeWalletShortlist.length >= INSTANT_TRADE_WALLET_CAP;
+                const checkDisabled = (unusable || (shortlistFull && !inShort)) && !inShort;
                 const solUi =
                   w.balance_lamports != null && w.balance_lamports !== ''
                     ? lamportsToSol(BigInt(w.balance_lamports))
                     : null;
+                const label = w.label?.trim() || `Wallet ${w.slot ?? ''}`.trim();
                 return (
-                  <div
+                  <button
                     key={w.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    disabled={unusable && !isActive}
+                    onClick={() => {
+                      if (unusable && !isActive) return;
+                      setActiveWalletAddress(w.wallet_address);
+                      setWalletMenuOpen(false);
+                    }}
                     className={cn(
-                      'flex items-stretch gap-0.5 border-b border-border-subtle/60 px-1 last:border-b-0',
-                      isSel ? 'bg-bg-hover/70' : '',
+                      'flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-left transition-colors',
+                      isActive && 'bg-accent-primary/[0.06]',
+                      unusable && !isActive
+                        ? 'cursor-not-allowed opacity-50'
+                        : 'hover:bg-bg-hover',
                     )}
                   >
-                    <label className="flex shrink-0 cursor-pointer items-center px-0.5">
-                      <input
-                        type="checkbox"
-                        checked={inShort}
-                        disabled={!inShort && (unusable || shortlistFull)}
-                        onChange={() => toggleInstantTradeWallet(w.wallet_address)}
-                        onClick={(e) => e.stopPropagation()}
-                        title={
-                          shortlistFull && !inShort
-                            ? `Max ${INSTANT_TRADE_WALLET_CAP} wallets`
-                            : 'Shortlist for multi-wallet'
-                        }
-                        className="h-3 w-3 rounded border-border-subtle"
-                        aria-label="Shortlist wallet for multi-select"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={isSel}
-                      disabled={unusable && !isSel}
-                      onClick={() => {
-                        if (unusable && !isSel) return;
-                        setActiveWalletAddress(w.wallet_address);
-                        setWalletMenuOpen(false);
+                    <span
+                      role="checkbox"
+                      aria-checked={inShort}
+                      aria-disabled={checkDisabled || undefined}
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (checkDisabled) return;
+                        toggleInstantTradeWallet(w.wallet_address);
                       }}
+                      title={
+                        shortlistFull && !inShort
+                          ? `Max ${INSTANT_TRADE_WALLET_CAP} wallets`
+                          : 'Shortlist for multi-wallet'
+                      }
                       className={cn(
-                        'min-w-0 flex-1 px-1.5 py-1.5 text-left text-[10px] transition-colors',
-                        unusable && !isSel
-                          ? 'cursor-not-allowed text-fg-muted opacity-50'
-                          : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
-                        isSel && 'text-fg-primary',
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded transition-colors',
+                        inShort
+                          ? 'bg-accent-primary text-fg-inverse'
+                          : 'border border-border-subtle bg-bg-sunken',
+                        checkDisabled && 'opacity-40',
                       )}
                     >
-                      <span className="block truncate font-medium">
-                        {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
-                        {w.is_primary ? (
-                          <span className="font-normal text-fg-muted"> · primary</span>
+                      {inShort ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1">
+                        <span className="truncate text-xs font-medium text-fg-primary">
+                          {label || shortenAddress(w.wallet_address, 4)}
+                        </span>
+                        {isActive ? (
+                          <span className="rounded-sm bg-accent-primary/15 px-1 py-px text-[8px] font-semibold uppercase tracking-wide text-accent-primary">
+                            Active
+                          </span>
                         ) : null}
-                      </span>
-                      <span className="mt-0.5 flex items-center justify-between gap-2 tabular-nums text-[9px] text-fg-muted">
-                        <span>{shortenAddress(w.wallet_address, 4)}</span>
-                        <span className="shrink-0 tabular-nums">
-                          {solUi != null
-                            ? `${formatNumber(solUi, { decimals: 3 })} ${nativeSym}`
-                            : `0.000 ${nativeSym}`}
-                        </span>
-                      </span>
-                      {(w.is_archived || !w.is_active || !canSign) && (
-                        <span className="mt-0.5 block text-[8px] text-signal-warn">
-                          {!canSign
-                            ? 'Not linked to app wallet'
-                            : w.is_archived
-                              ? 'Archived'
-                              : 'Inactive'}
-                        </span>
-                      )}
-                    </button>
-                    <a
-                      href={explorerAddressUrl(w.wallet_address)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex shrink-0 items-center px-1 text-fg-muted hover:text-fg-secondary"
-                      title="Explorer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ExternalLink className="h-3 w-3" strokeWidth={2} />
-                    </a>
-                  </div>
+                      </div>
+                      <div className="truncate font-mono text-[10px] text-fg-muted">
+                        {shortenAddress(w.wallet_address, 4)}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-xs tabular-nums text-fg-secondary">
+                        {solUi != null ? formatNumber(solUi, { decimals: 3 }) : '\u2014'}
+                      </div>
+                      <div className="text-[9px] uppercase tracking-wide text-fg-muted">
+                        {nativeSym}
+                      </div>
+                    </div>
+                  </button>
                 );
               })}
             </div>
-            <Link
-              href="/wallets"
-              className="block border-t border-border-subtle px-2 py-1.5 text-[10px] text-accent-primary hover:bg-bg-hover"
-              onClick={() => setWalletMenuOpen(false)}
-            >
-              Manage wallets
-            </Link>
+
+            <div className="mt-2 flex items-center justify-between border-t border-border-subtle pt-2 text-[10px] text-fg-muted">
+              <span className="inline-flex items-center gap-1">
+                <Wallet className="h-3 w-3" strokeWidth={2} />
+                {instantTradeWalletShortlist.length} selected
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => clearInstantTradeWalletShortlist()}
+                  disabled={instantTradeWalletShortlist.length === 0}
+                  className="text-fg-muted hover:text-fg-secondary disabled:opacity-40"
+                >
+                  Clear
+                </button>
+                <Link
+                  href="/wallets"
+                  className="text-accent-primary hover:underline"
+                  onClick={() => setWalletMenuOpen(false)}
+                >
+                  Manage
+                </Link>
+              </div>
+            </div>
           </div>,
           document.body,
         )

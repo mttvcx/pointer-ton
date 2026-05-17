@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import type { ExplainTokenOutput, ExplainWalletOutput } from '@/lib/ai/schemas';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
+import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import { selectCopilotSurfaceOpen, useUIStore, type EntityRef } from '@/store/ui';
 import { shortenAddress } from '@/lib/utils/addresses';
 
@@ -37,7 +38,12 @@ function truncate(s: string, n: number) {
 
 function alertTier(a: AlertsTickerItem): number {
   if (/tracker|tracked_wallet/i.test(a.type)) return 0;
-  if (a.type === 'alert_rule' || a.type === 'limit_alert_triggered') return 1;
+  if (
+    a.type === 'alert_rule' ||
+    a.type === ALERT_TYPE_TWITTER_LISTEN ||
+    a.type === 'limit_alert_triggered'
+  )
+    return 1;
   return 2;
 }
 

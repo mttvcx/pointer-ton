@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
   // so the chrome stays consistent with the rest of the trading dock.
   devIndicators: false,
 
+  // Allow both `localhost` and `127.0.0.1` to share dev HMR resources without
+  // tripping the cross-origin blocker (Next 16+). Dev-only — production
+  // behavior is unaffected.
+  allowedDevOrigins: ['localhost', '127.0.0.1'],
+
   // Token images come from many CDNs. Restrict to a known-safe set; expand
   // as new launchpads appear.
   images: {

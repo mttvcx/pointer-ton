@@ -6,9 +6,9 @@ import { usePathname } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { ArrowDownToLine, ChevronDown, ExternalLink, LogOut, Search, Settings } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { CopilotTopbarSlot } from '@/components/copilot/CopilotTopbarSlot';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
 import { ChainSelectDropdown } from '@/components/layout/ChainSelectDropdown';
-import { CopilotHeaderBar } from '@/components/ai/CopilotHeaderBar';
 import { WebPushControls } from '@/components/layout/WebPushControls';
 import { APP_NAV } from '@/components/layout/navConfig';
 import { DepositHistoryModal } from '@/components/wallet/DepositHistoryModal';
@@ -193,7 +193,7 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b border-border-subtle bg-bg-base px-2 py-1 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1.5 relative">
+    <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1 relative">
       <Link
         href="/pulse"
         prefetch
@@ -251,14 +251,16 @@ export function Topbar() {
         })}
       </nav>
 
-      {/* Centered co-pilot header bar (Cluely-style). Bar always visible;
-          clicking it drops down a wide sheet anchored to the bar's rect. */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 hidden w-full max-w-[min(820px,calc(100vw-280px))] -translate-x-1/2 -translate-y-1/2 justify-center sm:flex">
-        <CopilotHeaderBar />
+      {/* Compact centered pill — tight width so it doesn’t compete with nav. */}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 z-[65] block min-w-0 -translate-x-1/2 -translate-y-1/2">
+        <div className="pointer-events-auto flex justify-center">
+          <CopilotTopbarSlot />
+        </div>
       </div>
 
-        <div className="relative z-50 flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
-        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
+        {/* flex-1 spans the middle visually; without pointer-events-none it steals clicks from the centered co-pilot pill (z-index stacking). */}
+        <div className="pointer-events-none relative z-50 flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
+        <div className="pointer-events-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
           <DisplayPopover />
           <button
             type="button"

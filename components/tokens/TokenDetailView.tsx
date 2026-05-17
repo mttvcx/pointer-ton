@@ -18,7 +18,6 @@ import { TokenChart } from '@/components/tokens/TokenChart';
 import { TokenActivityTabs } from '@/components/tokens/TokenActivityTabs';
 import { BuySellPanel } from '@/components/tokens/BuySellPanel';
 import { CompactInstantTradePanel } from '@/components/trading/CompactInstantTradePanel';
-import { UiDemoModeBanner } from '@/components/tokens/UiDemoModeBanner';
 import { TokenPageDockFooter } from '@/components/tokens/TokenPageDockFooter';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
@@ -451,7 +450,6 @@ export function TokenDetailView({
 
   return (
     <>
-      <UiDemoModeBanner />
       <div className="flex min-h-0 flex-1 flex-col">
         <div
           ref={containerRef}

@@ -5,19 +5,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import type { AppChainId } from '@/lib/chains/appChain';
-import { evaluateAutomationPipeline } from '@/lib/track/automation/engine';
 import type {
   AutomationGlobalSettings,
   AutomationHistoryEntry,
   AutomationTriggersState,
   StoredAutomationRule,
-  TweetIngestInput,
 } from '@/lib/track/automation/types';
 import {
   DEFAULT_AUTOMATION_GLOBAL_SETTINGS,
   EMPTY_TRIGGER_DEFAULTS,
 } from '@/lib/track/automation/types';
-import type { PulseTokenBundle } from '@/types/tokens';
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -86,7 +83,7 @@ function seedDemoRules(chain: AppChainId): StoredAutomationRule[] {
     {
       id: nanoid(),
       category: 'auto_buy',
-      name: 'Power — CA in tweet (dry-run gated)',
+      name: 'Power — CA in tweet',
       enabled: false,
       createdAtIso: t,
       updatedAtIso: t,
@@ -160,7 +157,6 @@ interface TrackAutomationStore {
   setGlobalPatch: (p: Partial<AutomationGlobalSettings>) => void;
   upsertRule: (rule: StoredAutomationRule) => void;
   removeRule: (id: string) => void;
-  simulateTweet: (event: TweetIngestInput, pulseBundles: PulseTokenBundle[]) => AutomationHistoryEntry[];
 
   purgeHistory: () => void;
 }
@@ -192,67 +188,41 @@ export const useTrackAutomationStore = create<TrackAutomationStore>()(
           rules: s.rules.filter((r) => r.id !== id),
         })),
 
-      simulateTweet: (event, pulseBundles) => {
-        const { global, rules } = get();
-        const pipeline = evaluateAutomationPipeline({
-          event,
-          rules,
-          globalSettings: global,
-          pulseBundles,
-        });
-
-        const entries: AutomationHistoryEntry[] = [];
-
-        for (const d of pipeline.decisions) {
-          if (!d.triggersHit.length) continue;
-          const mint =
-            d.rule.fixedMintCa?.trim() ||
-            pipeline.signals.contracts[0] ||
-            pipeline.pulseHits[0]?.mint ||
-            null;
-
-          entries.push({
-            id: nanoid(),
-            atIso: isoNow(),
-            handle: event.handle,
-            tweetUrl: event.tweetUrl ?? null,
-            tweetSnippet: event.text.slice(0, 240),
-            detectedMint: mint,
-            triggerTypes: d.triggersHit,
-            aiConfidence01: pipeline.classification.confidence01,
-            ruleId: d.rule.id,
-            ruleName: d.rule.name,
-            category: d.rule.category,
-            modeAtFire: d.rule.executionMode,
-            actionTaken: 'simulation',
-            buySolPlanned: d.rule.buySizeSol ?? null,
-            txSignature: null,
-            result: d.blockedReason ? 'failed' : d.wouldFire ? 'ok' : 'skipped',
-            failureReason: d.blockedReason,
-            riskFlags:
-              pipeline.signals.scamLikelihoodHint > 0.4 ? ['scam-language-heuristic'] : [],
-            intentBucket: pipeline.classification.bucket,
-          });
-        }
-
-        if (entries.length) {
-          set((s) => ({
-            history: [...entries, ...s.history].slice(0, 500),
-          }));
-        }
-
-        return entries;
-      },
-
       purgeHistory: () => set({ history: [] }),
     }),
     {
       name: 'pointer-track-automation-v1',
+      version: 2,
       partialize: (s) => ({
         global: s.global,
         rules: s.rules,
         history: s.history,
       }),
+      migrate: (persistedState: unknown, _fromVersion: number) => {
+        if (persistedState == null || typeof persistedState !== 'object') return persistedState;
+        const boxed = persistedState as { history?: AutomationHistoryEntry[] };
+        const hist = boxed.history ?? [];
+        const stripped = hist.map((h) =>
+          (h as { actionTaken?: string }).actionTaken === 'simulation'
+            ? { ...(h as AutomationHistoryEntry), actionTaken: 'alert_only' as const }
+            : h,
+        );
+        return { ...(boxed as object), history: stripped };
+      },
+      onRehydrateStorage: () => (state, err) => {
+        if (err || !state?.history?.length) return;
+        let changed = false;
+        const next = state.history.map((h) => {
+          const rawAct = (h as { actionTaken?: string }).actionTaken;
+          if (rawAct === 'simulation') {
+            changed = true;
+            return { ...h, actionTaken: 'alert_only' as const };
+          }
+          return h;
+        });
+        if (!changed) return;
+        useTrackAutomationStore.setState({ history: next });
+      },
     },
   ),
 );

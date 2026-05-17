@@ -215,7 +215,7 @@ export interface AutomationHistoryEntry {
   ruleName: string | null;
   category: AutomationRuleCategory | null;
   modeAtFire: AutomationExecutionMode | null;
-  actionTaken: 'alert_only' | 'one_click_offer' | 'auto_buy_attempt' | 'blocked' | 'simulation';
+  actionTaken: 'alert_only' | 'one_click_offer' | 'auto_buy_attempt' | 'blocked';
   buySolPlanned: number | null;
   txSignature: string | null;
   result: 'ok' | 'failed' | 'skipped';

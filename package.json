@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "__nextDev": "node --use-system-ca node_modules/next/dist/bin/next",
-    "dev": "npm run __nextDev -- dev --hostname 127.0.0.1 --port 3001",
-    "dev:3000": "npm run __nextDev -- dev --hostname 127.0.0.1 --port 3000",
+    "dev": "npm run __nextDev -- dev --port 3001",
+    "dev:3000": "npm run __nextDev -- dev --port 3000",
     "dev:lan": "npm run __nextDev -- dev --hostname 0.0.0.0 --port 3001",
     "build": "next build",
     "start": "next start",

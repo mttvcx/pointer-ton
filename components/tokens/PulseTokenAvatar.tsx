@@ -7,10 +7,12 @@ import { cn } from '@/lib/utils/cn';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
 
-/** Matches Tailwind `rounded-lg` (10px) — locked per Pulse polish spec G. */
-const CORNER_RX = 10;
-/** Skim-thin Terminal-style ring. Was 3 — that read as a heavy chrome outline; 1.5 hugs the image edge. */
+/** Skim-thin Terminal-style ring; hugs the image edge. */
 const STROKE = 1.5;
+
+function cornerRadiusForBox(px: number): number {
+  return Math.max(4, Math.min(12, Math.round(px * 0.156)));
+}
 
 function buildRoundedRectRingPath(
   size: number,
@@ -60,7 +62,8 @@ function progressStrokeColor(
 
 export function PulseTokenAvatar({
   bundle,
-  size,
+  /** Pixel box; inline size overrides `pulse-avatar` preference vars when set. */
+  size = 48,
   className,
   showRing = true,
   /** Bright TON launchpad frame (on-curve) — Axiom-style outline outside the image. */
@@ -79,13 +82,13 @@ export function PulseTokenAvatar({
   launchpadCorner?: boolean;
   columnId?: PulseColumnId;
 }) {
-  void size;
   const { token } = bundle;
   const showPumpDock = launchpadCorner && token.launch_pad === 'pump.fun';
   const pathRef = useRef<SVGPathElement | null>(null);
+  const rx = cornerRadiusForBox(size);
   const { d, lengthApprox } = useMemo(
-    () => buildRoundedRectRingPath(64, STROKE, CORNER_RX),
-    [],
+    () => buildRoundedRectRingPath(size, STROKE, rx),
+    [size, rx],
   );
   const [pathLen, setPathLen] = useState(lengthApprox);
   const [imageFailed, setImageFailed] = useState(false);
@@ -94,6 +97,8 @@ export function PulseTokenAvatar({
     .replace(/[^a-zA-Z0-9]/g, '')
     .slice(0, 2)
     .toUpperCase();
+
+  const fallbackFontPx = Math.max(9, Math.min(14, Math.round(size * 0.22)));
 
   const { fillPct, migrated } = getPulseBondingRingState(bundle);
   const displayMigrated = migrated || columnId === 'migrated';
@@ -130,24 +135,26 @@ export function PulseTokenAvatar({
     }
   }, [d, displayMigrated, showRing]);
 
+  const pumpBadgeLg = size >= 56;
+
   return (
     <div
       className={cn(
-        // `pulse-avatar` is the preference hook for avatar size — replaces the
-        // previous `h-16 w-16` lock. Default size is 3rem (48px); compact 2.5rem,
-        // large 3.5rem. Controlled via `:root[data-avatar-size]` in globals.css.
+        // Preference `--avatar-size` still applies when no inline size is needed elsewhere;
+        // here `style` width/height wins for Pulse rows / header explicit pixels.
         'pulse-avatar relative shrink-0 rounded-lg',
         pumpFrame && 'shadow-[0_0_0_2px_rgba(52,211,153,0.9)]',
         className,
       )}
+      style={{ width: size, height: size }}
     >
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- Pulse rows render thousands of arbitrary token thumbnails; next/image loader overhead isn't worth it here.
         <img
           src={token.image_url!}
           alt={token.symbol ?? 'Token'}
-          width={64}
-          height={64}
+          width={size}
+          height={size}
           loading="lazy"
           decoding="async"
           onError={() => setImageFailed(true)}
@@ -155,58 +162,63 @@ export function PulseTokenAvatar({
         />
       ) : (
         <div
-          className="relative z-0 flex h-full w-full items-center justify-center rounded-lg"
+          className="relative z-0 flex h-full w-full items-center justify-center rounded-lg bg-bg-elevated/40"
           aria-hidden
         >
-          <span className="text-[10px] font-bold uppercase text-fg-muted">{fallbackInitials}</span>
+          <span
+            className="font-bold uppercase text-fg-muted"
+            style={{ fontSize: fallbackFontPx }}
+          >
+            {fallbackInitials}
+          </span>
         </div>
       )}
       {showRing ? (
-      <svg
-        className="pointer-events-none absolute inset-0 z-10 h-full w-full"
-        width={64}
-        height={64}
-        viewBox={`0 0 ${64} ${64}`}
-        aria-hidden
-      >
-        {displayMigrated ? (
-          <path
-            d={d}
-            fill="none"
-            stroke="rgba(245, 158, 11, 0.98)"
-            strokeWidth={STROKE}
-            strokeLinejoin="round"
-            strokeLinecap="butt"
-          />
-        ) : (
-          <>
+        <svg
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          aria-hidden
+        >
+          {displayMigrated ? (
             <path
-              ref={pathRef}
               d={d}
               fill="none"
-              stroke={trackColor}
+              stroke="rgba(245, 158, 11, 0.98)"
               strokeWidth={STROKE}
               strokeLinejoin="round"
               strokeLinecap="butt"
             />
-            {progColor ? (
+          ) : (
+            <>
               <path
+                ref={pathRef}
                 d={d}
                 fill="none"
-                stroke={progColor}
+                stroke={trackColor}
                 strokeWidth={STROKE}
                 strokeLinejoin="round"
                 strokeLinecap="butt"
-                strokeDasharray={`${pathLen} ${pathLen}`}
-                strokeDashoffset={offset}
-                style={{
-                  transition: 'stroke-dashoffset 0.35s ease, stroke 0.2s ease',
-                }}
               />
-            ) : null}
-          </>
-        )}
-      </svg>
+              {progColor ? (
+                <path
+                  d={d}
+                  fill="none"
+                  stroke={progColor}
+                  strokeWidth={STROKE}
+                  strokeLinejoin="round"
+                  strokeLinecap="butt"
+                  strokeDasharray={`${pathLen} ${pathLen}`}
+                  strokeDashoffset={offset}
+                  style={{
+                    transition: 'stroke-dashoffset 0.35s ease, stroke 0.2s ease',
+                  }}
+                />
+              ) : null}
+            </>
+          )}
+        </svg>
       ) : null}
       {showPumpDock ? (
         <a
@@ -215,15 +227,18 @@ export function PulseTokenAvatar({
           rel="noopener noreferrer"
           title="Open on pump.fun"
           aria-label="pump.fun"
-          className="absolute -bottom-1 -right-1 z-20 inline-flex items-center justify-center rounded-full ring-1 ring-bg-raised transition hover:scale-105"
+          className={cn(
+            'absolute z-20 inline-flex items-center justify-center rounded-full ring-1 ring-bg-raised transition hover:scale-105',
+            pumpBadgeLg ? '-bottom-0.5 -right-0.5' : '-bottom-1 -right-1',
+          )}
           onClick={(e) => e.stopPropagation()}
         >
           <Image
             src="/icons/pumpfun.webp"
             alt="pump.fun"
-            width={20}
-            height={20}
-            className="h-5 w-5 rounded-full"
+            width={pumpBadgeLg ? 22 : 20}
+            height={pumpBadgeLg ? 22 : 20}
+            className={cn('rounded-full', pumpBadgeLg ? 'h-[22px] w-[22px]' : 'h-5 w-5')}
           />
         </a>
       ) : null}

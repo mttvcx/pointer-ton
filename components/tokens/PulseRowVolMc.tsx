@@ -3,7 +3,7 @@
 import { NumberDisplay } from '@/components/shared/NumberDisplay';
 import { cn } from '@/lib/utils/cn';
 
-/** Axiom-style: grey `V` + white value, grey `MC` + cyan value, one baseline. */
+/** Axiom-style: grey `V` + white value, grey `MC` + cyan value (gold on migrated), one baseline. */
 export function PulseRowVolMc({
   vol,
   mcUsd,
@@ -13,6 +13,7 @@ export function PulseRowVolMc({
   className,
   justify = 'end',
   layout = 'inline',
+  mcTone = 'cyan',
 }: {
   vol: number | null | undefined;
   mcUsd: number | null | undefined;
@@ -23,27 +24,32 @@ export function PulseRowVolMc({
   justify?: 'start' | 'end';
   /** Pulse “small” preset: stack MC above V so the row stays narrow beside quick-buy. */
   layout?: 'inline' | 'stack';
+  /** MC value tint: cyan for pre-migration (new/stretch), gold for migrated tokens. */
+  mcTone?: 'cyan' | 'gold';
 }) {
   if (!showVol && !showMc) return null;
 
   /**
-   * Polish spec C: uniform typography for label + value pairs.
+   * Axiom typography: uniform size on every row (tabular-nums + fixed text size),
+   * V value white, MC value tinted cyan (pre-migration) or gold (post-migration).
    * `size` prop kept for signature stability but no longer drives styling.
    */
-  const labelCls = 'text-[10px] font-medium uppercase tracking-wider text-fg-muted';
-  const valueCls = 'text-sm font-semibold text-fg-primary';
+  const labelCls = 'text-[11px] font-medium uppercase tracking-wider text-fg-muted';
+  const valueBase = 'text-[15px] font-semibold tabular-nums leading-none';
+  const volValueCls = `${valueBase} text-fg-primary`;
+  const mcValueCls = `${valueBase} ${mcTone === 'gold' ? 'text-amber-400' : 'text-cyan-400'}`;
 
   const volBlock = showVol ? (
     <span className="inline-flex shrink-0 items-baseline gap-1">
       <span className={labelCls}>V</span>
-      <NumberDisplay value={vol} compact className={valueCls} />
+      <NumberDisplay value={vol} compact className={volValueCls} />
     </span>
   ) : null;
 
   const mcBlock = showMc ? (
     <span className="inline-flex shrink-0 items-baseline gap-1">
       <span className={labelCls}>MC</span>
-      <NumberDisplay value={mcUsd} compact className={valueCls} />
+      <NumberDisplay value={mcUsd} compact className={mcValueCls} />
     </span>
   ) : null;
 

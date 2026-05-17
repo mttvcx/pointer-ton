@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  CircleDollarSign,
   Compass,
   Loader2,
   Radio,
@@ -27,6 +28,7 @@ import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
 import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import type { LeaderboardPageResult } from '@/lib/points/leaderboardTypes';
 import { ReferralDashboard } from '@/components/referral/ReferralDashboard';
+import { RewardsClaimModal } from '@/components/rewards/RewardsClaimModal';
 import { CampaignRadarSection } from '@/components/points/CampaignRadar';
 import { ChainGlyph } from '@/components/points/ChainGlyph';
 import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
@@ -219,6 +221,7 @@ export function PointsDashboard({ className }: { className?: string }) {
 
   const [searchLb, setSearchLb] = useState('');
   const [lbPage, setLbPage] = useState(1);
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
 
   useEffect(() => {
     setLbPage(1);
@@ -415,6 +418,14 @@ export function PointsDashboard({ className }: { className?: string }) {
                     >
                       <Share2 className="h-3.5 w-3.5" />
                       Copy invite link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClaimModalOpen(true)}
+                      className="focus-ring btn-press inline-flex items-center gap-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3.5 py-2.5 text-[12px] font-semibold text-emerald-100 ring-1 ring-emerald-400/20 transition hover:bg-emerald-500/14"
+                    >
+                      <CircleDollarSign className="h-3.5 w-3.5" />
+                      Claim
                     </button>
                   </div>
                 </div>
@@ -1009,6 +1020,7 @@ export function PointsDashboard({ className }: { className?: string }) {
           </div>
         </div>
       ) : null}
+      <RewardsClaimModal open={claimModalOpen} onOpenChange={setClaimModalOpen} />
     </div>
   );
 }

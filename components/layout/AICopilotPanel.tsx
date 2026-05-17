@@ -5,6 +5,7 @@ import { type ElementRef, useCallback, useEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import {
   Activity,
+  ArrowUpToLine,
   ChevronsLeft,
   ChevronsRight,
   Globe,
@@ -20,7 +21,7 @@ import {
   useUIStore,
   computeCopilotAlertsReadIso,
 } from '@/store/ui';
-import { CopilotPillHost } from '@/components/ai/CopilotPill';
+import { useCopilotMode } from '@/components/copilot/CopilotModeContext';
 import { ContextCard } from '@/components/ai/ContextCard';
 import { AskBox } from '@/components/ai/AskBox';
 import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
@@ -382,6 +383,10 @@ function CopilotAlertsReadSync() {
 }
 
 export function AICopilotPanel() {
+  // Task R: when the embedded co-pilot is in `sidebar` mode this rail is the
+  // active surface; the header gets a "Move to top" button that switches
+  // back to `embedded` and closes the rail.
+  const { setMode: setCopilotMode } = useCopilotMode();
   const displayMode = useUIStore((s) => s.copilotDisplayMode);
   const setDisplayMode = useUIStore((s) => s.setCopilotDisplayMode);
   const open = useUIStore((s) => s.panelOpen);
@@ -718,6 +723,20 @@ export function AICopilotPanel() {
               <Pill className="h-3.5 w-3.5" strokeWidth={2.25} />
             </button>
           </span>
+          <button
+            type="button"
+            aria-label="Move co-pilot back to top strip"
+            title="Move to top"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCopilotMode('embedded');
+              setOpen(false);
+            }}
+            className="focus-ring rounded-md p-1.5"
+            style={{ color: COPILOT_CHROME.muted }}
+          >
+            <ArrowUpToLine className="h-3.5 w-3.5" strokeWidth={2.25} />
+          </button>
           {!narrow ? (
             <button
               type="button"
@@ -752,6 +771,7 @@ export function AICopilotPanel() {
             title="Close"
             onClick={(e) => {
               e.stopPropagation();
+              setCopilotMode('minimized');
               setOpen(false);
             }}
             className="focus-ring rounded-md p-1.5"
@@ -872,9 +892,9 @@ export function AICopilotPanel() {
         )
       : null;
 
-  if (displayMode === 'pill') {
-    return <CopilotPillHost />;
-  }
+  // Pill-only layout is deprecated: it replaced this panel with `CopilotPillHost` and hid the
+  // docked rail entirely, which broke the top-strip stack + Co-pilot toggle for most users.
+  // Prefer embedded strip / dock — persisted `pill` prefs migrate to `panel` in the UI store merge.
 
   if (detached && open && !narrow) {
     return <>{floatingLayer}</>;
@@ -952,7 +972,10 @@ export function AICopilotPanel() {
             <button
               type="button"
               aria-label="Hide co-pilot"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setCopilotMode('minimized');
+                setOpen(false);
+              }}
               className="btn-press focus-ring rounded-md p-1 text-fg-muted transition-all duration-150 hover:bg-bg-hover hover:text-fg-primary"
             >
               <X className="h-3.5 w-3.5" />
@@ -974,8 +997,21 @@ export function CopilotToggleButton() {
   const setCollapsed = useUIStore((s) => s.setPanelCollapsed);
   const setDetached = useUIStore((s) => s.setCopilotDetached);
   const setPillExpanded = useUIStore((s) => s.setCopilotPillExpanded);
+  const { setMode: setCopilotMode } = useCopilotMode();
 
-  if (displayMode !== 'pill' && open && !collapsed) return null;
+  const railExpanded = open && !collapsed;
+
+  const label =
+    displayMode === 'pill'
+      ? 'Open co-pilot'
+      : !open
+        ? 'Show co-pilot'
+        : collapsed
+          ? 'Expand co-pilot'
+          : 'Collapse co-pilot';
+
+  const labelShort =
+    displayMode === 'pill' ? 'Co-pilot' : !open ? 'Co-pilot' : collapsed ? 'Expand' : 'Collapse';
 
   return (
     <button
@@ -986,24 +1022,26 @@ export function CopilotToggleButton() {
           return;
         }
         setDetached(false);
-        if (!open) setOpen(true);
-        else setCollapsed(false);
+        if (!open) {
+          setCopilotMode('minimized');
+          setOpen(true);
+          return;
+        }
+        if (collapsed) {
+          setCollapsed(false);
+        } else {
+          setCollapsed(true);
+        }
       }}
-      aria-label={
-        displayMode === 'pill'
-          ? 'Open co-pilot'
-          : open
-            ? 'Expand co-pilot'
-            : 'Show co-pilot'
-      }
+      aria-label={label}
       data-onboarding="copilot"
       className="btn-press focus-ring flex shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-bg-base px-2 py-1 text-[11px] font-medium text-fg-secondary transition-all duration-150 hover:border-accent-primary/40 hover:text-fg-primary lg:px-2.5 lg:text-xs"
     >
       <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent-primary" strokeWidth={2.25} />
-      <span className="hidden lg:inline">
-        {displayMode === 'pill' ? 'Co-pilot' : open ? 'Expand' : 'Co-pilot'}
-      </span>
-      <ChevronsRight className="h-3 w-3 shrink-0" />
+      <span className="hidden lg:inline">{labelShort}</span>
+      <ChevronsRight
+        className={cn('h-3 w-3 shrink-0 transition-transform duration-150', railExpanded && 'rotate-180')}
+      />
     </button>
   );
 }

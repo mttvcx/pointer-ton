@@ -24,6 +24,7 @@ import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { APP_NAME } from '@/lib/utils/constants';
 import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
+import { RewardsClaimModal } from '@/components/rewards/RewardsClaimModal';
 import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
 
 function displayInviteName(user: {
@@ -50,6 +51,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
   const applyValue = applyDraft || urlApplyCode;
   const [vanity, setVanity] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
 
   const operatorLabel = displayInviteName(user);
 
@@ -232,7 +234,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
 
                 <div className="mt-6 border-t border-white/[0.06] pt-5">
                   <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
-                    Claim vanity code
+                    Reserve vanity invite code
                   </label>
                   <p className="mt-1 text-[11px] text-fg-muted">4–12 chars · A–Z / 2–9</p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -322,14 +324,25 @@ export function ReferralDashboard({ className }: { className?: string }) {
                 <p className="mt-1 text-[11px] text-fg-muted">SOL · aggregate credited</p>
               </GlassPanel>
               <GlassPanel variant="secondary" className="p-4 ring-1 ring-cyan-400/15">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
-                  <Wallet className="h-3.5 w-3.5 text-cyan-200" aria-hidden />
-                  Pending settlement
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
+                      <Wallet className="h-3.5 w-3.5 text-cyan-200" aria-hidden />
+                      Pending settlement
+                    </div>
+                    <p className="mt-2 text-[22px] font-bold tabular-nums tracking-tight text-accent-glow">
+                      {formatNumber(earnData.sums.pendingSol, { decimals: 4 })}
+                    </p>
+                    <p className="mt-1 text-[11px] text-fg-muted">SOL · payouts follow roadmap</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setClaimModalOpen(true)}
+                    className="focus-ring btn-press shrink-0 rounded-xl border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-50 ring-1 ring-cyan-400/22 transition hover:bg-cyan-500/15"
+                  >
+                    Claim
+                  </button>
                 </div>
-                <p className="mt-2 text-[22px] font-bold tabular-nums tracking-tight text-accent-glow">
-                  {formatNumber(earnData.sums.pendingSol, { decimals: 4 })}
-                </p>
-                <p className="mt-1 text-[11px] text-fg-muted">SOL · payouts follow roadmap</p>
               </GlassPanel>
             </div>
 
@@ -478,6 +491,8 @@ export function ReferralDashboard({ className }: { className?: string }) {
           </GlassPanel>
         </div>
       ) : null}
+
+      <RewardsClaimModal open={claimModalOpen} onOpenChange={setClaimModalOpen} />
     </div>
   );
 }

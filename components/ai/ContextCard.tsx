@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -50,10 +50,6 @@ function dispatchCopilotAsk(detail: string) {
   window.dispatchEvent(new CustomEvent('pointer-copilot-quick-ask', { detail }));
 }
 
-function scrollToAlertBuilder() {
-  document.getElementById('copilot-alert-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 const DEBOUNCE_MS = 350;
 
 function useDebouncedEntity(entity: EntityRef | null): EntityRef | null {
@@ -90,6 +86,13 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
   );
 
   const enabled = Boolean(authenticated && debounced && copilotSurfaceOpen);
+
+  const openAlertBuilder = useCallback(() => {
+    useUIStore.getState().setAlertRulesModalOpen(true);
+    queueMicrotask(() => {
+      document.getElementById('copilot-alert-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
 
   const query = useQuery({
     queryKey,
@@ -171,7 +174,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
                 [
                   ['explain', 'Explain token', () => dispatchCopilotAsk('What should I check first on a new TON token?')],
                   ['risks', 'Find risks', () => dispatchCopilotAsk('What are the most common rug and bundle risks on fresh launches?')],
-                  ['alert', 'Build alert', scrollToAlertBuilder],
+                  ['alert', 'Build alert', openAlertBuilder],
                 ] as const
               ).map(([key, label, fn]) => (
                 <button

@@ -13,6 +13,7 @@ import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstra
 import { AlertRuleFlashLayer } from '@/components/alerts/AlertRuleFlashLayer';
 import { AlertRulesDockPanel } from '@/components/alerts/AlertRulesDockPanel';
 import { AlertRulesPopoutHost } from '@/components/alerts/AlertRulesPopoutHost';
+import { AlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import { AlertRuleAudioPlayer } from '@/components/alerts/AlertRuleAudioPlayer';
 import { AICopilotPanel } from '@/components/layout/AICopilotPanel';
 import { BottomBar } from '@/components/layout/BottomBar';
@@ -23,6 +24,8 @@ import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { useUIStore } from '@/store/ui';
 import { APP_NAME } from '@/lib/utils/constants';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { CopilotModeProvider } from '@/components/copilot/CopilotModeContext';
+import { CopilotStripSlot } from '@/components/copilot/CopilotStripSlot';
 
 function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
   const rail = useUIStore((s) => s.copilotRailSide);
@@ -128,8 +131,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider delayDuration={300}>
+      <CopilotModeProvider>
       <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
       <Topbar />
+      {/* Task S: Level 2 co-pilot body — full-width strip under topbar; Mode
+          toggles height (embedded vs collapsed). */}
+      <CopilotStripSlot />
       <GlobalSearchModal />
       <WalletAnalyticsHost />
       <SquadsTraderProfileHost />
@@ -145,12 +152,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </main>
         <ShellCopilotSlot side="right" />
       </div>
+      <AlertRulesModal />
       <AlertRulesPopoutHost />
       <BottomBar />
       <ClientBugDiagnosticsBootstrap />
       <FirstTimeSpotlightOnboarding />
       <FeatureAnnouncementGate />
       </div>
+      </CopilotModeProvider>
     </TooltipProvider>
   );
 }

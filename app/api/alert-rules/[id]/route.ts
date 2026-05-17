@@ -1,8 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requirePointerUser } from '@/lib/api/privyUser';
-import { PulseLaunchpadRuleConfigSchema } from '@/lib/alerts/alertRuleModel';
+import {
+  PulseLaunchpadRuleConfigSchema,
+  SolTwitterListenRuleConfigSchema,
+} from '@/lib/alerts/alertRuleModel';
 import { deleteAlertRule, getAlertRuleForUser, updateAlertRule } from '@/lib/db/alertRules';
+import type { Json } from '@/lib/supabase/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,7 +14,7 @@ export const dynamic = 'force-dynamic';
 const patchSchema = z
   .object({
     name: z.string().trim().min(1).max(80).optional(),
-    ruleConfig: PulseLaunchpadRuleConfigSchema.optional(),
+    ruleConfig: z.unknown().optional(),
     flashEnabled: z.boolean().optional(),
     flashColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     flashSize: z.enum(['normal', 'large']).optional(),
@@ -64,10 +68,30 @@ export async function PATCH(
   }
 
   const p = parsed.data;
+
+  let validatedRuleConfig: Json | undefined;
+  if (p.ruleConfig !== undefined) {
+    if (existing.rule_type === 'pulse_launchpad') {
+      const cfg = PulseLaunchpadRuleConfigSchema.safeParse(p.ruleConfig);
+      if (!cfg.success) {
+        return NextResponse.json({ error: 'invalid_body', issues: cfg.error.issues }, { status: 400 });
+      }
+      validatedRuleConfig = cfg.data as Json;
+    } else if (existing.rule_type === 'sol_twitter_listen') {
+      const cfg = SolTwitterListenRuleConfigSchema.safeParse(p.ruleConfig);
+      if (!cfg.success) {
+        return NextResponse.json({ error: 'invalid_body', issues: cfg.error.issues }, { status: 400 });
+      }
+      validatedRuleConfig = cfg.data as Json;
+    } else {
+      return NextResponse.json({ error: 'unsupported_rule_type' }, { status: 400 });
+    }
+  }
+
   try {
     const row = await updateAlertRule(auth.user.id, id, {
       ...(p.name != null ? { name: p.name } : {}),
-      ...(p.ruleConfig != null ? { rule_config: p.ruleConfig } : {}),
+      ...(validatedRuleConfig != null ? { rule_config: validatedRuleConfig } : {}),
       ...(p.flashEnabled != null ? { flash_enabled: p.flashEnabled } : {}),
       ...(p.flashColor != null ? { flash_color: p.flashColor } : {}),
       ...(p.flashSize != null ? { flash_size: p.flashSize } : {}),

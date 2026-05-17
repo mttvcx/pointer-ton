@@ -5,10 +5,13 @@ import {
   migrateLegacyPulseProtocols,
 } from '@/lib/tokens/columnPresetModel';
 
-export const ALERT_RULE_TYPES = ['pulse_launchpad'] as const;
+export const ALERT_RULE_TYPES = ['pulse_launchpad', 'sol_twitter_listen'] as const;
 export type AlertRuleType = (typeof ALERT_RULE_TYPES)[number];
 
 export const ALERT_TYPE_ALERT_RULE = 'alert_rule' as const;
+
+/** Alerts ticker + rail surfaces for `{@link AlertRuleType} sol_twitter_listen` hits. */
+export const ALERT_TYPE_TWITTER_LISTEN = 'twitter_listen' as const;
 
 const PROTOCOL_IDS_ENUM = PULSE_PROTOCOL_IDS as unknown as [
   PulseProtocolId,
@@ -23,6 +26,34 @@ export const PulseLaunchpadRuleConfigSchema = z
   .strict();
 
 export type PulseLaunchpadRuleConfig = z.infer<typeof PulseLaunchpadRuleConfigSchema>;
+
+export const SolTwitterListenRuleConfigSchema = z
+  .object({
+    handles: z.array(z.string().trim().min(1).max(72)).min(1).max(64),
+    phrases: z.array(z.string().trim().min(1).max(200)).max(64),
+    phraseMatch: z.enum(['substring', 'whole_word']).optional(),
+    execution: z.enum(['notify', 'auto_buy']).optional(),
+    /** SOL per attempted auto-buy — null inherits Pulse quick-buy on client. */
+    buySolPreset: z.number().positive().max(420).nullable().optional(),
+    maxSolPerDay: z.number().positive().max(1_000_000).nullable().optional(),
+    slippageBps: z.number().int().min(50).max(5000).nullable().optional(),
+  })
+  .strict();
+
+export type SolTwitterListenRuleConfig = z.infer<typeof SolTwitterListenRuleConfigSchema>;
+
+export function parseSolTwitterListenRuleConfig(raw: unknown): SolTwitterListenRuleConfig | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const src = raw as Record<string, unknown>;
+  const o: Record<string, unknown> = { ...src };
+  if (!Array.isArray(o.handles)) o.handles = [];
+  else o.handles = (o.handles as unknown[]).map((x) => String(x).trim()).filter(Boolean);
+  if (!Array.isArray(o.phrases)) o.phrases = [];
+  else o.phrases = (o.phrases as unknown[]).map((x) => String(x).trim()).filter(Boolean);
+
+  const p = SolTwitterListenRuleConfigSchema.safeParse(o);
+  return p.success ? p.data : null;
+}
 
 export function parsePulseLaunchpadRuleConfig(raw: unknown): PulseLaunchpadRuleConfig | null {
   const o =

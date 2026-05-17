@@ -5,6 +5,9 @@ import { X } from 'lucide-react';
 import { ThemePicker } from '@/components/theme/ThemePicker';
 import { CustomThemeImport } from '@/components/theme/CustomThemeImport';
 import { DisplayPreferences } from '@/components/preferences/DisplayPreferences';
+import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
+import { cn } from '@/lib/utils/cn';
 
 interface SettingsModalProps {
   open: boolean;
@@ -18,6 +21,7 @@ interface SettingsModalProps {
  */
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
 
   useEffect(() => {
     if (!open) return;
@@ -37,7 +41,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   return (
     <div
@@ -49,13 +53,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       <button
         type="button"
         aria-label="Close settings"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={cn('absolute inset-0 bg-black/60 backdrop-blur-sm', overlayBackdropClasses(visible))}
         onClick={onClose}
       />
 
       <div
         ref={dialogRef}
-        className="relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-bg-raised shadow-2xl"
+        className={cn(
+          'relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
+          overlayPanelClasses(visible),
+        )}
       >
         <header className="sticky top-0 z-[1] flex items-center justify-between border-b border-border-subtle bg-bg-raised px-4 py-3">
           <div className="flex flex-col gap-0.5">

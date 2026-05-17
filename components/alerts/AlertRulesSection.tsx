@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { Bell, ChevronDown, ExternalLink, Loader2, PanelLeft, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { type PulseProtocolId, PULSE_PROTOCOL_IDS } from '@/lib/tokens/columnPresetModel';
 import { playAlertPresetSound } from '@/lib/alerts/alertRulePayloadAudio';
+import { dispatchAlertFlashPreview } from '@/lib/alerts/alertUxPreview';
+import { normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
@@ -111,9 +113,12 @@ export function openAlertRulesPopoutDetached() {
 export function AlertRulesSection({
   embedInFloatingPanel = false,
   showPopoutLauncher = false,
+  variant = 'default',
 }: {
   embedInFloatingPanel?: boolean;
   showPopoutLauncher?: boolean;
+  /** Compact layout for the Cluely top strip when the side rail is closed. `modal` = centered dialog body (no duplicate chrome). */
+  variant?: 'default' | 'strip' | 'modal';
 } = {}) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
@@ -131,6 +136,23 @@ export function AlertRulesSection({
   const [audioUrl, setAudioUrl] = useState('');
   const [builderOpen, setBuilderOpen] = useState(true);
   const [advancedNotifOpen, setAdvancedNotifOpen] = useState(false);
+  const [creatorKind, setCreatorKind] = useState<'pulse_launchpad' | 'sol_twitter_listen'>(
+    'pulse_launchpad',
+  );
+  const [twHandles, setTwHandles] = useState('');
+  const [twPhrases, setTwPhrases] = useState('');
+  const [twPhraseMatch, setTwPhraseMatch] = useState<'substring' | 'whole_word'>('substring');
+  const [twExecution, setTwExecution] = useState<'notify' | 'auto_buy'>('notify');
+  const [twBuySol, setTwBuySol] = useState('');
+
+  const useFlatHeader = embedInFloatingPanel || variant === 'strip' || variant === 'modal';
+  const showForm = useFlatHeader || builderOpen;
+
+  useEffect(() => {
+    if (activeChain !== 'sol' && creatorKind === 'sol_twitter_listen') {
+      setCreatorKind('pulse_launchpad');
+    }
+  }, [activeChain, creatorKind]);
 
   const listQuery = useQuery({
     queryKey: ['alert-rules'],
@@ -147,21 +169,29 @@ export function AlertRulesSection({
     },
   });
 
+  function parseTwitterHandles(raw: string): string[] {
+    const parts = raw
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => normalizeTwitterHandle(s))
+      .filter(Boolean);
+    return [...new Set(parts)];
+  }
+
+  function parseTwitterPhrases(raw: string): string[] {
+    const parts = raw
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return [...new Set(parts)].slice(0, 64);
+  }
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const ruleConfig: {
-        launchpads?: PulseProtocolId[];
-        minInitialLiquiditySol?: number | null;
-      } = {};
-      if (selectedPads.size > 0) {
-        ruleConfig.launchpads = [...selectedPads];
-      }
-      const liq = minLiq.trim() === '' ? null : Number(minLiq);
-      if (liq != null && Number.isFinite(liq) && liq > 0) {
-        ruleConfig.minInitialLiquiditySol = liq;
-      }
+
       const audioUrlTrim = audioUrl.trim();
       let safeAudioUrl: string | null = null;
       if (audioUrlTrim) {
@@ -172,6 +202,39 @@ export function AlertRulesSection({
           /* ignore */
         }
       }
+
+      let ruleType: 'pulse_launchpad' | 'sol_twitter_listen' = 'pulse_launchpad';
+      let ruleConfig: Record<string, unknown>;
+
+      if (creatorKind === 'sol_twitter_listen') {
+        const handles = parseTwitterHandles(twHandles);
+        const phrases = parseTwitterPhrases(twPhrases);
+        if (handles.length === 0) {
+          throw new Error('Add at least one X handle');
+        }
+        ruleType = 'sol_twitter_listen';
+        const buyParsed =
+          twBuySol.trim() === '' ? null : Number(twBuySol.trim());
+        const buyPreset =
+          buyParsed != null && Number.isFinite(buyParsed) && buyParsed > 0 ? buyParsed : null;
+        ruleConfig = {
+          handles,
+          phrases,
+          phraseMatch: twPhraseMatch,
+          execution: twExecution,
+          ...(buyPreset != null ? { buySolPreset: buyPreset } : {}),
+        };
+      } else {
+        ruleConfig = {};
+        if (selectedPads.size > 0) {
+          ruleConfig.launchpads = [...selectedPads];
+        }
+        const liq = minLiq.trim() === '' ? null : Number(minLiq);
+        if (liq != null && Number.isFinite(liq) && liq > 0) {
+          ruleConfig.minInitialLiquiditySol = liq;
+        }
+      }
+
       const res = await fetch('/api/alert-rules', {
         method: 'POST',
         headers: {
@@ -180,7 +243,7 @@ export function AlertRulesSection({
         },
         body: JSON.stringify({
           name: name.trim(),
-          ruleType: 'pulse_launchpad',
+          ruleType,
           ruleConfig,
           flashEnabled,
           flashColor,
@@ -200,6 +263,12 @@ export function AlertRulesSection({
       setName('');
       setMinLiq('');
       setSelectedPads(new Set());
+      setTwHandles('');
+      setTwPhrases('');
+      setTwPhraseMatch('substring');
+      setTwExecution('notify');
+      setTwBuySol('');
+      setCreatorKind('pulse_launchpad');
       void qc.invalidateQueries({ queryKey: ['alert-rules'] });
       toast.success('Alert rule saved');
     },
@@ -274,91 +343,133 @@ export function AlertRulesSection({
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35 focus-visible:ring-offset-0 w-full rounded-xl border px-3 py-2.5 text-[13px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition';
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cn('flex flex-col', variant === 'strip' ? 'gap-2' : 'gap-3')}>
       {/* Alert Builder */}
       <section
         id="copilot-alert-builder"
-        className="overflow-hidden rounded-2xl border backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
+        className={cn(
+          'overflow-hidden border backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]',
+          variant === 'strip' ? 'rounded-xl' : 'rounded-2xl',
+        )}
         style={{ borderColor: UI.border, backgroundColor: UI.card }}
       >
-        {!embedInFloatingPanel ? (
-          <div className="flex items-stretch gap-1 border-b border-white/[0.06] px-3 py-2">
-            <button
-              type="button"
-              onClick={() => setBuilderOpen((v) => !v)}
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-white/[0.04]"
-              aria-expanded={builderOpen}
-            >
-              <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
-                Alert Builder
-              </span>
-              <span
-                className="rounded-full border px-2 py-px text-[10px] font-medium"
-                style={{
-                  borderColor: `${UI.cyan}44`,
-                  color: UI.cyan,
-                  backgroundColor: `${UI.cyan}10`,
-                }}
+        {variant !== 'modal' ? (
+          !useFlatHeader ? (
+            <div className="flex items-stretch gap-1 border-b border-white/[0.06] px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setBuilderOpen((v) => !v)}
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-white/[0.04]"
+                aria-expanded={builderOpen}
               >
-                Rule-based
-              </span>
-              <ChevronDown
-                className={cn(
-                  'ml-auto h-4 w-4 shrink-0 transition-transform',
-                  builderOpen ? 'rotate-180' : 'rotate-0',
-                )}
-                style={{ color: UI.muted }}
-              />
-            </button>
-            {showPopoutLauncher ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => useUIStore.getState().setAlertRulesDocked(true)}
-                  className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
-                  title="Dock in left shell"
-                  aria-label="Dock alert builder in left rail"
+                <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
+                  Alert Builder
+                </span>
+                <span
+                  className="rounded-full border px-2 py-px text-[10px] font-medium"
+                  style={{
+                    borderColor: `${UI.cyan}44`,
+                    color: UI.cyan,
+                    backgroundColor: `${UI.cyan}10`,
+                  }}
                 >
-                  <PanelLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openAlertRulesPopoutDetached()}
-                  className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
-                  title="Pop out — drag, resize, dock to edge"
-                  aria-label="Pop out alert builder"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.25} />
-                </button>
-              </>
-            ) : null}
-          </div>
-        ) : (
-          <div className="border-b border-white/[0.06] bg-gradient-to-b from-white/[0.05] to-transparent px-4 py-3 backdrop-blur-sm">
-            <span className="text-[13px] font-semibold tracking-tight" style={{ color: UI.text }}>
-              Alert Builder
-            </span>
-            <span
-              className="ml-2 rounded-full border px-2 py-px text-[10px] font-medium"
-              style={{
-                borderColor: `${UI.cyan}44`,
-                color: UI.cyan,
-                backgroundColor: `${UI.cyan}10`,
-              }}
+                  Rule-based
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'ml-auto h-4 w-4 shrink-0 transition-transform',
+                    builderOpen ? 'rotate-180' : 'rotate-0',
+                  )}
+                  style={{ color: UI.muted }}
+                />
+              </button>
+              {showPopoutLauncher ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => useUIStore.getState().setAlertRulesDocked(true)}
+                    className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+                    title="Dock in left shell"
+                    aria-label="Dock alert builder in left rail"
+                  >
+                    <PanelLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAlertRulesPopoutDetached()}
+                    className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+                    title="Pop out — drag, resize, dock to edge"
+                    aria-label="Pop out alert builder"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  </button>
+                </>
+              ) : null}
+            </div>
+          ) : (
+            <div
+              className={cn(
+                'flex items-center gap-1 border-b border-white/[0.06]',
+                variant === 'strip'
+                  ? 'px-3 py-2'
+                  : 'bg-gradient-to-b from-white/[0.05] to-transparent px-4 py-3 backdrop-blur-sm',
+              )}
             >
-              Rule-based
-            </span>
-          </div>
-        )}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <span className="text-[13px] font-semibold tracking-tight" style={{ color: UI.text }}>
+                  Alert Builder
+                </span>
+                <span
+                  className="rounded-full border px-2 py-px text-[10px] font-medium"
+                  style={{
+                    borderColor: `${UI.cyan}44`,
+                    color: UI.cyan,
+                    backgroundColor: `${UI.cyan}10`,
+                  }}
+                >
+                  Rule-based
+                </span>
+              </div>
+              {variant === 'strip' && showPopoutLauncher ? (
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => useUIStore.getState().setAlertRulesDocked(true)}
+                    className="focus-ring rounded-lg border border-white/10 bg-white/[0.03] p-1.5 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+                    title="Dock in left shell"
+                    aria-label="Dock alert builder in left rail"
+                  >
+                    <PanelLeft className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAlertRulesPopoutDetached()}
+                    className="focus-ring rounded-lg border border-white/10 bg-white/[0.03] p-1.5 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+                    title="Pop out"
+                    aria-label="Pop out alert builder"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )
+        ) : null}
 
-        {embedInFloatingPanel || builderOpen ? (
+        {showForm ? (
           <form
-            className="space-y-3 px-4 py-3"
+            className={cn('space-y-3', variant === 'strip' ? 'px-3 py-2.5' : 'px-4 py-3')}
             onSubmit={(e) => {
               e.preventDefault();
               if (!name.trim()) {
                 toast.error('Name your rule');
                 return;
+              }
+              if (creatorKind === 'sol_twitter_listen') {
+                if (parseTwitterHandles(twHandles).length === 0) {
+                  toast.error('Add at least one X handle');
+                  return;
+                }
               }
               createMutation.mutate();
             }}
@@ -366,12 +477,44 @@ export function AlertRulesSection({
             {/* A. Trigger */}
             <div className="space-y-2.5">
               <SectionLabel>Trigger</SectionLabel>
+              {activeChain === 'sol' ? (
+                <div className="flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCreatorKind('pulse_launchpad')}
+                    className={cn(
+                      'flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold transition',
+                      creatorKind === 'pulse_launchpad'
+                        ? 'bg-white/[0.12] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                        : 'text-fg-muted hover:bg-white/[0.04]',
+                    )}
+                  >
+                    Pulse launchpads
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatorKind('sol_twitter_listen')}
+                    className={cn(
+                      'flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold transition',
+                      creatorKind === 'sol_twitter_listen'
+                        ? 'bg-white/[0.12] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                        : 'text-fg-muted hover:bg-white/[0.04]',
+                    )}
+                  >
+                    X listens
+                  </button>
+                </div>
+              ) : null}
               <div className="space-y-1.5">
                 <FieldLabel>Rule name</FieldLabel>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Pump fresh launches"
+                  placeholder={
+                    creatorKind === 'sol_twitter_listen'
+                      ? 'Whale-watch · CA drops'
+                      : 'Pump fresh launches'
+                  }
                   className={inputCls}
                   style={{
                     borderColor: UI.border,
@@ -380,69 +523,219 @@ export function AlertRulesSection({
                   }}
                 />
               </div>
-              <div className="space-y-1.5">
-                <FieldLabel hint="Leave empty for any launchpad">
-                  Launchpads
-                </FieldLabel>
-                <div className="flex flex-wrap gap-1.5">
-                  {PULSE_PROTOCOL_IDS.map((id) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => toggleProtocol(id)}
-                      className={cn(
-                        'rounded-full border px-2.5 py-1 text-[10px] font-medium transition active:scale-[0.98]',
-                      )}
-                      style={
-                        selectedPads.has(id)
-                          ? {
-                              borderColor: `${UI.accent}66`,
-                              backgroundColor: `${UI.accent}14`,
-                              color: UI.text,
-                            }
-                          : {
-                              borderColor: UI.border,
-                              backgroundColor: UI.elevated,
-                              color: UI.muted,
-                            }
+
+              {creatorKind === 'sol_twitter_listen' ? (
+                <>
+                  <div className="space-y-1.5">
+                    <FieldLabel hint="@optional — comma or space">Handles</FieldLabel>
+                    <textarea
+                      value={twHandles}
+                      onChange={(e) => setTwHandles(e.target.value)}
+                      rows={2}
+                      placeholder={'elonmusk, solana'}
+                      className={cn(inputCls, 'min-h-[2.75rem] resize-y text-[12px] leading-snug')}
+                      style={{
+                        borderColor: UI.border,
+                        backgroundColor: UI.elevated,
+                        color: UI.text,
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel hint="Empty = any tweet from those handles">
+                      Literal phrases (optional)
+                    </FieldLabel>
+                    <textarea
+                      value={twPhrases}
+                      onChange={(e) => setTwPhrases(e.target.value)}
+                      rows={2}
+                      placeholder={'One phrase per line (or comma-separated)'}
+                      className={cn(inputCls, 'min-h-[2.75rem] resize-y text-[12px] leading-snug')}
+                      style={{
+                        borderColor: UI.border,
+                        backgroundColor: UI.elevated,
+                        color: UI.text,
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <FieldLabel hint="Substring vs standalone token">Phrase match</FieldLabel>
+                    <select
+                      value={twPhraseMatch}
+                      onChange={(e) =>
+                        setTwPhraseMatch(e.target.value as 'substring' | 'whole_word')
                       }
+                      className={cn(inputCls, 'py-2 text-[12px]')}
+                      style={{
+                        borderColor: UI.border,
+                        backgroundColor: UI.elevated,
+                        color: UI.text,
+                      }}
                     >
-                      {launchpadChipLabel(activeChain, id)}
-                    </button>
-                  ))}
+                      <option value="substring">Substring</option>
+                      <option value="whole_word">Whole word</option>
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1.5">
+                  <FieldLabel hint="Leave empty for any launchpad">
+                    Launchpads
+                  </FieldLabel>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PULSE_PROTOCOL_IDS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggleProtocol(id)}
+                        className={cn(
+                          'rounded-full border px-2.5 py-1 text-[10px] font-medium transition active:scale-[0.98]',
+                        )}
+                        style={
+                          selectedPads.has(id)
+                            ? {
+                                borderColor: `${UI.accent}66`,
+                                backgroundColor: `${UI.accent}14`,
+                                color: UI.text,
+                              }
+                            : {
+                                borderColor: UI.border,
+                                backgroundColor: UI.elevated,
+                                color: UI.muted,
+                              }
+                        }
+                      >
+                        {launchpadChipLabel(activeChain, id)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="border-t border-white/[0.06] pt-3" />
 
             {/* B. Conditions */}
-            <div className="space-y-2.5">
-              <SectionLabel>Conditions</SectionLabel>
-              <div className="space-y-1">
-                <FieldLabel hint="Optional">
-                  {activeChain === 'ton'
-                    ? 'Minimum initial TON'
-                    : activeChain === 'sol'
-                      ? 'Minimum initial SOL (when available)'
-                      : `Minimum liquidity hint (${nativeTicker(activeChain)})`}
-                </FieldLabel>
-                <input
-                  value={minLiq}
-                  onChange={(e) => setMinLiq(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="e.g. 2"
-                  className={cn(inputCls, 'tabular-nums')}
-                  style={{
-                    borderColor: UI.border,
-                    backgroundColor: UI.elevated,
-                    color: UI.text,
-                  }}
-                />
-              </div>
-              <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
-                Holder, bundle, and sniper routing is planned—this rule watches launch metadata only.
-              </p>
+            {creatorKind === 'pulse_launchpad' ? (
+              <>
+                <div className="space-y-2.5">
+                  <SectionLabel>Conditions</SectionLabel>
+                  <div className="space-y-1">
+                    <FieldLabel hint="Optional">
+                      {activeChain === 'ton'
+                        ? 'Minimum initial TON'
+                        : activeChain === 'sol'
+                          ? 'Minimum initial SOL (when available)'
+                          : `Minimum liquidity hint (${nativeTicker(activeChain)})`}
+                    </FieldLabel>
+                    <input
+                      value={minLiq}
+                      onChange={(e) => setMinLiq(e.target.value)}
+                      inputMode="decimal"
+                      placeholder="e.g. 2"
+                      className={cn(inputCls, 'tabular-nums')}
+                      style={{
+                        borderColor: UI.border,
+                        backgroundColor: UI.elevated,
+                        color: UI.text,
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
+                    Holder, bundle, and sniper routing is planned—this rule watches launch metadata
+                    only.
+                  </p>
+                </div>
+                <div className="border-t border-white/[0.06] pt-3" />
+              </>
+            ) : (
+              <>
+                <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
+                  When ingest posts a tweet, we literal-match phrases in the tweet text. If a mint
+                  appears (base58 in text or URLs), Pulse can surface auto-buy intent (server-gated).
+                </p>
+                <div className="border-t border-white/[0.06] pt-3" />
+              </>
+            )}
+
+            {/* Action */}
+            <div className="space-y-2">
+              <SectionLabel>Action</SectionLabel>
+              {creatorKind === 'sol_twitter_listen' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+                    <button
+                      type="button"
+                      onClick={() => setTwExecution('notify')}
+                      className={cn(
+                        'rounded-lg py-2 text-center text-[11px] font-semibold transition',
+                        twExecution === 'notify'
+                          ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                          : 'text-fg-muted hover:bg-white/[0.04]',
+                      )}
+                    >
+                      Notify only
+                    </button>
+                    <button
+                      type="button"
+                      title="Marked auto_buy when ingest finds a mint and POINTER_TWITTER_AUTOBUY=1"
+                      onClick={() => setTwExecution('auto_buy')}
+                      className={cn(
+                        'rounded-lg py-2 text-center text-[11px] font-semibold transition',
+                        twExecution === 'auto_buy'
+                          ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                          : 'text-fg-muted hover:bg-white/[0.04]',
+                      )}
+                    >
+                      Auto-buy
+                    </button>
+                  </div>
+                  {twExecution === 'auto_buy' ? (
+                    <div className="space-y-1">
+                      <FieldLabel hint="Empty = derive from Pulse quick-buy later">SOL per buy</FieldLabel>
+                      <input
+                        value={twBuySol}
+                        onChange={(e) => setTwBuySol(e.target.value)}
+                        inputMode="decimal"
+                        placeholder="inherit"
+                        className={cn(inputCls, 'tabular-nums')}
+                        style={{
+                          borderColor: UI.border,
+                          backgroundColor: UI.elevated,
+                          color: UI.text,
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
+                    Server unattended swap wiring is separate—alerts carry mint + intent for client
+                    follow-up today.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+                    <span
+                      className="rounded-lg bg-white/[0.11] py-2 text-center text-[11px] font-semibold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]"
+                      style={{ color: UI.text }}
+                    >
+                      Notify only
+                    </span>
+                    <button
+                      type="button"
+                      disabled
+                      title="Auto-buy on rule match — coming soon"
+                      className="rounded-lg py-2 text-center text-[11px] font-medium text-fg-muted opacity-45"
+                    >
+                      Auto-buy
+                    </button>
+                  </div>
+                  <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
+                    Auto-buy will mirror your Pulse quick-buy amount when a launch hits this rule —
+                    wiring next.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="border-t border-white/[0.06] pt-3" />
@@ -498,6 +791,20 @@ export function AlertRulesSection({
                   <option value="normal">Flash · normal</option>
                   <option value="large">Flash · large</option>
                 </select>
+                <button
+                  type="button"
+                  title="Triggers the same fullscreen tint Pulse uses — ignores the Screen flash checkbox so you can test themes anytime."
+                  onClick={() =>
+                    dispatchAlertFlashPreview({
+                      color: /^#[0-9A-Fa-f]{6}$/.test(flashColor) ? flashColor : '#0077B6',
+                      size: flashSize,
+                    })
+                  }
+                  className="rounded-lg border px-2 py-1 text-[10px] font-semibold transition hover:bg-white/[0.05]"
+                  style={{ borderColor: UI.border, color: UI.text }}
+                >
+                  Demo flash
+                </button>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -535,12 +842,28 @@ export function AlertRulesSection({
                 </select>
                 <button
                   type="button"
+                  title="Runs flash + preset chime once (helps verify theme + autoplay)."
+                  className="rounded-lg border px-2 py-1 text-[10px] font-semibold transition hover:bg-white/[0.05]"
+                  style={{ borderColor: UI.accent, color: UI.cyan }}
+                  onClick={() => {
+                    dispatchAlertFlashPreview({
+                      color: /^#[0-9A-Fa-f]{6}$/.test(flashColor) ? flashColor : '#0077B6',
+                      size: flashSize,
+                    });
+                    void playAlertPresetSound(audioPreset);
+                  }}
+                >
+                  Demo all
+                </button>
+                <button
+                  type="button"
                   disabled={!audioEnabled}
+                  title="Sound only — respects Screen flash / Sound checkboxes upstream."
                   onClick={() => void playAlertPresetSound(audioPreset)}
                   className="rounded-lg border px-2 py-1 text-[10px] font-semibold transition hover:bg-white/[0.05] disabled:opacity-35"
                   style={{ borderColor: UI.border, color: UI.text }}
                 >
-                  Test
+                  Test tone
                 </button>
               </div>
 
@@ -576,7 +899,7 @@ export function AlertRulesSection({
               ) : null}
             </div>
 
-            {/* D. Action */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={createMutation.isPending}
@@ -601,7 +924,12 @@ export function AlertRulesSection({
 
       {/* Active Rules */}
       <section
-        className="rounded-2xl border px-4 py-3 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
+        className={cn(
+          'border backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]',
+          variant === 'strip'
+            ? 'rounded-xl px-3 py-2.5'
+            : 'rounded-2xl px-4 py-3',
+        )}
         style={{ borderColor: UI.border, backgroundColor: UI.card }}
       >
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -648,7 +976,16 @@ export function AlertRulesSection({
             </div>
           </div>
         ) : (
-          <ul className="max-h-[200px] space-y-1.5 overflow-y-auto pr-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <ul
+            className={cn(
+              'space-y-1.5 overflow-y-auto pr-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+              variant === 'strip'
+                ? 'max-h-[min(180px,30vh)]'
+                : variant === 'modal'
+                  ? 'max-h-[min(260px,42vh)]'
+                  : 'max-h-[200px]',
+            )}
+          >
             {sorted.map((r) => (
               <li
                 key={r.id}
@@ -663,7 +1000,7 @@ export function AlertRulesSection({
                     {r.name}
                   </div>
                   <div className="mt-0.5 tabular-nums text-[10px] leading-snug" style={{ color: UI.muted }}>
-                    <span>{ruleSummary(r)}</span>
+                    <span>{ruleSummary(r, activeChain)}</span>
                     <span className="opacity-75">
                       {r.audioEnabled
                         ? ` · sound (${r.audioUrl ? 'custom' : r.audioPreset})`
@@ -726,7 +1063,24 @@ export function AlertRulesSection({
   );
 }
 
-function ruleSummary(r: RuleDto): string {
+function ruleSummary(r: RuleDto, chain: AppChainId): string {
+  if (r.ruleType === 'sol_twitter_listen' && r.ruleConfig && typeof r.ruleConfig === 'object') {
+    const cfg = r.ruleConfig as {
+      handles?: string[];
+      phrases?: string[];
+      execution?: string;
+      buySolPreset?: number | null;
+    };
+    const h =
+      cfg.handles?.length ? `@${cfg.handles.slice(0, 3).join(', @')}` : 'handles';
+    const ph = cfg.phrases?.length ? ` · phrases ${cfg.phrases.length}` : ' · any text';
+    const exe = cfg.execution === 'auto_buy' ? ' · auto-buy' : '';
+    const sol =
+      cfg.execution === 'auto_buy' && cfg.buySolPreset != null && cfg.buySolPreset > 0
+        ? ` · ${cfg.buySolPreset} SOL`
+        : '';
+    return `X listens ${h}${ph}${exe}${sol}`;
+  }
   if (r.ruleType !== 'pulse_launchpad' || !r.ruleConfig || typeof r.ruleConfig !== 'object') {
     return r.ruleType;
   }
@@ -736,9 +1090,10 @@ function ruleSummary(r: RuleDto): string {
   };
   const pads =
     c.launchpads?.length ? c.launchpads.map((p) => PROTOCOL_LABEL[p] ?? p).join(', ') : 'any pad';
+  const ticker = nativeTicker(chain);
   const liq =
     c.minInitialLiquiditySol != null && c.minInitialLiquiditySol > 0
-      ? ` / min ${c.minInitialLiquiditySol} TON`
+      ? ` · min ${c.minInitialLiquiditySol} ${ticker}`
       : '';
   return `${pads}${liq}`;
 }

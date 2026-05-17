@@ -124,6 +124,22 @@ interface UIState {
   trackPulseHighlightMint: string | null;
   flashTrackPulseMint: (mint: string, ms?: number) => void;
   clearTrackPulseFlash: () => void;
+
+  /**
+   * While the embedded co-pilot strip (below the top bar) is expanded, treat the
+   * co-pilot AI surface as open even if the right rail is collapsed — same hover
+   * explain queries as the side panel.
+   */
+  copilotTopStripActive: boolean;
+  setCopilotTopStripActive: (active: boolean) => void;
+
+  /** Top Cluely strip: AI briefing vs Pulse alert builder when the side rail is closed. */
+  copilotStripTab: 'brief' | 'alerts';
+  setCopilotStripTab: (tab: 'brief' | 'alerts') => void;
+
+  /** Centered Pulse alerts dialog (matches Settings modal pattern). */
+  alertRulesModalOpen: boolean;
+  setAlertRulesModalOpen: (open: boolean) => void;
 }
 
 const PANEL_DEFAULT = 380;
@@ -154,6 +170,7 @@ export function computeCopilotAlertsReadIso(alerts: { createdAt: string }[]): st
  * When false, skip background AI + ticker work to avoid wasted API calls.
  */
 export function selectCopilotSurfaceOpen(s: UIState): boolean {
+  if (s.copilotTopStripActive) return true;
   if (s.copilotDisplayMode === 'pill') {
     return s.copilotPillExpanded;
   }
@@ -192,6 +209,9 @@ export const useUIStore = create<UIState>()(
       searchOpen: false,
       activeChain: DEFAULT_APP_CHAIN,
       trackPulseHighlightMint: null,
+      copilotTopStripActive: false,
+      copilotStripTab: 'brief',
+      alertRulesModalOpen: false,
 
       setHovered: (entity) => {
         if (sameEntity(entity, get().hoveredEntity)) return;
@@ -311,19 +331,31 @@ export const useUIStore = create<UIState>()(
         }, ms);
       },
       clearTrackPulseFlash: () => set({ trackPulseHighlightMint: null }),
+
+      setCopilotTopStripActive: (active) => set({ copilotTopStripActive: active }),
+      setCopilotStripTab: (tab) => set({ copilotStripTab: tab }),
+      setAlertRulesModalOpen: (modalOpen) => set({ alertRulesModalOpen: modalOpen }),
     }),
     {
       name: 'pointer-ui',
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<UIState>;
         const chain = normalizePersistedAppChain(p.activeChain);
+        /*
+         * Legacy `pill` mode swapped `AICopilotPanel` for `CopilotPillHost` only (no docked rail),
+         * which breaks the top-bar Cluely strip + right “Co-pilot” toggle. Migrate stored prefs.
+         */
+        const copilotDisplayMode =
+          p.copilotDisplayMode === 'pill' ? ('panel' as const) : (p.copilotDisplayMode ?? current.copilotDisplayMode);
         return {
           ...current,
           ...p,
           ...(chain !== null ? { activeChain: chain } : {}),
+          copilotDisplayMode,
         };
       },
       partialize: (s) => ({
+        panelOpen: s.panelOpen,
         panelCollapsed: s.panelCollapsed,
         lastCopilotAlertsReadAt: s.lastCopilotAlertsReadAt,
         panelWidth: s.panelWidth,

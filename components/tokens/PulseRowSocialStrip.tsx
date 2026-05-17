@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Activity, ChefHat, Droplets, Shield } from 'lucide-react';
+import { ChefHat } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { extractTwitterHandle } from '@/lib/utils/extractTwitterHandle';
@@ -10,7 +10,7 @@ import { twitterFollowersFromBundle } from '@/lib/tokens/columnPresetModel';
 import type { PulseTokenBundle } from '@/types/tokens';
 import { isPumpLiveFromMetadata } from '@/lib/tokens/pulseRichMetadata';
 import { PulseGlyphMask, PulseLuminanceGlyph, PULSE_GLYPH, PULSE_INSTAGRAM_SRC, PULSE_BRAND_SRC } from '@/components/tokens/PulseGlyphMask';
-import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
+import { formatNumber } from '@/lib/utils/formatters';
 import { xLiveSearchContractUrl } from '@/lib/utils/xSearch';
 import {
   PulseRichHover,
@@ -57,17 +57,24 @@ function StripTip({ label, children }: { label: string; children: ReactNode }) {
  * still read clearly because the round bg covers the icon's natural box.
  */
 const iconHit = cn(
-  'group inline-flex shrink-0 items-center justify-center gap-0.5',
-  'border-0 bg-transparent p-0.5 shadow-none outline-none ring-0',
-  'rounded-md text-fg-secondary hover:bg-white/[0.06] hover:text-fg-primary active:bg-white/[0.09]',
+  // Tighter inner padding/gap so the row reads as a single dense Axiom-style cluster
+  // and avoids horizontal overflow when the wide Ultra dock is shown to the right.
+  'group inline-flex shrink-0 items-center justify-center gap-px',
+  'border-0 bg-transparent px-0.5 py-px shadow-none outline-none ring-0',
+  // Icon color: whitish-grey (light enough to read at a glance, slightly cooler than
+  // pure white so it stays "secondary" vs. the stat numbers). `fg-muted` was too
+  // dark to read comfortably; `fg-primary/85` keeps the icons near-white but
+  // subtly desaturated. Hover lifts to full white.
+  'rounded-md text-fg-primary/85 hover:bg-white/[0.1] hover:text-fg-primary active:bg-white/[0.12]',
   'transition-colors duration-100 ease-out',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40 focus-visible:ring-offset-0',
 );
 
 function statNumberClsFor(_glyphPx: number) {
-  // Slightly tighter leading + sm size so the number reads at the same visual
-  // weight as the now-larger 22-24px icon next to it (Task O follow-up).
-  return 'ml-px font-sans text-[13px] font-medium leading-none tracking-tight text-fg-secondary';
+  // Axiom-style tight cluster: number sits flush against the glyph, slightly smaller
+  // so the row stays compact without overflowing past the Ultra dock. Numbers stay
+  // fully white (no opacity scaling) so they read crisply next to the grey icons.
+  return 'ml-0 font-sans text-[12px] font-medium leading-none tracking-tight text-fg-primary';
 }
 
 type TwitterTweetAuthor = {
@@ -535,17 +542,18 @@ export function PulseRowSocialStrip({
   compact,
   traits,
   glyphSize,
-  showLiquidity = true,
   showTxCount = true,
   showDevWallet = true,
+  /** Pulse table rows: stack icon row / @handle row with spacing for metric pills below (Axiom-style). */
+  pulseBoard = false,
 }: {
   bundle: PulseTokenBundle;
   compact?: boolean;
   traits?: { cashback: boolean; feeShare: boolean; agent: boolean };
   glyphSize?: number;
-  showLiquidity?: boolean;
   showTxCount?: boolean;
   showDevWallet?: boolean;
+  pulseBoard?: boolean;
 }) {
   // Default ~25% larger than the previous 20/24 to match Axiom's icon weight.
   // Each call site can still override (Track / share previews use smaller).
@@ -587,18 +595,18 @@ export function PulseRowSocialStrip({
 
   const pumpUrl = model.pumpFunUrl;
 
-  const devPct = snapshot?.dev_holding_pct;
-  const showDsStrip = devPct != null && devPct <= 5;
-  const liquidityUsd = snapshot?.liquidity_usd;
   const devWalletAddr = bundle.token.creator_wallet;
-  const liqDisplay =
-    liquidityUsd != null && Number.isFinite(liquidityUsd) ? formatCompactUsd(liquidityUsd) : null;
 
   return (
-    <div className={cn('min-w-0 font-sans', compact ? 'mt-0.5' : 'mt-1')}>
-      {/* gap-0.5 (was gap-2): icons read as a tight cluster under the token
-          name (Axiom parity). Larger glyphs absorb the lost spacing visually. */}
-      <div className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain py-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div
+      className={cn(
+        'min-w-0 font-sans',
+        pulseBoard ? 'flex min-w-0 flex-1 flex-col gap-1' : compact ? 'mt-0' : 'mt-1',
+      )}
+    >
+      {/* gap-px (was gap-0.5 → 2): even tighter Axiom-style cluster so the strip
+          stays single-line under the name without cutting the trailing crown stat. */}
+      <div className="flex min-w-0 flex-nowrap items-center gap-px overflow-x-auto overflow-y-hidden overscroll-x-contain py-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {twitterProfileUrl ? (
           <TwitterLinkHover url={twitterProfileUrl}>
             <StripTip
@@ -615,7 +623,7 @@ export function PulseRowSocialStrip({
                 <img
                   src="/icons/twitter-profile.png"
                   alt="Twitter profile"
-                  className="h-[22px] w-[22px] shrink-0 object-contain opacity-90 transition-opacity hover:opacity-100"
+                  className="h-[22px] w-[22px] shrink-0 object-contain opacity-95 transition-opacity hover:opacity-100"
                 />
               </a>
             </StripTip>
@@ -837,47 +845,7 @@ export function PulseRowSocialStrip({
           glyphPx={sx}
         />
 
-        {showDsStrip ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex cursor-default items-center gap-0.5">
-                <Shield className="h-[22px] w-[22px] shrink-0 text-signal-bear" strokeWidth={2.25} aria-hidden />
-                <span className="text-[13px] font-medium tabular-nums text-signal-bear">
-                  {Math.round(devPct!)}%
-                </span>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>DexScreener risk score</TooltipContent>
-          </Tooltip>
-        ) : null}
-
-        {showLiquidity && liqDisplay != null ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex cursor-default items-center gap-0.5">
-                <Droplets className="h-[22px] w-[22px] shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
-                <span className="text-[13px] tabular-nums text-fg-secondary">{liqDisplay}</span>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Liquidity</TooltipContent>
-          </Tooltip>
-        ) : null}
-
-        {showTxCount && txns != null ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex cursor-default items-center gap-0.5">
-                <Activity className="h-[22px] w-[22px] shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
-                <span className="text-[13px] tabular-nums text-fg-secondary">
-                  {formatNumber(txns, { decimals: 0 })}
-                </span>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Transactions</TooltipContent>
-          </Tooltip>
-        ) : null}
-
-        {showDevWallet && devWalletAddr ? (
+        {showDevWallet && devWalletAddr && !pulseBoard ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Link
@@ -896,7 +864,12 @@ export function PulseRowSocialStrip({
       </div>
 
       {showFollowerRow ? (
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-x-2 gap-y-0.5',
+            pulseBoard ? 'mt-0' : 'mt-0.5',
+          )}
+        >
           <a
             href={twitterProfileUrl!}
             target="_blank"
@@ -905,7 +878,7 @@ export function PulseRowSocialStrip({
           >
             @{twitterDisplayHandle}
           </a>
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-secondary">
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-primary/75">
             {/* eslint-disable-next-line @next/next/no-img-element -- raster brand mark from /public/icons */}
             <img
               src="/icons/twitter-profile.png"
@@ -923,7 +896,10 @@ export function PulseRowSocialStrip({
           href={twitterProfileUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-0.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-[#70C0E8] hover:text-[#9dd8f5] hover:underline"
+          className={cn(
+            'inline-flex items-center gap-1.5 text-[11px] font-medium text-[#70C0E8] hover:text-[#9dd8f5] hover:underline',
+            pulseBoard ? 'mt-0' : 'mt-0.5',
+          )}
         >
           <span className="inline-flex shrink-0 opacity-95 hover:opacity-100">
             {/* eslint-disable-next-line @next/next/no-img-element -- bundled PNG asset */}

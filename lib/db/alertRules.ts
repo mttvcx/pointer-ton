@@ -27,6 +27,17 @@ export async function listActivePulseLaunchpadRules(): Promise<AlertRuleRow[]> {
   return data ?? [];
 }
 
+export async function listActiveSolTwitterListenRules(): Promise<AlertRuleRow[]> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('alert_rules')
+    .select('*')
+    .eq('is_active', true)
+    .eq('rule_type', 'sol_twitter_listen');
+  if (error) throw new Error(`listActiveSolTwitterListenRules failed: ${error.message}`);
+  return data ?? [];
+}
+
 export async function getAlertRuleForUser(
   userId: string,
   id: string,

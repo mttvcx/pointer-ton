@@ -13,12 +13,15 @@ const TABS: { key: string; href: string; label: string; count?: number }[] = [
   { key: 'reputation', href: '/squads/reputation', label: 'Reputation' },
 ];
 
-export function SquadsSubnav() {
+export function SquadsSubnav({ className }: { className?: string }) {
   const pathname = usePathname();
 
   return (
     <nav
-      className="flex items-center gap-1 overflow-x-auto border-b border-border-subtle px-4"
+      className={cn(
+        'sticky top-0 z-30 flex items-center gap-1 overflow-x-auto border-b border-border-subtle bg-bg-base px-2 sm:px-3',
+        className,
+      )}
       aria-label="Squads sections"
     >
       {TABS.map((t) => {
