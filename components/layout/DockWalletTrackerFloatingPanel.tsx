@@ -446,7 +446,7 @@ export function DockWalletTrackerFloatingPanel() {
                   maxHeight: maxFloatH,
                 }
         }
-        aria-label="Wallet Tracker popup"
+        aria-label="Tracker popup"
       >
         <header className={cn('flex shrink-0 items-stretch gap-1 border-b border-border-subtle bg-bg-hover/40')}>
           <nav
@@ -577,7 +577,7 @@ export function DockWalletTrackerFloatingPanel() {
               shellRef.current?.setPointerCapture(e.pointerId);
             }}
           >
-            <span className="sr-only">Resize Wallet Tracker panel</span>
+            <span className="sr-only">Resize Tracker panel</span>
           </div>
         ) : (
           <div

@@ -225,7 +225,11 @@ function TwitterLinkHover({ url, children }: { url: string; children: ReactNode 
               <div className="flex items-center gap-2">
                 {data.author?.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element -- X CDN avatar
-                  <img src={data.author.avatar} alt="" className="h-8 w-8 rounded-full" />
+                  <img
+                    src={data.author.avatar}
+                    alt=""
+                    className="h-8 w-8 rounded-full bg-transparent object-cover ring-0"
+                  />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-bg-sunken" />
                 )}
@@ -280,12 +284,9 @@ function TwitterLinkHover({ url, children }: { url: string; children: ReactNode 
           {data?.type === 'profile' ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element -- bundled PNG asset */}
-                <img
-                  src="/icons/twitter-profile.png"
-                  alt=""
-                  className="h-8 w-8 object-contain opacity-90"
-                />
+                <span className="inline-flex shrink-0 text-white/85">
+                  <PulseGlyphMask name="profile" size={32} />
+                </span>
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate font-mono text-sm font-semibold text-fg-primary">
                     @{data.handle.replace(/^@/, '')}
@@ -619,12 +620,7 @@ export function PulseRowSocialStrip({
                 aria-label={`Creator profile on X (@${twitterDisplayHandle ?? 'unknown'})`}
                 className={iconHit}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- bundled PNG asset */}
-                <img
-                  src="/icons/twitter-profile.png"
-                  alt="Twitter profile"
-                  className="h-[22px] w-[22px] shrink-0 object-contain opacity-95 transition-opacity hover:opacity-100"
-                />
+                <PulseGlyphMask name="profile" size={22} />
               </a>
             </StripTip>
           </TwitterLinkHover>
@@ -879,15 +875,9 @@ export function PulseRowSocialStrip({
             @{twitterDisplayHandle}
           </a>
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-fg-primary/75">
-            {/* eslint-disable-next-line @next/next/no-img-element -- raster brand mark from /public/icons */}
-            <img
-              src="/icons/twitter-profile.png"
-              alt=""
-              width={followerGlyph}
-              height={followerGlyph}
-              className="shrink-0 object-contain"
-              draggable={false}
-            />
+            <span className="inline-flex shrink-0 text-[#5ebbff]">
+              <PulseGlyphMask name="profile" size={followerGlyph} />
+            </span>
             <span className="tabular-nums text-[#5ebbff]">{formatNumber(twFollowers, { compact: true })}</span>
           </span>
         </div>
@@ -901,13 +891,8 @@ export function PulseRowSocialStrip({
             pulseBoard ? 'mt-0' : 'mt-0.5',
           )}
         >
-          <span className="inline-flex shrink-0 opacity-95 hover:opacity-100">
-            {/* eslint-disable-next-line @next/next/no-img-element -- bundled PNG asset */}
-            <img
-              src="/icons/twitter-profile.png"
-              alt=""
-              className="h-4 w-4 object-contain"
-            />
+          <span className="inline-flex shrink-0 text-[#70C0E8] opacity-95 hover:opacity-100">
+            <PulseGlyphMask name="profile" size={16} />
           </span>
           @{twitterDisplayHandle}
         </a>

@@ -3,7 +3,6 @@
 import type { ColumnPresetSharePayload } from '@/lib/tokens/columnPresetModel';
 import { cn } from '@/lib/utils/cn';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
-import { useUIStore } from '@/store/ui';
 import { PulseColumn } from './PulseColumn';
 import { TwitterAlertsRail } from './TwitterAlertsRail';
 
@@ -17,8 +16,7 @@ export function PulsePageLayout({
   initialMigrated: ColumnPresetSharePayload | null;
 }) {
   const side = usePulseTwitterRailStore((s) => s.side);
-  const activeChain = useUIStore((s) => s.activeChain);
-  const showRail = activeChain === 'sol' && side !== 'hidden';
+  const showRail = side !== 'hidden';
 
   const columnStrip = (
     <>
@@ -36,7 +34,7 @@ export function PulsePageLayout({
       )}
     >
       {showRail && side === 'left' ? (
-        <aside className="flex max-h-[40vh] w-full shrink-0 flex-col overflow-hidden xl:max-h-none xl:w-[min(320px,32vw)]">
+        <aside className="flex max-h-[40vh] w-full shrink-0 flex-col overflow-hidden xl:max-h-none xl:w-[min(320px,32vw)] xl:max-w-[min(380px,38vw)]">
           <TwitterAlertsRail dock="left" />
         </aside>
       ) : null}
@@ -51,7 +49,7 @@ export function PulsePageLayout({
       </div>
 
       {showRail && side === 'right' ? (
-        <aside className="flex max-h-[40vh] w-full shrink-0 flex-col overflow-hidden xl:max-h-none xl:w-[min(320px,32vw)]">
+        <aside className="flex max-h-[40vh] w-full shrink-0 flex-col overflow-hidden xl:max-h-none xl:w-[min(320px,32vw)] xl:max-w-[min(380px,38vw)]">
           <TwitterAlertsRail dock="right" />
         </aside>
       ) : null}

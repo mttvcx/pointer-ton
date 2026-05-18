@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPulseBondingRingState, PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
 import { cn } from '@/lib/utils/cn';
@@ -228,17 +227,22 @@ export function PulseTokenAvatar({
           title="Open on pump.fun"
           aria-label="pump.fun"
           className={cn(
-            'absolute z-20 inline-flex items-center justify-center rounded-full ring-1 ring-bg-raised transition hover:scale-105',
+            'absolute z-20 inline-flex items-center justify-center transition hover:scale-105',
             pumpBadgeLg ? '-bottom-0.5 -right-0.5' : '-bottom-1 -right-1',
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/icons/pumpfun.webp"
-            alt="pump.fun"
+            alt=""
             width={pumpBadgeLg ? 22 : 20}
             height={pumpBadgeLg ? 22 : 20}
-            className={cn('rounded-full', pumpBadgeLg ? 'h-[22px] w-[22px]' : 'h-5 w-5')}
+            draggable={false}
+            className={cn(
+              pumpBadgeLg ? 'h-[22px] w-[22px]' : 'h-5 w-5',
+              'rounded-full object-cover ring-1 ring-black/40 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]',
+            )}
           />
         </a>
       ) : null}

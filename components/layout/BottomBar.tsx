@@ -20,7 +20,7 @@ import { snapshotRecentClientErrors } from '@/lib/reports/clientErrorRing';
 import { cn } from '@/lib/utils/cn';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useDockTrackerHotkeys } from '@/lib/hooks/useDockTrackerHotkeys';
-import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import { CHAIN_ICON_PNG, spotTickerIconSrc } from '@/lib/chains/chainAssets';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
@@ -37,6 +37,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { WalletPickerPopover } from '@/components/wallets/WalletPickerPopover';
 import { TradingSettingsPopover } from '@/components/trading/TradingSettingsPopover';
 import { DockTrackersSettingsModal } from '@/components/layout/DockTrackersSettingsModal';
+import { MarketLighthouseHover } from '@/components/layout/MarketLighthouseHover';
 import { DOCK_TRACKER_ICON } from '@/components/layout/dockTrackerUi';
 import type { DockSpotTickerMode } from '@/store/dockTrackers';
 import { normalizeDockModes, normalizeDockOrder, useDockTrackersStore } from '@/store/dockTrackers';
@@ -46,16 +47,6 @@ type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: numb
 
 /** Carousel slide height in px — viewport and transform must match exactly. */
 const TICKER_LINE_PX = 28;
-
-const SPOT_SYM_CLASS: Partial<Record<string, string>> = {
-  BTC: 'bg-amber-400',
-  ETH: 'bg-blue-400',
-  SOL: 'bg-emerald-400',
-  TON: 'bg-sky-400',
-};
-function rotatingCenterSymbols(chain: AppChainId): string[] {
-  return ['BTC', 'ETH', nativeTicker(chain)];
-}
 
 function TickerLine({ row }: { row: TickerRow }) {
   const ch = row.priceChange24h;
@@ -67,13 +58,29 @@ function TickerLine({ row }: { row: TickerRow }) {
     row.usdPrice != null && Number.isFinite(row.usdPrice)
       ? `$${row.usdPrice < 1000 ? row.usdPrice.toFixed(2) : row.usdPrice.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
       : '\u2014';
+  const logo = spotTickerIconSrc(row.symbol);
   return (
     <>
-      <span className="font-semibold uppercase tracking-wide text-white">{row.symbol}</span>
-      <span className="tabular-nums text-white">{price}</span>
+      <span className="sr-only">{row.symbol}</span>
+      <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.06] ring-1 ring-white/[0.08]">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- small chain marks from /public/chains
+          <img
+            src={logo}
+            alt=""
+            width={18}
+            height={18}
+            draggable={false}
+            className="h-[18px] w-[18px] object-contain"
+          />
+        ) : (
+          <span className="text-[8px] font-bold uppercase leading-none text-white/75">{row.symbol.slice(0, 3)}</span>
+        )}
+      </span>
+      <span className="min-w-[4.75rem] tabular-nums text-[12px] text-white">{price}</span>
       <span
         className={cn(
-          'tabular-nums transition-colors duration-150',
+          'min-w-[3.35rem] text-right tabular-nums text-[12px] transition-colors duration-150',
           ch != null && ch > 0
             ? 'text-signal-bull'
             : ch != null && ch < 0
@@ -85,6 +92,10 @@ function TickerLine({ row }: { row: TickerRow }) {
       </span>
     </>
   );
+}
+
+function rotatingCenterSymbols(chain: AppChainId): string[] {
+  return ['BTC', 'ETH', nativeTicker(chain)];
 }
 
 function BottomBarVerticalTicker({
@@ -118,19 +129,31 @@ function BottomBarVerticalTicker({
 
   if (mode === 'icons') {
     return (
-      <div className="flex shrink-0 items-center gap-1.5 px-0.5" aria-label="Spot prices">
-        {resolved.map((row) => (
-          <span
-            key={row.symbol}
-            title={`${row.symbol} spot`}
-            className={cn(
-              'pointer-events-none h-5 min-w-[20px] rounded-full px-2 text-center text-[8px] font-bold leading-[20px] text-bg-base shadow-sm',
-              SPOT_SYM_CLASS[row.symbol] ?? 'bg-fg-muted',
-            )}
-          >
-            {row.symbol.slice(0, 3)}
-          </span>
-        ))}
+      <div className="flex shrink-0 items-center gap-1 px-0.5" aria-label="Spot prices">
+        {resolved.map((row) => {
+          const src = spotTickerIconSrc(row.symbol);
+          return (
+            <span
+              key={row.symbol}
+              title={`${row.symbol} spot`}
+              className="pointer-events-none flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-white/[0.08]"
+            >
+              {src ? (
+                // eslint-disable-next-line @next/next/no-img-element -- chain marks from /public/chains
+                <img
+                  src={src}
+                  alt=""
+                  width={16}
+                  height={16}
+                  draggable={false}
+                  className="h-4 w-4 object-contain"
+                />
+              ) : (
+                <span className="text-[7px] font-bold uppercase leading-none text-white/75">{row.symbol.slice(0, 2)}</span>
+              )}
+            </span>
+          );
+        })}
       </div>
     );
   }
@@ -167,7 +190,7 @@ function BottomBarVerticalTicker({
 
   return (
     <div
-      className="w-[260px] max-w-[42vw] overflow-hidden"
+      className="w-[280px] max-w-[46vw] overflow-hidden"
       style={{ height: TICKER_LINE_PX }}
       aria-live="polite"
       aria-label="Spot prices"
@@ -182,7 +205,7 @@ function BottomBarVerticalTicker({
         {slides.map((row, slideIdx) => (
           <div
             key={`${row.symbol}-${slideIdx}`}
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[12px] font-medium tabular-nums leading-none pointer-events-none"
+            className="flex shrink-0 items-center gap-2.5 whitespace-nowrap text-[12px] font-medium tabular-nums leading-none pointer-events-none"
             style={{ height: TICKER_LINE_PX, minHeight: TICKER_LINE_PX }}
           >
             <TickerLine row={row} />
@@ -361,7 +384,13 @@ export function BottomBar() {
           ))}
         </div>
 
-        <div className="hidden min-w-0 flex-1 sm:block" aria-hidden />
+        <div className="hidden min-w-0 flex-1 items-center justify-center px-2 sm:flex">
+          <MarketLighthouseHover
+            activeChain={activeChain}
+            placement="above"
+            triggerClassName="h-[26px] border-white/[0.08] bg-bg-sunken/35 hover:bg-bg-hover/75"
+          />
+        </div>
 
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
           {tickersQ.isLoading && !tickersQ.data ? (
@@ -428,6 +457,19 @@ function DockTrackerSlot({
   const walletPeekOpen = useTokenDockPeekStore((s) => s.walletPeekOpen);
   const toggleWalletPeek = useTokenDockPeekStore((s) => s.toggleWalletPeek);
 
+  const openWalletsHub = () => {
+    useTokenDockPeekStore.getState().setWalletPeekOpen(false);
+    router.push(WALLET_HOTKEY_ROUTE);
+  };
+
+  const onTrackerPeek = () => {
+    if (activeChain !== 'sol') {
+      router.push('/track');
+      return;
+    }
+    toggleWalletPeek();
+  };
+
   /** Tonal pills, no thick light rims — closer to dense pro terminals. */
   const chipBase =
     'relative inline-flex h-[26px] max-w-[11rem] shrink-0 items-center gap-1.5 rounded-[6px] border border-transparent bg-bg-sunken/35 px-[7px] text-[11px] font-semibold leading-none tracking-tight text-white';
@@ -441,15 +483,7 @@ function DockTrackerSlot({
   const iconCls = cn('shrink-0 text-white/95', mode === 'icon' ? 'h-[15px] w-[15px]' : 'h-[14px] w-[14px]');
 
   const pulseActivePeek = id === 'pulse' && pulsePeekOpen;
-  const walletActivePeek = id === 'wallet' && walletPeekOpen;
-
-  const onWalletTrackerPeek = () => {
-    if (activeChain !== 'sol') {
-      router.push(WALLET_HOTKEY_ROUTE);
-      return;
-    }
-    toggleWalletPeek();
-  };
+  const trackerActivePeek = id === 'tracker' && walletPeekOpen;
 
   const label =
     mode === 'full'
@@ -471,7 +505,6 @@ function DockTrackerSlot({
       chipBase,
       'inline-flex shrink-0 gap-0 overflow-hidden p-0 transition-colors hover:bg-bg-hover/75 active:brightness-105',
       'max-w-none min-w-[54px]',
-      walletActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.1]',
       authenticated ? '' : 'opacity-95',
     );
 
@@ -484,11 +517,9 @@ function DockTrackerSlot({
         <button
           type="button"
           title={dockTrackerLabel(id, 'full')}
-          aria-label={
-            walletPeekOpen ? `${dockTrackerLabel(id, 'full')} — close popup` : `Open ${dockTrackerLabel(id, 'full')} popup`
-          }
+          aria-label="Open wallets · balances & accounts"
           className="btn-press flex h-[26px] min-w-0 flex-1 items-center justify-center px-1.5"
-          onClick={onWalletTrackerPeek}
+          onClick={openWalletsHub}
         >
           <Wallet className={iconCls} strokeWidth={2} aria-hidden />
         </button>
@@ -505,7 +536,6 @@ function DockTrackerSlot({
     const splitOuter = cn(
       chipBase,
       'relative inline-flex min-w-0 max-w-[10.75rem] gap-0 overflow-hidden p-0 transition-colors hover:bg-bg-hover/75 active:brightness-105',
-      walletActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.1]',
       authenticated ? '' : 'opacity-95',
     );
 
@@ -518,11 +548,9 @@ function DockTrackerSlot({
         <button
           type="button"
           title={dockTrackerLabel(id, 'full')}
-          aria-label={
-            walletPeekOpen ? `${dockTrackerLabel(id, 'full')} — close popup` : `Open ${dockTrackerLabel(id, 'full')} popup`
-          }
+          aria-label="Open wallets · balances & accounts"
           className="btn-press flex h-[26px] min-w-0 flex-1 items-center gap-1 pl-[7px] pr-1 text-left"
-          onClick={onWalletTrackerPeek}
+          onClick={openWalletsHub}
         >
           <Wallet className={iconCls} strokeWidth={2} aria-hidden />
           <span className="shrink-0 tabular-nums leading-none text-white/95">
@@ -544,6 +572,29 @@ function DockTrackerSlot({
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-85" strokeWidth={2.5} aria-hidden />
         </WalletPickerPopover>
       </span>
+    );
+  }
+
+  if (id === 'tracker') {
+    return (
+      <button
+        type="button"
+        className={cn(
+          chip,
+          trackerActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.1]',
+        )}
+        title={dockTrackerLabel(id, 'full')}
+        aria-label={
+          walletPeekOpen ? 'Close Tracker popup' : 'Open draggable Tracker popup'
+        }
+        onClick={onTrackerPeek}
+      >
+        {dot}
+        <Icon className={iconCls} strokeWidth={2} aria-hidden />
+        {mode !== 'icon' ? (
+          <span className="max-w-[7rem] truncate leading-none text-white/95 2xl:max-w-[8rem]">{label}</span>
+        ) : null}
+      </button>
     );
   }
 
@@ -579,7 +630,7 @@ function DockTrackerSlot({
     );
   }
 
-  const slug = id as Exclude<DockTrackerId, 'wallet'>;
+  const slug = id as keyof typeof DOCK_TRACKER_HREF;
 
   return (
     <Link href={DOCK_TRACKER_HREF[slug]} className={chip} title={dockTrackerLabel(id, 'full')}>

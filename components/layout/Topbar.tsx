@@ -18,6 +18,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { ClipboardMintTopbarChip } from '@/components/layout/ClipboardMintTopbarChip';
 import { CopilotTopbarSlot } from '@/components/copilot/CopilotTopbarSlot';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
 import { ChainSelectDropdown } from '@/components/layout/ChainSelectDropdown';
@@ -250,10 +251,11 @@ export function Topbar() {
         })}
       </nav>
 
-      {/* Compact centered pill — tight width so it doesn’t compete with nav. */}
+      {/* Viewport-centered cluster: co-pilot pill + compact clipboard token chip (to the right of Hide). */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-[65] block min-w-0 -translate-x-1/2 -translate-y-1/2">
-        <div className="pointer-events-auto flex justify-center">
+        <div className="pointer-events-auto flex items-center justify-center gap-2">
           <CopilotTopbarSlot />
+          <ClipboardMintTopbarChip />
         </div>
       </div>
 
@@ -319,7 +321,6 @@ export function Topbar() {
           <span className="hidden lg:inline">Deposit</span>
         </button>
 
-        <WebPushControls />
         <CopilotToggleButton />
 
         {!authenticated ? (

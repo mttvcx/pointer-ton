@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
@@ -115,9 +116,6 @@ type TimeFilter = '1d' | '7d' | '30d' | 'max';
 type PortfolioWalletSelection = 'all' | string;
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
-const PANEL = '#121622';
-const PANEL2 = '#151826';
-const BORDER = '#1b1f2a';
 const EMPTY_POSITIONS: PositionRow[] = [];
 const EMPTY_CLOSED_SELLS: ClosedSellRow[] = [];
 const EMPTY_TRADES: TradeRowApi[] = [];
@@ -489,7 +487,7 @@ export function PortfolioDashboard({
   if (awaitingWalletListForSelection) {
     return (
       <div className={cn('flex h-full min-h-[320px] items-center justify-center', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-[#5865F2]" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
       </div>
     );
   }
@@ -513,22 +511,27 @@ export function PortfolioDashboard({
   if (portfolioShowsLoadingSpinner) {
     return (
       <div className={cn('flex h-full min-h-[320px] items-center justify-center', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-[#5865F2]" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
       </div>
     );
   }
 
   if (portfolioEnabled && query.isError) {
     return (
-      <div className={cn('rounded border p-3 text-[12px] text-[#f87171]', className)} style={{ borderColor: BORDER, backgroundColor: PANEL }}>
+      <div
+        className={cn(
+          'rounded border border-border-subtle bg-bg-raised p-3 text-[12px] text-signal-bear',
+          className,
+        )}
+      >
         Could not load portfolio.
       </div>
     );
   }
 
   return (
-    <div className={cn('flex w-full flex-col text-[12px] text-white', className)}>
-      <div className="flex shrink-0 items-center gap-3 border-b px-2 py-1" style={{ borderColor: BORDER }}>
+    <div className={cn('flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden text-[12px] text-fg-primary', className)}>
+      <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-2 py-1">
         {([
           ['spot', 'Spot'],
           ['wallets', 'Wallets'],
@@ -540,11 +543,13 @@ export function PortfolioDashboard({
             onClick={() => setTab(id)}
             className={cn(
               'relative pb-1 text-[13px] transition',
-              tab === id ? 'font-semibold text-white' : 'text-[#6b7280] hover:text-[#d1d5db]',
+              tab === id ? 'font-semibold text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
             )}
           >
             {label}
-            {tab === id ? <span className="absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-[#5865F2]" /> : null}
+            {tab === id ? (
+              <span className="absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-accent-primary" />
+            ) : null}
           </button>
         ))}
       </div>
@@ -639,7 +644,13 @@ export function PortfolioDashboard({
         </div>
       </div>
 
-      {tab === 'spot' ? (
+      {tab === 'trackers' ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-1 sm:p-2">
+          <TrackersPanel className="min-h-0 flex-1" prefillWallet={prefillTrackerWallet} />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+          {tab === 'spot' ? (
         <div className="flex flex-col gap-4 p-2 sm:p-3">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2.5fr_1fr]">
             <div className="min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
@@ -1138,35 +1149,29 @@ export function PortfolioDashboard({
 
       {tab === 'wallets' ? (
         <div className="grid grid-cols-12 gap-2 p-2 md:gap-3 md:p-3">
-          <section
-            className="col-span-12 flex flex-col overflow-hidden rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:col-span-6"
-            style={{ borderColor: BORDER, background: `linear-gradient(180deg, ${PANEL} 0%, #0a0e14 100%)` }}
-          >
-            <div
-              className="flex flex-wrap items-center gap-2 border-b px-3 py-2.5"
-              style={{ borderColor: BORDER }}
-            >
+          <section className="col-span-12 flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2.5">
               <div
                 className={cn(
-                  'flex min-w-[140px] flex-1 items-center gap-2 rounded-xl border px-2.5 py-1.5 transition focus-within:border-[#4a6fa0]/80 focus-within:ring-1 focus-within:ring-[#3b6ea5]/25',
+                  'flex min-w-[140px] flex-1 items-center gap-2 rounded-xl border px-2.5 py-1.5 transition focus-within:border-border-default focus-within:ring-1 focus-within:ring-accent-primary/25',
                   OS.borderSoft,
-                  'bg-[#080d14]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+                  'bg-bg-sunken',
                 )}
               >
-                <Search className="h-3.5 w-3.5 shrink-0 text-[#5f7390]" strokeWidth={2.2} />
+                <Search className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2.2} />
                 <input
                   value={searchWallets}
                   onChange={(e) => setSearchWallets(e.target.value)}
                   placeholder="Search by name or address…"
-                  className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-white outline-none placeholder:text-[#4b5563]"
+                  className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
                 />
               </div>
-              <label className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-black/30 px-2 py-1.5 text-[10px] text-[#8b9aad]">
+              <label className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-sunken px-2 py-1.5 text-[10px] text-fg-secondary">
                 <input
                   type="checkbox"
                   checked={showHidden}
                   onChange={(e) => setShowHidden(e.target.checked)}
-                  className="h-3 w-3 rounded border-[#3d556d] bg-[#0a0f14] text-[#5865F2] focus:ring-[#3b6ea5]/40"
+                  className="h-3 w-3 rounded border-border-default bg-bg-sunken text-accent-primary focus:ring-accent-primary/40"
                 />
                 Archived
               </label>
@@ -1174,9 +1179,9 @@ export function PortfolioDashboard({
                 type="button"
                 onClick={() => setImportOpen(true)}
                 className={cn(
-                  'rounded-xl border px-2.5 py-1.5 text-[10px] font-semibold text-[#d1dce8] transition hover:border-[#4f7096]/90 hover:text-white',
+                  'rounded-xl border px-2.5 py-1.5 text-[10px] font-semibold text-fg-secondary transition hover:border-border-default hover:bg-bg-hover hover:text-fg-primary',
                   OS.borderSoft,
-                  'bg-[#0d1520]/80',
+                  'bg-bg-sunken',
                 )}
               >
                 Import
@@ -1186,7 +1191,7 @@ export function PortfolioDashboard({
                   type="button"
                   onClick={() => setCreateMenuOpen((v) => !v)}
                   disabled={creating}
-                  className="inline-flex items-center gap-1 rounded-xl bg-[#5865F2] px-2.5 py-1.5 text-[10px] font-semibold text-[#0a0a0f] shadow-[0_8px_24px_-12px_rgba(88,101,242,0.55)] disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-xl bg-accent-primary px-2.5 py-1.5 text-[10px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
                 >
                   {creating ? 'Creating' : 'Create'}{' '}
                   <ChevronDown className="h-3 w-3 opacity-90" />
@@ -1202,7 +1207,7 @@ export function PortfolioDashboard({
                     <button
                       type="button"
                       onClick={() => void onCreateEmbedded()}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] font-semibold text-[#e8eef5] transition hover:bg-white/[0.06]"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[11px] font-semibold text-fg-primary transition hover:bg-bg-hover"
                     >
                       <Wallet className="h-3.5 w-3.5 opacity-90" /> Wallet
                     </button>
@@ -1212,7 +1217,7 @@ export function PortfolioDashboard({
             </div>
 
             <div className="space-y-1.5 px-2 pb-5 pt-2">
-              <div className="mb-1 hidden grid-cols-12 gap-2 px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#5f738e] md:grid">
+              <div className="mb-1 hidden grid-cols-12 gap-2 px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-fg-muted md:grid">
                 <span className="col-span-5 pl-1">Wallet</span>
                 <span className="col-span-3">Address</span>
                 <span className="col-span-2 text-right">Balance</span>
@@ -1237,7 +1242,7 @@ export function PortfolioDashboard({
                           <WalletMonogram address={w.wallet_address} label={w.label} />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1">
-                              <span className="truncate text-[12.5px] font-semibold text-white">
+                              <span className="truncate text-[12.5px] font-semibold text-fg-primary">
                                 {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
                               </span>
                               {trading ? (
@@ -1246,16 +1251,16 @@ export function PortfolioDashboard({
                                 </span>
                               ) : null}
                               {w.is_primary ? (
-                                <span className="rounded border border-[#4a62d6]/40 bg-[#2f3f8a]/20 px-1.5 py-px text-[9px] font-bold uppercase text-[#b8c7ff]">
+                                <span className="rounded border border-accent-primary/30 bg-accent-primary/10 px-1.5 py-px text-[9px] font-bold uppercase text-accent-glow">
                                   Primary
                                 </span>
                               ) : null}
                             </div>
-                            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[#6d8098]">
+                            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-fg-muted">
                               <span
                                 className={cn(
                                   'inline-block h-1.5 w-1.5 rounded-full ring-2 ring-black/30',
-                                  w.is_active && !w.is_archived ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.45)]' : 'bg-[#4b5563]',
+                                  w.is_active && !w.is_archived ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.45)]' : 'bg-fg-muted',
                                 )}
                               />
                               <span>{w.is_imported ? 'Imported' : 'Embedded'}</span>
@@ -1263,26 +1268,26 @@ export function PortfolioDashboard({
                           </div>
                         </div>
                         <div className="text-right md:hidden">
-                          <div className="text-[13px] font-semibold tabular-nums text-[#7cdbcc]">
+                          <div className="text-[13px] font-semibold tabular-nums text-accent-glow">
                             {formatNumber(balanceLamportsToSol(w.balance_lamports), { decimals: 3 })}{' '}
-                            <span className="text-[10px] font-medium text-[#5f738e]">{nativeSym}</span>
+                            <span className="text-[10px] font-medium text-fg-muted">{nativeSym}</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="hidden tabular-nums tracking-tight text-[11px] text-[#94a3b8] md:col-span-3 md:block">
+                      <div className="hidden tabular-nums tracking-tight text-[11px] text-fg-muted md:col-span-3 md:block">
                         {shortenAddress(w.wallet_address, 8)}
                       </div>
 
                         <div className="hidden text-right md:col-span-2 md:block">
-                        <div className="text-[12px] font-semibold tabular-nums text-[#7cdbcc]">
+                        <div className="text-[12px] font-semibold tabular-nums text-accent-glow">
                           {formatNumber(balanceLamportsToSol(w.balance_lamports), { decimals: 3 })}
                         </div>
-                        <div className="text-[9px] font-medium uppercase tracking-wide text-[#5f738e]">{nativeSym}</div>
+                        <div className="text-[9px] font-medium uppercase tracking-wide text-fg-muted">{nativeSym}</div>
                       </div>
 
                       <div className="flex items-center justify-between gap-3 md:col-span-2">
-                        <div className="tabular-nums tracking-tight text-[10px] text-[#6d8098] md:hidden">{shortenAddress(w.wallet_address, 6)}</div>
+                        <div className="tabular-nums tracking-tight text-[10px] text-fg-muted md:hidden">{shortenAddress(w.wallet_address, 6)}</div>
                         <span
                           className={cn(
                             'rounded-full px-2 py-0.5 text-[10px] font-semibold',
@@ -1290,7 +1295,7 @@ export function PortfolioDashboard({
                               ? 'border border-amber-500/25 bg-amber-500/10 text-amber-200'
                               : w.is_active
                                 ? 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
-                                : 'border border-white/[0.08] bg-white/[0.04] text-[#9ca3af]',
+                                : 'border border-border-subtle bg-bg-sunken text-fg-muted',
                           )}
                         >
                           {w.is_archived ? 'Archived' : w.is_active ? 'Active' : 'Idle'}
@@ -1302,7 +1307,7 @@ export function PortfolioDashboard({
                               e.stopPropagation();
                               openWalletAnalytics(w.wallet_address);
                             }}
-                            className="rounded-lg p-1.5 text-[#7a8c9f] transition hover:bg-white/[0.08] hover:text-white"
+                            className="rounded-lg p-1.5 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
                             title="Open analytics"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
@@ -1314,7 +1319,7 @@ export function PortfolioDashboard({
                               void navigator.clipboard.writeText(w.wallet_address);
                               toast.success('Address copied');
                             }}
-                            className="rounded-lg p-1.5 text-[#7a8c9f] transition hover:bg-white/[0.08] hover:text-white"
+                            className="rounded-lg p-1.5 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
                             title="Copy address"
                           >
                             <Copy className="h-3.5 w-3.5" />
@@ -1324,7 +1329,7 @@ export function PortfolioDashboard({
                             target="_blank"
                             rel="noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex rounded-lg p-1.5 text-[#7a8c9f] transition hover:bg-white/[0.08] hover:text-[#9ee7ff]"
+                            className="inline-flex rounded-lg p-1.5 text-fg-muted transition hover:bg-bg-hover hover:text-accent-glow"
                             title="View explorer"
                           >
                             ↗
@@ -1343,9 +1348,9 @@ export function PortfolioDashboard({
                     OS.borderSoft,
                   )}
                 >
-                  <Wallet className="mb-2 h-8 w-8 text-[#3d556d]" strokeWidth={1.5} />
-                  <p className="text-[12px] font-medium text-[#9ca3af]">No wallets on {nativeSym}</p>
-                  <p className="mt-1 max-w-[240px] text-[11px] leading-relaxed text-[#6b7280]">
+                  <Wallet className="mb-2 h-8 w-8 text-fg-muted" strokeWidth={1.5} />
+                  <p className="text-[12px] font-medium text-fg-secondary">No wallets on {nativeSym}</p>
+                  <p className="mt-1 max-w-[240px] text-[11px] leading-relaxed text-fg-muted">
                     Import an external wallet or create an embedded one to begin routing capital.
                   </p>
                 </div>
@@ -1353,20 +1358,14 @@ export function PortfolioDashboard({
             </div>
           </section>
 
-          <section
-            className="col-span-12 flex flex-col overflow-hidden rounded-xl border md:col-span-6"
-            style={{ borderColor: BORDER, background: `linear-gradient(180deg, ${PANEL} 0%, #080c11 100%)` }}
-          >
-            <div
-              className="border-b px-3 py-2.5"
-              style={{ borderColor: BORDER, background: 'linear-gradient(90deg, rgba(59,130,214,0.06) 0%, transparent 55%)' }}
-            >
+          <section className="col-span-12 flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
+            <div className="border-b border-border-subtle bg-bg-base/40 px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7d8ea3]">Capital routing</h3>
-                  <p className="mt-0.5 text-[10px] text-[#5f738e]">Source a balance, fan out to receivers, preview the split.</p>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-fg-secondary">Capital routing</h3>
+                  <p className="mt-0.5 text-[10px] text-fg-muted">Source a balance, fan out to receivers, preview the split.</p>
                 </div>
-                <span className="rounded-full border border-[#2f4a66]/80 bg-black/40 px-2.5 py-1 text-[10px] font-medium tabular-nums text-[#8ea3bd]">
+                <span className="rounded-full border border-border-subtle bg-bg-sunken px-2.5 py-1 text-[10px] font-medium tabular-nums text-fg-secondary">
                   {funderWallet ? '1 source' : '0 sources'} · {receiverWallets.length} rcv
                 </span>
               </div>
@@ -1380,14 +1379,8 @@ export function PortfolioDashboard({
                 <SummaryTile label="Receivers" value={String(receiverWallets.length)} />
               </div>
 
-              <div
-                className={cn(
-                  'rounded-xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]',
-                  OS.borderSoft,
-                  'bg-gradient-to-b from-[#101722]/95 to-[#070b10]',
-                )}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#5f738e]">01 — Source</p>
+              <div className={cn('rounded-xl border border-border-subtle bg-bg-sunken p-3', OS.borderSoft)}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">01 — Source</p>
                 <div className="mt-2" ref={funderPickerRef}>
                   <CapitalFunderPicker
                     open={funderPickerOpen}
@@ -1404,23 +1397,17 @@ export function PortfolioDashboard({
 
               <CapitalFlowArrow />
 
-              <div
-                className={cn(
-                  'rounded-xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]',
-                  OS.borderSoft,
-                  'bg-gradient-to-b from-[#101722]/95 to-[#070b10]',
-                )}
-              >
+              <div className={cn('rounded-xl border border-border-subtle bg-bg-sunken p-3', OS.borderSoft)}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#5f738e]">02 — Receivers</p>
-                    <p className="mt-0.5 text-[10px] text-[#5f738e]">Equal split · tap to toggle</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">02 — Receivers</p>
+                    <p className="mt-0.5 text-[10px] text-fg-muted">Equal split · tap to toggle</p>
                   </div>
-                  <span className="rounded-md border border-white/[0.06] bg-black/35 px-2 py-0.5 text-[10px] font-medium tabular-nums text-[#8ea3bd]">
+                  <span className="rounded-md border border-border-subtle bg-bg-base px-2 py-0.5 text-[10px] font-medium tabular-nums text-fg-secondary">
                     {receiverWallets.length} selected
                   </span>
                 </div>
-                <div className="mt-3 grid max-h-[220px] gap-1.5 overflow-y-auto sm:grid-cols-2">
+                <div className="mt-3 grid max-h-[220px] gap-1.5 overflow-y-auto overscroll-contain sm:grid-cols-2">
                   {visibleWallets.map((w) => {
                     const disabled = w.id === funderWalletId;
                     const checked = receiverWalletIds.includes(w.id);
@@ -1433,16 +1420,16 @@ export function PortfolioDashboard({
                         className={cn(
                           'flex w-full items-center gap-2 rounded-lg border px-2 py-2 text-left text-[11px] transition disabled:cursor-not-allowed disabled:opacity-35',
                           checked
-                            ? 'border-[#4f7ab8]/55 bg-[#1a2c42]/60 shadow-[inset_3px_0_0_0_#3b9fd6]'
-                            : 'border-[#2a3d54]/70 bg-[#0c121c]/90 hover:border-[#3f5f80]/55 hover:bg-[#121a26]/90',
+                            ? 'border-accent-primary/40 bg-accent-primary/10 shadow-[inset_3px_0_0_0_rgb(var(--accent-primary-rgb))]'
+                            : 'border-border-subtle bg-bg-base hover:border-border-default hover:bg-bg-hover',
                         )}
                       >
                         <WalletMonogram address={w.wallet_address} label={w.label} />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold text-white">
+                          <span className="block truncate font-semibold text-fg-primary">
                             {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
                           </span>
-                          <span className="block truncate tabular-nums tracking-tight text-[10px] text-[#6d8098]">
+                          <span className="block truncate tabular-nums tracking-tight text-[10px] text-fg-muted">
                             {shortenAddress(w.wallet_address, 5)}
                             {disabled ? ' · source' : ''}
                           </span>
@@ -1450,7 +1437,9 @@ export function PortfolioDashboard({
                         <span
                           className={cn(
                             'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition',
-                            checked ? 'border-[#5b8cff] bg-[#5865F2] text-white shadow-[0_0_12px_-4px_rgba(88,101,242,0.75)]' : 'border-white/20',
+                            checked
+                              ? 'border-accent-primary bg-accent-primary text-fg-inverse'
+                              : 'border-border-default bg-transparent',
                           )}
                         >
                           {checked ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : null}
@@ -1464,12 +1453,11 @@ export function PortfolioDashboard({
               <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
                 <div
                   className={cn(
-                    'rounded-xl border px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] focus-within:ring-1 focus-within:ring-[#3b6ea5]/30',
+                    'rounded-xl border border-border-subtle bg-bg-sunken px-3 py-2.5 focus-within:ring-1 focus-within:ring-accent-primary/30',
                     OS.borderSoft,
-                    'bg-gradient-to-b from-[#0c1422]/98 to-black/45',
                   )}
                 >
-                  <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#5f738e]">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
                     Total to route ({nativeSym})
                   </label>
                   <input
@@ -1477,9 +1465,9 @@ export function PortfolioDashboard({
                     onChange={(e) => setTransferAmount(e.target.value)}
                     placeholder={nativeSym === 'SOL' ? '0.00' : '0'}
                     inputMode="decimal"
-                    className="mt-1 w-full border-0 bg-transparent py-0.5 text-[20px] font-semibold tabular-nums tracking-tight text-white outline-none placeholder:text-[#3d4f66]"
+                    className="mt-1 w-full border-0 bg-transparent py-0.5 text-[20px] font-semibold tabular-nums tracking-tight text-fg-primary outline-none placeholder:text-fg-muted"
                   />
-                  <p className="mt-1 text-[10px] text-[#5f738e]">
+                  <p className="mt-1 text-[10px] text-fg-muted">
                     Execution preview only — confirms split math before handoff.
                   </p>
                 </div>
@@ -1489,20 +1477,20 @@ export function PortfolioDashboard({
                     if (funderWallet && receiverWallets.length > 0 && transferAmount.trim()) setTransferOpen(true);
                   }}
                   disabled={!funderWallet || receiverWallets.length === 0 || !transferAmount.trim()}
-                  className="h-11 min-w-[132px] rounded-xl bg-[#5865F2] px-4 text-[11px] font-bold text-white shadow-[0_12px_40px_-18px_rgba(88,101,242,0.55)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-11 min-w-[132px] rounded-xl bg-accent-primary px-4 text-[11px] font-bold text-fg-inverse transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                   title={!funderWallet || receiverWallets.length === 0 ? 'Select one funder and at least one receiver' : undefined}
                 >
                   Preview split
                 </button>
               </div>
 
-              <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/[0.12] to-transparent px-3 py-2.5 text-[11px] leading-relaxed text-[#a8b8c9]">
-                <span className="font-semibold text-emerald-100/90">Split preview ·</span> one source sends the full amount; it is divided evenly across every selected
+              <div className="rounded-xl border border-emerald-500/20 bg-bg-sunken/50 px-3 py-2.5 text-[11px] leading-relaxed text-fg-secondary">
+                <span className="font-semibold text-emerald-200/90">Split preview ·</span> one source sends the full amount; it is divided evenly across every selected
                 receiver.
                 {receiverWallets.length > 0 && transferAmount.trim() ? (
-                  <span className="mt-1 block text-[#c7e4ff]">
+                  <span className="mt-1 block text-accent-glow">
                     Each receiver ≈{' '}
-                    <span className="font-semibold tabular-nums text-[#7cdbcc]">
+                    <span className="font-semibold tabular-nums text-accent-glow">
                       {formatNumber(Number(transferAmount) / Math.max(1, receiverWallets.length) || 0, { decimals: 5 })}{' '}
                       {nativeSym}
                     </span>
@@ -1513,22 +1501,18 @@ export function PortfolioDashboard({
           </section>
         </div>
       ) : null}
-
-      {tab === 'trackers' ? (
-        <div className="flex min-h-0 flex-1 flex-col p-1 sm:p-2">
-          <TrackersPanel className="min-h-0 flex-1" prefillWallet={prefillTrackerWallet} />
         </div>
-      ) : null}
+      )}
 
-      <div className="flex shrink-0 items-center justify-between border-t px-2 py-1 text-[10px]" style={{ borderColor: BORDER }}>
+      <div className="flex shrink-0 items-center justify-between border-t border-border-subtle px-2 py-1 text-[10px] text-fg-muted">
         <div className="flex items-center gap-2">
-          <span className="text-[#6b7280]">BTC</span>
-          <span className="tabular-nums text-white">{btc?.usdPrice != null ? `$${formatNumber(btc.usdPrice, { decimals: 2 })}` : '—'}</span>
-          <span className={cn('tabular-nums', (btc?.priceChange24h ?? 0) >= 0 ? 'text-[#34d399]' : 'text-[#fb7185]')}>
+          <span>BTC</span>
+          <span className="tabular-nums text-fg-primary">{btc?.usdPrice != null ? `$${formatNumber(btc.usdPrice, { decimals: 2 })}` : '—'}</span>
+          <span className={cn('tabular-nums', (btc?.priceChange24h ?? 0) >= 0 ? 'text-signal-bull' : 'text-signal-bear')}>
             {btc?.priceChange24h != null ? `${btc.priceChange24h >= 0 ? '+' : ''}${formatNumber(btc.priceChange24h, { decimals: 2 })}%` : '—'}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-[#6b7280]">
+        <div className="flex items-center gap-2">
           <span>Vol {formatNumber(trades.length * 1.3, { decimals: 1, compact: true })}</span>
           <span>TX {trades.length}</span>
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-px text-emerald-300"><Check className="h-3 w-3" /> Stable</span>
@@ -1600,56 +1584,52 @@ function TransferModal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative w-full max-w-[360px] rounded border bg-[#17191f] shadow-2xl fill-mode-forwards',
+          'relative w-full max-w-[360px] rounded border border-border-subtle bg-bg-raised shadow-2xl fill-mode-forwards',
           overlayPanelClasses(motionVisible),
         )}
-        style={{ borderColor: BORDER }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b px-3 py-3" style={{ borderColor: BORDER }}>
-          <h2 className="text-[13px] font-semibold text-white">
+        <div className="flex items-center justify-between border-b border-border-subtle px-3 py-3">
+          <h2 className="text-[13px] font-semibold text-fg-primary">
             Split from {source.label?.trim() || 'wallet'} to {receivers.length} wallet{receivers.length === 1 ? '' : 's'}
           </h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-[#9ca3af] hover:text-white">
+          <button type="button" onClick={onClose} className="rounded p-1 text-fg-muted hover:text-fg-primary">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="space-y-3 p-3">
-          <div
-            className="flex w-full items-center justify-between rounded border px-3 py-2 text-[11px] font-semibold text-[#d1d5db]"
-            style={{ borderColor: BORDER, backgroundColor: '#11141b' }}
-          >
+          <div className="flex w-full items-center justify-between rounded border border-border-subtle bg-bg-sunken px-3 py-2 text-[11px] font-semibold text-fg-secondary">
             <span className="inline-flex items-center gap-2">
-              <span className="h-3 w-3 rounded-sm bg-[#5865F2]" />
+              <span className="h-3 w-3 rounded-sm bg-accent-primary" />
               {nativeSym}
             </span>
-            <span className="text-[10px] text-[#6b7280]">Native asset</span>
+            <span className="text-[10px] text-fg-muted">Native asset</span>
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-[#8b93a3]">Amount</label>
+            <label className="mb-1 block text-[11px] font-medium text-fg-muted">Amount</label>
             <div className="flex gap-2">
-              <div className="flex min-w-0 flex-1 items-center rounded border px-2" style={{ borderColor: BORDER, backgroundColor: '#11141b' }}>
+              <div className="flex min-w-0 flex-1 items-center rounded border border-border-subtle bg-bg-sunken px-2">
                 <input
                   value={amount}
                   onChange={(e) => onAmountChange(e.target.value)}
                   placeholder="Enter amount"
                   inputMode="decimal"
-                  className="min-w-0 flex-1 border-0 bg-transparent py-2 text-[12px] text-white outline-none placeholder:text-[#4b5563]"
+                  className="min-w-0 flex-1 border-0 bg-transparent py-2 text-[12px] text-fg-primary outline-none placeholder:text-fg-muted"
                 />
-                <span className="h-3 w-3 rounded-sm bg-[#5865F2]" />
+                <span className="h-3 w-3 rounded-sm bg-accent-primary" />
               </div>
-              <div className="flex w-14 items-center justify-center rounded border text-[11px] text-[#8b93a3]" style={{ borderColor: BORDER, backgroundColor: '#11141b' }}>
+              <div className="flex w-14 items-center justify-center rounded border border-border-subtle bg-bg-sunken text-[11px] text-fg-muted">
                 0.0 %
               </div>
             </div>
           </div>
 
           <div className="space-y-1">
-            <div className="relative h-1 rounded-full bg-[#2a2f3a]">
-              <div className="absolute left-0 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#5865F2]" />
+            <div className="relative h-1 rounded-full bg-bg-sunken">
+              <div className="absolute left-0 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-accent-primary" />
             </div>
-            <div className="flex justify-between text-[10px] text-[#8b93a3]">
+            <div className="flex justify-between text-[10px] text-fg-muted">
               <span>0%</span>
               <span>25%</span>
               <span>50%</span>
@@ -1658,26 +1638,29 @@ function TransferModal({
             </div>
           </div>
 
-          <div className="text-[11px] text-[#8b93a3]">
-            Available: <span className="tabular-nums text-[#d1d5db]">{formatNumber(available, { decimals: 5 })} {nativeSym}</span>
+          <div className="text-[11px] text-fg-muted">
+            Available:{' '}
+            <span className="tabular-nums text-fg-primary">
+              {formatNumber(available, { decimals: 5 })} {nativeSym}
+            </span>
           </div>
-          <div className="rounded-md border border-white/[0.07] bg-white/[0.03] px-2 py-2 text-[11px] text-[#8b93a3]">
+          <div className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-2 text-[11px] text-fg-muted">
             <div className="flex justify-between">
               <span>Receivers</span>
-              <span className="tabular-nums text-white">{receivers.length}</span>
+              <span className="tabular-nums text-fg-primary">{receivers.length}</span>
             </div>
             <div className="flex justify-between">
               <span>Equal split</span>
-              <span className="tabular-nums text-[#5eead4]">{formatNumber(perReceiver || 0, { decimals: 5 })} {nativeSym}</span>
+              <span className="tabular-nums text-accent-glow">{formatNumber(perReceiver || 0, { decimals: 5 })} {nativeSym}</span>
             </div>
           </div>
         </div>
-        <div className="border-t p-3" style={{ borderColor: BORDER }}>
+        <div className="border-t border-border-subtle p-3">
           <button
             type="button"
             onClick={onSubmit}
             disabled={!amount.trim()}
-            className="w-full rounded-full bg-[#5865F2] py-2 text-[12px] font-semibold text-[#05070d] disabled:opacity-45"
+            className="w-full rounded-full bg-accent-primary py-2 text-[12px] font-semibold text-fg-inverse disabled:opacity-45"
           >
             Confirm Preview
           </button>
@@ -1777,11 +1760,11 @@ function PortfolioPlaceholderRows() {
 
 function SummaryTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-md border px-2 py-2" style={{ borderColor: BORDER, backgroundColor: '#080d14' }}>
-      <div className="text-[10px] text-[#6b7280]">{label}</div>
-      <div className="mt-0.5 truncate text-[12px] font-semibold tabular-nums text-white">
+    <div className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-2">
+      <div className="text-[10px] text-fg-muted">{label}</div>
+      <div className="mt-0.5 truncate text-[12px] font-semibold tabular-nums text-fg-primary">
         {value}
-        {sub ? <span className="ml-1 text-[10px] font-medium text-[#5f738e]">{sub}</span> : null}
+        {sub ? <span className="ml-1 text-[10px] font-medium text-fg-muted">{sub}</span> : null}
       </div>
     </div>
   );
@@ -1799,7 +1782,7 @@ function PerfRow({ label, value, bar }: { label: string; value: string; bar?: nu
       {bar != null ? (
         <div className="mt-3 h-[5px] rounded-full bg-[#060a11] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ring-1 ring-white/[0.05]">
           <div
-            className="h-full rounded-full bg-[#5865F2] shadow-[0_0_12px_-3px_rgba(88,101,242,0.45)]"
+            className="h-full rounded-full bg-accent-primary shadow-[0_0_12px_-3px_rgb(var(--accent-primary-rgb)/0.45)]"
             style={{ width: `${Math.max(0, Math.min(100, bar))}%` }}
           />
         </div>

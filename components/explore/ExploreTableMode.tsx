@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
 import type { ExploreSortMode, ExploreTimeWindow, TokenExploreItem } from '@/types/explore';
@@ -30,11 +30,12 @@ export function ExploreTableMode(props: Props) {
   const { items, sortMode, onSortMode, timeWindow } = props;
 
   return (
-    <div className="min-h-[480px] lg:min-h-[calc(100vh-16rem)] flex-1 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#070B12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1040px] border-collapse text-left text-[11.5px]">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-base shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+      <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1040px] border-collapse text-left text-[11.5px]">
           <thead>
-            <tr className="border-b border-white/[0.06] bg-white/[0.02] text-[9.5px] font-semibold uppercase tracking-[0.1em] text-fg-muted/95">
+            <tr className="border-b border-border-subtle bg-desk-a text-[9.5px] font-semibold uppercase tracking-[0.1em] text-fg-muted">
               <Th>Token</Th>
               <ThButton active={sortMode === 'mindshare'} onClick={() => onSortMode('mindshare')}>
                 Mindshare
@@ -54,10 +55,13 @@ export function ExploreTableMode(props: Props) {
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => (
+            {items.map((it, idx) => (
               <tr
                 key={it.tokenAddress}
-                className="cursor-pointer border-b border-white/[0.04] transition hover:bg-white/[0.035]"
+                className={cn(
+                  'cursor-pointer border-b border-border-subtle transition hover:bg-bg-hover',
+                  idx % 2 === 1 ? 'bg-desk-b/80' : '',
+                )}
                 onClick={() => props.onOpenRow(it)}
               >
                 <Td>
@@ -123,7 +127,7 @@ export function ExploreTableMode(props: Props) {
                   <div onClick={(e) => e.stopPropagation()}>
                     <Link
                       href={`/token/${encodeURIComponent(it.tokenAddress)}`}
-                      className="inline-flex rounded-lg border border-white/[0.1] px-2.5 py-1 text-[10px] font-semibold text-fg-secondary hover:bg-white/[0.04]"
+                      className="inline-flex rounded-lg border border-border-subtle px-2.5 py-1 text-[10px] font-semibold text-fg-secondary hover:bg-bg-hover"
                     >
                       View
                     </Link>
@@ -133,8 +137,9 @@ export function ExploreTableMode(props: Props) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
-      <p className="border-t border-white/[0.06] px-3 py-2 text-[9.5px] text-fg-muted/85">
+      <p className="shrink-0 border-t border-border-subtle px-3 py-2 text-[9.5px] text-fg-muted">
         Table mirrors the cohort after your filters · deep tape + sparklines stay on token pages.
       </p>
     </div>

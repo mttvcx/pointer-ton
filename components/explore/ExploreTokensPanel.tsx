@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Filter, Info, Layers, PauseCircle, PlayCircle, Search, Sparkles } from 'lucide-react';
+import { Filter, Flame, Info, Layers, PauseCircle, PlayCircle, Rocket, Search, Sparkles } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ExploreMindshareCanvas } from '@/components/explore/ExploreMindshareCanvas';
 import { ExploreTokenDrawer } from '@/components/explore/ExploreTokenDrawer';
@@ -43,7 +43,7 @@ const TIME_KEYS: ExploreTimeWindow[] = ['5m', '1h', '6h', '24h'];
 
 function SkeletonBubbles() {
   return (
-    <div className="relative grid min-h-[480px] flex-1 animate-pulse place-items-center overflow-hidden rounded-2xl border border-white/[0.07] bg-[#070B12] lg:min-h-[calc(100vh-16rem)]">
+    <div className="relative flex min-h-0 flex-1 animate-pulse place-items-center overflow-hidden rounded-xl border border-border-subtle bg-bg-base">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -80,13 +80,11 @@ export function ExploreTokensPanel() {
 
   const exploreDemoForcedOff = searchParams.get('explore_demo') === '0';
   const exploreDemoForcedOn = searchParams.get('explore_demo') === '1';
-  const exploreDemoEligible =
-    !exploreDemoForcedOff &&
-    (exploreDemoForcedOn || uiDemoMode || process.env.NODE_ENV === 'development');
 
   const [view, setView] = useState<ExploreViewMode>('bubbles');
-  const [tw, setTw] = useState<ExploreTimeWindow>('1h');
-  const [sortMode, setSortMode] = useState<ExploreSortMode>('mindshare');
+  const [feedCohort, setFeedCohort] = useState<'new' | 'trending'>('new');
+  const [tw, setTw] = useState<ExploreTimeWindow>('5m');
+  const [sortMode, setSortMode] = useState<ExploreSortMode>('new_pairs');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ExploreFilterState>({ ...EMPTY_EXPLORE_FILTERS });
   const [filterModal, setFilterModal] = useState(false);
@@ -106,9 +104,11 @@ export function ExploreTokensPanel() {
   }, []);
 
   const exploreQ = useQuery({
-    queryKey: ['explore', activeChain],
+    queryKey: ['explore', activeChain, feedCohort],
     queryFn: async (): Promise<{ items: PulseTokenBundle[] }> => {
-      const res = await fetch(`/api/explore?chain=${encodeURIComponent(activeChain)}&limit=72`);
+      const res = await fetch(
+        `/api/explore?chain=${encodeURIComponent(activeChain)}&limit=72&cohort=${feedCohort}`,
+      );
       if (!res.ok) throw new Error('explore_failed');
       return res.json() as Promise<{ items: PulseTokenBundle[] }>;
     },
@@ -119,11 +119,20 @@ export function ExploreTokensPanel() {
   const apiItems = exploreQ.data?.items;
   const apiLen = apiItems?.length ?? 0;
 
+  /** Empty indexer → synthetic bubbles unless opted out (?explore_demo=0). */
+  const exploreDemoEligible =
+    !exploreDemoForcedOff &&
+    (exploreDemoForcedOn ||
+      uiDemoMode ||
+      process.env.NODE_ENV === 'development' ||
+      apiLen === 0);
+
   const bundlesForExplore = useMemo(() => {
+    if (exploreQ.isError) return [];
     if (apiLen > 0 && apiItems) return apiItems;
     if (!exploreDemoEligible) return [];
     return syntheticExploreDemoBundles(activeChain);
-  }, [apiItems, apiLen, exploreDemoEligible, activeChain]);
+  }, [exploreQ.isError, apiItems, apiLen, exploreDemoEligible, activeChain]);
 
   const showExploreDemoRibbon =
     apiLen === 0 && exploreDemoEligible && bundlesForExplore.length > 0;
@@ -164,6 +173,17 @@ export function ExploreTokensPanel() {
     return ch;
   }, [filters]);
 
+  function switchFeedCohort(next: 'new' | 'trending') {
+    setFeedCohort(next);
+    if (next === 'new') {
+      setSortMode('new_pairs');
+      setTw('5m');
+    } else {
+      setSortMode('mindshare');
+      setTw('5m');
+    }
+  }
+
   const onOpenFull = useCallback(
     (mint: string) => {
       router.push(`/token/${encodeURIComponent(mint)}`);
@@ -197,164 +217,185 @@ export function ExploreTokensPanel() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-      <div className="shrink-0">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <h1 className="text-[18px] font-semibold tracking-tight text-fg-primary">Explore</h1>
-              <span className="rounded-full border border-white/[0.09] bg-white/[0.02] px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-1 overflow-hidden">
+      <div className="shrink-0 space-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <div className="flex items-center gap-1">
+              <h1 className="text-[15px] font-semibold tracking-tight text-fg-primary">Explore</h1>
+              <span className="rounded border border-border-subtle bg-bg-sunken px-1 py-px text-[8px] font-semibold uppercase tracking-wider text-fg-muted">
                 Beta
               </span>
               {showExploreDemoRibbon ? (
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/[0.08] px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-200/90">
-                  Demo data
+                <span className="rounded border border-amber-500/35 bg-amber-500/10 px-1 py-px text-[8px] font-semibold uppercase tracking-wider text-amber-200/90">
+                  Demo
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 max-w-2xl text-[12.5px] leading-snug text-fg-secondary">
-              What the market is paying attention to right now — mindshare across tokens, wallets, and social signals.
-            </p>
-            <p className="mt-1.5 text-[10px] text-fg-muted/90">
-              <span className="font-semibold text-fg-secondary/95">{native}</span>
-              {lastRefreshed ? (
-                <>
-                  {' '}
-                  · last refreshed <span className="tabular-nums text-fg-muted">{lastRefreshed}</span>
-                </>
-              ) : null}
+            <p
+              className="hidden max-w-xl truncate text-[10px] text-fg-muted md:block"
+              title="New-launch bubbles · Hot = tape ranks · Axiom = dense desk"
+            >
+              <span className="tabular-nums">{native}</span>
+              {lastRefreshed ? <> · refreshed {lastRefreshed}</> : null}
             </p>
           </div>
           <PresetSlotSwitcher activePresetSlot={activePresetSlot} onChange={setActivePresetSlot} />
         </div>
 
-        <div className="mt-2.5 flex flex-col gap-2 rounded-2xl border border-white/[0.07] bg-[#0A1018]/55 p-2.5 backdrop-blur-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg border border-white/[0.08] bg-black/20 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setView('bubbles')}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
-                    view === 'bubbles'
-                      ? 'bg-accent-primary text-fg-inverse shadow-[0_0_0_1px_rgba(56,189,248,0.25)]'
-                      : 'text-fg-muted hover:bg-white/[0.04] hover:text-fg-secondary',
-                  )}
-                >
-                  <Layers className="h-3.5 w-3.5" /> Bubbles
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView('table')}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
-                    view === 'table'
-                      ? 'bg-accent-primary text-fg-inverse shadow-[0_0_0_1px_rgba(56,189,248,0.25)]'
-                      : 'text-fg-muted hover:bg-white/[0.04] hover:text-fg-secondary',
-                  )}
-                >
-                  Table
-                </button>
-              </div>
-              <span className="hidden h-5 w-px bg-white/[0.08] lg:inline-block" aria-hidden />
-              <div className="flex flex-wrap gap-1">
-                {TIME_KEYS.map((w) => (
-                  <button
-                    key={w}
-                    type="button"
-                    onClick={() => setTw(w)}
-                    className={cn(
-                      'rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition',
-                      tw === w
-                        ? 'bg-accent-primary/16 text-accent-primary ring-1 ring-accent-primary/40'
-                        : 'text-fg-muted hover:bg-white/[0.04]',
-                    )}
-                  >
-                    {w}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+        <div className="rounded-lg border border-border-subtle bg-bg-raised/90 p-1">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className="text-[8px] font-semibold uppercase tracking-wider text-fg-muted">Feed</span>
+            <div className="inline-flex rounded-md border border-border-subtle bg-bg-sunken p-px">
               <button
                 type="button"
-                onClick={() => setPaused((p) => !p)}
+                onClick={() => switchFeedCohort('new')}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition',
-                  paused
-                    ? 'border-amber-400/35 bg-amber-500/12 text-amber-100'
-                    : 'border-white/[0.08] bg-white/[0.02] text-fg-muted hover:border-emerald-400/35 hover:bg-emerald-500/12 hover:text-emerald-100',
+                  'inline-flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-[10px] font-semibold transition',
+                  feedCohort === 'new'
+                    ? 'bg-accent-primary text-fg-inverse'
+                    : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
                 )}
               >
-                {paused ? <PlayCircle className="h-3.5 w-3.5" /> : <PauseCircle className="h-3.5 w-3.5 text-emerald-300/95" />}
-                {!paused ? <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.65)]" /> : null}
-                <span className="pl-0.5">{paused ? 'Paused' : 'Live'}</span>
+                <Rocket className="h-3 w-3 shrink-0 opacity-90" aria-hidden /> New
               </button>
-              {paused || reducedMotion ? (
-                <span className="hidden text-[10px] text-fg-muted/90 md:inline">
-                  {paused ? 'Field frozen for inspection' : 'Respecting reduced-motion — layout is static'}
-                </span>
-              ) : view === 'bubbles' ? (
-                <span className="hidden text-[10px] text-fg-muted/80 xl:inline">Mindshare drift is subtle unless you pause.</span>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => switchFeedCohort('trending')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-[10px] font-semibold transition',
+                  feedCohort === 'trending'
+                    ? 'bg-accent-primary text-fg-inverse'
+                    : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
+                )}
+              >
+                <Flame className="h-3 w-3 shrink-0 opacity-90" aria-hidden /> Hot
+              </button>
             </div>
+            <span className="h-3 w-px bg-border-subtle/90" aria-hidden />
+            <span className="text-[8px] font-semibold uppercase tracking-wider text-fg-muted">Layout</span>
+            <div className="inline-flex rounded-md border border-border-subtle bg-bg-sunken p-px">
+              <button
+                type="button"
+                onClick={() => setView('bubbles')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-[10px] font-semibold transition',
+                  view === 'bubbles'
+                    ? 'bg-accent-primary text-fg-inverse'
+                    : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
+                )}
+              >
+                <Layers className="h-3 w-3 opacity-90" /> Bubbles
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('axiom')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-[10px] font-semibold transition',
+                  view === 'axiom'
+                    ? 'bg-accent-primary text-fg-inverse'
+                    : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
+                )}
+              >
+                Axiom
+              </button>
+            </div>
+            <span className="h-3 w-px bg-border-subtle/90" aria-hidden />
+            <span className="text-[8px] font-semibold uppercase tracking-wider text-fg-muted">Window</span>
+            <div className="flex flex-wrap items-center gap-px">
+              {TIME_KEYS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  disabled={feedCohort !== 'trending'}
+                  title={
+                    feedCohort !== 'trending'
+                      ? 'Switch to Hot for multi-window tape stats'
+                      : `Window ${w}`
+                  }
+                  onClick={() => setTw(w)}
+                  className={cn(
+                    'rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide transition',
+                    feedCohort !== 'trending' && 'cursor-not-allowed opacity-35',
+                    tw === w && feedCohort === 'trending'
+                      ? 'bg-accent-primary/16 text-accent-primary ring-1 ring-accent-primary/35'
+                      : 'text-fg-muted hover:bg-bg-hover',
+                  )}
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPaused((p) => !p)}
+              title={paused ? 'Resume live layout' : 'Pause bubble drift'}
+              className={cn(
+                'ml-auto inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide transition',
+                paused
+                  ? 'border-amber-400/35 bg-amber-500/12 text-amber-100'
+                  : 'border-border-subtle bg-bg-sunken text-fg-muted hover:border-emerald-500/35 hover:bg-emerald-500/10 hover:text-emerald-200',
+              )}
+            >
+              {paused ? <PlayCircle className="h-3 w-3" /> : <PauseCircle className="h-3 w-3 text-emerald-300/95" />}
+              {!paused ? (
+                <span className="ml-0.5 h-1 w-1 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]" />
+              ) : null}
+              <span className="pl-0.5">{paused ? 'Paused' : 'Live'}</span>
+            </button>
           </div>
 
-          <div className="flex flex-col gap-2 border-t border-white/[0.05] pt-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-fg-muted/90">Signal</span>
+          <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-border-subtle/70 pt-1">
+            <span className="text-[8px] font-semibold uppercase tracking-wider text-fg-muted">Signal</span>
+            <div className="flex flex-wrap gap-px">
               {SORT_MODES.map((m) => (
                 <button
                   key={m.id}
                   type="button"
                   onClick={() => setSortMode(m.id)}
                   className={cn(
-                    'rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition',
+                    'rounded-full px-2 py-px text-[9px] font-semibold transition',
                     sortMode === m.id
-                      ? 'bg-accent-primary/16 text-accent-primary ring-1 ring-accent-primary/40'
-                      : 'text-fg-muted hover:bg-white/[0.04]',
+                      ? 'bg-accent-primary/16 text-accent-primary ring-1 ring-accent-primary/35'
+                      : 'text-fg-muted hover:bg-bg-hover',
                   )}
                 >
                   {m.label}
                 </button>
               ))}
             </div>
-
-            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-[min(100%,20rem)] flex-1 basis-[240px] items-center gap-1">
               <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-fg-muted" />
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search token, ticker, or contract"
+                  placeholder="Search ticker / CA…"
                   aria-label="Search tokens"
-                  className="focus-ring h-10 w-full rounded-xl border border-white/[0.08] bg-[#070B12]/90 pl-8 pr-3 text-[12px] text-fg-primary placeholder:text-fg-muted/85"
+                  className="focus-ring h-8 w-full rounded-lg border border-border-subtle bg-bg-sunken py-1 pl-7 pr-2 text-[11px] text-fg-primary placeholder:text-fg-muted"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setFilterModal(true)}
-                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.1] bg-white/[0.03] px-3 text-[12px] font-semibold text-fg-secondary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-sm hover:border-accent-primary/35 hover:bg-accent-primary/[0.08] hover:text-fg-primary"
+                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-border-subtle bg-bg-sunken px-2 text-[11px] font-semibold text-fg-secondary hover:border-accent-primary/35 hover:bg-accent-primary/10 hover:text-fg-primary"
               >
-                <Filter className="h-4 w-4 opacity-85" /> Filters
+                <Filter className="h-3.5 w-3.5 opacity-85" /> Filters
               </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1 border-t border-white/[0.04] pt-2">
-            <span className="mr-1 self-center text-[9px] font-semibold uppercase tracking-[0.14em] text-fg-muted/90">
-              Presets
-            </span>
+          <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-border-subtle/70 pt-1">
+            <span className="text-[8px] font-semibold uppercase tracking-wider text-fg-muted">Presets</span>
             {(
               [
-                ['Top mindshare', 'topMind'] as const,
-                ['High volume', 'highVol'] as const,
+                ['Top MS', 'topMind'] as const,
+                ['Hi vol', 'highVol'] as const,
                 ['Low risk', 'lowRisk'] as const,
-                ['Under $50M', 'sub50'] as const,
-                ['Under $5M', 'sub5'] as const,
-                ['New pairs (<24h)', 'newPairs'] as const,
-                ['Requires social cues', 'social'] as const,
+                ['<$50M', 'sub50'] as const,
+                ['<$5M', 'sub5'] as const,
+                ['<24h', 'newPairs'] as const,
+                ['Social', 'social'] as const,
               ] as const
             ).map(([lb, key]) => (
               <button
@@ -362,10 +403,10 @@ export function ExploreTokensPanel() {
                 type="button"
                 onClick={() => applyExplorePreset(key)}
                 className={cn(
-                  'rounded-full border px-2 py-px text-[9.5px] font-semibold transition',
+                  'rounded-full border px-1.5 py-px text-[8.5px] font-semibold transition',
                   presetActive(key)
                     ? 'border-accent-primary/55 bg-accent-primary/14 text-accent-primary'
-                    : 'border-white/[0.08] text-fg-muted hover:border-accent-primary/35 hover:text-fg-secondary',
+                    : 'border-border-subtle text-fg-muted hover:border-accent-primary/35 hover:text-fg-secondary',
                 )}
               >
                 {lb}
@@ -374,11 +415,11 @@ export function ExploreTokensPanel() {
           </div>
 
           {filterChips.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="mt-1 flex flex-wrap gap-1 border-t border-border-subtle/70 pt-1">
               {filterChips.map((c) => (
                 <span
                   key={c}
-                  className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-medium text-fg-secondary ring-1 ring-white/10"
+                  className="rounded-full bg-bg-sunken px-1.5 py-px text-[9px] font-medium text-fg-secondary ring-1 ring-border-subtle"
                 >
                   {c}
                 </span>
@@ -391,71 +432,63 @@ export function ExploreTokensPanel() {
       {showExploreDemoRibbon ? (
         <div
           role="status"
-          className="flex shrink-0 items-start gap-2.5 rounded-xl border border-amber-500/[0.18] bg-amber-500/[0.045] px-3 py-2 text-amber-100/92 backdrop-blur-md"
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-2 py-1 text-[10px] text-amber-100/92"
         >
-          <Info className="mt-0.5 h-[14px] w-[14px] shrink-0 text-amber-200/85" aria-hidden />
-          <div className="min-w-0 leading-snug">
-            <p className="text-[11px]">
-              <span className="font-semibold tracking-tight text-amber-50/95">Demo dataset</span>
-              {' — '}
-              live indexer returned no rows for{' '}
-              <span className="font-semibold text-amber-50/95">{native}</span>, so synthetic mindshare bubbles are shown.
-            </p>
-            <p className="mt-0.5 text-[10px] text-amber-200/55">
-              Live rows replace this automatically when the feed is populated.
-            </p>
-          </div>
+          <Info className="h-3 w-3 shrink-0 text-amber-200/85" aria-hidden />
+          <span>
+            <span className="font-semibold text-amber-50/95">Synthetic field</span>
+            {' — '}no indexer rows for {native}; bubbles auto-fill until live data arrives.
+          </span>
         </div>
       ) : null}
 
-      {exploreQ.isLoading ? (
-        <SkeletonBubbles />
-      ) : exploreQ.isError ? (
-        <div className="rounded-xl border border-white/12 bg-black/35 p-6 text-[13px] text-signal-bear">
-          Could not reach Explore indexer. Retry using Pulse or swap chains once feeds warm.
-        </div>
-      ) : visible.length === 0 ? (
-        <EmptyExplore hasAny={built.length > 0} filtered={filtered.length !== built.length} inCanvas />
-      ) : view === 'bubbles' ? (
-        <ExploreMindshareCanvas
-          items={visible.slice(0, 64)}
-          searchQuery={search}
-          reducedMotion={reducedMotion}
-          layoutFrozen={paused || reducedMotion}
-          selectedAddress={selected?.tokenAddress ?? null}
-          hoveredAddress={hovered}
-          onHover={setHovered}
-          onSelect={(mint) => {
-            const it = visible.find((v) => v.tokenAddress === mint) ?? null;
-            setSelected(it);
-          }}
-          onOpenTokenPage={onOpenFull}
-        />
-      ) : (
-        <ExploreTableMode
-          items={visible}
-          sortMode={sortMode}
-          timeWindow={tw}
-          onSortMode={setSortMode}
-          onOpenRow={(item) => setSelected(item)}
-        />
-      )}
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
+        {exploreQ.isError ? (
+          <div className="rounded-xl border border-border-subtle bg-bg-sunken p-6 text-[13px] text-signal-bear">
+            Could not reach Explore indexer. Retry using Pulse or swap chains once feeds warm.
+          </div>
+        ) : bundlesForExplore.length === 0 && exploreQ.isPending ? (
+          <SkeletonBubbles />
+        ) : visible.length === 0 ? (
+          <EmptyExplore hasAny={built.length > 0} filtered={filtered.length !== built.length} inCanvas />
+        ) : view === 'bubbles' ? (
+          <ExploreMindshareCanvas
+            items={visible.slice(0, 64)}
+            searchQuery={search}
+            reducedMotion={reducedMotion}
+            layoutFrozen={paused || reducedMotion}
+            selectedAddress={selected?.tokenAddress ?? null}
+            hoveredAddress={hovered}
+            onHover={setHovered}
+            onSelect={(mint) => {
+              const it = visible.find((v) => v.tokenAddress === mint) ?? null;
+              setSelected(it);
+            }}
+            onOpenTokenPage={onOpenFull}
+          />
+        ) : (
+          <ExploreTableMode
+            items={visible}
+            sortMode={sortMode}
+            timeWindow={tw}
+            onSortMode={setSortMode}
+            onOpenRow={(item) => setSelected(item)}
+          />
+        )}
+      </div>
 
       <ExploreTokenDrawer item={selected} open={Boolean(selected)} onClose={() => setSelected(null)} />
 
       <ExploreFiltersModal open={filterModal} onClose={() => setFilterModal(false)} value={filters} onApply={setFilters} />
 
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1 text-[10px] leading-relaxed text-fg-muted/88">
-        <span className="inline-flex items-center gap-1.5">
-          <Sparkles className="h-3 w-3 shrink-0 text-accent-primary/72" aria-hidden />
-          Mindshare blends market, wallet, and social signals as data becomes available.
-        </span>
-        {showExploreDemoRibbon ? (
-          <span className="text-[9.5px] text-amber-200/52">
-            Demo mode active · synthetic signals stand in until indexer rows exist.
+      {!showExploreDemoRibbon ? (
+        <div className="shrink-0 text-[9px] leading-snug text-fg-muted">
+          <span className="inline-flex items-center gap-1">
+            <Sparkles className="h-2.5 w-2.5 shrink-0 text-accent-primary/72" aria-hidden />
+            Mindshare blends tape signals as ingestion expands.
           </span>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -481,8 +514,8 @@ function PresetSlotSwitcher({
   onChange: (s: PresetSlot) => void;
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 backdrop-blur-sm">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">Trading</span>
+    <div className="flex shrink-0 flex-wrap items-center gap-1 rounded-lg border border-border-subtle bg-bg-sunken px-1.5 py-1">
+      <span className="text-[8px] font-semibold uppercase tracking-wider text-fg-muted">Trade</span>
       {([1, 2, 3] as const).map((slot) => (
         <button
           key={slot}
@@ -490,7 +523,7 @@ function PresetSlotSwitcher({
           title={`Trading preset slot ${slot}`}
           onClick={() => onChange(slot)}
           className={cn(
-            'h-9 min-w-[40px] rounded-lg px-2 text-[11px] font-semibold transition',
+            'h-7 min-w-[34px] rounded-md px-1.5 text-[10px] font-semibold transition',
             activePresetSlot === slot
               ? 'bg-accent-primary/18 text-accent-primary ring-1 ring-accent-primary/40'
               : 'text-fg-secondary hover:bg-bg-hover',
@@ -499,8 +532,8 @@ function PresetSlotSwitcher({
           P{slot}
         </button>
       ))}
-      <Link href="/pulse" className="text-[11px] font-semibold text-accent-primary hover:underline">
-        Pulse quick-buy
+      <Link href="/pulse" className="text-[10px] font-semibold text-accent-primary hover:underline">
+        Pulse
       </Link>
     </div>
   );
@@ -518,10 +551,10 @@ function EmptyExplore({
   return (
     <div
       className={cn(
-        'relative flex flex-col items-center justify-center gap-6 overflow-hidden text-center',
+        'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-hidden text-center',
         inCanvas
-          ? 'min-h-[480px] lg:min-h-[calc(100vh-16rem)] rounded-2xl border border-white/[0.08] bg-[#070B12]'
-          : 'min-h-[420px] lg:min-h-[calc(100vh-17rem)] rounded-2xl border border-dashed border-white/[0.1] bg-[#070B12]/90',
+          ? 'min-h-[220px] rounded-xl border border-border-subtle bg-bg-base'
+          : 'min-h-[220px] rounded-xl border border-dashed border-border-subtle bg-bg-base',
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_40%,rgba(0,149,237,0.08),transparent_60%)]" />

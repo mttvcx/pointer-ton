@@ -7,6 +7,7 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveWalletStore } from '@/store/activeWallet';
 import { useTradingStore } from '@/store/trading';
+import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { useUIStore } from '@/store/ui';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { shortenAddress } from '@/lib/utils/addresses';
@@ -117,7 +118,13 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() =>
+          setOpen((v) => {
+            const next = !v;
+            if (next) useTokenDockPeekStore.getState().setWalletPeekOpen(false);
+            return next;
+          })
+        }
         className={cn(className)}
       >
         {children}

@@ -14,6 +14,25 @@ export const CHAIN_ICON_PNG: Record<AppChainId, string> = {
 };
 
 /**
+ * Bottom-bar Jupiter spot carousel symbols → artwork under `/public/chains`.
+ * Falls back to ticker initials in UI when unknown.
+ */
+export const SPOT_TICKER_ICON_SRC: Record<string, string> = {
+  /** Transparent raster — carousel + Lighthouse pairing (official SVG replaced per brand kit). */
+  BTC: '/chains/btc.png',
+  ETH: '/chains/eth.svg',
+  SOL: CHAIN_ICON_PNG.sol,
+  TON: CHAIN_ICON_PNG.ton,
+  BNB: CHAIN_ICON_PNG.bnb,
+  BASE: CHAIN_ICON_PNG.base,
+};
+
+export function spotTickerIconSrc(symbol: string): string | undefined {
+  const k = symbol.trim().toUpperCase();
+  return SPOT_TICKER_ICON_SRC[k];
+}
+
+/**
  * Squads + coarse chain slug → raster/SVG logo under `/public/chains`.
  * Keys are lowercase. Missing slugs omit an entry ({@link ChainIcon} returns null).
  */

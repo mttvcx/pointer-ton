@@ -104,7 +104,7 @@ function MintTradesScroll({
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto touch-pan-y [scrollbar-gutter:stable] [-ms-overflow-style:auto] [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-subtle-rgb)/0.55)_transparent]"
+        className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] touch-pan-y border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] [-ms-overflow-style:auto] [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]"
         onPointerEnter={() => onHoverChange(true)}
         onPointerLeave={() => onHoverChange(false)}
       >
@@ -241,7 +241,7 @@ function PositionsDesk({ sym }: { sym: string }) {
         <span>Your wallets · this mint</span>
         <span className="tabular-nums opacity-80">—</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto [scrollbar-gutter:stable] touch-pan-y">
+      <div className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
         <table className="w-full min-w-[640px] border-collapse text-left tabular-nums">
           <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
             <tr>
@@ -302,7 +302,7 @@ function OrdersDesk({ sym }: { sym: string }) {
           <span>Your open orders · this mint</span>
           <span className="tabular-nums opacity-70">0 open</span>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <table className="w-full min-w-[720px] border-collapse text-left tabular-nums">
             <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
               <tr>
@@ -348,7 +348,7 @@ function OrdersDesk({ sym }: { sym: string }) {
         <span>Your open orders · preview rows (layout)</span>
         <span className="tabular-nums">14 open</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto [scrollbar-gutter:stable] touch-pan-y">
+      <div className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
         <table className="w-full min-w-[780px] border-collapse text-left tabular-nums">
           <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
             <tr>
@@ -624,7 +624,7 @@ export function TokenActivityTabs({
     }
     return (
       <div className="flex w-full min-h-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle/80 px-2 py-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle/80 px-2 py-1.5">
           {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
             <button
               key={id}
@@ -641,7 +641,7 @@ export function TokenActivityTabs({
             </button>
           ))}
         </div>
-        <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto [scrollbar-gutter:stable] touch-pan-y">
+        <div className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
           <table className="w-full min-w-[720px] border-collapse text-left tabular-nums">
             <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 text-left backdrop-blur-sm">
               <tr>
@@ -945,7 +945,7 @@ export function TokenActivityTabs({
         {tab === 'traders' ? <span>Desk · FIFO realized PnL</span> : null}
         {tab === 'dev_tokens' ? <span>Creator · deployer</span> : null}
       </div>
-      <div className="min-h-0 flex-1 w-full overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden w-full">
         {tab === 'trades' ? (
           tradesQ.isLoading && !tradesQ.data ? (
             <div className="space-y-2 p-3">
@@ -976,7 +976,7 @@ export function TokenActivityTabs({
         ) : null}
         {tab === 'traders' ? tradersBody : null}
         {tab === 'dev_tokens' ? (
-          <div className="w-full">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-auto">
             <div className="border-b border-border-subtle p-2 text-[10px] text-fg-muted">
               Creator / deployer analytics for this token.
             </div>

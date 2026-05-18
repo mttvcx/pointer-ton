@@ -28,7 +28,7 @@ const PAIRS: PerpPair[] = [
     id: 'btc',
     label: 'BTC-PERP',
     coin: 'BTC',
-    iconSrc: '/chains/btc.svg',
+    iconSrc: '/chains/btc.png',
     tvSymbol: 'BINANCE:BTCUSDT.P',
     mark: 98420,
     chg24: -0.41,

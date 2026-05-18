@@ -109,6 +109,8 @@ export function TokenHeader({
   const proTraders = extQ.data?.metrics.proTraders ?? null;
 
   const activeChain = useUIStore((s) => s.activeChain);
+  const alertRulesModalOpen = useUIStore((s) => s.alertRulesModalOpen);
+  const setAlertRulesModalOpen = useUIStore((s) => s.setAlertRulesModalOpen);
   const nativeSym = nativeTicker(activeChain);
 
   const tw = token.twitter_handle?.replace(/^@/, '').trim();
@@ -233,9 +235,15 @@ export function TokenHeader({
               </button>
               <button
                 type="button"
-                className={cn(iconRow, 'inline-flex shrink-0 rounded')}
-                aria-label="Notifications"
-                tabIndex={-1}
+                onClick={() => setAlertRulesModalOpen(true)}
+                title="Pulse alerts"
+                className={cn(
+                  iconRow,
+                  'inline-flex shrink-0 rounded',
+                  alertRulesModalOpen &&
+                    'text-accent-primary ring-1 ring-accent-primary/35 ring-offset-1 ring-offset-bg-raised rounded-full',
+                )}
+                aria-label="Open Pulse alerts"
               >
                 <Bell className="h-3.5 w-3.5" strokeWidth={2} />
               </button>

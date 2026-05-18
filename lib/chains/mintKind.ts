@@ -36,6 +36,22 @@ export function isValidTokenMintParam(mint: string): boolean {
   return inferMintKind(mint.trim()) !== 'unknown';
 }
 
+/**
+ * Header chain to activate when opening `/token/[mint]` from clipboard.
+ * `0x…` mints are ambiguous (BNB vs Base); prefer the user's current chain when already on an EVM rail,
+ * otherwise default to BNB (common pump/brainshare flow).
+ */
+export function appChainForMintNavigation(mint: string, activeChain: AppChainId): AppChainId {
+  const k = inferMintKind(mint.trim());
+  if (k === 'ton') return 'ton';
+  if (k === 'sol') return 'sol';
+  if (k === 'evm') {
+    if (activeChain === 'bnb' || activeChain === 'base') return activeChain;
+    return 'bnb';
+  }
+  return activeChain;
+}
+
 /** Tracker watchlist addresses must match the selected header chain (TON / Solana / EVM). */
 export function isValidTrackedWalletAddress(addr: string, chain: AppChainId): boolean {
   return mintMatchesAppChain(addr.trim(), chain);

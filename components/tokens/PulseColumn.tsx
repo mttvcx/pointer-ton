@@ -52,6 +52,8 @@ import type { PulseTokenBundle } from '@/types/tokens';
  *
  *  - `compact` — current multi-line layout (avatar + identity + social strip).
  *  - `tabled`  — Axiom-style denser footprint; same content but tighter.
+ *
+ * BNB Pulse rows reserve extra vertical space when an English gloss line can appear under CJK names.
  */
 const ROW_SLOT_PX_BY_DENSITY = {
   compact: 138,
@@ -301,7 +303,8 @@ export function PulseColumn({
 
   const { prefs } = usePreferences();
   const isTabled = prefs.rowDensity === 'tabled';
-  const rowSize = ROW_SLOT_PX_BY_DENSITY[prefs.rowDensity];
+  const rowSize =
+    ROW_SLOT_PX_BY_DENSITY[prefs.rowDensity] + (activeChain === 'bnb' ? 14 : 0);
 
   /* eslint-disable react-hooks/incompatible-library */
   const rowVirtualizer = useVirtualizer({
@@ -367,22 +370,20 @@ export function PulseColumn({
             {column === 'new' ? (
               <span className="text-[9px] tabular-nums text-fg-muted/80">&lt; 30m</span>
             ) : null}
-            {activeChain === 'sol' ? (
-              <button
-                type="button"
-                title={
-                  twitterRailSide === 'hidden'
-                    ? 'Show X listens rail'
-                    : twitterRailSide === 'left'
-                      ? 'Move X listens right'
-                      : 'Hide X listens rail'
-                }
-                onClick={() => cycleTwitterRail()}
-                className="btn-press focus-ring flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-hover hover:text-accent-primary"
-              >
-                <PanelsLeftRight className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-              </button>
-            ) : null}
+            <button
+              type="button"
+              title={
+                twitterRailSide === 'hidden'
+                  ? 'Show X listens rail'
+                  : twitterRailSide === 'left'
+                    ? 'Move X listens right'
+                    : 'Hide X listens rail'
+              }
+              onClick={() => cycleTwitterRail()}
+              className="btn-press focus-ring flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-hover hover:text-accent-primary"
+            >
+              <PanelsLeftRight className="h-3 w-3" strokeWidth={2.25} aria-hidden />
+            </button>
           </div>
 
           {/**

@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import { ExploreTokensPanel } from '@/components/explore/ExploreTokensPanel';
 
 export const metadata: Metadata = {
-  description: 'Live mindshare across tokens, wallets, and social signals.',
+  description: 'New-launch bubble pool by default — switch to Hot for trending tape or Axiom desk view.',
 };
 
 export default function ExplorePage() {
   return (
-    <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h))] min-h-0 flex-col px-3 py-3">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden px-2 py-1 sm:px-2.5">
       <ExploreTokensPanel />
     </div>
   );

@@ -2,7 +2,7 @@
 
 export type ExploreTimeWindow = '5m' | '1h' | '6h' | '24h';
 
-export type ExploreViewMode = 'bubbles' | 'table';
+export type ExploreViewMode = 'bubbles' | 'axiom';
 
 export type ExploreSortMode =
   | 'mindshare'

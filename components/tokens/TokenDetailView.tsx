@@ -41,17 +41,17 @@ const H_GRIP = 4;
 const MIN_CHART = 200;
 const MIN_TABS = 160;
 
-/** Upper bound for chart height from viewport chrome (main scroll is one column; row drag should not explode when the left column is very tall). */
+/** Reserve subtracted from 100dvh for sticky trades desk height — aligns with chartSplitAvailPx chrome fudge. */
+const TOKEN_DESK_VIEWPORT_RESERVE = 72;
+
+/** Upper bound for chart height — token page scrolls until the sticky desk fills the viewport; chart drag clamps against that “desk ceiling”. */
 function chartSplitAvailPx(): number {
   if (typeof window === 'undefined') return MIN_CHART + MIN_TABS + H_GRIP + 400;
   const viewportH = window.innerHeight;
-  const topBar =
-    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-topbar-h')) ||
-    48;
   const bottomBar =
     Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-bottombar-h')) ||
     40;
-  const chrome = topBar + bottomBar + 140;
+  const chrome = bottomBar + TOKEN_DESK_VIEWPORT_RESERVE + 80;
   return Math.max(MIN_CHART + MIN_TABS + H_GRIP, viewportH - chrome);
 }
 
@@ -449,15 +449,15 @@ export function TokenDetailView({
 
   return (
     <>
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex w-full min-w-0 flex-col lg:flex-row lg:items-stretch">
         <div
           ref={containerRef}
-          className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col border-b border-border-subtle lg:flex-row"
+          className="flex min-w-0 flex-1 flex-col border-b border-border-subtle lg:flex-row lg:items-stretch"
         >
           <div
             ref={leftColRef}
             className={cn(
-              'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col lg:overflow-hidden',
+              'flex min-w-0 flex-1 flex-col lg:overflow-visible',
               lg && 'min-w-[360px]',
             )}
           >
@@ -487,17 +487,20 @@ export function TokenDetailView({
               onPointerUp={onRowUp}
             />
 
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-              <TokenActivityTabs
-                mint={mint}
-                symbol={symbol}
-                creatorWallet={creatorWallet}
-                dev={dev}
-                tradesPanel={tradesPanel}
-                onTradesPanelChange={setTradesPanel}
-                onLiveTradesSnapshot={setLiveTrades}
-                onOpenInstantTrade={() => setInstantTradeOpen(true)}
-              />
+            {/* Sticky desk: outer page scroll stops once this fills the viewport; lists scroll inside */}
+            <div className="sticky top-0 z-[8] flex h-[calc(100dvh-var(--app-bottombar-h)-72px)] min-h-[260px] max-h-[calc(100dvh-var(--app-bottombar-h)-72px)] shrink-0 flex-col overflow-hidden overscroll-y-auto border-t border-border-subtle bg-bg-base shadow-[0_-12px_32px_-16px_rgba(0,0,0,0.45)]">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <TokenActivityTabs
+                  mint={mint}
+                  symbol={symbol}
+                  creatorWallet={creatorWallet}
+                  dev={dev}
+                  tradesPanel={tradesPanel}
+                  onTradesPanelChange={setTradesPanel}
+                  onLiveTradesSnapshot={setLiveTrades}
+                  onOpenInstantTrade={() => setInstantTradeOpen(true)}
+                />
+              </div>
             </div>
           </div>
 
@@ -510,27 +513,30 @@ export function TokenDetailView({
 
           <div
             className={cn(
-              'flex w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-transparent lg:h-full lg:min-h-0 lg:max-h-none lg:self-stretch lg:overflow-y-auto lg:overscroll-y-contain lg:border-l lg:border-t-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+              'flex w-full max-w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-transparent lg:sticky lg:top-0 lg:min-h-0 lg:max-h-[calc(100dvh-var(--app-bottombar-h)-72px)] lg:self-stretch lg:overflow-y-auto lg:overscroll-y-auto lg:border-l lg:border-t-0 [-ms-overflow-style:auto] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
             )}
             style={lg ? { width: rightStackW } : undefined}
           >
-            <BuySellPanel
-              key={
-                mint +
-                (limitAlertForPanel?.id ?? '') +
-                String(initialBuySol ?? '') +
-                initialTradeSide
-              }
-              mint={mint}
-              symbol={symbol}
-              tokenName={tokenName}
-              decimals={decimals}
-              limitAlertOrder={limitAlertForPanel}
-              initialBuySol={initialBuySol}
-              initialTradeSide={initialTradeSide}
-              marketSnapshot={marketSnapshot ?? null}
-              onRequestInstantTrade={() => setInstantTradeOpen(true)}
-            />
+            {/* Fill the stretched column so wheel-scroll works over the whole rail, not only over control height. */}
+            <div className="flex min-h-full min-w-0 flex-1 flex-col">
+              <BuySellPanel
+                key={
+                  mint +
+                  (limitAlertForPanel?.id ?? '') +
+                  String(initialBuySol ?? '') +
+                  initialTradeSide
+                }
+                mint={mint}
+                symbol={symbol}
+                tokenName={tokenName}
+                decimals={decimals}
+                limitAlertOrder={limitAlertForPanel}
+                initialBuySol={initialBuySol}
+                initialTradeSide={initialTradeSide}
+                marketSnapshot={marketSnapshot ?? null}
+                onRequestInstantTrade={() => setInstantTradeOpen(true)}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -1,9 +1,10 @@
 /**
- * Bottom “tracker” shortcuts (Axiom-style dock). `wallet` maps to `/wallets` for
- * hotkey navigation — the picker still opens from the chip in the bottom bar.
+ * Bottom dock shortcuts (Axiom-style). `wallet` → `/wallets` hub + picker rail;
+ * `tracker` toggles the draggable trades-tracker peek on Solana.
  */
 export type DockTrackerId =
   | 'wallet'
+  | 'tracker'
   | 'social'
   | 'discover'
   | 'pulse'
@@ -15,6 +16,7 @@ export type DockTrackerMode = 'full' | 'compact' | 'icon';
 
 export const DOCK_TRACKER_IDS: DockTrackerId[] = [
   'wallet',
+  'tracker',
   'social',
   'discover',
   'pulse',
@@ -23,11 +25,13 @@ export const DOCK_TRACKER_IDS: DockTrackerId[] = [
   'squads',
 ];
 
-/** Next.js routes for keyboard shortcuts (wallet → manage wallets page). */
-export const DOCK_TRACKER_HREF: Record<Exclude<DockTrackerId, 'wallet'>, string> = {
+/** Dock chips that navigate via `<Link>` — `wallet` / `pulse` / `tracker` use bespoke handlers. */
+export const DOCK_TRACKER_HREF: Record<
+  Exclude<DockTrackerId, 'wallet' | 'pulse' | 'tracker'>,
+  string
+> = {
   social: '/track',
   discover: '/explore',
-  pulse: '/pulse',
   pnl: '/portfolio',
   alpha: '/points',
   squads: '/squads/discover-traders',
@@ -36,7 +40,8 @@ export const DOCK_TRACKER_HREF: Record<Exclude<DockTrackerId, 'wallet'>, string>
 export const WALLET_HOTKEY_ROUTE = '/wallets';
 
 const FULL: Record<DockTrackerId, string> = {
-  wallet: 'Wallet Tracker',
+  wallet: 'Wallet',
+  tracker: 'Tracker',
   social: 'Social Tracker',
   discover: 'Discover Tracker',
   pulse: 'Pulse Tracker',
@@ -47,6 +52,7 @@ const FULL: Record<DockTrackerId, string> = {
 
 const COMPACT: Record<DockTrackerId, string> = {
   wallet: 'Wallet',
+  tracker: 'Tracker',
   social: 'Social',
   discover: 'Discover',
   pulse: 'Pulse',

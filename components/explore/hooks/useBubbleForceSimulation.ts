@@ -91,7 +91,8 @@ export function useBubbleForceSimulation({ items, box, containerRef, reducedMoti
     }
 
     const cx = box.w / 2;
-    const cy = box.h * 0.46;
+    /** Slightly above geometric center so clusters read “floating upward” (launchpad bubble pools). */
+    const cy = box.h * 0.4;
 
     /* Compose nodes, preserving prior positions for stable ids so the
      * field doesn't repack from scratch when the cohort changes order. */
@@ -127,20 +128,20 @@ export function useBubbleForceSimulation({ items, box, containerRef, reducedMoti
       .force(
         'charge',
         forceManyBody<BubbleSimNode>()
-          .strength(() => -10)
+          .strength(() => -15)
           .distanceMax(Math.min(box.w, box.h) * 0.95),
       )
       .force(
         'collide',
         forceCollide<BubbleSimNode>((d) => d.r + 4)
-          .strength(0.96)
+          .strength(0.88)
           .iterations(4),
       )
-      .force('cx', forceX<BubbleSimNode>(cx).strength((d) => 0.05 + d.weight * 0.06))
-      .force('cy', forceY<BubbleSimNode>(cy).strength((d) => 0.04 + d.weight * 0.055))
-      .force('center', forceCenter<BubbleSimNode>(cx, cy).strength(0.02))
-      .alphaDecay(reducedMotion ? 0.05 : 0.028)
-      .velocityDecay(0.62)
+      .force('cx', forceX<BubbleSimNode>(cx).strength((d) => 0.045 + d.weight * 0.055))
+      .force('cy', forceY<BubbleSimNode>(cy).strength((d) => 0.038 + d.weight * 0.052))
+      .force('center', forceCenter<BubbleSimNode>(cx, cy).strength(0.015))
+      .alphaDecay(reducedMotion ? 0.05 : 0.026)
+      .velocityDecay(0.56)
       .alphaMin(0.0012)
       .alphaTarget(0)
       .stop()

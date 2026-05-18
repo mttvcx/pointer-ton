@@ -1,18 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { Bell, ChevronDown, ExternalLink, Loader2, PanelLeft, Trash2 } from 'lucide-react';
+import { Bell, ChevronDown, ExternalLink, Images, Loader2, PanelLeft, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { type PulseProtocolId, PULSE_PROTOCOL_IDS } from '@/lib/tokens/columnPresetModel';
 import { playAlertPresetSound } from '@/lib/alerts/alertRulePayloadAudio';
 import { dispatchAlertFlashPreview } from '@/lib/alerts/alertUxPreview';
 import { normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
+import type { TweetImageMintMode } from '@/lib/alerts/alertRuleModel';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
+import { clampAlertRulesPopoutFrame } from '@/lib/ui/alertRulesPopoutFrame';
 
 /** Glass tokens — airy layers on `bg-base`, not flat grey slabs */
 const UI = {
@@ -103,10 +105,10 @@ export function openAlertRulesPopoutDetached() {
   const top = Math.round((header?.getBoundingClientRect().bottom ?? 72) + 8);
   const w = Math.min(440, Math.max(300, Math.round(window.innerWidth * 0.38)));
   const bottomReserve = 64;
-  const h = Math.min(600, Math.max(320, window.innerHeight - top - bottomReserve));
+  const h = Math.min(560, Math.max(320, window.innerHeight - top - bottomReserve));
   const st = useUIStore.getState();
   st.setAlertRulesDocked(false);
-  st.setAlertRulesPopout({ top, left: 14, width: w, height: h });
+  st.setAlertRulesPopout(clampAlertRulesPopoutFrame(top, 14, w, h));
 }
 
 export function AlertRulesSection({
@@ -143,15 +145,11 @@ export function AlertRulesSection({
   const [twPhraseMatch, setTwPhraseMatch] = useState<'substring' | 'whole_word'>('substring');
   const [twExecution, setTwExecution] = useState<'notify' | 'auto_buy'>('notify');
   const [twBuySol, setTwBuySol] = useState('');
+  const [twImageMintMode, setTwImageMintMode] = useState<TweetImageMintMode>('smart');
+  const [twOpenWithMedia, setTwOpenWithMedia] = useState(true);
 
   const useFlatHeader = embedInFloatingPanel || variant === 'strip' || variant === 'modal';
   const showForm = useFlatHeader || builderOpen;
-
-  useEffect(() => {
-    if (activeChain !== 'sol' && creatorKind === 'sol_twitter_listen') {
-      setCreatorKind('pulse_launchpad');
-    }
-  }, [activeChain, creatorKind]);
 
   const listQuery = useQuery({
     queryKey: ['alert-rules'],
@@ -221,6 +219,8 @@ export function AlertRulesSection({
           phrases,
           phraseMatch: twPhraseMatch,
           execution: twExecution,
+          tweetImageMintMode: twImageMintMode,
+          openWithTweetMedia: twOpenWithMedia,
           ...(buyPreset != null ? { buySolPreset: buyPreset } : {}),
         };
       } else {
@@ -267,6 +267,8 @@ export function AlertRulesSection({
       setTwPhraseMatch('substring');
       setTwExecution('notify');
       setTwBuySol('');
+      setTwImageMintMode('smart');
+      setTwOpenWithMedia(true);
       setCreatorKind('pulse_launchpad');
       void qc.invalidateQueries({ queryKey: ['alert-rules'] });
       toast.success('Alert rule saved');
@@ -476,33 +478,37 @@ export function AlertRulesSection({
             {/* A. Trigger */}
             <div className="space-y-2.5">
               <SectionLabel>Trigger</SectionLabel>
-              {activeChain === 'sol' ? (
-                <div className="flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setCreatorKind('pulse_launchpad')}
-                    className={cn(
-                      'flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold transition',
-                      creatorKind === 'pulse_launchpad'
-                        ? 'bg-white/[0.12] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
-                        : 'text-fg-muted hover:bg-white/[0.04]',
-                    )}
-                  >
-                    Pulse launchpads
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCreatorKind('sol_twitter_listen')}
-                    className={cn(
-                      'flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold transition',
-                      creatorKind === 'sol_twitter_listen'
-                        ? 'bg-white/[0.12] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
-                        : 'text-fg-muted hover:bg-white/[0.04]',
-                    )}
-                  >
-                    X listens
-                  </button>
-                </div>
+              <div className="flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+                <button
+                  type="button"
+                  onClick={() => setCreatorKind('pulse_launchpad')}
+                  className={cn(
+                    'flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold transition',
+                    creatorKind === 'pulse_launchpad'
+                      ? 'bg-white/[0.12] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                      : 'text-fg-muted hover:bg-white/[0.04]',
+                  )}
+                >
+                  Pulse launchpads
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreatorKind('sol_twitter_listen')}
+                  className={cn(
+                    'flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold transition',
+                    creatorKind === 'sol_twitter_listen'
+                      ? 'bg-white/[0.12] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                      : 'text-fg-muted hover:bg-white/[0.04]',
+                  )}
+                >
+                  X listens
+                </button>
+              </div>
+              {activeChain !== 'sol' && creatorKind === 'sol_twitter_listen' ? (
+                <p className="text-[9px] leading-snug text-amber-200/85">
+                  Live tweet ingest runs on <span className="font-semibold">Solana</span> — you can still author
+                  rules here; switch the header chain to SOL to see hits in the Pulse rail.
+                </p>
               ) : null}
               <div className="space-y-1.5">
                 <FieldLabel>Rule name</FieldLabel>
@@ -649,8 +655,9 @@ export function AlertRulesSection({
             ) : (
               <>
                 <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
-                  When ingest posts a tweet, we literal-match phrases in the tweet text. If a mint
-                  appears (base58 in text or URLs), Pulse can surface auto-buy intent (server-gated).
+                  When ingest posts a tweet, we literal-match phrases in the tweet text. Mints can appear in the
+                  caption, linked URLs, or attached image CDN URLs (when your rule uses Tweet media settings below).
+                  Auto-buy intent is applied only when a mint is resolved and server env allows it.
                 </p>
                 <div className="border-t border-white/[0.06] pt-3" />
               </>
@@ -709,6 +716,74 @@ export function AlertRulesSection({
                     Server unattended swap wiring is separate—alerts carry mint + intent for client
                     follow-up today.
                   </p>
+                  <div className="space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
+                    <div className="flex items-center gap-2">
+                      <Images className="h-3.5 w-3.5 shrink-0 opacity-80" style={{ color: UI.muted }} aria-hidden />
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: UI.muted }}>
+                        Tweet media
+                      </span>
+                    </div>
+                    <FieldLabel hint="Caption vs attached images">
+                      Mint routing when images ship with the post
+                    </FieldLabel>
+                    <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+                      <button
+                        type="button"
+                        title="Caption & links only — ignore attachment URLs"
+                        onClick={() => setTwImageMintMode('off')}
+                        className={cn(
+                          'rounded-lg px-1 py-2 text-center text-[10px] font-semibold leading-tight transition',
+                          twImageMintMode === 'off'
+                            ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                            : 'text-fg-muted hover:bg-white/[0.04]',
+                        )}
+                      >
+                        Caption only
+                      </button>
+                      <button
+                        type="button"
+                        title="Prefer caption mint; otherwise scan images — balanced default"
+                        onClick={() => setTwImageMintMode('smart')}
+                        className={cn(
+                          'rounded-lg px-1 py-2 text-center text-[10px] font-semibold leading-tight transition',
+                          twImageMintMode === 'smart'
+                            ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                            : 'text-fg-muted hover:bg-white/[0.04]',
+                        )}
+                      >
+                        Smart
+                      </button>
+                      <button
+                        type="button"
+                        title="When images exist, prefer mint found in media URLs over caption alone"
+                        onClick={() => setTwImageMintMode('prefer_media')}
+                        className={cn(
+                          'rounded-lg px-1 py-2 text-center text-[10px] font-semibold leading-tight transition',
+                          twImageMintMode === 'prefer_media'
+                            ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
+                            : 'text-fg-muted hover:bg-white/[0.04]',
+                        )}
+                      >
+                        Prefer images
+                      </button>
+                    </div>
+                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-white/[0.07] bg-white/[0.02] px-2.5 py-2 transition hover:bg-white/[0.03]">
+                      <input
+                        type="checkbox"
+                        checked={twOpenWithMedia}
+                        onChange={(e) => setTwOpenWithMedia(e.target.checked)}
+                        className="mt-0.5 rounded border"
+                        style={{ borderColor: UI.border }}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-semibold text-[#f0f4fc]">Use post image as cover</span>
+                        <span className="mt-0.5 block text-[9px] leading-snug" style={{ color: UI.muted }}>
+                          Pulse rail & hooks receive <span className="font-medium text-fg-secondary">coverImageUrl</span>{' '}
+                          when the ingest sends attachment URLs — handy for launches where art matters alongside auto-buy.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
                 </>
               ) : (
                 <>
@@ -1060,6 +1135,8 @@ function ruleSummary(r: RuleDto, chain: AppChainId): string {
       phrases?: string[];
       execution?: string;
       buySolPreset?: number | null;
+      tweetImageMintMode?: TweetImageMintMode;
+      openWithTweetMedia?: boolean;
     };
     const h =
       cfg.handles?.length ? `@${cfg.handles.slice(0, 3).join(', @')}` : 'handles';
@@ -1069,7 +1146,14 @@ function ruleSummary(r: RuleDto, chain: AppChainId): string {
       cfg.execution === 'auto_buy' && cfg.buySolPreset != null && cfg.buySolPreset > 0
         ? ` · ${cfg.buySolPreset} SOL`
         : '';
-    return `X listens ${h}${ph}${exe}${sol}`;
+    const img =
+      cfg.tweetImageMintMode === 'prefer_media'
+        ? ' · mint:media-first'
+        : cfg.tweetImageMintMode === 'smart'
+          ? ' · mint:balanced'
+          : '';
+    const cov = cfg.openWithTweetMedia ? ' · cover' : '';
+    return `X listens ${h}${ph}${exe}${sol}${img}${cov}`;
   }
   if (r.ruleType !== 'pulse_launchpad' || !r.ruleConfig || typeof r.ruleConfig !== 'object') {
     return r.ruleType;

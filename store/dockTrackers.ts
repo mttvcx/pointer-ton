@@ -14,6 +14,7 @@ const DEFAULT_ORDER = [...DOCK_TRACKER_IDS];
 
 const DEFAULT_MODES: Record<DockTrackerId, DockTrackerMode> = {
   wallet: 'compact',
+  tracker: 'compact',
   social: 'compact',
   discover: 'compact',
   pulse: 'compact',
@@ -25,6 +26,7 @@ const DEFAULT_MODES: Record<DockTrackerId, DockTrackerMode> = {
 /** Notification dot (Axiom-style) — user-togglable later; defaults match reference. */
 const DEFAULT_BADGE: Record<DockTrackerId, boolean> = {
   wallet: true,
+  tracker: true,
   social: true,
   discover: true,
   pulse: true,

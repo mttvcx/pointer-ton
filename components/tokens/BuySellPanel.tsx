@@ -27,6 +27,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import { BUY_PRESETS_SOL, DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import {
   formatCompactUsd,
@@ -968,7 +969,7 @@ export function BuySellPanel({
       data-mint={mint}
       className="relative flex w-full min-w-0 flex-col bg-transparent text-[12px] text-fg-primary"
     >
-      <div className="space-y-2 px-3 py-2 pb-5">
+      <div className="space-y-2 px-3 pb-5 pt-2 lg:px-2.5 lg:pb-4 lg:pt-0">
         {extendedTape ? <TradeTapeStrip m={extendedTape} /> : (
           <div className="rounded-md border border-border-subtle bg-bg-raised px-2 py-1.5 text-[11px] text-fg-muted">
             6h Vol - <span className="text-signal-bull">Buys -</span> <span className="text-signal-bear">Sells -</span> Net -
@@ -1155,8 +1156,10 @@ export function BuySellPanel({
               aria-label="Copy contract address"
               className="shrink-0 text-fg-muted transition-colors hover:text-fg-primary"
               onClick={() => {
-                void navigator.clipboard.writeText(mint);
-                toast.success('Contract address copied');
+                void navigator.clipboard.writeText(mint).then(
+                  () => toastCopied(mint),
+                  () => toastCopyFailed(),
+                );
               }}
             >
               <Copy className="h-3.5 w-3.5 cursor-pointer" strokeWidth={2} />

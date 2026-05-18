@@ -2,14 +2,16 @@
 
 import { useState, type ReactNode } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { toast } from 'sonner';
+import { toastCopyFailed, toastCopied, type CopyToastVariant } from '@/lib/ui/copyToast';
 import { cn } from '@/lib/utils/cn';
 
 interface CopyButtonProps {
   /** The string copied to clipboard. */
   value: string;
-  /** Toast description (defaults to a short preview of the value). */
+  /** Optional subtitle under the toast title (usually omitted for a clean one-liner). */
   toastLabel?: string;
+  /** Defaults to inferring address vs text from the copied value. */
+  toastVariant?: CopyToastVariant | 'auto';
   /** Wraps optional preview text/element (e.g. a shortened address). */
   children?: ReactNode;
   /** Tailwind override for outer wrapper. */
@@ -30,6 +32,7 @@ interface CopyButtonProps {
 export function CopyButton({
   value,
   toastLabel,
+  toastVariant = 'auto',
   children,
   className,
   iconClassName,
@@ -44,12 +47,13 @@ export function CopyButton({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      toast.success('Copied', {
-        description: toastLabel ?? `${value.slice(0, 4)}...${value.slice(-4)}`,
+      toastCopied(value, {
+        variant: toastVariant === 'auto' ? undefined : toastVariant,
+        preview: toastLabel,
       });
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
-      toast.error('Copy failed', { description: 'Clipboard access denied.' });
+      toastCopyFailed();
     }
   }
 

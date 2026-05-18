@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ChevronDown, Clock, X } from 'lucide-react';
-import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
+import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -82,25 +82,20 @@ export function ExchangeModal({
   const copyAddr = () => {
     if (!walletAddress) return;
     void navigator.clipboard.writeText(walletAddress).then(
-      () => toast.success('Address copied'),
-      () => toast.error('Could not copy'),
+      () => toastCopied(walletAddress),
+      () => toastCopyFailed('Could not copy'),
     );
   };
 
   if (!open) return null;
 
   return (
-    <div
-      className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}
-      onMouseDown={(e) => {
-        const t = e.target as HTMLElement | null;
-        if (!t || t.closest('[data-modal-panel]')) return;
-        onOpenChange(false);
-      }}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-black/75 backdrop-blur-[2px]"
+    <div className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}>
+      <button
+        type="button"
+        aria-label="Close"
+        className="absolute inset-0 cursor-default bg-black/75 backdrop-blur-[2px]"
+        onClick={() => onOpenChange(false)}
       />
       <div
         data-modal-panel
@@ -111,6 +106,7 @@ export function ExchangeModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="exchange-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[#1b1f2a] px-3 py-2.5">
           <h2 id="exchange-title" className="text-[15px] font-semibold text-white">

@@ -134,7 +134,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider delayDuration={300}>
       <CopilotModeProvider>
-      <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
+      <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
       <Topbar />
       {/* Task S: Level 2 co-pilot body — full-width strip under topbar; Mode
           toggles height (embedded vs collapsed). */}
@@ -150,7 +150,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <AlertRulesDockPanel />
         <ShellCopilotSlot side="left" />
         <main
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-bg-raised pb-[var(--app-bottombar-h)] pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px))] transition-[padding] duration-200 ease-out"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-raised pb-[var(--app-bottombar-h)] pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px))] transition-[padding] duration-200 ease-out"
         >
           {children}
         </main>

@@ -7,7 +7,11 @@ import {
   parseSolTwitterListenRuleConfig,
   type SolTwitterListenRuleConfig,
 } from '@/lib/alerts/alertRuleModel';
-import { extractSolMintCandidates, normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
+import { normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
+import {
+  mintCandidatesFromTweetParts,
+  pickTwitterListenMint,
+} from '@/lib/alerts/twitterListenMintPick';
 import { notifyUserWebPush } from '@/lib/push/notifyUser';
 
 export type TwitterListenIngestTweet = {
@@ -15,6 +19,8 @@ export type TwitterListenIngestTweet = {
   handle: string;
   text: string;
   urls?: string[];
+  /** HTTPS image attachments — scanned for mint-like base58 segments + optional alert cover art. */
+  imageUrls?: string[];
   tweetUrl?: string;
   createdAt?: string;
 };
@@ -61,10 +67,14 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
     for (const t of tweets) {
       const handleNorm = normalizeTwitterHandle(t.handle);
       if (!handleNorm) continue;
-      const blob = `${t.text ?? ''}\n${(t.urls ?? []).join('\n')}`;
-      const mintCandidates = extractSolMintCandidates(blob);
+      const imageUrls = (t.imageUrls ?? []).filter(Boolean);
+      const hasPostImages = imageUrls.length > 0;
+      const { textCandidates, mediaCandidates } = mintCandidatesFromTweetParts(
+        t.text ?? '',
+        t.urls,
+        imageUrls,
+      );
       const lowered = `${t.text ?? ''}\n`.toLowerCase();
-      const mint = mintCandidates[0] ?? null;
 
       for (const rule of rules) {
         if (rule.rule_type !== 'sol_twitter_listen') continue;
@@ -82,6 +92,16 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
         if (config.phrases.length > 0 && matched.length === 0) continue;
 
         const requested = config.execution ?? 'notify';
+
+        const { mint, mintCandidates } = pickTwitterListenMint(
+          config.tweetImageMintMode,
+          textCandidates,
+          mediaCandidates,
+          hasPostImages,
+        );
+
+        const wantsCover = Boolean(config.openWithTweetMedia && hasPostImages);
+        const coverImageUrl = wantsCover ? imageUrls[0] ?? null : null;
 
         let execution: 'notify' | 'auto_buy' = 'notify';
         let autoHeldReason: string | null = null;
@@ -124,6 +144,9 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
             matchedPhrases: matched,
             mint,
             mintCandidates,
+            imageUrls,
+            coverImageUrl,
+            tweetImageMintMode: config.tweetImageMintMode ?? 'off',
             execution,
             requestedExecution: requested,
             buySolPreset: config.buySolPreset ?? null,

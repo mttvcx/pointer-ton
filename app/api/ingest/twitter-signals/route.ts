@@ -15,6 +15,7 @@ const TweetSchema = z
     handle: z.string().min(1).max(64),
     text: z.string().max(12_000).default(''),
     urls: z.array(z.string().url()).max(48).optional(),
+    imageUrls: z.array(z.string().url()).max(12).optional(),
     tweetUrl: z.string().url().optional(),
     createdAt: z.string().max(48).optional(),
   })
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     handle: t.handle.trim(),
     text: t.text,
     urls: t.urls,
+    imageUrls: t.imageUrls,
     tweetUrl: t.tweetUrl,
     createdAt: t.createdAt,
   }));

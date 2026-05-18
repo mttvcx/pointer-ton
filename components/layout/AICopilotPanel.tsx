@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { type ElementRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -936,13 +935,14 @@ export function AICopilotPanel() {
         {open && collapsed && !narrow ? (
           <div className="flex h-full w-full flex-col items-center gap-1 bg-bg-base py-2">
             <div className="relative mt-1 flex w-8 shrink-0 items-center justify-center">
-              <Image
-                src="/branding/pointer-mark.png"
+              {/* Same swallow mark as Topbar (`/branding/pointer-bird.png`). */}
+              <img
+                src="/branding/pointer-bird.png"
                 alt=""
                 width={28}
                 height={28}
-                unoptimized
-                className="h-7 w-7 shrink-0 opacity-90"
+                decoding="async"
+                className="h-7 w-auto shrink-0 object-contain opacity-90"
               />
               {unread > 0 ? (
                 <span

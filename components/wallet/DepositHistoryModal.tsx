@@ -20,21 +20,16 @@ export function DepositHistoryModal({ open, onOpenChange }: Props) {
   if (!mounted) return null;
 
   return (
-    <div
-      className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}
-      onMouseDown={(e) => {
-        const t = e.target as HTMLElement | null;
-        if (!t || t.closest('[data-modal-panel]')) return;
-        onOpenChange(false);
-      }}
-    >
-      <div
-        aria-hidden
+    <div className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}>
+      <button
+        type="button"
+        aria-label="Close"
         className={cn(
-          'pointer-events-none absolute inset-0 bg-black/70 backdrop-blur-[2px]',
+          'absolute inset-0 cursor-default bg-black/70 backdrop-blur-[2px]',
           overlayBackdropClasses(visible),
           'fill-mode-forwards',
         )}
+        onClick={() => onOpenChange(false)}
       />
       <div
         data-modal-panel
@@ -46,6 +41,7 @@ export function DepositHistoryModal({ open, onOpenChange }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="deposit-history-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[#1b1f2a] px-3 py-2.5">
           <h2 id="deposit-history-title" className="text-[14px] font-semibold text-white">

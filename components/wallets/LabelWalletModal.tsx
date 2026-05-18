@@ -63,22 +63,16 @@ export function LabelWalletModal() {
   if (!mounted || !effectiveAddress) return null;
 
   return (
-    <div
-      className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}
-      role="presentation"
-      onMouseDown={(e) => {
-        const t = e.target as HTMLElement | null;
-        if (!t || t.closest('[data-modal-panel]')) return;
-        close();
-      }}
-    >
-      <div
-        aria-hidden
+    <div className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}>
+      <button
+        type="button"
+        aria-label="Close"
         className={cn(
-          'pointer-events-none absolute inset-0 bg-black/60',
+          'absolute inset-0 cursor-default bg-black/60',
           overlayBackdropClasses(visible),
           'fill-mode-forwards',
         )}
+        onClick={close}
       />
       <LabelWalletForm key={effectiveAddress} address={effectiveAddress} visible={visible} onClose={close} />
     </div>

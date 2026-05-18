@@ -11,7 +11,7 @@ export type PulseDockSnapSide = PeekDockSnapSide;
 
 export type PulsePeekPanelSize = { width: number; height: number };
 
-/** Global dock peek popups — Pulse + Wallet Tracker (non-modal backgrounds). */
+/** Global dock peek popups — Pulse + Tracker (wallet trades peek; non-modal backgrounds). */
 type TokenDockPeekState = {
   pulsePeekOpen: boolean;
   setPulsePeekOpen: (open: boolean) => void;

@@ -45,32 +45,28 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   if (!mounted) return null;
 
   return (
-    <div
-      className={cn('fixed inset-0 flex items-center justify-center', Z_APP_MODAL_OVERLAY)}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="settings-modal-title"
-      onMouseDown={(e) => {
-        const t = e.target as HTMLElement | null;
-        if (!t || t.closest('[data-modal-panel]')) return;
-        onClose();
-      }}
-    >
-      <div
-        aria-hidden
+    <div className={cn('fixed inset-0 flex items-center justify-center', Z_APP_MODAL_OVERLAY)}>
+      <button
+        type="button"
+        aria-label="Close"
         className={cn(
-          'pointer-events-none absolute inset-0 bg-black/60 backdrop-blur-sm',
+          'absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm',
           overlayBackdropClasses(visible),
         )}
+        onClick={onClose}
       />
 
       <div
         data-modal-panel
         ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
         className={cn(
           'relative z-10 mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
           overlayPanelClasses(visible),
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         <header className="sticky top-0 z-[1] flex items-center justify-between border-b border-border-subtle bg-bg-raised px-4 py-3">
           <div className="flex flex-col gap-0.5">

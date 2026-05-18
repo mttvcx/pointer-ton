@@ -77,13 +77,11 @@ export function ExploreMindshareCanvas({
     <div
       ref={wrapRef}
       className={cn(
-        'group/canvas relative isolate min-h-[480px] w-full flex-1 overflow-hidden lg:min-h-[calc(100vh-16rem)]',
-        'rounded-2xl border border-white/[0.07]',
-        'bg-[#070B12]',
-        'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]',
+        'group/canvas relative isolate h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden rounded-xl border border-border-subtle bg-bg-base shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]',
+        'min-h-[220px]',
       )}
       style={{ touchAction: 'none' }}
-      aria-label="Mindshare bubble field"
+      aria-label="New token bubble field"
     >
       {/* Radial ambience */}
       <div
@@ -103,11 +101,11 @@ export function ExploreMindshareCanvas({
         }}
       />
       {/* Subtle inner glow + vignette */}
-      <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-gradient-to-b from-[#0A1018]/85 via-transparent to-[#070B12]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_92%,rgba(0,0,0,0.55),transparent_48%)]" />
+      <div className="pointer-events-none absolute inset-[1px] rounded-xl bg-gradient-to-b from-bg-raised/90 via-transparent to-bg-base" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_92%,rgba(0,0,0,0.45),transparent_48%)]" />
 
       {!ready ? (
-        <div className="relative z-[1] flex min-h-[360px] items-center justify-center text-[12px] text-fg-muted">
+        <div className="relative z-[1] flex min-h-[200px] flex-1 items-center justify-center text-[12px] text-fg-muted">
           Packing mindshare…
         </div>
       ) : null}

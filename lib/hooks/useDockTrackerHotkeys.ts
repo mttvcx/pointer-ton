@@ -6,7 +6,6 @@ import {
   DOCK_TRACKER_HREF,
   DOCK_TRACKER_IDS,
   WALLET_HOTKEY_ROUTE,
-  type DockTrackerId,
 } from '@/lib/dock/dockTrackerConfig';
 import { useDockTrackersStore } from '@/store/dockTrackers';
 import { useUIStore } from '@/store/ui';
@@ -41,15 +40,18 @@ export function useDockTrackerHotkeys() {
         if (!hk || hk !== needle) continue;
         e.preventDefault();
         if (id === 'wallet') {
+          router.push(WALLET_HOTKEY_ROUTE);
+        } else if (id === 'tracker') {
           if (activeChain === 'sol' && !(pathname?.startsWith('/wallets'))) {
             useTokenDockPeekStore.getState().toggleWalletPeek();
           } else {
-            router.push(WALLET_HOTKEY_ROUTE);
+            router.push('/track');
           }
         } else if (id === 'pulse' && activeChain === 'sol' && !onPulsePage) {
           useTokenDockPeekStore.getState().togglePulsePeek();
         } else {
-          router.push(DOCK_TRACKER_HREF[id as Exclude<DockTrackerId, 'wallet'>]);
+          const href = DOCK_TRACKER_HREF[id as keyof typeof DOCK_TRACKER_HREF];
+          if (href) router.push(href);
         }
         return;
       }

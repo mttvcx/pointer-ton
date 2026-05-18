@@ -5,52 +5,23 @@ import { createPortal } from 'react-dom';
 import { GripHorizontal, PanelLeft, PanelRight, X } from 'lucide-react';
 import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
 import { useUIStore } from '@/store/ui';
+import { clampAlertRulesPopoutFrame } from '@/lib/ui/alertRulesPopoutFrame';
 import { isFloatPanelDragSurface } from '@/lib/ui/floatPanelDrag';
 
-const MIN_W = 280;
-const MAX_W = 640;
-const MIN_H = 240;
-const PAD = 8;
 const EDGE_HIT = 6;
 const CORNER = 12;
 const DOCK_ZONE = 88;
+/** Per-frame smoothing while dragging — higher = snappier, lower = floatier */
+const DRAG_SMOOTH = 0.34;
+/** Release snap when not docking — ease-out settle into clamped rect */
+const SNAP_MS = 210;
+
+function easeOutCubic(t: number) {
+  const u = 1 - t;
+  return 1 - u * u * u;
+}
 
 type FloatEdge = 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se';
-
-function clamp(n: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, n));
-}
-
-function bottomBarPx() {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--app-bottombar-h').trim();
-  const m = /^([\d.]+)px$/.exec(raw);
-  if (m?.[1]) return parseFloat(m[1]);
-  return 52;
-}
-
-function clampFrame(top: number, left: number, width: number, height: number) {
-  const winW = window.innerWidth;
-  const winH = window.innerHeight;
-  const bottomGap = bottomBarPx() + PAD;
-
-  let w = clamp(width, MIN_W, MAX_W);
-  let h = clamp(height, MIN_H, winH - PAD - bottomGap);
-  w = Math.min(w, winW - PAD * 2);
-  h = Math.min(h, winH - PAD - bottomGap);
-
-  const l = clamp(left, PAD, winW - w - PAD);
-  const t = clamp(top, PAD, winH - h - bottomGap);
-
-  w = Math.min(w, winW - l - PAD);
-  h = Math.min(h, winH - t - bottomGap);
-
-  return {
-    top: Math.round(t),
-    left: Math.round(l),
-    width: Math.round(w),
-    height: Math.round(h),
-  };
-}
 
 function applyResize(
   start: { top: number; left: number; w: number; h: number },
@@ -71,7 +42,7 @@ function applyResize(
     h -= dy;
   }
 
-  return clampFrame(top, left, w, h);
+  return clampAlertRulesPopoutFrame(top, left, w, h);
 }
 
 export function AlertBuilderEmbeddedPlaceholder() {
@@ -109,6 +80,12 @@ export function AlertRulesPopoutHost() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragActiveRef = useRef(false);
   const resizeActiveRef = useRef(false);
+  const snapAnimatingRef = useRef(false);
+  const dragSmoothRafRef = useRef<number | null>(null);
+  const snapRafRef = useRef<number | null>(null);
+  const dragTargetFrameRef = useRef<{ top: number; left: number; w: number; h: number } | null>(null);
+  const dragVisualFrameRef = useRef<{ top: number; left: number; w: number; h: number } | null>(null);
+  const [floatDragActive, setFloatDragActive] = useState(false);
 
   const dragRef = useRef<{
     pointerId: number;
@@ -137,12 +114,57 @@ export function AlertRulesPopoutHost() {
 
   useLayoutEffect(() => {
     const el = panelRef.current;
-    if (!el || !rect || dragActiveRef.current || resizeActiveRef.current) return;
+    if (!el || !rect || dragActiveRef.current || resizeActiveRef.current || snapAnimatingRef.current) return;
     el.style.top = `${rect.top}px`;
     el.style.left = `${rect.left}px`;
     el.style.width = `${rect.width}px`;
     el.style.height = `${rect.height}px`;
   }, [rect]);
+
+  const cancelDragSmoothLoop = useCallback(() => {
+    if (dragSmoothRafRef.current != null) {
+      cancelAnimationFrame(dragSmoothRafRef.current);
+      dragSmoothRafRef.current = null;
+    }
+  }, []);
+
+  const cancelSnapAnimation = useCallback(() => {
+    if (snapRafRef.current != null) {
+      cancelAnimationFrame(snapRafRef.current);
+      snapRafRef.current = null;
+    }
+    snapAnimatingRef.current = false;
+  }, []);
+
+  const runDragSmoothLoop = useCallback(() => {
+    const el = panelRef.current;
+    const target = dragTargetFrameRef.current;
+    const vis = dragVisualFrameRef.current;
+    if (!el || !target || !vis) {
+      dragSmoothRafRef.current = null;
+      return;
+    }
+    vis.left += (target.left - vis.left) * DRAG_SMOOTH;
+    vis.top += (target.top - vis.top) * DRAG_SMOOTH;
+    el.style.left = `${Math.round(vis.left)}px`;
+    el.style.top = `${Math.round(vis.top)}px`;
+    el.style.width = `${target.w}px`;
+    el.style.height = `${target.h}px`;
+
+    const dist = Math.hypot(target.left - vis.left, target.top - vis.top);
+    if (dragActiveRef.current || dist > 0.5) {
+      dragSmoothRafRef.current = requestAnimationFrame(runDragSmoothLoop);
+    } else {
+      dragSmoothRafRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cancelDragSmoothLoop();
+      cancelSnapAnimation();
+    };
+  }, [cancelDragSmoothLoop, cancelSnapAnimation]);
 
   useEffect(() => {
     if (!rect) return;
@@ -257,13 +279,24 @@ export function AlertRulesPopoutHost() {
 
       <div
         ref={panelRef}
-        className="fixed z-[632] flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080d14]/97 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+        className={[
+          'fixed z-[632] flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080d14]/97 backdrop-blur-xl will-change-transform',
+          floatDragActive
+            ? 'scale-[1.012] shadow-[0_28px_64px_-14px_rgba(0,0,0,0.62)] ring-1 ring-white/[0.12] transition-[transform,box-shadow,ring-color] duration-200 ease-out'
+            : 'shadow-[0_24px_48px_-12px_rgba(0,0,0,0.55)] transition-[transform,box-shadow,ring-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+        ].join(' ')}
         onPointerDown={(e) => {
           if (e.button !== 0 || !rect) return;
           const t = e.target as HTMLElement;
           if (!t.closest('[data-alert-drag-chrome]')) return;
           if (!isFloatPanelDragSurface(e.target)) return;
+          cancelSnapAnimation();
+          cancelDragSmoothLoop();
           dragActiveRef.current = true;
+          setFloatDragActive(true);
+          const frame = { top: rect.top, left: rect.left, w: rect.width, h: rect.height };
+          dragVisualFrameRef.current = { ...frame };
+          dragTargetFrameRef.current = { ...frame };
           dragRef.current = {
             pointerId: e.pointerId,
             startX: e.clientX,
@@ -281,8 +314,17 @@ export function AlertRulesPopoutHost() {
           const dx = e.clientX - d.startX;
           const dy = e.clientY - d.startY;
           updateDockHint(e.clientX);
-          const next = clampFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
-          applyFrameToDom(next);
+          const next = clampAlertRulesPopoutFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
+          const tgt = dragTargetFrameRef.current;
+          if (tgt) {
+            tgt.top = next.top;
+            tgt.left = next.left;
+            tgt.w = next.width;
+            tgt.h = next.height;
+          }
+          if (dragSmoothRafRef.current == null) {
+            dragSmoothRafRef.current = requestAnimationFrame(runDragSmoothLoop);
+          }
         }}
         onPointerUp={(e) => {
           const d = dragRef.current;
@@ -295,20 +337,68 @@ export function AlertRulesPopoutHost() {
           dragRef.current = null;
           dragActiveRef.current = false;
           setDockHighlight(null);
+          cancelDragSmoothLoop();
 
           if (e.clientX < DOCK_ZONE) {
+            setFloatDragActive(false);
+            dragTargetFrameRef.current = null;
+            dragVisualFrameRef.current = null;
             dockLeftShell();
             return;
           }
           if (e.clientX > window.innerWidth - DOCK_ZONE) {
+            setFloatDragActive(false);
+            dragTargetFrameRef.current = null;
+            dragVisualFrameRef.current = null;
             embedInCopilot();
             return;
           }
           const dx = e.clientX - d.startX;
           const dy = e.clientY - d.startY;
-          const committed = clampFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
-          setRect(committed);
-          applyFrameToDom(committed);
+          const committed = clampAlertRulesPopoutFrame(d.oy + dy, d.ox + dx, d.ow, d.oh);
+
+          const vis = dragVisualFrameRef.current;
+          dragTargetFrameRef.current = null;
+          if (!vis) {
+            setRect(committed);
+            applyFrameToDom(committed);
+            setFloatDragActive(false);
+            return;
+          }
+
+          const start = { top: vis.top, left: vis.left };
+          const dist = Math.hypot(committed.left - start.left, committed.top - start.top);
+          if (dist < 1.5) {
+            dragVisualFrameRef.current = null;
+            setRect(committed);
+            applyFrameToDom(committed);
+            setFloatDragActive(false);
+            return;
+          }
+
+          snapAnimatingRef.current = true;
+          const t0 = performance.now();
+          const tick = (now: number) => {
+            const u = Math.min(1, (now - t0) / SNAP_MS);
+            const k = easeOutCubic(u);
+            const frame = {
+              top: Math.round(start.top + (committed.top - start.top) * k),
+              left: Math.round(start.left + (committed.left - start.left) * k),
+              width: committed.width,
+              height: committed.height,
+            };
+            applyFrameToDom(frame);
+            if (u < 1) {
+              snapRafRef.current = requestAnimationFrame(tick);
+            } else {
+              snapRafRef.current = null;
+              snapAnimatingRef.current = false;
+              dragVisualFrameRef.current = null;
+              setRect(committed);
+              setFloatDragActive(false);
+            }
+          };
+          snapRafRef.current = requestAnimationFrame(tick);
         }}
         onPointerCancel={(e) => {
           const d = dragRef.current;
@@ -322,6 +412,11 @@ export function AlertRulesPopoutHost() {
           dragRef.current = null;
           dragActiveRef.current = false;
           setDockHighlight(null);
+          cancelDragSmoothLoop();
+          cancelSnapAnimation();
+          dragTargetFrameRef.current = null;
+          dragVisualFrameRef.current = null;
+          setFloatDragActive(false);
           if (rect) applyFrameToDom(rect);
         }}
       >
@@ -382,13 +477,13 @@ export function AlertRulesPopoutHost() {
 
         <div
           data-alert-drag-chrome
-          className="pointer-events-auto absolute bottom-4 left-2 top-12 z-[40] w-3 cursor-grab touch-none rounded-sm hover:bg-white/[0.05] active:cursor-grabbing"
+          className="pointer-events-auto absolute bottom-4 left-2 top-12 z-[40] w-3 cursor-grab touch-none rounded-sm transition-colors duration-150 hover:bg-white/[0.05] active:cursor-grabbing"
           title="Drag · left edge"
           aria-hidden
         />
         <div
           data-alert-drag-chrome
-          className="pointer-events-auto absolute bottom-4 right-2 top-12 z-[40] w-3 cursor-grab touch-none rounded-sm hover:bg-white/[0.05] active:cursor-grabbing"
+          className="pointer-events-auto absolute bottom-4 right-2 top-12 z-[40] w-3 cursor-grab touch-none rounded-sm transition-colors duration-150 hover:bg-white/[0.05] active:cursor-grabbing"
           title="Drag · right edge"
           aria-hidden
         />

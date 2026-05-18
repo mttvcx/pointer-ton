@@ -127,7 +127,7 @@ function DockTrackersSettingsModalContent() {
         <div className="flex-1 overflow-y-auto px-4 pb-4 pt-2.5 sm:px-5">
           <p className="mb-2 text-[11px] font-medium leading-snug text-fg-primary/92">
             Drag to reorder dock items · tap the pink dot for the badge ping. Full · Compact · Icon applies to{' '}
-            <span className="font-semibold text-fg-primary">every</span> tracker in the dock (Wallet through Squads).
+            <span className="font-semibold text-fg-primary">every</span> dock chip (Wallet, Tracker, Social, … Squads).
           </p>
 
           <div className="flex flex-wrap items-start justify-center gap-1.5 rounded-lg border border-border-subtle bg-bg-sunken/40 p-1.5">

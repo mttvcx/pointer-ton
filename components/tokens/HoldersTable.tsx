@@ -125,8 +125,8 @@ export function HoldersTable({
           description="Clear pills or widen the lens."
         />
       ) : filled ? (
-        <>
-          <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle/50 px-2 py-1.5">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle/50 px-2 py-1.5">
             {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
               <button
                 key={id}
@@ -149,7 +149,7 @@ export function HoldersTable({
               </span>
             ) : null}
           </div>
-          <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto touch-pan-y [scrollbar-gutter:stable]">
+          <div className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
             <table className="w-full min-w-[1240px] border-collapse text-left tabular-nums">
               <thead className="sticky top-0 z-[2] border-b border-border-subtle/30 bg-bg-raised/96 backdrop-blur-md">
                 <tr>
@@ -196,7 +196,7 @@ export function HoldersTable({
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       ) : null}
     </section>
   );

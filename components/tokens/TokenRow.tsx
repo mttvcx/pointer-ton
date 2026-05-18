@@ -16,6 +16,7 @@ import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { syntheticPulseVolMc } from '@/lib/dev/demoTokenFixtures';
 import type { BuyButtonStyle, ColumnDisplayOptions } from '@/lib/tokens/columnPresetModel';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
+import { getPulseBnbGoldSubtitle } from '@/lib/tokens/pulseBnbGoldSubtitle';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatAgeShort } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
@@ -39,9 +40,9 @@ export function TokenRow({
   pulseBuyBusy = false,
   pulseBuyDisabled = false,
   columnId,
-  /** Fixed pixel height from Pulse virtualizer â€” keeps every row the same size. */
+  /** Fixed pixel height from Pulse virtualizer — keeps every row the same size. */
   slotHeight,
-  /** Native quote for quick-buy chip (TON / SOL / â€¦). */
+  /** Native quote for quick-buy chip (TON / SOL / …). */
   quoteSymbol = 'TON',
 }: {
   bundle: PulseTokenBundle;
@@ -49,7 +50,7 @@ export function TokenRow({
   display?: ColumnDisplayOptions;
   quickBuySol?: number;
   buyButtonStyle?: BuyButtonStyle;
-  /** Execute swap for this rowâ€™s mint using column header amount (labelled by `quoteSymbol`). */
+  /** Execute swap for this row's mint using column header amount (labelled by `quoteSymbol`). */
   onPulseQuickBuy?: () => void;
   /** Second quick-buy (left of primary). Uses `display.secondQuickBuySol`. */
   onPulseSecondBuy?: () => void;
@@ -65,6 +66,7 @@ export function TokenRow({
   const router = useRouter();
   const { token, snapshot } = bundle;
   const trackPulseFlashMint = useUIStore((s) => s.trackPulseHighlightMint);
+  const activeChain = useUIStore((s) => s.activeChain);
   const pulseFlashHighlight =
     Boolean(trackPulseFlashMint) && token.mint === trackPulseFlashMint;
 
@@ -87,6 +89,11 @@ export function TokenRow({
 
   const ticker = token.symbol ?? '???';
   const name = token.name ?? 'Unknown';
+
+  const goldSubtitle = useMemo(() => {
+    if (activeChain !== 'bnb') return null;
+    return getPulseBnbGoldSubtitle(token);
+  }, [activeChain, token]);
   const volRaw = snapshot?.volume_24h_usd ?? snapshot?.volume_1h_usd;
   const vol =
     volRaw != null && Number.isFinite(volRaw) ? volRaw : demoMetrics.volUsd;
@@ -231,7 +238,7 @@ export function TokenRow({
   }
 
   const tokenPath = `/token/${token.mint}`;
-  const nameTitle = `${ticker} â€” ${name}`;
+  const nameTitle = `${ticker} \u2014 ${name}`;
 
   const isInteractiveClickTarget = (target: EventTarget | null) =>
     target instanceof HTMLElement &&
@@ -257,53 +264,73 @@ export function TokenRow({
     openToken();
   };
 
-  /** Single primary line: ticker + full name never wrap (Axiom-style). */
+  /** Primary title + optional BNB English gloss (metadata-driven, Axiom-style). */
   const nameCluster = (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
       {slotHeight != null ? (
-        <div className="group/mintTitle flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden rounded-sm px-0.5 -mx-0.5 transition-colors hover:bg-white/[0.05]">
-          <p className="min-w-0 truncate font-sans leading-[1.12]" title={nameTitle}>
-            <span className={cn('font-semibold text-fg-primary text-[16px] tracking-tight')}>
+        <div className="group/mintTitle flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden rounded-sm px-0.5 -mx-0.5 transition-colors hover:bg-white/[0.05]">
+          <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
+            <p className="min-w-0 truncate font-sans leading-[1.12]" title={nameTitle}>
+              <span className={cn('font-semibold text-fg-primary text-[16px] tracking-tight')}>
+                {ticker}
+              </span>
+              <span className={cn('font-normal text-fg-secondary ml-1.5 text-[15px] tracking-tight')}>
+                {name}
+              </span>
+            </p>
+            <CopyButton
+              value={token.mint}
+              iconOnly
+              label="Copy mint address"
+              toastLabel="Mint address copied"
+              className="shrink-0 opacity-80 transition group-hover/mintTitle:opacity-100"
+              iconClassName="text-fg-muted/90 transition-colors group-hover/mintTitle:text-fg-secondary hover:!text-fg-primary"
+            />
+          </div>
+          {goldSubtitle ? (
+            <p
+              className="min-w-0 truncate font-sans text-[12px] font-normal leading-snug tracking-tight text-amber-400/95"
+              title={goldSubtitle}
+            >
+              {goldSubtitle}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
+          <p
+            className={cn(
+              'min-w-0 flex-1 truncate font-sans',
+              'leading-tight',
+            )}
+            title={nameTitle}
+          >
+            <span
+              className={cn(
+                'font-semibold text-fg-primary',
+                'text-[15px]',
+              )}
+            >
               {ticker}
             </span>
-            <span className={cn('font-normal text-fg-secondary ml-1.5 text-[15px] tracking-tight')}>
+            <span
+              className={cn(
+                'font-normal text-fg-secondary',
+                'ml-1.5 text-[14px]',
+              )}
+            >
               {name}
             </span>
           </p>
-          <CopyButton
-            value={token.mint}
-            iconOnly
-            label="Copy mint address"
-            toastLabel="Mint address copied"
-            className="shrink-0 opacity-80 transition group-hover/mintTitle:opacity-100"
-            iconClassName="text-fg-muted/90 transition-colors group-hover/mintTitle:text-fg-secondary hover:!text-fg-primary"
-          />
+          {goldSubtitle ? (
+            <p
+              className="min-w-0 truncate font-sans text-[12px] font-normal leading-snug tracking-tight text-amber-400/95"
+              title={goldSubtitle}
+            >
+              {goldSubtitle}
+            </p>
+          ) : null}
         </div>
-      ) : (
-        <p
-          className={cn(
-            'min-w-0 flex-1 truncate font-sans',
-            'leading-tight',
-          )}
-          title={nameTitle}
-        >
-          <span
-            className={cn(
-              'font-semibold text-fg-primary',
-              'text-[15px]',
-            )}
-          >
-            {ticker}
-          </span>
-          <span
-            className={cn(
-              'font-normal text-fg-secondary',
-              'ml-1.5 text-[14px]',
-            )}
-          >
-            {name}
-          </span>
-        </p>
       )}
       {showBadge ? (
         <span className="inline-flex max-w-[min(11rem,42%)] shrink-0 flex-nowrap items-center gap-1 overflow-hidden">

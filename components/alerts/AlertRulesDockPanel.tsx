@@ -3,6 +3,7 @@
 import { useCallback, useLayoutEffect, useRef, type PointerEvent as DomPointerEvent } from 'react';
 import { PanelRight, X } from 'lucide-react';
 import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
+import { clampAlertRulesPopoutFrame } from '@/lib/ui/alertRulesPopoutFrame';
 import {
   ALERT_DOCK_MAX_W,
   ALERT_DOCK_MIN_W,
@@ -95,8 +96,8 @@ export function AlertRulesDockPanel() {
               const header = document.querySelector('header');
               const top = Math.round((header?.getBoundingClientRect().bottom ?? 72) + 8);
               const w = Math.min(420, Math.max(280, Math.round(window.innerWidth * 0.32)));
-              const h = Math.min(600, Math.max(320, window.innerHeight - top - 72));
-              setPopout({ top, left: 16, width: w, height: h });
+              const h = Math.min(560, Math.max(320, window.innerHeight - top - 72));
+              setPopout(clampAlertRulesPopoutFrame(top, 16, w, h));
             }}
           >
             <PanelRight className="h-3.5 w-3.5" strokeWidth={2.25} />

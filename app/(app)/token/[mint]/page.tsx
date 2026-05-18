@@ -66,27 +66,26 @@ export default async function TokenDetailPage({
   return (
     <>
       <EntityLocker type="token" id={mint} label={token.symbol ?? token.name ?? null} />
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-        <div className="shrink-0">
-          <TokenHeader token={token} snapshot={snapshot} mint={mint} />
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
+        {/* Scroll the header + chart away first; desk sticks and owns vertical scroll inside */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto [-ms-overflow-style:auto] [scrollbar-gutter:stable]">
+          <div className="shrink-0 border-b border-border-subtle/40 bg-transparent">
+            <TokenHeader token={token} snapshot={snapshot} mint={mint} />
+          </div>
 
-        <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
           <Suspense
-            fallback={<div className="min-h-0 flex-1 animate-pulse bg-bg-elevated/15" aria-hidden />}
+            fallback={<div className="min-h-[40vh] animate-pulse bg-bg-elevated/15" aria-hidden />}
           >
-            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain lg:overflow-hidden">
-              <TokenDetailView
-                mint={mint}
-                symbol={token.symbol}
-                tokenName={token.name}
-                decimals={token.decimals}
-                creatorWallet={token.creator_wallet}
-                dev={dev}
-                marketSnapshot={snapshot}
-                supplyTokens={supplyTokens}
-              />
-            </div>
+            <TokenDetailView
+              mint={mint}
+              symbol={token.symbol}
+              tokenName={token.name}
+              decimals={token.decimals}
+              creatorWallet={token.creator_wallet}
+              dev={dev}
+              marketSnapshot={snapshot}
+              supplyTokens={supplyTokens}
+            />
           </Suspense>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { listExploreTopBundlesForChain } from '@/lib/db/tokens';
+import { bundlePulseTokens, listExploreTopBundlesForChain, listPulseFeedTokens } from '@/lib/db/tokens';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN, isAppChainId } from '@/lib/chains/appChain';
 
@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
 const QuerySchema = z.object({
   chain: z.string().optional(),
   limit: z.coerce.number().int().min(5).max(100).optional(),
+  /** `new` = Pulse-style fresh pairs; `trending` = snapshot volume / mcap ranked. */
+  cohort: z.enum(['new', 'trending']).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -25,10 +27,14 @@ export async function GET(req: NextRequest) {
   const chain: AppChainId =
     chainRaw && isAppChainId(chainRaw) ? chainRaw : DEFAULT_APP_CHAIN;
   const limit = parsed.data.limit ?? 40;
+  const cohort = parsed.data.cohort ?? 'new';
 
   try {
-    const items = await listExploreTopBundlesForChain(chain, limit);
-    return NextResponse.json({ chain, limit, items });
+    const items =
+      cohort === 'new'
+        ? await bundlePulseTokens(await listPulseFeedTokens('new', chain, limit))
+        : await listExploreTopBundlesForChain(chain, limit);
+    return NextResponse.json({ chain, limit, cohort, items });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'explore_failed';
     return NextResponse.json({ error: 'explore_failed', message }, { status: 500 });

@@ -9,7 +9,8 @@ export const PULSE_GLYPH = {
   profile: `${GLYPH_BASE}/profile.png`,
   globe: `${GLYPH_BASE}/globe.png`,
   telegram: `${GLYPH_BASE}/telegram.png`,
-  pump: `${GLYPH_BASE}/pump.png`,
+  /** pump.fun link column — matches corner webp on `PulseTokenAvatar` */
+  pump: '/icons/pumpfun.webp',
   search: `${GLYPH_BASE}/search.png`,
   community: `${GLYPH_BASE}/community.png`,
   chart: `${GLYPH_BASE}/chart.png`,

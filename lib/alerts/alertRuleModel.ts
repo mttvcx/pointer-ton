@@ -27,12 +27,24 @@ export const PulseLaunchpadRuleConfigSchema = z
 
 export type PulseLaunchpadRuleConfig = z.infer<typeof PulseLaunchpadRuleConfigSchema>;
 
+export const TWEET_IMAGE_MINT_MODES = ['off', 'smart', 'prefer_media'] as const;
+export type TweetImageMintMode = (typeof TWEET_IMAGE_MINT_MODES)[number];
+
 export const SolTwitterListenRuleConfigSchema = z
   .object({
     handles: z.array(z.string().trim().min(1).max(72)).min(1).max(64),
     phrases: z.array(z.string().trim().min(1).max(200)).max(64),
     phraseMatch: z.enum(['substring', 'whole_word']).optional(),
     execution: z.enum(['notify', 'auto_buy']).optional(),
+    /**
+     * How to resolve a mint when the post includes media URLs:
+     * - off: caption + regular links only (legacy behaviour).
+     * - smart: caption wins when it has a mint; otherwise scan image CDN URLs for embedded base58.
+     * - prefer_media: when there are images, prefer mint found in media URLs over caption-only mints.
+     */
+    tweetImageMintMode: z.enum(TWEET_IMAGE_MINT_MODES).optional(),
+    /** When true, alerts carry `coverImageUrl` so the client can flash / open with the tweet photo when possible. */
+    openWithTweetMedia: z.boolean().optional(),
     /** SOL per attempted auto-buy — null inherits Pulse quick-buy on client. */
     buySolPreset: z.number().positive().max(420).nullable().optional(),
     maxSolPerDay: z.number().positive().max(1_000_000).nullable().optional(),
