@@ -6,6 +6,7 @@ import { Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
+import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useWalletLabelsStore } from '@/store/walletLabels';
@@ -63,18 +64,21 @@ export function LabelWalletModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+      className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}
       role="presentation"
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement | null;
+        if (!t || t.closest('[data-modal-panel]')) return;
+        close();
+      }}
     >
-      <button
-        type="button"
+      <div
+        aria-hidden
         className={cn(
-          'absolute inset-0 bg-black/60',
+          'pointer-events-none absolute inset-0 bg-black/60',
           overlayBackdropClasses(visible),
           'fill-mode-forwards',
         )}
-        aria-label="Close"
-        onClick={close}
       />
       <LabelWalletForm key={effectiveAddress} address={effectiveAddress} visible={visible} onClose={close} />
     </div>
@@ -165,6 +169,7 @@ function LabelWalletForm({
 
   return (
     <div
+      data-modal-panel
       className={cn(
         'relative z-10 w-full max-w-md rounded-xl border border-border-subtle bg-bg-base p-4 shadow-2xl fill-mode-forwards',
         overlayPanelClasses(visible),
@@ -172,7 +177,6 @@ function LabelWalletForm({
       role="dialog"
       aria-modal="true"
       aria-labelledby="label-wallet-title"
-      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-2">
         <div>

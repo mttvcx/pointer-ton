@@ -18,7 +18,6 @@ import { TokenChart } from '@/components/tokens/TokenChart';
 import { TokenActivityTabs } from '@/components/tokens/TokenActivityTabs';
 import { BuySellPanel } from '@/components/tokens/BuySellPanel';
 import { CompactInstantTradePanel } from '@/components/trading/CompactInstantTradePanel';
-import { TokenPageDockFooter } from '@/components/tokens/TokenPageDockFooter';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { Tables } from '@/lib/supabase/types';
@@ -36,11 +35,11 @@ type LimitOrderRow = Tables<'limit_orders'>;
 type MintTradeRow = Tables<'trades'>;
 
 const MIN_LEFT_COL = 380;
-const MIN_RIGHT_STACK = 280;
-const MAX_RIGHT_STACK = 520;
+const MIN_RIGHT_STACK = 300;
+const MAX_RIGHT_STACK = 580;
 const H_GRIP = 4;
 const MIN_CHART = 200;
-const MIN_TABS = 120;
+const MIN_TABS = 160;
 
 /** Upper bound for chart height from viewport chrome (main scroll is one column; row drag should not explode when the left column is very tall). */
 function chartSplitAvailPx(): number {
@@ -450,16 +449,16 @@ export function TokenDetailView({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
         <div
           ref={containerRef}
-          className="flex w-full min-w-0 flex-1 flex-col border-b border-border-subtle lg:flex-row"
+          className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col border-b border-border-subtle lg:flex-row"
         >
           <div
             ref={leftColRef}
             className={cn(
-              'flex min-w-0 flex-col bg-bg-base lg:min-h-0',
-              lg && 'min-w-[360px] flex-1',
+              'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col lg:overflow-hidden',
+              lg && 'min-w-[360px]',
             )}
           >
             <div
@@ -488,7 +487,7 @@ export function TokenDetailView({
               onPointerUp={onRowUp}
             />
 
-            <div className="flex min-w-0 flex-col bg-bg-base">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
               <TokenActivityTabs
                 mint={mint}
                 symbol={symbol}
@@ -511,7 +510,7 @@ export function TokenDetailView({
 
           <div
             className={cn(
-              'flex w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-bg-base lg:min-h-0 lg:border-l lg:border-t-0',
+              'flex w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-transparent lg:h-full lg:min-h-0 lg:max-h-none lg:self-stretch lg:overflow-y-auto lg:overscroll-y-contain lg:border-l lg:border-t-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
             )}
             style={lg ? { width: rightStackW } : undefined}
           >
@@ -534,7 +533,6 @@ export function TokenDetailView({
             />
           </div>
         </div>
-        <TokenPageDockFooter mint={mint} symbol={symbol} />
       </div>
 
       <CompactInstantTradePanel

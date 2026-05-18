@@ -3,6 +3,7 @@
 import { History, ImageIcon, X } from 'lucide-react';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
+import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 
 type Props = {
@@ -19,20 +20,26 @@ export function DepositHistoryModal({ open, onOpenChange }: Props) {
   if (!mounted) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-      <button
-        type="button"
+    <div
+      className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement | null;
+        if (!t || t.closest('[data-modal-panel]')) return;
+        onOpenChange(false);
+      }}
+    >
+      <div
+        aria-hidden
         className={cn(
-          'absolute inset-0 bg-black/70 backdrop-blur-[2px]',
+          'pointer-events-none absolute inset-0 bg-black/70 backdrop-blur-[2px]',
           overlayBackdropClasses(visible),
           'fill-mode-forwards',
         )}
-        aria-label="Close deposit history"
-        onClick={() => onOpenChange(false)}
       />
       <div
+        data-modal-panel
         className={cn(
-          'relative z-[1] flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-[#1b1f2a] bg-[#080d14] shadow-2xl',
+          'relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-[#1b1f2a] bg-[#080d14] shadow-2xl',
           'fill-mode-forwards font-sans text-[12px]',
           overlayPanelClasses(visible),
         )}

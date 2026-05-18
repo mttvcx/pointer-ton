@@ -320,7 +320,7 @@ export function TokenChart({
     <div
       ref={outerRef}
       className={cn(
-        'flex h-full min-h-0 flex-1 flex-col border border-border-subtle bg-bg-base',
+        'flex h-full min-h-0 flex-1 flex-col border border-border-subtle bg-transparent',
         edgeToEdge ? 'rounded-none border-x-0 border-t-0' : 'rounded-sm',
       )}
     >
@@ -495,12 +495,12 @@ export function TokenChart({
       <div className="relative min-h-0 flex-1">
         <div ref={wrapRef} className="absolute inset-0 h-full min-h-0 w-full" />
         {isLoading ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-base text-[12px] text-fg-muted">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-raised text-[12px] text-fg-muted">
             Loading{'\u2026'}
           </div>
         ) : null}
         {isError ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-bg-base text-[12px] text-signal-bear">
+          <div className="absolute inset-0 flex items-center justify-center bg-bg-raised text-[12px] text-signal-bear">
             Could not load price history.
           </div>
         ) : null}

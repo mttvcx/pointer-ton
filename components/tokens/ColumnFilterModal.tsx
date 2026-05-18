@@ -28,6 +28,7 @@ import {
 import type { ColumnPulsePresetSlot } from '@/store/pulseColumns';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import { useUIStore } from '@/store/ui';
+import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 
@@ -350,12 +351,18 @@ export function ColumnFilterModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="column-filter-title"
-      className="fixed inset-0 z-[90] flex animate-in fade-in items-center justify-center bg-black/55 p-4 backdrop-blur-[6px] duration-200"
+      className={cn(
+        'fixed inset-0 flex animate-in fade-in items-center justify-center bg-black/55 p-4 backdrop-blur-[6px] duration-200',
+        Z_APP_MODAL_OVERLAY,
+      )}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        const t = e.target as HTMLElement | null;
+        if (!t || t.closest('[data-modal-panel]')) return;
+        onClose();
       }}
     >
       <div
+        data-modal-panel
         className={cn(
           'relative flex max-h-[92vh] w-full max-w-lg origin-center animate-in zoom-in-95 fade-in flex-col overflow-hidden shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)] duration-200',
           'rounded-[11px] border',

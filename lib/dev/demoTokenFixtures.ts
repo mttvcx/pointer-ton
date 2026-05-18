@@ -10,77 +10,61 @@ const DEMO_WALLETS = [
   '2ojv9BAiHUrvsm9gxDe7fJSzbNZSJcxZvf8dqmWGHG8S',
   'CenNtDkUuZUV2T36rFq2EMEa6Wk3aouREJFqJa3Yk1iB',
   '7K1WgKQgDzH9H3WR8QjmN8KqVn1YJgZxYzPLFToK9mNp',
+  'CkdZx6ewjY2vEYMbGmSCBkCZ27p5SKYreJTvfq9ngNMp',
+  '8xhiPW6XGYzYSJ3D4S9gK8FJmQzHnM8vZ3Tt2V1WxYzAb',
+  '4mNpQr5Ts6Uv7Wx8Yz9Ab0Cd1Ef2Gh3Ij4Kl5Mn6OpQr',
+  'AbcdefGHij123456789JKLMnopqrstUVWXyzabcdefghijk',
+  'VWXyzabcde123456789FGHijklmnopqrstuVWxyzabcdefghij',
+  'NpQr5Ts6Uv7Wx8Yz9Ab0Cd1Ef2Gh3Ij4Kl5Mn6OpQr7St8U',
+  'Mn6OpQr7St8Uv9Wx0Yz1Ab2Cd3Ef4Gh5Ij6Kl7Mn8Op9QrSt',
 ] as const;
+
+/** Deterministic pseudo–base58 address for dense demo grids (layout only). */
+export function demoWalletAt(i: number): string {
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const base = DEMO_WALLETS[i % DEMO_WALLETS.length]!;
+  let out = '';
+  for (let k = 0; k < 44; k++) {
+    const idx = (i * 41 + k * 17 + base.charCodeAt(k % base.length)) % alphabet.length;
+    out += alphabet[idx]!;
+  }
+  return out;
+}
 
 function isoMinsAgo(m: number): string {
   return new Date(Date.now() - m * 60_000).toISOString();
 }
 
-/** Activity tab: looks like real trades for layout tuning. */
+/** Activity tab: dense fills list for Axiom-style table typography tuning. */
 export function syntheticTradesForMint(mint: string): TradeRow[] {
   const uid = '00000000-0000-4000-8000-0000000000demo';
-  return [
-    {
-      id: 'demo-tx-1',
+  const rows: TradeRow[] = [];
+  for (let i = 0; i < 40; i++) {
+    const side = i % 5 === 0 ? 'sell' : 'buy';
+    const sol = 0.08 + (i % 11) * 0.19 + (i % 3) * 0.05;
+    const px = 0.18 + (i % 17) * 0.004 + (side === 'sell' ? -0.002 : 0.001);
+    rows.push({
+      id: `demo-tx-${i}`,
       user_id: uid,
       mint,
-      side: 'buy',
-      amount_in_raw: '1500000000',
-      amount_out_raw: '4020000000000',
-      amount_sol: 1.5,
-      amount_token: 4020,
-      price_usd_at_fill: 0.2314,
-      tx_signature: '3demosig1111111111111111111111111111111111111111111111111111111111',
-      fee_paid_lamports: 12_000,
-      platform_fee_lamports: 2000,
-      priority_fee_lamports: 5000,
-      jito_tip_lamports: 0,
-      status: 'confirmed',
-      failure_reason: null,
-      submitted_at: isoMinsAgo(4),
-      confirmed_at: isoMinsAgo(3),
-    },
-    {
-      id: 'demo-tx-2',
-      user_id: uid,
-      mint,
-      side: 'sell',
-      amount_in_raw: '800000000000',
-      amount_out_raw: '480000000',
-      amount_sol: 0.48,
-      amount_token: 800,
-      price_usd_at_fill: 0.2291,
-      tx_signature: '3demosig2222222222222222222222222222222222222222222222222222222222',
-      fee_paid_lamports: 9000,
+      side,
+      amount_in_raw: String(1_500_000_000 + i * 33_000_000),
+      amount_out_raw: String(4_020_000_000_000 + i * 120_000_000_000),
+      amount_sol: Math.round(sol * 1000) / 1000,
+      amount_token: 2000 + i * 420,
+      price_usd_at_fill: Math.round(px * 10000) / 10000,
+      tx_signature: `3demosig${String(i).padStart(3, '0')}111111111111111111111111111111111111111111111111111111111111`,
+      fee_paid_lamports: 9000 + (i % 8) * 500,
       platform_fee_lamports: 1500,
-      priority_fee_lamports: 4000,
-      jito_tip_lamports: 0,
+      priority_fee_lamports: 4000 + (i % 5) * 600,
+      jito_tip_lamports: i % 7 === 0 ? 25_000 : 0,
       status: 'confirmed',
       failure_reason: null,
-      submitted_at: isoMinsAgo(14),
-      confirmed_at: isoMinsAgo(14),
-    },
-    {
-      id: 'demo-tx-3',
-      user_id: uid,
-      mint,
-      side: 'buy',
-      amount_in_raw: '5000000000',
-      amount_out_raw: '12000000000000',
-      amount_sol: 5,
-      amount_token: 12000,
-      price_usd_at_fill: 0.2389,
-      tx_signature: '3demosig3333333333333333333333333333333333333333333333333333333333',
-      fee_paid_lamports: 18_000,
-      platform_fee_lamports: 5000,
-      priority_fee_lamports: 12_000,
-      jito_tip_lamports: 50_000,
-      status: 'confirmed',
-      failure_reason: null,
-      submitted_at: isoMinsAgo(42),
-      confirmed_at: isoMinsAgo(41),
-    },
-  ];
+      submitted_at: isoMinsAgo(i * 3 + 2),
+      confirmed_at: isoMinsAgo(i * 3 + 1),
+    });
+  }
+  return rows;
 }
 
 export function syntheticTopTradersForMint(mint: string): MintTopTraderRow[] {
@@ -89,19 +73,22 @@ export function syntheticTopTradersForMint(mint: string): MintTopTraderRow[] {
     h = Math.imul(31, h) + mint.charCodeAt(i);
   }
   const skew = (Math.abs(h) % 500) / 100;
-  return DEMO_WALLETS.map((w, i) => {
-    const realized = 12400 - i * 2100 + skew * (i + 1);
-    const buy_usd = 98967 + i * 12000 + skew * 100;
-    const sell_usd = buy_usd + realized * 0.85;
-    const buy_count = 1 + (i % 4);
-    const sell_count = 2 + (i % 5);
-    const buy_qty = 19_500_000 + i * 2_500_000;
-    const sell_qty = 40_000_000 + i * 3_000_000;
-    return {
+  const n = 24;
+  const rows: MintTopTraderRow[] = [];
+  for (let i = 0; i < n; i++) {
+    const w = demoWalletAt(i);
+    const realized = 18400 - i * 920 + skew * (i + 1) * 1.2;
+    const buy_usd = 128_967 + i * 14_200 + skew * 140;
+    const sell_usd = buy_usd + realized * 0.82;
+    const buy_count = 1 + (i % 5);
+    const sell_count = 2 + (i % 6);
+    const buy_qty = 22_500_000 + i * 1_800_000;
+    const sell_qty = 38_000_000 + i * 2_200_000;
+    rows.push({
       wallet_address: w,
       realized_pnl_usd: realized,
-      win_rate: Math.min(0.92, 0.38 + i * 0.04 + skew * 0.01),
-      trades: buy_count + sell_count + 2,
+      win_rate: Math.min(0.94, 0.36 + i * 0.018 + skew * 0.008),
+      trades: buy_count + sell_count + 2 + (i % 3),
       buy_usd,
       sell_usd,
       buy_count,
@@ -110,11 +97,12 @@ export function syntheticTopTradersForMint(mint: string): MintTopTraderRow[] {
       sell_token_qty: sell_qty,
       avg_buy_usd_per_token: buy_usd / buy_qty,
       avg_sell_usd_per_token: sell_usd / sell_qty,
-      first_trade_at: isoMinsAgo(120 - i * 8),
-      last_trade_at: isoMinsAgo(12 - i),
-      held_seconds: 46 + i * 371,
-    };
-  });
+      first_trade_at: isoMinsAgo(400 - i * 14),
+      last_trade_at: isoMinsAgo(90 - i * 2),
+      held_seconds: 120 + i * 410,
+    });
+  }
+  return rows;
 }
 
 /** Top-traders hover / wallet-on-mint modal when API has no rows yet. */
@@ -183,17 +171,21 @@ export function syntheticPulseVolMc(mint: string): { volUsd: number; mcUsd: numb
 
 export function syntheticHoldersResponse(mint: string, decimals: number): HoldersApiShape {
   const pow = BigInt(10) ** BigInt(Math.min(Math.max(decimals, 0), 12));
-  const ranks = [1, 2, 3, 4, 5];
-  const holders: HolderRow[] = ranks.map((rank, i) => ({
-    id: -(100 + i),
-    mint,
-    wallet_address: DEMO_WALLETS[i]!,
-    amount_raw: String(pow * BigInt(400 + i * 95)),
-    pct_of_supply: 8.2 - i * 1.1,
-    is_dev: i === 0,
-    is_sniper: i === 2,
-    rank,
-    computed_at: isoMinsAgo(60),
-  }));
+  const count = 22;
+  const holders: HolderRow[] = [];
+  for (let i = 0; i < count; i++) {
+    const rank = i + 1;
+    holders.push({
+      id: -(200 + i),
+      mint,
+      wallet_address: demoWalletAt(i + 3),
+      amount_raw: String(pow * BigInt(520 - i * 18 + ((i * 17) % 40))),
+      pct_of_supply: Math.max(0.12, 12.4 - i * 0.55 - (i % 4) * 0.12),
+      is_dev: i === 0,
+      is_sniper: i === 3 || i === 8,
+      rank,
+      computed_at: isoMinsAgo(40 + i),
+    });
+  }
   return { mint, decimals, holders };
 }

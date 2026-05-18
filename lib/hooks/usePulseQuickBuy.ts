@@ -10,9 +10,14 @@ import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import { addInstantTradeSellTon } from '@/lib/trading/instantTradeStats';
+import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
+import { formatNumber } from '@/lib/utils/formatters';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import type { AppChainId } from '@/lib/chains/appChain';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
+import { useUIStore } from '@/store/ui';
 
 type TradingPresetApi = {
   slot: PresetSlot;
@@ -33,6 +38,7 @@ type TradingPresetApi = {
 export function usePulseQuickBuy() {
   const { getAccessToken, authenticated } = usePointerAuth();
   const qc = useQueryClient();
+  const activeChain = useUIStore((s) => s.activeChain);
   const { submitFromQuote } = usePointerTradeSubmit();
   const { activePresetSlot } = useTradingStore();
   const [busyMint, setBusyMint] = useState<string | null>(null);
@@ -165,6 +171,21 @@ export function usePulseQuickBuy() {
           id: toastId,
           description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
         });
+        const chainRes: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
+        const sym = nativeTicker(chainRes);
+        const narration = `Bought ${formatNumber(amountSol, { decimals: 4 })} ${sym} · Pulse quick buy.`;
+        void (async () => {
+          const t = await getAccessToken();
+          if (!t) return;
+          const posted = await recordUserTradeActivity(t, narration, {
+            kind: 'pulse_quick_buy',
+            mint,
+            chain: chainRes,
+            amountSol,
+            txSignature: sig ?? null,
+          });
+          if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
+        })();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       } catch (e) {
         toast.dismiss(toastId);
@@ -182,6 +203,7 @@ export function usePulseQuickBuy() {
       activePreset,
       submitFromQuote,
       qc,
+      activeChain,
     ],
   );
 
@@ -296,6 +318,25 @@ export function usePulseQuickBuy() {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
+        const chainResSell: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
+        const narrSell = `Sold ${formatNumber(sellPct, { decimals: 0 })}% of balance · Pulse quick sell.`;
+        void (async () => {
+          const t = await getAccessToken();
+          if (!t) return;
+          const est =
+            typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
+              ? Math.max(0, ok.summary.amountSolEstimate)
+              : undefined;
+          const posted = await recordUserTradeActivity(t, narrSell, {
+            kind: 'pulse_quick_sell',
+            mint,
+            chain: chainResSell,
+            sellPct,
+            amountSol: est,
+            txSignature: sig ?? null,
+          });
+          if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
+        })();
         const estOut =
           typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
             ? Math.max(0, ok.summary.amountSolEstimate)
@@ -318,6 +359,7 @@ export function usePulseQuickBuy() {
       activePreset,
       submitFromQuote,
       qc,
+      activeChain,
     ],
   );
 

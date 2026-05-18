@@ -19,7 +19,7 @@
    */
   :root {
     --app-topbar-h: calc(56px + env(safe-area-inset-top, 0px));
-    --app-bottombar-h: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+    --app-bottombar-h: calc(2.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   html {
@@ -194,6 +194,14 @@
   --signal-warn-rgb: 255 181 71;
   --signal-info-rgb: 94 187 255;
 
+  /*
+   * Desk uses the same pigment stack as the page (`--bg-raised`); zebra is a whisper
+   * toward hover/mid so it never reads as a separate “theme inside the theme”.
+   */
+  --desk-panel-rgb: 14 20 28;
+  --desk-zebra-a-rgb: 14 20 28;
+  --desk-zebra-b-rgb: 16 22 32;
+
   --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, monospace;
 
@@ -226,8 +234,9 @@
  * --accent-ethos* is intentionally NOT overridden.
  */
 :root[data-theme='axiom'] {
+  /* Deep black chrome (top/bottom bars use --bg-base). Workspace / middle is one step lighter — Axiom-style. */
   --bg-base: #0a0a0b;
-  --bg-raised: #0a0a0b;
+  --bg-raised: #121214;
   --bg-sunken: #060607;
   --bg-hover: #16161a;
 
@@ -251,7 +260,7 @@
   /* Phase 1 RGB companions — Tailwind utilities for surfaces / fg / accents.
      Ethos amber stays unthemed (inherits `--accent-ethos*-rgb` from :root). */
   --bg-base-rgb: 10 10 11;
-  --bg-raised-rgb: 10 10 11;
+  --bg-raised-rgb: 18 18 20;
   --bg-sunken-rgb: 6 6 7;
   --bg-hover-rgb: 22 22 26;
 
@@ -273,6 +282,10 @@
   --signal-bear-rgb: 255 94 120;
   --signal-warn-rgb: 255 181 71;
   --signal-info-rgb: 156 163 175;
+
+  --desk-panel-rgb: 18 18 20;
+  --desk-zebra-a-rgb: 18 18 20;
+  --desk-zebra-b-rgb: 20 20 24;
 
   /* shadcn HSL bridge — matches the Axiom surface tokens above. */
   --background: 240 4% 5%;
@@ -343,6 +356,10 @@
   --signal-bear-rgb: 255 94 120;
   --signal-warn-rgb: 255 181 71;
   --signal-info-rgb: 94 187 255;
+
+  --desk-panel-rgb: 26 37 32;
+  --desk-zebra-a-rgb: 26 37 32;
+  --desk-zebra-b-rgb: 29 40 35;
 
   /* shadcn HSL bridge */
   --background: 150 18% 4%;
@@ -626,6 +643,43 @@
   --info-bg: var(--bg-base);
   --info-border: rgb(var(--signal-info-rgb) / 0.4);
   --info-text: var(--signal-info);
+}
+
+/* Wallet-tracker pings (top-center toaster): lightning exit (~80ms-style cut) */
+.toaster-wallet-tracker[data-sonner-toaster] ol li[data-sonner-toast][data-removed='true'] {
+  opacity: 0 !important;
+  transform: translate3d(0, -8px, 0) scale(0.982) !important;
+  transition:
+    opacity 70ms cubic-bezier(0.4, 0, 1, 1),
+    transform 85ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+/* Edge “peel” cue when docking float panels — blur-first (no blue bezel). */
+@keyframes dock-peel-soft {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.dock-peel-ghost-inner {
+  animation: dock-peel-soft 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Wallet-tracker: slight right-of-center when anchored top-center (not when answer panel is open). */
+.toaster-wallet-tracker:not(.toaster-wallet-tracker--answer-open)[data-sonner-toaster][data-x-position='center'] {
+  left: calc(50% + 10px) !important;
+  transform: translateX(-50%) !important;
+}
+
+@media (max-width: 640px) {
+  .toaster-wallet-tracker:not(.toaster-wallet-tracker--answer-open)[data-sonner-toaster][data-x-position='center'] {
+    left: calc(50% + 6px) !important;
+  }
 }
 
 /*

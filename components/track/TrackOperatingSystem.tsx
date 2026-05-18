@@ -40,6 +40,7 @@ import {
 import { cn } from '@/lib/utils/cn';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import { xProfileUrl } from '@/lib/utils/xSearch';
+import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 /**
@@ -74,10 +75,11 @@ function usePulseSample(chain: string) {
   return useQuery({
     queryKey: ['pulse', col, chain, 'track-sample'],
     queryFn: async (): Promise<PulseTokenBundle[]> => {
-      const res = await fetch(`/api/tokens/feed?column=${col}&chain=${encodeURIComponent(chain)}`);
-      if (!res.ok) return [];
-      const j = (await res.json()) as { items: PulseTokenBundle[] };
-      return j.items ?? [];
+      try {
+        return await fetchPulseFeedBundles(col, chain);
+      } catch {
+        return [];
+      }
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,

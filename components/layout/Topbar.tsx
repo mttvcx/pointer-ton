@@ -4,7 +4,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { ArrowDownToLine, ChevronDown, ExternalLink, LogOut, Search, Settings } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ChevronDown,
+  ExternalLink,
+  Languages,
+  LogOut,
+  Rocket,
+  Search,
+  Settings,
+  Shield,
+  UserRound,
+  Wallet,
+} from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { CopilotTopbarSlot } from '@/components/copilot/CopilotTopbarSlot';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
@@ -29,26 +41,13 @@ import { formatNumber, parseLamportsStringToSol, rawToUi } from '@/lib/utils/for
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 
-function topbarAvatarInitials(wallet: string | null | undefined, userId: string | null | undefined): string {
-  const raw = (wallet ?? userId ?? '').trim();
-  if (!raw) return '?';
-  // TON raw "workchain:hex" — avoid showing "0:" from slice(0, 2).
-  if (/^(-?\d+):[a-fA-F0-9]+$/.test(raw)) {
-    const hex = raw.replace(/^-?\d+:/, '').replace(/^0+/, '') || '0';
-    return hex.slice(0, 2).toUpperCase();
-  }
-  const alnum = raw.replace(/[^a-zA-Z0-9]/g, '');
-  if (alnum.length >= 2) return alnum.slice(0, 2).toUpperCase();
-  return raw.slice(0, 2).toUpperCase();
-}
-
 /**
  * App topbar: brand, primary nav, search, chain pill, deposit, co-pilot, wallet.
  * Height matches --app-topbar-h; full-width layout (no left sidebar).
  */
 export function Topbar() {
   const pathname = usePathname();
-  const { authenticated, user, logout, getAccessToken, login, linkedTonAddress } = usePointerAuth();
+  const { authenticated, logout, getAccessToken, login, linkedTonAddress } = usePointerAuth();
   const searchQuery = useUIStore((s) => s.searchQuery);
   const searchOpen = useUIStore((s) => s.searchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
@@ -193,7 +192,7 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1 relative">
+    <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b border-border-subtle bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1 relative">
       <Link
         href="/pulse"
         prefetch
@@ -337,132 +336,137 @@ export function Topbar() {
           <div className="ml-0.5 flex items-center gap-1 border-l border-border-subtle pl-1.5 sm:ml-1 sm:gap-2 sm:pl-2">
             <Link
               href="/wallets"
-              className="max-w-[4.5rem] shrink-0 truncate tabular-nums text-[10px] text-fg-secondary transition-colors hover:text-fg-primary sm:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-sunken/50 text-fg-muted transition-colors hover:border-border-default hover:bg-bg-hover hover:text-fg-primary sm:hidden"
               title="Manage wallets"
               prefetch
             >
-              {walletAddress ? shortenAddress(walletAddress, 3) : 'Wallets'}
+              <Wallet className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
             </Link>
+
             <div className="relative hidden min-w-0 sm:block" ref={walletMenuRef}>
-              <div className="flex flex-col items-end gap-0">
-                <div className="flex items-center">
-                  <button
-                    ref={balanceAnchorRef}
-                    type="button"
-                    onClick={() => {
-                      setBalancePopoverOpen((o) => !o);
-                      setWalletMenuOpen(false);
-                    }}
-                    className={cn(
-                      'focus-ring rounded-l-md px-1.5 py-0.5 text-right transition-colors duration-150',
-                      'hover:bg-bg-hover text-fg-primary',
-                    )}
-                    aria-haspopup="dialog"
-                    aria-expanded={balancePopoverOpen}
-                  >
-                    <span className="block max-w-[7rem] truncate text-[11px] font-medium leading-tight text-fg-primary sm:max-w-[9rem]">
-                      {headerNativeUi != null
-                        ? `${formatNumber(headerNativeUi, { decimals: 3 })} ${nativeSym}`
-                        : `0 ${nativeSym}`}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWalletMenuOpen((o) => !o);
-                      setBalancePopoverOpen(false);
-                    }}
-                    className="focus-ring rounded-r-md px-1 py-0.5 transition-colors duration-150 hover:bg-bg-hover"
-                    aria-expanded={walletMenuOpen}
-                    aria-haspopup="listbox"
-                    aria-label="Switch wallet"
-                    title="Switch wallet"
-                  >
-                    <ChevronDown
-                      className={cn(
-                        'h-3.5 w-3.5 text-fg-muted transition-transform duration-150',
-                        walletMenuOpen && 'rotate-180',
-                      )}
-                    />
-                  </button>
+              <div
+                className={cn(
+                  'flex h-8 w-auto max-w-[11.5rem] items-stretch rounded-md border border-border-subtle/85 bg-bg-sunken/40',
+                  'shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.035)]',
+                )}
+              >
+                <div className="flex shrink-0 items-center pl-1.5 text-fg-muted" aria-hidden>
+                  <Wallet className="h-3 w-3 opacity-85" strokeWidth={2} />
                 </div>
-                {walletAddress ? (
-                  <span className="tabular-nums text-[10px] text-fg-muted">
-                    {shortenAddress(walletAddress, 4)}
+
+                <button
+                  ref={balanceAnchorRef}
+                  type="button"
+                  onClick={() => {
+                    setBalancePopoverOpen((o) => !o);
+                    setWalletMenuOpen(false);
+                  }}
+                  className={cn(
+                    'focus-ring flex min-w-0 flex-1 items-center px-2 py-0.5 transition-colors duration-150',
+                    'rounded-none border-0 bg-transparent hover:bg-white/[0.035]',
+                  )}
+                  aria-haspopup="dialog"
+                  aria-expanded={balancePopoverOpen}
+                  title="Balances"
+                >
+                  <span className="min-w-0 truncate text-right tabular-nums text-[11px] font-semibold leading-none tracking-tight text-fg-primary">
+                    {headerNativeUi != null
+                      ? formatNumber(headerNativeUi, { decimals: 4 })
+                      : '0'}
                   </span>
-                ) : null}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletMenuOpen((o) => !o);
+                    setBalancePopoverOpen(false);
+                  }}
+                  className="focus-ring inline-flex h-full w-7 shrink-0 items-center justify-center border-l border-border-subtle/85 bg-transparent transition-colors hover:bg-white/[0.035]"
+                  aria-expanded={walletMenuOpen}
+                  aria-haspopup="listbox"
+                  aria-label="Switch wallet"
+                  title="Switch wallet"
+                >
+                  <ChevronDown
+                    className={cn(
+                      'h-3 w-3 shrink-0 text-fg-muted transition-transform duration-200 ease-out will-change-transform',
+                      walletMenuOpen && 'rotate-180',
+                    )}
+                  />
+                </button>
               </div>
               {walletMenuPresence.mounted ? (
                 <div
                   className={cn(
-                    'absolute right-0 top-[calc(100%+4px)] z-[200] min-w-[15rem] overflow-hidden rounded-md border border-border-subtle bg-bg-raised py-1 shadow-lg',
+                    'absolute right-0 top-[calc(100%+6px)] z-[200] min-w-[15rem] overflow-hidden rounded-md border border-border-subtle bg-bg-raised py-1 shadow-lg',
                     popoverPanelClasses(walletMenuPresence.visible),
                   )}
                   role="listbox"
                 >
                   {walletsForChain.length > 0 ? (
-                  <div className="max-h-[min(40vh,240px)] overflow-y-auto">
-                    {walletsForChain.map((w) => {
-                      const isSel = w.wallet_address === walletAddress;
-                      const canSign = canSignWithWallet(w.wallet_address);
-                      const unusable = w.is_archived || !w.is_active || !canSign;
-                      return (
-                        <div
-                          key={w.id}
-                          className={cn(
-                            'flex items-stretch gap-0.5 px-1',
-                            isSel ? 'bg-bg-hover/80' : '',
-                          )}
-                        >
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={isSel}
-                            disabled={unusable && !isSel}
-                            onClick={() => {
-                              if (unusable && !isSel) return;
-                              setActiveWalletAddress(w.wallet_address);
-                              setWalletMenuOpen(false);
-                            }}
+                    <div className="max-h-[min(40vh,240px)] overflow-y-auto">
+                      {walletsForChain.map((w) => {
+                        const isSel = w.wallet_address === walletAddress;
+                        const canSign = canSignWithWallet(w.wallet_address);
+                        const unusable = w.is_archived || !w.is_active || !canSign;
+                        return (
+                          <div
+                            key={w.id}
                             className={cn(
-                              'min-w-0 flex-1 px-1.5 py-1.5 text-left text-[11px] transition-colors duration-150',
-                              unusable && !isSel
-                                ? 'cursor-not-allowed text-fg-muted opacity-50'
-                                : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
-                              isSel && 'text-fg-primary',
+                              'flex items-stretch gap-0.5 px-1',
+                              isSel ? 'bg-bg-hover/80' : '',
                             )}
                           >
-                            <span className="block truncate font-medium">
-                              {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
-                              {w.is_primary ? (
-                                <span className="font-normal text-fg-muted"> · primary</span>
-                              ) : null}
-                            </span>
-                            <span className="block tabular-nums text-[10px] text-fg-muted">
-                              {shortenAddress(w.wallet_address, 4)}
-                              {w.is_archived ? ' · archived' : ''}
-                              {!w.is_active ? ' · inactive' : ''}
-                              {!canSign ? ' · not linked' : ''}
-                            </span>
-                          </button>
-                          <a
-                            href={explorerAccountUrlForChain(w.wallet_address, activeChain)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex shrink-0 items-center px-1 text-fg-muted hover:text-fg-secondary"
-                            title={`${nativeSym} explorer`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
-                          </a>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={isSel}
+                              disabled={unusable && !isSel}
+                              onClick={() => {
+                                if (unusable && !isSel) return;
+                                setActiveWalletAddress(w.wallet_address);
+                                setWalletMenuOpen(false);
+                              }}
+                              className={cn(
+                                'min-w-0 flex-1 px-1.5 py-1.5 text-left text-[11px] transition-colors duration-150',
+                                unusable && !isSel
+                                  ? 'cursor-not-allowed text-fg-muted opacity-50'
+                                  : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                                isSel && 'text-fg-primary',
+                              )}
+                            >
+                              <span className="block truncate font-medium">
+                                {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
+                                {w.is_primary ? (
+                                  <span className="font-normal text-fg-muted"> · primary</span>
+                                ) : null}
+                              </span>
+                              <span className="block tabular-nums text-[10px] text-fg-muted">
+                                {shortenAddress(w.wallet_address, 4)}
+                                {w.is_archived ? ' · archived' : ''}
+                                {!w.is_active ? ' · inactive' : ''}
+                                {!canSign ? ' · not linked' : ''}
+                              </span>
+                            </button>
+                            <a
+                              href={explorerAccountUrlForChain(w.wallet_address, activeChain)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex shrink-0 items-center px-1 text-fg-muted hover:text-fg-secondary"
+                              title={`${nativeSym} explorer`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <div className="px-2.5 py-2 text-[11px] leading-snug text-fg-muted">
-                      No <span className="font-semibold text-fg-secondary">{nativeSym}</span> wallet yet for
-                      this chain. Create or import one on Wallets.
+                      No <span className="font-semibold text-fg-secondary">{nativeSym}</span> wallet yet for this
+                      chain. Create or import one on Wallets.
                     </div>
                   )}
                   <div className="border-t border-border-subtle pt-1">
@@ -477,7 +481,8 @@ export function Topbar() {
                 </div>
               ) : null}
             </div>
-            <div className="relative" ref={avatarMenuRef}>
+
+            <div className="relative shrink-0" ref={avatarMenuRef}>
               <button
                 ref={avatarButtonRef}
                 type="button"
@@ -489,33 +494,40 @@ export function Topbar() {
                 aria-haspopup="menu"
                 aria-expanded={avatarMenuOpen}
                 aria-label="Account menu"
-                className="rounded-full outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40"
+                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[10px] font-semibold text-fg-inverse">
-                  {topbarAvatarInitials(walletAddress, user?.id)}
-                </div>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-bg-sunken/90 text-fg-muted shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.06)] ring-1 ring-border-subtle/70">
+                  <UserRound className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                </span>
               </button>
               {avatarMenuPresence.mounted ? (
                 <div
                   role="menu"
                   className={cn(
-                    'absolute right-0 top-[calc(100%+4px)] z-[200] w-48 overflow-hidden rounded-md border border-border-subtle bg-bg-raised text-fg-secondary shadow-lg',
+                    'absolute right-0 top-[calc(100%+6px)] z-[200] w-52 overflow-hidden rounded-xl border border-border-subtle bg-bg-raised py-1.5 text-fg-secondary shadow-[0_16px_40px_-12px_rgba(0,0,0,0.75)]',
                     popoverPanelClasses(avatarMenuPresence.visible),
                   )}
                 >
-                  <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[10px] font-bold text-fg-inverse">
-                      {topbarAvatarInitials(walletAddress, user?.id)}
-                    </div>
+                  <div className="border-b border-border-subtle px-3 pb-2 pt-1">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Wallet</p>
                     {walletAddress ? (
-                      <span className="truncate font-mono text-[11px] text-fg-secondary">
+                      <p className="mt-1 truncate font-mono text-[12px] text-fg-primary" title={walletAddress}>
                         {shortenAddress(walletAddress, 4)}
-                      </span>
+                      </p>
                     ) : (
-                      <span className="text-[11px] text-fg-muted">No wallet linked</span>
+                      <p className="mt-1 text-[11px] text-fg-muted">No wallet linked</p>
                     )}
                   </div>
-                  <div className="space-y-0.5 p-1">
+                  <div className="flex flex-col gap-0.5 px-1.5 pt-1.5">
+                    <Link
+                      href="/wallets"
+                      role="menuitem"
+                      onClick={() => setAvatarMenuOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] transition-colors hover:bg-bg-hover hover:text-fg-primary"
+                    >
+                      <Shield className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+                      <span>Account & security</span>
+                    </Link>
                     <button
                       type="button"
                       role="menuitem"
@@ -523,11 +535,31 @@ export function Topbar() {
                         setAvatarMenuOpen(false);
                         setSettingsOpen(true);
                       }}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] leading-tight hover:bg-bg-hover hover:text-fg-primary"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] transition-colors hover:bg-bg-hover hover:text-fg-primary"
                     >
-                      <Settings className="h-3.5 w-3.5 text-fg-muted" strokeWidth={2} aria-hidden />
+                      <Settings className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
                       <span>Settings</span>
                     </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => setAvatarMenuOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
+                    >
+                      <Languages className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+                      <span>Auto translate</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => setAvatarMenuOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] transition-colors hover:bg-bg-hover hover:text-fg-primary"
+                    >
+                      <Rocket className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+                      <span>Feature updates</span>
+                    </button>
+                  </div>
+                  <div className="border-t border-border-subtle px-1.5 pb-0.5 pt-1">
                     <button
                       type="button"
                       role="menuitem"
@@ -535,10 +567,10 @@ export function Topbar() {
                         setAvatarMenuOpen(false);
                         void logout();
                       }}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] leading-tight hover:bg-signal-bear/10 hover:text-signal-bear"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-signal-bear transition-colors hover:bg-signal-bear/10"
                     >
-                      <LogOut className="h-3.5 w-3.5 text-fg-muted" strokeWidth={2} aria-hidden />
-                      <span>Sign out</span>
+                      <LogOut className="h-4 w-4 shrink-0 opacity-90" strokeWidth={2} aria-hidden />
+                      <span>Log out</span>
                     </button>
                   </div>
                 </div>

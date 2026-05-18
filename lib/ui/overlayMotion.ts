@@ -38,16 +38,16 @@ export function overlayPanelFromTopClasses(visible: boolean) {
       );
 }
 
-/** anchored dropdowns (chain picker, deposit network, etc.) */
+/** anchored dropdowns — fade only avoids scale/slide-induced layout / subpixel wobble near fixed headers */
 export function popoverPanelClasses(visible: boolean) {
   return visible
     ? cn(
-        'animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-200 ease-out',
+        'animate-in fade-in duration-150 ease-out',
         reduce,
-        'motion-reduce:opacity-100 motion-reduce:scale-100',
+        'motion-reduce:opacity-100',
       )
     : cn(
-        'animate-out fade-out zoom-out-95 slide-out-to-top-1 duration-200 ease-out',
+        'animate-out fade-out duration-150 ease-out',
         reduce,
       );
 }

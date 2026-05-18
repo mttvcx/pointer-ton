@@ -21,7 +21,6 @@ const UI = {
   border: 'rgba(255, 255, 255, 0.1)',
   muted: '#9ba3b0',
   text: '#f0f4fc',
-  accent: '#0077b6',
   cyan: '#34d5ff',
 } as const;
 
@@ -590,14 +589,13 @@ export function AlertRulesSection({
                         onClick={() => toggleProtocol(id)}
                         className={cn(
                           'rounded-full border px-2.5 py-1 text-[10px] font-medium transition active:scale-[0.98]',
+                          selectedPads.has(id)
+                            ? 'border-accent-primary/40 bg-accent-primary/10 text-fg-primary'
+                            : '',
                         )}
                         style={
                           selectedPads.has(id)
-                            ? {
-                                borderColor: `${UI.accent}66`,
-                                backgroundColor: `${UI.accent}14`,
-                                color: UI.text,
-                              }
+                            ? undefined
                             : {
                                 borderColor: UI.border,
                                 backgroundColor: UI.elevated,
@@ -843,8 +841,7 @@ export function AlertRulesSection({
                 <button
                   type="button"
                   title="Runs flash + preset chime once (helps verify theme + autoplay)."
-                  className="rounded-lg border px-2 py-1 text-[10px] font-semibold transition hover:bg-white/[0.05]"
-                  style={{ borderColor: UI.accent, color: UI.cyan }}
+                  className="rounded-lg border border-accent-primary/45 px-2 py-1 text-[10px] font-semibold text-accent-primary transition hover:bg-white/[0.05]"
                   onClick={() => {
                     dispatchAlertFlashPreview({
                       color: /^#[0-9A-Fa-f]{6}$/.test(flashColor) ? flashColor : '#0077B6',
@@ -903,10 +900,10 @@ export function AlertRulesSection({
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="w-full rounded-xl py-2.5 text-[13px] font-semibold shadow-[0_8px_24px_-8px_rgb(var(--accent-primary-rgb)/0.55)] transition hover:brightness-105 active:scale-[0.99] disabled:opacity-45"
+              className="w-full rounded-xl py-2.5 text-[13px] font-semibold text-fg-inverse shadow-[0_8px_24px_-8px_rgb(var(--accent-primary-rgb)/0.55)] transition hover:brightness-105 active:scale-[0.99] disabled:opacity-45"
               style={{
-                backgroundImage: `linear-gradient(135deg, ${UI.accent} 0%, #5f8bff 100%)`,
-                color: '#080d14',
+                backgroundImage:
+                  'linear-gradient(135deg, rgb(var(--accent-primary-rgb)) 0%, rgb(var(--accent-glow-rgb)) 100%)',
               }}
             >
               {createMutation.isPending ? (
@@ -936,14 +933,7 @@ export function AlertRulesSection({
           <span className="text-[13px] font-semibold" style={{ color: UI.text }}>
             Active Rules
           </span>
-          <span
-            className="min-w-[22px] rounded-full border px-1.5 py-px text-center text-[11px] font-semibold tabular-nums"
-            style={{
-              borderColor: `${UI.accent}55`,
-              color: UI.accent,
-              backgroundColor: `${UI.accent}10`,
-            }}
-          >
+          <span className="min-w-[22px] rounded-full border border-accent-primary/35 bg-accent-primary/10 px-1.5 py-px text-center text-[11px] font-semibold tabular-nums text-accent-primary">
             {sorted.length}
           </span>
         </div>

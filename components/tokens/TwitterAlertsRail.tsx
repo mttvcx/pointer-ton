@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import { X } from 'lucide-react';
 import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 
 type TweetListenPayload = {
   message?: string;
@@ -23,6 +25,7 @@ function readPayload(p: unknown): TweetListenPayload {
 
 export function TwitterAlertsRail({ dock }: { dock: 'left' | 'right' }) {
   const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: true });
+  const setRailSide = usePulseTwitterRailStore((s) => s.setSide);
 
   const rows = useMemo(() => {
     const list = data ?? [];
@@ -41,9 +44,20 @@ export function TwitterAlertsRail({ dock }: { dock: 'left' | 'right' }) {
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-fg-primary">
             X listens
           </h2>
-          <span className="text-[10px] tabular-nums text-fg-muted">
-            {isFetching ? '·' : ''} {rows.length}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] tabular-nums text-fg-muted">
+              {isFetching ? '·' : ''} {rows.length}
+            </span>
+            <button
+              type="button"
+              title="Hide X listens rail"
+              aria-label="Hide X listens rail"
+              onClick={() => setRailSide('hidden')}
+              className="btn-press flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            </button>
+          </div>
         </div>
         <p className="mt-1 text-[9px] leading-snug text-fg-muted/90">
           Server ingest → rules you saved in Alert Builder · mints link to token.

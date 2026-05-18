@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ChevronDown, Clock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
+import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
@@ -89,16 +90,22 @@ export function ExchangeModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/75 backdrop-blur-[2px]"
-        aria-label="Close exchange"
-        onClick={() => onOpenChange(false)}
+    <div
+      className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement | null;
+        if (!t || t.closest('[data-modal-panel]')) return;
+        onOpenChange(false);
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-black/75 backdrop-blur-[2px]"
       />
       <div
+        data-modal-panel
         className={cn(
-          'relative z-[1] flex max-h-[min(92dvh,720px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[#1b1f2a] bg-[#0b0d12]',
+          'relative z-10 flex max-h-[min(92dvh,720px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[#1b1f2a] bg-[#0b0d12]',
           'font-sans shadow-2xl',
         )}
         role="dialog"

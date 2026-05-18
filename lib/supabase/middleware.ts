@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { rejectAfter } from '@/lib/utils/middlewareTimeouts';
 import type { Database } from './types';
 
 /**
@@ -11,7 +12,7 @@ import type { Database } from './types';
  *     cookie plumbing is already in place
  *   - server-side `createServerSupabase()` calls always see a fresh session
  *
- * Mounted from `middleware.ts` at the project root.
+ * Mounted from `proxy.ts` at the project root (Next 16 proxy / former middleware).
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

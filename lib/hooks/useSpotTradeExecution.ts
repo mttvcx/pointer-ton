@@ -11,6 +11,9 @@ import { toast } from 'sonner';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
+import { formatNumber } from '@/lib/utils/formatters';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 import {
@@ -23,6 +26,10 @@ import {
   addInstantTradeSellTon,
   readInstantTradeLifetimeStats,
 } from '@/lib/trading/instantTradeStats';
+
+function chainFromQuote(ok: TradeQuoteApiOk, fallback: AppChainId): AppChainId {
+  return ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : fallback;
+}
 
 type TradingPresetApi = {
   slot: PresetSlot;
@@ -224,6 +231,21 @@ export function useSpotTradeExecution(mint: string) {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
+        const cr = chainFromQuote(ok, activeChain);
+        const sym = nativeTicker(cr);
+        const narration = `Bought ${formatNumber(amountSol, { decimals: 4 })} ${sym} · trade panel.`;
+        void (async () => {
+          const tok = await getAccessToken();
+          if (!tok) return;
+          const posted = await recordUserTradeActivity(tok, narration, {
+            kind: 'spot_buy',
+            mint,
+            chain: cr,
+            amountSol,
+            txSignature: sig ?? null,
+          });
+          if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
+        })();
         addInstantTradeCostBasisTon(mint, wallet.address, amountSol);
         addInstantTradeBuyTon(mint, wallet.address, amountSol);
         void refetchBalance();
@@ -337,6 +359,25 @@ export function useSpotTradeExecution(mint: string) {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
+        const crS = chainFromQuote(ok, activeChain);
+        const narrS = `Sold ${formatNumber(sellPct, { decimals: 0 })}% · trade panel.`;
+        void (async () => {
+          const tok = await getAccessToken();
+          if (!tok) return;
+          const estS =
+            typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
+              ? Math.max(0, ok.summary.amountSolEstimate)
+              : undefined;
+          const posted = await recordUserTradeActivity(tok, narrS, {
+            kind: 'spot_sell_pct',
+            mint,
+            chain: crS,
+            sellPct,
+            amountSol: estS,
+            txSignature: sig ?? null,
+          });
+          if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
+        })();
         const estOut =
           typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
             ? Math.max(0, ok.summary.amountSolEstimate)
@@ -451,6 +492,25 @@ export function useSpotTradeExecution(mint: string) {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
+        const crSo = chainFromQuote(ok, activeChain);
+        const symSo = nativeTicker(crSo);
+        void (async () => {
+          const tok = await getAccessToken();
+          if (!tok) return;
+          const estOutN =
+            typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
+              ? Math.max(0, ok.summary.amountSolEstimate)
+              : amountSolOut;
+          const narrSo = `Sold for ~${formatNumber(estOutN, { decimals: 4 })} ${symSo} · trade panel (fixed out).`;
+          const posted = await recordUserTradeActivity(tok, narrSo, {
+            kind: 'spot_sell_sol_out',
+            mint,
+            chain: crSo,
+            amountSol: estOutN,
+            txSignature: sig ?? null,
+          });
+          if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
+        })();
         const estOut =
           typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
             ? Math.max(0, ok.summary.amountSolEstimate)

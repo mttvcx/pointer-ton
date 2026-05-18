@@ -1,6 +1,5 @@
 'use client';
 
-import { Settings2, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 
@@ -21,7 +20,7 @@ export function PresetSelector({ presets, onEdit, onAdvancedSettings, disabled }
   const bySlot = new Map(presets.map((p) => [p.slot, p.name] as const));
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span className="text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
         Preset
       </span>
@@ -47,27 +46,17 @@ export function PresetSelector({ presets, onEdit, onAdvancedSettings, disabled }
         type="button"
         disabled={disabled}
         onClick={onAdvancedSettings}
-        className={cn(
-          'btn-press focus-ring flex h-6 w-6 items-center justify-center rounded-full border border-border-subtle text-fg-muted transition-all duration-150 hover:border-border-default hover:text-fg-secondary',
-          disabled && 'cursor-not-allowed opacity-50',
-        )}
-        aria-label="Advanced trading settings"
-        title="Fees & execution"
+        className="text-[10px] font-medium text-fg-muted underline-offset-2 transition hover:text-fg-secondary hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
       >
-        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Fees
       </button>
       <button
         type="button"
         disabled={disabled}
         onClick={onEdit}
-        className={cn(
-          'btn-press focus-ring flex h-6 w-6 items-center justify-center rounded-full border border-border-subtle text-fg-muted transition-all duration-150 hover:border-border-default hover:text-fg-secondary',
-          disabled && 'cursor-not-allowed opacity-50',
-        )}
-        aria-label="Edit trading preset"
-        title="Preset name, chips, slippage, MEV"
+        className="text-[10px] font-medium text-fg-muted underline-offset-2 transition hover:text-fg-secondary hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
       >
-        <Settings2 className="h-3.5 w-3.5" />
+        Edit
       </button>
     </div>
   );

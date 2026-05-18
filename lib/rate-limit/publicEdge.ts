@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { rejectAfter } from '@/lib/utils/middlewareTimeouts';
 
 /**
  * Unauthenticated reads that are cheap to abuse (scraping / RPC amplification).

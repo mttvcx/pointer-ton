@@ -4,12 +4,13 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
-  ArrowDownWideNarrow,
   PanelsLeftRight,
+  SlidersHorizontal,
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,8 +33,10 @@ import {
 } from '@/lib/tokens/columnPresetModel';
 import { PULSE_COLUMN_ACCENT_DOT, type PulseColumnId } from '@/lib/utils/constants';
 import { syntheticPulseFeedItems } from '@/lib/dev/demoPulseBundles';
+import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
@@ -113,12 +116,8 @@ export function PulseColumn({
   const query = useQuery({
     queryKey: ['pulse', column, activeChain],
     queryFn: async (): Promise<{ items: PulseTokenBundle[] }> => {
-      const r = await fetch(`/api/tokens/feed?column=${column}&chain=${encodeURIComponent(activeChain)}`);
-      if (!r.ok) {
-        const j = (await r.json().catch(() => ({}))) as { message?: string };
-        throw new Error(j.message ?? `feed ${r.status}`);
-      }
-      return r.json() as Promise<{ items: PulseTokenBundle[] }>;
+      const items = await fetchPulseFeedBundles(column, activeChain);
+      return { items };
     },
   });
 
@@ -355,7 +354,7 @@ export function PulseColumn({
        * Header: brighter grey (`bg-bg-hover`) so it reads as a distinct band
        * above the row list — Axiom parity. Border-b separates it from rows.
        */}
-      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-border-subtle bg-bg-hover px-3 py-2 shadow-[0_6px_12px_-8px_rgba(0,0,0,0.85)]">
+      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-white/[0.1] bg-bg-hover px-3 py-2 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05),0_6px_12px_-8px_rgba(0,0,0,0.85)]">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -368,7 +367,7 @@ export function PulseColumn({
             {column === 'new' ? (
               <span className="text-[9px] tabular-nums text-fg-muted/80">&lt; 30m</span>
             ) : null}
-            {column === 'new' && activeChain === 'sol' ? (
+            {activeChain === 'sol' ? (
               <button
                 type="button"
                 title={
@@ -411,11 +410,14 @@ export function PulseColumn({
            * mobile decimal keypad without the browser spinner.
            */}
           <label
-            className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken px-2 transition-colors focus-within:border-accent-primary/45 focus-within:bg-bg-raised hover:border-border-default"
+            className={cn(
+              'flex min-h-[2.125rem] shrink-0 items-center gap-1 rounded-full border border-transparent px-2.5 py-1.5 transition-all duration-150',
+              'bg-white/5 hover:border-white/15 focus-within:border-transparent focus-within:bg-white/[0.08] focus-within:ring-1 focus-within:ring-accent-primary/25',
+            )}
             title={`Quick-buy amount in ${quoteSymbol} for ${title}`}
           >
             <Zap
-              className="h-3 w-3 shrink-0 fill-accent-primary/40 text-accent-primary"
+              className="h-3.5 w-3.5 shrink-0 fill-accent-primary/40 text-accent-primary"
               strokeWidth={2.4}
               aria-hidden
             />
@@ -429,14 +431,18 @@ export function PulseColumn({
                 const next = Number(e.target.value);
                 setQuickBuySol(column, Number.isFinite(next) && next >= 0 ? next : 0);
               }}
-              className="w-9 bg-transparent text-[11px] font-semibold tabular-nums text-fg-primary outline-none placeholder:text-fg-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="w-10 min-w-0 bg-transparent text-[12px] font-medium tabular-nums text-fg-primary outline-none placeholder:text-fg-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               aria-label={`Quick-buy amount for ${title} in ${quoteSymbol}`}
             />
+            <Image
+              src={CHAIN_ICON_PNG[activeChain]}
+              alt=""
+              width={14}
+              height={14}
+              className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+              unoptimized
+            />
           </label>
-
-          <span className="shrink-0 rounded-full bg-fg-muted/10 px-2 py-0.5 tabular-nums text-[10px] tabular-nums text-fg-muted">
-            {visibleRows.length}
-          </span>
 
           <div className="flex shrink-0 items-center gap-0.5">
             {([1, 2, 3] as const).map((slot) => (
@@ -445,7 +451,7 @@ export function PulseColumn({
                 type="button"
                 onClick={() => setPresetSlot(column, slot)}
                 className={cn(
-                  'btn-press focus-ring rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold transition',
+                  'btn-press focus-ring rounded-md border px-2 py-1 text-[10px] font-semibold leading-none transition',
                   presetSlot === slot
                     ? 'border-accent-primary/50 bg-accent-primary/10 text-accent-primary'
                     : 'border-border-subtle text-fg-muted hover:border-border-default hover:text-fg-secondary',
@@ -458,10 +464,10 @@ export function PulseColumn({
             <button
               type="button"
               onClick={() => setFilterOpen(true)}
-              className="btn-press focus-ring flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary"
-              aria-label="Filters and sort"
+              className="btn-press focus-ring flex h-8 w-8 items-center justify-center rounded-md text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary"
+              aria-label="Column filters and sort"
             >
-              <ArrowDownWideNarrow className="h-3.5 w-3.5" strokeWidth={2} />
+              <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />
             </button>
           </div>
         </div>

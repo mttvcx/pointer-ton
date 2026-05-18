@@ -7,6 +7,7 @@ import { CustomThemeImport } from '@/components/theme/CustomThemeImport';
 import { DisplayPreferences } from '@/components/preferences/DisplayPreferences';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
+import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 
 interface SettingsModalProps {
@@ -45,22 +46,29 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className={cn('fixed inset-0 flex items-center justify-center', Z_APP_MODAL_OVERLAY)}
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-modal-title"
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement | null;
+        if (!t || t.closest('[data-modal-panel]')) return;
+        onClose();
+      }}
     >
-      <button
-        type="button"
-        aria-label="Close settings"
-        className={cn('absolute inset-0 bg-black/60 backdrop-blur-sm', overlayBackdropClasses(visible))}
-        onClick={onClose}
+      <div
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-0 bg-black/60 backdrop-blur-sm',
+          overlayBackdropClasses(visible),
+        )}
       />
 
       <div
+        data-modal-panel
         ref={dialogRef}
         className={cn(
-          'relative mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
+          'relative z-10 mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
           overlayPanelClasses(visible),
         )}
       >

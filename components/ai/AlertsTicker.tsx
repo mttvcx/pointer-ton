@@ -9,6 +9,11 @@ import { formatRelativeTime } from '@/lib/utils/formatters';
 import { isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
 import type { EntityRef } from '@/store/ui';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
+import {
+  ALERT_TYPE_ALERT_RULE,
+  ALERT_TYPE_TWITTER_LISTEN,
+} from '@/lib/alerts/alertRuleModel';
+import { ALERT_TYPE_USER_TRADE, type UserTradeAlertPayload } from '@/lib/alerts/userActivityAlerts';
 
 const AT = {
   card: 'rgba(255, 255, 255, 0.04)',
@@ -54,7 +59,7 @@ export function AlertsTicker() {
         </ul>
       ) : !query.data || query.data.length === 0 ? (
         <p className="text-[10px] leading-snug" style={{ color: AT.muted }}>
-          No alert events yet — fired rules and notifications will land here (your log).
+          No events yet — your trades, keyword alerts, and Pulse rules will show up here.
         </p>
       ) : (
         <ul className="space-y-1">
@@ -78,7 +83,7 @@ function AlertItem({ alert }: { alert: AlertsTickerItem }) {
       {...hoverProps}
     >
       <div className="flex items-center gap-1.5 text-[10px] font-semibold capitalize" style={{ color: AT.accent }}>
-        <span>{alert.type.replace(/[_-]/g, ' ')}</span>
+        <span>{activityHeading(alert)}</span>
         <span className="ml-auto tabular-nums font-normal" style={{ color: AT.muted }}>
           {formatRelativeTime(alert.createdAt)}
         </span>
@@ -97,6 +102,34 @@ function AlertItem({ alert }: { alert: AlertsTickerItem }) {
       ) : null}
     </li>
   );
+}
+
+function activityHeading(alert: AlertsTickerItem): string {
+  if (alert.type === ALERT_TYPE_USER_TRADE) {
+    const p = alert.payload as UserTradeAlertPayload | undefined;
+    switch (p?.kind) {
+      case 'pulse_quick_buy':
+        return 'Pulse buy';
+      case 'pulse_quick_sell':
+        return 'Pulse sell';
+      case 'token_panel_buy':
+        return 'Token buy';
+      case 'token_panel_sell':
+        return 'Token sell';
+      case 'spot_buy':
+        return 'Buy';
+      case 'spot_sell_pct':
+      case 'spot_sell_sol_out':
+        return 'Sell';
+      default:
+        return 'Trade';
+    }
+  }
+  if (alert.type === ALERT_TYPE_TWITTER_LISTEN) return 'X listen';
+  if (alert.type === ALERT_TYPE_ALERT_RULE) return 'Pulse rule';
+  if (alert.type === 'limit_alert_triggered') return 'Limit alert';
+  if (alert.type === 'pulse_new_token') return 'New token';
+  return alert.type.replace(/[_-]/g, ' ');
 }
 
 function rawSummary(payload: unknown): string {

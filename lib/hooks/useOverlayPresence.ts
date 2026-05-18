@@ -15,10 +15,9 @@ export function useOverlayPresence(open: boolean, exitMs: number = DEFAULT_EXIT_
   useEffect(() => {
     if (open) {
       setMounted(true);
-      const id = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setVisible(true));
-      });
-      return () => cancelAnimationFrame(id);
+      /** Enter must be synchronous with mount so anchored panels measure correctly and never paint one frame as "exit" (fixes topbar jitter). */
+      setVisible(true);
+      return;
     }
 
     setVisible(false);

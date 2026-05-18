@@ -48,6 +48,11 @@ const config: Config = {
           warn: 'rgb(var(--signal-warn-rgb) / <alpha-value>)',
           info: 'rgb(var(--signal-info-rgb) / <alpha-value>)',
         },
+        desk: {
+          a: 'rgb(var(--desk-zebra-a-rgb) / <alpha-value>)',
+          b: 'rgb(var(--desk-zebra-b-rgb) / <alpha-value>)',
+          panel: 'rgb(var(--desk-panel-rgb) / <alpha-value>)',
+        },
         // shadcn token bridge - points all shadcn primitives at our palette
         background: '#080D14',
         foreground: '#E8EBF0',

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, ExternalLink, Globe, Minimize2, Search, Send, Settings, Share2 } from 'lucide-react';
+import { Bell, ExternalLink, Globe, Search, Send } from 'lucide-react';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
@@ -125,7 +125,7 @@ export function TokenHeader({
     }
     const px = formatPriceUsd(snapshot?.price_usd);
     return px !== '\u2014' ? px : '\u2014';
-  }, [snapshot?.market_cap_usd, snapshot?.price_usd]);
+  }, [snapshot]);
 
   const bondingValue =
     bonding.fillPct != null ? formatPercent(bonding.fillPct, { decimals: 1 }) : '\u2014';
@@ -304,22 +304,15 @@ export function TokenHeader({
           <LaunchpadSubBadges token={token} snapshot={snapshot} variant="detail" />
           <RiskFlags token={token as Tables<'tokens'>} snapshot={snapshot} className="shrink-0" />
           <span className="hidden h-5 w-px shrink-0 bg-border-subtle sm:inline-block" aria-hidden />
-          <div className="flex items-center gap-1">
-            <a
-              href={explorerTokenHrefFromMint(mint, activeChain)}
-              target="_blank"
-              rel="noreferrer"
-              className={cn('focus-ring inline-flex rounded', iconRow)}
-              aria-label={explorerTokenAriaLabel(activeChain)}
-            >
-              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
-            </a>
-            <button type="button" className={cn('focus-ring inline-flex rounded', iconRow)} aria-label="Share">
-              <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
-            <Settings className={cn(iconRow)} strokeWidth={2} aria-hidden />
-            <Minimize2 className={cn(iconRow)} strokeWidth={2} aria-hidden />
-          </div>
+          <a
+            href={explorerTokenHrefFromMint(mint, activeChain)}
+            target="_blank"
+            rel="noreferrer"
+            className={cn('focus-ring inline-flex shrink-0 rounded', iconRow)}
+            aria-label={explorerTokenAriaLabel(activeChain)}
+          >
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+          </a>
         </div>
       </div>
     </div>

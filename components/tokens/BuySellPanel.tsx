@@ -17,7 +17,6 @@ import {
   Bell,
   Copy,
   ExternalLink,
-  ChevronsRight,
   CircleDollarSign,
   Clock,
   Coins,
@@ -41,11 +40,14 @@ import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 import { cn } from '@/lib/utils/cn';
 import { explorerTokenAriaLabel, explorerTokenHrefFromMint, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import type { AppChainId } from '@/lib/chains/appChain';
 import type { Tables } from '@/lib/supabase/types';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { PresetSelector } from '@/components/trading/PresetSelector';
 import { PresetEditorModal } from '@/components/trading/PresetEditorModal';
 import { AdvancedTradingSettingsModal } from '@/components/trading/AdvancedTradingSettingsModal';
+import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
+import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 
@@ -116,8 +118,8 @@ function TradeTapeStrip({ m }: { m: TokenExtendedMetrics }) {
   const buyRatio = total > 0 ? buys / total : 0.5;
 
   return (
-    <div className="space-y-1 rounded-lg border border-border-subtle/80 bg-bg-hover/12 px-2 py-1.5">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[9px] tabular-nums leading-tight">
+    <div className="space-y-1.5 rounded-lg border border-border-subtle/80 bg-bg-hover/12 px-2.5 py-2">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[10px] tabular-nums leading-tight">
         <span className="shrink-0 text-fg-muted">
           6h Vol{' '}
           <span className="font-semibold text-fg-primary">
@@ -199,84 +201,53 @@ function CompactFeeStrip({
   );
 }
 
-function tokenInfoCellValueClass(
-  kind:
-    | 'top10'
-    | 'devh'
-    | 'sniper'
-    | 'insider'
-    | 'bundler'
-    | 'lp'
-    | 'holders'
-    | 'pro'
-    | 'dex',
-  n: number | null | undefined,
-  dexPaid?: boolean | null,
-): string {
-  if (kind === 'dex') {
-    if (dexPaid === true) return 'text-signal-bull font-semibold text-xs';
-    return 'text-signal-bear font-semibold text-xs';
-  }
-  const isZero = n == null || !Number.isFinite(n) || n === 0;
-  if (kind === 'holders' || kind === 'pro') {
-    return cn('text-sm font-semibold tabular-nums', isZero ? 'text-fg-muted' : 'text-fg-primary');
-  }
-  if (isZero) return 'text-sm font-semibold tabular-nums text-fg-muted';
-  if (kind === 'top10' || kind === 'devh') return 'text-sm font-semibold tabular-nums text-fg-primary';
-  if (kind === 'sniper' || kind === 'insider' || kind === 'bundler') {
-    return 'text-sm font-semibold tabular-nums text-signal-bear';
-  }
-  /* lp */
-  return 'text-sm font-semibold tabular-nums text-signal-bull';
-}
-
 function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
   const pct = (n: number | null | undefined) =>
     `${formatNumber(n ?? 0, { decimals: 2 })}%`;
 
   const dexLabel = m?.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid';
-  const dexCls = tokenInfoCellValueClass('dex', 0, m?.dexPaid);
+  const dexCls = tokenMetricValueClass('dex', 0, m?.dexPaid);
 
   const cells: { label: string; value: ReactNode; valueClass: string }[] = [
     {
       label: 'Top 10 H.',
       value: pct(m?.top10HolderPct),
-      valueClass: tokenInfoCellValueClass('top10', m?.top10HolderPct ?? 0),
+      valueClass: tokenMetricValueClass('top10', m?.top10HolderPct ?? 0),
     },
     {
       label: 'Dev H.',
       value: pct(m?.devHoldingPct),
-      valueClass: tokenInfoCellValueClass('devh', m?.devHoldingPct ?? 0),
+      valueClass: tokenMetricValueClass('devh', m?.devHoldingPct ?? 0),
     },
     {
       label: 'Snipers H.',
       value: pct(m?.sniperHolderPct),
-      valueClass: tokenInfoCellValueClass('sniper', m?.sniperHolderPct ?? 0),
+      valueClass: tokenMetricValueClass('sniper', m?.sniperHolderPct ?? 0),
     },
     {
       label: 'Insiders',
       value: pct(m?.insidersPct),
-      valueClass: tokenInfoCellValueClass('insider', m?.insidersPct ?? 0),
+      valueClass: tokenMetricValueClass('insider', m?.insidersPct ?? 0),
     },
     {
       label: 'Bundlers',
       value: pct(m?.bundlersPct),
-      valueClass: tokenInfoCellValueClass('bundler', m?.bundlersPct ?? 0),
+      valueClass: tokenMetricValueClass('bundler', m?.bundlersPct ?? 0),
     },
     {
       label: 'LP Burned',
       value: pct(m?.lpBurnedPct),
-      valueClass: tokenInfoCellValueClass('lp', m?.lpBurnedPct ?? 0),
+      valueClass: tokenMetricValueClass('lp', m?.lpBurnedPct ?? 0),
     },
     {
       label: 'Holders',
       value: formatNumber(m?.holders ?? 0, { decimals: 0 }),
-      valueClass: tokenInfoCellValueClass('holders', m?.holders ?? 0),
+      valueClass: tokenMetricValueClass('holders', m?.holders ?? 0),
     },
     {
       label: 'Pro Traders',
       value: formatNumber(m?.proTraders ?? 0, { decimals: 0 }),
-      valueClass: tokenInfoCellValueClass('pro', m?.proTraders ?? 0),
+      valueClass: tokenMetricValueClass('pro', m?.proTraders ?? 0),
     },
     {
       label: 'Dex Paid',
@@ -300,7 +271,10 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
         {cells.map((item) => (
           <div
             key={item.label}
-            className="flex flex-col items-center justify-center bg-bg-raised px-1 py-2"
+            className={cn(
+              'flex flex-col items-center justify-center px-1 py-2',
+              tokenMetricCellSurface(item.valueClass),
+            )}
           >
             <div className={cn(item.valueClass, item.label !== 'Dex Paid' && 'truncate')}>
               {item.value}
@@ -882,6 +856,40 @@ export function BuySellPanel({
         id: toastId,
         description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
       });
+      const chainRes: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
+      const sym = nativeTicker(chainRes);
+      if (tab === 'buy' && buyAmountSol != null && buyAmountSol > 0) {
+        const narration = `Bought ${formatNumber(buyAmountSol, { decimals: 4 })} ${sym} · token page.`;
+        void (async () => {
+          const posted = await recordUserTradeActivity(token, narration, {
+            kind: 'token_panel_buy',
+            mint,
+            chain: chainRes,
+            amountSol: buyAmountSol,
+            txSignature: sig ?? null,
+          });
+          if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
+        })();
+      } else {
+        const est =
+          typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
+            ? Math.max(0, ok.summary.amountSolEstimate)
+            : undefined;
+        const narration =
+          est != null
+            ? `Sold tokens for ~${formatNumber(est, { decimals: 4 })} ${sym} · token page.`
+            : `Sold tokens · token page.`;
+        void (async () => {
+          const posted = await recordUserTradeActivity(token, narration, {
+            kind: 'token_panel_sell',
+            mint,
+            chain: chainRes,
+            amountSol: est,
+            txSignature: sig ?? null,
+          });
+          if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
+        })();
+      }
       setQuote(null);
       setQuoteForKey(null);
       setQuoteWallet(null);
@@ -958,7 +966,7 @@ export function BuySellPanel({
     <div
       ref={walletPickerShellRef}
       data-mint={mint}
-      className="relative flex w-full min-w-0 flex-col bg-bg-base text-[12px] text-fg-primary"
+      className="relative flex w-full min-w-0 flex-col bg-transparent text-[12px] text-fg-primary"
     >
       <div className="space-y-2 px-3 py-2 pb-5">
         {extendedTape ? <TradeTapeStrip m={extendedTape} /> : (

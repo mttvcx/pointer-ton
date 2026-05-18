@@ -17,6 +17,8 @@ import { AlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import { AlertRuleAudioPlayer } from '@/components/alerts/AlertRuleAudioPlayer';
 import { AICopilotPanel } from '@/components/layout/AICopilotPanel';
 import { BottomBar } from '@/components/layout/BottomBar';
+import { DockPulseFloatingPanel } from '@/components/layout/DockPulseFloatingPanel';
+import { DockWalletTrackerFloatingPanel } from '@/components/layout/DockWalletTrackerFloatingPanel';
 import { ClientBugDiagnosticsBootstrap } from '@/components/reports/ClientBugDiagnosticsBootstrap';
 import { FeatureAnnouncementGate } from '@/components/onboarding/FeatureAnnouncementGate';
 import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeSpotlightOnboarding';
@@ -147,13 +149,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 flex-1">
         <AlertRulesDockPanel />
         <ShellCopilotSlot side="left" />
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-[var(--app-bottombar-h)]">
+        <main
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-bg-raised pb-[var(--app-bottombar-h)] pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px))] transition-[padding] duration-200 ease-out"
+        >
           {children}
         </main>
         <ShellCopilotSlot side="right" />
       </div>
       <AlertRulesModal />
       <AlertRulesPopoutHost />
+      <DockPulseFloatingPanel />
+      <DockWalletTrackerFloatingPanel />
       <BottomBar />
       <ClientBugDiagnosticsBootstrap />
       <FirstTimeSpotlightOnboarding />

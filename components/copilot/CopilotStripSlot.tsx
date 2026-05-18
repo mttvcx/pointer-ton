@@ -29,6 +29,8 @@ export function CopilotStripSlot() {
   const { showBriefSlot } = useCopilotBriefSlotVisibility();
 
   const showBrief = isEmbedded && showBriefSlot;
+  /** Topbar already has border-b; a strip border-t here stacks when the briefing card is open. */
+  const hairlineOnlyUnderTopbar = isEmbedded && !showBrief;
   /** Pulse keeps the brief in-flow so the answer card never sits on top of token rows. */
   const inFlowBrief = Boolean(pathname?.startsWith('/pulse')) && showBrief;
   const floatingBrief = showBrief && !inFlowBrief;
@@ -47,7 +49,7 @@ export function CopilotStripSlot() {
     <div
       className={cn(
         'relative w-full shrink-0 bg-bg-base',
-        isEmbedded && 'border-t border-white/[0.07]',
+        hairlineOnlyUnderTopbar && 'border-t border-white/[0.07]',
         // In-flow brief reserves layout height (Pulse case).
         inFlowBrief && 'pb-0 pt-0 sm:pb-0',
         isEmbedded && !showBrief && 'py-0',

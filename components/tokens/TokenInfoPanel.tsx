@@ -5,85 +5,56 @@ import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@/lib/utils/formatters';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
 import { cn } from '@/lib/utils/cn';
-
-function tokenInfoCellValueClass(
-  kind:
-    | 'top10'
-    | 'devh'
-    | 'sniper'
-    | 'insider'
-    | 'bundler'
-    | 'lp'
-    | 'holders'
-    | 'pro'
-    | 'dex',
-  n: number | null | undefined,
-  dexPaid?: boolean | null,
-): string {
-  if (kind === 'dex') {
-    if (dexPaid === true) return 'text-signal-bull font-semibold text-xs';
-    return 'text-signal-bear font-semibold text-xs';
-  }
-  const isZero = n == null || !Number.isFinite(n) || n === 0;
-  if (kind === 'holders' || kind === 'pro') {
-    return cn('text-sm font-semibold tabular-nums', isZero ? 'text-fg-muted' : 'text-fg-primary');
-  }
-  if (isZero) return 'text-sm font-semibold tabular-nums text-fg-muted';
-  if (kind === 'top10' || kind === 'devh') return 'text-sm font-semibold tabular-nums text-fg-primary';
-  if (kind === 'sniper' || kind === 'insider' || kind === 'bundler') {
-    return 'text-sm font-semibold tabular-nums text-signal-bear';
-  }
-  return 'text-sm font-semibold tabular-nums text-signal-bull';
-}
 
 function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
   const pct = (n: number | null | undefined) =>
     `${formatNumber(n ?? 0, { decimals: 2 })}%`;
 
   const dexLabel = m.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid';
-  const dexCls = tokenInfoCellValueClass('dex', 0, m.dexPaid);
+  const dexCls = tokenMetricValueClass('dex', 0, m.dexPaid);
 
   const cells: { label: string; value: ReactNode; valueClass: string }[] = [
     {
       label: 'Top 10 H.',
       value: pct(m.top10HolderPct),
-      valueClass: tokenInfoCellValueClass('top10', m.top10HolderPct ?? 0),
+      valueClass: tokenMetricValueClass('top10', m.top10HolderPct ?? 0),
     },
     {
       label: 'Dev H.',
       value: pct(m.devHoldingPct),
-      valueClass: tokenInfoCellValueClass('devh', m.devHoldingPct ?? 0),
+      valueClass: tokenMetricValueClass('devh', m.devHoldingPct ?? 0),
     },
     {
       label: 'Snipers H.',
       value: pct(m.sniperHolderPct),
-      valueClass: tokenInfoCellValueClass('sniper', m.sniperHolderPct ?? 0),
+      valueClass: tokenMetricValueClass('sniper', m.sniperHolderPct ?? 0),
     },
     {
       label: 'Insiders',
       value: pct(m.insidersPct),
-      valueClass: tokenInfoCellValueClass('insider', m.insidersPct ?? 0),
+      valueClass: tokenMetricValueClass('insider', m.insidersPct ?? 0),
     },
     {
       label: 'Bundlers',
       value: pct(m.bundlersPct),
-      valueClass: tokenInfoCellValueClass('bundler', m.bundlersPct ?? 0),
+      valueClass: tokenMetricValueClass('bundler', m.bundlersPct ?? 0),
     },
     {
       label: 'LP Burned',
       value: pct(m.lpBurnedPct),
-      valueClass: tokenInfoCellValueClass('lp', m.lpBurnedPct ?? 0),
+      valueClass: tokenMetricValueClass('lp', m.lpBurnedPct ?? 0),
     },
     {
       label: 'Holders',
       value: formatNumber(m.holders ?? 0, { decimals: 0 }),
-      valueClass: tokenInfoCellValueClass('holders', m.holders ?? 0),
+      valueClass: tokenMetricValueClass('holders', m.holders ?? 0),
     },
     {
       label: 'Pro Traders',
       value: formatNumber(m.proTraders ?? 0, { decimals: 0 }),
-      valueClass: tokenInfoCellValueClass('pro', m.proTraders ?? 0),
+      valueClass: tokenMetricValueClass('pro', m.proTraders ?? 0),
     },
     {
       label: 'Dex Paid',
@@ -107,7 +78,10 @@ function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
         {cells.map((item) => (
           <div
             key={item.label}
-            className="flex flex-col items-center justify-center bg-bg-raised px-1 py-2"
+            className={cn(
+              'flex flex-col items-center justify-center px-1 py-2',
+              tokenMetricCellSurface(item.valueClass),
+            )}
           >
             <div className={cn(item.valueClass, item.label !== 'Dex Paid' && 'truncate')}>
               {item.value}

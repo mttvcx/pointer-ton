@@ -100,8 +100,14 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
 
         const summary =
           execution === 'auto_buy'
-            ? `${rule.name}: auto-buy · ${mint!.slice(0, 8)}`
-            : `${rule.name}: @${handleNorm}`;
+            ? `${rule.name}: Auto-buy · ${mint!.slice(0, 8)}…`
+            : requested === 'auto_buy' && autoHeldReason
+              ? matched.length > 0
+                ? `${rule.name}: Auto-buy held (${autoHeldReason.replace(/_/g, ' ')}) · ${matched.slice(0, 2).join(', ')} · @${handleNorm}`
+                : `${rule.name}: Auto-buy held (${autoHeldReason.replace(/_/g, ' ')}) · @${handleNorm}`
+              : matched.length > 0
+                ? `${rule.name}: Keyword hit — ${matched.slice(0, 3).join(', ')} · @${handleNorm}`
+                : `${rule.name}: Post · @${handleNorm}`;
 
         await insertAlert({
           user_id: rule.user_id,

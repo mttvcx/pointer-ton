@@ -188,7 +188,7 @@ function AccrualSparkline() {
 }
 
 export function PointsDashboard({ className }: { className?: string }) {
-  const { getAccessToken, user } = usePointerAuth();
+  const { getAccessToken, user, authenticated, ready, login } = usePointerAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = parseRewardsTab(searchParams.get('tab'));
@@ -235,6 +235,8 @@ export function PointsDashboard({ className }: { className?: string }) {
     return () => window.clearTimeout(id);
   }, [tab]);
 
+  const needsCampaignData = tab === 'rewards' || tab === 'leaderboard';
+
   const pointsQ = useQuery({
     queryKey: ['points-me'],
     queryFn: async () => {
@@ -246,6 +248,7 @@ export function PointsDashboard({ className }: { className?: string }) {
         rank: number | null;
       }>('/api/points/me', token);
     },
+    enabled: ready && authenticated && needsCampaignData,
   });
 
   const refCodeQ = useQuery({
@@ -261,6 +264,7 @@ export function PointsDashboard({ className }: { className?: string }) {
         feeShareBps: number;
       }>('/api/referrals/code', token);
     },
+    enabled: ready && authenticated && needsCampaignData,
   });
 
   const earningsQ = useQuery({
@@ -278,7 +282,7 @@ export function PointsDashboard({ className }: { className?: string }) {
         }>;
       }>('/api/referrals/earnings?limit=25', token);
     },
-    enabled: tab === 'rewards',
+    enabled: ready && authenticated && tab === 'rewards',
   });
 
   const lbQ = useQuery({
@@ -293,56 +297,25 @@ export function PointsDashboard({ className }: { className?: string }) {
       );
     },
     staleTime: 20_000,
-    enabled: tab === 'leaderboard',
+    enabled: ready && authenticated && tab === 'leaderboard',
   });
 
   const loadingRewards =
     tab === 'rewards' &&
-    (pointsQ.isLoading || refCodeQ.isLoading || earningsQ.isLoading || earningsQ.isFetching);
+    ready &&
+    authenticated &&
+    (pointsQ.isPending || refCodeQ.isPending || earningsQ.isPending || earningsQ.isFetching);
+
   const loadingLeaderboard =
     tab === 'leaderboard' &&
-    (pointsQ.isLoading || lbQ.isLoading || refCodeQ.isLoading || lbQ.isFetching);
+    ready &&
+    authenticated &&
+    (pointsQ.isPending || refCodeQ.isPending || lbQ.isPending || lbQ.isFetching);
 
   /** Only rewards / leaderboard tabs fetch heavy aggregates — referral & benefits render immediately. */
   const loading = loadingRewards || loadingLeaderboard;
 
-  if (loading) {
-    return (
-      <div className={cn('flex h-full min-h-[300px] items-center justify-center', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
-      </div>
-    );
-  }
-
-  const points = pointsQ.data;
-  const refCode = refCodeQ.data;
-  const earnings = earningsQ.data;
-  const lb = lbQ.data;
-
-  if ((tab === 'rewards' || tab === 'leaderboard') && (!points || !refCode || (tab === 'rewards' && !earnings))) {
-    return (
-      <div
-        className={cn(
-          'rounded-xl border border-border-subtle bg-bg-raised p-4 text-[13px] text-signal-bear',
-          className,
-        )}
-      >
-        Could not load campaign data. Try refreshing — if this persists, sync auth and retry.
-      </div>
-    );
-  }
-
-  if (tab === 'leaderboard' && leaderboardBoard === 'traders' && !lb) {
-    return (
-      <div className={cn('flex h-full min-h-[300px] items-center justify-center', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
-      </div>
-    );
-  }
-
-  const rankState = rankTierFromPoints(points?.totalPoints ?? 0);
-  const referralRatePct = refCode ? Math.round(refCode.feeShareBps / 100) : 0;
-  const you = lb?.you;
+  const shellClass = cn('flex min-h-0 flex-1 flex-col overflow-hidden text-[13px] text-fg-primary', className);
 
   const tabNav = (
     <div className="flex shrink-0 items-center gap-0.5 border-b border-border-subtle/90 bg-bg-base/95 px-1.5 py-1.5 backdrop-blur-md">
@@ -374,8 +347,124 @@ export function PointsDashboard({ className }: { className?: string }) {
     </div>
   );
 
+  const refetchRewardsData = () => {
+    void pointsQ.refetch();
+    void refCodeQ.refetch();
+    void earningsQ.refetch();
+    void lbQ.refetch();
+  };
+
+  if (!ready) {
+    return (
+      <div className={shellClass}>
+        {tabNav}
+        <div className="flex min-h-[300px] flex-1 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated && needsCampaignData) {
+    return (
+      <div className={shellClass}>
+        {tabNav}
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          <HeroBackdrop />
+          <div className="relative z-[1] p-4 sm:p-5 lg:p-6">
+            <GlassPanel
+              variant="primary"
+              className="mx-auto max-w-lg p-6 text-center shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.06)] sm:p-8"
+            >
+              <span className="inline-flex rounded-full border border-accent-primary/35 bg-accent-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-accent-glow">
+                Pointer Points
+              </span>
+              <h2 className="mt-4 text-[clamp(1.25rem,2.8vw,1.5rem)] font-semibold tracking-tight text-fg-primary">
+                Sign in to view rewards &amp; rank
+              </h2>
+              <p className="mt-2 text-[12px] leading-relaxed text-fg-secondary">
+                Connect your Pointer account — campaign scoring syncs once you authenticate.
+              </p>
+              <button
+                type="button"
+                onClick={() => void login()}
+                className="focus-ring btn-press mt-6 rounded-xl bg-gradient-to-r from-accent-primary to-accent-glow px-6 py-2.5 text-[13px] font-semibold text-fg-inverse shadow-[0_12px_32px_-12px_rgb(var(--accent-primary-rgb)/0.9)] transition hover:brightness-110 active:scale-[0.99]"
+              >
+                Sign in
+              </button>
+            </GlassPanel>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className={shellClass}>
+        {tabNav}
+        <div className="flex min-h-[300px] flex-1 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  const points = pointsQ.data;
+  const refCode = refCodeQ.data;
+  const earnings = earningsQ.data;
+  const lb = lbQ.data;
+
+  const campaignHydrated =
+    needsCampaignData && Boolean(points && refCode && (tab !== 'rewards' || earnings));
+
+  if (needsCampaignData && !campaignHydrated) {
+    const backendErr =
+      pointsQ.error ??
+      refCodeQ.error ??
+      (tab === 'rewards' ? earningsQ.error : undefined);
+    let detail =
+      backendErr instanceof Error ? backendErr.message : 'Campaign services did not respond. Try again shortly.';
+    if (/^no_token$/i.test(detail)) detail = 'Session expired — sign out and reconnect.';
+    return (
+      <div className={shellClass}>
+        {tabNav}
+        <div className="relative min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+          <GlassPanel variant="secondary" glow="cyan" className="border border-signal-bear/25 bg-bg-raised p-6 sm:p-7">
+            <p className="text-[13px] font-semibold text-signal-bear">Couldn&apos;t load campaign data</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-fg-secondary">
+              {detail.length > 220 ? `${detail.slice(0, 220)}…` : detail}
+            </p>
+            <button
+              type="button"
+              onClick={() => refetchRewardsData()}
+              className="focus-ring btn-press mt-5 rounded-xl border border-border-subtle bg-bg-hover px-4 py-2.5 text-[12px] font-semibold text-fg-primary transition hover:border-accent-primary/35"
+            >
+              Retry
+            </button>
+          </GlassPanel>
+        </div>
+      </div>
+    );
+  }
+
+  const rankState = rankTierFromPoints(points?.totalPoints ?? 0);
+  const referralRatePct = refCode ? Math.round(refCode.feeShareBps / 100) : 0;
+  const you = lb?.you;
+
+  if (tab === 'leaderboard' && leaderboardBoard === 'traders' && !lb) {
+    return (
+      <div className={shellClass}>
+        {tabNav}
+        <div className="flex min-h-[300px] flex-1 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden text-[13px] text-fg-primary', className)}>
+    <div className={shellClass}>
       {tabNav}
 
       {tab === 'rewards' && points && refCode && earnings ? (

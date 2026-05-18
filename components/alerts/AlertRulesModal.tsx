@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { AlertRulesSection, openAlertRulesPopoutDetached } from '@/components/alerts/AlertRulesSection';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
+import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
@@ -49,21 +50,28 @@ export function AlertRulesModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className={cn('fixed inset-0 flex items-center justify-center', Z_APP_MODAL_OVERLAY)}
       role="dialog"
       aria-modal="true"
       aria-labelledby="alert-rules-modal-title"
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement | null;
+        if (!t || t.closest('[data-modal-panel]')) return;
+        setOpen(false);
+      }}
     >
-      <button
-        type="button"
-        aria-label="Close alerts"
-        className={cn('absolute inset-0 bg-black/60 backdrop-blur-sm', overlayBackdropClasses(visible))}
-        onClick={() => setOpen(false)}
+      <div
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-0 bg-black/60 backdrop-blur-sm',
+          overlayBackdropClasses(visible),
+        )}
       />
 
       <div
+        data-modal-panel
         className={cn(
-          'relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
+          'relative z-10 mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
           overlayPanelClasses(visible),
         )}
       >
