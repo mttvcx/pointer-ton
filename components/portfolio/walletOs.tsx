@@ -416,9 +416,10 @@ export function WalletTableRowShell({
           : undefined
       }
       className={cn(
-        'group relative rounded-xl border border-transparent bg-gradient-to-b from-bg-sunken/40 to-transparent px-3 py-2.5 transition',
+        'group relative rounded-xl border border-transparent bg-gradient-to-b from-bg-sunken/40 to-transparent px-3 py-2.5 outline-none transition',
         'hover:border-border-default hover:from-bg-hover hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.75)]',
-        onClick && 'cursor-pointer',
+        onClick &&
+          'cursor-pointer focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/35 focus-visible:ring-offset-0',
         selected &&
           'border-accent-primary/35 from-bg-hover/50 shadow-[inset_0_0_0_1px_rgb(var(--accent-primary-rgb)/0.15),0_0_24px_-16px_rgb(var(--accent-primary-rgb)/0.25)]',
         className,

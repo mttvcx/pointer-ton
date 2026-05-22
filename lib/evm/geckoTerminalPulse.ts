@@ -20,6 +20,7 @@ type GeckoPoolRow = {
   attributes?: { name?: string | null };
   relationships?: {
     base_token?: { data?: { id?: string | null } | null };
+    quote_token?: { data?: { id?: string | null } | null };
   };
 };
 
@@ -85,6 +86,7 @@ export async function ensureTokenRowFromGeckoEvm(mintParam: string): Promise<Tok
       name,
       image_url,
       initial_liquidity_sol: null,
+      bonding_progress: null,
       raw,
     };
     await ingestLaunchpadDiscovery(ev, { alertSource: 'gecko_terminal' });
@@ -130,6 +132,10 @@ export async function pollGeckoNewPools(network: GeckoPulseNetwork): Promise<num
     const baseId = pool.relationships?.base_token?.data?.id;
     if (!baseId) continue;
     const attrs = byId.get(baseId);
+    const quoteId = pool.relationships?.quote_token?.data?.id;
+    const quoteAttrs = quoteId ? byId.get(quoteId) : undefined;
+    const quoteSymbol = quoteAttrs?.symbol?.trim().toUpperCase() ?? null;
+    const quoteMint = quoteAttrs?.address?.trim() ?? null;
     const fromAttrs = attrs?.address?.trim() ?? '';
     const mintRaw = fromAttrs
       ? fromAttrs
@@ -154,6 +160,10 @@ export async function pollGeckoNewPools(network: GeckoPulseNetwork): Promise<num
       decimals,
       geckoPool: pool,
       geckoToken: attrs ?? {},
+      geckoQuoteToken: quoteAttrs ?? null,
+      quoteSymbol,
+      quoteMint,
+      geckoQuoteSymbol: quoteSymbol,
     } as unknown as Json;
 
     const ev: LaunchpadEvent = {
@@ -164,6 +174,7 @@ export async function pollGeckoNewPools(network: GeckoPulseNetwork): Promise<num
       name,
       image_url,
       initial_liquidity_sol: null,
+      bonding_progress: null,
       raw,
     };
     inserted += await ingestLaunchpadDiscovery(ev, { alertSource: 'gecko_terminal' });

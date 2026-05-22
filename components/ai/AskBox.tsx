@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { aiScanClientKey, fetchAiScan } from '@/lib/client/fetchAiScan';
 import { ArrowUp, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { POINTER_COPILOT_QUICK_ASK_EVENT } from '@/lib/copilot/quickAsk';
 import { cn } from '@/lib/utils/cn';
@@ -51,31 +52,36 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
       if (!token) throw new Error('no_token');
       const context =
         entity?.label ?? (entity ? `${entity.type} ${entity.id}` : undefined);
-      const res = await fetch('/api/ai/tooltip', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ term: t, context }),
-      });
-      const json: unknown = await res.json();
-      if (!res.ok) {
-        throw Object.assign(
-          new Error(
-            typeof json === 'object' && json && 'message' in json
-              ? String((json as { message: unknown }).message)
-              : `Failed (${res.status})`,
-          ),
-          {
-            code:
-              typeof json === 'object' && json && 'error' in json
-                ? String((json as { error: unknown }).error)
-                : '',
+      const url = '/api/ai/tooltip';
+      const payload = { term: t, context };
+      const key = aiScanClientKey(url, payload);
+      return fetchAiScan(key, async () => {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-        );
-      }
-      return json as AskResult;
+          body: JSON.stringify(payload),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) {
+          throw Object.assign(
+            new Error(
+              typeof json === 'object' && json && 'message' in json
+                ? String((json as { message: unknown }).message)
+                : `Failed (${res.status})`,
+            ),
+            {
+              code:
+                typeof json === 'object' && json && 'error' in json
+                  ? String((json as { error: unknown }).error)
+                  : '',
+            },
+          );
+        }
+        return json as AskResult;
+      });
     },
     onSuccess: (res) => {
       setHistory((h) => [res, ...h].slice(0, 4));

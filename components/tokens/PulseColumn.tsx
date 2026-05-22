@@ -1,11 +1,11 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -16,17 +16,18 @@ import {
 import { toast } from 'sonner';
 import { ColumnFilterModal, type ColumnPresetRowDto } from '@/components/tokens/ColumnFilterModal';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { PulseRowSkeleton } from '@/components/shared/Skeleton';
+import { PulseColumnSkeleton } from '@/components/tokens/PulseColumnSkeleton';
+import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { TokenRow } from '@/components/tokens/TokenRow';
 import { createClient } from '@/lib/supabase/client';
 import {
-  DEFAULT_COLUMN_FILTERS,
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
   type ColumnDisplayOptions,
   type ColumnPresetSharePayload,
   type ColumnSortKey,
   COLUMN_SORT_KEYS,
   normalizeColumnDisplayOptions,
+  defaultColumnFiltersForChain,
   normalizeColumnFilters,
   pulseBundleMatchesFilters,
   sortPulseBundles,
@@ -36,13 +37,16 @@ import { syntheticPulseFeedItems } from '@/lib/dev/demoPulseBundles';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { usePulseHiddenMintsStore, normalizePulseTwitterHandle } from '@/store/pulseHiddenMints';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
+import { useTradingStore } from '@/store/trading';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
 import { usePreferences } from '@/components/preferences/PreferencesProvider';
+import type { AppChainId } from '@/lib/chains/appChain';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 /**
@@ -75,6 +79,20 @@ export function PulseColumn({
   column: PulseColumnId;
   initialShare?: ColumnPresetSharePayload | null;
 }) {
+  return (
+    <Suspense fallback={<PulseColumnSkeleton column={column} />}>
+      <PulseColumnBody column={column} initialShare={initialShare} />
+    </Suspense>
+  );
+}
+
+function PulseColumnBody({
+  column,
+  initialShare,
+}: {
+  column: PulseColumnId;
+  initialShare?: ColumnPresetSharePayload | null;
+}) {
   const router = useRouter();
   const qc = useQueryClient();
   const uiDemo = useUiDemoMode();
@@ -93,10 +111,17 @@ export function PulseColumn({
 
   const buyButtonStyle = usePulseColumnStore((s) => s.byColumn[column].buyButtonStyle);
   const quickBuySol = usePulseColumnStore((s) => s.byColumn[column].quickBuySol);
+  const quickBuyUsdc = usePulseColumnStore((s) => s.byColumn[column].quickBuyUsdc);
   const presetSlot = usePulseColumnStore((s) => s.byColumn[column].presetSlot);
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
+  const setQuickBuyUsdc = usePulseColumnStore((s) => s.setQuickBuyUsdc);
   const setPresetSlot = usePulseColumnStore((s) => s.setPresetSlot);
   const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
+  const spendAsset = useTradingStore((s) => s.spendAsset);
+
+  const isUsdcQuickBuy = activeChain === 'sol' && spendAsset === 'usdc';
+  const quickBuyAmount = isUsdcQuickBuy ? quickBuyUsdc : quickBuySol;
+  const setQuickBuyAmount = isUsdcQuickBuy ? setQuickBuyUsdc : setQuickBuySol;
 
   const presetsQuery = useQuery({
     queryKey: ['pulse-column-presets', column],
@@ -115,24 +140,32 @@ export function PulseColumn({
     staleTime: 30_000,
   });
 
-  const query = useQuery({
+  const query = useSuspenseQuery({
     queryKey: ['pulse', column, activeChain],
-    queryFn: async (): Promise<{ items: PulseTokenBundle[] }> => {
-      const items = await fetchPulseFeedBundles(column, activeChain);
-      return { items };
+    queryFn: async (): Promise<{ items: PulseTokenBundle[]; fetchError: string | null }> => {
+      try {
+        const items = await fetchPulseFeedBundles(column, activeChain);
+        return { items, fetchError: null };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Feed unavailable';
+        return { items: [], fetchError: message };
+      }
     },
+    staleTime: 15_000,
+    retry: 2,
   });
 
-  const quoteSymbol = nativeTicker(activeChain);
+  const quoteSymbol = isUsdcQuickBuy ? 'USDC' : nativeTicker(activeChain);
 
   const feedItems = useMemo(() => {
-    const raw = query.data?.items ?? [];
-    const allowSynthetic = uiDemo && (activeChain === 'ton' || activeChain === 'sol');
-    if (allowSynthetic && !query.isLoading && !query.isError && raw.length === 0) {
+    const raw = query.data.items ?? [];
+    /** Real indexer rows always win — demo deck only when API is empty and demo mode is on. */
+    if (raw.length > 0) return raw;
+    if (uiDemo && (query.data.fetchError || raw.length === 0)) {
       return syntheticPulseFeedItems(column, activeChain);
     }
     return raw;
-  }, [column, query.data?.items, query.isLoading, query.isError, uiDemo, activeChain]);
+  }, [column, query.data.items, query.data.fetchError, uiDemo, activeChain]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -164,6 +197,12 @@ export function PulseColumn({
       void supabase.removeChannel(channel);
     };
   }, [column, qc]);
+
+  useEffect(() => {
+    listMountRef.current?.scrollTo({ top: 0 });
+  }, [activeChain]);
+
+  const fetchError = query.data.fetchError;
 
   const { buyToken, sellTokenPct, busyMint } = usePulseQuickBuy();
 
@@ -227,9 +266,9 @@ export function PulseColumn({
   const normalizedFilters = useMemo(
     () =>
       activePresetRow && authenticated
-        ? normalizeColumnFilters(activePresetRow.filters)
-        : DEFAULT_COLUMN_FILTERS,
-    [activePresetRow, authenticated],
+        ? normalizeColumnFilters(activePresetRow.filters, activeChain)
+        : defaultColumnFiltersForChain(activeChain),
+    [activePresetRow, authenticated, activeChain],
   );
 
   const displayFromServer = useMemo(
@@ -280,8 +319,20 @@ export function PulseColumn({
 
   const sortDir = activePresetRow?.sort_dir === 'asc' ? 'asc' : 'desc';
 
+  const hiddenMints = usePulseHiddenMintsStore((s) => s.mints);
+  const blacklistedDevs = usePulseHiddenMintsStore((s) => s.blacklistedDevs);
+  const blacklistedTwitter = usePulseHiddenMintsStore((s) => s.blacklistedTwitter);
+
   const searchFiltered = useMemo(() => {
-    const list = feedItems;
+    const list = feedItems.filter((b) => {
+      const mint = b.token.mint;
+      if (hiddenMints.includes(mint)) return false;
+      const creator = b.token.creator_wallet;
+      if (creator && blacklistedDevs.includes(creator)) return false;
+      const tw = normalizePulseTwitterHandle(b.token.twitter_handle);
+      if (tw && blacklistedTwitter.includes(tw)) return false;
+      return true;
+    });
     const qq = search.trim().toLowerCase();
     if (!qq) return list;
     return list.filter((b) => {
@@ -289,11 +340,11 @@ export function PulseColumn({
       const name = (b.token.name ?? '').toLowerCase();
       return sym.includes(qq) || name.includes(qq);
     });
-  }, [feedItems, search]);
+  }, [feedItems, search, hiddenMints, blacklistedDevs, blacklistedTwitter]);
 
   const columnFiltered = useMemo(
-    () => searchFiltered.filter((b) => pulseBundleMatchesFilters(b, normalizedFilters)),
-    [searchFiltered, normalizedFilters],
+    () => searchFiltered.filter((b) => pulseBundleMatchesFilters(b, normalizedFilters, activeChain)),
+    [searchFiltered, normalizedFilters, activeChain],
   );
 
   const visibleRows = useMemo(
@@ -312,7 +363,11 @@ export function PulseColumn({
     getScrollElement: () => scrollMainRef.current as HTMLElement | null,
     estimateSize: () => rowSize,
     overscan: 10,
-    getItemKey: (i) => visibleRows[i]?.token.mint ?? i,
+    /** Demo decks reuse mints across rows — index keeps keys unique for React + the virtualizer. */
+    getItemKey: (index) => {
+      const row = visibleRows[index];
+      return row ? `${activeChain}:${index}:${row.token.mint}` : `${activeChain}:${index}`;
+    },
   });
   /* eslint-enable react-hooks/incompatible-library */
 
@@ -326,7 +381,7 @@ export function PulseColumn({
 
   useEffect(() => {
     rowVirtualizer.measure();
-  }, [rowVirtualizer, visibleRows.length, rowSize]);
+  }, [rowVirtualizer, visibleRows.length, rowSize, activeChain]);
 
   const trackPulseFlashMint = useUIStore((s) => s.trackPulseHighlightMint);
   useLayoutEffect(() => {
@@ -374,10 +429,10 @@ export function PulseColumn({
               type="button"
               title={
                 twitterRailSide === 'hidden'
-                  ? 'Show X listens rail'
+                  ? 'Show X monitor'
                   : twitterRailSide === 'left'
-                    ? 'Move X listens right'
-                    : 'Hide X listens rail'
+                    ? 'Move X monitor right'
+                    : 'Hide X monitor'
               }
               onClick={() => cycleTwitterRail()}
               className="btn-press focus-ring flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-hover hover:text-accent-primary"
@@ -427,22 +482,26 @@ export function PulseColumn({
               inputMode="decimal"
               step="0.1"
               min={0}
-              value={Number.isFinite(quickBuySol) ? quickBuySol : 0}
+              value={Number.isFinite(quickBuyAmount) ? quickBuyAmount : 0}
               onChange={(e) => {
                 const next = Number(e.target.value);
-                setQuickBuySol(column, Number.isFinite(next) && next >= 0 ? next : 0);
+                setQuickBuyAmount(column, Number.isFinite(next) && next >= 0 ? next : 0);
               }}
               className="w-10 min-w-0 bg-transparent text-[12px] font-medium tabular-nums text-fg-primary outline-none placeholder:text-fg-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               aria-label={`Quick-buy amount for ${title} in ${quoteSymbol}`}
             />
-            <Image
-              src={CHAIN_ICON_PNG[activeChain]}
-              alt=""
-              width={14}
-              height={14}
-              className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-              unoptimized
-            />
+            {isUsdcQuickBuy ? (
+              <QuoteTokenIcon kind="usdc" className="h-3.5 w-3.5 opacity-95" />
+            ) : (
+              <Image
+                src={CHAIN_ICON_PNG[activeChain]}
+                alt=""
+                width={14}
+                height={14}
+                className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                unoptimized
+              />
+            )}
           </label>
 
           <div className="flex shrink-0 items-center gap-0.5">
@@ -507,23 +566,17 @@ export function PulseColumn({
       <div
         ref={listMountRef}
         /**
-         * Scroll/list region. `bg-white/[0.025]` matches the elevated `.pulse-row`
-         * overlay defined in globals.css, so empty space below the last row reads
-         * with the same brightness as the rows themselves (no dark gap).
+         * Scroll/list region — same panel tier as the column (`bg-bg-raised`) so
+         * empty space below the last row matches the theme; row cards lift via
+         * `--bg-hover` in globals.css.
          */
-        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-white/[0.025]"
+        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-bg-raised"
       >
-        {query.isLoading ? (
-          <div>
-            {Array.from({ length: 8 }, (_, i) => (
-              <PulseRowSkeleton key={i} />
-            ))}
-          </div>
-        ) : query.isError ? (
+        {fetchError && visibleRows.length === 0 ? (
           <EmptyState
             icon={AlertTriangle}
             title="Feed unavailable"
-            description={(query.error as Error).message}
+            description={fetchError}
           />
         ) : visibleRows.length === 0 ? (
           <EmptyState
@@ -545,31 +598,58 @@ export function PulseColumn({
           />
         ) : (
           <div
+            key={`${column}-${activeChain}-virtual`}
             className="relative w-full"
             style={{ height: rowVirtualizer.getTotalSize() }}
           >
             {rowVirtualizer.getVirtualItems().map((vi) => {
               const bundle = visibleRows[vi.index];
               if (!bundle) return null;
+              const rowKey = `${activeChain}:${vi.index}:${bundle.token.mint}`;
               return (
                 <div
-                  key={vi.key}
+                  key={rowKey}
                   data-index={vi.index}
-                  className="absolute left-0 top-0 w-full overflow-hidden"
-                  style={{ transform: `translateY(${vi.start}px)`, height: rowSize }}
+                  /**
+                   * `overflow-visible` so Pulse strip hovers (above-trigger cards) aren't clipped inside the slot.
+                   *
+                   * Two z-index lifts work together so the dev / chart / crown popovers stay on top of
+                   * the next row's content even when the cursor leaves the slot's visual box to travel
+                   * down into the popup body:
+                   *
+                   *  - `hover:z-30` — lifts the slot while the cursor is anywhere over its row.
+                   *  - `has-[[data-popover-open=true]]:z-30` — keeps it lifted while *any* descendant
+                   *    `PulseRichHover` is open, even after the cursor moves off the trigger into the
+                   *    floating popup (which sits outside the slot's hover bounds).
+                   *
+                   * Solid `bg-bg-raised` + `isolate` on the slot stops semi-transparent row cards
+                   * from compositing through the row below when z-index shifts (ghost/double text).
+                   */
+                  className="absolute left-0 top-0 z-0 isolate w-full overflow-visible bg-bg-raised hover:z-30 has-[[data-popover-open=true]]:z-30"
+                  style={{
+                    transform: `translate3d(0, ${vi.start}px, 0)`,
+                    height: rowSize,
+                  }}
                 >
                   <TokenRow
+                    key={rowKey}
                     bundle={bundle}
                     density="normal"
                     display={displayForRow}
-                    quickBuySol={quickBuySol}
+                    quickBuySol={quickBuyAmount}
                     buyButtonStyle={effectiveBuyStyle}
                     columnId={column}
                     slotHeight={rowSize}
                     quoteSymbol={quoteSymbol}
-                    onPulseQuickBuy={() => void buyToken(bundle.token.mint, quickBuySol)}
+                    onPulseQuickBuy={() =>
+                      void buyToken(bundle.token.mint, quickBuyAmount, {
+                        spendAsset: isUsdcQuickBuy ? 'usdc' : 'sol',
+                      })
+                    }
                     onPulseSecondBuy={() =>
-                      void buyToken(bundle.token.mint, displayForRow.secondQuickBuySol)
+                      void buyToken(bundle.token.mint, displayForRow.secondQuickBuySol, {
+                        spendAsset: isUsdcQuickBuy ? 'usdc' : 'sol',
+                      })
                     }
                     onPulseQuickSell={() =>
                       void sellTokenPct(bundle.token.mint, displayForRow.secondSellPct)

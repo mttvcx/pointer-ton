@@ -395,8 +395,9 @@ export function ExploreTokenBubble({
         aria-expanded={selected}
         aria-describedby={showTooltip ? tipId : undefined}
         aria-grabbed={isDragging}
-        className={cn(
-          'absolute left-0 top-0 select-none rounded-full outline-none will-change-transform',
+      className={cn(
+        'absolute left-0 top-0 select-none rounded-full outline-none transition-shadow will-change-transform',
+        'focus-visible:ring-2 focus-visible:ring-accent-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
           isDragging ? 'cursor-grabbing' : 'cursor-grab',
         )}
         style={{

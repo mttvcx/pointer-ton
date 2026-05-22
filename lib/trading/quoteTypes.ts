@@ -22,9 +22,13 @@ export type TradeQuoteApiOk = {
   tonConnect: TonConnectTradePayload | null;
   lastValidBlockHeight?: number;
   presetsSol: readonly number[] | number[];
+  presetsUsdc?: readonly number[] | number[];
+  /** Input spend asset for Solana buys (`sol` default). */
+  spendAsset?: 'sol' | 'usdc';
   summary: {
     amountInRaw: string;
     amountOutRaw: string | null;
     amountSolEstimate: number;
+    amountUsdcEstimate?: number;
   };
 };

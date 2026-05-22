@@ -76,7 +76,7 @@ export function WalletPositionsTable({
                     router.push(`/token/${encodeURIComponent(row.mint)}`);
                   }
                 }}
-                className="group h-11 cursor-pointer border-b border-border-subtle transition-colors duration-100 last:border-b-0 hover:bg-bg-hover"
+                className="group h-11 cursor-pointer border-b border-border-subtle outline-none transition-colors duration-100 last:border-b-0 hover:bg-bg-hover focus-tr-accent"
               >
                 <td className="px-3 align-middle">
                   <div className="flex items-center gap-2">

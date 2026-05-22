@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GripHorizontal, PanelLeft, PanelRight, X } from 'lucide-react';
-import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
+import { XMonitorPanel } from '@/components/monitor/XMonitorPanel';
 import { useUIStore } from '@/store/ui';
 import { clampAlertRulesPopoutFrame } from '@/lib/ui/alertRulesPopoutFrame';
 import { isFloatPanelDragSurface } from '@/lib/ui/floatPanelDrag';
@@ -56,8 +56,8 @@ export function AlertBuilderEmbeddedPlaceholder() {
       className="rounded-2xl border border-white/10 bg-[rgba(255,255,255,0.04)] px-4 py-4 text-center backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
     >
       <p className="text-[11px] leading-relaxed text-fg-secondary">
-        Alert Builder is open in a floating window. Drag the grip to the left edge to dock in the shell, or to the
-        right edge to embed back here.
+        X monitor is open in a floating window. Drag the grip to the left edge to dock, or close to use the
+        tracker Monitor tab.
       </p>
       <button
         type="button"
@@ -472,7 +472,7 @@ export function AlertRulesPopoutHost() {
         </div>
 
         <div className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <AlertRulesSection embedInFloatingPanel />
+          <XMonitorPanel embedded />
         </div>
 
         <div

@@ -4,6 +4,8 @@ import type { AppChainId } from '@/lib/chains/appChain';
 export const ALERT_TYPE_USER_TRADE = 'user_trade' as const;
 
 export type UserTradeKind =
+  | 'auto_buy'
+  | 'auto_sell'
   | 'pulse_quick_buy'
   | 'pulse_quick_sell'
   | 'token_panel_buy'

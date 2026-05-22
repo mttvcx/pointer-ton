@@ -32,6 +32,9 @@ export const DEFAULT_SLIPPAGE_BPS = 500; // 5%
 /** Quick-buy preset chips (native TON notionals) — default; trading presets override per user. */
 export const BUY_PRESETS_SOL = [0.1, 0.5, 1, 5] as const;
 
+/** Default instant-trade / Pulse quick-buy presets when spending USDC (Solana). */
+export const BUY_PRESETS_USDC = [25, 50, 100, 800] as const;
+
 /** Wrapped HYPE (Jupiter-listed; legacy mint id). */
 export const HYPE_MINT = '98sMhvDwXj1RQi5c5Mndm3vPe9cBqPrbLaufMXFNMh5g';
 
@@ -49,13 +52,37 @@ export const DEFAULT_AI_DAILY_QUOTA_USD = 0.3;
 export const AI_RATE_LIMIT_WINDOW_SECONDS = 5 * 60;
 export const AI_RATE_LIMIT_MAX_CALLS = 50;
 
+/** Legacy per-pipeline TTL (Redis `ai:{pipeline}:{hash}` backfill). */
 export const AI_CACHE_TTL = {
-  explainToken: 90, // 90s, token state moves fast
-  explainWallet: 600, // 10 min
-  tooltip: 86_400, // 24 h
+  explainToken: 90,
+  explainWallet: 600,
+  tooltip: 86_400,
   narrateAlert: 86_400,
-  parseTrackerRule: 1800, // 30 min; NL rules are user-specific but stable wording
+  parseTrackerRule: 1800,
+  launchPackage: 7 * 86_400,
 } as const;
+
+/** Shared global scan cache TTLs (seconds). See `lib/ai/scanCacheKeys.ts`. */
+export const AI_SCAN_CACHE_TTL = {
+  token_scan: 600, // 10 min
+  copilot: 900, // 15 min
+  wallet_intel: 3600, // 1 h
+  tooltip: 86_400, // 24 h
+  narrative: 1800, // 30 min
+  twitter_scan: 6 * 3600, // 6 h
+  tracker_parse: 1800,
+  launch_package: 7 * 86_400, // 7 d — tweet content is immutable
+} as const;
+
+/** MC drift invalidation thresholds (fraction). */
+export const AI_SCAN_MC_INVALIDATION = {
+  token_scan: 0.2,
+  copilot: 0.25,
+  narrative: 0.2,
+} as const;
+
+/** Admin cost estimate: avg output tokens per saved scan × Sonnet input pricing. */
+export const AI_SCAN_AVG_SAVED_OUTPUT_TOKENS = 450;
 
 /** Anthropic / Gemini / OpenAI model IDs. Centralized so a model rotation
  * is one line. Override via env if a newer ID ships mid-development. */
@@ -84,12 +111,14 @@ export type PulseColumnId = (typeof PULSE_COLUMNS)[number];
 export const PULSE_COLUMN_ACCENT_DOT: Record<PulseColumnId, string> = {
   new: 'bg-signal-bull/40',
   stretch: 'bg-signal-warn/40',
-  migrated: 'bg-signal-info/40',
+  migrated: 'bg-amber-400/50',
 };
 
 /** Heuristics defining each Pulse column. */
 export const PULSE_THRESHOLDS = {
   newMaxAgeMinutes: 30,
+  /** Stretch column: tokens younger than this with bonding curve ≥ {@link PULSE_NEAR_MIGRATE_PCT}. */
+  stretchMaxAgeHours: 24,
   stretchMinHolders: 100,
   stretchMinLiquidityUsd: 5_000,
   migratedFromPad: ['pump.fun'] as const,
@@ -113,13 +142,40 @@ export const LAUNCHPAD_PROGRAM_IDS = {
   bags: 'BSfTAhiifGCG9wftxQp7DjPkBkwjFxNsoEjr3iJYhyR8',
   printr: 'Pr1NTtR67xZJaR5JG7nT4CMhGwDFqpzN5JhtXXn8nEM',
   moonshot: 'MoonCVVNZFSYkqNXP6bxHLPL6QQJiMagDL3qcqUQTrG',
+  /** Raydium LaunchLab / LetsBonk. */
+  bonk: 'LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj',
+  heaven: 'HEAVENoP2qxoeuF8Dj2oT1GHEnu49U5mJYkdeC8BAX2o',
+  /** Meteora DBC — Believe and other partners launch here. */
+  believeDbc: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
 } as const;
+
+/** Post-bonding-curve AMM programs (migration destinations). */
+export const MIGRATION_PROGRAM_IDS = {
+  pumpSwap: 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA',
+  raydiumAmmV4: '675kPX9MHTjS2zt1qfrNYNYeZyzaE6XsPsK6uxR9z',
+  raydiumClmm: 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqGJ',
+  meteoraDammV2: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
+  meteoraDlmm: 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
+} as const;
+
+export type MigrationDestination = 'pumpswap' | 'raydium' | 'meteora';
+
+export const MIGRATION_PROGRAM_TO_DEST: Record<string, MigrationDestination> = {
+  [MIGRATION_PROGRAM_IDS.pumpSwap]: 'pumpswap',
+  [MIGRATION_PROGRAM_IDS.raydiumAmmV4]: 'raydium',
+  [MIGRATION_PROGRAM_IDS.raydiumClmm]: 'raydium',
+  [MIGRATION_PROGRAM_IDS.meteoraDammV2]: 'meteora',
+  [MIGRATION_PROGRAM_IDS.meteoraDlmm]: 'meteora',
+};
 
 export const LAUNCHPAD_LABELS = {
   'pump.fun': 'pump.fun',
+  bonk: 'Bonk',
   bags: 'Bags',
   printr: 'Printr',
   moonshot: 'Moonshot',
+  heaven: 'Heaven',
+  'dynamic-bc': 'Dynamic BC',
   /** BNB Chain meme / new-pool discovery (Gecko Terminal ingest). */
   bsc: 'BNB Chain',
   /** Base chain meme / new-pool discovery (Gecko Terminal ingest). */
@@ -139,9 +195,15 @@ export type LaunchpadId = keyof typeof LAUNCHPAD_LABELS;
  */
 export const LAUNCHPAD_AUTHORITIES: Record<LaunchpadId, string | null> = {
   'pump.fun': 'TSLvdd1pWpHVjahSpsvCXUbgwsL3JAcvokwaKt1eokM',
-  bags: null,
+  /** Raydium LaunchLab program auth PDA (`["auth"]`). */
+  bonk: '7eHQzMaFT5jt8cVaPQ5jvGV2hLnaPyfod4B8gM3f4VZQ',
+  /** Moonit program auth PDA (`["auth"]`). */
+  moonshot: '5uMUuq7TqUFNGSGaveeEtEXfV24uJfmpLq3QZzyNFyx8',
+  /** Bags program auth PDA (`["auth"]`). */
+  bags: 'BuBXGz7rkTfp9CoSAR6kJudwLZ1saE2WsQPxGcrJ5tfu',
   printr: null,
-  moonshot: null,
+  heaven: null,
+  'dynamic-bc': null,
   bsc: null,
   base: null,
   unknown: null,
@@ -159,14 +221,15 @@ export const JUPITER_SWAP_URL =
 
 /** Legacy Solana JSON-RPC (Helius) for Pulse / webhooks / ingest only — not the primary TON RPC. */
 export function getHeliusRpcUrl(): string {
-  if (process.env.SOLANA_RPC_URL) return process.env.SOLANA_RPC_URL;
-  const key = process.env.HELIUS_API_KEY;
-  if (!key) {
-    throw new Error(
-      'HELIUS_API_KEY or SOLANA_RPC_URL missing — required for legacy Solana indexer RPC (Pulse / webhooks).',
-    );
+  const key = process.env.HELIUS_API_KEY?.trim();
+  if (key) {
+    return `https://mainnet.helius-rpc.com/?api-key=${key}`;
   }
-  return `https://mainnet.helius-rpc.com/?api-key=${key}`;
+  const override = process.env.SOLANA_RPC_URL?.trim();
+  if (override) return override;
+  throw new Error(
+    'HELIUS_API_KEY missing — required for Solana RPC (https://mainnet.helius-rpc.com). Set HELIUS_API_KEY in .env.local.',
+  );
 }
 
 /* --------------------------------- misc ---------------------------------- */

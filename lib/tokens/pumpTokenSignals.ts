@@ -1,3 +1,4 @@
+import { isPulseMayhemToken } from '@/lib/tokens/mayhemMode';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import type { PulseTokenBundle } from '@/types/tokens';
 
@@ -110,7 +111,37 @@ export function getPulseRowTraitFlags(bundle: PulseTokenBundle): PulseRowTraitFl
   const { token, snapshot } = bundle;
   const bond = getPulseBondingRingState(bundle);
   const lp = token.launch_pad?.toLowerCase() ?? '';
-  const pumpFunBonding = (lp === 'pump.fun' || lp === 'pump') && !bond.migrated;
+  const pumpFunBonding =
+    !bond.migrated &&
+    (lp === 'pump.fun' ||
+      lp === 'pump' ||
+      lp === 'bonk' ||
+      lp === 'mayhem' ||
+      lp === 'raydium' ||
+      lp === 'launchlab' ||
+      lp === 'bags' ||
+      lp === 'moonshot' ||
+      lp === 'moonit' ||
+      lp === 'printr' ||
+      lp === 'soar' ||
+      lp === 'surge' ||
+      lp === 'heaven' ||
+      lp === 'dynamic-bc' ||
+      lp === 'dynamic_bc' ||
+      lp === 'dbc' ||
+      lp === 'daos' ||
+      lp === 'daos.fun' ||
+      lp === 'jupiter-studio' ||
+      lp === 'jupiter_studio' ||
+      lp === 'jupstudio' ||
+      lp === 'launchlab' ||
+      lp === 'launch_lab' ||
+      lp === 'orca' ||
+      lp === 'wavebreak' ||
+      lp === 'meteora' ||
+      lp === 'meteora_amm' ||
+      lp === 'meteora amm' ||
+      isPulseMayhemToken(bundle));
 
   let cashback = false;
   let agent = false;

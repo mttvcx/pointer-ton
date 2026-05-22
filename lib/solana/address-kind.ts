@@ -3,6 +3,7 @@ import 'server-only';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
 import { getConnection } from '@/lib/solana/connection';
+import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 
 export type ResolvedAddressKind = 'mint' | 'wallet';
 
@@ -13,7 +14,9 @@ export type ResolvedAddressKind = 'mint' | 'wallet';
 export async function resolveAddressKind(address: string): Promise<ResolvedAddressKind> {
   const conn = getConnection();
   const pk = new PublicKey(address);
-  const res = await conn.getParsedAccountInfo(pk);
+  const res = await heliusCall('getParsedAccountInfo', HELIUS_CREDITS.RPC, () =>
+    conn.getParsedAccountInfo(pk),
+  );
   const val = res.value;
   if (!val) {
     // Unknown/off-chain: prefer token flow so `ensureTokenRowFromDas` can hydrate.

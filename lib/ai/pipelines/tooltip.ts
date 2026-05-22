@@ -22,6 +22,7 @@ const SYSTEM_PROMPT = [
 export async function tooltip(input: TooltipInput): Promise<{
   data: TooltipOutput;
   cacheHit: boolean;
+  fromCache: boolean;
   modelUsed: string;
   costUsd: number;
 }> {
@@ -49,6 +50,7 @@ export async function tooltip(input: TooltipInput): Promise<{
   return {
     data: result.data as TooltipOutput,
     cacheHit: result.cacheHit,
+    fromCache: result.fromCache,
     modelUsed: result.modelUsed,
     costUsd: result.costUsd,
   };

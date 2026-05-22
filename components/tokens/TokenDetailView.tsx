@@ -13,8 +13,17 @@ import {
   User,
 } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
-import { TokenChart } from '@/components/tokens/TokenChart';
+import { Skeleton } from '@/components/shared/Skeleton';
+
+const TokenChart = dynamic(
+  () => import('@/components/tokens/TokenChart').then((m) => ({ default: m.TokenChart })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[420px] w-full rounded-lg" />,
+  },
+);
 import { TokenActivityTabs } from '@/components/tokens/TokenActivityTabs';
 import { BuySellPanel } from '@/components/tokens/BuySellPanel';
 import { CompactInstantTradePanel } from '@/components/trading/CompactInstantTradePanel';
@@ -30,6 +39,7 @@ import {
 } from '@/lib/chart/tokenChartOverlays';
 import { cn } from '@/lib/utils/cn';
 import { noteRecentTradeMint } from '@/store/recentTradeMints';
+import { useTradingStore } from '@/store/trading';
 
 type LimitOrderRow = Tables<'limit_orders'>;
 type MintTradeRow = Tables<'trades'>;
@@ -312,7 +322,9 @@ export function TokenDetailView({
   const [rightStackW, setRightStackW] = useState(340);
   const [chartH, setChartH] = useState<number | null>(null);
   const [lg, setLg] = useState(false);
-  const [instantTradeOpen, setInstantTradeOpen] = useState(false);
+  const instantTradeOpen = useTradingStore((s) => s.compactInstantTradeOpen);
+  const toggleCompactInstantTrade = useTradingStore((s) => s.toggleCompactInstantTrade);
+  const setCompactInstantTradeOpen = useTradingStore((s) => s.setCompactInstantTradeOpen);
   const [tradesPanel, setTradesPanel] = useState(true);
   const [liveTrades, setLiveTrades] = useState<{ rows: MintTradeRow[]; isLoading: boolean }>({
     rows: [],
@@ -498,7 +510,8 @@ export function TokenDetailView({
                   tradesPanel={tradesPanel}
                   onTradesPanelChange={setTradesPanel}
                   onLiveTradesSnapshot={setLiveTrades}
-                  onOpenInstantTrade={() => setInstantTradeOpen(true)}
+                  onOpenInstantTrade={toggleCompactInstantTrade}
+                  instantTradeOpen={instantTradeOpen}
                 />
               </div>
             </div>
@@ -534,7 +547,7 @@ export function TokenDetailView({
                 initialBuySol={initialBuySol}
                 initialTradeSide={initialTradeSide}
                 marketSnapshot={marketSnapshot ?? null}
-                onRequestInstantTrade={() => setInstantTradeOpen(true)}
+                onRequestInstantTrade={toggleCompactInstantTrade}
               />
             </div>
           </div>
@@ -546,7 +559,7 @@ export function TokenDetailView({
         symbol={symbol}
         decimals={decimals}
         open={instantTradeOpen}
-        onClose={() => setInstantTradeOpen(false)}
+        onClose={() => setCompactInstantTradeOpen(false)}
         onOpenFullTradeSettings={() => {
           document.querySelector<HTMLElement>('[data-mint="' + mint + '"]')?.scrollIntoView({
             behavior: 'smooth',

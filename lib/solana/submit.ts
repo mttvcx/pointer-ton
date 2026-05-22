@@ -5,6 +5,7 @@ import { sendViaSender } from 'helius-sdk/transactions/sendViaSender';
 import { VersionedTransaction } from '@solana/web3.js';
 
 import { getConnection } from '@/lib/solana/connection';
+import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 import {
   SIGNATURE_POLL_INTERVAL_MS,
   SUBMIT_TIMEOUT_MS,
@@ -82,9 +83,11 @@ async function waitForConfirmation(signature: string): Promise<'confirmed' | 'fa
   const conn = getConnection();
   const deadline = Date.now() + SUBMIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const { value } = await conn.getSignatureStatuses([signature], {
-      searchTransactionHistory: true,
-    });
+    const { value } = await heliusCall('getSignatureStatuses', HELIUS_CREDITS.RPC, () =>
+      conn.getSignatureStatuses([signature], {
+        searchTransactionHistory: true,
+      }),
+    );
     const s = value[0];
     if (s?.err) return 'failed';
     if (s?.confirmationStatus === 'confirmed' || s?.confirmationStatus === 'finalized') {
@@ -113,7 +116,7 @@ export async function submitTransaction(serialized: Uint8Array): Promise<SubmitT
 
   try {
     await raceFirstSuccess([
-      sendViaSender(b64, 'Default'),
+      heliusCall('sendViaSender', HELIUS_CREDITS.RPC, () => sendViaSender(b64, 'Default')),
       sendJitoBundleSingleTx(serialized),
     ]);
   } catch (e) {

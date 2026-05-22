@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { Z_BOTTOM_BAR_POPOVER } from '@/lib/ui/zLayers';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 
 interface TradingSettingsPopoverProps {
@@ -20,6 +22,7 @@ const PANEL_GAP = 8;
  */
 export function TradingSettingsPopover({ className, children }: TradingSettingsPopoverProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -34,6 +37,10 @@ export function TradingSettingsPopover({ className, children }: TradingSettingsP
   const [maxFee, setMaxFee] = useState('0.1');
   const [mev, setMev] = useState<'off' | 'reduced' | 'secure'>('reduced');
   const [rpc, setRpc] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -86,142 +93,148 @@ export function TradingSettingsPopover({ className, children }: TradingSettingsP
         {children}
       </button>
 
-      {open && coords ? (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-label="Trading Settings"
-          style={{
-            position: 'fixed',
-            left: `${coords.left}px`,
-            bottom: `${coords.bottom}px`,
-            width: `${PANEL_W}px`,
-          }}
-          className="z-[1000] rounded-lg border border-border-subtle bg-bg-raised p-4 shadow-2xl"
-        >
-          <header className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-fg-primary">Trading Settings</h3>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close"
-              className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </header>
-
-          <div className="mb-3 flex gap-1 rounded bg-bg-sunken p-0.5">
-            {([1, 2, 3] as const).map((p: PresetSlot) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setActiveSlot(p)}
-                className={cn(
-                  'btn-press h-7 flex-1 rounded px-2 text-[11px] font-semibold transition-colors',
-                  activeSlot === p
-                    ? 'bg-accent-primary text-fg-inverse'
-                    : 'text-fg-muted hover:text-fg-primary',
-                )}
-              >
-                PRESET {p}
-              </button>
-            ))}
-          </div>
-
-          <div className="mb-3 flex gap-1">
-            <button
-              type="button"
-              onClick={() => setTab('buy')}
+      {mounted && open && coords
+        ? createPortal(
+            <div
+              ref={panelRef}
+              role="dialog"
+              aria-label="Trading Settings"
+              style={{
+                position: 'fixed',
+                left: `${coords.left}px`,
+                bottom: `${coords.bottom}px`,
+                width: `${PANEL_W}px`,
+              }}
               className={cn(
-                'btn-press h-8 flex-1 rounded text-xs font-semibold transition-colors',
-                tab === 'buy'
-                  ? 'bg-signal-bull/15 text-signal-bull'
-                  : 'bg-bg-sunken text-fg-muted hover:text-fg-primary',
+                Z_BOTTOM_BAR_POPOVER,
+                'rounded-lg border border-border-subtle bg-bg-raised p-4 shadow-2xl',
               )}
             >
-              Buy Settings
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('sell')}
-              className={cn(
-                'btn-press h-8 flex-1 rounded text-xs font-semibold transition-colors',
-                tab === 'sell'
-                  ? 'bg-signal-bear/15 text-signal-bear'
-                  : 'bg-bg-sunken text-fg-muted hover:text-fg-primary',
-              )}
-            >
-              Sell Settings
-            </button>
-          </div>
-
-          <div className="mb-3 grid grid-cols-3 gap-2">
-            <NumberField label="Slippage" unit="%" value={slippage} onChange={setSlippage} />
-            <NumberField label="Priority" value={priority} onChange={setPriority} />
-            <NumberField label="Bribe" value={bribe} onChange={setBribe} />
-          </div>
-
-          <div className="mb-3 flex items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-fg-secondary">
-              <input
-                type="checkbox"
-                checked={autoFee}
-                onChange={(e) => setAutoFee(e.target.checked)}
-                className="accent-accent-primary"
-              />
-              Auto Fee
-            </label>
-            <div className="flex-1">
-              <NumberField label="Max Fee" value={maxFee} onChange={setMaxFee} />
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <div className="mb-1.5 text-[10px] uppercase tracking-wider text-fg-muted">
-              MEV Mode
-            </div>
-            <div className="flex gap-1">
-              {(['off', 'reduced', 'secure'] as const).map((mode) => (
+              <header className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-fg-primary">Trading Settings</h3>
                 <button
-                  key={mode}
                   type="button"
-                  onClick={() => setMev(mode)}
+                  onClick={() => setOpen(false)}
+                  aria-label="Close"
+                  className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </header>
+
+              <div className="mb-3 flex gap-1 rounded bg-bg-sunken p-0.5">
+                {([1, 2, 3] as const).map((p: PresetSlot) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setActiveSlot(p)}
+                    className={cn(
+                      'btn-press h-7 flex-1 rounded px-2 text-[11px] font-semibold transition-colors',
+                      activeSlot === p
+                        ? 'bg-accent-primary text-fg-inverse'
+                        : 'text-fg-muted hover:text-fg-primary',
+                    )}
+                  >
+                    PRESET {p}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mb-3 flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTab('buy')}
                   className={cn(
-                    'btn-press h-7 flex-1 rounded px-2 text-[11px] capitalize transition-colors',
-                    mev === mode
-                      ? 'bg-accent-primary/15 text-accent-primary'
-                      : 'bg-bg-sunken text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                    'btn-press h-8 flex-1 rounded text-xs font-semibold transition-colors',
+                    tab === 'buy'
+                      ? 'bg-signal-bull/15 text-signal-bull'
+                      : 'bg-bg-sunken text-fg-muted hover:text-fg-primary',
                   )}
                 >
-                  {mode}
+                  Buy Settings
                 </button>
-              ))}
-            </div>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => setTab('sell')}
+                  className={cn(
+                    'btn-press h-8 flex-1 rounded text-xs font-semibold transition-colors',
+                    tab === 'sell'
+                      ? 'bg-signal-bear/15 text-signal-bear'
+                      : 'bg-bg-sunken text-fg-muted hover:text-fg-primary',
+                  )}
+                >
+                  Sell Settings
+                </button>
+              </div>
 
-          <div className="mb-3">
-            <div className="mb-1.5 text-[10px] uppercase tracking-wider text-fg-muted">
-              RPC
-            </div>
-            <input
-              type="text"
-              value={rpc}
-              onChange={(e) => setRpc(e.target.value)}
-              placeholder="https://...e.com"
-              className="h-8 w-full rounded border border-border-subtle bg-bg-sunken px-2.5 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
-            />
-          </div>
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                <NumberField label="Slippage" unit="%" value={slippage} onChange={setSlippage} />
+                <NumberField label="Priority" value={priority} onChange={setPriority} />
+                <NumberField label="Bribe" value={bribe} onChange={setBribe} />
+              </div>
 
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="btn-press h-9 w-full rounded bg-accent-primary text-sm font-semibold text-fg-inverse transition-colors hover:bg-accent-glow"
-          >
-            Continue
-          </button>
-        </div>
-      ) : null}
+              <div className="mb-3 flex items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-fg-secondary">
+                  <input
+                    type="checkbox"
+                    checked={autoFee}
+                    onChange={(e) => setAutoFee(e.target.checked)}
+                    className="accent-accent-primary"
+                  />
+                  Auto Fee
+                </label>
+                <div className="flex-1">
+                  <NumberField label="Max Fee" value={maxFee} onChange={setMaxFee} />
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <div className="mb-1.5 text-[10px] uppercase tracking-wider text-fg-muted">
+                  MEV Mode
+                </div>
+                <div className="flex gap-1">
+                  {(['off', 'reduced', 'secure'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setMev(mode)}
+                      className={cn(
+                        'btn-press h-7 flex-1 rounded px-2 text-[11px] capitalize transition-colors',
+                        mev === mode
+                          ? 'bg-accent-primary/15 text-accent-primary'
+                          : 'bg-bg-sunken text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                      )}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <div className="mb-1.5 text-[10px] uppercase tracking-wider text-fg-muted">
+                  RPC
+                </div>
+                <input
+                  type="text"
+                  value={rpc}
+                  onChange={(e) => setRpc(e.target.value)}
+                  placeholder="https://...e.com"
+                  className="h-8 w-full rounded border border-border-subtle bg-bg-sunken px-2.5 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="btn-press h-9 w-full rounded bg-accent-primary text-sm font-semibold text-fg-inverse transition-colors hover:bg-accent-glow"
+              >
+                Continue
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

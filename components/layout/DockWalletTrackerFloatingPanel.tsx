@@ -17,6 +17,7 @@ import {
 } from '@/store/tokenDockPeek';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
+import { XMonitorPanel } from '@/components/monitor/XMonitorPanel';
 import { toastWalletTrackedTradeDemo } from '@/lib/walletTracker/walletTrackerToast';
 
 type WalletTrackerTab = 'manager' | 'trades' | 'monitor' | 'kols';
@@ -65,7 +66,9 @@ export function DockWalletTrackerFloatingPanel() {
   const panelSize = useTokenDockPeekStore((s) => s.dockWalletPanelSize ?? DEFAULT_WALLET_TRACKER_PEEK_SIZE);
   const setPanelSize = useTokenDockPeekStore((s) => s.setWalletPanelSize);
 
-  const [tab, setTab] = useState<WalletTrackerTab>('trades');
+  const [tab, setTab] = useState<WalletTrackerTab>(() =>
+    pathname?.startsWith('/pulse') ? 'monitor' : 'trades',
+  );
 
   const onWalletMgmtPage = pathname?.startsWith('/wallets') ?? false;
 
@@ -497,25 +500,33 @@ export function DockWalletTrackerFloatingPanel() {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-3 py-3" style={{ minHeight: 220 }}>
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col',
+            tab === 'monitor' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
+          )}
+          style={{ minHeight: tab === 'monitor' ? 280 : 220 }}
+        >
           {tab === 'trades' ? (
             <>
-              <p className="text-[11px] leading-relaxed text-fg-secondary">
+              <p className="px-3 pt-3 text-[11px] leading-relaxed text-fg-secondary">
                 Live buys / sells land as <strong className="text-fg-primary">top pings</strong> when you&apos;re tracking
                 wallets. Open Track for the full grid — this peek shares Pulse-style edge docking.
               </p>
               <Link
                 href="/track"
                 data-no-drag
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-primary hover:brightness-125"
+                className="inline-flex items-center gap-1 px-3 pb-3 text-[11px] font-semibold text-accent-primary hover:brightness-125"
                 onClick={() => setOpen(false)}
               >
                 Open Track workspace
                 <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
               </Link>
             </>
+          ) : tab === 'monitor' ? (
+            <XMonitorPanel embedded defaultTab="feed" />
           ) : (
-            <p className="text-[11px] leading-relaxed text-fg-secondary">
+            <p className="px-3 py-3 text-[11px] leading-relaxed text-fg-secondary">
               <strong className="text-fg-primary">{TAB_LABEL[tab]}</strong> plugs into the tracker pipeline next — use{' '}
               <Link href="/track" className="font-semibold text-accent-primary underline-offset-2 hover:underline">
                 Track

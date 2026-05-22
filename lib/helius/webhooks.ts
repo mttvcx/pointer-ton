@@ -6,8 +6,10 @@ import {
   listEnabledTrackerRulesForWallet,
 } from '@/lib/db/trackerRules';
 import { getTrackedWallet, listUserIdsTrackingWallet } from '@/lib/db/wallets';
+import { markTokenMigrated } from '@/lib/db/tokens';
 import { upsertWebhookEvent } from '@/lib/db/webhooks';
-import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
+import { ingestWebhookMintFromPayload } from '@/lib/helius/webhookIngest';
+import { parseMigrationTransaction } from '@/lib/helius/migrationParse';
 import { parseEnhancedTransaction } from '@/lib/helius/parsers';
 import { ruleMatchesTokenLaunch } from '@/lib/trackers/evaluateRules';
 import { parseRuleCondition } from '@/lib/trackers/ruleCondition';
@@ -36,6 +38,12 @@ function normalizePayload(body: unknown): unknown[] {
   return [body];
 }
 
+function extractTxSignature(tx: unknown): string | null {
+  const root = tx && typeof tx === 'object' && !Array.isArray(tx) ? (tx as Record<string, unknown>) : null;
+  const sig = root?.signature;
+  return typeof sig === 'string' && sig.length > 0 ? sig : null;
+}
+
 /**
  * Process decoded Helius webhook JSON. Persists webhook_events, upserts tokens,
  * and notifies users tracking the creator wallet.
@@ -43,7 +51,7 @@ function normalizePayload(body: unknown): unknown[] {
 export async function processHeliusWebhookBody(
   body: unknown,
   meta: { source: string; signature: string },
-): Promise<{ events: number; tokensUpserted: number; alerts: number }> {
+): Promise<{ events: number; tokensUpserted: number; alerts: number; migrations: number }> {
   await upsertWebhookEvent({
     signature: meta.signature,
     source: meta.source,
@@ -55,17 +63,25 @@ export async function processHeliusWebhookBody(
   let events = 0;
   let tokensUpserted = 0;
   let alerts = 0;
+  let migrations = 0;
 
   for (const tx of txs) {
+    const migration = parseMigrationTransaction(tx);
+    if (migration) {
+      migrations += 1;
+      await markTokenMigrated(migration.mint, migration.destination);
+    }
+
     const ev = parseEnhancedTransaction(tx);
     if (!ev) continue;
     events += 1;
 
-    await ingestLaunchpadDiscovery(ev, {
+    const txSignature = extractTxSignature(tx) ?? meta.signature;
+    const upserted = await ingestWebhookMintFromPayload(ev, {
       alertSource: 'helius_webhook',
-      txSignature: meta.signature,
+      txSignature,
     });
-    tokensUpserted += 1;
+    tokensUpserted += upserted;
 
     const wallet = ev.creator_wallet;
     if (wallet) {
@@ -99,7 +115,7 @@ export async function processHeliusWebhookBody(
                   symbol: ev.symbol ?? null,
                   nlText: rule.nl_text,
                   launchpad: ev.launchpad,
-                  signature: meta.signature,
+                  signature: txSignature,
                 },
               });
               const ruleSym = ev.symbol ? `$${ev.symbol}` : ev.mint.slice(0, 8);
@@ -119,7 +135,7 @@ export async function processHeliusWebhookBody(
               mint: ev.mint,
               symbol: ev.symbol ?? null,
               launchpad: ev.launchpad,
-              signature: meta.signature,
+              signature: txSignature,
               wallet,
             },
           });
@@ -135,5 +151,5 @@ export async function processHeliusWebhookBody(
     }
   }
 
-  return { events, tokensUpserted, alerts };
+  return { events, tokensUpserted, alerts, migrations };
 }

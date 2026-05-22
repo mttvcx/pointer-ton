@@ -17,6 +17,13 @@ import { formatNumber } from '@/lib/utils/formatters';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 import {
+  buyQuoteAmountFields,
+  spendAssetLabel,
+  type SolSpendAsset,
+} from '@/lib/trading/spendAsset';
+import { USDC_MINT } from '@/lib/utils/addresses';
+import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
+import {
   addInstantTradeCostBasisTon,
   clearInstantTradeCostBasisTon,
   readInstantTradeCostBasisTon,
@@ -60,7 +67,7 @@ export function useSpotTradeExecution(mint: string) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const qc = useQueryClient();
   const { submitFromQuote } = usePointerTradeSubmit();
-  const { activePresetSlot } = useTradingStore();
+  const { activePresetSlot, spendAsset, setSpendAsset } = useTradingStore();
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -115,6 +122,31 @@ export function useSpotTradeExecution(mint: string) {
 
   const balanceRaw = balanceData?.rawAmount ?? '0';
 
+  const { data: usdcBalanceData, refetch: refetchUsdcBalance } = useQuery({
+    queryKey: ['trade-balance-usdc', wallet?.address],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const res = await fetch(
+        `/api/trade/balance?mint=${encodeURIComponent(USDC_MINT)}&wallet=${encodeURIComponent(wallet!.address)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const json: unknown = await res.json();
+      if (!res.ok) {
+        const msg =
+          typeof json === 'object' && json && 'message' in json
+            ? String((json as { message: unknown }).message)
+            : res.statusText;
+        throw new Error(msg);
+      }
+      return json as { rawAmount: string; decimals?: number };
+    },
+    enabled: Boolean(activeChain === 'sol' && walletsReady && wallet?.address),
+    staleTime: 10_000,
+  });
+
+  const usdcBalanceRaw = usdcBalanceData?.rawAmount ?? '0';
+
   const costBasisTonSol = useMemo(() => {
     if (!wallet?.address) return 0;
     return readInstantTradeCostBasisTon(mint, wallet.address);
@@ -148,7 +180,9 @@ export function useSpotTradeExecution(mint: string) {
   const landing = mevModeToLanding(activePreset?.mev_mode ?? 'off');
 
   const runBuy = useCallback(
-    async (amountSol: number) => {
+    async (amount: number, spendAssetOverride?: SolSpendAsset) => {
+      const asset: SolSpendAsset =
+        spendAssetOverride ?? (activeChain === 'sol' ? spendAsset : 'sol');
       if (!wallet) {
         toast.error(`Connect ${nativeTicker(activeChain)} wallet`);
         return;
@@ -162,7 +196,7 @@ export function useSpotTradeExecution(mint: string) {
         });
         return;
       }
-      if (!Number.isFinite(amountSol) || amountSol <= 0) {
+      if (!Number.isFinite(amount) || amount <= 0) {
         toast.error('Invalid amount');
         return;
       }
@@ -194,7 +228,7 @@ export function useSpotTradeExecution(mint: string) {
             mint,
             side: 'buy' as const,
             userPublicKey: wallet.address,
-            amountSol,
+            ...buyQuoteAmountFields(asset, amount),
             slippageBps: effectiveSlippageBps,
             dynamicSlippage,
             landing,
@@ -232,8 +266,8 @@ export function useSpotTradeExecution(mint: string) {
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
         const cr = chainFromQuote(ok, activeChain);
-        const sym = nativeTicker(cr);
-        const narration = `Bought ${formatNumber(amountSol, { decimals: 4 })} ${sym} · trade panel.`;
+        const sym = spendAssetLabel(asset);
+        const narration = `Bought ${formatNumber(amount, { decimals: asset === 'usdc' ? 2 : 4 })} ${sym} · trade panel.`;
         void (async () => {
           const tok = await getAccessToken();
           if (!tok) return;
@@ -241,15 +275,19 @@ export function useSpotTradeExecution(mint: string) {
             kind: 'spot_buy',
             mint,
             chain: cr,
-            amountSol,
+            amountSol: asset === 'sol' ? amount : undefined,
             txSignature: sig ?? null,
           });
           if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
         })();
-        addInstantTradeCostBasisTon(mint, wallet.address, amountSol);
-        addInstantTradeBuyTon(mint, wallet.address, amountSol);
+        if (asset === 'sol') {
+          addInstantTradeCostBasisTon(mint, wallet.address, amount);
+          addInstantTradeBuyTon(mint, wallet.address, amount);
+        }
         void refetchBalance();
+        void refetchUsdcBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+        dispatchSolanaAccountRefresh('spot_trade');
       } catch (e) {
         toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
@@ -260,6 +298,7 @@ export function useSpotTradeExecution(mint: string) {
       wallet,
       activeWalletRow?.is_imported,
       activeChain,
+      spendAsset,
       getAccessToken,
       mint,
       effectiveSlippageBps,
@@ -268,6 +307,7 @@ export function useSpotTradeExecution(mint: string) {
       activePreset,
       submitFromQuote,
       refetchBalance,
+      refetchUsdcBalance,
       qc,
     ],
   );
@@ -385,6 +425,7 @@ export function useSpotTradeExecution(mint: string) {
         if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+        dispatchSolanaAccountRefresh('spot_trade');
       } catch (e) {
         toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
@@ -521,6 +562,7 @@ export function useSpotTradeExecution(mint: string) {
         }
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+        dispatchSolanaAccountRefresh('spot_trade');
       } catch (e) {
         toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
@@ -574,6 +616,9 @@ export function useSpotTradeExecution(mint: string) {
     runSellInitial,
     costBasisTonSol,
     lifetimeStats,
+    spendAsset,
+    setSpendAsset,
+    usdcBalanceRaw,
     walletRows: myWalletsQ.data?.wallets,
     activeWalletAddress: activeAddress,
     setActiveWalletAddress,

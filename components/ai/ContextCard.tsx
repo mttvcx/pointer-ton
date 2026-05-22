@@ -27,6 +27,7 @@ import {
 } from '@/store/ui';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { aiScanClientKey, fetchAiScan } from '@/lib/client/fetchAiScan';
 import { cn } from '@/lib/utils/cn';
 
 type CommonResult = {
@@ -101,35 +102,38 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
     retry: 0,
     queryFn: async () => {
       if (!debounced) throw new Error('no_entity');
-      const token = await getAccessToken();
-      if (!token) throw new Error('no_token');
       const url =
         debounced.type === 'token' ? '/api/ai/explain-token' : '/api/ai/explain-wallet';
       const body =
         debounced.type === 'token'
-          ? { mint: debounced.id, mode }
+          ? { mint: debounced.id, mode, surface: 'copilot' as const }
           : { address: debounced.id, mode };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+      const key = aiScanClientKey(url, body);
+      return fetchAiScan(key, async () => {
+        const token = await getAccessToken();
+        if (!token) throw new Error('no_token');
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) {
+          const msg =
+            typeof json === 'object' && json && 'message' in json
+              ? String((json as { message: unknown }).message)
+              : `Failed (${res.status})`;
+          const code =
+            typeof json === 'object' && json && 'error' in json
+              ? String((json as { error: unknown }).error)
+              : '';
+          throw Object.assign(new Error(msg), { status: res.status, code });
+        }
+        return json as TokenResult | WalletResult;
       });
-      const json: unknown = await res.json();
-      if (!res.ok) {
-        const msg =
-          typeof json === 'object' && json && 'message' in json
-            ? String((json as { message: unknown }).message)
-            : `Failed (${res.status})`;
-        const code =
-          typeof json === 'object' && json && 'error' in json
-            ? String((json as { error: unknown }).error)
-            : '';
-        throw Object.assign(new Error(msg), { status: res.status, code });
-      }
-      return json as TokenResult | WalletResult;
     },
   });
 

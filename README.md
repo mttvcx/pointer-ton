@@ -22,12 +22,14 @@ wallet tracking, AI co-pilot panel.
 
 ```bash
 npm install
-cp .env.example .env.local       # fill in keys (Privy + Supabase for auth/data)
+cp .env.example .env.local       # fill in keys — see Helius, Anthropic, SocialData sections
 npm run gen:types                # one-time: generate Supabase types
 npm run dev
 ```
 
 Open **http://127.0.0.1:3001** — dev is pinned to port **3001** in `package.json` (not :3000). Set `NEXT_PUBLIC_APP_URL` in `.env.local` to the same origin. Use `npm run dev:3000` if you prefer port 3000 and update `.env.local` accordingly.
+
+**Required for Solana features:** `HELIUS_API_KEY` (all RPC via `mainnet.helius-rpc.com`). **AI co-pilot:** `ANTHROPIC_API_KEY` (+ optional Gemini/OpenAI keys). **Twitter hover cards:** `SOCIALDATA_API_KEY` or `TWITTER_BEARER_TOKEN`. Full list: `.env.example`.
 
 ## Scripts
 
@@ -41,6 +43,21 @@ Open **http://127.0.0.1:3001** — dev is pinned to port **3001** in `package.js
 | `npm run typecheck`  | `tsc --noEmit`                           |
 | `npm run format`     | Prettier write                           |
 | `npm run gen:types`  | Regenerate `lib/supabase/types.ts`       |
+
+## Helius Pulse webhook (local dev)
+
+Solana Pulse columns (NEW / STRETCH / MIGRATED) ingest via an enhanced Helius webhook → `POST /api/webhooks/helius`.
+
+1. Run the DB migration in Supabase: `scripts/pulse-token-columns.sql`
+2. Register the webhook (requires a **public HTTPS** origin — Helius rejects localhost):
+   - Production: `npm run setup:webhooks` (uses `NEXT_PUBLIC_APP_URL`)
+   - Local dev: start ngrok first, then `npm run setup:webhooks -- https://YOUR-NGROK-URL`
+3. For local dev after the first register:
+   - `./scripts/dev-tunnel.sh` (requires [ngrok](https://ngrok.com/download))
+   - Each ngrok session: `npm run update:webhook-url -- https://YOUR-NGROK-URL`
+4. Restart `npm run dev` if needed — webhook deliveries require your server to be reachable at the ngrok URL.
+
+Production: set `NEXT_PUBLIC_APP_URL` to your public origin and re-run `setup-helius-webhooks.ts` (or `update-webhook-url.ts`).
 
 ## Project structure
 

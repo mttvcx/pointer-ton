@@ -37,6 +37,7 @@ import { useUIStore } from '@/store/ui';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useActiveWalletStore } from '@/store/activeWallet';
 import { generateEmbeddedWalletForChain } from '@/lib/wallets/embeddedCreate';
+import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import { kolStorageKey, readStoredKolRows, type KolHandleRow as KolRow } from '@/lib/track/kolHandlesLocal';
 import { xProfileUrl } from '@/lib/utils/xSearch';
 import Link from 'next/link';
@@ -494,7 +495,7 @@ export function TrackersPanel({
       setActiveWalletAddress(createdAddress);
       void queryClient.invalidateQueries({ queryKey: ['wallets-my'] });
       void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
-      toast.success('Embedded wallet created');
+      dispatchSolanaAccountRefresh('tracker_wallet_create');
     } catch (e) {
       toast.error('Could not create embedded wallet', {
         description: e instanceof Error ? e.message : 'Unknown error',
@@ -1052,7 +1053,7 @@ function FragmentRow({
           }
         }}
         className={cn(
-          'cursor-pointer border-b border-border-subtle transition-colors hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/50',
+          'cursor-pointer border-b border-border-subtle outline-none transition-colors hover:bg-bg-hover focus-tr-accent',
           zebraClass,
         )}
         {...hoverProps}

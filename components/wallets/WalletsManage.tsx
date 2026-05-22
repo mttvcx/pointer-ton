@@ -8,6 +8,7 @@ import { ArrowRightLeft, Copy, Eye, EyeOff, KeyRound, Loader2, MoreHorizontal, P
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useWalletBalancesPoll } from '@/lib/hooks/useWalletBalancesPoll';
+import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
@@ -83,7 +84,6 @@ export function WalletsManage({ className }: { className?: string }) {
     walletIds: pollIds,
     getAccessToken,
     queryClient: qc,
-    intervalMs: 15_000,
   });
 
   useEffect(() => {
@@ -129,6 +129,7 @@ export function WalletsManage({ className }: { className?: string }) {
     if (!res.ok) throw new Error(res.message);
     void qc.invalidateQueries({ queryKey: ['wallets-my'] });
     void qc.invalidateQueries({ queryKey: ['portfolio'] });
+    dispatchSolanaAccountRefresh('wallet_import');
   }
 
   function onExportKeyInfo(w: MyWalletRow) {
@@ -169,6 +170,7 @@ export function WalletsManage({ className }: { className?: string }) {
       toast.success('Wallet created — save your private key offline');
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       void qc.invalidateQueries({ queryKey: ['portfolio'] });
+      dispatchSolanaAccountRefresh('wallet_create');
     } catch (e) {
       toast.error('Could not create wallet', {
         description: e instanceof Error ? e.message : 'Unknown error',

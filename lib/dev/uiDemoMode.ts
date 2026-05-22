@@ -7,14 +7,14 @@
  * - `NEXT_PUBLIC_POINTER_TABLE_DEMO=1` (rebuild) fills token detail bottom tables with synthetic rows for
  *   layout review only; does not toggle global UI demo.
  *
- * Explore only: in `next dev`, empty indexer responses are backfilled with demo bubbles automatically.
- * Force on with `?explore_demo=1`, or force real empty state with `?explore_demo=0`.
+ * Explore only: force on with `?explore_demo=1`, or force real empty state with `?explore_demo=0`.
  */
 
 export const UI_DEMO_STORAGE_KEY = 'pointer-ui-demo';
 
 export function uiDemoModeFromEnv(): boolean {
   const v = process.env.NEXT_PUBLIC_UI_DEMO_MODE;
+  if (v === '0' || v === 'false') return false;
   return v === '1' || v === 'true';
 }
 
@@ -34,5 +34,8 @@ export function preferTokenTableDemoRows(): boolean {
 }
 
 export function isUiDemoMode(): boolean {
-  return uiDemoModeFromEnv() || readUiDemoLocalStorage();
+  const v = process.env.NEXT_PUBLIC_UI_DEMO_MODE;
+  if (v === '0' || v === 'false') return false;
+  if (v === '1' || v === 'true') return true;
+  return readUiDemoLocalStorage();
 }

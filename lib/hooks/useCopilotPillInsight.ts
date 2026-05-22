@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { aiScanClientKey, fetchAiScan } from '@/lib/client/fetchAiScan';
 import type { ExplainTokenOutput, ExplainWalletOutput } from '@/lib/ai/schemas';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
 import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
@@ -79,25 +80,28 @@ export function useCopilotPillInsight(alerts: AlertsTickerItem[] | undefined): C
     retry: 0,
     queryFn: async () => {
       if (!debouncedHover) throw new Error('no_entity');
-      const token = await getAccessToken();
-      if (!token) throw new Error('no_token');
       const url =
         debouncedHover.type === 'token' ? '/api/ai/explain-token' : '/api/ai/explain-wallet';
       const body =
         debouncedHover.type === 'token'
-          ? { mint: debouncedHover.id, mode: 'fast' as const }
+          ? { mint: debouncedHover.id, mode: 'fast' as const, surface: 'copilot' as const }
           : { address: debouncedHover.id, mode: 'fast' as const };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+      const key = aiScanClientKey(url, body);
+      return fetchAiScan(key, async () => {
+        const token = await getAccessToken();
+        if (!token) throw new Error('no_token');
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) throw new Error('explain_failed');
+        return json as { data: ExplainTokenOutput | ExplainWalletOutput };
       });
-      const json: unknown = await res.json();
-      if (!res.ok) throw new Error('explain_failed');
-      return json as { data: ExplainTokenOutput | ExplainWalletOutput };
     },
   });
 

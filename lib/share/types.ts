@@ -25,7 +25,7 @@ export type ShareOverlaySettings = {
   overlayAlign: 'left' | 'center' | 'right';
 };
 
-export const DEFAULT_SHARE_HEADLINE = '50% cashback, the highest in the game.';
+export const DEFAULT_SHARE_HEADLINE = '50% CASHBACK, THE HIGHEST IN THE GAME.';
 export const MAX_SHARE_HEADLINE_CHARS = 72;
 
 export const DEFAULT_SHARE_OVERLAY: ShareOverlaySettings = {
@@ -57,6 +57,9 @@ export type PnlSharePayload = {
   positionUsd: number | null;
   realizedUsd?: number | null;
   unrealizedUsd?: number | null;
+  /** Override stat row labels (e.g. monthly PNL share). */
+  statInvestedLabel?: string;
+  statPositionLabel?: string;
 };
 
 export const SHARE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;

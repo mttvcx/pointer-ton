@@ -9,6 +9,7 @@ import {
   type LaunchpadId,
   PULSE_DAS_FALLBACK_POLL_OWNER,
 } from '@/lib/utils/constants';
+import { heliusCall, heliusDasCredits } from '@/lib/helius/creditLogger';
 
 const DEBUG_DAS = process.env.POINTER_DEBUG_DAS === '1';
 
@@ -24,20 +25,22 @@ function debugDas(message: string, extra?: Record<string, unknown>) {
 type DasResult<T> = { error?: { message?: string }; result?: T };
 
 export async function heliusDasRpc<T>(method: string, params: unknown): Promise<T> {
-  const url = getHeliusRpcUrl();
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 'pointer-das', method, params }),
+  return heliusCall(method, heliusDasCredits(method), async () => {
+    const url = getHeliusRpcUrl();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 'pointer-das', method, params }),
+    });
+    const json = (await res.json()) as DasResult<T>;
+    if (json.error?.message) {
+      throw new Error(json.error.message);
+    }
+    if (json.result === undefined) {
+      throw new Error('helius_das_empty_result');
+    }
+    return json.result;
   });
-  const json = (await res.json()) as DasResult<T>;
-  if (json.error?.message) {
-    throw new Error(json.error.message);
-  }
-  if (json.result === undefined) {
-    throw new Error('helius_das_empty_result');
-  }
-  return json.result;
 }
 
 function parsePulseDasLaunchpadAuthorities(): Array<{ pad: LaunchpadId; authority: string }> {
@@ -116,7 +119,7 @@ export async function pollSolanaPulseFromDas(): Promise<number> {
       ownerAddress: owner,
       tokenType: 'fungible',
       limit: 40,
-      sortBy: { sortBy: 'created', sortDirection: 'desc' },
+      sortBy: { sortBy: 'id', sortDirection: 'desc' },
     });
     const items = search.items ?? [];
     debugDas('searchAssets', { owner, n: items.length });

@@ -8,3 +8,6 @@
  * modal chrome when testing notifications from inside a dialog.
  */
 export const Z_APP_MODAL_OVERLAY = 'z-[280]' as const;
+
+/** Bottom-bar popovers (preset, wallet picker) — above dock peek panels (~221). */
+export const Z_BOTTOM_BAR_POPOVER = 'z-[270]' as const;

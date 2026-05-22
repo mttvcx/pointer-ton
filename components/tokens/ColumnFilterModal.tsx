@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Share2, X } from 'lucide-react';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, Share2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PulseColumnId } from '@/lib/utils/constants';
+import { PULSE_COLUMNS } from '@/lib/utils/constants';
 import {
   type ColumnDisplayOptions,
   type ColumnFilters,
@@ -17,34 +18,26 @@ import {
   PULSE_SECOND_BUTTON_MODES,
   type PulseSecondButtonMode,
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
-  DEFAULT_COLUMN_FILTERS,
+  countActiveColumnFilters,
+  defaultColumnFiltersForChain,
   encodeColumnPresetShare,
   normalizeColumnDisplayOptions,
   normalizeColumnFilters,
   parseImportedPresetJson,
-  type PulseProtocolId,
-  PULSE_PROTOCOL_IDS,
 } from '@/lib/tokens/columnPresetModel';
+import {
+  pulseProtocolAccentColor,
+  pulseProtocolPresetIdsForChain,
+} from '@/lib/tokens/pulseProtocolRegistry';
+import { protocolBrand } from '@/lib/tokens/protocolBrand';
 import type { ColumnPulsePresetSlot } from '@/store/pulseColumns';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import { useUIStore } from '@/store/ui';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import type { AppChainId } from '@/lib/chains/appChain';
 import { cn } from '@/lib/utils/cn';
-
-// Resolve through theme CSS vars so the modal recolors with the active theme.
-// `--bg-hover` is closest to the prior `#151820`; `--border-default` is the
-// exact match for `#2a2f3a`; `--bg-raised` is closest to the prior `#0f1118`.
-const FILTER_MODAL_BG = 'var(--bg-hover)';
-const FILTER_MODAL_BORDER = 'var(--border-default)';
-const FILTER_FIELD_BG = 'var(--bg-raised)';
-
-const PROTOCOL_LABEL: Record<PulseProtocolId, string> = {
-  ton: 'TON Index',
-  dedust: 'DeDust',
-  stonfi: 'STON.fi',
-  megaton: 'Megaton',
-};
+import { ProtocolBrandIcon, QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 
 const SORT_LABELS: Record<ColumnSortKey, string> = {
   created_at: 'Age (created)',
@@ -56,7 +49,20 @@ const SORT_LABELS: Record<ColumnSortKey, string> = {
   bonding_curve_pct: 'Bonding %',
 };
 
-type TabId = 'protocols' | 'metrics' | 'social' | 'display';
+const SCOPE_LABELS: Record<PulseColumnId, string> = {
+  new: 'New Pairs',
+  stretch: 'Final Stretch',
+  migrated: 'Migrated',
+};
+
+type SectionTabId = 'protocols' | 'audit' | 'metrics' | 'socials';
+
+const SECTION_TABS: { id: SectionTabId; label: string }[] = [
+  { id: 'protocols', label: 'Protocols' },
+  { id: 'audit', label: 'Audit' },
+  { id: 'metrics', label: '$ Metrics' },
+  { id: 'socials', label: 'Socials' },
+];
 
 export type ColumnPresetRowDto = {
   id: string;
@@ -77,11 +83,16 @@ type Props = {
   onSaved: () => void;
 };
 
-function toggleProtocol(protocols: PulseProtocolId[], id: PulseProtocolId): PulseProtocolId[] {
+function toggleProtocol(
+  chain: Parameters<typeof pulseProtocolPresetIdsForChain>[0],
+  protocols: string[],
+  id: string,
+): string[] {
+  const presetIds = pulseProtocolPresetIdsForChain(chain);
   const set = new Set(protocols);
   if (set.has(id)) set.delete(id);
   else set.add(id);
-  return PULSE_PROTOCOL_IDS.filter((p) => set.has(p));
+  return [...presetIds].filter((p) => set.has(p));
 }
 
 function NumField({
@@ -96,8 +107,8 @@ function NumField({
   suffix?: string;
 }) {
   return (
-    <label className="flex flex-col gap-0.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">{label}</span>
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] uppercase tracking-wide text-white/40">{label}</span>
       <input
         type="text"
         inputMode="decimal"
@@ -111,15 +122,15 @@ function NumField({
           const n = Number(t);
           onChange(Number.isFinite(n) ? n : null);
         }}
-        className="focus-ring border border-border-subtle bg-transparent px-2 py-1 tabular-nums text-[11px] text-fg-primary"
+        className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none transition placeholder:text-white/30 focus:border-white/[0.12]"
         placeholder="Any"
       />
-      {suffix ? <span className="text-[9px] text-fg-muted">{suffix}</span> : null}
+      {suffix ? <span className="text-[9px] text-white/30">{suffix}</span> : null}
     </label>
   );
 }
 
-function Toggle({
+function AuditToggle({
   label,
   checked,
   onChange,
@@ -135,14 +146,99 @@ function Toggle({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        'flex w-full items-center justify-between rounded-sm border px-2 py-1.5 text-left text-[11px] transition',
+        'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-[12px] transition',
         checked
-          ? 'border-accent-primary/40 bg-accent-primary/10 text-fg-primary'
-          : 'border-border-subtle text-fg-secondary hover:border-border-default',
+          ? 'border-[#7c5cff]/40 bg-[#7c5cff]/10 text-white'
+          : 'border-white/[0.06] bg-white/[0.03] text-white/60 hover:border-white/[0.1] hover:text-white/80',
       )}
     >
       <span>{label}</span>
-      <span className="tabular-nums text-fg-muted">{checked ? 'On' : 'Off'}</span>
+      <span className="text-[11px] text-white/40">{checked ? 'On' : 'Off'}</span>
+    </button>
+  );
+}
+
+function ProtocolPill({
+  id,
+  label,
+  selected,
+  onToggle,
+}: {
+  id: string;
+  label: string;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const color = pulseProtocolAccentColor(id);
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        'flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] transition-all',
+        selected ? 'text-white' : 'border-white/[0.08] bg-white/[0.03] text-white/50',
+      )}
+      style={
+        selected
+          ? {
+              borderColor: `${color}99`,
+              backgroundColor: `${color}26`,
+            }
+          : undefined
+      }
+    >
+      <ProtocolBrandIcon protocolId={id} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function QuotePill({
+  kind,
+  label,
+  selected,
+  chain,
+  onToggle,
+}: {
+  kind: 'native' | 'usdc' | 'usd1';
+  label: string;
+  selected: boolean;
+  chain: AppChainId;
+  onToggle: () => void;
+}) {
+  const nativeAccent =
+    chain === 'bnb'
+      ? { on: 'border-yellow-500/40 bg-yellow-500/15 text-yellow-400', off: 'border-white/[0.08] bg-white/[0.03] text-white/50' }
+      : chain === 'ton'
+        ? { on: 'border-sky-400/40 bg-sky-400/15 text-sky-300', off: 'border-white/[0.08] bg-white/[0.03] text-white/50' }
+        : chain === 'base'
+          ? { on: 'border-blue-500/40 bg-blue-500/15 text-blue-300', off: 'border-white/[0.08] bg-white/[0.03] text-white/50' }
+          : { on: 'border-[#9945ff]/40 bg-[#9945ff]/15 text-[#9945ff]', off: 'border-white/[0.08] bg-white/[0.03] text-white/50' };
+
+  const styles =
+    kind === 'native'
+      ? nativeAccent
+      : kind === 'usdc'
+        ? {
+            on: 'border-[#2775ca]/40 bg-[#2775ca]/15 text-[#2775ca]',
+            off: 'border-white/[0.08] bg-white/[0.03] text-white/50',
+          }
+        : {
+            on: 'border-yellow-500/40 bg-yellow-500/15 text-yellow-400',
+            off: 'border-white/[0.08] bg-white/[0.03] text-white/50',
+          };
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        'flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] transition-all',
+        selected ? styles.on : styles.off,
+      )}
+    >
+      <QuoteTokenIcon kind={kind} chain={chain} />
+      <span>{label}</span>
     </button>
   );
 }
@@ -161,49 +257,93 @@ export function ColumnFilterModal({
   const activeChain = useUIStore((s) => s.activeChain);
   const quoteNativeSymbol = nativeTicker(activeChain);
   const qc = useQueryClient();
-  const [tab, setTab] = useState<TabId>('protocols');
+
+  const [scopeColumn, setScopeColumn] = useState<PulseColumnId>(columnId);
+  const [sectionTab, setSectionTab] = useState<SectionTabId>('protocols');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [searchKeywords, setSearchKeywords] = useState('');
+  const [excludeKeywords, setExcludeKeywords] = useState('');
+
   const [name, setName] = useState('Preset');
-  const [filters, setFilters] = useState<ColumnFilters>(DEFAULT_COLUMN_FILTERS);
+  const [filters, setFilters] = useState<ColumnFilters>(() => defaultColumnFiltersForChain(activeChain));
   const [display, setDisplay] = useState<ColumnDisplayOptions>(DEFAULT_COLUMN_DISPLAY_OPTIONS);
   const [quickSolDraft, setQuickSolDraft] = useState('');
   const [sortBy, setSortBy] = useState<ColumnSortKey>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [importText, setImportText] = useState('');
 
+  const scopePresetSlot = usePulseColumnStore((s) => s.byColumn[scopeColumn].presetSlot);
+
+  useEffect(() => {
+    if (open) setScopeColumn(columnId);
+  }, [open, columnId]);
+
+  const scopePresetsQueries = useQueries({
+    queries: PULSE_COLUMNS.map((col) => ({
+      queryKey: ['pulse-column-presets', col],
+      queryFn: async (): Promise<{ presets: ColumnPresetRowDto[] }> => {
+        const token = await getAccessToken();
+        if (!token) return { presets: [] };
+        const r = await fetch(`/api/pulse/column-presets?column_id=${col}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) return { presets: [] };
+        return r.json() as Promise<{ presets: ColumnPresetRowDto[] }>;
+      },
+      enabled: open && authenticated,
+      staleTime: 30_000,
+    })),
+  });
+
+  const activeRow = useMemo(() => {
+    if (scopeColumn === columnId && scopePresetSlot === presetSlot && row) return row;
+    const idx = PULSE_COLUMNS.indexOf(scopeColumn);
+    const data = scopePresetsQueries[idx]?.data;
+    if (!data?.presets?.length) return null;
+    return data.presets.find((p) => p.preset_slot === scopePresetSlot) ?? null;
+  }, [scopeColumn, columnId, scopePresetSlot, presetSlot, row, scopePresetsQueries]);
+
   const resetDraft = useCallback(() => {
-    const qb = usePulseColumnStore.getState().byColumn[columnId].quickBuySol;
-    setName(row?.name?.trim() || `P${presetSlot}`);
-    setFilters(DEFAULT_COLUMN_FILTERS);
+    const chain = useUIStore.getState().activeChain;
+    const qb = usePulseColumnStore.getState().byColumn[scopeColumn].quickBuySol;
+    setName(activeRow?.name?.trim() || `P${scopePresetSlot}`);
+    setFilters(defaultColumnFiltersForChain(chain));
     setDisplay({ ...DEFAULT_COLUMN_DISPLAY_OPTIONS, density: 'normal', quickBuySol: qb });
     setSortBy('created_at');
     setSortDir('desc');
-  }, [presetSlot, row?.name, columnId]);
+    setSearchKeywords('');
+    setExcludeKeywords('');
+  }, [scopeColumn, scopePresetSlot, activeRow?.name]);
 
   useEffect(() => {
     if (!open) return;
-    /* Hydrate draft when the sheet opens (server row + header density). */
-    /* eslint-disable react-hooks/set-state-in-effect -- intentional open transition */
-    setTab('protocols');
+    /* eslint-disable react-hooks/set-state-in-effect -- hydrate on open / scope change */
+    setSectionTab('protocols');
     setImportText('');
-    if (!row) {
+    if (!activeRow) {
       resetDraft();
       return;
     }
-    setName(row.name?.trim() || `P${presetSlot}`);
-    setFilters(normalizeColumnFilters(row.filters));
-    const disp = normalizeColumnDisplayOptions(row.display_options);
-    const qb = usePulseColumnStore.getState().byColumn[columnId].quickBuySol;
+    setName(activeRow.name?.trim() || `P${scopePresetSlot}`);
+    setFilters(normalizeColumnFilters(activeRow.filters, activeChain));
+    const disp = normalizeColumnDisplayOptions(activeRow.display_options);
+    const qb = usePulseColumnStore.getState().byColumn[scopeColumn].quickBuySol;
     setDisplay({ ...disp, density: 'normal', quickBuySol: qb });
-    const sb = COLUMN_SORT_KEYS.includes(row.sort_by as ColumnSortKey)
-      ? (row.sort_by as ColumnSortKey)
+    const sb = COLUMN_SORT_KEYS.includes(activeRow.sort_by as ColumnSortKey)
+      ? (activeRow.sort_by as ColumnSortKey)
       : 'created_at';
     setSortBy(sb);
-    setSortDir(row.sort_dir === 'asc' ? 'asc' : 'desc');
+    setSortDir(activeRow.sort_dir === 'asc' ? 'asc' : 'desc');
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [open, row, presetSlot, resetDraft, columnId]);
+  }, [open, activeRow, scopePresetSlot, resetDraft, scopeColumn, activeChain]);
 
   useEffect(() => {
-    if (!open || tab !== 'display') return;
+    if (!open) return;
+    setFilters((f) => normalizeColumnFilters({ ...f }, activeChain));
+  }, [activeChain, open]);
+
+  useEffect(() => {
+    if (!open || sectionTab !== 'socials' || advancedOpen) return;
     const q = display.quickBuySol;
     const raf = requestAnimationFrame(() => {
       if (q == null || !Number.isFinite(q) || q <= 0) setQuickSolDraft('');
@@ -213,14 +353,32 @@ export function ColumnFilterModal({
       }
     });
     return () => cancelAnimationFrame(raf);
-  }, [open, tab, display.quickBuySol]);
+  }, [open, sectionTab, advancedOpen, display.quickBuySol]);
+
+  const scopeFilterCounts = useMemo(() => {
+    const counts: Record<PulseColumnId, number> = { new: 0, stretch: 0, migrated: 0 };
+    PULSE_COLUMNS.forEach((col, i) => {
+      if (col === scopeColumn) {
+        counts[col] = countActiveColumnFilters(filters, activeChain);
+        return;
+      }
+      const data = scopePresetsQueries[i]?.data;
+      const slot = usePulseColumnStore.getState().byColumn[col].presetSlot;
+      const r = data?.presets?.find((p) => p.preset_slot === slot);
+      const f = r
+        ? normalizeColumnFilters(r.filters, activeChain)
+        : defaultColumnFiltersForChain(activeChain);
+      counts[col] = countActiveColumnFilters(f, activeChain);
+    });
+    return counts;
+  }, [scopeColumn, filters, activeChain, scopePresetsQueries]);
 
   const sharePayload = useMemo((): ColumnPresetSharePayload | null => {
     try {
       return {
         v: 1,
-        column_id: columnId,
-        preset_slot: presetSlot,
+        column_id: scopeColumn,
+        preset_slot: scopePresetSlot,
         name: name.trim() || undefined,
         filters,
         display_options: { ...display, density: 'normal' },
@@ -230,7 +388,7 @@ export function ColumnFilterModal({
     } catch {
       return null;
     }
-  }, [columnId, presetSlot, name, filters, display, sortBy, sortDir]);
+  }, [scopeColumn, scopePresetSlot, name, filters, display, sortBy, sortDir]);
 
   const onKey = useCallback(
     (e: KeyboardEvent) => {
@@ -256,9 +414,9 @@ export function ColumnFilterModal({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          column_id: columnId,
-          preset_slot: presetSlot,
-          name: name.trim() || `P${presetSlot}`,
+          column_id: scopeColumn,
+          preset_slot: scopePresetSlot,
+          name: name.trim() || `P${scopePresetSlot}`,
           filters,
           display_options: { ...display, density: 'normal' },
           sort_by: sortBy,
@@ -278,7 +436,7 @@ export function ColumnFilterModal({
       return json;
     },
     onSuccess: (_, vars) => {
-      void qc.invalidateQueries({ queryKey: ['pulse-column-presets', columnId] });
+      void qc.invalidateQueries({ queryKey: ['pulse-column-presets'] });
       toast.success(vars.applyAll ? 'Applied to all presets' : 'Column preset saved');
       onSaved();
       onClose();
@@ -292,8 +450,8 @@ export function ColumnFilterModal({
 
   const exportJson = useCallback(() => {
     const obj = {
-      column_id: columnId,
-      preset_slot: presetSlot,
+      column_id: scopeColumn,
+      preset_slot: scopePresetSlot,
       name: name.trim(),
       filters,
       display_options: { ...display, density: 'normal' },
@@ -301,10 +459,10 @@ export function ColumnFilterModal({
       sort_dir: sortDir,
     };
     return JSON.stringify(obj, null, 2);
-  }, [columnId, presetSlot, name, filters, display, sortBy, sortDir]);
+  }, [scopeColumn, scopePresetSlot, name, filters, display, sortBy, sortDir]);
 
   const onImport = useCallback(() => {
-    const parsed = parseImportedPresetJson(importText, columnId);
+    const parsed = parseImportedPresetJson(importText, scopeColumn, activeChain);
     if (!parsed) {
       toast.error('Invalid JSON');
       return;
@@ -315,24 +473,24 @@ export function ColumnFilterModal({
     setSortDir(parsed.sort_dir);
     if (parsed.name) setName(parsed.name);
     toast.success('Imported (apply to save)');
-  }, [importText, columnId]);
+  }, [importText, scopeColumn, activeChain]);
 
   const copyShareUrl = useCallback(async () => {
     if (!sharePayload) return;
     const cs = encodeColumnPresetShare(sharePayload);
-    const url = `${window.location.origin}/pulse?col=${encodeURIComponent(columnId)}&cs=${encodeURIComponent(cs)}`;
+    const url = `${window.location.origin}/pulse?col=${encodeURIComponent(scopeColumn)}&cs=${encodeURIComponent(cs)}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success('Share link copied');
     } catch {
       toast.error('Could not copy');
     }
-  }, [sharePayload, columnId]);
+  }, [sharePayload, scopeColumn]);
 
   const onShare = useCallback(async () => {
     if (!sharePayload) return;
     const cs = encodeColumnPresetShare(sharePayload);
-    const url = `${window.location.origin}/pulse?col=${encodeURIComponent(columnId)}&cs=${encodeURIComponent(cs)}`;
+    const url = `${window.location.origin}/pulse?col=${encodeURIComponent(scopeColumn)}&cs=${encodeURIComponent(cs)}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Pointer column preset', url });
@@ -342,7 +500,9 @@ export function ColumnFilterModal({
       /* fall through */
     }
     void copyShareUrl();
-  }, [sharePayload, columnId, copyShareUrl]);
+  }, [sharePayload, scopeColumn, copyShareUrl]);
+
+  const protocolIds = pulseProtocolPresetIdsForChain(activeChain);
 
   if (!open) return null;
 
@@ -352,7 +512,7 @@ export function ColumnFilterModal({
       aria-modal="true"
       aria-labelledby="column-filter-title"
       className={cn(
-        'fixed inset-0 flex animate-in fade-in items-center justify-center bg-black/55 p-4 backdrop-blur-[6px] duration-200',
+        'fixed inset-0 flex animate-in fade-in items-center justify-center bg-black/60 p-4 backdrop-blur-[4px] duration-200',
         Z_APP_MODAL_OVERLAY,
       )}
       onMouseDown={(e) => {
@@ -363,84 +523,83 @@ export function ColumnFilterModal({
     >
       <div
         data-modal-panel
-        className={cn(
-          'relative flex max-h-[92vh] w-full max-w-lg origin-center animate-in zoom-in-95 fade-in flex-col overflow-hidden shadow-[0_24px_80px_-20px_rgba(0,0,0,0.75)] duration-200',
-          'rounded-[11px] border',
-        )}
-        style={{ backgroundColor: FILTER_MODAL_BG, borderColor: FILTER_MODAL_BORDER }}
+        className="relative flex max-h-[90vh] w-[480px] origin-center animate-in zoom-in-95 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0e0e10] shadow-2xl shadow-black/70 duration-200"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-md p-1 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
-          aria-label="Close filters"
-        >
-          <X className="h-4 w-4" />
-        </button>
-        <h2
-          id="column-filter-title"
-          className="border-b px-4 py-3 pr-10 text-[13px] font-semibold tracking-tight text-white"
-          style={{ borderColor: FILTER_MODAL_BORDER }}
-        >
-          Filters · {columnId}
-        </h2>
-
-        <div className="space-y-2 border-b px-4 py-3" style={{ borderColor: FILTER_MODAL_BORDER }}>
-          <label className="block space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-              Preset name
-            </span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="focus-ring w-full rounded-[10px] border bg-transparent px-3 py-2 text-[12px] text-fg-primary outline-none transition focus:border-accent-primary/70"
-              style={{ borderColor: FILTER_MODAL_BORDER, backgroundColor: FILTER_FIELD_BG }}
-            />
-          </label>
-          <div className="flex flex-wrap items-center gap-2 text-[10px] text-fg-muted">
-            <span className="font-medium">Sort</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as ColumnSortKey)}
-              className="focus-ring rounded-[10px] border px-2 py-1.5 text-[11px] text-white outline-none"
-              style={{ borderColor: FILTER_MODAL_BORDER, backgroundColor: FILTER_FIELD_BG }}
-            >
-              {COLUMN_SORT_KEYS.map((k) => (
-                <option key={k} value={k}>
-                  {SORT_LABELS[k]}
-                </option>
-              ))}
-            </select>
-            <select
-              value={sortDir}
-              onChange={(e) => setSortDir(e.target.value === 'asc' ? 'asc' : 'desc')}
-              className="focus-ring rounded-[10px] border px-2 py-1.5 text-[11px] text-white outline-none"
-              style={{ borderColor: FILTER_MODAL_BORDER, backgroundColor: FILTER_FIELD_BG }}
-            >
-              <option value="desc">Desc</option>
-              <option value="asc">Asc</option>
-            </select>
-          </div>
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-4">
+          <h2 id="column-filter-title" className="text-[15px] font-medium text-white">
+            Filters
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-white/40 transition hover:text-white/80"
+            aria-label="Close filters"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="flex shrink-0 gap-1 border-b border-border-subtle px-2 pt-2">
-          {(
-            [
-              ['protocols', 'Protocols'],
-              ['metrics', 'Metrics'],
-              ['social', 'Social'],
-              ['display', 'Display'],
-            ] as const
-          ).map(([id, label]) => (
+        {/* Column scope tabs */}
+        <div className="flex shrink-0 gap-1 border-b border-white/[0.06] px-5 pb-3">
+          {PULSE_COLUMNS.map((col) => {
+            const active = scopeColumn === col;
+            const count = scopeFilterCounts[col];
+            return (
+              <button
+                key={col}
+                type="button"
+                onClick={() => setScopeColumn(col)}
+                className={cn(
+                  'flex items-center gap-1.5 border-b-2 pb-2 text-[12px] font-medium transition-colors',
+                  active ? 'border-white text-white' : 'border-transparent text-white/40 hover:text-white/60',
+                )}
+              >
+                {SCOPE_LABELS[col]}
+                {count > 0 ? (
+                  <span className="rounded-full bg-white/[0.08] px-1.5 text-[10px] tabular-nums text-white/70">
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Keyword row (UI-only until backend supports keywords) */}
+        <div className="grid shrink-0 grid-cols-2 gap-3 px-5 py-3">
+          <label className="flex flex-col">
+            <span className="mb-1 text-[10px] uppercase tracking-wide text-white/40">Search Keywords</span>
+            <input
+              value={searchKeywords}
+              onChange={(e) => setSearchKeywords(e.target.value)}
+              placeholder="keyword1, keyword2..."
+              className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none placeholder:text-white/30 focus:border-white/[0.12]"
+            />
+          </label>
+          <label className="flex flex-col">
+            <span className="mb-1 text-[10px] uppercase tracking-wide text-white/40">Exclude Keywords</span>
+            <input
+              value={excludeKeywords}
+              onChange={(e) => setExcludeKeywords(e.target.value)}
+              placeholder="keyword1, keyword2..."
+              className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none placeholder:text-white/30 focus:border-white/[0.12]"
+            />
+          </label>
+        </div>
+
+        {/* Section tabs */}
+        <div className="flex shrink-0 gap-4 border-b border-white/[0.04] px-5 pt-2">
+          {SECTION_TABS.map(({ id, label }) => (
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => setSectionTab(id)}
               className={cn(
-                'btn-press px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide',
-                tab === id
-                  ? 'border-b-2 border-accent-primary text-accent-primary'
-                  : 'text-fg-muted hover:text-fg-secondary',
+                'pb-2 text-[12.5px] font-medium transition-colors',
+                sectionTab === id
+                  ? 'border-b-2 border-white text-white'
+                  : 'text-white/40 hover:text-white/60',
               )}
             >
               {label}
@@ -448,118 +607,99 @@ export function ColumnFilterModal({
           ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[11px]">
-          {tab === 'protocols' ? (
-            <div className="space-y-3">
+        {/* Scrollable body */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-[11px]">
+          {sectionTab === 'protocols' ? (
+            <div>
+              <p className="mb-3 text-[11px] leading-snug text-white/40">
+                Protocol presets follow the{' '}
+                <span className="font-medium text-white">{quoteNativeSymbol}</span> header chain. Switch chain in
+                the top bar to see other venues.
+              </p>
               <div className="flex flex-wrap gap-2">
-                {PULSE_PROTOCOL_IDS.map((id) => {
-                  const on = filters.protocols.includes(id);
+                {protocolIds.map((id) => {
+                  const protos = filters.protocols as readonly string[];
+                  const on = protos.includes(id);
+                  const label = protocolBrand(id)?.label ?? id;
                   return (
-                    <button
+                    <ProtocolPill
                       key={id}
-                      type="button"
-                      onClick={() => setFilters((f) => ({ ...f, protocols: toggleProtocol(f.protocols, id) }))}
-                      className={cn(
-                        'rounded-full border px-2 py-0.5 text-[10px] font-semibold transition',
-                        on
-                          ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
-                          : 'border-border-subtle text-fg-muted hover:border-border-default',
-                      )}
-                    >
-                      {PROTOCOL_LABEL[id]}
-                    </button>
+                      id={id}
+                      label={label}
+                      selected={on}
+                      onToggle={() =>
+                        setFilters((f) => ({
+                          ...f,
+                          protocols: toggleProtocol(activeChain, f.protocols, id),
+                        }))
+                      }
+                    />
                   );
                 })}
               </div>
-              <div className="flex gap-2">
+              <div className="mt-3 flex gap-3">
                 <button
                   type="button"
-                  className="btn-press rounded-sm border border-border-subtle px-2 py-1 text-fg-secondary"
-                  onClick={() => setFilters((f) => ({ ...f, protocols: [...PULSE_PROTOCOL_IDS] }))}
+                  className="text-[11px] text-white/50 transition hover:text-white/80"
+                  onClick={() =>
+                    setFilters((f) => ({
+                      ...f,
+                      protocols: [...pulseProtocolPresetIdsForChain(activeChain)],
+                    }))
+                  }
                 >
                   Select all
                 </button>
                 <button
                   type="button"
-                  className="btn-press rounded-sm border border-border-subtle px-2 py-1 text-fg-secondary"
+                  className="text-[11px] text-white/50 transition hover:text-white/80"
                   onClick={() => setFilters((f) => ({ ...f, protocols: [] }))}
                 >
                   Unselect all
                 </button>
               </div>
-              <p className="text-[10px] text-fg-muted">Quote token (when data is available)</p>
-              <div className="space-y-1">
-                <Toggle
+
+              <p className="mt-4 mb-2 text-[10px] uppercase tracking-widest text-white/30">Quote Tokens</p>
+              <div className="flex flex-wrap gap-2">
+                <QuotePill
+                  kind="native"
                   label={quoteNativeSymbol}
-                  checked={filters.quoteSol}
-                  onChange={(v) => setFilters((f) => ({ ...f, quoteSol: v }))}
+                  chain={activeChain}
+                  selected={filters.quoteSol}
+                  onToggle={() => setFilters((f) => ({ ...f, quoteSol: !f.quoteSol }))}
                 />
-                <Toggle label="USDC" checked={filters.quoteUsdc} onChange={(v) => setFilters((f) => ({ ...f, quoteUsdc: v }))} />
-                <Toggle label="USD1" checked={filters.quoteUsd1} onChange={(v) => setFilters((f) => ({ ...f, quoteUsd1: v }))} />
+                <QuotePill
+                  kind="usdc"
+                  label="USDC"
+                  chain={activeChain}
+                  selected={filters.quoteUsdc}
+                  onToggle={() => setFilters((f) => ({ ...f, quoteUsdc: !f.quoteUsdc }))}
+                />
+                <QuotePill
+                  kind="usd1"
+                  label="USD1"
+                  chain={activeChain}
+                  selected={filters.quoteUsd1}
+                  onToggle={() => setFilters((f) => ({ ...f, quoteUsd1: !f.quoteUsd1 }))}
+                />
               </div>
             </div>
           ) : null}
 
-          {tab === 'metrics' ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <NumField label="MC min ($)" value={filters.mcMin} onChange={(v) => setFilters((f) => ({ ...f, mcMin: v }))} />
-                <NumField label="MC max ($)" value={filters.mcMax} onChange={(v) => setFilters((f) => ({ ...f, mcMax: v }))} />
-                <NumField label="Liq min ($)" value={filters.liqMin} onChange={(v) => setFilters((f) => ({ ...f, liqMin: v }))} />
-                <NumField label="Liq max ($)" value={filters.liqMax} onChange={(v) => setFilters((f) => ({ ...f, liqMax: v }))} />
-                <NumField
-                  label="Holders min"
-                  value={filters.holdersMin}
-                  onChange={(v) => setFilters((f) => ({ ...f, holdersMin: v }))}
-                />
-                <NumField
-                  label="Holders max"
-                  value={filters.holdersMax}
-                  onChange={(v) => setFilters((f) => ({ ...f, holdersMax: v }))}
-                />
-                <NumField
-                  label="Vol 24h min ($)"
-                  value={filters.vol24hMin}
-                  onChange={(v) => setFilters((f) => ({ ...f, vol24hMin: v }))}
-                />
-                <NumField
-                  label="Vol 24h max ($)"
-                  value={filters.vol24hMax}
-                  onChange={(v) => setFilters((f) => ({ ...f, vol24hMax: v }))}
-                />
-                <NumField
-                  label="Age min (min)"
-                  value={filters.ageMinMinutes}
-                  onChange={(v) => setFilters((f) => ({ ...f, ageMinMinutes: v }))}
-                />
-                <NumField
-                  label="Age max (min)"
-                  value={filters.ageMaxMinutes}
-                  onChange={(v) => setFilters((f) => ({ ...f, ageMaxMinutes: v }))}
-                />
-                <NumField
-                  label="Bonding min %"
-                  value={filters.bondingMinPct}
-                  onChange={(v) => setFilters((f) => ({ ...f, bondingMinPct: v }))}
-                />
-                <NumField
-                  label="Bonding max %"
-                  value={filters.bondingMaxPct}
-                  onChange={(v) => setFilters((f) => ({ ...f, bondingMaxPct: v }))}
-                />
-              </div>
-              <Toggle label="Paid only" checked={filters.paidOnly} onChange={(v) => setFilters((f) => ({ ...f, paidOnly: v }))} />
-              <Toggle
+          {sectionTab === 'audit' ? (
+            <div className="space-y-2">
+              <AuditToggle label="Paid only" checked={filters.paidOnly} onChange={(v) => setFilters((f) => ({ ...f, paidOnly: v }))} />
+              <AuditToggle
                 label="LP locked only"
                 checked={filters.lpLockedOnly}
                 onChange={(v) => setFilters((f) => ({ ...f, lpLockedOnly: v }))}
               />
-              <Toggle
+              <AuditToggle
                 label="Mint authority renounced"
                 checked={filters.mintRenouncedOnly}
                 onChange={(v) => setFilters((f) => ({ ...f, mintRenouncedOnly: v }))}
               />
-              <Toggle
+              <AuditToggle
                 label="Freeze authority renounced"
                 checked={filters.freezeRenouncedOnly}
                 onChange={(v) => setFilters((f) => ({ ...f, freezeRenouncedOnly: v }))}
@@ -567,19 +707,68 @@ export function ColumnFilterModal({
             </div>
           ) : null}
 
-          {tab === 'social' ? (
+          {sectionTab === 'metrics' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <NumField label="MC min ($)" value={filters.mcMin} onChange={(v) => setFilters((f) => ({ ...f, mcMin: v }))} />
+              <NumField label="MC max ($)" value={filters.mcMax} onChange={(v) => setFilters((f) => ({ ...f, mcMax: v }))} />
+              <NumField label="Liq min ($)" value={filters.liqMin} onChange={(v) => setFilters((f) => ({ ...f, liqMin: v }))} />
+              <NumField label="Liq max ($)" value={filters.liqMax} onChange={(v) => setFilters((f) => ({ ...f, liqMax: v }))} />
+              <NumField
+                label="Holders min"
+                value={filters.holdersMin}
+                onChange={(v) => setFilters((f) => ({ ...f, holdersMin: v }))}
+              />
+              <NumField
+                label="Holders max"
+                value={filters.holdersMax}
+                onChange={(v) => setFilters((f) => ({ ...f, holdersMax: v }))}
+              />
+              <NumField
+                label="Vol 24h min ($)"
+                value={filters.vol24hMin}
+                onChange={(v) => setFilters((f) => ({ ...f, vol24hMin: v }))}
+              />
+              <NumField
+                label="Vol 24h max ($)"
+                value={filters.vol24hMax}
+                onChange={(v) => setFilters((f) => ({ ...f, vol24hMax: v }))}
+              />
+              <NumField
+                label="Age min (min)"
+                value={filters.ageMinMinutes}
+                onChange={(v) => setFilters((f) => ({ ...f, ageMinMinutes: v }))}
+              />
+              <NumField
+                label="Age max (min)"
+                value={filters.ageMaxMinutes}
+                onChange={(v) => setFilters((f) => ({ ...f, ageMaxMinutes: v }))}
+              />
+              <NumField
+                label="Bonding min %"
+                value={filters.bondingMinPct}
+                onChange={(v) => setFilters((f) => ({ ...f, bondingMinPct: v }))}
+              />
+              <NumField
+                label="Bonding max %"
+                value={filters.bondingMaxPct}
+                onChange={(v) => setFilters((f) => ({ ...f, bondingMaxPct: v }))}
+              />
+            </div>
+          ) : null}
+
+          {sectionTab === 'socials' ? (
             <div className="space-y-2">
-              <Toggle
+              <AuditToggle
                 label="Has Twitter"
                 checked={filters.hasTwitter}
                 onChange={(v) => setFilters((f) => ({ ...f, hasTwitter: v }))}
               />
-              <Toggle
+              <AuditToggle
                 label="Has Telegram"
                 checked={filters.hasTelegram}
                 onChange={(v) => setFilters((f) => ({ ...f, hasTelegram: v }))}
               />
-              <Toggle
+              <AuditToggle
                 label="Has website"
                 checked={filters.hasWebsite}
                 onChange={(v) => setFilters((f) => ({ ...f, hasWebsite: v }))}
@@ -591,22 +780,95 @@ export function ColumnFilterModal({
               />
             </div>
           ) : null}
+        </div>
 
-          {tab === 'display' ? (
-            <div className="space-y-2">
+        {/* Advanced (preset name, sort, display, JSON) */}
+        <div className="shrink-0 border-t border-white/[0.06]">
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((v) => !v)}
+            className="flex w-full items-center justify-between px-5 py-2.5 text-[11px] text-white/40 transition hover:text-white/60"
+          >
+            <span className="uppercase tracking-widest">Advanced</span>
+            <ChevronDown className={cn('h-3.5 w-3.5 transition', advancedOpen && 'rotate-180')} />
+          </button>
+          {advancedOpen ? (
+            <div className="max-h-[200px] space-y-3 overflow-y-auto border-t border-white/[0.04] px-5 py-3">
+              <label className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-white/40">Preset name</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none"
+                />
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] text-white/40">Sort</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as ColumnSortKey)}
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
+                >
+                  {COLUMN_SORT_KEYS.map((k) => (
+                    <option key={k} value={k}>
+                      {SORT_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={sortDir}
+                  onChange={(e) => setSortDir(e.target.value === 'asc' ? 'asc' : 'desc')}
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
+                >
+                  <option value="desc">Desc</option>
+                  <option value="asc">Asc</option>
+                </select>
+              </div>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="Paste JSON to import..."
+                className="h-16 w-full resize-y rounded-lg border border-white/[0.06] bg-white/[0.04] p-2 text-[10px] text-white/80 outline-none"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-white/[0.06] px-2 py-1 text-[10px] text-white/50 hover:text-white/80"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(exportJson()).catch(() => toast.error('Copy failed'));
+                    toast.success('Exported JSON copied');
+                  }}
+                >
+                  Export JSON
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-white/[0.06] px-2 py-1 text-[10px] text-white/50 hover:text-white/80"
+                  onClick={onImport}
+                >
+                  Import
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded-lg border border-white/[0.06] px-2 py-1 text-[10px] text-white/50 hover:text-white/80"
+                  onClick={() => void copyShareUrl()}
+                >
+                  Copy link
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <Toggle label="Show MC" checked={display.showMc} onChange={(v) => setDisplay((d) => ({ ...d, showMc: v }))} />
-                <Toggle label="Show LIQ" checked={display.showLiq} onChange={(v) => setDisplay((d) => ({ ...d, showLiq: v }))} />
-                <Toggle label="Show VOL" checked={display.showVol} onChange={(v) => setDisplay((d) => ({ ...d, showVol: v }))} />
-                <Toggle
+                <AuditToggle label="Show MC" checked={display.showMc} onChange={(v) => setDisplay((d) => ({ ...d, showMc: v }))} />
+                <AuditToggle label="Show LIQ" checked={display.showLiq} onChange={(v) => setDisplay((d) => ({ ...d, showLiq: v }))} />
+                <AuditToggle label="Show VOL" checked={display.showVol} onChange={(v) => setDisplay((d) => ({ ...d, showVol: v }))} />
+                <AuditToggle
                   label="Show TX (1h)"
                   checked={display.showHolders}
                   onChange={(v) => setDisplay((d) => ({ ...d, showHolders: v }))}
                 />
-                <Toggle label="Show dev" checked={display.showDev} onChange={(v) => setDisplay((d) => ({ ...d, showDev: v }))} />
+                <AuditToggle label="Show dev" checked={display.showDev} onChange={(v) => setDisplay((d) => ({ ...d, showDev: v }))} />
               </div>
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase text-fg-muted">
+                <span className="text-[10px] uppercase text-white/40">
                   Quick buy ({quoteNativeSymbol}) — this column only
                 </span>
                 <input
@@ -619,197 +881,84 @@ export function ColumnFilterModal({
                     const n = parseFloat(raw);
                     if (Number.isFinite(n) && n > 0) {
                       setDisplay((d) => ({ ...d, quickBuySol: n }));
-                      setQuickBuySol(columnId, n);
+                      setQuickBuySol(scopeColumn, n);
                     }
                   }}
-                  className="focus-ring border border-border-subtle bg-transparent px-2 py-1 font-sans text-[12px] font-medium tabular-nums text-fg-primary"
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase text-fg-muted">Quick buy button</span>
+                <span className="text-[10px] uppercase text-white/40">Quick buy button</span>
                 <select
                   value={display.buyButtonStyle}
                   onChange={(e) => {
                     const v = e.target.value as BuyButtonStyle;
                     setDisplay((d) => ({ ...d, buyButtonStyle: v }));
-                    setBuyButtonStyle(columnId, v);
+                    setBuyButtonStyle(scopeColumn, v);
                   }}
-                  className="focus-ring border border-border-subtle bg-bg-base px-2 py-1 text-fg-primary"
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
                 >
                   {BUY_BUTTON_STYLES.map((s) => (
                     <option key={s} value={s}>
-                      {s === 'small'
-                        ? 'Small — stacked V / MC, compact pill'
-                        : s === 'medium'
-                          ? 'Medium'
-                          : s === 'large'
-                            ? 'Large'
-                            : 'Ultra (green frame = tap to buy)'}
+                      {s}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase text-fg-muted">
-                  Second button (left of primary)
-                </span>
+                <span className="text-[10px] uppercase text-white/40">Second button</span>
                 <select
                   value={display.pulseSecondButton}
                   onChange={(e) => {
                     const v = e.target.value as PulseSecondButtonMode;
                     setDisplay((d) => ({ ...d, pulseSecondButton: v }));
                   }}
-                  className="focus-ring border border-border-subtle bg-bg-base px-2 py-1 text-fg-primary"
+                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
                 >
                   {PULSE_SECOND_BUTTON_MODES.map((m) => (
                     <option key={m} value={m}>
-                      {m === 'none'
-                        ? 'Off'
-                        : m === 'buy'
-                          ? `Second buy (separate ${quoteNativeSymbol} amount)`
-                          : 'Quick sell (% of balance)'}
+                      {m}
                     </option>
                   ))}
                 </select>
               </label>
-              {display.pulseSecondButton === 'buy' ? (
-                <label className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase text-fg-muted">
-                    Second buy amount ({quoteNativeSymbol})
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={
-                      display.secondQuickBuySol != null && Number.isFinite(display.secondQuickBuySol)
-                        ? display.secondQuickBuySol.toFixed(8).replace(/\.?0+$/, '')
-                        : ''
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/,/g, '.');
-                      const n = parseFloat(raw);
-                      if (Number.isFinite(n) && n > 0) {
-                        setDisplay((d) => ({ ...d, secondQuickBuySol: n }));
-                      }
-                    }}
-                    className="focus-ring border border-border-subtle bg-transparent px-2 py-1 font-sans text-[12px] font-medium tabular-nums text-fg-primary"
-                  />
-                </label>
-              ) : null}
-              {display.pulseSecondButton === 'sell_pct' ? (
-                <NumField
-                  label="Sell portion (%)"
-                  value={display.secondSellPct}
-                  onChange={(v) =>
-                    setDisplay((d) => ({
-                      ...d,
-                      secondSellPct:
-                        v != null && v >= 1 && v <= 100 ? Math.round(v) : d.secondSellPct,
-                    }))
-                  }
-                  suffix="1–100"
-                />
-              ) : null}
-              <Toggle
-                label="Show risk flags"
-                checked={display.showRiskFlags}
-                onChange={(v) => setDisplay((d) => ({ ...d, showRiskFlags: v }))}
-              />
-              <Toggle
-                label="Show bonding ring"
-                checked={display.showBondingRing}
-                onChange={(v) => setDisplay((d) => ({ ...d, showBondingRing: v }))}
-              />
-              <Toggle
-                label="Show launchpad badge"
-                checked={display.showLaunchpadBadge}
-                onChange={(v) => setDisplay((d) => ({ ...d, showLaunchpadBadge: v }))}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDisplay((d) => ({ ...d, mcLayout: 'strip' }))}
-                  className={cn(
-                    'rounded-sm border px-2 py-1.5 text-[11px] transition',
-                    display.mcLayout === 'strip'
-                      ? 'border-accent-primary/40 bg-accent-primary/10 text-fg-primary'
-                      : 'border-border-subtle text-fg-secondary',
-                  )}
-                >
-                  MC compact
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDisplay((d) => ({ ...d, mcLayout: 'hero' }))}
-                  className={cn(
-                    'rounded-sm border px-2 py-1.5 text-[11px] transition',
-                    display.mcLayout === 'hero'
-                      ? 'border-accent-primary/40 bg-accent-primary/10 text-fg-primary'
-                      : 'border-border-subtle text-fg-secondary',
-                  )}
-                >
-                  MC large
-                </button>
-              </div>
-              <Toggle
-                label="Pump frame (on-curve)"
-                checked={display.showPumpFrame}
-                onChange={(v) => setDisplay((d) => ({ ...d, showPumpFrame: v }))}
-              />
-              <Toggle
-                label="Trait icons (cashback / agent / fee share)"
-                checked={display.showTraitIcons}
-                onChange={(v) => setDisplay((d) => ({ ...d, showTraitIcons: v }))}
-              />
             </div>
           ) : null}
         </div>
 
-        <div className="space-y-2 border-t border-border-subtle bg-bg-base px-4 py-3">
-          <textarea
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-            placeholder="Paste JSON to import..."
-            className="focus-ring h-16 w-full resize-y border border-border-subtle bg-transparent p-2 tabular-nums text-[10px] text-fg-primary"
-          />
-          <div className="flex flex-wrap gap-2">
+        {/* Footer */}
+        <div className="flex shrink-0 items-center justify-between border-t border-white/[0.06] px-5 py-4">
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              className="btn-press rounded-sm border border-border-subtle px-2 py-1 text-[10px] text-fg-secondary"
-              onClick={() => {
-                void navigator.clipboard.writeText(exportJson()).catch(() => toast.error('Copy failed'));
-                toast.success('Exported JSON copied');
-              }}
-            >
-              Export JSON
-            </button>
-            <button
-              type="button"
-              className="btn-press rounded-sm border border-border-subtle px-2 py-1 text-[10px] text-fg-secondary"
+              className="rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
               onClick={onImport}
             >
               Import
             </button>
             <button
               type="button"
-              className="btn-press flex items-center gap-1 rounded-sm border border-border-subtle px-2 py-1 text-[10px] text-fg-secondary"
+              className="rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
+              onClick={() => {
+                void navigator.clipboard.writeText(exportJson()).catch(() => toast.error('Copy failed'));
+                toast.success('Exported JSON copied');
+              }}
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
               onClick={() => void onShare()}
             >
               <Share2 className="h-3 w-3" />
               Share
             </button>
-            <button
-              type="button"
-              className="btn-press rounded-sm border border-border-subtle px-2 py-1 text-[10px] text-fg-secondary"
-              onClick={() => void copyShareUrl()}
-            >
-              Copy link
-            </button>
           </div>
-          <div className="flex flex-wrap justify-end gap-2 border-t border-border-subtle pt-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="btn-press rounded-sm border border-border-subtle px-3 py-1.5 text-[11px] text-fg-secondary"
+              className="rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
               onClick={resetDraft}
             >
               Reset
@@ -817,24 +966,16 @@ export function ColumnFilterModal({
             <button
               type="button"
               disabled={!authenticated || saveOne.isPending}
-              className="btn-press rounded-sm border border-border-subtle px-3 py-1.5 text-[11px] text-fg-secondary disabled:opacity-50"
+              className="rounded-full bg-[#7c5cff] px-5 py-2 text-[13px] font-medium text-white transition hover:bg-[#8a6dff] disabled:opacity-50"
               onClick={() => saveOne.mutate({ applyAll: true })}
             >
-              Apply all slots
-            </button>
-            <button
-              type="button"
-              disabled={!authenticated || saveOne.isPending}
-              className="btn-press rounded-sm bg-accent-primary px-3 py-1.5 text-[11px] font-medium text-fg-inverse disabled:opacity-50"
-              onClick={() => saveOne.mutate({ applyAll: false })}
-            >
-              Apply
+              Apply All
             </button>
           </div>
-          {!authenticated ? (
-            <p className="text-[10px] text-fg-muted">Sign in to save column presets to your account.</p>
-          ) : null}
         </div>
+        {!authenticated ? (
+          <p className="px-5 pb-3 text-center text-[10px] text-white/35">Sign in to save column presets.</p>
+        ) : null}
       </div>
     </div>
   );

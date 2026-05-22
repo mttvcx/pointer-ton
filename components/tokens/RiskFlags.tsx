@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Flame, Key, Snowflake, Users } from 'lucide-react';
+import { Key, Snowflake, Users } from 'lucide-react';
 import type { Tables } from '@/lib/supabase/types';
 import { cn } from '@/lib/utils/cn';
 
@@ -54,8 +54,8 @@ export function RiskFlags({
   if (snapshot?.holder_count != null && snapshot.holder_count < 25) {
     flags.push({
       key: 'thin',
-      icon: <Flame className="h-3 w-3" strokeWidth={2.25} />,
-      title: `Only ${snapshot.holder_count} holders.`,
+      icon: <Users className="h-3 w-3" strokeWidth={2.25} />,
+      title: `Only ${snapshot.holder_count} holders — thin distribution.`,
       tone: 'warn',
     });
   }

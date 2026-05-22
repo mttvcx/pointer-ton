@@ -4,7 +4,7 @@ import { getHeliusRpcUrl } from '@/lib/utils/constants';
 
 let _connection: Connection | null = null;
 
-/** Shared JSON-RPC connection to Helius (or `SOLANA_RPC_URL` override). */
+/** Shared JSON-RPC connection to Helius (`HELIUS_API_KEY` → mainnet.helius-rpc.com). */
 export function getConnection(commitment: Commitment = 'confirmed'): Connection {
   if (!_connection) {
     _connection = new Connection(getHeliusRpcUrl(), {

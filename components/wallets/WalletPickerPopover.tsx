@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Wallet as WalletIcon } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -13,6 +14,7 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { Z_BOTTOM_BAR_POPOVER } from '@/lib/ui/zLayers';
 
 interface WalletPickerPopoverProps {
   className?: string;
@@ -25,6 +27,7 @@ const PANEL_GAP = 8;
 /** Bottom-bar wallet multi-picker (reads `/api/wallets/my`, toggles trading-store shortlist). */
 export function WalletPickerPopover({ className, children }: WalletPickerPopoverProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -59,6 +62,10 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
   }, [walletsQ.data?.wallets]);
 
   const selected = useMemo(() => new Set(shortlist), [shortlist]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -130,19 +137,23 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
         {children}
       </button>
 
-      {open && coords ? (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-label="Select wallets"
-          style={{
-            position: 'fixed',
-            left: `${coords.left}px`,
-            bottom: `${coords.bottom}px`,
-            width: `${PANEL_W}px`,
-          }}
-          className="z-[1000] rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-2xl"
-        >
+      {mounted && open && coords
+        ? createPortal(
+            <div
+              ref={panelRef}
+              role="dialog"
+              aria-label="Select wallets"
+              style={{
+                position: 'fixed',
+                left: `${coords.left}px`,
+                bottom: `${coords.bottom}px`,
+                width: `${PANEL_W}px`,
+              }}
+              className={cn(
+                Z_BOTTOM_BAR_POPOVER,
+                'rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-2xl',
+              )}
+            >
           <div className="mb-3 flex gap-2">
             <button
               type="button"
@@ -247,8 +258,10 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
               Clear
             </button>
           </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

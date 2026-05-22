@@ -52,6 +52,25 @@ export function formatPriceUsd(value: number | null | undefined): string {
   return `$${sig}`;
 }
 
+/**
+ * Compact native balance (SOL, etc.) for nav trigger and wallet popover.
+ * Pass a UI float in SOL — not lamports. For lamports use {@link formatSolFromLamports}.
+ */
+export function formatSol(amount: number): string {
+  if (amount === 0) return '0';
+  if (amount >= 100) return amount.toFixed(1).replace(/\.0$/, '');
+  if (amount >= 1) return amount.toFixed(2).replace(/\.?0+$/, '');
+  return parseFloat(amount.toPrecision(4)).toString();
+}
+
+/** Lamports → compact SOL string (same rules as {@link formatSol}). */
+export function formatSolFromLamports(
+  lamports: number | bigint | null | undefined,
+): string {
+  if (lamports == null) return EMPTY;
+  return formatSol(lamportsToSol(lamports));
+}
+
 export function formatNumber(
   value: number | null | undefined,
   opts: { decimals?: number; compact?: boolean } = {},
@@ -123,7 +142,7 @@ export function solToLamports(sol: number): bigint {
   return BigInt(Math.round(sol * LAMPORTS_PER_SOL));
 }
 
-export function formatSol(
+export function formatTonFromLamports(
   lamports: number | bigint | null | undefined,
   opts: { decimals?: number } = {},
 ): string {
@@ -143,11 +162,14 @@ export function formatRelativeTime(value: Date | string | number | null | undefi
 }
 
 /** "12s" / "4m" / "2h" / "3d" - compact age column for token rows. */
-export function formatAgeShort(value: Date | string | number | null | undefined): string {
+export function formatAgeShort(
+  value: Date | string | number | null | undefined,
+  nowMs: number = Date.now(),
+): string {
   if (value == null) return EMPTY;
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return EMPTY;
-  const sec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  const sec = Math.max(0, Math.floor((nowMs - date.getTime()) / 1000));
   if (sec < 60) return `${sec}s`;
   if (sec < 3_600) return `${Math.floor(sec / 60)}m`;
   if (sec < 86_400) return `${Math.floor(sec / 3_600)}h`;

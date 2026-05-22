@@ -5,7 +5,7 @@ import {
   migrateLegacyPulseProtocols,
 } from '@/lib/tokens/columnPresetModel';
 
-export const ALERT_RULE_TYPES = ['pulse_launchpad', 'sol_twitter_listen'] as const;
+export const ALERT_RULE_TYPES = ['pulse_launchpad', 'sol_twitter_listen', 'automation'] as const;
 export type AlertRuleType = (typeof ALERT_RULE_TYPES)[number];
 
 export const ALERT_TYPE_ALERT_RULE = 'alert_rule' as const;
@@ -35,7 +35,9 @@ export const SolTwitterListenRuleConfigSchema = z
     handles: z.array(z.string().trim().min(1).max(72)).min(1).max(64),
     phrases: z.array(z.string().trim().min(1).max(200)).max(64),
     phraseMatch: z.enum(['substring', 'whole_word']).optional(),
-    execution: z.enum(['notify', 'auto_buy']).optional(),
+    execution: z.enum(['notify', 'auto_buy', 'auto_launch']).optional(),
+    launchMode: z.enum(['manual', 'ai']).optional(),
+    launchBuySol: z.number().positive().max(420).nullable().optional(),
     /**
      * How to resolve a mint when the post includes media URLs:
      * - off: caption + regular links only (legacy behaviour).

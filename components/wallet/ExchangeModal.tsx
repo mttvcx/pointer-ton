@@ -15,6 +15,7 @@ import {
   DEPOSIT_ACCEPTING_SYMBOLS,
   ONRAMPER_HREF,
 } from '@/components/wallet/walletFundingConstants';
+import { WithdrawSendPanel } from '@/components/wallet/WithdrawSendPanel';
 
 const QRCodeSVG = dynamic(() => import('react-qr-code').then((m) => m.default), { ssr: false });
 
@@ -39,13 +40,14 @@ function depositQrAccentClass(chain: AppChainId): string {
   }
 }
 
-export type ExchangeTab = 'convert' | 'deposit' | 'buy';
+export type ExchangeTab = 'convert' | 'deposit' | 'withdraw' | 'buy';
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialTab?: ExchangeTab;
   walletAddress: string | null;
+  nativeBalance?: number | null;
   onOpenDepositHistory: () => void;
 };
 
@@ -54,6 +56,7 @@ export function ExchangeModal({
   onOpenChange,
   initialTab = 'deposit',
   walletAddress,
+  nativeBalance = null,
   onOpenDepositHistory,
 }: Props) {
   const [tab, setTab] = useState<ExchangeTab>(initialTab);
@@ -124,7 +127,7 @@ export function ExchangeModal({
 
         <div className="shrink-0 p-2">
           <div className="flex rounded-lg border border-[#1b1f2a] bg-[#12141b] p-0.5">
-            {(['convert', 'deposit', 'buy'] as const).map((id) => (
+            {(['convert', 'deposit', 'withdraw', 'buy'] as const).map((id) => (
               <button
                 key={id}
                 type="button"
@@ -136,7 +139,13 @@ export function ExchangeModal({
                     : 'text-[#6b7280] hover:text-[#d1d5db]',
                 )}
               >
-                {id === 'deposit' ? 'Deposit' : id === 'convert' ? 'Convert' : 'Buy'}
+                {id === 'deposit'
+                  ? 'Deposit'
+                  : id === 'withdraw'
+                    ? 'Withdraw'
+                    : id === 'convert'
+                      ? 'Convert'
+                      : 'Buy'}
               </button>
             ))}
           </div>
@@ -150,6 +159,14 @@ export function ExchangeModal({
                 external wallet, or move funds on another venue and send to your Pointer address.
               </p>
             </div>
+          ) : null}
+          {tab === 'withdraw' ? (
+            <WithdrawSendPanel
+              activeChain={activeChain}
+              walletAddress={walletAddress}
+              nativeBalance={nativeBalance}
+              onClose={() => onOpenChange(false)}
+            />
           ) : null}
           {tab === 'buy' ? (
             <div className="space-y-4 py-2">

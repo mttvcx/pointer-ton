@@ -5,6 +5,14 @@ import {
   PulseLaunchpadRuleConfigSchema,
   SolTwitterListenRuleConfigSchema,
 } from '@/lib/alerts/alertRuleModel';
+import {
+  AUTOMATION_TRIGGER_TYPES,
+  AUTOMATION_ACTION_TYPES,
+  ActivityFilterSchema,
+  automationRuleToDto,
+  validateAutomationRuleBody,
+  type AutomationRuleBody,
+} from '@/lib/alerts/automationRuleModel';
 import { deleteAlertRule, getAlertRuleForUser, updateAlertRule } from '@/lib/db/alertRules';
 import type { Json } from '@/lib/supabase/types';
 
@@ -15,6 +23,14 @@ const patchSchema = z
   .object({
     name: z.string().trim().min(1).max(80).optional(),
     ruleConfig: z.unknown().optional(),
+    triggerType: z.enum(AUTOMATION_TRIGGER_TYPES).optional(),
+    triggerConfig: z.unknown().optional(),
+    actionType: z.enum(AUTOMATION_ACTION_TYPES).optional(),
+    actionConfig: z.unknown().optional(),
+    activityFilter: ActivityFilterSchema.optional(),
+    disableAfterSuccess: z.boolean().optional(),
+    cooldownSeconds: z.number().int().min(0).max(86_400).optional(),
+    dailyCapSol: z.number().positive().max(1_000_000).nullable().optional(),
     flashEnabled: z.boolean().optional(),
     flashColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     flashSize: z.enum(['normal', 'large']).optional(),
@@ -24,23 +40,6 @@ const patchSchema = z
     isActive: z.boolean().optional(),
   })
   .strict();
-
-function toDto(r: NonNullable<Awaited<ReturnType<typeof getAlertRuleForUser>>>) {
-  return {
-    id: r.id,
-    name: r.name,
-    ruleType: r.rule_type,
-    ruleConfig: r.rule_config,
-    flashEnabled: r.flash_enabled,
-    flashColor: r.flash_color,
-    flashSize: r.flash_size,
-    audioEnabled: r.audio_enabled,
-    audioUrl: r.audio_url,
-    audioPreset: r.audio_preset,
-    isActive: r.is_active,
-    createdAt: r.created_at,
-  };
-}
 
 export async function PATCH(
   req: NextRequest,
@@ -68,9 +67,11 @@ export async function PATCH(
   }
 
   const p = parsed.data;
+  const isAutomation =
+    existing.rule_type === 'automation' || p.triggerType != null || p.actionType != null;
 
   let validatedRuleConfig: Json | undefined;
-  if (p.ruleConfig !== undefined) {
+  if (p.ruleConfig !== undefined && !isAutomation) {
     if (existing.rule_type === 'pulse_launchpad') {
       const cfg = PulseLaunchpadRuleConfigSchema.safeParse(p.ruleConfig);
       if (!cfg.success) {
@@ -88,10 +89,45 @@ export async function PATCH(
     }
   }
 
+  let automationPatch: Record<string, unknown> = {};
+  if (isAutomation) {
+    const dto = automationRuleToDto(existing);
+    const merged: AutomationRuleBody = {
+      name: p.name ?? existing.name,
+      triggerType: (p.triggerType ?? dto.triggerType) as AutomationRuleBody['triggerType'],
+      triggerConfig: p.triggerConfig ?? dto.triggerConfig,
+      actionType: (p.actionType ?? dto.actionType) as AutomationRuleBody['actionType'],
+      actionConfig: p.actionConfig ?? dto.actionConfig,
+      activityFilter: p.activityFilter ?? (dto.activityFilter as AutomationRuleBody['activityFilter']),
+      disableAfterSuccess: p.disableAfterSuccess ?? dto.disableAfterSuccess,
+      cooldownSeconds: p.cooldownSeconds ?? dto.cooldownSeconds,
+      dailyCapSol: p.dailyCapSol !== undefined ? p.dailyCapSol : dto.dailyCapSol,
+    };
+    if (!merged.triggerType || !merged.actionType) {
+      return NextResponse.json({ error: 'invalid_automation_rule' }, { status: 400 });
+    }
+    const validated = validateAutomationRuleBody(merged);
+    if (!validated) {
+      return NextResponse.json({ error: 'invalid_trigger_or_action_config' }, { status: 400 });
+    }
+    automationPatch = {
+      rule_type: 'automation',
+      trigger_type: merged.triggerType,
+      trigger_config: validated.triggerConfig as Json,
+      action_type: merged.actionType,
+      action_config: validated.actionConfig as Json,
+      activity_filter: validated.activityFilter as Json,
+      disable_after_success: merged.disableAfterSuccess ?? false,
+      cooldown_seconds: merged.cooldownSeconds ?? 0,
+      daily_cap_sol: merged.dailyCapSol ?? null,
+    };
+  }
+
   try {
     const row = await updateAlertRule(auth.user.id, id, {
       ...(p.name != null ? { name: p.name } : {}),
       ...(validatedRuleConfig != null ? { rule_config: validatedRuleConfig } : {}),
+      ...automationPatch,
       ...(p.flashEnabled != null ? { flash_enabled: p.flashEnabled } : {}),
       ...(p.flashColor != null ? { flash_color: p.flashColor } : {}),
       ...(p.flashSize != null ? { flash_size: p.flashSize } : {}),
@@ -100,7 +136,7 @@ export async function PATCH(
       ...(p.audioPreset != null ? { audio_preset: p.audioPreset } : {}),
       ...(p.isActive != null ? { is_active: p.isActive } : {}),
     });
-    return NextResponse.json({ rule: toDto(row) });
+    return NextResponse.json({ rule: automationRuleToDto(row) });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'update_failed';
     return NextResponse.json({ error: msg }, { status: 500 });

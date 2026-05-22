@@ -29,14 +29,7 @@ export function LaunchpadSubBadges({
   type Item = { key: string; label: string; title: string; cls: string };
   const items: Item[] = [];
 
-  if (migrated) {
-    items.push({
-      key: 'dex',
-      label: 'DEX',
-      title: 'Graduated - trading on DEX',
-      cls: 'border-amber-400/35 bg-amber-400/10 text-amber-200/90',
-    });
-  } else if (fillPct != null && fillPct > 0 && fillPct < 99.5) {
+  if (!migrated && fillPct != null && fillPct > 0 && fillPct < 99.5) {
     items.push({
       key: 'bc',
       label: `${Math.round(fillPct)}%`,

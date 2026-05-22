@@ -51,6 +51,9 @@ function filenameBase(token: string, wallet: string) {
 
 export function PnlShareComposer() {
   const open = useWalletIntelStore((s) => s.shareOpen);
+  const shareKind = useWalletIntelStore((s) => s.shareKind);
+  const shareHeader = useWalletIntelStore((s) => s.shareHeader);
+  const shareCalendarCurrency = useWalletIntelStore((s) => s.shareCalendarCurrency);
   const payload = useWalletIntelStore((s) => s.sharePayload);
   const close = useWalletIntelStore((s) => s.closeShare);
 
@@ -70,6 +73,11 @@ export function PnlShareComposer() {
 
   const composer = useShareComposerState();
   const { authenticated, getAccessToken } = usePointerAuth();
+
+  useEffect(() => {
+    if (!open || shareKind !== 'monthly' || !shareCalendarCurrency) return;
+    composer.setChainTicker(shareCalendarCurrency === 'sol' ? 'SOL' : 'USD');
+  }, [open, shareKind, shareCalendarCurrency, composer.setChainTicker]);
   const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
   const [customVideoUrl, setCustomVideoUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<'png' | 'copy' | 'video' | null>(null);
@@ -243,7 +251,9 @@ export function PnlShareComposer() {
         : { kind: 'usd', value: displayPayloadStable.pnlUsd };
 
   const shareAmountRevealKey = displayPayloadStable
-    ? `${displayPayloadStable.walletAddress}|${displayPayloadStable.tokenTicker}|${composer.chainTicker}|${displayPayloadStable.pnlUsd ?? ''}`
+    ? shareKind === 'monthly' && shareHeader
+      ? `${shareHeader}|${composer.chainTicker}|${displayPayloadStable.pnlUsd ?? ''}`
+      : `${displayPayloadStable.walletAddress}|${displayPayloadStable.tokenTicker}|${composer.chainTicker}|${displayPayloadStable.pnlUsd ?? ''}`
     : '';
 
   const onDownloadPng = async () => {
@@ -251,7 +261,12 @@ export function PnlShareComposer() {
     if (!cardRef.current || !p) return;
     setBusy('png');
     try {
-      await exportShareImagePng(cardRef.current, `${filenameBase(p.tokenTicker, p.walletAddress)}.png`);
+      await exportShareImagePng(
+        cardRef.current,
+        shareKind === 'monthly' && shareHeader
+          ? `pointer-monthly-pnl-${shareHeader.replace(/\s+/g, '-').toLowerCase()}.png`
+          : `${filenameBase(p.tokenTicker, p.walletAddress)}.png`,
+      );
       toast.success('PNG downloaded');
     } catch {
       toast.error('Could not export image');
@@ -371,10 +386,12 @@ export function PnlShareComposer() {
         <div className="flex items-center justify-between gap-3 border-b border-white/[0.065] px-5 py-3.5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-fg-muted">
-              PNL Share Composer
+              {shareKind === 'monthly' ? 'Share Monthly PNL' : 'PNL Share Composer'}
             </p>
             <p className="mt-1 text-[12px] text-fg-secondary">
-              {d.tokenTicker} · {shortenAddress(d.walletAddress, 5)}
+              {shareKind === 'monthly' && shareHeader
+                ? shareHeader
+                : `${d.tokenTicker} · ${shortenAddress(d.walletAddress, 5)}`}
             </p>
           </div>
           <button

@@ -7,18 +7,25 @@ import { Eye, Loader2, Zap } from 'lucide-react';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
 import { PulseRowVolMc } from '@/components/tokens/PulseRowVolMc';
 import { PulseRowAxiomSpriteStrip } from '@/components/tokens/PulseRowAxiomSpriteStrip';
-import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
+import { PulseRowBondingHoverTag } from '@/components/tokens/PulseRowBondingHoverTag';
+import { PulseMayhemTimerBadge } from '@/components/tokens/PulseMayhemTimerBadge';
+import { PulseTokenAvatarHover } from '@/components/tokens/PulseTokenAvatarHover';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
-import { RiskFlags } from '@/components/tokens/RiskFlags';
+import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { syntheticPulseVolMc } from '@/lib/dev/demoTokenFixtures';
 import type { BuyButtonStyle, ColumnDisplayOptions } from '@/lib/tokens/columnPresetModel';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
-import { getPulseBnbGoldSubtitle } from '@/lib/tokens/pulseBnbGoldSubtitle';
+import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
+import { resolveLaunchpadAvatarChrome } from '@/lib/tokens/launchpadAvatarChrome';
+import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
+import { resolvePulseTranslationGloss } from '@/lib/translate/pulseTranslationGloss';
+import { useAutoTranslateStore } from '@/store/autoTranslate';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatAgeShort } from '@/lib/utils/formatters';
+import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { cn } from '@/lib/utils/cn';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useUIStore } from '@/store/ui';
@@ -90,10 +97,30 @@ export function TokenRow({
   const ticker = token.symbol ?? '???';
   const name = token.name ?? 'Unknown';
 
-  const goldSubtitle = useMemo(() => {
-    if (activeChain !== 'bnb') return null;
-    return getPulseBnbGoldSubtitle(token);
-  }, [activeChain, token]);
+  /**
+   * Latin gloss line under non-Latin Pulse identities — applies to **every chain**
+   * now (Hebrew, Arabic, CJK, Cyrillic, Devanagari, Thai, Hangul, …), not just BNB.
+   */
+  const autoTranslate = useAutoTranslateStore();
+  const translationGloss = useMemo(
+    () => resolvePulseTranslationGloss(token, autoTranslate),
+    [
+      token,
+      autoTranslate.enabled,
+      autoTranslate.translateAllLanguages,
+      autoTranslate.selectedLanguageIds,
+    ],
+  );
+
+  const translationGlossVisible =
+    Boolean(translationGloss) &&
+    autoTranslate.enabled &&
+    (autoTranslate.showBoth || !autoTranslate.showOnHover);
+  const translationGlossHoverOnly =
+    Boolean(translationGloss) &&
+    autoTranslate.enabled &&
+    !autoTranslate.showBoth &&
+    autoTranslate.showOnHover;
   const volRaw = snapshot?.volume_24h_usd ?? snapshot?.volume_1h_usd;
   const vol =
     volRaw != null && Number.isFinite(volRaw) ? volRaw : demoMetrics.volUsd;
@@ -108,13 +135,23 @@ export function TokenRow({
   const showDev = display?.showDev ?? true;
   const showRing = display?.showBondingRing ?? true;
   const showBadge = display?.showLaunchpadBadge ?? true;
-  const showRisk = display?.showRiskFlags ?? true;
   const mcLayout = display?.mcLayout ?? 'strip';
   const showPumpFrame = display?.showPumpFrame ?? true;
   const showTraitIcons = display?.showTraitIcons ?? true;
   const heroMc = mcLayout === 'hero' && showMc;
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
-  const pumpFrameActive = showPumpFrame && traits.pumpFunBonding;
+  const bond = useMemo(() => getPulseBondingRingState(bundle), [bundle]);
+  const isMigratedVisual = columnId === 'migrated' || bond.migrated;
+  const launchpadChrome = useMemo(
+    () =>
+      resolveLaunchpadAvatarChrome(bundle, {
+        showFrame: showPumpFrame,
+        isMigrated: isMigratedVisual,
+        pumpFunOnBondingCurve: traits.pumpFunBonding,
+        chain: activeChain,
+      }),
+    [bundle, showPumpFrame, isMigratedVisual, traits.pumpFunBonding, activeChain],
+  );
 
   /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
   const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
@@ -132,15 +169,22 @@ export function TokenRow({
     return 52;
   }, [slotHeight, layoutDensity]);
 
+  /**
+   * Strip icon size — bumped ~10% across the board so Pulse rows read closer to Axiom:
+   *  - tall slot 112+: 26 → 29
+   *  - mid  slot 96+ : 24 → 26
+   *  - short slot     : 22 → 24
+   *  - non-pulse densities: 22→24 / 24→26 / 28→31.
+   */
   const socialGlyphSize = useMemo(() => {
     if (slotHeight != null) {
-      if (slotHeight >= 112) return 26;
-      if (slotHeight >= 96) return 24;
-      return 22;
+      if (slotHeight >= 112) return 29;
+      if (slotHeight >= 96) return 26;
+      return 24;
     }
-    if (layoutDensity === 'expanded') return 28;
-    if (layoutDensity === 'compact') return 22;
-    return 24;
+    if (layoutDensity === 'expanded') return 31;
+    if (layoutDensity === 'compact') return 24;
+    return 26;
   }, [slotHeight, layoutDensity]);
 
   const rowMinH =
@@ -187,7 +231,6 @@ export function TokenRow({
     if (!pulseBuyBusy) setActiveUltraAction(null);
   }, [pulseBuyBusy]);
 
-  const showPumpCorner = token.launch_pad === 'pump.fun';
 
   /** Truncated mint under avatar — Axiom-style: centered CA, muted sans, modest gap below image. */
   const mintCaption = (
@@ -207,17 +250,16 @@ export function TokenRow({
   const avatarStack = (
     <div
       className={cn(
-        'flex shrink-0 flex-col items-center',
+        'flex shrink-0 flex-col items-center overflow-visible',
         slotHeight != null ? 'gap-1.5' : 'gap-px',
       )}
-      style={{ width: avatarSize }}
+      style={{ minWidth: avatarSize }}
     >
-      <PulseTokenAvatar
+      <PulseTokenAvatarHover
         bundle={bundle}
         size={avatarSize}
         showRing={showRing}
-        pumpFrame={pumpFrameActive}
-        launchpadCorner={showPumpCorner}
+        launchpadChrome={launchpadChrome}
         columnId={columnId}
       />
       {mintCaption}
@@ -287,12 +329,18 @@ export function TokenRow({
               iconClassName="text-fg-muted/90 transition-colors group-hover/mintTitle:text-fg-secondary hover:!text-fg-primary"
             />
           </div>
-          {goldSubtitle ? (
+          {translationGloss ? (
             <p
-              className="min-w-0 truncate font-sans text-[12px] font-normal leading-snug tracking-tight text-amber-400/95"
-              title={goldSubtitle}
+              className={cn(
+                'min-w-0 truncate font-sans text-[12px] font-normal leading-snug tracking-tight transition-opacity duration-150',
+                translationGlossHoverOnly &&
+                  'max-h-0 overflow-hidden opacity-0 group-hover/pulseRow:max-h-8 group-hover/pulseRow:opacity-100',
+                !translationGlossVisible && translationGlossHoverOnly && 'pointer-events-none',
+              )}
+              style={{ color: autoTranslate.textColor }}
+              title={translationGloss}
             >
-              {goldSubtitle}
+              {translationGloss}
             </p>
           ) : null}
         </div>
@@ -322,19 +370,27 @@ export function TokenRow({
               {name}
             </span>
           </p>
-          {goldSubtitle ? (
+          {translationGloss ? (
             <p
-              className="min-w-0 truncate font-sans text-[12px] font-normal leading-snug tracking-tight text-amber-400/95"
-              title={goldSubtitle}
+              className={cn(
+                'min-w-0 truncate font-sans text-[12px] font-normal leading-snug tracking-tight transition-opacity duration-150',
+                translationGlossHoverOnly &&
+                  'max-h-0 overflow-hidden opacity-0 group-hover/pulseRow:max-h-8 group-hover/pulseRow:opacity-100',
+                !translationGlossVisible && translationGlossHoverOnly && 'pointer-events-none',
+              )}
+              style={{ color: autoTranslate.textColor }}
+              title={translationGloss}
             >
-              {goldSubtitle}
+              {translationGloss}
             </p>
           ) : null}
         </div>
       )}
       {showBadge ? (
         <span className="inline-flex max-w-[min(11rem,42%)] shrink-0 flex-nowrap items-center gap-1 overflow-hidden">
-          {token.launch_pad !== 'pump.fun' ? <LaunchpadBadge launchPad={token.launch_pad} /> : null}
+          {launchpadChrome || token.launch_pad === 'pump.fun' ? null : (
+            <LaunchpadBadge launchPad={token.launch_pad} />
+          )}
           <LaunchpadSubBadges
             bundle={bundle}
             variant={layoutDensity === 'expanded' ? 'detail' : 'inline'}
@@ -362,16 +418,53 @@ export function TokenRow({
    * Terminal-style age chip. Lives on the LEFT of the icon strip (was top-right of name row).
    * Recent (<60s) gets the green seconds tint Terminal uses to flag fresh listings.
    */
-  const ageLabel = formatAgeShort(token.created_at);
+  const now = useLiveClock();
+  const ageLabel = formatAgeShort(token.created_at, now);
+  const isFreshListing = (() => {
+    const ms = new Date(token.created_at).getTime();
+    if (!Number.isFinite(ms)) return false;
+    return now - ms < 60_000;
+  })();
+  const alternateQuote = useMemo(
+    () => alternateQuotePairKind(bundle, activeChain),
+    [bundle, activeChain],
+  );
+  const quoteIconPx = slotHeight != null ? 14 : 13;
   const ageBadge = (
     <span
       className={cn(
         'shrink-0 whitespace-nowrap leading-none',
-        slotHeight != null ? 'text-[13px] text-fg-secondary' : 'text-xs text-fg-muted',
+        slotHeight != null ? 'text-[13px]' : 'text-xs',
+        isFreshListing ? 'font-medium text-signal-bull' : 'text-fg-muted',
       )}
     >
       {ageLabel}
     </span>
+  );
+  const ageQuotePairBadge =
+    alternateQuote != null ? (
+      <span
+        className="inline-flex shrink-0 items-center"
+        title={quotePairTooltip(alternateQuote, activeChain)}
+        aria-label={quotePairTooltip(alternateQuote, activeChain)}
+      >
+        <QuoteTokenIcon
+          kind={alternateQuote}
+          chain={activeChain}
+          className="object-contain"
+          style={{ width: quoteIconPx, height: quoteIconPx }}
+        />
+      </span>
+    ) : null;
+  const ageMayhemCluster = (
+    <div className="flex shrink-0 items-center gap-1">
+      {ageBadge}
+      {ageQuotePairBadge}
+      <PulseMayhemTimerBadge
+        bundle={bundle}
+        className={slotHeight != null ? 'text-[13px]' : 'text-xs'}
+      />
+    </div>
   );
 
   const volMcSize =
@@ -380,8 +473,8 @@ export function TokenRow({
       : layoutDensity === 'expanded'
         ? 'expanded'
         : 'normal';
-  /** Axiom rule: MC value is cyan pre-migration (`new` / `stretch`), gold once it migrates. */
-  const mcTone: 'cyan' | 'gold' = columnId === 'migrated' ? 'gold' : 'cyan';
+  /** Axiom rule: MC value is cyan pre-migration, gold once migrated. */
+  const mcTone: 'cyan' | 'gold' = isMigratedVisual ? 'gold' : 'cyan';
   /**
    * Pulse dock always uses Ultra geometry (full-bleed rectangle in the right column).
    * The user-toggled `buyButtonStyle` chooses the surface treatment:
@@ -421,19 +514,16 @@ export function TokenRow({
         // driven by data-* on <html>. Existing `bg-bg-raised` / border / py-*
         // /min-h on the outer have been removed so the CSS rule wins; `rounded-lg`
         // is kept so the focus ring + hover bg still hug the corner radius.
-        'pulse-row group relative flex items-stretch rounded-lg border-0 outline-none transition-colors duration-150 ease-out',
-        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40 focus-visible:ring-offset-0',
+        //
+        // Card surface + border come from `.pulse-column .pulse-row` in globals.css
+        // (theme tokens). Tracked-dev tints below still override via `!bg-…`.
+        'pulse-row group/pulseRow group relative flex items-stretch rounded-lg outline-none transition-colors duration-150 ease-out',
         slotHeight != null
-          ? 'h-full min-h-0 max-h-full overflow-hidden'
+          ? 'h-full min-h-0 max-h-full overflow-visible'
           : null,
         // !important so the elevation CSS rule (same specificity) can't out-win the tracked-dev tint.
         trackedDev && '!bg-accent-primary/[0.08]',
         pulseFlashHighlight && 'row-active z-[25]',
-        // Row hover — white lift across the row; Ultra outline buttons keep their emerald / rose hovers.
-        // Trades-table style: flat translucent white (~8–10%) on hover; tracked rows stay tint-forward.
-        trackedDev && 'hover:!bg-accent-primary/[0.15]',
-        // `!` beats `:root[data-row-elevation] .pulse-row { background }` in globals.css.
-        !trackedDev && 'hover:!bg-white/[0.09]',
       )}
       style={slotHeight != null ? { height: slotHeight } : undefined}
     >
@@ -458,7 +548,9 @@ export function TokenRow({
           onClick={onTokenAreaClick}
           onKeyDown={onTokenAreaKeyDown}
           className={cn(
-            'relative z-0 flex min-h-0 min-w-0 flex-1 cursor-pointer items-start outline-none focus-visible:bg-bg-hover/80',
+            'relative z-[1] flex min-h-0 min-w-0 flex-1 cursor-pointer items-start outline-none transition-[background-color] duration-150',
+            'hover:bg-white/[0.04]',
+            'focus-visible:bg-bg-hover/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/45',
             slotHeight != null ? 'px-3 pt-4 pb-2' : 'p-3',
             /**
              * Reservation MUST match the Ultra dock width formula below or token info
@@ -473,16 +565,14 @@ export function TokenRow({
           {...hoverProps}
         >
           <div className="flex h-full min-h-0 w-full min-w-0 items-start gap-2.5 sm:gap-3">
-            <Link
-              href={tokenPath}
-              className="shrink-0 self-start outline-none focus-visible:bg-bg-hover rounded-lg"
-            >
+            <div className="shrink-0 self-start" data-row-click-skip="true">
               {avatarStack}
-            </Link>
+            </div>
             <div
               className={cn(
-                'relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-start overflow-hidden',
-                slotHeight != null ? 'gap-2' : 'space-y-2',
+                /** Pulse board: overflow visible so social-strip / compact hovers aren't clipped vertically. */
+                'relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-start',
+                slotHeight != null ? 'overflow-visible gap-2' : 'overflow-hidden space-y-2',
               )}
             >
               <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
@@ -518,9 +608,14 @@ export function TokenRow({
                  * at the same vertical position whether or not the Twitter
                  * handle / follower row is rendered (Axiom-style consistency).
                  */
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden">
-                  <div className="flex min-w-0 flex-nowrap items-start gap-2 overflow-hidden">
-                    <div className="shrink-0 pt-px">{ageBadge}</div>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-visible">
+                  {/**
+                   * `overflow-y-visible` keeps Pulse hover cards from being clipped above the strip.
+                   * Horizontal overflow is allowed so @handle + follower counts can slide under the
+                   * buy column (same as the metric pill row). Icon-row scroll stays inside the strip.
+                   */}
+                  <div className="flex min-w-0 flex-nowrap items-start gap-2 overflow-visible">
+                    <div className="shrink-0 pt-px">{ageMayhemCluster}</div>
                     <PulseRowSocialStrip
                       bundle={bundle}
                       traits={{
@@ -530,12 +625,17 @@ export function TokenRow({
                       }}
                       compact
                       pulseBoard
+                      chain={activeChain}
                       glyphSize={socialGlyphSize}
                       showTxCount={showHolders}
                       showDevWallet={showDev}
                     />
                   </div>
-                  <div className="min-w-0 mt-auto pt-2">
+                  <div className="relative mt-auto min-w-0 pt-2">
+                    <PulseRowBondingHoverTag
+                      fillPct={bond.fillPct}
+                      migrated={isMigratedVisual || bond.migrated}
+                    />
                     <PulseRowAxiomSpriteStrip bundle={bundle} socialGlyphPx={socialGlyphSize} />
                   </div>
                 </div>
@@ -549,7 +649,7 @@ export function TokenRow({
                   {/* Age moves to the LEFT of the icon strip so it reads as
                       a leading timestamp (Axiom-style) instead of trailing
                       the symbol/name on the line above. */}
-                  {ageBadge}
+                  {ageMayhemCluster}
                   <PulseRowSocialStrip
                     bundle={bundle}
                     traits={{
@@ -558,6 +658,7 @@ export function TokenRow({
                       agent: showTraitIcons && traits.agent,
                     }}
                     compact
+                    chain={activeChain}
                     glyphSize={socialGlyphSize}
                     showTxCount={showHolders}
                     showDevWallet={showDev}
@@ -569,7 +670,6 @@ export function TokenRow({
         </div>
 
         {(canQuickBuy && quickBuySol != null) ||
-        showRisk ||
         showSecondBuy ||
         showSecondSell ? (
           ultraChrome && (hasPrimaryBuy || showSecondBuy || showSecondSell) ? (
@@ -774,12 +874,7 @@ export function TokenRow({
                     ) : null}
                   </div>
                 )}
-              </div>
-              {showRisk ? (
-                <div className="pointer-events-auto flex shrink-0 justify-end">
-                  <RiskFlags token={token} snapshot={snapshot} className="shrink-0" />
                 </div>
-              ) : null}
               </div>
             </div>
           ) : !ultraChrome ? (
@@ -895,22 +990,6 @@ export function TokenRow({
                     </>
                   )}
                 </div>
-                {showRisk ? (
-                  <div className="flex justify-end">
-                    <RiskFlags token={token} snapshot={snapshot} className="shrink-0" />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : showRisk ? (
-            <div
-              className={cn(
-                'pointer-events-none absolute inset-y-0 right-0 z-20 flex items-end pb-2.5 pr-2',
-                effectivePy,
-              )}
-            >
-              <div className="pointer-events-auto">
-                <RiskFlags token={token} snapshot={snapshot} className="shrink-0" />
               </div>
             </div>
           ) : null

@@ -8,6 +8,7 @@ import type { ExplainTokenOutput, ExplainWalletOutput } from '@/lib/ai/schemas';
 import { selectActiveEntity, selectCopilotSurfaceOpen, useUIStore } from '@/store/ui';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useCopilotMode } from './CopilotModeContext';
+import { aiScanClientKey, fetchAiScan } from '@/lib/client/fetchAiScan';
 import { cn } from '@/lib/utils/cn';
 
 type CommonResult = {
@@ -57,31 +58,34 @@ export function CopilotStripBody() {
     retry: 0,
     queryFn: async () => {
       if (!debounced) throw new Error('no_entity');
-      const token = await getAccessToken();
-      if (!token) throw new Error('no_token');
       const url =
         debounced.type === 'token' ? '/api/ai/explain-token' : '/api/ai/explain-wallet';
       const body =
         debounced.type === 'token'
-          ? { mint: debounced.id, mode: 'fast' as const }
+          ? { mint: debounced.id, mode: 'fast' as const, surface: 'copilot' as const }
           : { address: debounced.id, mode: 'fast' as const };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+      const key = aiScanClientKey(url, body);
+      return fetchAiScan(key, async () => {
+        const token = await getAccessToken();
+        if (!token) throw new Error('no_token');
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) {
+          const msg =
+            typeof json === 'object' && json && 'message' in json
+              ? String((json as { message: unknown }).message)
+              : `Failed (${res.status})`;
+          throw new Error(msg);
+        }
+        return json as TokenResult | WalletResult;
       });
-      const json: unknown = await res.json();
-      if (!res.ok) {
-        const msg =
-          typeof json === 'object' && json && 'message' in json
-            ? String((json as { message: unknown }).message)
-            : `Failed (${res.status})`;
-        throw new Error(msg);
-      }
-      return json as TokenResult | WalletResult;
     },
   });
 

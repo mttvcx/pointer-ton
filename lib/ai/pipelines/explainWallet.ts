@@ -3,13 +3,11 @@ import 'server-only';
 import { runCascade, type CascadeMode } from '@/lib/ai/cascade';
 import { ExplainWalletOutputSchema, type ExplainWalletOutput } from '@/lib/ai/schemas';
 import { getDevWalletStats, getWalletStats } from '@/lib/db/wallets';
-import { getRecentSignaturesForAddress, getSolBalanceLamports } from '@/lib/solana/recent-activity';
 import {
   formatCompactUsd,
   formatNumber,
   formatPercent,
   formatRelativeTime,
-  lamportsToSol,
 } from '@/lib/utils/formatters';
 
 export interface ExplainWalletInput {
@@ -20,7 +18,6 @@ export interface ExplainWalletInput {
 
 function buildPrompt(facts: {
   address: string;
-  solBalance: number | null;
   pnl30d: number | null;
   pnl7d: number | null;
   winRate30d: number | null;
@@ -35,9 +32,7 @@ function buildPrompt(facts: {
   devTokensMooned: number | null;
   devReputation: number | null;
   devLastLaunchAt: string | null;
-  recentSignatureCount: number;
-  recentSignatureFailures: number;
-  oldestRecentSig: string | null;
+  statsComputedAt: string | null;
 }): { system: string; user: string } {
   const system = [
     'You are Pointer, an analyst classifying an on-chain wallet by behavior (TON ecosystem).',
@@ -47,7 +42,6 @@ function buildPrompt(facts: {
 
   const lines: string[] = [];
   lines.push(`Wallet: ${facts.address}`);
-  if (facts.solBalance != null) lines.push(`TON balance: ${facts.solBalance.toFixed(4)}`);
   if (facts.kolHandle) lines.push(`KOL handle: @${facts.kolHandle}`);
   if (facts.isKol === true) lines.push('Tagged: KOL');
   if (facts.pnl30d != null) lines.push(`30d PnL: ${formatCompactUsd(facts.pnl30d)}`);
@@ -75,16 +69,12 @@ function buildPrompt(facts: {
     if (facts.devLastLaunchAt)
       lines.push(`Last launch: ${formatRelativeTime(facts.devLastLaunchAt)}`);
   }
-
-  lines.push(
-    `Recent activity (RPC, last ${facts.recentSignatureCount} signatures): ${facts.recentSignatureFailures} failures` +
-      (facts.oldestRecentSig
-        ? `, oldest ${formatRelativeTime(facts.oldestRecentSig)}`
-        : ''),
-  );
+  if (facts.statsComputedAt) {
+    lines.push(`Indexed stats updated: ${formatRelativeTime(facts.statsComputedAt)}`);
+  }
 
   const user = [
-    'Classify this wallet using only the facts below.',
+    'Classify this wallet using only the facts below (indexed DB stats — no live RPC).',
     '',
     lines.join('\n'),
     '',
@@ -102,25 +92,17 @@ function buildPrompt(facts: {
 export async function explainWallet(input: ExplainWalletInput): Promise<{
   data: ExplainWalletOutput;
   cacheHit: boolean;
+  fromCache: boolean;
   modelUsed: string;
   costUsd: number;
 }> {
-  const [stats, dev, balanceLamports, sigs] = await Promise.all([
+  const [stats, dev] = await Promise.all([
     getWalletStats(input.address),
     getDevWalletStats(input.address),
-    getSolBalanceLamports(input.address).catch(() => null),
-    getRecentSignaturesForAddress(input.address, 25).catch(() => []),
   ]);
-
-  const failures = sigs.filter((s) => s.err).length;
-  const oldestRecentSig =
-    sigs.length > 0 && sigs[sigs.length - 1]?.blockTime != null
-      ? new Date(sigs[sigs.length - 1]!.blockTime! * 1000).toISOString()
-      : null;
 
   const { system, user } = buildPrompt({
     address: input.address,
-    solBalance: balanceLamports != null ? lamportsToSol(balanceLamports) : null,
     pnl30d: stats?.pnl_usd_30d ?? null,
     pnl7d: stats?.pnl_usd_7d ?? null,
     winRate30d: stats?.win_rate_30d ?? null,
@@ -135,10 +117,13 @@ export async function explainWallet(input: ExplainWalletInput): Promise<{
     devTokensMooned: dev?.tokens_mooned ?? null,
     devReputation: dev?.reputation_score ?? null,
     devLastLaunchAt: dev?.last_launch_at ?? null,
-    recentSignatureCount: sigs.length,
-    recentSignatureFailures: failures,
-    oldestRecentSig,
+    statsComputedAt: stats?.computed_at ?? null,
   });
+
+  const walletActivityFingerprint =
+    stats?.computed_at != null
+      ? `${stats.trades_30d ?? 0}:${stats.computed_at}`
+      : 'none';
 
   const result = await runCascade({
     pipeline: 'explainWallet',
@@ -147,10 +132,11 @@ export async function explainWallet(input: ExplainWalletInput): Promise<{
     inputs: {
       address: input.address,
       mode: input.mode ?? 'fast',
-      // Pin the freshest data point so cache invalidates on backend updates.
-      statsAt: stats?.computed_at ?? null,
-      devAt: dev?.computed_at ?? null,
-      sigCount: sigs.length,
+      trades30d: stats?.trades_30d ?? 0,
+    },
+    scanContext: {
+      sourceWallet: input.address,
+      walletActivityFingerprint,
     },
     systemPrompt: system,
     userPrompt: user,
@@ -159,6 +145,7 @@ export async function explainWallet(input: ExplainWalletInput): Promise<{
   return {
     data: result.data as ExplainWalletOutput,
     cacheHit: result.cacheHit,
+    fromCache: result.fromCache,
     modelUsed: result.modelUsed,
     costUsd: result.costUsd,
   };

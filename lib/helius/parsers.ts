@@ -1,7 +1,12 @@
 import type { Json } from '@/lib/supabase/types';
 import type { LaunchpadId } from '@/lib/utils/constants';
-import { LAUNCHPAD_LABELS, LAUNCHPAD_PROGRAM_IDS } from '@/lib/utils/constants';
+import {
+  LAUNCHPAD_LABELS,
+  LAUNCHPAD_PROGRAM_IDS,
+  MIGRATION_PROGRAM_IDS,
+} from '@/lib/utils/constants';
 import { isValidPublicKey } from '@/lib/utils/addresses';
+import { extractBondingProgressPct } from '@/lib/tokens/bondingProgress';
 import type { Asset } from 'helius-sdk/types/das';
 
 /**
@@ -17,15 +22,34 @@ export type LaunchpadEvent = {
   image_url: string | null;
   /** Best-effort SOL liquidity at detection time. */
   initial_liquidity_sol: number | null;
+  /** Bonding curve fill % (0–100) when present in tx metadata. */
+  bonding_progress: number | null;
   raw: Json;
 };
+
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 const PROGRAM_TO_PAD: Record<string, LaunchpadId> = {
   [LAUNCHPAD_PROGRAM_IDS.pumpFun]: 'pump.fun',
   [LAUNCHPAD_PROGRAM_IDS.bags]: 'bags',
   [LAUNCHPAD_PROGRAM_IDS.printr]: 'printr',
   [LAUNCHPAD_PROGRAM_IDS.moonshot]: 'moonshot',
+  [LAUNCHPAD_PROGRAM_IDS.bonk]: 'bonk',
+  [LAUNCHPAD_PROGRAM_IDS.heaven]: 'heaven',
+  [LAUNCHPAD_PROGRAM_IDS.believeDbc]: 'dynamic-bc',
 };
+
+const KNOWN_NON_MINTS = new Set<string>([
+  ...Object.values(LAUNCHPAD_PROGRAM_IDS),
+  ...Object.values(MIGRATION_PROGRAM_IDS),
+  'pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ',
+  'TSLvdd1pWpHVjahSpsvCXUbgwsL3JAcvokwaKt1eokM',
+  WSOL_MINT,
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+  '11111111111111111111111111111111',
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+]);
 
 function firstImageUrl(asset: Asset): string | null {
   const links = asset.content?.links?.image;
@@ -37,9 +61,14 @@ function firstImageUrl(asset: Asset): string | null {
 function inferLaunchpadFromUri(jsonUri: string | undefined): LaunchpadId {
   const u = (jsonUri ?? '').toLowerCase();
   if (u.includes('pump')) return 'pump.fun';
+  if (u.includes('bonk') || u.includes('letsbonk') || u.includes('launchlab')) return 'bonk';
   if (u.includes('bags')) return 'bags';
   if (u.includes('printr') || u.includes('print')) return 'printr';
+  if (u.includes('moon.it') || u.includes('moonit')) return 'moonshot';
   if (u.includes('moonshot')) return 'moonshot';
+  if (u.includes('heaven')) return 'heaven';
+  if (u.includes('believe') || u.includes('launchcoin')) return 'dynamic-bc';
+  if (u.includes('meteora') && (u.includes('dbc') || u.includes('dynamic'))) return 'dynamic-bc';
   return 'unknown';
 }
 
@@ -59,6 +88,7 @@ export function launchpadEventFromDasAsset(asset: Asset): LaunchpadEvent | null 
     name: md?.name ?? null,
     image_url: firstImageUrl(asset),
     initial_liquidity_sol: null,
+    bonding_progress: extractBondingProgressPct(asset),
     raw: JSON.parse(JSON.stringify(asset)) as Json,
   };
 }
@@ -114,6 +144,29 @@ function detectLaunchpadProgram(data: Record<string, unknown>): LaunchpadId | nu
   return null;
 }
 
+function pickMintFromTx(root: Record<string, unknown>, feePayer: string | null): string | null {
+  const tokenTransfers = root.tokenTransfers;
+  if (Array.isArray(tokenTransfers)) {
+    for (const tt of tokenTransfers) {
+      const r = asRecord(tt);
+      const mint = typeof r?.mint === 'string' ? r.mint : null;
+      if (mint && isValidPublicKey(mint) && mint !== WSOL_MINT && !KNOWN_NON_MINTS.has(mint)) {
+        return mint;
+      }
+    }
+  }
+
+  const mintCandidates = new Set<string>();
+  walkStrings(root, mintCandidates);
+  for (const id of mintCandidates) {
+    if (id === feePayer) continue;
+    if (KNOWN_NON_MINTS.has(id)) continue;
+    if (id === WSOL_MINT) continue;
+    return id;
+  }
+  return null;
+}
+
 /**
  * Best-effort parse of a single Helius *enhanced* webhook transaction object.
  */
@@ -122,28 +175,28 @@ export function parseEnhancedTransaction(tx: unknown): LaunchpadEvent | null {
   if (!root) return null;
 
   const pad = detectLaunchpadProgram(root);
-  const mintCandidates = new Set<string>();
-  walkStrings(tx, mintCandidates);
   const feePayer = typeof root.feePayer === 'string' ? root.feePayer : null;
-
-  let mint: string | null = null;
-  for (const id of mintCandidates) {
-    if (id === feePayer) continue;
-    mint = id;
-    break;
-  }
-  if (!mint && feePayer && isValidPublicKey(feePayer)) mint = feePayer;
-
+  const mint = pickMintFromTx(root, feePayer);
   if (!mint) return null;
 
   const tokenTransfers = root.tokenTransfers;
   let symbol: string | null = null;
   let name: string | null = null;
-  if (Array.isArray(tokenTransfers) && tokenTransfers[0]) {
-    const tt = asRecord(tokenTransfers[0]);
-    symbol = typeof tt?.symbol === 'string' ? tt.symbol : null;
-    name = typeof tt?.name === 'string' ? tt.name : null;
+  if (Array.isArray(tokenTransfers)) {
+    for (const tt of tokenTransfers) {
+      const row = asRecord(tt);
+      if (row?.mint !== mint) continue;
+      symbol = typeof row.symbol === 'string' ? row.symbol : symbol;
+      name = typeof row.name === 'string' ? row.name : name;
+    }
+    if (!symbol && tokenTransfers[0]) {
+      const tt = asRecord(tokenTransfers[0]);
+      symbol = typeof tt?.symbol === 'string' ? tt.symbol : null;
+      name = typeof tt?.name === 'string' ? tt.name : null;
+    }
   }
+
+  const bonding_progress = extractBondingProgressPct(tx);
 
   return {
     launchpad: pad ?? 'unknown',
@@ -153,6 +206,7 @@ export function parseEnhancedTransaction(tx: unknown): LaunchpadEvent | null {
     name,
     image_url: null,
     initial_liquidity_sol: null,
+    bonding_progress,
     raw: JSON.parse(JSON.stringify(tx)) as Json,
   };
 }

@@ -21,7 +21,7 @@ import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { useCopilotPillInsight } from '@/lib/hooks/useCopilotPillInsight';
 import { ContextCard } from '@/components/ai/ContextCard';
 import { AskBox } from '@/components/ai/AskBox';
-import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
+import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
 import { cn } from '@/lib/utils/cn';
 
@@ -244,7 +244,7 @@ function CopilotPillExpandedCard({
             {alertRulesDocked ? null : alertRulesPopped ? (
               <AlertBuilderEmbeddedPlaceholder />
             ) : (
-              <AlertRulesSection showPopoutLauncher />
+              <XMonitorCopilotCard />
             )}
           </div>
         </div>
@@ -312,7 +312,7 @@ function CopilotPillCollapsedSurface({
         aria-label="Open AI co-pilot. Drag sideways in the header, or drag down to tear off."
         title="Open co-pilot · drag to reposition"
         className={cn(
-          'flex h-9 w-full min-w-0 touch-none select-none items-stretch gap-2 rounded-full border py-0 pl-2.5 pr-2 shadow-md backdrop-blur-xl transition-[box-shadow,border-color,background-color,transform] duration-200',
+          'flex h-9 w-full min-w-0 touch-none select-none items-stretch gap-2 rounded-full border py-0 pl-2.5 pr-2 shadow-md backdrop-blur-xl transition-[box-shadow,border-color,background-color,transform] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/38',
           pillHover
             ? 'border-white/22 bg-bg-base/95 shadow-[0_0_32px_-8px_rgba(255,255,255,0.28),0_0_14px_-2px_rgba(255,255,255,0.12)]'
             : 'border-white/10 bg-bg-base/90 hover:border-white/18 hover:bg-bg-base/95 hover:shadow-[0_0_22px_-8px_rgba(255,255,255,0.18)]',

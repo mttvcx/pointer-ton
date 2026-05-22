@@ -33,6 +33,14 @@ type TokenDockPeekState = {
   setWalletDockSnap: (side: PeekDockSnapSide) => void;
   dockWalletPanelSize: PulsePeekPanelSize;
   setWalletPanelSize: (s: PulsePeekPanelSize) => void;
+  xMonitorPeekOpen: boolean;
+  setXMonitorPeekOpen: (open: boolean) => void;
+  dockXMonitorPosition: { x: number; y: number };
+  setDockXMonitorPosition: (p: { x: number; y: number }) => void;
+  dockXMonitorDockSnap: PeekDockSnapSide;
+  setXMonitorDockSnap: (side: PeekDockSnapSide) => void;
+  dockXMonitorPanelSize: PulsePeekPanelSize;
+  setXMonitorPanelSize: (s: PulsePeekPanelSize) => void;
 };
 
 const DEFAULT_TAB: PulseColumnId = 'new';
@@ -49,6 +57,12 @@ export const DEFAULT_WALLET_TRACKER_PEEK_SIZE: PulsePeekPanelSize = {
   width: 440,
   height: 480,
 };
+/** X monitor float / edge dock */
+export const DEFAULT_X_MONITOR_PEEK_SIZE: PulsePeekPanelSize = {
+  width: 380,
+  height: 640,
+};
+const DEFAULT_X_MONITOR_POS = { x: 12, y: 96 };
 
 export const useTokenDockPeekStore = create<TokenDockPeekState>()(
   persist(
@@ -73,6 +87,14 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
       setWalletDockSnap: (dockWalletDockSnap) => set({ dockWalletDockSnap }),
       dockWalletPanelSize: { ...DEFAULT_WALLET_TRACKER_PEEK_SIZE },
       setWalletPanelSize: (dockWalletPanelSize) => set({ dockWalletPanelSize }),
+      xMonitorPeekOpen: false,
+      setXMonitorPeekOpen: (open) => set({ xMonitorPeekOpen: open }),
+      dockXMonitorPosition: DEFAULT_X_MONITOR_POS,
+      setDockXMonitorPosition: (dockXMonitorPosition) => set({ dockXMonitorPosition }),
+      dockXMonitorDockSnap: null,
+      setXMonitorDockSnap: (dockXMonitorDockSnap) => set({ dockXMonitorDockSnap }),
+      dockXMonitorPanelSize: { ...DEFAULT_X_MONITOR_PEEK_SIZE },
+      setXMonitorPanelSize: (dockXMonitorPanelSize) => set({ dockXMonitorPanelSize }),
     }),
     {
       name: 'pointer-dock-pulse-panel',
@@ -84,6 +106,9 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
         dockWalletPosition: s.dockWalletPosition,
         dockWalletDockSnap: s.dockWalletDockSnap,
         dockWalletPanelSize: s.dockWalletPanelSize,
+        dockXMonitorPosition: s.dockXMonitorPosition,
+        dockXMonitorDockSnap: s.dockXMonitorDockSnap,
+        dockXMonitorPanelSize: s.dockXMonitorPanelSize,
       }),
     },
   ),

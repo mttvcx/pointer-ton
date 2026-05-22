@@ -1,13 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
-  ArrowDownToLine,
-  ChevronDown,
-  ExternalLink,
   Languages,
   LogOut,
   Rocket,
@@ -17,7 +14,7 @@ import {
   UserRound,
   Wallet,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardMintTopbarChip } from '@/components/layout/ClipboardMintTopbarChip';
 import { CopilotTopbarSlot } from '@/components/copilot/CopilotTopbarSlot';
 import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
@@ -26,21 +23,26 @@ import { WebPushControls } from '@/components/layout/WebPushControls';
 import { APP_NAV } from '@/components/layout/navConfig';
 import { DepositHistoryModal } from '@/components/wallet/DepositHistoryModal';
 import { ExchangeModal } from '@/components/wallet/ExchangeModal';
+import { AutoTranslateModal } from '@/components/settings/AutoTranslateModal';
+import { FeatureUpdatesModal } from '@/components/settings/FeatureUpdatesModal';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { DisplayPopover } from '@/components/preferences/DisplayPopover';
 import { WalletBalancePopover } from '@/components/wallet/WalletBalancePopover';
+import type { ExchangeTab } from '@/components/wallet/ExchangeModal';
 import { USDC_MINT_MAINNET } from '@/components/wallet/walletFundingConstants';
 import { useUIStore } from '@/store/ui';
+import { useTradingStore } from '@/store/trading';
 import { shortenAddress } from '@/lib/utils/addresses';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { cn } from '@/lib/utils/cn';
-import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
+import { CHAIN_TICKER } from '@/lib/chains/chainAssets';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatNumber, parseLamportsStringToSol, rawToUi } from '@/lib/utils/formatters';
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
+import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshListener';
 
 /**
  * App topbar: brand, primary nav, search, chain pill, deposit, co-pilot, wallet.
@@ -48,23 +50,23 @@ import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
  */
 export function Topbar() {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const { authenticated, logout, getAccessToken, login, linkedTonAddress } = usePointerAuth();
   const searchQuery = useUIStore((s) => s.searchQuery);
   const searchOpen = useUIStore((s) => s.searchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
-  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
-  const [balancePopoverOpen, setBalancePopoverOpen] = useState(false);
+  const chainTicker = CHAIN_TICKER[activeChain];
   const [exchangeOpen, setExchangeOpen] = useState(false);
+  const [exchangeTab, setExchangeTab] = useState<ExchangeTab>('deposit');
   const [depositHistoryOpen, setDepositHistoryOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const walletMenuRef = useRef<HTMLDivElement>(null);
-  const balanceAnchorRef = useRef<HTMLButtonElement>(null);
+  const [autoTranslateOpen, setAutoTranslateOpen] = useState(false);
+  const [featureUpdatesOpen, setFeatureUpdatesOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
-  const walletMenuPresence = useOverlayPresence(walletMenuOpen, POPOVER_ANIM_CLOSE_MS);
   const avatarMenuPresence = useOverlayPresence(avatarMenuOpen, POPOVER_ANIM_CLOSE_MS);
 
   const myWalletsQ = useQuery({
@@ -82,27 +84,9 @@ export function Topbar() {
     staleTime: 30_000,
   });
 
-  const { activeAddress, setActiveWalletAddress, ready: walletsReady, canSignWithWallet } =
-    useActiveSolanaWallet(myWalletsQ.data?.wallets);
+  const { activeAddress, ready: walletsReady } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
   const walletAddress = activeAddress;
-
-  const walletsForChain = useMemo(
-    () =>
-      (myWalletsQ.data?.wallets ?? []).filter((w) =>
-        mintMatchesAppChain(w.wallet_address, activeChain),
-      ),
-    [myWalletsQ.data?.wallets, activeChain],
-  );
-
-  useEffect(() => {
-    if (!walletMenuOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (walletMenuRef.current?.contains(e.target as Node)) return;
-      setWalletMenuOpen(false);
-    }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [walletMenuOpen]);
+  const { spendAsset, setSpendAsset } = useTradingStore();
 
   useEffect(() => {
     if (!avatarMenuOpen) return;
@@ -142,9 +126,24 @@ export function Topbar() {
         activeChain === 'sol' &&
         mintMatchesAppChain(walletAddress, 'sol'),
     ),
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
+
+  const refreshPortfolio = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+  }, [queryClient]);
+
+  usePortfolioRefreshListener(
+    refreshPortfolio,
+    Boolean(
+      authenticated &&
+        walletsReady &&
+        walletAddress &&
+        activeChain === 'sol' &&
+        mintMatchesAppChain(walletAddress, 'sol'),
+    ),
+  );
 
   const solUi = parseLamportsStringToSol(portfolioQ.data?.solLamports);
 
@@ -187,7 +186,12 @@ export function Topbar() {
   }, [setSearchOpen]);
 
   function openDepositFlow() {
-    setBalancePopoverOpen(false);
+    setExchangeTab('deposit');
+    setExchangeOpen(true);
+  }
+
+  function openWithdrawFlow() {
+    setExchangeTab('withdraw');
     setExchangeOpen(true);
   }
 
@@ -196,7 +200,7 @@ export function Topbar() {
     <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b border-border-subtle bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1 relative">
       <Link
         href="/pulse"
-        prefetch
+        prefetch={true}
         className="flex shrink-0 select-none items-center gap-2.5 pr-5 text-fg-primary sm:gap-3 sm:pr-8 md:pr-10 lg:pr-12"
       >
         <span className="sr-only">pointer.</span>
@@ -244,7 +248,7 @@ export function Topbar() {
               {inner}
             </span>
           ) : (
-            <Link key={item.href} href={item.href} prefetch className={cn(cls, 'focus-ring')}>
+            <Link key={item.href} href={item.href} prefetch={true} className={cn(cls, 'focus-ring')}>
               {inner}
             </Link>
           );
@@ -306,21 +310,6 @@ export function Topbar() {
 
         <ChainSelectDropdown />
 
-        <button
-          type="button"
-          onClick={openDepositFlow}
-          disabled={!authenticated}
-          className={cn(
-            'btn-press focus-ring flex h-8 items-center gap-0.5 rounded-md px-2 text-[11px] font-semibold transition-all duration-150 lg:gap-1 lg:px-2.5',
-            authenticated
-              ? 'bg-accent-primary text-fg-inverse hover:brightness-110'
-              : 'cursor-not-allowed border border-border-subtle text-fg-muted',
-          )}
-        >
-          <ArrowDownToLine className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-          <span className="hidden lg:inline">Deposit</span>
-        </button>
-
         <CopilotToggleButton />
 
         {!authenticated ? (
@@ -339,159 +328,44 @@ export function Topbar() {
               href="/wallets"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-sunken/50 text-fg-muted transition-colors hover:border-border-default hover:bg-bg-hover hover:text-fg-primary sm:hidden"
               title="Manage wallets"
-              prefetch
+              prefetch={true}
             >
               <Wallet className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
             </Link>
 
-            <div className="relative hidden min-w-0 sm:block" ref={walletMenuRef}>
-              <div
-                className={cn(
-                  'flex h-8 w-auto max-w-[11.5rem] items-stretch rounded-md border border-border-subtle/85 bg-bg-sunken/40',
-                  'shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.035)]',
-                )}
-              >
-                <div className="flex shrink-0 items-center pl-1.5 text-fg-muted" aria-hidden>
-                  <Wallet className="h-3 w-3 opacity-85" strokeWidth={2} />
-                </div>
+            <WalletBalancePopover
+              totalUsd={totalUsd}
+              nativeBalance={headerNativeUi}
+              walletAddress={walletAddress}
+              balances={
+                activeChain === 'sol'
+                  ? [
+                      { symbol: chainTicker, amount: solUi, chainId: 'sol' },
+                      {
+                        symbol: 'USDC',
+                        amount: usdcUi,
+                        iconSrc: '/logos/protocols/usdc.png',
+                        chainId: 'sol',
+                      },
+                    ]
+                  : undefined
+              }
+              spendAsset={spendAsset}
+              onSpendAssetChange={setSpendAsset}
+              showSpendAssetTabs={activeChain === 'sol'}
+              onDeposit={openDepositFlow}
+              onWithdraw={openWithdrawFlow}
+              hasActiveWallet={Boolean(walletAddress)}
+              className="hidden sm:flex"
+            />
 
-                <button
-                  ref={balanceAnchorRef}
-                  type="button"
-                  onClick={() => {
-                    setBalancePopoverOpen((o) => !o);
-                    setWalletMenuOpen(false);
-                  }}
-                  className={cn(
-                    'focus-ring flex min-w-0 flex-1 items-center px-2 py-0.5 transition-colors duration-150',
-                    'rounded-none border-0 bg-transparent hover:bg-white/[0.035]',
-                  )}
-                  aria-haspopup="dialog"
-                  aria-expanded={balancePopoverOpen}
-                  title="Balances"
-                >
-                  <span className="min-w-0 truncate text-right tabular-nums text-[11px] font-semibold leading-none tracking-tight text-fg-primary">
-                    {headerNativeUi != null
-                      ? formatNumber(headerNativeUi, { decimals: 4 })
-                      : '0'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWalletMenuOpen((o) => !o);
-                    setBalancePopoverOpen(false);
-                  }}
-                  className="focus-ring inline-flex h-full w-7 shrink-0 items-center justify-center border-l border-border-subtle/85 bg-transparent transition-colors hover:bg-white/[0.035]"
-                  aria-expanded={walletMenuOpen}
-                  aria-haspopup="listbox"
-                  aria-label="Switch wallet"
-                  title="Switch wallet"
-                >
-                  <ChevronDown
-                    className={cn(
-                      'h-3 w-3 shrink-0 text-fg-muted transition-transform duration-200 ease-out will-change-transform',
-                      walletMenuOpen && 'rotate-180',
-                    )}
-                  />
-                </button>
-              </div>
-              {walletMenuPresence.mounted ? (
-                <div
-                  className={cn(
-                    'absolute right-0 top-[calc(100%+6px)] z-[200] min-w-[15rem] overflow-hidden rounded-md border border-border-subtle bg-bg-raised py-1 shadow-lg',
-                    popoverPanelClasses(walletMenuPresence.visible),
-                  )}
-                  role="listbox"
-                >
-                  {walletsForChain.length > 0 ? (
-                    <div className="max-h-[min(40vh,240px)] overflow-y-auto">
-                      {walletsForChain.map((w) => {
-                        const isSel = w.wallet_address === walletAddress;
-                        const canSign = canSignWithWallet(w.wallet_address);
-                        const unusable = w.is_archived || !w.is_active || !canSign;
-                        return (
-                          <div
-                            key={w.id}
-                            className={cn(
-                              'flex items-stretch gap-0.5 px-1',
-                              isSel ? 'bg-bg-hover/80' : '',
-                            )}
-                          >
-                            <button
-                              type="button"
-                              role="option"
-                              aria-selected={isSel}
-                              disabled={unusable && !isSel}
-                              onClick={() => {
-                                if (unusable && !isSel) return;
-                                setActiveWalletAddress(w.wallet_address);
-                                setWalletMenuOpen(false);
-                              }}
-                              className={cn(
-                                'min-w-0 flex-1 px-1.5 py-1.5 text-left text-[11px] transition-colors duration-150',
-                                unusable && !isSel
-                                  ? 'cursor-not-allowed text-fg-muted opacity-50'
-                                  : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
-                                isSel && 'text-fg-primary',
-                              )}
-                            >
-                              <span className="block truncate font-medium">
-                                {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
-                                {w.is_primary ? (
-                                  <span className="font-normal text-fg-muted"> · primary</span>
-                                ) : null}
-                              </span>
-                              <span className="block tabular-nums text-[10px] text-fg-muted">
-                                {shortenAddress(w.wallet_address, 4)}
-                                {w.is_archived ? ' · archived' : ''}
-                                {!w.is_active ? ' · inactive' : ''}
-                                {!canSign ? ' · not linked' : ''}
-                              </span>
-                            </button>
-                            <a
-                              href={explorerAccountUrlForChain(w.wallet_address, activeChain)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex shrink-0 items-center px-1 text-fg-muted hover:text-fg-secondary"
-                              title={`${nativeSym} explorer`}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
-                            </a>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="px-2.5 py-2 text-[11px] leading-snug text-fg-muted">
-                      No <span className="font-semibold text-fg-secondary">{nativeSym}</span> wallet yet for this
-                      chain. Create or import one on Wallets.
-                    </div>
-                  )}
-                  <div className="border-t border-border-subtle pt-1">
-                    <Link
-                      href="/wallets"
-                      className="block px-2 py-1.5 text-[11px] text-accent-primary hover:bg-bg-hover"
-                      onClick={() => setWalletMenuOpen(false)}
-                    >
-                      Manage wallets
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            {/* TODO(squads): Lobby / Squads popover trigger sits here next — same h-9 rounded-full slot. */}
 
             <div className="relative shrink-0" ref={avatarMenuRef}>
               <button
                 ref={avatarButtonRef}
                 type="button"
-                onClick={() => {
-                  setAvatarMenuOpen((o) => !o);
-                  setWalletMenuOpen(false);
-                  setBalancePopoverOpen(false);
-                }}
+                onClick={() => setAvatarMenuOpen((o) => !o)}
                 aria-haspopup="menu"
                 aria-expanded={avatarMenuOpen}
                 aria-label="Account menu"
@@ -521,8 +395,9 @@ export function Topbar() {
                   </div>
                   <div className="flex flex-col gap-0.5 px-1.5 pt-1.5">
                     <Link
-                      href="/wallets"
+                      href="/portfolio?tab=wallets"
                       role="menuitem"
+                      prefetch={true}
                       onClick={() => setAvatarMenuOpen(false)}
                       className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] transition-colors hover:bg-bg-hover hover:text-fg-primary"
                     >
@@ -544,7 +419,10 @@ export function Topbar() {
                     <button
                       type="button"
                       role="menuitem"
-                      onClick={() => setAvatarMenuOpen(false)}
+                      onClick={() => {
+                        setAvatarMenuOpen(false);
+                        setAutoTranslateOpen(true);
+                      }}
                       className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
                     >
                       <Languages className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
@@ -583,25 +461,18 @@ export function Topbar() {
       </div>
     </header>
 
-    <WalletBalancePopover
-      open={balancePopoverOpen}
-      onOpenChange={setBalancePopoverOpen}
-      anchorRef={balanceAnchorRef}
-      totalUsd={totalUsd}
-      solUi={solUi}
-      usdcUi={usdcUi}
-      onDeposit={openDepositFlow}
-      hasActiveWallet={Boolean(walletAddress)}
-    />
     <ExchangeModal
       open={exchangeOpen}
       onOpenChange={setExchangeOpen}
-      initialTab="deposit"
+      initialTab={exchangeTab}
       walletAddress={walletAddress}
+      nativeBalance={headerNativeUi}
       onOpenDepositHistory={() => setDepositHistoryOpen(true)}
     />
     <DepositHistoryModal open={depositHistoryOpen} onOpenChange={setDepositHistoryOpen} />
     <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    <AutoTranslateModal open={autoTranslateOpen} onClose={() => setAutoTranslateOpen(false)} />
+    <FeatureUpdatesModal open={featureUpdatesOpen} onClose={() => setFeatureUpdatesOpen(false)} />
     </>
   );
 }

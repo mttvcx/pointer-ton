@@ -2,7 +2,7 @@
 
 import { forwardRef, type RefObject } from 'react';
 import { cn } from '@/lib/utils/cn';
-import { presetClass, presetMeta } from '@/lib/share/backgrounds';
+import { presetClass } from '@/lib/share/backgrounds';
 import type { PnlSharePayload } from '@/lib/share/types';
 import type { ShareOverlaySettings } from '@/lib/share/types';
 import type { ShareBackgroundPresetId } from '@/lib/share/types';
@@ -15,16 +15,9 @@ import {
   PnlMomentAmount,
   type PnlMomentBasis,
 } from '@/components/wallet/analytics/PnlMomentAmount';
-import { PointerNeonBird } from '@/components/wallet/analytics/PointerNeonBird';
-
-const WORDMARK_TONE: Record<
-  ReturnType<typeof presetMeta>['wordmarkTone'],
-  { fill: string; stroke: string }
-> = {
-  violet: { fill: 'rgba(138,107,255,0.06)', stroke: 'rgba(168,139,255,0.18)' },
-  cyan: { fill: 'rgba(92,242,255,0.05)', stroke: 'rgba(158,252,255,0.16)' },
-  slate: { fill: 'rgba(203,213,225,0.04)', stroke: 'rgba(203,213,225,0.14)' },
-};
+import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
+import { PnlShareCardChrome, SHARE_CARD_TONE } from '@/components/wallet/analytics/PnlShareCardChrome';
+import { presetMeta } from '@/lib/share/backgrounds';
 
 export const PnlShareCard = forwardRef<
   HTMLDivElement,
@@ -35,10 +28,8 @@ export const PnlShareCard = forwardRef<
     customImageSrc?: string | null;
     imagePan?: { x: number; y: number };
     imageZoom?: number;
-    /** Primary flex number inside the accent box (includes unit). */
     amountPrimary?: string | null;
     videoSrc?: string | null;
-    /** Disable video autoplay (export frame capture) */
     videoPaused?: boolean;
     videoRef?: RefObject<HTMLVideoElement | null>;
     videoPan?: { x: number; y: number };
@@ -49,11 +40,8 @@ export const PnlShareCard = forwardRef<
     editableHeadline?: boolean;
     onHeadlineChange?: (value: string) => void;
     className?: string;
-    /** Interpolation target for hero amount (USD or SOL); omit to infer USD from payload */
     amountMotionBasis?: PnlMomentBasis | null;
-    /** True while capturing PNG — shows settled hero typography (no motion) */
     amountMotionFrozen?: boolean;
-    /** Bump to replay amount entrance (e.g. wallet + ticker + basis) */
     amountRevealKey?: string;
   }
 >(function PnlShareCard(
@@ -83,6 +71,7 @@ export const PnlShareCard = forwardRef<
   ref,
 ) {
   const meta = presetMeta(backgroundId);
+  const tone = SHARE_CARD_TONE[meta.wordmarkTone];
   const pos = payload.pnlUsd != null && payload.pnlUsd >= 0;
   const pnlColor = pos ? '#3DDC97' : '#FF5E78';
 
@@ -101,7 +90,7 @@ export const PnlShareCard = forwardRef<
 
   const headlineValue =
     headlineText == null ? DEFAULT_SHARE_HEADLINE : headlineText.slice(0, MAX_SHARE_HEADLINE_CHARS);
-  const displayHeadline = headlineValue.trim();
+  const displayHeadline = headlineValue.trim().toUpperCase();
 
   const rawHandle = (referralCode || 'pointer').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 18) || 'pointer';
   const handle = `@${rawHandle}`;
@@ -117,17 +106,15 @@ export const PnlShareCard = forwardRef<
     amountRevealKeyProp ??
     `${payload.walletAddress}|${payload.tokenTicker}|${mainAmt}|${payload.pnlUsd ?? ''}`;
 
-  const tone = WORDMARK_TONE[meta.wordmarkTone];
   const ticker = (payload.tokenTicker || 'TOKEN').replace(/^\$+/, '').slice(0, 18).toUpperCase();
   const tokenName = payload.tokenName ?? null;
-
   const showCustomMedia = Boolean(customImageSrc || videoSrc);
 
   return (
     <div
       ref={ref}
       className={cn(
-        'relative aspect-video w-full overflow-hidden rounded-[14px] border border-white/[0.08] shadow-[0_28px_90px_-44px_rgba(0,0,0,0.95)]',
+        'relative aspect-video w-full overflow-hidden rounded-[10px] shadow-[0_32px_100px_-40px_rgba(0,0,0,0.95)]',
         !showCustomMedia && presetClass(backgroundId),
         className,
       )}
@@ -166,88 +153,88 @@ export const PnlShareCard = forwardRef<
 
       {showCustomMedia ? (
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 z-[1]"
           style={{
             background:
-              'linear-gradient(90deg,rgba(3,5,9,0.88) 0%,rgba(3,5,9,0.55) 48%,rgba(3,5,9,0.78) 100%)',
-            opacity: Math.min(1, overlay.overlayOpacity + 0.18),
+              'linear-gradient(105deg,rgba(4,2,12,0.88) 0%,rgba(4,2,12,0.5) 44%,rgba(4,2,12,0.76) 100%)',
+            opacity: Math.min(1, overlay.overlayOpacity + 0.22),
           }}
         />
       ) : null}
 
-      {/* Cinematic backdrop wordmark (sits under everything, faded) */}
-      <BackdropWordmark fill={tone.fill} stroke={tone.stroke} />
+      <PnlShareCardChrome backgroundId={backgroundId} hasCustomMedia={showCustomMedia} />
 
-      {/* Hero bird, right side */}
-      <div className="pointer-events-none absolute inset-y-0 right-[-4%] z-[1] flex items-center">
-        <PointerNeonBird
-          glow={meta.birdGlow}
-          className="h-[122%] w-auto -translate-y-[3%] opacity-[0.95]"
-        />
-      </div>
-
-      {/* Soft inner vignette over scene */}
-      <div className="pointer-events-none absolute inset-0 z-[2] shadow-[inset_0_0_120px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.05)]" />
-
-      {/* Content */}
       <div
-        className="relative z-[3] flex h-full w-full flex-col px-[4.4%] py-[4.6%]"
+        className="relative z-[3] flex h-full w-full flex-col px-[4.8%] py-[4.8%]"
         style={{ transform: `scale(${overlay.textScale})`, transformOrigin: 'top left' }}
       >
-        {/* Top bar: brand on left */}
-        <div className="flex items-center gap-2.5">
-          <PointerNeonBird glow={meta.birdGlow} className="h-7 w-7" />
-          <span className="text-[12px] font-bold uppercase tracking-[0.18em] text-white/95">
-            pointer.trade
+        {/* Brand row */}
+        <div className="flex items-center gap-2">
+          <PointerBirdMark size={26} className="opacity-95" />
+          <span
+            className="text-[13px] font-extrabold uppercase tracking-[0.2em]"
+            style={{ fontFamily: 'var(--font-inter), ui-sans-serif, system-ui, sans-serif' }}
+          >
+            <span className="text-white">POINTER</span>
+            <span style={{ color: tone.tradeSub }}>.TRADE</span>
           </span>
-          <span className="h-1 w-1 rounded-full bg-white/55" aria-hidden />
         </div>
 
-        {/* Headline pill */}
-        <div className="mt-[2.4%]">
-          {editableHeadline ? (
-            <label className="group relative inline-block max-w-[60%]">
-              <span className="pointer-events-none absolute -top-2.5 left-3 rounded bg-sky-400/90 px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-[0.1em] text-[#03101f] opacity-0 transition group-hover:opacity-95 group-focus-within:opacity-95">
-                edit text
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-md border border-white/[0.1] bg-black/40 px-3 py-1.5 text-left">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/85" aria-hidden />
-                <input
-                  value={headlineValue}
-                  maxLength={MAX_SHARE_HEADLINE_CHARS}
-                  onChange={(e) => onHeadlineChange?.(e.target.value)}
-                  placeholder="edit headline..."
-                  className="w-[clamp(240px,28vw,440px)] bg-transparent text-[11px] font-bold uppercase tracking-[0.09em] text-white/90 outline-none placeholder:text-white/30"
-                  aria-label="Edit share card headline"
+        {/* Cashback / headline pill */}
+        {overlay.showCashbackFooter && displayHeadline ? (
+          <div className="mt-[2.8%]">
+            {editableHeadline ? (
+              <label className="group relative inline-block max-w-[72%]">
+                <span className="pointer-events-none absolute -top-2.5 left-3 rounded bg-violet-500/90 px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-[0.1em] text-white opacity-0 transition group-hover:opacity-95 group-focus-within:opacity-95">
+                  edit text
+                </span>
+                <span className="inline-flex max-w-full items-center gap-2 rounded-md border border-white/[0.08] bg-black/55 px-3 py-1.5">
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: tone.tradeSub }}
+                    aria-hidden
+                  />
+                  <input
+                    value={headlineValue}
+                    maxLength={MAX_SHARE_HEADLINE_CHARS}
+                    onChange={(e) => onHeadlineChange?.(e.target.value)}
+                    placeholder="edit headline..."
+                    className="w-[clamp(220px,32vw,480px)] bg-transparent text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/88 outline-none placeholder:text-white/30"
+                    aria-label="Edit share card headline"
+                  />
+                </span>
+              </label>
+            ) : (
+              <span className="inline-flex max-w-[72%] items-center gap-2 truncate rounded-md border border-white/[0.08] bg-black/55 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/88">
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ background: tone.tradeSub }}
+                  aria-hidden
                 />
+                {displayHeadline}
               </span>
-            </label>
-          ) : displayHeadline ? (
-            <span className="inline-flex max-w-[60%] items-center gap-2 truncate rounded-md border border-white/[0.1] bg-black/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.09em] text-white/85">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/85" aria-hidden />
-              {displayHeadline}
-            </span>
-          ) : null}
-        </div>
+            )}
+          </div>
+        ) : null}
 
-        {/* Token title block */}
-        <div className="mt-[4.5%]">
+        {/* Token block */}
+        <div className="mt-[4.2%]">
           <h2
-            className="font-black uppercase leading-[0.92] text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.4)]"
+            className="font-black uppercase leading-[0.9] text-white"
             style={{
-              fontSize: `clamp(40px, 7.6vw, 84px)`,
-              letterSpacing: '-0.02em',
+              fontSize: 'clamp(42px, 7.8vw, 88px)',
+              letterSpacing: '-0.025em',
+              textShadow: '0 2px 18px rgba(0,0,0,0.45)',
             }}
           >
             {ticker}
           </h2>
           {overlay.showTokenName && tokenName ? (
             <p
-              className="mt-1.5 font-semibold uppercase tracking-[0.16em]"
+              className="mt-1 font-bold uppercase tracking-[0.2em]"
               style={{
-                color: pos ? '#c4b5fd' : '#fda4af',
-                fontSize: `clamp(11px, 1.5vw, 18px)`,
-                opacity: 0.92,
+                color: tone.tradeSub,
+                fontSize: 'clamp(11px, 1.55vw, 17px)',
               }}
             >
               {tokenName.slice(0, 28)}
@@ -255,16 +242,15 @@ export const PnlShareCard = forwardRef<
           ) : null}
         </div>
 
-        {/* PnL hero box */}
-        <div className="mt-[2.6%]">
+        {/* Hero PNL box */}
+        <div className="mt-[2.4%]">
           <div
-            className="relative inline-flex items-center rounded-[10px] border px-[2.2vw] py-[1.4vw]"
+            className="relative inline-flex items-center rounded-[11px] border px-[2.4vw] py-[1.5vw]"
             style={{
-              minWidth: 'min(56%, 520px)',
-              background: 'linear-gradient(180deg, rgba(8,11,18,0.92), rgba(4,6,11,0.92))',
-              borderColor: 'rgba(255,255,255,0.085)',
-              boxShadow:
-                '0 22px 60px -34px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.04)',
+              minWidth: 'min(58%, 540px)',
+              background: 'linear-gradient(180deg, rgba(6,8,14,0.94), rgba(2,4,8,0.94))',
+              borderColor: 'rgba(255,255,255,0.09)',
+              boxShadow: '0 24px 64px -36px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.05)',
             }}
           >
             <PnlMomentAmount
@@ -276,72 +262,78 @@ export const PnlShareCard = forwardRef<
               className="font-black tabular-nums leading-none"
               style={{
                 color: pnlColor,
-                fontSize: `clamp(36px, 5.6vw, 64px)`,
-                letterSpacing: '-0.015em',
+                fontSize: 'clamp(38px, 5.8vw, 68px)',
+                letterSpacing: '-0.02em',
                 textShadow: pos
-                  ? '0 0 28px rgba(61,220,151,0.32)'
-                  : '0 0 28px rgba(255,94,120,0.28)',
+                  ? '0 0 32px rgba(61,220,151,0.38)'
+                  : '0 0 32px rgba(255,94,120,0.32)',
               }}
             />
             <span
-              className="pointer-events-none absolute left-3 right-3 bottom-2 h-[1px]"
+              className="pointer-events-none absolute left-4 right-4 bottom-[11px] h-px"
               style={{
                 background:
-                  'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.16) 38%, rgba(255,255,255,0) 100%)',
+                  'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.18) 42%, rgba(255,255,255,0) 100%)',
               }}
               aria-hidden
             />
             <span
-              className="pointer-events-none absolute bottom-[3px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full"
-              style={{ background: pnlColor, boxShadow: `0 0 10px ${pnlColor}` }}
+              className="pointer-events-none absolute bottom-[7px] left-1/2 h-[7px] w-[7px] -translate-x-1/2 rounded-full"
+              style={{ background: pnlColor, boxShadow: `0 0 12px ${pnlColor}` }}
               aria-hidden
             />
           </div>
         </div>
 
-        {/* Stat block */}
+        {/* Stats */}
         <dl
-          className="mt-[2.4%] grid w-fit gap-y-1 text-[clamp(11px,1.45vw,16px)] tabular-nums"
-          style={{ gridTemplateColumns: 'auto auto', columnGap: 'clamp(20px, 3vw, 44px)' }}
+          className="mt-[2.6%] grid w-fit gap-y-[0.45rem] tabular-nums"
+          style={{
+            gridTemplateColumns: 'auto auto',
+            columnGap: 'clamp(28px, 3.4vw, 52px)',
+            fontSize: 'clamp(11px, 1.5vw, 16px)',
+          }}
         >
-          <dt className="font-semibold uppercase tracking-[0.16em] text-white/55">PNL</dt>
-          <dd className="font-bold" style={{ color: pnlColor }}>
+          <dt className="font-bold uppercase tracking-[0.18em] text-white/50">PNL</dt>
+          <dd className="font-extrabold" style={{ color: pnlColor }}>
             {mainAmt}
-            {pctStr ? <span className="ml-2 text-white/55 font-medium">({pctStr})</span> : null}
+            {pctStr ? <span className="ml-2 font-semibold text-white/50">({pctStr})</span> : null}
           </dd>
           {!overlay.compactStats ? (
             <>
-              <dt className="font-semibold uppercase tracking-[0.16em] text-white/55">Invested</dt>
-              <dd className="font-bold text-white/92">
+              <dt className="font-bold uppercase tracking-[0.18em] text-white/50">
+                {payload.statInvestedLabel ?? 'INVESTED'}
+              </dt>
+              <dd className="font-extrabold text-white/95">
                 {payload.investedUsd == null ? '—' : formatCompactUsd(payload.investedUsd)}
               </dd>
-              <dt className="font-semibold uppercase tracking-[0.16em] text-white/55">Position</dt>
-              <dd className="font-bold text-white/92">
+              <dt className="font-bold uppercase tracking-[0.18em] text-white/50">
+                {payload.statPositionLabel ?? 'POSITION'}
+              </dt>
+              <dd className="font-extrabold text-white/95">
                 {payload.positionUsd == null ? '—' : formatCompactUsd(payload.positionUsd)}
               </dd>
             </>
           ) : null}
         </dl>
 
-        {/* Spacer pushes footer down */}
         <div className="flex-1" />
 
         {/* Footer */}
-        <div className="flex items-end justify-between gap-3">
-          <div className="flex items-center gap-2 text-white/72">
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex items-center gap-2" style={{ color: tone.tradeSub }}>
             <GlobeMark className="h-3.5 w-3.5 opacity-90" />
-            <span className="text-[clamp(10px,1.25vw,13px)] font-bold uppercase tracking-[0.18em]">
+            <span className="text-[clamp(9px,1.2vw,12px)] font-bold uppercase tracking-[0.2em]">
               pointer.trade/{rawHandle.toLowerCase()}
             </span>
           </div>
           {overlay.showBranding ? (
             <span
-              className="text-white"
+              className="font-bold"
               style={{
-                fontSize: `clamp(18px, 2.4vw, 28px)`,
-                fontWeight: 700,
+                color: tone.tradeSub,
+                fontSize: 'clamp(18px, 2.5vw, 30px)',
                 letterSpacing: '-0.01em',
-                textShadow: '0 1px 0 rgba(0,0,0,0.4)',
               }}
             >
               {handle}
@@ -362,48 +354,5 @@ function GlobeMark({ className }: { className?: string }) {
       <path d="M3 12h18" />
       <path d="M12 3c2.6 3 4 6 4 9s-1.4 6-4 9c-2.6-3-4-6-4-9s1.4-6 4-9z" />
     </svg>
-  );
-}
-
-/**
- * Faded huge "POINTER" wordmark spanning the upper area — pure typography,
- * acts as cinematic backdrop. Uses outline + low-fill so the bird and PNL stay focal.
- */
-function BackdropWordmark({ fill, stroke }: { fill: string; stroke: string }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-[3%] top-[3%] z-[1] flex">
-      <svg
-        viewBox="0 0 1200 220"
-        preserveAspectRatio="xMidYMid meet"
-        className="h-auto w-full"
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id="pnl-wordmark-fade" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor={stroke} stopOpacity="0.05" />
-            <stop offset="35%" stopColor={stroke} stopOpacity="1" />
-            <stop offset="78%" stopColor={stroke} stopOpacity="0.55" />
-            <stop offset="100%" stopColor={stroke} stopOpacity="0.05" />
-          </linearGradient>
-        </defs>
-        <text
-          x="50%"
-          y="58%"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill={fill}
-          stroke="url(#pnl-wordmark-fade)"
-          strokeWidth={1.2}
-          style={{
-            fontFamily: 'var(--font-inter), ui-sans-serif, system-ui, sans-serif',
-            fontWeight: 900,
-            fontSize: '210px',
-            letterSpacing: '-0.045em',
-          }}
-        >
-          POINTER
-        </text>
-      </svg>
-    </div>
   );
 }

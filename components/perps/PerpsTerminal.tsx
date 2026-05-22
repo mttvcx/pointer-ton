@@ -5,73 +5,12 @@ import { DEMO_PREDICTION_MARKETS } from '@/lib/perps/predictionMarketsDemo';
 import { PredictionMarketTicker } from '@/components/perps/PredictionMarketTicker';
 import { PredictionMarketSidebar } from '@/components/perps/PredictionMarketSidebar';
 import { PredictionMarketDetailModal } from '@/components/perps/PredictionMarketDetailModal';
+import { PerpMarketPicker } from '@/components/perps/PerpMarketPicker';
+import { DEMO_PERP_MARKETS, fmtPerpUsdCompact, type PerpMarket } from '@/lib/perps/perpMarketsDemo';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber } from '@/lib/utils/formatters';
 
-type PerpPair = {
-  id: string;
-  label: string;
-  coin: string;
-  /** Trading / brand icon (shared with `/public/chains/*`). */
-  iconSrc: string;
-  tvSymbol: string;
-  mark: number;
-  chg24: number;
-  fundingApr: number;
-  fundingCountdown: string;
-  oiUsd: number;
-  vol24Usd: number;
-};
-
-const PAIRS: PerpPair[] = [
-  {
-    id: 'btc',
-    label: 'BTC-PERP',
-    coin: 'BTC',
-    iconSrc: '/chains/btc.png',
-    tvSymbol: 'BINANCE:BTCUSDT.P',
-    mark: 98420,
-    chg24: -0.41,
-    fundingApr: 8.2,
-    fundingCountdown: '06h 14m',
-    oiUsd: 1.25e9,
-    vol24Usd: 3.42e9,
-  },
-  {
-    id: 'eth',
-    label: 'ETH-PERP',
-    coin: 'ETH',
-    iconSrc: '/chains/eth.svg',
-    tvSymbol: 'BINANCE:ETHUSDT.P',
-    mark: 2654.3,
-    chg24: 1.18,
-    fundingApr: 6.4,
-    fundingCountdown: '02h 22m',
-    oiUsd: 820e6,
-    vol24Usd: 1.95e9,
-  },
-  {
-    id: 'sol',
-    label: 'SOL-PERP',
-    coin: 'SOL',
-    iconSrc: '/chains/sol.png',
-    tvSymbol: 'BINANCE:SOLUSDT.P',
-    mark: 187.42,
-    chg24: 2.76,
-    fundingApr: 11.1,
-    fundingCountdown: '04h 48m',
-    oiUsd: 410e6,
-    vol24Usd: 980e6,
-  },
-];
-
-function fmtUsdCompact(n: number) {
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}b`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}m`;
-  return `$${formatNumber(n, { decimals: 0 })}`;
-}
-
-const DEFAULT_PAIR = PAIRS[0]!;
+const DEFAULT_PAIR = DEMO_PERP_MARKETS[0]!;
 
 type TradingViewWidgetOptions = {
   autosize: boolean;
@@ -128,7 +67,7 @@ export function PerpsTerminal() {
   const vertDrag = useRef(false);
   const vertStart = useRef({ y: 0, split: 0.2 });
 
-  const pair = PAIRS.find((p) => p.id === pairId) ?? DEFAULT_PAIR;
+  const pair = DEMO_PERP_MARKETS.find((p) => p.id === pairId) ?? DEFAULT_PAIR;
 
   const onVertDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     vertDrag.current = true;
@@ -159,10 +98,10 @@ export function PerpsTerminal() {
   );
 
   return (
-    <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] min-w-0 flex-col bg-bg-base text-fg-primary">
+    <div className="flex min-h-full w-full min-w-0 flex-col bg-bg-base text-fg-primary xl:h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] xl:max-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] xl:overflow-hidden">
       <div className="shrink-0 border-b border-white/[0.06] bg-[#080b11] px-2 py-1.5">
         <div className="flex min-w-0 items-stretch gap-1.5 overflow-x-auto">
-          {PAIRS.map((p) => {
+          {DEMO_PERP_MARKETS.slice(0, 3).map((p) => {
             const on = p.id === pair.id;
             return (
               <button
@@ -218,7 +157,8 @@ export function PerpsTerminal() {
       </div>
 
       <div className="shrink-0 border-b border-white/[0.06] bg-[#06090f] px-2 py-1.5">
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-1 sm:gap-x-3.5 md:gap-x-4">
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 sm:gap-x-3.5 md:gap-x-4">
+          <PerpMarketPicker selectedId={pairId} onSelect={setPairId} />
           <Stat label="Mark" value={`$${formatNumber(pair.mark, { decimals: pair.mark > 500 ? (pair.mark > 5000 ? 0 : 1) : 2 })}`} />
           <Stat
             label="24h"
@@ -230,24 +170,24 @@ export function PerpsTerminal() {
             value={`${pair.fundingApr.toFixed(1)}% APR`}
             sub={`in ${pair.fundingCountdown}`}
           />
-          <Stat label="Open interest" value={fmtUsdCompact(pair.oiUsd)} />
-          <Stat label="24h volume" value={fmtUsdCompact(pair.vol24Usd)} />
+          <Stat label="Open interest" value={fmtPerpUsdCompact(pair.oiUsd)} />
+          <Stat label="24h volume" value={fmtPerpUsdCompact(pair.vol24Usd)} />
           <Stat label="Index" value="Composite" sub="synthetic benchmark" muted />
         </div>
       </div>
 
       <PredictionMarketTicker onOpenMarket={(id) => setDetailId(id)} />
 
-      <div ref={splitRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div ref={splitRef} className="flex w-full min-w-0 flex-col xl:min-h-0 xl:flex-1">
         <div
-          className="grid min-h-[280px] min-w-0 gap-px bg-white/[0.06] lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_13.25rem_20rem]"
+          className="grid w-full min-w-0 grid-cols-1 gap-px bg-white/[0.06] xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_13.25rem_20rem]"
           style={{ flex: `${1 - bottomSplit} 1 0%`, minHeight: 0 }}
         >
-          <section className="flex min-h-[280px] min-w-0 flex-col overflow-hidden bg-[#070a10] lg:min-h-0">
+          <section className="flex min-h-[280px] min-w-0 flex-col overflow-hidden bg-[#070a10] xl:min-h-0">
             <ChartShell pair={pair} tf={tf} onTfChange={setTf} />
           </section>
 
-          <section className="flex min-h-[220px] min-w-0 flex-col overflow-hidden bg-[#080c12] lg:min-h-0">
+          <section className="flex min-h-[220px] min-w-0 flex-col overflow-hidden bg-[#080c12] xl:min-h-0">
             <header className="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-2">
               <h2 className="text-[11px] font-semibold tracking-tight text-fg-secondary">Order book</h2>
               <span className="text-[9px] tabular-nums text-fg-muted">L2 demo</span>
@@ -268,12 +208,12 @@ export function PerpsTerminal() {
           onPointerMove={onVertMove}
           onPointerUp={onVertUp}
           onPointerCancel={onVertUp}
-          className="group relative z-10 h-1 shrink-0 cursor-row-resize bg-transparent"
+          className="group relative z-10 hidden h-1 shrink-0 cursor-row-resize bg-transparent xl:block"
         >
           <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white/[0.08] group-hover:bg-accent-primary/45" />
         </div>
 
-        <div className="min-h-0 shrink-0" style={{ flex: `${bottomSplit} 1 0%`, minHeight: '6.5rem' }}>
+        <div className="shrink-0" style={{ flex: `${bottomSplit} 1 0%`, minHeight: '6.5rem' }}>
           <BottomTabs />
         </div>
       </div>
@@ -322,7 +262,7 @@ function ChartShell({
   tf,
   onTfChange,
 }: {
-  pair: PerpPair;
+  pair: PerpMarket;
   tf: (typeof TIMEFRAMES)[number];
   onTfChange: (t: (typeof TIMEFRAMES)[number]) => void;
 }) {
@@ -443,7 +383,7 @@ function OrderBookPreview({ coin, mark }: { coin: string; mark: number }) {
         <span className="text-right">{`Size (${coin})`}</span>
         <span className="text-right">Total</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {asks.map((p, i) => (
           <div
             key={`ask-${String(p)}-${String(i)}`}
@@ -469,7 +409,7 @@ function OrderBookPreview({ coin, mark }: { coin: string; mark: number }) {
         <span className="text-[10px] tabular-nums text-fg-primary">6.8 bps</span>
         <span className="ml-2 text-[9px] text-fg-muted">demo</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {bids.map((p, i) => (
           <div
             key={`bid-${String(p)}-${String(i)}`}
@@ -493,7 +433,7 @@ function OrderBookPreview({ coin, mark }: { coin: string; mark: number }) {
   );
 }
 
-function OrderEntryPreview({ pair }: { pair: PerpPair }) {
+function OrderEntryPreview({ pair }: { pair: PerpMarket }) {
   const [side, setSide] = useState<'long' | 'short'>('long');
   const [mode, setMode] = useState<'market' | 'limit'>('market');
 

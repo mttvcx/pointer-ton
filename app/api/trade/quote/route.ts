@@ -8,9 +8,9 @@ import { getQuote } from '@/lib/jupiter/quote';
 import { getSwapTx, getDefaultSwapFeeParams, type SwapFeeParams } from '@/lib/jupiter/swap';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { buildPointerStonSwapQuote } from '@/lib/stonfi/pointerSwap';
-import { SOL_MINT } from '@/lib/utils/addresses';
-import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
-import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
+import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
+import { BUY_PRESETS_SOL, BUY_PRESETS_USDC, USDC_DECIMALS } from '@/lib/utils/constants';
+import { lamportsToSol, solToLamports, uiToRaw } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
 export const runtime = 'nodejs';
@@ -22,6 +22,7 @@ const QuoteBodySchema = z
     side: z.enum(['buy', 'sell']),
     userPublicKey: z.string().min(1),
     amountSol: z.number().positive().optional(),
+    amountUsdc: z.number().positive().optional(),
     amountSolOut: z.number().positive().optional(),
     amountTokenRaw: z.string().regex(/^\d+$/).optional(),
     slippageBps: z.coerce.number().int().min(1).max(5_000).default(500),
@@ -51,12 +52,23 @@ const QuoteBodySchema = z
       });
     }
 
-    if (val.side === 'buy' && (val.amountSol == null || val.amountSol <= 0)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'amountSol required for buy',
-        path: ['amountSol'],
-      });
+    if (val.side === 'buy') {
+      const hasSol = val.amountSol != null && val.amountSol > 0;
+      const hasUsdc = val.amountUsdc != null && val.amountUsdc > 0;
+      if (!hasSol && !hasUsdc) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'amountSol or amountUsdc required for buy',
+          path: ['amountSol'],
+        });
+      }
+      if (hasSol && hasUsdc) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Use either amountSol or amountUsdc, not both',
+          path: ['amountUsdc'],
+        });
+      }
     }
     if (val.side === 'sell') {
       const hasRaw =
@@ -153,12 +165,16 @@ export async function POST(req: NextRequest) {
       const landing = body.landing === 'jito' ? 'jito' : 'rpc';
 
       if (body.side === 'buy') {
-        const lamports = solToLamports(body.amountSol!);
+        const spendUsdc = body.amountUsdc != null && body.amountUsdc > 0;
+        const inputMint = spendUsdc ? USDC_MINT : SOL_MINT;
+        const amountRaw = spendUsdc
+          ? uiToRaw(body.amountUsdc!, USDC_DECIMALS).toString()
+          : solToLamports(body.amountSol!).toString();
         const jq = await getQuote({
           userId: user.id,
-          inputMint: SOL_MINT,
+          inputMint,
           outputMint: mintCanon,
-          amountRaw: lamports.toString(),
+          amountRaw,
           slippageBps: body.slippageBps,
           dynamicSlippage: body.dynamicSlippage,
         });
@@ -171,7 +187,7 @@ export async function POST(req: NextRequest) {
           : null;
 
         const inAmt =
-          typeof jq.inAmount === 'string' ? jq.inAmount : String(jq.inAmount ?? lamports);
+          typeof jq.inAmount === 'string' ? jq.inAmount : String(jq.inAmount ?? amountRaw);
         const outAmt =
           typeof jq.outAmount === 'string' ? jq.outAmount : String(jq.outAmount ?? '0');
 
@@ -184,10 +200,13 @@ export async function POST(req: NextRequest) {
           tonConnect: null,
           lastValidBlockHeight: swap?.lastValidBlockHeight,
           presetsSol: [...BUY_PRESETS_SOL],
+          presetsUsdc: [...BUY_PRESETS_USDC],
+          spendAsset: spendUsdc ? 'usdc' : 'sol',
           summary: {
             amountInRaw: inAmt,
             amountOutRaw: outAmt,
-            amountSolEstimate: body.amountSol!,
+            amountSolEstimate: spendUsdc ? 0 : body.amountSol!,
+            amountUsdcEstimate: spendUsdc ? body.amountUsdc! : undefined,
           },
         });
       }

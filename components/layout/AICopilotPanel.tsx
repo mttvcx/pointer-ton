@@ -23,7 +23,7 @@ import {
 import { useCopilotMode } from '@/components/copilot/CopilotModeContext';
 import { ContextCard } from '@/components/ai/ContextCard';
 import { AskBox } from '@/components/ai/AskBox';
-import { AlertRulesSection } from '@/components/alerts/AlertRulesSection';
+import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
 import { AlertsTicker } from '@/components/ai/AlertsTicker';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
@@ -794,7 +794,7 @@ export function AICopilotPanel() {
           {alertRulesDocked ? null : alertRulesPopped ? (
             <AlertBuilderEmbeddedPlaceholder />
           ) : (
-            <AlertRulesSection showPopoutLauncher />
+            <XMonitorCopilotCard />
           )}
           <AlertsTicker />
         </div>

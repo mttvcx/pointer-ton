@@ -17,8 +17,8 @@ export const PRESET_BACKGROUNDS: {
     id: 'midnight',
     label: 'Midnight',
     className:
-      'bg-[#05070d] ' +
-      '[background-image:radial-gradient(900px_540px_at_82%_42%,rgba(124,58,237,0.28),transparent_60%),radial-gradient(640px_360px_at_20%_85%,rgba(67,32,176,0.18),transparent_60%),linear-gradient(180deg,#05070d,#04060b)]',
+      'bg-[#030208] ' +
+      '[background-image:radial-gradient(920px_560px_at_80%_38%,rgba(124,58,237,0.32),transparent_62%),radial-gradient(680px_400px_at_12%_88%,rgba(76,29,149,0.22),transparent_58%),linear-gradient(180deg,#030208,#020106)]',
     birdGlow: 'violet',
     wordmarkTone: 'violet',
   },

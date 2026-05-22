@@ -16,7 +16,10 @@ const pillGreen = cn(
   'border-emerald-400/45 bg-emerald-500/[0.06] text-emerald-200/95',
 );
 
-const pillBlue = cn(pillBase, 'border-sky-400/40 bg-sky-500/[0.06] text-sky-200/95');
+const pillGold = cn(
+  pillBase,
+  'border-amber-400/45 bg-amber-500/[0.08] text-amber-200/95',
+);
 
 /**
  * Bottom metrics strip (Axiom-style capsules): dev %, top-10 %, bonding, holders.
@@ -114,7 +117,7 @@ export function PulseRowMetaPills({
     );
   } else if (bond.migrated) {
     nodes.push(
-      <span key="mig" className={pillBlue} title="Migrated / graduated">
+      <span key="mig" className={pillGold} title="Migrated / graduated">
         MIG
       </span>,
     );

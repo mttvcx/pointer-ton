@@ -18,6 +18,19 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
+import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
+import {
+  buyQuoteAmountFields,
+  spendAssetLabel,
+  type SolSpendAsset,
+} from '@/lib/trading/spendAsset';
+
+export type QuickBuyResult =
+  | { ok: true; signature: string | null }
+  | { ok: false; error: string };
+
+type BuyTokenOptions = { silent?: boolean; spendAsset?: SolSpendAsset };
+type SellTokenOptions = { silent?: boolean };
 
 type TradingPresetApi = {
   slot: PresetSlot;
@@ -40,7 +53,7 @@ export function usePulseQuickBuy() {
   const qc = useQueryClient();
   const activeChain = useUIStore((s) => s.activeChain);
   const { submitFromQuote } = usePointerTradeSubmit();
-  const { activePresetSlot } = useTradingStore();
+  const { activePresetSlot, spendAsset } = useTradingStore();
   const [busyMint, setBusyMint] = useState<string | null>(null);
 
   const myWalletsQ = useQuery({
@@ -84,25 +97,34 @@ export function usePulseQuickBuy() {
   }, [presetsPayload?.presets, activePresetSlot]);
 
   const buyToken = useCallback(
-    async (mint: string, amountSol: number) => {
+    async (
+      mint: string,
+      amount: number,
+      opts?: BuyTokenOptions,
+    ): Promise<QuickBuyResult | void> => {
+      const silent = Boolean(opts?.silent);
+      const asset: SolSpendAsset =
+        opts?.spendAsset ?? (activeChain === 'sol' ? spendAsset : 'sol');
+      const fail = (error: string): QuickBuyResult => {
+        if (!silent) {
+          toast.error('Quick buy failed', { description: error.slice(0, 200) });
+        }
+        return { ok: false, error };
+      };
+
       if (!walletsReady || !wallet) {
-        toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
-        return;
+        return fail('Connect wallet via TonConnect after sign-in.');
       }
       if (activeWalletRow?.is_imported === true) {
-        toast.error('View-only wallet', {
-          description: 'Use a non-imported wallet linked in TonConnect to trade.',
-        });
-        return;
+        return fail('View-only wallet — use a linked trading wallet.');
       }
-      if (!Number.isFinite(amountSol) || amountSol <= 0) {
-        toast.error('Invalid amount', { description: 'Set a positive TON amount in the column header.' });
-        return;
+      if (!Number.isFinite(amount) || amount <= 0) {
+        const sym = spendAssetLabel(asset);
+        return fail(`Invalid amount — set a positive ${sym} amount.`);
       }
       const token = await getAccessToken();
       if (!token) {
-        toast.error('Sign in required', { description: 'Log in to quick buy.' });
-        return;
+        return fail('Sign in required.');
       }
 
       const feeExtra =
@@ -120,13 +142,13 @@ export function usePulseQuickBuy() {
       const landing = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
 
       setBusyMint(mint);
-      const toastId = toast.loading('Getting quote...');
+      const toastId = silent ? undefined : toast.loading('Getting quote...');
       try {
         const body = {
           mint,
           side: 'buy' as const,
           userPublicKey: wallet.address,
-          amountSol,
+          ...buyQuoteAmountFields(asset, amount),
           slippageBps,
           dynamicSlippage,
           landing,
@@ -159,7 +181,7 @@ export function usePulseQuickBuy() {
           throw new Error('No swap transaction from quote');
         }
 
-        toast.loading('Sign in wallet...', { id: toastId });
+        if (!silent && toastId) toast.loading('Sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
           walletAddress: wallet.address,
@@ -167,29 +189,36 @@ export function usePulseQuickBuy() {
           getAccessToken,
         });
 
-        toast.success('Buy complete', {
-          id: toastId,
-          description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
-        });
+        if (!silent && toastId) {
+          toast.success('Buy complete', {
+            id: toastId,
+            description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
+          });
+        }
         const chainRes: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
-        const sym = nativeTicker(chainRes);
-        const narration = `Bought ${formatNumber(amountSol, { decimals: 4 })} ${sym} · Pulse quick buy.`;
+        const sym = spendAssetLabel(asset);
+        const narration = silent
+          ? `Auto-buy ${formatNumber(amount, { decimals: asset === 'usdc' ? 2 : 4 })} ${sym} · ${mint.slice(0, 8)}…`
+          : `Bought ${formatNumber(amount, { decimals: asset === 'usdc' ? 2 : 4 })} ${sym} · Pulse quick buy.`;
         void (async () => {
           const t = await getAccessToken();
           if (!t) return;
           const posted = await recordUserTradeActivity(t, narration, {
-            kind: 'pulse_quick_buy',
+            kind: silent ? 'auto_buy' : 'pulse_quick_buy',
             mint,
             chain: chainRes,
-            amountSol,
+            amountSol: asset === 'sol' ? amount : undefined,
             txSignature: sig ?? null,
           });
           if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
         })();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+        dispatchSolanaAccountRefresh('pulse_quick_buy');
+        if (silent) return { ok: true, signature: sig ?? null };
       } catch (e) {
-        toast.dismiss(toastId);
+        if (!silent && toastId) toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
+        if (silent) return { ok: false, error: msg };
         toast.error('Quick buy failed', { description: msg.slice(0, 200) });
       } finally {
         setBusyMint(null);
@@ -204,33 +233,47 @@ export function usePulseQuickBuy() {
       submitFromQuote,
       qc,
       activeChain,
+      spendAsset,
     ],
   );
 
   const sellTokenPct = useCallback(
-    async (mint: string, sellPct: number) => {
+    async (
+      mint: string,
+      sellPct: number,
+      options?: SellTokenOptions,
+    ): Promise<QuickBuyResult | void> => {
+      const silent = options?.silent === true;
+      const fail = (error: string): QuickBuyResult => ({ ok: false, error });
+
       if (!walletsReady || !wallet) {
-        toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
-        return;
+        if (!silent) {
+          toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
+        }
+        return silent ? fail('Wallet not connected') : undefined;
       }
       if (activeWalletRow?.is_imported === true) {
-        toast.error('View-only wallet', {
-          description: 'Use a non-imported wallet linked in TonConnect to trade.',
-        });
-        return;
+        if (!silent) {
+          toast.error('View-only wallet', {
+            description: 'Use a non-imported wallet linked in TonConnect to trade.',
+          });
+        }
+        return silent ? fail('View-only wallet') : undefined;
       }
       if (!Number.isFinite(sellPct) || sellPct <= 0 || sellPct > 100) {
-        toast.error('Invalid sell %');
-        return;
+        if (!silent) toast.error('Invalid sell %');
+        return silent ? fail('Invalid sell %') : undefined;
       }
       const token = await getAccessToken();
       if (!token) {
-        toast.error('Sign in required', { description: 'Log in to quick sell.' });
-        return;
+        if (!silent) {
+          toast.error('Sign in required', { description: 'Log in to quick sell.' });
+        }
+        return silent ? fail('Sign in required') : undefined;
       }
 
       setBusyMint(mint);
-      const toastId = toast.loading('Sell: quote...');
+      const toastId = silent ? undefined : toast.loading('Sell: quote...');
       try {
         const balRes = await fetch(
           `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet.address)}`,
@@ -250,11 +293,8 @@ export function usePulseQuickBuy() {
             : '0';
         const amountTokenRaw = tokenRawForSellPct(rawAmount, sellPct);
         if (!amountTokenRaw) {
-          toast.dismiss(toastId);
-          toast.error('No tokens to sell', {
-            description: 'Zero balance for this mint.',
-          });
-          return;
+          if (!silent && toastId) toast.dismiss(toastId);
+          return fail('No tokens to sell — zero balance.');
         }
 
         const feeExtra =
@@ -314,12 +354,16 @@ export function usePulseQuickBuy() {
           getAccessToken,
         });
 
-        toast.success('Sell complete', {
-          id: toastId,
-          description: sig ? `${sig.slice(0, 8)}...` : undefined,
-        });
+        if (!silent && toastId) {
+          toast.success('Sell complete', {
+            id: toastId,
+            description: sig ? `${sig.slice(0, 8)}...` : undefined,
+          });
+        }
         const chainResSell: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
-        const narrSell = `Sold ${formatNumber(sellPct, { decimals: 0 })}% of balance · Pulse quick sell.`;
+        const narrSell = silent
+          ? `Auto-sell ${formatNumber(sellPct, { decimals: 0 })}% · ${mint.slice(0, 8)}…`
+          : `Sold ${formatNumber(sellPct, { decimals: 0 })}% of balance · Pulse quick sell.`;
         void (async () => {
           const t = await getAccessToken();
           if (!t) return;
@@ -328,7 +372,7 @@ export function usePulseQuickBuy() {
               ? Math.max(0, ok.summary.amountSolEstimate)
               : undefined;
           const posted = await recordUserTradeActivity(t, narrSell, {
-            kind: 'pulse_quick_sell',
+            kind: silent ? 'auto_sell' : 'pulse_quick_sell',
             mint,
             chain: chainResSell,
             sellPct,
@@ -343,9 +387,12 @@ export function usePulseQuickBuy() {
             : 0;
         if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+        dispatchSolanaAccountRefresh('pulse_quick_buy');
+        if (silent) return { ok: true, signature: sig ?? null };
       } catch (e) {
-        toast.dismiss(toastId);
+        if (!silent && toastId) toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
+        if (silent) return { ok: false, error: msg };
         toast.error('Quick sell failed', { description: msg.slice(0, 200) });
       } finally {
         setBusyMint(null);

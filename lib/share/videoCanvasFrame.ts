@@ -100,9 +100,9 @@ function paletteFor(id: ShareBackgroundPresetId | undefined): Palette {
     };
   }
   return {
-    bg1: '#05070d',
-    bg2: '#04060b',
-    halo: 'rgba(124,58,237,0.28)',
+    bg1: '#030208',
+    bg2: '#020106',
+    halo: 'rgba(124,58,237,0.32)',
     birdInner: '#0c0820',
     birdRim: '#8a6bff',
     birdRim2: '#c2a8ff',
@@ -119,10 +119,16 @@ function fillBackground(ctx: CanvasRenderingContext2D, w: number, h: number, p: 
   ctx.fillStyle = lin;
   ctx.fillRect(0, 0, w, h);
 
-  const rg = ctx.createRadialGradient(w * 0.82, h * 0.42, 0, w * 0.82, h * 0.42, Math.max(w, h) * 0.65);
+  const rg = ctx.createRadialGradient(w * 0.8, h * 0.38, 0, w * 0.8, h * 0.38, Math.max(w, h) * 0.68);
   rg.addColorStop(0, p.halo);
   rg.addColorStop(0.55, 'rgba(0,0,0,0)');
   ctx.fillStyle = rg;
+  ctx.fillRect(0, 0, w, h);
+
+  const rg2 = ctx.createRadialGradient(w * 0.12, h * 0.88, 0, w * 0.12, h * 0.88, Math.max(w, h) * 0.5);
+  rg2.addColorStop(0, 'rgba(76,29,149,0.22)');
+  rg2.addColorStop(0.6, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rg2;
   ctx.fillRect(0, 0, w, h);
 
   /* Inset vignette */
@@ -133,6 +139,55 @@ function fillBackground(ctx: CanvasRenderingContext2D, w: number, h: number, p: 
   inset.addColorStop(1, 'rgba(0,0,0,0.55)');
   ctx.fillStyle = inset;
   ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+function drawGeoPattern(ctx: CanvasRenderingContext2D, w: number, h: number, p: Palette) {
+  ctx.save();
+  ctx.strokeStyle = p.wordmarkStroke;
+  ctx.globalAlpha = 0.35;
+  const cell = 48 * (w / PNL_SHARE_CARD_REF.w);
+  for (let x = 0; x < w; x += cell) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  for (let y = 0; y < h; y += cell) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 0.45;
+  const marks: [number, number][] = [
+    [0.17, 0.19],
+    [0.27, 0.31],
+    [0.75, 0.25],
+    [0.81, 0.44],
+    [0.14, 0.67],
+    [0.69, 0.78],
+  ];
+  for (const [fx, fy] of marks) {
+    const x = w * fx;
+    const y = h * fy;
+    const s = 6 * (w / PNL_SHARE_CARD_REF.w);
+    ctx.beginPath();
+    ctx.moveTo(x - s, y);
+    ctx.lineTo(x + s, y);
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x, y + s);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawPurpleFrame(ctx: CanvasRenderingContext2D, w: number, h: number, p: Palette) {
+  ctx.save();
+  ctx.strokeStyle = p.birdRim;
+  ctx.globalAlpha = 0.72;
+  ctx.lineWidth = Math.max(2, w * 0.0016);
+  ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, w - ctx.lineWidth, h - ctx.lineWidth);
   ctx.restore();
 }
 
@@ -202,13 +257,18 @@ function drawBackdropWordmark(
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const fontPx = Math.round(w * 0.16);
+  const fontPx = Math.round(w * 0.178);
   ctx.font = `900 ${fontPx}px ui-sans-serif, system-ui, sans-serif`;
   ctx.fillStyle = p.wordmark;
   ctx.strokeStyle = p.wordmarkStroke;
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = 1.4;
   ctx.fillText('POINTER', w / 2, topY);
   ctx.strokeText('POINTER', w / 2, topY);
+
+  ctx.textAlign = 'start';
+  ctx.font = `800 ${Math.round(w * 0.027)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = p.nameTone;
+  ctx.fillText('• TRADE', w * 0.72, topY + fontPx * 0.32);
   ctx.restore();
 }
 
@@ -227,13 +287,16 @@ export function drawPnlCardFrame(
 
   const palette = paletteFor(args.backgroundId);
   fillBackground(ctx, w, h, palette);
+  drawGeoPattern(ctx, w, h, palette);
 
   /* Faded backdrop wordmark */
-  drawBackdropWordmark(ctx, w, h, h * 0.18, palette);
+  drawBackdropWordmark(ctx, w, h, h * 0.17, palette);
 
   /* Right-side hero bird */
-  const birdSize = Math.min(h * 1.18, w * 0.7);
-  drawBird(ctx, w * 0.78, h * 0.5, birdSize, palette, 0.95);
+  const birdSize = Math.min(h * 1.22, w * 0.72);
+  drawBird(ctx, w * 0.79, h * 0.5, birdSize, palette, 0.98);
+
+  drawPurpleFrame(ctx, w, h, palette);
 
   const headlineRaw = (args.headlineText ?? DEFAULT_SHARE_HEADLINE).slice(0, 72);
   const headline = headlineRaw.toUpperCase();
@@ -267,26 +330,19 @@ export function drawPnlCardFrame(
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
   const brandY = padY + 14 * ts;
-  const brandBirdSize = Math.round(34 * ts);
+  const brandBirdSize = Math.round(30 * ts);
   drawBird(ctx, padX + brandBirdSize / 2, brandY, brandBirdSize, palette, 1);
-  ctx.font = `800 ${Math.round(16 * ts)}px ui-sans-serif, system-ui, sans-serif`;
-  ctx.fillStyle = 'rgba(248,250,252,0.95)';
+  const brandFontPx = Math.round(17 * ts);
+  ctx.font = `800 ${brandFontPx}px ui-sans-serif, system-ui, sans-serif`;
   const brandTextX = padX + brandBirdSize + Math.round(10 * ts);
-  ctx.fillText('POINTER.TRADE', brandTextX, brandY + Math.round(5 * ts));
-  /* mini dot */
-  ctx.beginPath();
-  ctx.fillStyle = 'rgba(248,250,252,0.55)';
-  ctx.arc(
-    brandTextX + ctx.measureText('POINTER.TRADE').width + Math.round(9 * ts),
-    brandY + Math.round(1 * ts),
-    Math.max(2, Math.round(2 * ts)),
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
+  ctx.fillStyle = 'rgba(248,250,252,0.98)';
+  ctx.fillText('POINTER', brandTextX, brandY + Math.round(5 * ts));
+  const pointerW = ctx.measureText('POINTER').width;
+  ctx.fillStyle = palette.nameTone;
+  ctx.fillText('.TRADE', brandTextX + pointerW, brandY + Math.round(5 * ts));
 
   /* --- Headline pill --- */
-  if (headline.trim()) {
+  if (overlay.showCashbackFooter && headline.trim()) {
     const pillFontPx = Math.round(13 * ts);
     ctx.font = `800 ${pillFontPx}px ui-sans-serif, system-ui, sans-serif`;
     const tw = ctx.measureText(headline).width;
@@ -304,7 +360,7 @@ export function drawPnlCardFrame(
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(248,250,252,0.85)';
+    ctx.fillStyle = palette.nameTone;
     ctx.beginPath();
     ctx.arc(pillX + pillPadX + dotR, pillY + pillH / 2, dotR, 0, Math.PI * 2);
     ctx.fill();
@@ -455,9 +511,9 @@ export function drawPnlCardFrame(
 
   /* --- Footer --- */
   const footerY = h - padY;
-  ctx.font = `800 ${Math.round(13 * ts)}px ui-sans-serif, system-ui, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.72)';
-  drawGlobeMark(ctx, padX, footerY - Math.round(11 * ts), Math.round(15 * ts));
+  ctx.font = `800 ${Math.round(12 * ts)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = palette.nameTone;
+  drawGlobeMark(ctx, padX, footerY - Math.round(11 * ts), Math.round(15 * ts), palette.nameTone);
   ctx.fillText(
     `POINTER.TRADE/${rawHandle.toLowerCase()}`,
     padX + Math.round(22 * ts),
@@ -466,17 +522,24 @@ export function drawPnlCardFrame(
 
   if (overlay.showBranding) {
     ctx.textAlign = 'right';
-    ctx.font = `700 ${Math.round(26 * ts)}px ui-sans-serif, system-ui, sans-serif`;
-    ctx.fillStyle = '#ffffff';
+    ctx.font = `700 ${Math.round(28 * ts)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.fillStyle = palette.nameTone;
     ctx.fillText(handle, w - padX, footerY);
     ctx.textAlign = 'left';
   }
   void logoBird;
 }
 
-function drawGlobeMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+function drawGlobeMark(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  stroke: string,
+) {
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.78)';
+  ctx.strokeStyle = stroke;
+  ctx.globalAlpha = 0.9;
   ctx.lineWidth = Math.max(1, size * 0.11);
   const r = size / 2;
   ctx.beginPath();

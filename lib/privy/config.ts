@@ -1,7 +1,6 @@
 import 'server-only';
 
-import { createRemoteJWKSet } from 'jose';
-import { PrivyClient, verifyAccessToken } from '@privy-io/node';
+import { PrivyClient } from '@privy-io/node';
 import { verifyPointerAccessToken } from '@/lib/auth/pointerSession';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { PRIVY_APP_ID } from '@/lib/privy/publicConfig';
@@ -17,17 +16,16 @@ function requireServerPrivyEnv() {
   return { appId, appSecret };
 }
 
-const PRIVY_JWKS_URL = (appId: string) =>
-  new URL(`https://auth.privy.io/api/v1/apps/${appId}/jwks.json`);
-
-let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
-function getJwks(appId: string) {
-  if (_jwks) return _jwks;
-  _jwks = createRemoteJWKSet(PRIVY_JWKS_URL(appId), {
-    cacheMaxAge: 60 * 60 * 1_000,
-    cooldownDuration: 30_000,
-  });
-  return _jwks;
+/** Verify Privy bearer via official SDK (correct JWKS host + identity-token fallback). */
+async function verifyPrivyBearerToken(token: string): Promise<{ privyId: string }> {
+  const auth = getPrivyServerClient().utils().auth();
+  try {
+    const result = await auth.verifyAccessToken(token);
+    return { privyId: result.user_id };
+  } catch {
+    const user = await auth.verifyIdentityToken(token);
+    return { privyId: user.id };
+  }
 }
 
 export interface VerifiedPrivyUser {
@@ -40,28 +38,17 @@ export async function verifyPrivyAccessToken(token: string): Promise<VerifiedPri
     const v = await verifyPointerAccessToken(token);
     return { privyId: v.authSubject, walletAddress: v.walletAddress };
   } catch {
-    const { appId } = requireServerPrivyEnv();
-    const result = await verifyAccessToken({
-      access_token: token,
-      app_id: appId,
-      verification_key: getJwks(appId),
-    });
-    const user = await getUserByPrivyId(result.user_id);
+    const { privyId } = await verifyPrivyBearerToken(token);
+    const user = await getUserByPrivyId(privyId);
     return {
-      privyId: result.user_id,
+      privyId,
       walletAddress: user?.wallet_address ?? '',
     };
   }
 }
 
 export async function verifyPrivyJwksOnly(token: string): Promise<{ privyId: string }> {
-  const { appId } = requireServerPrivyEnv();
-  const result = await verifyAccessToken({
-    access_token: token,
-    app_id: appId,
-    verification_key: getJwks(appId),
-  });
-  return { privyId: result.user_id };
+  return verifyPrivyBearerToken(token);
 }
 
 let _privy: PrivyClient | null = null;

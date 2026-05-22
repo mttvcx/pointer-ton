@@ -8,10 +8,18 @@ import {
   getAxiomSpriteMetrics,
 } from '@/lib/tokens/pulseAxiomSpriteMetrics';
 import { PulseRichHover, DevFundedHoverPanel } from '@/components/tokens/PulseRichPopovers';
+import { PulseLuminanceGlyph } from '@/components/tokens/PulseGlyphMask';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils/cn';
 
-/** Individual PNG assets (left→right: star/person, chef, crosshair, tomb, triple circles). */
-const METRIC_ICON_GREEN = [
+/** Mini-tooltip styling shared by the snipers + bundle chips. */
+const SPRITE_CHIP_TOOLTIP_CLASS = cn(
+  'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
+  'whitespace-nowrap text-[11.5px] font-normal text-white/80 shadow-lg shadow-black/50',
+);
+
+/** Luminance-sheet assets (shared shape); color comes from masked `bg-current`. */
+const METRIC_ICON_BASE = [
   '/pulse/axiom-metric-0.png',
   '/pulse/axiom-metric-1.png',
   '/pulse/axiom-metric-2.png',
@@ -19,55 +27,44 @@ const METRIC_ICON_GREEN = [
   '/pulse/axiom-metric-4.png',
 ] as const;
 
-const METRIC_ICON_RED = [
-  '/pulse/axiom-metric-0-red.png',
-  '/pulse/axiom-metric-1-red.png',
-  '/pulse/axiom-metric-2-red.png',
-  '/pulse/axiom-metric-3-red.png',
-  '/pulse/axiom-metric-4-red.png',
-] as const;
-
 type MetricChipTone = 'bull' | 'bear';
 
 function AxiomMetricIcon({
-  src,
+  sheetSrc,
   px,
-  danger,
+  tone,
 }: {
-  src: string;
+  sheetSrc: string;
   px: number;
-  danger?: boolean;
+  tone: MetricChipTone;
 }) {
   return (
-    <img
-      src={src}
-      alt=""
-      width={px}
-      height={px}
-      decoding="async"
-      draggable={false}
+    <span
       className={cn(
-        'shrink-0 object-contain',
-        danger && 'drop-shadow-[0_0_8px_rgba(251,113,133,0.35)]',
+        'inline-flex shrink-0',
+        tone === 'bear' ? 'text-signal-bear drop-shadow-[0_0_8px_rgba(251,113,133,0.28)]' : 'text-signal-bull opacity-95',
       )}
-      style={{ width: px, height: px }}
-      aria-hidden
-    />
+    >
+      <PulseLuminanceGlyph src={sheetSrc} size={px} />
+    </span>
   );
 }
 
-/**
- * Pill chip — grey outline only; icon + value always carry their semantic color
- * (green for healthy / `bull`, red for flagged / `bear`). Zero values keep the
- * bull green so the strip stays Axiom-style instead of going muted.
- */
 function metricChipTone(isBad: boolean): MetricChipTone {
   return isBad ? 'bear' : 'bull';
 }
 
-function metricChipShellClass(_tone: MetricChipTone) {
-  // Pill ~10% tighter than the previous pass — readable but no longer dominant.
-  return 'inline-flex shrink-0 items-center gap-1 rounded-full border border-border-subtle bg-transparent px-2 py-0.5 shadow-none outline-none ring-0';
+/** Axiom-style capsules: faint fill + pale hairline outline (readable on charcoal rows). */
+function metricChipShellClass() {
+  return cn(
+    'inline-flex shrink-0 items-center gap-1 rounded-full',
+    'border border-white/[0.14]',
+    'bg-white/[0.035]',
+    'px-2 py-0.5 shadow-none outline-none ring-0',
+    'transition-[border-color,background-color] duration-150',
+    /** No dark ring — lift border slightly on hover for affordance without “black halo”. */
+    'hover:border-white/[0.22] hover:bg-white/[0.05]',
+  );
 }
 
 function metricChipTextClass(tone: MetricChipTone) {
@@ -86,11 +83,6 @@ export function PulseRowAxiomSpriteStrip({
   socialGlyphPx?: number;
 }) {
   const basePx = socialGlyphPx ?? 22;
-  /**
-   * Bottom strip — Axiom-style readable cluster. ~10% smaller than the previous
-   * pass: glyph at ~85% of the social-strip glyph so the row stays secondary
-   * vs. the social icons above. Clamps [13, 20].
-   */
   const metricPx = Math.max(13, Math.min(20, Math.round(basePx * 0.85)));
 
   const m = getAxiomSpriteMetrics(bundle);
@@ -103,7 +95,6 @@ export function PulseRowAxiomSpriteStrip({
     title: string;
     iconIndex: number;
     text: string;
-    devHover?: boolean;
   }[] = [
     {
       key: 'top10',
@@ -114,61 +105,80 @@ export function PulseRowAxiomSpriteStrip({
     {
       key: 'dev',
       title: devSold
-        ? 'Developer holding — hover for funding snapshot'
+        ? 'Developer holdings — hover for seeded funding snapshot'
         : devTooFat
           ? 'Developer holding — very high insider allocation'
-          : 'Developer holding %',
+          : 'Developer holding percent',
       iconIndex: 1,
       text: formatAxiomPctCell(m.devPct),
-      devHover: devSold,
     },
     {
       key: 'sniper',
-      title: 'Sniper / fast-wallet allocation (when reported)',
+      title: 'Snipers Holding',
       iconIndex: 2,
       text: formatAxiomPctCell(m.sniperPct),
     },
     {
       key: 'bundle',
-      title: 'Bundle / band allocation (when reported)',
-      iconIndex: 3,
+      title: 'Bundle Holding',
+      /** Triple-circle glyph — matches Axiom’s bundle pill (not the tombstone sheet). */
+      iconIndex: 4,
       text: formatAxiomPctCell(m.bundlePct),
     },
     {
       key: 'cluster',
-      title: 'Cluster / linked-wallet signal (when reported)',
-      iconIndex: 4,
+      title: 'Cluster / linked-wallet signal',
+      iconIndex: 3,
       text: formatAxiomPctCell(m.clusterPct),
     },
   ];
 
   return (
     <div
-      className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto pt-px [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      /**
+       * `overflow-visible` (not `overflow-x-auto`) — when one axis is non-visible CSS
+       * forces the other to clip too, which was eating the dev-pill hover panel that
+       * renders below the strip. We render at most 4 chips so horizontal scroll isn't
+       * needed; the row already prevents overflow via `min-w-0`.
+       */
+      className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible pt-px"
       aria-label="Launch metrics"
     >
       {cells.map((c) => {
         const idx = c.iconIndex as 0 | 1 | 2 | 3 | 4;
         const isBad = bad[c.key];
         const tone = metricChipTone(isBad);
-        const iconSrc = isBad ? METRIC_ICON_RED[idx] : METRIC_ICON_GREEN[idx];
+        const sheetSrc = METRIC_ICON_BASE[idx];
 
         const inner = (
-          <span className={metricChipShellClass(tone)} title={c.title}>
-            <AxiomMetricIcon
-              src={iconSrc}
-              px={metricPx}
-              danger={isBad}
-            />
+          <span className={metricChipShellClass()} aria-label={c.title}>
+            <AxiomMetricIcon sheetSrc={sheetSrc} px={metricPx} tone={tone} />
             <span className={metricChipTextClass(tone)}>{c.text}</span>
           </span>
         );
 
-        if (c.devHover) {
+        /** Dev pill ALWAYS opens the funding popup on hover — sold or not. */
+        if (c.key === 'dev') {
           return (
-            <PulseRichHover key={c.key} panel={<DevFundedHoverPanel bundle={bundle} />}>
+            <PulseRichHover key={c.key} bare panel={<DevFundedHoverPanel bundle={bundle} />}>
               {inner}
             </PulseRichHover>
+          );
+        }
+
+        /**
+         * Snipers + Bundle chips get a styled Radix Tooltip (single-line text).
+         * Uses the app-level `TooltipProvider` already wrapping the layout — no
+         * second provider here. `delayDuration` on `Root` overrides the global default.
+         */
+        if (c.key === 'sniper' || c.key === 'bundle') {
+          return (
+            <Tooltip key={c.key} delayDuration={150}>
+              <TooltipTrigger asChild>{inner}</TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6} className={SPRITE_CHIP_TOOLTIP_CLASS}>
+                {c.title}
+              </TooltipContent>
+            </Tooltip>
           );
         }
 

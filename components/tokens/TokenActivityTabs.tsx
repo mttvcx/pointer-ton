@@ -459,7 +459,7 @@ function SortableTh({
 
 function RealPnlInfoTooltip({ sym }: { sym: string }) {
   return (
-    <span className="group/info relative inline-flex items-center" tabIndex={0} aria-label="What is Real. PnL?">
+    <span className="group/info relative inline-flex cursor-default items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/38" tabIndex={0} aria-label="What is Real. PnL?">
       <HelpCircle
         className="h-3 w-3 cursor-help text-fg-muted/80 transition-colors group-hover/info:text-fg-secondary"
         strokeWidth={2}
@@ -485,6 +485,7 @@ export function TokenActivityTabs({
   onTradesPanelChange,
   onLiveTradesSnapshot,
   onOpenInstantTrade,
+  instantTradeOpen = false,
 }: {
   mint: string;
   symbol: string | null;
@@ -494,6 +495,7 @@ export function TokenActivityTabs({
   onTradesPanelChange: (v: boolean) => void;
   onLiveTradesSnapshot?: (s: { rows: TradeRow[]; isLoading: boolean }) => void;
   onOpenInstantTrade?: () => void;
+  instantTradeOpen?: boolean;
 }) {
   const [tab, setTab] = useState<TabId>('trades');
   const [tradesFeedHoverPause, setTradesFeedHoverPause] = useState(false);
@@ -926,7 +928,13 @@ export function TokenActivityTabs({
             <button
               type="button"
               onClick={onOpenInstantTrade}
-              className="btn-press focus-ring inline-flex h-7 items-center gap-1.5 rounded-md bg-accent-primary px-2.5 text-[11px] font-semibold tracking-tight text-fg-inverse shadow-sm transition hover:brightness-110"
+              aria-pressed={instantTradeOpen}
+              className={cn(
+                'btn-press focus-ring inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold tracking-tight shadow-sm transition',
+                instantTradeOpen
+                  ? 'bg-bg-sunken text-accent-primary ring-1 ring-accent-primary/45 hover:bg-bg-hover'
+                  : 'bg-accent-primary text-fg-inverse hover:brightness-110',
+              )}
             >
               <Zap className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
               Instant

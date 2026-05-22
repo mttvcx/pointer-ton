@@ -21,6 +21,8 @@ export interface ExplainTokenInput {
   mint: string;
   userId: string;
   mode?: CascadeMode;
+  /** Hover card vs co-pilot strip — different shared cache keys / TTLs. */
+  surface?: 'hover' | 'copilot';
 }
 
 /**
@@ -102,6 +104,7 @@ function buildPrompt(facts: {
 export async function explainToken(input: ExplainTokenInput): Promise<{
   data: ExplainTokenOutput;
   cacheHit: boolean;
+  fromCache: boolean;
   modelUsed: string;
   costUsd: number;
 }> {
@@ -157,9 +160,11 @@ export async function explainToken(input: ExplainTokenInput): Promise<{
     inputs: {
       mint: input.mint,
       mode: input.mode ?? 'fast',
-      // Snapshot id pinned so cache invalidates on a fresh snapshot.
-      snapshotId: snapshot?.id ?? null,
-      holderHash: holders.map((h) => `${h.wallet_address}:${h.amount_raw}`).join(','),
+    },
+    scanContext: {
+      marketCapUsd: snapshot?.market_cap_usd ?? null,
+      surface: input.surface ?? 'hover',
+      sourceMint: input.mint,
     },
     systemPrompt: system,
     userPrompt: user,
@@ -169,6 +174,7 @@ export async function explainToken(input: ExplainTokenInput): Promise<{
   return {
     data: result.data as ExplainTokenOutput,
     cacheHit: result.cacheHit,
+    fromCache: result.fromCache,
     modelUsed: result.modelUsed,
     costUsd: result.costUsd,
   };

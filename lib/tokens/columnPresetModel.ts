@@ -1,7 +1,23 @@
 import { z } from 'zod';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { launchPadToProtocolId } from '@/lib/tokens/protocolBrand';
+import {
+  ALL_PULSE_PROTOCOL_FILTER_IDS,
+  defaultProtocolsForChain,
+  isKnownPresetProtocol,
+  pulseProtocolPresetIdsForChain,
+} from '@/lib/tokens/pulseProtocolRegistry';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { PulseColumnId } from '@/lib/utils/constants';
+
+const PulsePresetProtocolEnum = z.enum(
+  ALL_PULSE_PROTOCOL_FILTER_IDS as unknown as [
+    (typeof ALL_PULSE_PROTOCOL_FILTER_IDS)[number],
+    ...(typeof ALL_PULSE_PROTOCOL_FILTER_IDS)[number][],
+  ],
+);
 
 /** Pulse “protocol” buckets for Pointer TON — venues / discovery sources (not Solana DEXes). */
 export const PULSE_PROTOCOL_IDS = ['ton', 'dedust', 'stonfi', 'megaton'] as const;
@@ -47,7 +63,7 @@ export type ColumnSortKey = (typeof COLUMN_SORT_KEYS)[number];
 
 export const ColumnFiltersSchema = z
   .object({
-    protocols: z.array(z.enum(PULSE_PROTOCOL_IDS)),
+    protocols: z.array(PulsePresetProtocolEnum),
     quoteSol: z.boolean(),
     quoteUsdc: z.boolean(),
     quoteUsd1: z.boolean(),
@@ -164,14 +180,60 @@ export const DEFAULT_COLUMN_DISPLAY_OPTIONS: ColumnDisplayOptions = {
   pulseSecondButton: 'none',
 };
 
-export function normalizeColumnFilters(raw: unknown): ColumnFilters {
-  if (!raw || typeof raw !== 'object') return { ...DEFAULT_COLUMN_FILTERS };
+/** Build candidate protocol ids from raw preset storage (handles legacy + shorthand). */
+function expandPresetProtocolCandidates(raw: unknown): Set<string> {
+  const candidates = new Set<string>();
+  const migrated = migrateLegacyPulseProtocols(raw);
+  if (migrated) {
+    for (const t of migrated) candidates.add(t);
+  }
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item !== 'string') continue;
+      const id = item.trim();
+      if (!id) continue;
+      if (isKnownPresetProtocol(id)) candidates.add(id);
+      const low = id.toLowerCase();
+      if (low === 'pump' || low === 'pumpfun') candidates.add('pump.fun');
+      if (low === 'daos') candidates.add('daos.fun');
+      if (low === 'moonit' || low === 'moon.it') candidates.add('moonshot');
+    }
+  }
+  return candidates;
+}
+
+/**
+ * Intersect stored preset protocol ids with what's valid for the active header chain.
+ * When nothing matches (cross-chain preset), default to all preset ids for that chain.
+ */
+export function sanitizePresetProtocols(raw: unknown, chain?: AppChainId): string[] {
+  const candidates = expandPresetProtocolCandidates(raw);
+  if (!chain) {
+    const intersect = ALL_PULSE_PROTOCOL_FILTER_IDS.filter((id) => candidates.has(id));
+    return intersect.length > 0 ? [...intersect] : [...PULSE_PROTOCOL_IDS];
+  }
+  const allowedChain = pulseProtocolPresetIdsForChain(chain);
+  const intersect = allowedChain.filter((id) => candidates.has(id));
+  return intersect.length > 0 ? [...intersect] : defaultProtocolsForChain(chain);
+}
+
+export function defaultColumnFiltersForChain(chain: AppChainId): ColumnFilters {
+  return {
+    ...DEFAULT_COLUMN_FILTERS,
+    protocols: defaultProtocolsForChain(chain),
+  };
+}
+
+export function normalizeColumnFilters(raw: unknown, chain?: AppChainId): ColumnFilters {
+  if (!raw || typeof raw !== 'object') {
+    return chain ? defaultColumnFiltersForChain(chain) : { ...DEFAULT_COLUMN_FILTERS };
+  }
   const o = { ...(raw as Record<string, unknown>) };
-  const migrated = migrateLegacyPulseProtocols(o.protocols);
-  if (migrated) o.protocols = migrated;
+  o.protocols = sanitizePresetProtocols(o.protocols, chain);
+
   const merged = { ...DEFAULT_COLUMN_FILTERS, ...o };
   const p = ColumnFiltersSchema.safeParse(merged);
-  return p.success ? p.data : { ...DEFAULT_COLUMN_FILTERS };
+  return p.success ? p.data : chain ? defaultColumnFiltersForChain(chain) : { ...DEFAULT_COLUMN_FILTERS };
 }
 
 export function normalizeColumnDisplayOptions(raw: unknown): ColumnDisplayOptions {
@@ -253,33 +315,73 @@ function protocolsFromExtended(bundle: PulseTokenBundle): PulseProtocolId[] {
   return [...new Set(out)];
 }
 
-export function tokenProtocolIds(bundle: PulseTokenBundle): Set<PulseProtocolId> {
-  const set = new Set<PulseProtocolId>();
-  for (const x of padToProtocols(bundle.token.launch_pad ?? null)) set.add(x);
-  for (const x of protocolsFromExtended(bundle)) set.add(x);
+export function tokenProtocolIdsForChain(bundle: PulseTokenBundle, chain: AppChainId): Set<string> {
+  const set = new Set<string>();
+  if (chain === 'ton') {
+    const id = launchPadToProtocolId(bundle.token.launch_pad ?? null, chain);
+    if (id) set.add(id);
+    for (const x of protocolsFromExtended(bundle)) set.add(x);
+    return set;
+  }
+
+  const pad = bundle.token.launch_pad;
+  if (chain === 'sol') {
+    if (pad === 'pump.fun' || pad === 'bags' || pad === 'printr' || pad === 'moonshot') {
+      set.add(pad);
+    }
+    return set;
+  }
+
+  if (chain === 'bnb' || chain === 'base') {
+    const id = launchPadToProtocolId(pad ?? null, chain);
+    if (id) set.add(id);
+    return set;
+  }
+
   return set;
 }
 
-function quoteSymbolFromBundle(bundle: PulseTokenBundle): string | null {
-  const em = bundle.snapshot?.extended_metrics;
-  if (!em || typeof em !== 'object' || Array.isArray(em)) return null;
-  const r = em as Record<string, unknown>;
-  const sym =
-    (typeof r.quoteSymbol === 'string' ? r.quoteSymbol : null) ??
-    (typeof r.quote === 'string' ? r.quote : null) ??
-    (typeof r.pairQuote === 'string' ? r.pairQuote : null);
-  return sym?.trim() ? sym.trim().toUpperCase() : null;
+/** Prefer {@link tokenProtocolIdsForChain} — this keeps TON-only alias behavior for alerts. */
+export function tokenProtocolIds(bundle: PulseTokenBundle): Set<PulseProtocolId> {
+  const s = tokenProtocolIdsForChain(bundle, 'ton');
+  return new Set([...s].filter((x): x is PulseProtocolId => (PULSE_PROTOCOL_IDS as readonly string[]).includes(x)));
 }
 
-export function quoteFilterPasses(bundle: PulseTokenBundle, f: ColumnFilters): boolean {
+import { quoteSymbolFromBundle } from '@/lib/tokens/quoteToken';
+
+export { quoteSymbolFromBundle };
+
+export function quoteFilterPasses(bundle: PulseTokenBundle, f: ColumnFilters, chain?: AppChainId): boolean {
   const active = [f.quoteSol, f.quoteUsdc, f.quoteUsd1].filter(Boolean).length;
   if (active === 0) return false;
   if (active === 3) return true;
   const sym = quoteSymbolFromBundle(bundle);
   if (!sym) return true;
-  if (sym.includes('SOL') && !f.quoteSol) return false;
-  if ((sym.includes('USDC') || sym === 'USD') && !f.quoteUsdc) return false;
-  if (sym.includes('USD1') && !f.quoteUsd1) return false;
+  const upper = sym.toUpperCase();
+
+  /** `quoteSol` flag = “native / chain gas token pair” in the UI (historical Solana naming). */
+  if (!chain) {
+    if (upper.includes('SOL') && !f.quoteSol) return false;
+    if ((upper.includes('USDC') || upper === 'USD') && !f.quoteUsdc) return false;
+    if (upper.includes('USD1') && !f.quoteUsd1) return false;
+    return true;
+  }
+
+  const nt = nativeTicker(chain).toUpperCase();
+  const looksNative =
+    nt === 'SOL'
+      ? upper.includes('SOL')
+      : nt === 'TON'
+        ? upper.includes('TON')
+        : nt === 'BNB'
+          ? upper.includes('BNB') || upper.includes('WBNB')
+          : nt === 'ETH'
+            ? upper.includes('ETH') || upper.includes('WETH')
+            : upper.includes(nt);
+
+  if (looksNative && !f.quoteSol) return false;
+  if ((upper.includes('USDC') || upper === 'USD') && !f.quoteUsdc) return false;
+  if (upper.includes('USD1') && !f.quoteUsd1) return false;
   return true;
 }
 
@@ -339,17 +441,22 @@ export function twitterFollowersFromBundle(bundle: PulseTokenBundle): number | n
   return bundle.token.raw_metadata ? walk(bundle.token.raw_metadata, 0) : null;
 }
 
-export function pulseBundleMatchesFilters(bundle: PulseTokenBundle, f: ColumnFilters): boolean {
+export function pulseBundleMatchesFilters(
+  bundle: PulseTokenBundle,
+  f: ColumnFilters,
+  chain: AppChainId,
+): boolean {
+  const presetAll = pulseProtocolPresetIdsForChain(chain);
   if (f.protocols.length === 0) return false;
-  if (f.protocols.length < PULSE_PROTOCOL_IDS.length) {
-    const detected = tokenProtocolIds(bundle);
+  if (f.protocols.length < presetAll.length) {
+    const detected = tokenProtocolIdsForChain(bundle, chain);
     if (detected.size > 0) {
       const ok = [...detected].some((p) => f.protocols.includes(p));
       if (!ok) return false;
     }
   }
 
-  if (!quoteFilterPasses(bundle, f)) return false;
+  if (!quoteFilterPasses(bundle, f, chain)) return false;
 
   const snap = bundle.snapshot;
   const mc = snap?.market_cap_usd ?? null;
@@ -432,6 +539,7 @@ export function sortPulseBundles(
 export function parseImportedPresetJson(
   raw: string,
   columnId: PulseColumnId,
+  chain?: AppChainId,
 ): {
   filters: ColumnFilters;
   display_options: ColumnDisplayOptions;
@@ -444,7 +552,7 @@ export function parseImportedPresetJson(
     if (!data || typeof data !== 'object') return null;
     const o = data as Record<string, unknown>;
     if (typeof o.column_id === 'string' && o.column_id !== columnId) return null;
-    const filters = normalizeColumnFilters(o.filters ?? o);
+    const filters = normalizeColumnFilters(o.filters ?? o, chain);
     const display_options = normalizeColumnDisplayOptions(
       o.display_options ?? o.display ?? DEFAULT_COLUMN_DISPLAY_OPTIONS,
     );
@@ -456,4 +564,41 @@ export function parseImportedPresetJson(
   } catch {
     return null;
   }
+}
+
+/** Rough count of non-default filter constraints (for scope tab badges). */
+export function countActiveColumnFilters(f: ColumnFilters, chain: AppChainId): number {
+  const defaults = defaultColumnFiltersForChain(chain);
+  let n = 0;
+  if (f.protocols.length < defaults.protocols.length) n += 1;
+  if (!f.quoteSol || !f.quoteUsdc || !f.quoteUsd1) n += 1;
+
+  const nullableKeys = [
+    'mcMin',
+    'mcMax',
+    'liqMin',
+    'liqMax',
+    'holdersMin',
+    'holdersMax',
+    'vol24hMin',
+    'vol24hMax',
+    'ageMinMinutes',
+    'ageMaxMinutes',
+    'bondingMinPct',
+    'bondingMaxPct',
+    'twitterFollowersMin',
+  ] as const;
+  for (const k of nullableKeys) {
+    if (f[k] != null) n += 1;
+  }
+
+  if (f.paidOnly) n += 1;
+  if (f.lpLockedOnly) n += 1;
+  if (f.mintRenouncedOnly) n += 1;
+  if (f.freezeRenouncedOnly) n += 1;
+  if (f.hasTwitter) n += 1;
+  if (f.hasTelegram) n += 1;
+  if (f.hasWebsite) n += 1;
+
+  return n;
 }

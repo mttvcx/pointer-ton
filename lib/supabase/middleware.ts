@@ -21,6 +21,11 @@ export async function updateSession(request: NextRequest) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return response;
 
+  /** Pointer uses Privy — opt-in only so local dev never blocks on Supabase auth. */
+  if (process.env.SUPABASE_AUTH_MIDDLEWARE !== '1') {
+    return response;
+  }
+
   const supabase = createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
@@ -38,8 +43,17 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // Touch the session so the cookie refresh path executes.
-  await supabase.auth.getUser();
+  try {
+    await Promise.race([
+      supabase.auth.getUser(),
+      rejectAfter(2_500, 'supabase_getUser_timeout'),
+    ]);
+  } catch (err) {
+    console.warn(
+      '[supabase] session refresh skipped:',
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   return response;
 }

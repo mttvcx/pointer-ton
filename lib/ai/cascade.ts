@@ -12,6 +12,12 @@ import {
   writeToCache,
   type CacheEnvelope,
 } from '@/lib/ai/cache';
+import {
+  readScanCache,
+  scanCacheSpecForPipeline,
+  writeScanCache,
+  type ScanCacheContext,
+} from '@/lib/ai/scanCache';
 import { modelIdToKey, priceUsage, type TokenUsage } from '@/lib/ai/cost';
 import {
   PIPELINE_SCHEMAS,
@@ -60,12 +66,16 @@ export interface CascadeInput<P extends PipelineId> {
   outputSchema?: z.ZodTypeAny;
   /** Used by `narrateAlert` etc. to skip points awards on background jobs. */
   skipPointsAward?: boolean;
+  /** Public-data context for shared global scan cache (MC, surface, wallet activity). */
+  scanContext?: ScanCacheContext;
 }
 
 export interface CascadeResult<T> {
   pipeline: PipelineId;
   data: T;
   cacheHit: boolean;
+  /** True when served from shared `ai_scan_cache` (cross-user). */
+  fromCache: boolean;
   modelUsed: string;
   costUsd: number;
 }
@@ -79,30 +89,45 @@ export async function runCascade<P extends PipelineId>(
     throw new QuotaError('unauthenticated', 'AI cascade requires authenticated user');
   }
   const schema = (input.outputSchema ?? PIPELINE_SCHEMAS[input.pipeline]) as z.ZodTypeAny;
+  const mode: CascadeMode = input.mode ?? 'fast';
   const inputHash = hashInput({
     pipeline: input.pipeline,
     inputs: input.inputs,
-    mode: input.mode ?? 'fast',
+    mode,
   });
 
-  // 1. Cache lookup. We still record the hit row so analytics see traffic.
+  const scanSpec = scanCacheSpecForPipeline(
+    input.pipeline,
+    input.inputs,
+    mode,
+    input.scanContext ?? {},
+  );
+
+  // 1. Shared global scan cache (cross-user, public data only).
+  if (scanSpec) {
+    const shared = await readScanCache<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>(scanSpec);
+    if (shared) {
+      return {
+        pipeline: input.pipeline,
+        data: shared.response,
+        cacheHit: true,
+        fromCache: true,
+        modelUsed: shared.modelUsed,
+        costUsd: 0,
+      };
+    }
+  }
+
+  // 1b. Legacy per-hash cache (pipeline-scoped Redis + ai_responses backfill).
   const cached = (await readFromCache(input.pipeline, inputHash)) as
     | CacheEnvelope<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>
     | null;
   if (cached) {
-    await recordCall({
-      pipeline: input.pipeline,
-      inputHash,
-      userId: input.userId,
-      modelUsed: cached.modelUsed,
-      costUsd: 0,
-      cacheHit: true,
-      response: cached.response,
-    });
     return {
       pipeline: input.pipeline,
       data: cached.response,
       cacheHit: true,
+      fromCache: true,
       modelUsed: cached.modelUsed,
       costUsd: 0,
     };
@@ -111,8 +136,6 @@ export async function runCascade<P extends PipelineId>(
   // 2. Quota gates BEFORE we burn provider budget.
   await ensureUnderCostCeiling(input.userId);
   await enforceRateLimit(input.userId);
-
-  const mode: CascadeMode = input.mode ?? 'fast';
 
   // 3. Run cascade with first-success-wins. Each step: call provider, parse JSON,
   //    validate. On any throw / validation fail, try the next step.
@@ -148,7 +171,11 @@ export async function runCascade<P extends PipelineId>(
         response: validation.data,
         modelUsed: out.modelUsed,
       };
-      await writeToCache(input.pipeline, inputHash, envelope);
+      if (scanSpec) {
+        await writeScanCache(scanSpec, envelope);
+      } else {
+        await writeToCache(input.pipeline, inputHash, envelope);
+      }
       await recordCall({
         pipeline: input.pipeline,
         inputHash,
@@ -175,6 +202,7 @@ export async function runCascade<P extends PipelineId>(
         pipeline: input.pipeline,
         data: validation.data as z.infer<(typeof PIPELINE_SCHEMAS)[P]>,
         cacheHit: false,
+        fromCache: false,
         modelUsed: out.modelUsed,
         costUsd,
       };

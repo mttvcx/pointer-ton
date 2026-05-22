@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { Bell, ExternalLink, Globe, Search, Send } from 'lucide-react';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
@@ -9,6 +10,8 @@ import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { RiskFlags } from '@/components/tokens/RiskFlags';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
+import { resolveLaunchpadAvatarChrome } from '@/lib/tokens/launchpadAvatarChrome';
+import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
 import { getPulseSocialModel } from '@/lib/tokens/pulseSocialLinks';
 import {
   extractGlobalFeesSol,
@@ -88,6 +91,7 @@ export function TokenHeader({
 }) {
   const ticker = token.symbol ?? '???';
   const name = token.name ?? 'Unknown';
+  const now = useLiveClock();
 
   const bundle: PulseTokenBundle = { token, snapshot };
   const bonding = getPulseBondingRingState(bundle);
@@ -109,6 +113,17 @@ export function TokenHeader({
   const proTraders = extQ.data?.metrics.proTraders ?? null;
 
   const activeChain = useUIStore((s) => s.activeChain);
+  const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
+  const launchpadChrome = useMemo(
+    () =>
+      resolveLaunchpadAvatarChrome(bundle, {
+        showFrame: true,
+        isMigrated: bonding.migrated,
+        pumpFunOnBondingCurve: traits.pumpFunBonding,
+        chain: activeChain,
+      }),
+    [bundle, bonding.migrated, traits.pumpFunBonding, activeChain],
+  );
   const alertRulesModalOpen = useUIStore((s) => s.alertRulesModalOpen);
   const setAlertRulesModalOpen = useUIStore((s) => s.setAlertRulesModalOpen);
   const nativeSym = nativeTicker(activeChain);
@@ -170,14 +185,14 @@ export function TokenHeader({
 
   return (
     <div className="min-w-0 border-b border-border-subtle bg-bg-raised font-sans">
-      <div className="scrollbar-thin flex h-16 min-w-0 items-center gap-3 overflow-x-auto px-4">
-        {/* Left — identity */}
-        <div className="flex shrink-0 items-center gap-2.5">
+      <div className="flex min-h-[68px] min-w-0 items-stretch px-4">
+        {/* Left — identity (unchanged) */}
+        <div className="flex shrink-0 items-center gap-2.5 py-2.5">
           <PulseTokenAvatar
             bundle={bundle}
             size={40}
             showRing={false}
-            launchpadCorner={token.launch_pad === 'pump.fun'}
+            launchpadChrome={launchpadChrome}
             className="shrink-0"
           />
 
@@ -251,20 +266,27 @@ export function TokenHeader({
 
             <div className="flex min-w-0 max-w-[20rem] items-center gap-2 truncate text-[10px] leading-none">
               <span className="shrink-0 text-fg-secondary">{name}</span>
-              <span className="shrink-0 font-mono tabular-nums text-fg-muted">{formatAgeShort(token.created_at)}</span>
+              <span className="shrink-0 font-mono tabular-nums text-fg-muted">{formatAgeShort(token.created_at, now)}</span>
               <span className="min-w-0 truncate font-mono text-fg-muted">{mintShort}</span>
             </div>
           </div>
         </div>
 
-        {/* Middle — focal + stats */}
-        <div className="scrollbar-thin flex min-w-0 flex-1 items-center gap-6 overflow-x-auto pl-4">
-          <div className="flex shrink-0 flex-col">
-            <span className="text-xl font-bold tabular-nums leading-none text-fg-primary">{focalPrimary}</span>
+        <div
+          className="mx-3 hidden w-px shrink-0 self-stretch bg-border-subtle/80 sm:block"
+          aria-hidden
+        />
+
+        {/* Middle — focal market cap + stat columns */}
+        <div className="scrollbar-thin flex min-w-0 flex-1 items-center overflow-x-auto py-2.5">
+          <div className="flex shrink-0 flex-col justify-center pr-5 sm:pr-6">
+            <span className="text-[1.375rem] font-bold tabular-nums leading-none tracking-tight text-fg-primary sm:text-[1.5rem]">
+              {focalPrimary}
+            </span>
             {priceChangePct != null ? (
               <span
                 className={cn(
-                  'mt-0.5 text-[10px] font-medium tabular-nums leading-tight',
+                  'mt-1 text-[10px] font-medium tabular-nums leading-none',
                   priceChangePct >= 0 ? 'text-signal-bull' : 'text-signal-bear',
                 )}
               >
@@ -274,41 +296,51 @@ export function TokenHeader({
             ) : null}
           </div>
 
-          {stats.map((stat) => {
-            const mutedBase =
-              stat.value === '\u2014' || stat.value === '\u2026' || stat.value === '';
+          <div className="flex items-center gap-x-5 sm:gap-x-6">
+            {stats.map((stat) => {
+              const mutedBase =
+                stat.value === '\u2014' || stat.value === '\u2026' || stat.value === '';
 
-            let valueClassName = mutedBase ? 'text-fg-muted' : 'text-fg-primary';
-            if ('accent' in stat && stat.accent && stat.value !== '\u2014') {
-              valueClassName = 'text-signal-warn';
-            }
-            if ('prosMuted' in stat && stat.prosMuted && stat.value !== '\u2014') {
-              valueClassName = 'text-fg-muted';
-            }
+              let valueClassName = mutedBase ? 'text-fg-muted' : 'text-fg-primary';
+              if ('accent' in stat && stat.accent && stat.value !== '\u2014') {
+                valueClassName = 'text-signal-warn';
+              }
+              if ('prosMuted' in stat && stat.prosMuted && stat.value !== '\u2014') {
+                valueClassName = 'text-fg-muted';
+              }
 
-            return (
-              <div key={stat.label} className="flex shrink-0 flex-col gap-0.5">
-                <span className="text-[10px] uppercase leading-none tracking-wider text-fg-muted">
-                  {stat.label}
-                </span>
-                <span className={`text-xs font-semibold tabular-nums leading-none ${valueClassName}`}>
-                  {stat.value}
-                </span>
-                {'sub' in stat && stat.sub ? (
-                  <span className="text-[10px] font-medium tabular-nums leading-none text-signal-bull">
-                    {stat.sub}
+              return (
+                <div
+                  key={stat.label}
+                  className="flex min-w-[3.25rem] shrink-0 flex-col gap-1 sm:min-w-[3.75rem]"
+                >
+                  <span className="whitespace-nowrap text-[10px] font-medium uppercase leading-none tracking-wide text-fg-muted/75">
+                    {stat.label}
                   </span>
-                ) : null}
-              </div>
-            );
-          })}
+                  <span
+                    className={cn(
+                      'whitespace-nowrap text-sm font-semibold tabular-nums leading-none',
+                      valueClassName,
+                    )}
+                  >
+                    {stat.value}
+                  </span>
+                  {'sub' in stat && stat.sub ? (
+                    <span className="text-[10px] font-medium tabular-nums leading-none text-signal-bull">
+                      {stat.sub}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Right */}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          {token.launch_pad && token.launch_pad !== 'pump.fun' ? (
+        {/* Right — launchpad / risk / explorer */}
+        <div className="flex shrink-0 items-center gap-2 self-center py-2.5 pl-2 sm:pl-3">
+          {launchpadChrome || !token.launch_pad || token.launch_pad === 'pump.fun' ? null : (
             <LaunchpadBadge launchPad={token.launch_pad} />
-          ) : null}
+          )}
           <LaunchpadSubBadges token={token} snapshot={snapshot} variant="detail" />
           <RiskFlags token={token as Tables<'tokens'>} snapshot={snapshot} className="shrink-0" />
           <span className="hidden h-5 w-px shrink-0 bg-border-subtle sm:inline-block" aria-hidden />

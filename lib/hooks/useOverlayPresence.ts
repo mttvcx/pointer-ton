@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 const DEFAULT_EXIT_MS = 220;
 
@@ -12,13 +12,16 @@ export function useOverlayPresence(open: boolean, exitMs: number = DEFAULT_EXIT_
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(open);
 
-  useEffect(() => {
+  /** Enter before paint so dialogs never flash invisible or miss the first open frame. */
+  useLayoutEffect(() => {
     if (open) {
       setMounted(true);
-      /** Enter must be synchronous with mount so anchored panels measure correctly and never paint one frame as "exit" (fixes topbar jitter). */
       setVisible(true);
-      return;
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (open) return;
 
     setVisible(false);
     const t = window.setTimeout(() => setMounted(false), exitMs);

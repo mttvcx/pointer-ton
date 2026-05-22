@@ -4,6 +4,7 @@ import {
   processHeliusWebhookBody,
   verifyHeliusWebhookAuthorization,
 } from '@/lib/helius/webhooks';
+import { claimHeliusWebhookSignature } from '@/lib/helius/webhookDedup';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,12 @@ export async function POST(req: NextRequest) {
   }
 
   const signature = extractSignature(body);
+
+  const claimed = await claimHeliusWebhookSignature(signature);
+  if (!claimed) {
+    return NextResponse.json({ ok: true, deduped: true, events: 0, tokensUpserted: 0, alerts: 0, migrations: 0 });
+  }
+
   try {
     const result = await processHeliusWebhookBody(body, { source: 'helius', signature });
     return NextResponse.json(result);

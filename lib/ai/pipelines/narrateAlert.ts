@@ -10,6 +10,16 @@ export interface NarrateAlertInput {
   userId: string;
 }
 
+function mintFromAlertPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const p = payload as Record<string, unknown>;
+  for (const key of ['mint', 'tokenMint', 'token_mint', 'mintAddress']) {
+    const v = p[key];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return null;
+}
+
 const SYSTEM_PROMPT = [
   'You are Pointer, narrating an in-app trading alert in two short lines.',
   'Be specific, factual, never financial advice.',
@@ -19,11 +29,14 @@ const SYSTEM_PROMPT = [
 export async function narrateAlert(input: NarrateAlertInput): Promise<{
   data: NarrateAlertOutput;
   cacheHit: boolean;
+  fromCache: boolean;
   modelUsed: string;
   costUsd: number;
 }> {
   const alert = await getAlertById(input.alertId);
   if (!alert) throw new Error('alert_not_found');
+
+  const narrativeMint = mintFromAlertPayload(alert.payload) ?? alert.id;
 
   // Refuse to re-narrate confirmed text. Caller can clear `ai_narration` if it
   // wants a regen.
@@ -35,6 +48,7 @@ export async function narrateAlert(input: NarrateAlertInput): Promise<{
         severity: 'info',
       },
       cacheHit: true,
+      fromCache: true,
       modelUsed: 'cached:db',
       costUsd: 0,
     };
@@ -54,12 +68,13 @@ export async function narrateAlert(input: NarrateAlertInput): Promise<{
     inputs: {
       alertId: alert.id,
       type: alert.type,
-      payload: alert.payload,
+    },
+    scanContext: {
+      narrativeMint,
+      sourceMint: mintFromAlertPayload(alert.payload),
     },
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
-    // Webhook-driven; no points award per call (we already award on cascade
-    // proper for user-initiated calls).
     skipPointsAward: true,
   });
 
@@ -73,6 +88,7 @@ export async function narrateAlert(input: NarrateAlertInput): Promise<{
   return {
     data: result.data as NarrateAlertOutput,
     cacheHit: result.cacheHit,
+    fromCache: result.fromCache,
     modelUsed: result.modelUsed,
     costUsd: result.costUsd,
   };

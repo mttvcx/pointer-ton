@@ -87,8 +87,10 @@ export function ExploreTableMode(props: Props) {
                         title="Copy address"
                         onClick={(e) => {
                           e.stopPropagation();
-                          void navigator.clipboard.writeText(it.tokenAddress);
-                          toast.success('Address copied');
+                          void navigator.clipboard
+                            .writeText(it.tokenAddress)
+                            .then(() => toastCopied(it.tokenAddress))
+                            .catch(() => toastCopyFailed());
                         }}
                       >
                         {shortenAddress(it.tokenAddress, 6)}

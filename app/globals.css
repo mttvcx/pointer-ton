@@ -96,6 +96,19 @@
     box-sizing: border-box;
   }
 
+  /* Native selects on Windows — keep dropdown list readable in dark UI */
+  select.terminal-select,
+  select.terminal-select option {
+    background-color: var(--bg-sunken);
+    color: var(--fg-primary);
+  }
+
+  select.terminal-select option:checked,
+  select.terminal-select option:hover {
+    background-color: rgb(var(--accent-primary-rgb) / 0.22);
+    color: var(--fg-primary);
+  }
+
   ::selection {
     background: rgb(var(--accent-primary-rgb) / 0.35);
     color: var(--fg-primary);
@@ -125,6 +138,16 @@
   }
   input[type='number'] {
     -moz-appearance: textfield;
+  }
+
+  /**
+   * Clicking scripted controls (<button>, role=button/link) shouldn't leave the
+   * browser default focus halo; keyboard :focus-visible is handled per-control.
+   */
+  :where(button, summary):focus:not(:focus-visible),
+  [role='button']:focus:not(:focus-visible),
+  [role='link']:focus:not(:focus-visible) {
+    outline: none;
   }
 }
 
@@ -619,6 +642,22 @@
   }
 }
 
+@layer utilities {
+  /**
+   * Focusable table rows (<tr tabIndex>) cannot paint Tailwind ring/box-shadow reliably;
+   * use an inset outline so focus matches .focus-ring / Pulse without clipping glitches.
+   */
+  .focus-tr-accent {
+    outline: none;
+  }
+  .focus-tr-accent:focus-visible {
+    outline: 2px solid rgb(var(--accent-primary-rgb) / 0.48);
+    outline-offset: -2px;
+    position: relative;
+    z-index: 1;
+  }
+}
+
 @layer components {
   .tracker-tab {
     @apply rounded px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-secondary;
@@ -626,6 +665,36 @@
 
   .tracker-tab[data-active='true'] {
     @apply bg-bg-hover text-fg-primary;
+  }
+
+  /**
+   * Bottom bar “tape” chip ({@link MarketLighthouseHover}): icons only on the anchor;
+   * theme-specific hover hairline/shadow instead of explanatory copy tooltips.
+   */
+  .market-lighthouse-trigger {
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 160ms ease;
+  }
+  :root[data-theme='axiom'] .market-lighthouse-trigger:hover {
+    border-color: rgb(var(--accent-primary-rgb) / 0.38);
+    box-shadow: 0 0 0 1px rgb(var(--accent-primary-rgb) / 0.28);
+    background-color: rgb(var(--bg-hover-rgb) / 1);
+  }
+  :root[data-theme='terminal'] .market-lighthouse-trigger:hover {
+    border-color: rgb(var(--border-strong-rgb) / 0.92);
+    box-shadow: 0 0 14px -5px rgb(var(--accent-primary-rgb) / 0.42);
+    background-color: rgb(var(--bg-hover-rgb) / 1);
+  }
+  :root[data-theme='pointer'] .market-lighthouse-trigger:hover,
+  :root:not([data-theme]) .market-lighthouse-trigger:hover {
+    border-color: rgb(255 255 255 / 0.14);
+    background-color: rgb(255 255 255 / 0.07);
+  }
+  :root[data-theme='custom'] .market-lighthouse-trigger:hover {
+    border-color: rgb(var(--accent-primary-rgb) / 0.32);
+    background-color: rgb(var(--bg-hover-rgb) / 1);
   }
 }
 
@@ -727,15 +796,42 @@
   border-bottom: 1px solid transparent;
 }
 
-/* Row elevation — rows sit on top of the column panel (which now provides
-   the grey "card" tier). When elevation is ON, give rows a very subtle
-   white overlay so they read as raised against the panel without colliding
-   with the panel's own bg-raised tone. */
-:root[data-row-elevation='true'] .pulse-row {
-  background-color: rgb(255 255 255 / 0.025);
+/*
+ * Pulse row cards — theme-aware lift above the column panel (`bg-bg-raised`).
+ * Uses `--bg-hover` / `--border-subtle` so axiom / terminal / default palettes
+ * stay in sync; opacity is tuned so glyphs and pills still read clearly.
+ */
+.pulse-column .pulse-row {
+  border: 1px solid rgb(var(--border-subtle-rgb) / 0.55);
+  background-color: rgb(var(--bg-hover-rgb) / 0.26);
 }
-:root[data-row-elevation='false'] .pulse-row {
+:root[data-row-elevation='true'] .pulse-column .pulse-row {
+  background-color: rgb(var(--bg-hover-rgb) / 0.38);
+}
+:root[data-row-elevation='false'] .pulse-column .pulse-row {
+  background-color: rgb(var(--bg-base-rgb) / 0.22);
+  border-color: rgb(var(--border-subtle-rgb) / 0.4);
+}
+
+/* Hover lift — white overlay on ::before so it wins over theme bg tokens + tracked-dev tints. */
+.pulse-column .pulse-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background-color: transparent;
+  transition: background-color 150ms ease;
+}
+.pulse-column .pulse-row:hover {
+  border-color: rgb(255 255 255 / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05);
+  /* Opaque on hover so lifted rows don't show the row beneath (virtualizer ghost). */
+  background-color: rgb(var(--bg-hover-rgb) / 0.94);
+}
+.pulse-column .pulse-row:hover::before {
+  background-color: rgb(255 255 255 / 0.05);
 }
 
 /* Action zone divider — vertical hairline before the V/MC/SOL block. */

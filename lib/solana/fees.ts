@@ -1,5 +1,6 @@
 import 'server-only';
 import { getConnection } from '@/lib/solana/connection';
+import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 
 /**
  * Microlamports per compute unit at the given percentile of recent landed txs
@@ -8,7 +9,9 @@ import { getConnection } from '@/lib/solana/connection';
 export async function getRecommendedPriorityFee(percentile = 75): Promise<number> {
   const pct = Math.min(100, Math.max(0, percentile));
   const conn = getConnection();
-  const rows = await conn.getRecentPrioritizationFees();
+  const rows = await heliusCall('getRecentPrioritizationFees', HELIUS_CREDITS.RPC, () =>
+    conn.getRecentPrioritizationFees(),
+  );
   if (rows.length === 0) return 50_000;
 
   const fees = rows.map((r) => r.prioritizationFee).sort((a, b) => a - b);

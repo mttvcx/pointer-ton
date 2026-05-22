@@ -58,12 +58,34 @@ export const ParseTrackerRuleOutputSchema = z
   .strict();
 export type ParseTrackerRuleOutput = z.infer<typeof ParseTrackerRuleOutputSchema>;
 
+const LaunchPackageOptionSchema = z
+  .object({
+    suggestedName: z.string().max(32),
+    suggestedTicker: z.string().max(12),
+    narrative: z.string().max(500),
+    suggestedLaunchpad: z.string().max(32),
+    imageStrategy: z.enum(['use_tweet_image', 'generate', 'no_image']),
+    reasoning: z.string().max(500),
+  })
+  .strict();
+
+export const LaunchPackageOutputSchema = z
+  .object({
+    shouldLaunch: z.boolean(),
+    confidence: z.number().min(0).max(1),
+    options: z.array(LaunchPackageOptionSchema).max(3),
+    reasoning: z.string().max(600).default(''),
+  })
+  .strict();
+export type LaunchPackageOutput = z.infer<typeof LaunchPackageOutputSchema>;
+
 export const PIPELINE_SCHEMAS = {
   explainToken: ExplainTokenOutputSchema,
   explainWallet: ExplainWalletOutputSchema,
   tooltip: TooltipOutputSchema,
   narrateAlert: NarrateAlertOutputSchema,
   parseTrackerRule: ParseTrackerRuleOutputSchema,
+  launchPackage: LaunchPackageOutputSchema,
 } as const;
 
 export type PipelineId = keyof typeof PIPELINE_SCHEMAS;

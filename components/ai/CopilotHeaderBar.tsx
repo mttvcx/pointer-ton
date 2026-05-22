@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { aiScanClientKey, fetchAiScan } from '@/lib/client/fetchAiScan';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { useCopilotPillInsight } from '@/lib/hooks/useCopilotPillInsight';
 import { selectActiveEntity, useUIStore } from '@/store/ui';
@@ -415,23 +416,28 @@ function InlineAsk({ onAnswered }: { onAnswered: () => void }) {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const context = entity?.label ?? (entity ? `${entity.type} ${entity.id}` : undefined);
-      const res = await fetch('/api/ai/tooltip', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ term: t, context }),
+      const url = '/api/ai/tooltip';
+      const payload = { term: t, context };
+      const key = aiScanClientKey(url, payload);
+      return fetchAiScan(key, async () => {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) {
+          throw new Error(
+            typeof json === 'object' && json && 'message' in json
+              ? String((json as { message: unknown }).message)
+              : `Failed (${res.status})`,
+          );
+        }
+        return json as AskResult;
       });
-      const json: unknown = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          typeof json === 'object' && json && 'message' in json
-            ? String((json as { message: unknown }).message)
-            : `Failed (${res.status})`,
-        );
-      }
-      return json as AskResult;
     },
     onSuccess: (res) => {
       setHistory((h) => [res, ...h].slice(0, 3));

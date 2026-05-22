@@ -10,6 +10,7 @@ import {
 import { useDockTrackersStore } from '@/store/dockTrackers';
 import { useUIStore } from '@/store/ui';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
+import { usePnlTrackerStore } from '@/store/pnlTracker';
 
 function eventKeyToHotkey(e: KeyboardEvent): string {
   if (e.key === ' ') return 'Space';
@@ -46,6 +47,12 @@ export function useDockTrackerHotkeys() {
             useTokenDockPeekStore.getState().toggleWalletPeek();
           } else {
             router.push('/track');
+          }
+        } else if (id === 'pnl') {
+          if (activeChain === 'sol') {
+            usePnlTrackerStore.getState().toggleOpen();
+          } else {
+            router.push('/portfolio');
           }
         } else if (id === 'pulse' && activeChain === 'sol' && !onPulsePage) {
           useTokenDockPeekStore.getState().togglePulsePeek();

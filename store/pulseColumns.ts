@@ -12,6 +12,7 @@ export type ColumnPulsePresetSlot = 1 | 2 | 3;
 
 type PerColumn = {
   quickBuySol: number;
+  quickBuyUsdc: number;
   density: PulseRowDensity;
   presetSlot: ColumnPulsePresetSlot;
   buyButtonStyle: BuyButtonStyle;
@@ -20,6 +21,7 @@ type PerColumn = {
 type PulseColumnsState = {
   byColumn: Record<PulseColumnId, PerColumn>;
   setQuickBuySol: (column: PulseColumnId, sol: number) => void;
+  setQuickBuyUsdc: (column: PulseColumnId, usdc: number) => void;
   cycleDensity: (column: PulseColumnId) => void;
   setPresetSlot: (column: PulseColumnId, slot: ColumnPulsePresetSlot) => void;
   setDensity: (column: PulseColumnId, density: PulseRowDensity) => void;
@@ -40,6 +42,7 @@ function coerceBuyButtonStyle(s: unknown, fallback: BuyButtonStyle): BuyButtonSt
 
 const defaults = (): PerColumn => ({
   quickBuySol: 0.5,
+  quickBuyUsdc: 25,
   density: 'expanded',
   presetSlot: 1,
   buyButtonStyle: 'medium',
@@ -66,6 +69,13 @@ export const usePulseColumnStore = create<PulseColumnsState>()(
           byColumn: {
             ...s.byColumn,
             [column]: { ...s.byColumn[column], quickBuySol: sol },
+          },
+        })),
+      setQuickBuyUsdc: (column, usdc) =>
+        set((s) => ({
+          byColumn: {
+            ...s.byColumn,
+            [column]: { ...s.byColumn[column], quickBuyUsdc: usdc },
           },
         })),
       cycleDensity: (column) =>
@@ -125,6 +135,10 @@ export const usePulseColumnStore = create<PulseColumnsState>()(
             byColumn[col] = {
               ...current.byColumn[col],
               ...row,
+              quickBuyUsdc:
+                typeof row.quickBuyUsdc === 'number' && Number.isFinite(row.quickBuyUsdc)
+                  ? row.quickBuyUsdc
+                  : current.byColumn[col].quickBuyUsdc,
               buyButtonStyle: coerceBuyButtonStyle(
                 row.buyButtonStyle,
                 current.byColumn[col].buyButtonStyle,

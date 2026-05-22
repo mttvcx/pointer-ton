@@ -17,8 +17,10 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { SAMPLE_WALLET_GROUPS, getRecentGroups } from '@/lib/trade/sampleWalletGroups';
-import { BUY_PRESETS_SOL, DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
+import { BUY_PRESETS_SOL, BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/utils/constants';
+import type { SolSpendAsset } from '@/lib/trading/spendAsset';
 import type { MevMode } from '@/lib/trading/mevMode';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
@@ -40,15 +42,21 @@ import {
   type InstantTradeUiSettings,
 } from '@/lib/trading/instantTradeUiSettings';
 
-const BOUNDS_KEY = 'pointer-instant-compact-trade-bounds-v1';
+const BOUNDS_KEY = 'pointer-instant-compact-trade-bounds-v2';
+const LEGACY_BOUNDS_KEY = 'pointer-instant-compact-trade-bounds-v1';
 const LEGACY_POS_KEY = 'pointer-instant-trade-pos-v1';
 const SLOT_OVERRIDES_KEY = 'pointer-instant-trade-slot-overrides-v1';
 
 /** Stops resize before internal overflow; pairing with viewport bottom inset avoids covering the SOL dock. */
-const MIN_W = 312;
-const MIN_H = 364;
-/** Default size when no saved bounds — roomy enough that preset chips breathe. */
-const DEFAULT_BOUNDS = { x: 56, y: 72, w: 340, h: 504 } as const;
+const MIN_W = 284;
+/** Tall enough for header + buy/sell 4×2 grids + PnL footer without clipping. */
+const MIN_H = 352;
+/** Axiom-style default — compact width, two preset rows at open. */
+const DEFAULT_BOUNDS = { x: 56, y: 72, w: 318, h: 388 } as const;
+/** Preset grid stays this wide in single-row compact mode so widening the shell does not stretch pills. */
+const PRESET_GRID_MAX_W = 320;
+/** Max pill width per cell in compact (single-row) mode. */
+const PRESET_CHIP_MAX_W = 76;
 /** Axiom-style bright blue “editing preset values” treatment. */
 const EDIT_PRESET_CLASS =
   'rounded-full border-2 border-sky-400 bg-sky-500/25 py-1.5 text-center font-sans text-[10px] font-semibold tabular-nums text-sky-50 shadow-[0_0_18px_rgba(56,189,248,0.45)] ring-2 ring-sky-400/45 outline-none focus:border-sky-300 focus:ring-sky-400/70';
@@ -57,10 +65,10 @@ const DEFAULT_SELL_SOL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 const INSTANT_FILL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 
 /**
- * At or above this height: full 8 chips in two rows (`grid-cols-4`).
- * Below: only the usual *top row* presets (cells 1–4) — one row total, not eight across.
+ * Two-row 4×2 preset grids at normal panel height (Axiom default).
+ * Single-row (top 4 only) only when squished to minimum height.
  */
-const PRESET_TWO_ROW_MIN_H = 468;
+const PRESET_TWO_ROW_MIN_H = MIN_H;
 
 const EDGE_INSET = 8;
 
@@ -95,6 +103,7 @@ export type SellMode = 'pct' | 'sol';
 
 export type SlotPersistV2 = {
   buy: number[];
+  buyUsdc?: number[];
   sellPct: number[];
   sellSol: number[];
   sellMode: SellMode;
@@ -127,6 +136,7 @@ function readSlotOverrides(): SlotPersistV2 | null {
     if (!raw) return null;
     const j = JSON.parse(raw) as {
       buy?: unknown;
+      buyUsdc?: unknown;
       sell?: unknown;
       sellPct?: unknown;
       sellSol?: unknown;
@@ -146,12 +156,21 @@ function readSlotOverrides(): SlotPersistV2 | null {
     const sellSol = Array.isArray(j.sellSol)
       ? j.sellSol.filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
       : [];
+    const buyUsdc = Array.isArray(j.buyUsdc)
+      ? j.buyUsdc.filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
+      : undefined;
     const sellMode: SellMode = j.sellMode === 'sol' ? 'sol' : 'pct';
     if (buy.length !== 8) return null;
     const pct = sellPct.length === 8 ? sellPct : [...DEFAULT_SELL_PCT];
     const sol = sellSol.length === 8 ? sellSol : [...DEFAULT_SELL_SOL];
     if (sellPct.length !== 8 && sellLegacy.length !== 8) return null;
-    return { buy, sellPct: pct, sellSol: sol, sellMode };
+    return {
+      buy,
+      ...(buyUsdc?.length === 8 ? { buyUsdc } : {}),
+      sellPct: pct,
+      sellSol: sol,
+      sellMode,
+    };
   } catch {
     /* ignore */
   }
@@ -234,22 +253,41 @@ function parseBoundsJson(raw: string | null): { x: number; y: number; w: number;
   return null;
 }
 
+function normalizeInstantTradeBounds(b: { x: number; y: number; w: number; h: number }): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
+  let { x, y, w, h } = b;
+  // Saved wide + short panels stretched single-row pills — snap back to Axiom width.
+  if (h < PRESET_TWO_ROW_MIN_H + 8 && w > PRESET_GRID_MAX_W + 24) {
+    w = DEFAULT_BOUNDS.w;
+  }
+  // Old saves below two-row threshold — bump height so 8 presets show at normal open.
+  if (h >= MIN_H && h < PRESET_TWO_ROW_MIN_H + 40) {
+    h = Math.max(h, DEFAULT_BOUNDS.h);
+  }
+  return clampInstantTradeBounds({ x, y, w, h });
+}
+
 /** Per-wallet remembered panel bounds; falls back to legacy global key. */
 function readBoundsForWallet(walletAddress: string | null): { x: number; y: number; w: number; h: number } {
   if (typeof window === 'undefined') return { ...DEFAULT_BOUNDS };
   const def = { ...DEFAULT_BOUNDS };
   try {
-    if (walletAddress) {
-      const per = parseBoundsJson(localStorage.getItem(`${BOUNDS_KEY}:${walletAddress}`));
-      if (per) return per;
+    const keys = walletAddress
+      ? [`${BOUNDS_KEY}:${walletAddress}`, `${LEGACY_BOUNDS_KEY}:${walletAddress}`, BOUNDS_KEY, LEGACY_BOUNDS_KEY]
+      : [BOUNDS_KEY, LEGACY_BOUNDS_KEY];
+    for (const key of keys) {
+      const parsed = parseBoundsJson(localStorage.getItem(key));
+      if (parsed) return normalizeInstantTradeBounds(parsed);
     }
-    const global = parseBoundsJson(localStorage.getItem(BOUNDS_KEY));
-    if (global) return global;
     const leg = localStorage.getItem(LEGACY_POS_KEY);
     if (leg) {
       const o = JSON.parse(leg) as Record<string, unknown>;
       if (typeof o.x === 'number' && typeof o.y === 'number') {
-        return { ...def, x: o.x, y: o.y };
+        return normalizeInstantTradeBounds({ ...def, x: o.x, y: o.y });
       }
     }
   } catch {
@@ -271,6 +309,26 @@ function persistBoundsForWallet(
   } catch {
     /* ignore */
   }
+}
+
+function fmtUsdcChip(n: number): string {
+  if (Number.isInteger(n)) return String(n);
+  const t = n.toFixed(2).replace(/\.?0+$/, '');
+  return t || String(n);
+}
+
+function eightBuyUsdcAmounts(preset: readonly number[]): number[] {
+  const ordered = new Set<number>();
+  for (const n of preset) {
+    if (Number.isFinite(n) && n > 0) ordered.add(n);
+  }
+  for (const n of BUY_PRESETS_USDC) {
+    if (ordered.size >= 8) break;
+    ordered.add(n);
+  }
+  return Array.from(ordered)
+    .sort((a, b) => a - b)
+    .slice(0, 8);
 }
 
 function fmtSolChip(n: number): string {
@@ -453,7 +511,6 @@ export function CompactInstantTradePanel({
   const [draftSell, setDraftSell] = useState<string[]>([]);
   const [grabbed, setGrabbed] = useState(false);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
-  const [buySpendAsset, setBuySpendAsset] = useState<'sol' | 'usdc' | 'usol'>('sol');
   const [advChecked, setAdvChecked] = useState(false);
   const [instantSettingsOpen, setInstantSettingsOpen] = useState(false);
   const [instantUi, setInstantUi] = useState<InstantTradeUiSettings>(defaultInstantTradeUiSettings);
@@ -523,11 +580,16 @@ export function CompactInstantTradePanel({
     runSellInitial,
     costBasisTonSol,
     lifetimeStats,
+    spendAsset,
+    setSpendAsset,
+    usdcBalanceRaw,
     walletRows,
     activeWalletAddress,
     setActiveWalletAddress,
     signingWalletAddresses,
   } = useSpotTradeExecution(mint);
+
+  const activeChain = useUIStore((s) => s.activeChain);
 
   const { data: presetsPayload } = useQuery({
     queryKey: ['trading-presets'],
@@ -550,7 +612,9 @@ export function CompactInstantTradePanel({
   useEffect(() => {
     if (!open) return;
     const raf = requestAnimationFrame(() => {
-      setBounds(clampInstantTradeBounds(readBoundsForWallet(wallet?.address ?? null)));
+      const normalized = readBoundsForWallet(wallet?.address ?? null);
+      setBounds(normalized);
+      persistBoundsForWallet(normalized, wallet?.address ?? null);
       setSlotBundle(readSlotOverrides() ?? migrateLegacySlots());
       setInstantUi(readInstantTradeUiSettings());
     });
@@ -603,8 +667,21 @@ export function CompactInstantTradePanel({
 
   const sellMode = slotBundle?.sellMode ?? 'pct';
 
-  const buyValues =
+  const buyFromPresetUsdc = useMemo(
+    () => eightBuyUsdcAmounts(BUY_PRESETS_USDC),
+    [],
+  );
+
+  const buyValuesSol =
     slotBundle?.buy && slotBundle.buy.length === 8 ? slotBundle.buy : buyFromPreset;
+  const buyValuesUsdc =
+    slotBundle?.buyUsdc && slotBundle.buyUsdc.length === 8
+      ? slotBundle.buyUsdc
+      : buyFromPresetUsdc;
+  const buySpendAsset: SolSpendAsset | 'usol' =
+    activeChain === 'sol' ? spendAsset : 'sol';
+  const buyValues = buySpendAsset === 'usdc' ? buyValuesUsdc : buyValuesSol;
+  const fmtBuyChip = buySpendAsset === 'usdc' ? fmtUsdcChip : fmtSolChip;
 
   const sellPctArr =
     slotBundle?.sellPct && slotBundle.sellPct.length === 8
@@ -657,7 +734,8 @@ export function CompactInstantTradePanel({
           : sellSolArr;
       if (buy8.length === 8) {
         const payload: SlotPersistV2 = {
-          buy: buy8,
+          buy: buySpendAsset === 'usdc' ? buyValuesSol : buy8,
+          buyUsdc: buySpendAsset === 'usdc' ? buy8 : buyValuesUsdc,
           sellPct: sellPctNext,
           sellSol: sellSolNext,
           sellMode,
@@ -668,7 +746,7 @@ export function CompactInstantTradePanel({
       setEditSlots(false);
       return;
     }
-    setDraftBuy(buyValues.map((n) => fmtSolChip(n)));
+    setDraftBuy(buyValues.map((n) => fmtBuyChip(n)));
     setDraftSell(
       sellValues.map((n) => (sellMode === 'pct' ? fmtPctChip(n) : fmtSolChip(n))),
     );
@@ -678,6 +756,9 @@ export function CompactInstantTradePanel({
     draftBuy,
     draftSell,
     buyValues,
+    buyValuesSol,
+    buyValuesUsdc,
+    buySpendAsset,
     sellValues,
     sellMode,
     sellPctArr,
@@ -694,9 +775,14 @@ export function CompactInstantTradePanel({
     );
   }, [walletRows, signingWalletAddresses]);
 
+  const activeWalletRow = useMemo(
+    () => walletRows?.find((w) => w.wallet_address === wallet?.address),
+    [walletRows, wallet?.address],
+  );
+
   const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '').slice(0, 8) || 'TOKEN';
   const uiBal = formatNumber(rawToUi(balanceRaw, decimals), { decimals: 4 });
-  const activeChain = useUIStore((s) => s.activeChain);
+  const uiUsdcBal = formatNumber(rawToUi(usdcBalanceRaw, USDC_DECIMALS), { decimals: 2 });
   const nativeSym = nativeTicker(activeChain);
 
   const presetLayout = useMemo(() => {
@@ -705,40 +791,45 @@ export function CompactInstantTradePanel({
     const twoRowGrid = h >= PRESET_TWO_ROW_MIN_H;
     const topRowOnlyCompact = !twoRowGrid;
     const gridCols = 'grid-cols-4';
-    const gridGapCls = twoRowGrid ? 'gap-0.5' : 'gap-0.5';
+    const gridGapCls = 'gap-1';
+    const gridRowsCls = twoRowGrid ? 'grid-rows-2' : 'grid-rows-1';
 
-    // Axiom-like flexible scale: both width and height grow touch targets when there is room.
-    const short = Math.min(w, h);
-    const long = Math.max(w, h);
+    const gridMaxWidth = twoRowGrid ? undefined : Math.min(PRESET_GRID_MAX_W, w - 16);
+    const gridGapPx = 4;
+    const usableGridW = twoRowGrid ? w - 16 : Math.min(PRESET_GRID_MAX_W, w - 16);
+    const rawCellW = (usableGridW - gridGapPx * 3) / 4;
+    const cellW = twoRowGrid
+      ? Math.max(48, rawCellW)
+      : Math.max(48, Math.min(PRESET_CHIP_MAX_W, rawCellW));
 
-    let chipBox =
-      'h-6 max-h-6 min-h-[24px] rounded-md px-0 text-[9px] font-semibold leading-none tabular-nums';
-    if (short >= 300 && h >= 396) {
-      chipBox =
-        'h-7 max-h-7 min-h-[28px] rounded-md px-0 text-[10px] font-semibold leading-none tabular-nums';
-    }
-    if (short >= 318 && h >= 430) {
-      chipBox =
-        'h-8 max-h-8 min-h-[32px] rounded-md px-0 text-[11px] font-semibold leading-none tabular-nums';
-    }
-    if (short >= 332 && h >= 462) {
-      chipBox =
-        'h-9 max-h-9 min-h-[36px] rounded-md px-0 text-[12px] font-semibold leading-none tabular-nums';
-    }
-    if (short >= 344 && h >= 492 && long >= 512) {
-      chipBox =
-        'h-10 max-h-10 min-h-[40px] rounded-md px-0 text-[12px] font-semibold leading-none tabular-nums';
-    }
+    const chromeH = 118;
+    const pnlRowH = 36;
+    const innerH = Math.max(140, h - chromeH - pnlRowH);
+    const sectionH = innerH / 2;
+    const rowCount = twoRowGrid ? 2 : 1;
+    const metaBand = 24;
+    const buyGridH = Math.max(twoRowGrid ? 52 : 30, sectionH - metaBand);
+    const cellH = (buyGridH - gridGapPx * Math.max(0, rowCount - 1)) / rowCount;
+    const chipDim = Math.min(cellW, cellH);
+    const chipFontPx = twoRowGrid
+      ? clamp(Math.round(chipDim * 0.34), 12, 16)
+      : clamp(Math.round(Math.min(cellW, 32) * 0.38), 11, 13);
+
+    const chipBox = cn(
+      'h-full w-full px-0.5',
+      twoRowGrid ? 'min-h-[26px] rounded-full' : 'min-h-[28px] max-h-[32px] rounded-full',
+    );
+    const chipStyle = {
+      fontSize: chipFontPx,
+      lineHeight: 1.05,
+      ...(twoRowGrid ? {} : { maxWidth: PRESET_CHIP_MAX_W }),
+    } as const;
 
     let metaText = 'text-[10px] leading-snug';
     let metaIcon = 'h-3 w-3';
-    if (short >= 312 && h >= 404) {
+    if (h >= 372) {
       metaText = 'text-[11px] leading-snug';
       metaIcon = 'h-3.5 w-3.5';
-    }
-    if (short >= 328 && h >= 438) {
-      metaText = 'text-xs leading-snug';
-      metaIcon = 'h-4 w-4';
     }
 
     return {
@@ -746,9 +837,14 @@ export function CompactInstantTradePanel({
       topRowOnlyCompact,
       gridCols,
       gridGapCls,
+      gridRowsCls,
+      gridMaxWidth,
       chipCls: chipBox,
+      chipStyle,
+      chipFontPx,
       metaText,
       metaIcon,
+      gridMinH: twoRowGrid ? 48 : 30,
     };
   }, [bounds.w, bounds.h]);
 
@@ -774,7 +870,7 @@ export function CompactInstantTradePanel({
     if (activeChain === 'sol') {
       return [
         { k: 'sol' as const, label: 'SOL', disabled: false },
-        { k: 'usdc' as const, label: 'USDC', disabled: true },
+        { k: 'usdc' as const, label: 'USDC', disabled: false },
         { k: 'usol' as const, label: 'uSOL', disabled: true },
       ];
     }
@@ -1181,18 +1277,52 @@ export function CompactInstantTradePanel({
           </div>
         ) : (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2 pt-1 text-[10px]">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="shrink-0 pb-1.5">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-1.5">
+              <div className="flex min-h-0 flex-[1_1_0] flex-col">
+            <div className="flex shrink-0 items-center justify-between gap-2">
               <span className="font-semibold uppercase tracking-wide text-fg-muted">Buy</span>
-              <div className="flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 tabular-nums text-fg-muted">
+                  {buySpendAsset === 'usdc' ? (
+                    <>
+                      <QuoteTokenIcon kind="usdc" className="h-3 w-3" />
+                      {uiUsdcBal}
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        src={CHAIN_ICON_PNG[activeChain]}
+                        alt=""
+                        className="h-3 w-3 shrink-0 object-contain"
+                        draggable={false}
+                        aria-hidden
+                      />
+                      {formatNumber(
+                        wallet?.address && activeWalletRow?.balance_lamports
+                          ? lamportsToSol(BigInt(activeWalletRow.balance_lamports))
+                          : 0,
+                        { decimals: 4 },
+                      )}
+                    </>
+                  )}
+                </span>
+                <div className="flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5">
                 {spendAssetOptions.map(({ k, label, disabled }) => (
                   <button
                     key={k}
                     type="button"
                     disabled={disabled}
-                    title={disabled ? 'Coming soon' : undefined}
-                    onClick={() => !disabled && setBuySpendAsset(k)}
+                    title={
+                      disabled
+                        ? 'Coming soon'
+                        : k === 'usdc'
+                          ? 'Trading with USDC'
+                          : undefined
+                    }
+                    onClick={() => {
+                      if (disabled || k === 'usol') return;
+                      setSpendAsset(k);
+                    }}
                     className={cn(
                       'rounded-sm px-1.5 py-0 text-[9px] font-semibold transition',
                       buySpendAsset === k
@@ -1206,9 +1336,22 @@ export function CompactInstantTradePanel({
                     {label}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
-            <div className={cn('mt-0.5 grid', presetLayout.gridGapCls, presetLayout.gridCols)}>
+            <div
+              className={cn(
+                'mt-0.5 grid flex-[1_1_0]',
+                presetLayout.gridCols,
+                presetLayout.gridGapCls,
+                presetLayout.gridRowsCls,
+                !presetLayout.twoRowGrid && 'mx-auto w-full',
+              )}
+              style={{
+                minHeight: presetLayout.gridMinH,
+                maxWidth: presetLayout.gridMaxWidth,
+              }}
+            >
               {buyChips.map((sol, i) =>
                 editSlots ? (
                   <input
@@ -1224,27 +1367,29 @@ export function CompactInstantTradePanel({
                         return next;
                       });
                     }}
-                    className={cn('w-full min-w-0', EDIT_PRESET_CLASS)}
+                    className={cn('h-full min-h-[24px] w-full min-w-0', EDIT_PRESET_CLASS)}
+                    style={presetLayout.chipStyle}
                   />
                 ) : (
                   <button
                     key={`b-${i}-${sol}`}
                     type="button"
-                    onClick={() => void runBuy(sol)}
+                    onClick={() => void runBuy(sol, buySpendAsset === 'usdc' ? 'usdc' : 'sol')}
                     className={cn(
                       // Task BB: Buy = green outline, transparent fill.
-                      'btn-press flex items-center justify-center border border-signal-bull/45 bg-transparent text-center font-sans font-semibold text-signal-bull transition hover:border-signal-bull hover:bg-signal-bull/10 active:bg-signal-bull/15',
+                      'btn-press flex items-center justify-center border border-signal-bull/45 bg-transparent text-center font-sans font-semibold tabular-nums text-signal-bull transition hover:border-signal-bull hover:bg-signal-bull/10 active:bg-signal-bull/15',
                       presetLayout.chipCls,
                     )}
+                    style={presetLayout.chipStyle}
                   >
-                    {fmtSolChip(sol)}
+                    {fmtBuyChip(sol)}
                   </button>
                 ),
               )}
             </div>
             <div
               className={cn(
-                'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
+                'mt-1 flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
                 presetLayout.metaText,
               )}
             >
@@ -1269,8 +1414,10 @@ export function CompactInstantTradePanel({
                 Adv.
               </label>
             </div>
+              </div>
 
-            <div className="mt-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
+              <div className="mt-2 flex min-h-0 flex-[1_1_0] flex-col border-t border-border-subtle pt-2">
+            <div className="flex shrink-0 items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-fg-muted">
                 Sell
                 <span
@@ -1306,7 +1453,19 @@ export function CompactInstantTradePanel({
                 {uiBal} {tick}
               </span>
             </div>
-            <div className={cn('mt-0.5 grid', presetLayout.gridGapCls, presetLayout.gridCols)}>
+            <div
+              className={cn(
+                'mt-0.5 grid flex-[1_1_0]',
+                presetLayout.gridCols,
+                presetLayout.gridGapCls,
+                presetLayout.gridRowsCls,
+                !presetLayout.twoRowGrid && 'mx-auto w-full',
+              )}
+              style={{
+                minHeight: presetLayout.gridMinH,
+                maxWidth: presetLayout.gridMaxWidth,
+              }}
+            >
               {sellChips.map((pct, i) =>
                 editSlots ? (
                   <input
@@ -1330,7 +1489,8 @@ export function CompactInstantTradePanel({
                         return next;
                       });
                     }}
-                    className={cn('w-full min-w-0', EDIT_PRESET_CLASS)}
+                    className={cn('h-full min-h-[24px] w-full min-w-0', EDIT_PRESET_CLASS)}
+                    style={presetLayout.chipStyle}
                     placeholder={sellMode === 'pct' ? '0–100' : nativeSym}
                     aria-label={sellMode === 'pct' ? 'Sell percent' : `${nativeSym} out`}
                   />
@@ -1343,9 +1503,10 @@ export function CompactInstantTradePanel({
                     }
                     className={cn(
                       // Task BB: Sell = red outline, transparent fill.
-                      'btn-press flex items-center justify-center border border-signal-bear/45 bg-transparent text-center font-sans font-semibold text-signal-bear transition hover:border-signal-bear hover:bg-signal-bear/10 active:bg-signal-bear/15',
+                      'btn-press flex items-center justify-center border border-signal-bear/45 bg-transparent text-center font-sans font-semibold tabular-nums text-signal-bear transition hover:border-signal-bear hover:bg-signal-bear/10 active:bg-signal-bear/15',
                       presetLayout.chipCls,
                     )}
+                    style={presetLayout.chipStyle}
                   >
                     {sellMode === 'pct' ? `${fmtPctChip(pct)}%` : fmtSolChip(pct)}
                   </button>
@@ -1354,7 +1515,7 @@ export function CompactInstantTradePanel({
             </div>
             <div
               className={cn(
-                'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
+                'mt-1 flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
                 presetLayout.metaText,
               )}
             >
@@ -1385,10 +1546,10 @@ export function CompactInstantTradePanel({
                 Sell Init.{costBasisTonSol > 0 ? ` ${fmtSolChip(costBasisTonSol)}` : ''}
               </button>
             </div>
-            </div>
+              </div>
             {instantUi.showPnlRow ? (
               <div
-                className="mt-auto grid shrink-0 grid-cols-4 divide-x divide-border-subtle border-t border-border-subtle px-0 py-2 text-[11px]"
+                className="grid shrink-0 grid-cols-4 divide-x divide-border-subtle border-t border-border-subtle px-0 py-2 text-[11px]"
                 role="group"
                 aria-label={`Instant trade stats · ${nativeSym}`}
               >

@@ -32,7 +32,13 @@ export async function POST(req: NextRequest) {
       context: body.context,
       userId: auth.user.id,
     });
-    return NextResponse.json(out);
+    return NextResponse.json({
+      data: out.data,
+      cacheHit: out.cacheHit,
+      fromCache: out.fromCache,
+      modelUsed: out.modelUsed,
+      costUsd: out.costUsd,
+    });
   } catch (err) {
     return aiErrorResponse(err);
   }

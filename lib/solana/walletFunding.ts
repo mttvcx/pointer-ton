@@ -2,6 +2,7 @@ import 'server-only';
 
 import { PublicKey } from '@solana/web3.js';
 import { getConnection } from '@/lib/solana/connection';
+import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 
 export type WalletIncomingFunding = {
   fromAddress: string;
@@ -28,10 +29,14 @@ export async function findRecentIncomingSolFunding(
     return null;
   }
 
-  const sigs = await conn.getSignaturesForAddress(pk, { limit: scanLimit });
+  const sigs = await heliusCall('getSignaturesForAddress', HELIUS_CREDITS.RPC, () =>
+    conn.getSignaturesForAddress(pk, { limit: scanLimit }),
+  );
   for (const s of sigs) {
     if (s.err) continue;
-    const tx = await conn.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 });
+    const tx = await heliusCall('getTransaction', HELIUS_CREDITS.RPC, () =>
+      conn.getTransaction(s.signature, { maxSupportedTransactionVersion: 0 }),
+    );
     if (!tx?.meta || tx.meta.err) continue;
 
     const msg = tx.transaction.message as {

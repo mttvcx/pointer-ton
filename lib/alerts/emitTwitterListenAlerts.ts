@@ -1,12 +1,19 @@
 import 'server-only';
 
 import { insertAlert } from '@/lib/db/alerts';
-import { listActiveSolTwitterListenRules } from '@/lib/db/alertRules';
+import { listActiveSolTwitterListenRules, updateAlertRule } from '@/lib/db/alertRules';
+import { upsertTwitterIngestTweet } from '@/lib/db/twitterIngestTweets';
+import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import {
-  ALERT_TYPE_TWITTER_LISTEN,
-  parseSolTwitterListenRuleConfig,
-  type SolTwitterListenRuleConfig,
-} from '@/lib/alerts/alertRuleModel';
+  parseAutomationRuleFromRow,
+  twitterListenViewFromAutomation,
+  type ActivityFilter,
+} from '@/lib/alerts/automationRuleModel';
+import { hammingDistanceHex, imageHashesMatch } from '@/lib/image/perceptualHash';
+import {
+  hashTweetImageUrls,
+  type TweetImageHashEntry,
+} from '@/lib/image/perceptualHash.server';
 import { normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
 import {
   mintCandidatesFromTweetParts,
@@ -19,24 +26,41 @@ export type TwitterListenIngestTweet = {
   handle: string;
   text: string;
   urls?: string[];
-  /** HTTPS image attachments — scanned for mint-like base58 segments + optional alert cover art. */
   imageUrls?: string[];
   tweetUrl?: string;
   createdAt?: string;
+  tweetKind?: 'tweet' | 'reply' | 'quote' | 'retweet';
 };
+
+const ruleLastFireMs = new Map<string, number>();
+
+function activityAllowed(filter: ActivityFilter, kind?: TwitterListenIngestTweet['tweetKind']): boolean {
+  if (!kind) return true;
+  switch (kind) {
+    case 'tweet':
+      return filter.tweets;
+    case 'reply':
+      return filter.replies;
+    case 'quote':
+      return filter.quotes;
+    case 'retweet':
+      return filter.retweets;
+    default:
+      return true;
+  }
+}
 
 function phraseHits(
   loweredText: string,
   phrases: string[],
-  mode: SolTwitterListenRuleConfig['phraseMatch'],
+  mode: 'substring' | 'whole_word',
 ): string[] {
   if (phrases.length === 0) return [];
-  const m = mode ?? 'substring';
   const hits: string[] = [];
   for (const raw of phrases) {
     const p = raw.trim().toLowerCase();
     if (!p) continue;
-    if (m === 'substring') {
+    if (mode === 'substring') {
       if (loweredText.includes(p)) hits.push(raw);
       continue;
     }
@@ -64,10 +88,41 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
     let inserts = 0;
     const allowAutoBuy = serverAllowsAutoBuy();
 
+    const tweetHashesById = new Map<string, TweetImageHashEntry[]>();
+
+    for (const t of tweets) {
+      const imageUrls = (t.imageUrls ?? []).filter(Boolean);
+      if (imageUrls.length === 0) {
+        tweetHashesById.set(t.id, []);
+        continue;
+      }
+      const hashes = await hashTweetImageUrls(imageUrls);
+      tweetHashesById.set(t.id, hashes);
+
+      const handleNorm = normalizeTwitterHandle(t.handle);
+      if (handleNorm) {
+        try {
+          await upsertTwitterIngestTweet({
+            tweetId: t.id,
+            authorHandle: handleNorm,
+            text: t.text ?? '',
+            imageUrls,
+            imageHashes: hashes,
+            tweetKind: t.tweetKind ?? null,
+            tweetUrl: t.tweetUrl ?? null,
+            rawJson: { imageUrls, tweetKind: t.tweetKind ?? null },
+          });
+        } catch (err) {
+          console.warn('[twitter_listen] upsert tweet record failed:', err);
+        }
+      }
+    }
+
     for (const t of tweets) {
       const handleNorm = normalizeTwitterHandle(t.handle);
       if (!handleNorm) continue;
       const imageUrls = (t.imageUrls ?? []).filter(Boolean);
+      const tweetHashes = tweetHashesById.get(t.id) ?? [];
       const hasPostImages = imageUrls.length > 0;
       const { textCandidates, mediaCandidates } = mintCandidatesFromTweetParts(
         t.text ?? '',
@@ -77,21 +132,57 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
       const lowered = `${t.text ?? ''}\n`.toLowerCase();
 
       for (const rule of rules) {
-        if (rule.rule_type !== 'sol_twitter_listen') continue;
-        const config = parseSolTwitterListenRuleConfig(rule.rule_config);
+        const automation = parseAutomationRuleFromRow(rule);
+        if (!automation) continue;
+        const config = twitterListenViewFromAutomation(automation);
         if (!config) continue;
+
+        if (!activityAllowed(config.activityFilter, t.tweetKind)) continue;
+
+        const cooldownMs = Math.max(0, config.cooldownSeconds) * 1000;
+        if (cooldownMs > 0) {
+          const last = ruleLastFireMs.get(config.ruleId) ?? 0;
+          if (Date.now() - last < cooldownMs) continue;
+        }
 
         const watch = new Set(
           config.handles.map((h) => normalizeTwitterHandle(h)).filter(Boolean),
         );
         if (!watch.has(handleNorm)) continue;
 
-        const matched =
-          config.phrases.length === 0 ? [] : phraseHits(lowered, config.phrases, config.phraseMatch);
+        let matched: string[] = [];
+        let imageMatchDistance: number | null = null;
+        let imageMatchUrl: string | null = null;
 
-        if (config.phrases.length > 0 && matched.length === 0) continue;
+        if (config.triggerType === 'image_match') {
+          if (!config.targetImageHash || tweetHashes.length === 0) continue;
+          let bestDist: number | null = null;
+          let bestUrl: string | null = null;
+          let ok = false;
+          for (const entry of tweetHashes) {
+            const d = hammingDistanceHex(entry.hash, config.targetImageHash);
+            if (bestDist == null || d < bestDist) {
+              bestDist = d;
+              bestUrl = entry.url;
+            }
+            if (imageHashesMatch(entry.hash, config.targetImageHash, config.hammingThreshold)) {
+              ok = true;
+              imageMatchDistance = d;
+              imageMatchUrl = entry.url;
+              break;
+            }
+          }
+          if (!ok) continue;
+          if (imageMatchDistance == null) imageMatchDistance = bestDist;
+          if (imageMatchUrl == null) imageMatchUrl = bestUrl;
+          matched = ['image_match'];
+        } else {
+          matched =
+            config.phrases.length === 0 ? [] : phraseHits(lowered, config.phrases, config.phraseMatch);
+          if (config.phrases.length > 0 && matched.length === 0) continue;
+        }
 
-        const requested = config.execution ?? 'notify';
+        const requested = config.execution;
 
         const { mint, mintCandidates } = pickTwitterListenMint(
           config.tweetImageMintMode,
@@ -118,30 +209,39 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
           }
         }
 
+        ruleLastFireMs.set(config.ruleId, Date.now());
+
         const summary =
-          execution === 'auto_buy'
-            ? `${rule.name}: Auto-buy · ${mint!.slice(0, 8)}…`
-            : requested === 'auto_buy' && autoHeldReason
-              ? matched.length > 0
-                ? `${rule.name}: Auto-buy held (${autoHeldReason.replace(/_/g, ' ')}) · ${matched.slice(0, 2).join(', ')} · @${handleNorm}`
-                : `${rule.name}: Auto-buy held (${autoHeldReason.replace(/_/g, ' ')}) · @${handleNorm}`
-              : matched.length > 0
-                ? `${rule.name}: Keyword hit — ${matched.slice(0, 3).join(', ')} · @${handleNorm}`
-                : `${rule.name}: Post · @${handleNorm}`;
+          config.triggerType === 'image_match'
+            ? `${config.ruleName}: Image match (d≤${config.hammingThreshold}) · @${handleNorm}`
+            : execution === 'auto_buy'
+              ? `${config.ruleName}: Auto-buy · ${mint!.slice(0, 8)}…`
+              : requested === 'auto_buy' && autoHeldReason
+                ? matched.length > 0
+                  ? `${config.ruleName}: Auto-buy held (${autoHeldReason.replace(/_/g, ' ')}) · @${handleNorm}`
+                  : `${config.ruleName}: Auto-buy held (${autoHeldReason.replace(/_/g, ' ')}) · @${handleNorm}`
+                : matched.length > 0
+                  ? `${config.ruleName}: Keyword hit — ${matched.slice(0, 3).join(', ')} · @${handleNorm}`
+                  : `${config.ruleName}: Post · @${handleNorm}`;
+
+        const actionSucceeded = execution === 'auto_buy' && mint != null;
 
         await insertAlert({
-          user_id: rule.user_id,
+          user_id: config.userId,
           type: ALERT_TYPE_TWITTER_LISTEN,
           ai_narration: summary,
           payload: {
             message: summary,
-            ruleId: rule.id,
-            ruleName: rule.name,
+            ruleId: config.ruleId,
+            ruleName: config.ruleName,
             handle: handleNorm,
             tweetId: t.id,
             tweetText: t.text,
             tweetUrl: t.tweetUrl ?? null,
             matchedPhrases: matched,
+            imageMatchDistance,
+            imageMatchUrl,
+            tweetImageHashes: tweetHashes,
             mint,
             mintCandidates,
             imageUrls,
@@ -152,23 +252,33 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
             buySolPreset: config.buySolPreset ?? null,
             maxSolPerDay: config.maxSolPerDay ?? null,
             slippageBps: config.slippageBps ?? null,
+            cooldownSeconds: config.cooldownSeconds,
+            disableAfterSuccess: config.disableAfterSuccess,
             autoHeldReason,
             flash: {
-              enabled: rule.flash_enabled,
-              color: rule.flash_color,
-              size: rule.flash_size,
+              enabled: config.flashEnabled,
+              color: config.flashColor,
+              size: config.flashSize,
             },
             audio: {
-              enabled: rule.audio_enabled,
-              preset: rule.audio_preset,
-              url: rule.audio_url,
+              enabled: config.audioEnabled,
+              preset: config.audioPreset,
+              url: config.audioUrl,
             },
           },
         });
         inserts += 1;
 
+        if (config.disableAfterSuccess && actionSucceeded) {
+          try {
+            await updateAlertRule(config.userId, config.ruleId, { is_active: false });
+          } catch {
+            /* best-effort */
+          }
+        }
+
         try {
-          await notifyUserWebPush(rule.user_id, {
+          await notifyUserWebPush(config.userId, {
             title: `@${handleNorm}`,
             body: mint ? `${summary}` : summary,
             url: mint ? `/token/${encodeURIComponent(mint)}` : '/pulse',

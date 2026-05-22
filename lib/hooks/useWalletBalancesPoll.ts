@@ -2,26 +2,19 @@
 
 import { useCallback, useEffect } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
+import { POINTER_WALLET_BALANCE_REFRESH_EVT } from '@/lib/client/portfolioRefreshEvents';
 
 /**
- * Refreshes on-chain SOL balances into `user_wallets` on an interval and when the tab regains focus.
- * Phase 4 Step 10 - replaces a manual per-wallet refresh button.
+ * Event-driven on-chain balance refresh — no interval polling.
+ * Refreshes on tab focus, wallet-balance events, and after trades.
  */
 export function useWalletBalancesPoll(opts: {
   enabled: boolean;
   walletIds: string[];
   getAccessToken: () => Promise<string | null>;
   queryClient: QueryClient;
-  /** Default 30s */
-  intervalMs?: number;
 }) {
-  const {
-    enabled,
-    walletIds,
-    getAccessToken,
-    queryClient,
-    intervalMs = 30_000,
-  } = opts;
+  const { enabled, walletIds, getAccessToken, queryClient } = opts;
 
   const refreshAll = useCallback(async () => {
     if (!enabled || walletIds.length === 0) return;
@@ -39,23 +32,21 @@ export function useWalletBalancesPoll(opts: {
 
   useEffect(() => {
     if (!enabled || walletIds.length === 0) return;
-    const id = window.setInterval(() => void refreshAll(), intervalMs);
-    return () => window.clearInterval(id);
-  }, [enabled, walletIds, intervalMs, refreshAll]);
 
-  useEffect(() => {
-    if (!enabled || walletIds.length === 0) return;
-    function onVis() {
+    const onEvent = () => void refreshAll();
+    const onFocus = () => void refreshAll();
+    const onVis = () => {
       if (document.visibilityState === 'visible') void refreshAll();
-    }
-    function onFocus() {
-      void refreshAll();
-    }
-    document.addEventListener('visibilitychange', onVis);
+    };
+
+    window.addEventListener(POINTER_WALLET_BALANCE_REFRESH_EVT, onEvent);
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
+
     return () => {
-      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener(POINTER_WALLET_BALANCE_REFRESH_EVT, onEvent);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
     };
   }, [enabled, walletIds.length, refreshAll]);
 }

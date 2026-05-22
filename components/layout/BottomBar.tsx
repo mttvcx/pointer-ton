@@ -42,6 +42,7 @@ import { DOCK_TRACKER_ICON } from '@/components/layout/dockTrackerUi';
 import type { DockSpotTickerMode } from '@/store/dockTrackers';
 import { normalizeDockModes, normalizeDockOrder, useDockTrackersStore } from '@/store/dockTrackers';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
+import { usePnlTrackerStore } from '@/store/pnlTracker';
 
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
@@ -388,7 +389,7 @@ export function BottomBar() {
           <MarketLighthouseHover
             activeChain={activeChain}
             placement="above"
-            triggerClassName="h-[26px] border-white/[0.08] bg-bg-sunken/35 hover:bg-bg-hover/75"
+            triggerClassName="h-[26px] border-white/[0.08] bg-bg-sunken/35"
           />
         </div>
 
@@ -456,6 +457,8 @@ function DockTrackerSlot({
   const togglePulsePeek = useTokenDockPeekStore((s) => s.togglePulsePeek);
   const walletPeekOpen = useTokenDockPeekStore((s) => s.walletPeekOpen);
   const toggleWalletPeek = useTokenDockPeekStore((s) => s.toggleWalletPeek);
+  const pnlPeekOpen = usePnlTrackerStore((s) => s.open);
+  const togglePnlPeek = usePnlTrackerStore((s) => s.toggleOpen);
 
   const openWalletsHub = () => {
     useTokenDockPeekStore.getState().setWalletPeekOpen(false);
@@ -484,6 +487,7 @@ function DockTrackerSlot({
 
   const pulseActivePeek = id === 'pulse' && pulsePeekOpen;
   const trackerActivePeek = id === 'tracker' && walletPeekOpen;
+  const pnlActivePeek = id === 'pnl' && pnlPeekOpen;
 
   const label =
     mode === 'full'
@@ -588,6 +592,30 @@ function DockTrackerSlot({
           walletPeekOpen ? 'Close Tracker popup' : 'Open draggable Tracker popup'
         }
         onClick={onTrackerPeek}
+      >
+        {dot}
+        <Icon className={iconCls} strokeWidth={2} aria-hidden />
+        {mode !== 'icon' ? (
+          <span className="max-w-[7rem] truncate leading-none text-white/95 2xl:max-w-[8rem]">{label}</span>
+        ) : null}
+      </button>
+    );
+  }
+
+  if (id === 'pnl') {
+    return (
+      <button
+        type="button"
+        className={cn(chip, pnlActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.1]')}
+        title={dockTrackerLabel(id, 'full')}
+        aria-label={pnlPeekOpen ? 'Close PnL tracker' : 'Open draggable PnL tracker'}
+        onClick={() => {
+          if (activeChain !== 'sol') {
+            router.push('/portfolio');
+            return;
+          }
+          togglePnlPeek();
+        }}
       >
         {dot}
         <Icon className={iconCls} strokeWidth={2} aria-hidden />

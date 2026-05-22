@@ -96,10 +96,18 @@ function walkForFillPct(obj: unknown, depth: number): number | null {
   return null;
 }
 
+/** Extract bonding curve fill % (0–100) from Helius DAS / webhook / snapshot JSON. */
+export function extractBondingProgressPct(obj: unknown): number | null {
+  return walkForFillPct(obj, 0);
+}
+
 export function getPulseBondingRingState(bundle: PulseTokenBundle): PulseBondingRingState {
   const { token, snapshot } = bundle;
   if (token.migrated_at) {
     return { fillPct: 100, migrated: true };
+  }
+  if (token.bonding_progress != null && Number.isFinite(token.bonding_progress)) {
+    return { fillPct: token.bonding_progress, migrated: false };
   }
   const raw = token.raw_metadata as Json | null;
   const fromToken = raw != null ? walkForFillPct(raw, 0) : null;

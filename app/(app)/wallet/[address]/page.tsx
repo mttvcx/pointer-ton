@@ -3,13 +3,12 @@ import { notFound } from 'next/navigation';
 import { Activity, ExternalLink } from 'lucide-react';
 import { EntityLocker } from '@/components/ai/EntityLocker';
 import { CopyButton } from '@/components/shared/CopyButton';
-import { EmptyState } from '@/components/shared/EmptyState';
 import { StatStrip, type StatItem } from '@/components/shared/StatStrip';
-import { explorerUrlForAccount, explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
+import { explorerUrlForAccount } from '@/lib/chains/explorerUrls';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { getWalletStats } from '@/lib/db/wallets';
 import { getSolBalanceLamports } from '@/lib/solana/recent-activity';
-import { getSolWalletActivity, type SolWalletActivityItem } from '@/lib/solana/wallet-activity';
+import { WalletSolActivityPanel } from '@/components/wallet/WalletSolActivityPanel';
 import { getTonBalanceNano } from '@/lib/ton/tonCenter';
 import { isValidPublicKey, shortenAddress } from '@/lib/utils/addresses';
 import {
@@ -45,7 +44,6 @@ export default async function WalletDetailPage({
   const stats = await getWalletStats(address).catch(() => null);
 
   let balancePrimary: StatItem;
-  let solActivity: SolWalletActivityItem[] = [];
 
   if (kind === 'sol') {
     let balStr = '\u2014';
@@ -56,12 +54,6 @@ export default async function WalletDetailPage({
       balStr = '\u2014';
     }
     balancePrimary = { label: 'SOL balance', value: balStr };
-
-    try {
-      solActivity = await getSolWalletActivity(address, 22);
-    } catch {
-      solActivity = [];
-    }
   } else if (kind === 'ton') {
     const canonical = normalizeTonAddress(address) ?? address;
     const nano = await getTonBalanceNano(canonical);
@@ -201,75 +193,10 @@ export default async function WalletDetailPage({
                 <Activity className="h-3.5 w-3.5 opacity-90" strokeWidth={2} />
                 Recent activity
               </h2>
-              <span className="rounded-md border border-border-subtle/80 bg-bg-base/60 px-2 py-0.5 tabular-nums text-[10px] text-fg-secondary">
-                {solActivity.length}
-              </span>
             </div>
-
-            {solActivity.length === 0 ? (
-              <div className="mt-4">
-                <EmptyState
-                  icon={Activity}
-                  title="No activity yet"
-                  description="No recent transactions from RPC — check HELIUS_API_KEY / SOLANA_RPC_URL or try again shortly."
-                />
-              </div>
-            ) : (
-              <ul className="mt-4 space-y-2">
-                {solActivity.map((row) => (
-                  <li
-                    key={row.signature}
-                    className="group rounded-xl border border-border-subtle/50 bg-bg-base/50 px-4 py-3 transition-colors hover:border-border-subtle hover:bg-white/[0.035]"
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[13px] font-semibold text-fg-primary">{row.label}</span>
-                          {row.success ? (
-                            <span className="rounded-md bg-signal-bull/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-signal-bull ring-1 ring-inset ring-signal-bull/25">
-                              Success
-                            </span>
-                          ) : (
-                            <span className="rounded-md bg-signal-bear/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-signal-bear ring-1 ring-inset ring-signal-bear/25">
-                              Failed
-                            </span>
-                          )}
-                        </div>
-                        {row.sublabel ? (
-                          <p className="text-[11px] leading-snug text-fg-muted">{row.sublabel}</p>
-                        ) : null}
-                        <p className="text-[10px] tabular-nums text-fg-muted/90">
-                          Slot {formatNumber(row.slot, { decimals: 0 })}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                        <span className="text-[11px] tabular-nums text-fg-secondary">
-                          {row.blockTime != null
-                            ? formatRelativeTime(new Date(row.blockTime * 1000))
-                            : '\u2014'}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <a
-                            href={explorerUrlSolanaTx(row.signature)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] font-medium text-accent-primary transition hover:underline"
-                          >
-                            View tx
-                          </a>
-                          <CopyButton
-                            value={row.signature}
-                            iconOnly
-                            label="Copy signature"
-                            iconClassName="opacity-70 transition group-hover:opacity-100"
-                          />
-                        </span>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="mt-4">
+              <WalletSolActivityPanel address={address} />
+            </div>
           </section>
         ) : kind === 'ton' ? (
           <section className="rounded-xl border border-border-subtle/60 bg-bg-base/40 px-4 py-5">

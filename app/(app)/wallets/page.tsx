@@ -8,6 +8,6 @@ export default async function WalletsRedirect({
   const { wallet } = await searchParams;
   const qs = wallet
     ? `?tab=trackers&wallet=${encodeURIComponent(wallet)}`
-    : '?tab=trackers';
+    : '?tab=wallets';
   redirect(`/portfolio${qs}`);
 }

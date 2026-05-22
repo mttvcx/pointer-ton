@@ -2,6 +2,7 @@ import 'server-only';
 
 import { PublicKey, type VersionedTransactionResponse } from '@solana/web3.js';
 import { getConnection } from '@/lib/solana/connection';
+import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 
 export type SolWalletActivityItem = {
   signature: string;
@@ -48,16 +49,20 @@ const FETCH_BATCH = 6;
 export async function getSolWalletActivity(address: string, limit = 22): Promise<SolWalletActivityItem[]> {
   const conn = getConnection();
   const pk = new PublicKey(address);
-  const sigs = await conn.getSignaturesForAddress(pk, { limit });
+  const sigs = await heliusCall('getSignaturesForAddress', HELIUS_CREDITS.RPC, () =>
+    conn.getSignaturesForAddress(pk, { limit }),
+  );
   const out: SolWalletActivityItem[] = [];
 
   for (let i = 0; i < sigs.length; i += FETCH_BATCH) {
     const batch = sigs.slice(i, i + FETCH_BATCH);
     const txs = await Promise.all(
       batch.map((s) =>
-        conn.getTransaction(s.signature, {
-          maxSupportedTransactionVersion: 0,
-        }),
+        heliusCall('getTransaction', HELIUS_CREDITS.RPC, () =>
+          conn.getTransaction(s.signature, {
+            maxSupportedTransactionVersion: 0,
+          }),
+        ),
       ),
     );
     for (let j = 0; j < batch.length; j++) {

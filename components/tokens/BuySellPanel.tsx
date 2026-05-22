@@ -28,7 +28,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
-import { BUY_PRESETS_SOL, DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
+import { BUY_PRESETS_SOL, BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/utils/constants';
+import { buyQuoteAmountFields, spendAssetLabel } from '@/lib/trading/spendAsset';
+import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
+import { USDC_MINT } from '@/lib/utils/addresses';
 import {
   formatCompactUsd,
   formatNumber,
@@ -371,7 +374,7 @@ export function BuySellPanel({
   }, [activeWalletRow?.balance_lamports]);
   const tradingBlockedImported = activeWalletRow?.is_imported === true;
   const { submitFromQuote } = usePointerTradeSubmit();
-  const { activePresetSlot } = useTradingStore();
+  const { activePresetSlot, spendAsset, setSpendAsset } = useTradingStore();
 
   const limitToastRef = useRef<string | null>(null);
   const initialBuySolAppliedRef = useRef(false);
@@ -453,11 +456,14 @@ export function BuySellPanel({
     return baseMcUsd * (1 + limitMcSliderPct / 100);
   }, [baseMcUsd, limitMcSliderPct]);
 
-  const buyAmountSol = useMemo(() => {
+  const buyAmount = useMemo(() => {
     if (activePresetSol != null) return activePresetSol;
     const n = parseFloat(buyCustomSol);
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [activePresetSol, buyCustomSol]);
+
+  /** @deprecated alias — same as `buyAmount`. */
+  const buyAmountSol = buyAmount;
 
   const { data: balanceData, refetch: refetchBalance } = useQuery({
     queryKey: ['trade-balance', mint, wallet?.address],
@@ -482,6 +488,28 @@ export function BuySellPanel({
     staleTime: 10_000,
   });
 
+  const { data: usdcBalanceData } = useQuery({
+    queryKey: ['trade-balance-usdc', wallet?.address],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const res = await fetch(
+        `/api/trade/balance?mint=${encodeURIComponent(USDC_MINT)}&wallet=${encodeURIComponent(wallet!.address)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const json: unknown = await res.json();
+      if (!res.ok) throw new Error('balance');
+      return json as { rawAmount: string };
+    },
+    enabled: Boolean(activeChain === 'sol' && walletsReady && wallet?.address),
+    staleTime: 10_000,
+  });
+
+  const usdcBalPreview = useMemo(() => {
+    const raw = usdcBalanceData?.rawAmount ?? '0';
+    return formatNumber(rawToUi(raw, USDC_DECIMALS), { decimals: 2 });
+  }, [usdcBalanceData?.rawAmount]);
+
   const balanceRaw = balanceData?.rawAmount ?? '0';
 
   const ctaSym = useMemo(() => tradeCtaLabel(symbol, tokenName), [symbol, tokenName]);
@@ -503,13 +531,14 @@ export function BuySellPanel({
 
   const paramsKey = useMemo(() => {
     if (tab === 'buy') {
-      return `${mint}|buy|${buyAmountSol ?? ''}|${effectiveSlippageBps}|${dynamicSlippage}|${landing}`;
+      return `${mint}|buy|${spendAsset}|${buyAmount ?? ''}|${effectiveSlippageBps}|${dynamicSlippage}|${landing}`;
     }
     return `${mint}|sell|${sellAmountTokenRaw ?? ''}|${effectiveSlippageBps}|${dynamicSlippage}|${landing}`;
   }, [
     mint,
     tab,
-    buyAmountSol,
+    spendAsset,
+    buyAmount,
     sellAmountTokenRaw,
     effectiveSlippageBps,
     dynamicSlippage,
@@ -544,10 +573,13 @@ export function BuySellPanel({
   }, [presetsPayload?.presets, activePresetSlot]);
 
   const buyChipAmounts = useMemo(() => {
+    if (activeChain === 'sol' && spendAsset === 'usdc') {
+      return [...BUY_PRESETS_USDC];
+    }
     const fromPreset = activePreset?.buy_amounts_sol;
     if (fromPreset && fromPreset.length > 0) return fromPreset;
     return [...BUY_PRESETS_SOL];
-  }, [activePreset?.buy_amounts_sol]);
+  }, [activePreset?.buy_amounts_sol, activeChain, spendAsset]);
 
   useEffect(() => {
     if (!activePreset) return;
@@ -736,6 +768,12 @@ export function BuySellPanel({
   const formattedPay = useMemo(() => {
     if (!quote?.summary.amountInRaw) return null;
     if (quote.side === 'buy') {
+      if (quote.spendAsset === 'usdc' || quote.summary.amountUsdcEstimate != null) {
+        const est =
+          quote.summary.amountUsdcEstimate ??
+          rawToUi(quote.summary.amountInRaw, USDC_DECIMALS);
+        return `${formatNumber(est, { decimals: 2 })} USDC`;
+      }
       return `${formatNumber(lamportsToSol(BigInt(quote.summary.amountInRaw)), {
         decimals: 4,
       })} ${nativeSym}`;
@@ -768,8 +806,8 @@ export function BuySellPanel({
       return;
     }
 
-    if (tab === 'buy' && (buyAmountSol == null || buyAmountSol <= 0)) {
-      toast.error(`Enter ${nativeSym} amount`);
+    if (tab === 'buy' && (buyAmount == null || buyAmount <= 0)) {
+      toast.error(`Enter ${spendAssetLabel(activeChain === 'sol' ? spendAsset : 'sol')} amount`);
       return;
     }
     if (tab === 'sell' && !sellAmountTokenRaw) {
@@ -791,13 +829,14 @@ export function BuySellPanel({
             }
           : {};
 
+      const buyAsset = activeChain === 'sol' ? spendAsset : 'sol';
       const body =
         tab === 'buy'
           ? {
               mint,
               side: 'buy' as const,
               userPublicKey: wallet.address,
-              amountSol: buyAmountSol!,
+              ...buyQuoteAmountFields(buyAsset, buyAmount!),
               slippageBps: effectiveSlippageBps,
               dynamicSlippage,
               landing,
@@ -859,14 +898,15 @@ export function BuySellPanel({
       });
       const chainRes: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
       const sym = nativeTicker(chainRes);
-      if (tab === 'buy' && buyAmountSol != null && buyAmountSol > 0) {
-        const narration = `Bought ${formatNumber(buyAmountSol, { decimals: 4 })} ${sym} · token page.`;
+      if (tab === 'buy' && buyAmount != null && buyAmount > 0) {
+        const paySym = spendAssetLabel(activeChain === 'sol' ? spendAsset : 'sol');
+        const narration = `Bought ${formatNumber(buyAmount, { decimals: spendAsset === 'usdc' ? 2 : 4 })} ${paySym} · token page.`;
         void (async () => {
           const posted = await recordUserTradeActivity(token, narration, {
             kind: 'token_panel_buy',
             mint,
             chain: chainRes,
-            amountSol: buyAmountSol,
+            amountSol: spendAsset === 'sol' ? buyAmount : undefined,
             txSignature: sig ?? null,
           });
           if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
@@ -896,6 +936,7 @@ export function BuySellPanel({
       setQuoteWallet(null);
       void refetchBalance();
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+      dispatchSolanaAccountRefresh('buy_sell_panel');
     } catch (e) {
       toast.dismiss(toastId);
       setQuote(null);
@@ -1024,14 +1065,47 @@ export function BuySellPanel({
 
         {tab === 'buy' ? (
           <div className="rounded-md border border-border-subtle bg-bg-raised p-2">
-            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-fg-secondary">Amount</div>
+            {activeChain === 'sol' ? (
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-fg-secondary">
+                  Spend
+                </span>
+                <div className="flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5">
+                  {(['sol', 'usdc'] as const).map((asset) => (
+                    <button
+                      key={asset}
+                      type="button"
+                      title={asset === 'usdc' ? 'Trading with USDC' : undefined}
+                      onClick={() => setSpendAsset(asset)}
+                      className={cn(
+                        'rounded px-2 py-0.5 text-[10px] font-semibold transition',
+                        spendAsset === asset
+                          ? 'bg-accent-primary/20 text-accent-primary'
+                          : 'text-fg-muted hover:text-fg-secondary',
+                      )}
+                    >
+                      {asset === 'usdc' ? 'USDC' : 'SOL'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="mb-1 flex items-center justify-between text-[10px] text-fg-secondary">
+              <span>Amount</span>
+              <span className="tabular-nums">
+                Bal{' '}
+                {activeChain === 'sol' && spendAsset === 'usdc'
+                  ? `${usdcBalPreview ?? '0'} USDC`
+                  : `${solBalPreview ?? '0'} ${nativeSym}`}
+              </span>
+            </div>
             <TradeAmountInput
               value={buyCustomSol}
               onChange={onBuyCustom}
               placeholder={activePresetSol != null ? String(activePresetSol) : '0.0'}
-              suffix={nativeSym}
-              icon="sol"
-              aria-label={`${nativeSym} amount to buy`}
+              suffix={activeChain === 'sol' && spendAsset === 'usdc' ? 'USDC' : nativeSym}
+              icon={activeChain === 'sol' && spendAsset === 'usdc' ? 'token' : 'sol'}
+              aria-label={`${activeChain === 'sol' && spendAsset === 'usdc' ? 'USDC' : nativeSym} amount to buy`}
             />
             <div className="mt-1 grid grid-cols-5 gap-1.5">
               {axiomBuyAmounts.map((s) => (

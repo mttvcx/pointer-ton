@@ -119,6 +119,8 @@ export interface Database {
           initial_liquidity_sol: number | null;
           initial_liquidity_at: string | null;
           migrated_at: string | null;
+          migrated_to: string | null;
+          bonding_progress: number | null;
           mint_authority: string | null;
           freeze_authority: string | null;
           is_lp_locked: boolean | null;
@@ -142,6 +144,8 @@ export interface Database {
           initial_liquidity_sol?: number | null;
           initial_liquidity_at?: string | null;
           migrated_at?: string | null;
+          migrated_to?: string | null;
+          bonding_progress?: number | null;
           mint_authority?: string | null;
           freeze_authority?: string | null;
           is_lp_locked?: boolean | null;
@@ -399,6 +403,33 @@ export interface Database {
         Relationships: [];
       };
 
+      twitter_ingest_tweets: {
+        Row: {
+          tweet_id: string;
+          author_handle: string;
+          text: string;
+          image_urls: string[];
+          image_hashes: Json;
+          tweet_kind: string | null;
+          tweet_url: string | null;
+          raw_json: Json | null;
+          received_at: string;
+        };
+        Insert: {
+          tweet_id: string;
+          author_handle: string;
+          text?: string;
+          image_urls?: string[];
+          image_hashes?: Json;
+          tweet_kind?: string | null;
+          tweet_url?: string | null;
+          raw_json?: Json | null;
+          received_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['twitter_ingest_tweets']['Insert']>;
+        Relationships: [];
+      };
+
       alert_rules: {
         Row: {
           id: string;
@@ -406,6 +437,14 @@ export interface Database {
           name: string;
           rule_type: string;
           rule_config: Json;
+          trigger_type: string | null;
+          trigger_config: Json;
+          action_type: string | null;
+          action_config: Json;
+          activity_filter: Json;
+          disable_after_success: boolean;
+          cooldown_seconds: number;
+          daily_cap_sol: number | null;
           flash_enabled: boolean;
           flash_color: string;
           flash_size: string;
@@ -421,6 +460,14 @@ export interface Database {
           name: string;
           rule_type: string;
           rule_config: Json;
+          trigger_type?: string | null;
+          trigger_config?: Json;
+          action_type?: string | null;
+          action_config?: Json;
+          activity_filter?: Json;
+          disable_after_success?: boolean;
+          cooldown_seconds?: number;
+          daily_cap_sol?: number | null;
           flash_enabled?: boolean;
           flash_color?: string;
           flash_size?: string;

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { aiScanClientKey, fetchAiScan } from '@/lib/client/fetchAiScan';
 import { Camera, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { selectCopilotSurfaceOpen, useUIStore } from '@/store/ui';
@@ -51,25 +52,30 @@ export function TokenHeaderAvatar({
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const r = await fetch('/api/ai/explain-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ mint, mode: 'fast' }),
+      const url = '/api/ai/explain-token';
+      const body = { mint, mode: 'fast' as const, surface: 'hover' as const };
+      const key = aiScanClientKey(url, body);
+      const j = await fetchAiScan(key, async () => {
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+        const parsed = (await r.json().catch(() => ({}))) as {
+          data?: { summary?: string };
+          message?: string;
+        };
+        if (!r.ok) {
+          throw new Error(
+            typeof parsed.message === 'string' ? parsed.message : `HTTP ${r.status}`,
+          );
+        }
+        return parsed;
       });
-      const j = (await r.json().catch(() => ({}))) as {
-        summary?: string;
-        message?: string;
-      };
-      if (!r.ok) {
-        const err =
-          typeof j.message === 'string' ? j.message : `HTTP ${r.status}`;
-        setInsight(err.slice(0, 200));
-        return;
-      }
-      setInsight((j.summary ?? '').slice(0, 320));
+      setInsight((j.data?.summary ?? '').slice(0, 320));
     } finally {
       setInsightBusy(false);
     }

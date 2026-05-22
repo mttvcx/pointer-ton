@@ -1,9 +1,11 @@
 import 'server-only';
-import { subMinutes } from 'date-fns';
+import { subHours, subMinutes } from 'date-fns';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { createAdminSupabase } from '@/lib/supabase/server';
-import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
+import { withSupabaseRetry } from '@/lib/db/supabaseRetry';
+import { PULSE_THRESHOLDS, type PulseColumnId, type MigrationDestination } from '@/lib/utils/constants';
+import { PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 
@@ -76,14 +78,16 @@ export async function touchTokenLastSeen(mint: string): Promise<void> {
 }
 
 export async function listRecentTokens(limit: number): Promise<TokenRow[]> {
-  const supabase = createAdminSupabase();
-  const { data, error } = await supabase
-    .from('tokens')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) throw new Error(`listRecentTokens failed: ${error.message}`);
-  return data ?? [];
+  return withSupabaseRetry('listRecentTokens', async () => {
+    const supabase = createAdminSupabase();
+    const { data, error } = await supabase
+      .from('tokens')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw new Error(`listRecentTokens failed: ${error.message}`);
+    return data ?? [];
+  });
 }
 
 export async function listTokensByCreatorWallet(
@@ -127,44 +131,107 @@ export async function listPulseMigratedTokens(limit: number): Promise<TokenRow[]
 }
 
 /**
- * Stretch column: latest snapshot shows liquidity + holder count above Pulse
- * thresholds. We scan recent qualifying snapshots and dedupe by mint.
+ * Stretch column: bonding curve ≥ {@link PULSE_NEAR_MIGRATE_PCT}%, not migrated,
+ * created within the stretch window (Axiom-style final stretch).
  */
 export async function listPulseStretchTokens(limit: number): Promise<TokenRow[]> {
-  const supabase = createAdminSupabase();
-  const { data: snaps, error } = await supabase
-    .from('token_market_snapshots')
-    .select('mint, liquidity_usd, holder_count, snapshot_at')
-    .gte('liquidity_usd', PULSE_THRESHOLDS.stretchMinLiquidityUsd)
-    .gte('holder_count', PULSE_THRESHOLDS.stretchMinHolders)
-    .order('snapshot_at', { ascending: false })
-    .limit(400);
-  if (error) throw new Error(`listPulseStretchTokens(snapshots) failed: ${error.message}`);
+  return resolvePulseStretchTokens(limit);
+}
 
-  const seen = new Set<string>();
-  const mints: string[] = [];
-  for (const s of snaps ?? []) {
-    const row = s as { mint: string };
-    if (seen.has(row.mint)) continue;
-    seen.add(row.mint);
-    mints.push(row.mint);
-    if (mints.length >= limit) break;
+/** Mark a token as migrated to PumpSwap / Raydium / Meteora (idempotent). */
+export async function markTokenMigrated(
+  mint: string,
+  migratedTo: MigrationDestination,
+  migratedAt?: string,
+): Promise<TokenRow | null> {
+  const existing = await getTokenByMint(mint);
+  if (!existing) return null;
+  const at = migratedAt ?? new Date().toISOString();
+  if (existing.migrated_at) {
+    if (!existing.migrated_to) {
+      return updateToken(mint, { migrated_to: migratedTo, last_seen_at: at });
+    }
+    return existing;
   }
-  if (mints.length === 0) return [];
-
-  const { data: tokens, error: tErr } = await supabase
-    .from('tokens')
-    .select('*')
-    .in('mint', mints);
-  if (tErr) throw new Error(`listPulseStretchTokens(tokens) failed: ${tErr.message}`);
-  const order = new Map(mints.map((m, i) => [m, i]));
-  return (tokens ?? []).sort(
-    (a, b) => (order.get(a.mint) ?? 999) - (order.get(b.mint) ?? 999),
-  );
+  return updateToken(mint, {
+    migrated_at: at,
+    migrated_to: migratedTo,
+    bonding_progress: 100,
+    last_seen_at: at,
+  });
 }
 
 /** Scan deeper than {@link listPulseNewTokens}: avoid empty Pulse columns when recent rows are mostly other chains. */
 const PULSE_FEED_SCAN_DEPTH = 4000;
+
+function isMissingBondingProgressColumnError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /bonding_progress.*does not exist|42703.*bonding_progress/i.test(msg);
+}
+
+/** Legacy stretch heuristic: recent, unmigrated tokens with snapshot liquidity + holders. */
+async function listPulseStretchBySnapshotHeuristic(
+  limit: number,
+  chain?: AppChainId,
+): Promise<TokenRow[]> {
+  const since = subHours(new Date(), PULSE_THRESHOLDS.stretchMaxAgeHours).toISOString();
+  const recent = await listRecentTokens(PULSE_FEED_SCAN_DEPTH);
+  let candidates = recent.filter((t) => t.migrated_at == null && t.created_at >= since);
+  if (chain) {
+    candidates = candidates.filter((t) => mintMatchesAppChain(t.mint, chain));
+  }
+  if (candidates.length === 0) return [];
+
+  const snapshots = await getLatestSnapshotsForMints(candidates.map((t) => t.mint));
+  const qualified = candidates.filter((t) => {
+    const snap = snapshots.get(t.mint);
+    if (!snap) return false;
+    const holders = snap.holder_count ?? 0;
+    const liq = Number(snap.liquidity_usd) || 0;
+    return (
+      holders >= PULSE_THRESHOLDS.stretchMinHolders &&
+      liq >= PULSE_THRESHOLDS.stretchMinLiquidityUsd
+    );
+  });
+
+  qualified.sort((a, b) => {
+    const la = Number(snapshots.get(a.mint)?.liquidity_usd) || 0;
+    const lb = Number(snapshots.get(b.mint)?.liquidity_usd) || 0;
+    if (lb !== la) return lb - la;
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  return qualified.slice(0, limit);
+}
+
+async function listPulseStretchByBondingProgress(limit: number): Promise<TokenRow[]> {
+  const supabase = createAdminSupabase();
+  const since = subHours(new Date(), PULSE_THRESHOLDS.stretchMaxAgeHours).toISOString();
+  const { data, error } = await supabase
+    .from('tokens')
+    .select('*')
+    .gte('bonding_progress', PULSE_NEAR_MIGRATE_PCT)
+    .is('migrated_at', null)
+    .gte('created_at', since)
+    .order('bonding_progress', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`listPulseStretchTokens failed: ${error.message}`);
+  return data ?? [];
+}
+
+async function resolvePulseStretchTokens(limit: number, chain?: AppChainId): Promise<TokenRow[]> {
+  try {
+    const scanLimit = chain ? Math.max(limit, 1200) : limit;
+    const bondingRows = await listPulseStretchByBondingProgress(scanLimit);
+    const filtered = chain
+      ? bondingRows.filter((t) => mintMatchesAppChain(t.mint, chain))
+      : bondingRows;
+    if (filtered.length > 0) return filtered.slice(0, limit);
+  } catch (err) {
+    if (!isMissingBondingProgressColumnError(err)) throw err;
+  }
+  return listPulseStretchBySnapshotHeuristic(limit, chain);
+}
 
 /**
  * Pulse column feed scoped to `chain`. Queries a wide candidate set then filters by
@@ -187,45 +254,21 @@ export async function listPulseFeedTokens(
   }
 
   if (column === 'migrated') {
-    const { data, error } = await supabase
-      .from('tokens')
-      .select('*')
-      .not('migrated_at', 'is', null)
-      .order('migrated_at', { ascending: false })
-      .limit(1200);
-    if (error) throw new Error(`listPulseFeedTokens(migrated) failed: ${error.message}`);
-    return (data ?? []).filter((t) => mintMatchesAppChain(t.mint, chain)).slice(0, limit);
+    return withSupabaseRetry(`listPulseFeedTokens(${column})`, async () => {
+      const { data, error } = await supabase
+        .from('tokens')
+        .select('*')
+        .not('migrated_at', 'is', null)
+        .order('migrated_at', { ascending: false })
+        .limit(1200);
+      if (error) throw new Error(`listPulseFeedTokens(migrated) failed: ${error.message}`);
+      return (data ?? []).filter((t) => mintMatchesAppChain(t.mint, chain)).slice(0, limit);
+    });
   }
 
-  const { data: snaps, error } = await supabase
-    .from('token_market_snapshots')
-    .select('mint, liquidity_usd, holder_count, snapshot_at')
-    .gte('liquidity_usd', PULSE_THRESHOLDS.stretchMinLiquidityUsd)
-    .gte('holder_count', PULSE_THRESHOLDS.stretchMinHolders)
-    .order('snapshot_at', { ascending: false })
-    .limit(1600);
-  if (error) throw new Error(`listPulseFeedTokens(stretch snaps) failed: ${error.message}`);
-
-  const seen = new Set<string>();
-  const orderedMints: string[] = [];
-  for (const s of snaps ?? []) {
-    const m = (s as { mint: string }).mint;
-    if (seen.has(m)) continue;
-    seen.add(m);
-    orderedMints.push(m);
-  }
-  if (orderedMints.length === 0) return [];
-
-  const { data: tokens, error: tErr } = await supabase.from('tokens').select('*').in('mint', orderedMints);
-  if (tErr) throw new Error(`listPulseFeedTokens(stretch tokens) failed: ${tErr.message}`);
-  const map = new Map((tokens ?? []).map((t) => [t.mint, t]));
-  const out: TokenRow[] = [];
-  for (const m of orderedMints) {
-    const t = map.get(m);
-    if (t && mintMatchesAppChain(t.mint, chain)) out.push(t);
-    if (out.length >= limit) break;
-  }
-  return out;
+  return withSupabaseRetry(`listPulseFeedTokens(${column})`, async () => {
+    return resolvePulseStretchTokens(limit, chain);
+  });
 }
 
 /** Map each mint to its most recent snapshot row (global sort desc, first wins). */

@@ -39,6 +39,7 @@ export function launchEventToTokenInsert(ev: Readonly<LaunchpadEvent>): TablesIn
     creator_wallet: ev.creator_wallet,
     launch_pad: ev.launchpad === 'unknown' ? null : ev.launchpad,
     raw_metadata: ev.raw,
+    bonding_progress: ev.bonding_progress,
     initial_liquidity_sol: ev.initial_liquidity_sol,
     initial_liquidity_at: ev.initial_liquidity_sol != null ? now : null,
     created_at: now,
@@ -57,29 +58,39 @@ export async function ingestLaunchpadDiscovery(
     txSignature?: string | null;
   },
 ): Promise<number> {
-  const existing = await getTokenByMint(ev.mint);
+  const rawWithSource: Json =
+    ev.raw && typeof ev.raw === 'object' && !Array.isArray(ev.raw)
+      ? ({ ...(ev.raw as Record<string, unknown>), pointerIngestSource: opts.alertSource } as Json)
+      : ({ pointerIngestSource: opts.alertSource } as Json);
+  const enrichedEv: LaunchpadEvent = { ...ev, raw: rawWithSource };
+  const existing = await getTokenByMint(enrichedEv.mint);
   const now = new Date().toISOString();
   if (existing) {
-    await updateToken(ev.mint, {
+    const bonding_progress =
+      enrichedEv.bonding_progress != null
+        ? Math.max(enrichedEv.bonding_progress, existing.bonding_progress ?? 0)
+        : existing.bonding_progress;
+    await updateToken(enrichedEv.mint, {
       last_seen_at: now,
-      raw_metadata: ev.raw,
-      symbol: ev.symbol ?? existing.symbol,
-      name: ev.name ?? existing.name,
-      image_url: ev.image_url ?? existing.image_url,
-      creator_wallet: ev.creator_wallet ?? existing.creator_wallet,
+      raw_metadata: rawWithSource,
+      symbol: enrichedEv.symbol ?? existing.symbol,
+      name: enrichedEv.name ?? existing.name,
+      image_url: enrichedEv.image_url ?? existing.image_url,
+      creator_wallet: enrichedEv.creator_wallet ?? existing.creator_wallet,
+      ...(bonding_progress != null ? { bonding_progress } : {}),
     });
     return 0;
   }
-  await upsertToken(launchEventToTokenInsert(ev));
+  await upsertToken(launchEventToTokenInsert(enrichedEv));
   await emitGlobalPulseNewTokenAlert({
-    mint: ev.mint,
-    symbol: ev.symbol,
-    name: ev.name,
-    launchpad: ev.launchpad === 'unknown' ? null : ev.launchpad,
+    mint: enrichedEv.mint,
+    symbol: enrichedEv.symbol,
+    name: enrichedEv.name,
+    launchpad: enrichedEv.launchpad === 'unknown' ? null : enrichedEv.launchpad,
     source: opts.alertSource,
-    creator_wallet: ev.creator_wallet,
+    creator_wallet: enrichedEv.creator_wallet,
     tx_signature: opts.txSignature ?? undefined,
-    initial_liquidity_sol: ev.initial_liquidity_sol,
+    initial_liquidity_sol: enrichedEv.initial_liquidity_sol,
   });
   return 1;
 }

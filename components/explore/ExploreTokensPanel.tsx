@@ -119,13 +119,9 @@ export function ExploreTokensPanel() {
   const apiItems = exploreQ.data?.items;
   const apiLen = apiItems?.length ?? 0;
 
-  /** Empty indexer → synthetic bubbles unless opted out (?explore_demo=0). */
+  /** Empty indexer → synthetic bubbles only when UI demo is explicitly enabled. */
   const exploreDemoEligible =
-    !exploreDemoForcedOff &&
-    (exploreDemoForcedOn ||
-      uiDemoMode ||
-      process.env.NODE_ENV === 'development' ||
-      apiLen === 0);
+    !exploreDemoForcedOff && (exploreDemoForcedOn || uiDemoMode);
 
   const bundlesForExplore = useMemo(() => {
     if (exploreQ.isError) return [];

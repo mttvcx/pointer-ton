@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { ThemePicker } from '@/components/theme/ThemePicker';
 import { CustomThemeImport } from '@/components/theme/CustomThemeImport';
 import { DisplayPreferences } from '@/components/preferences/DisplayPreferences';
+import { AutoSellSettings } from '@/components/settings/AutoSellSettings';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
@@ -101,6 +102,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               Display
             </h3>
             <DisplayPreferences />
+          </section>
+
+          <section>
+            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+              Auto-Sell
+            </h3>
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3">
+              <AutoSellSettings />
+            </div>
           </section>
 
           <section>

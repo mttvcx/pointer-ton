@@ -13,8 +13,8 @@ import {
   Copy,
   ExternalLink,
   EyeOff,
+  ImageUp,
   Loader2,
-  Maximize2,
   Search,
   Wallet,
   X,
@@ -25,12 +25,20 @@ import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
 import { TrackersPanel } from '@/components/trackers/TrackersPanel';
+import {
+  PrivateTransferProviderModal,
+  type PrivateTransferProvider,
+} from '@/components/portfolio/PrivateTransferProviderModal';
+import { SplitNowTransferModal } from '@/components/portfolio/SplitNowTransferModal';
 import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
 import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
+import { usePnlTrackerStore } from '@/store/pnlTracker';
+import { usePnlCalendarStore } from '@/store/pnlCalendar';
+import { useAuthSyncStore } from '@/store/authSync';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { xLiveSearchContractUrl } from '@/lib/utils/xSearch';
@@ -42,6 +50,7 @@ import {
   lamportsToSol,
 } from '@/lib/utils/formatters';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import {
   CapitalFlowArrow,
@@ -194,8 +203,15 @@ export function PortfolioDashboard({
   prefillTrackerWallet?: string;
 }) {
   const { authenticated, getAccessToken } = usePointerAuth();
+  const backendReady = useAuthSyncStore((s) => s.backendReady);
+  const authSyncing = useAuthSyncStore((s) => s.syncing);
+  const authSyncError = useAuthSyncStore((s) => s.lastError);
   const activeChain = useUIStore((s) => s.activeChain);
   const openWalletIntel = useWalletIntelStore((s) => s.openWallet);
+  const openPnlFromPortfolio = usePnlTrackerStore((s) => s.openFromPortfolio);
+  const setPnlPortfolioScope = usePnlTrackerStore((s) => s.setPortfolioScope);
+  const pnlTrackerOpen = usePnlTrackerStore((s) => s.open);
+  const pnlPortfolioScope = usePnlTrackerStore((s) => s.portfolioScope);
   const qc = useQueryClient();
   const { createWallet } = useCreateWallet();
   const [tab, setTab] = useState<PortfolioTab>(initialTab ?? 'spot');
@@ -217,7 +233,10 @@ export function PortfolioDashboard({
   const [creating, setCreating] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferAmount, setTransferAmount] = useState('');
+  const [privateTransferOpen, setPrivateTransferOpen] = useState(false);
+  const [splitNowOpen, setSplitNowOpen] = useState(false);
   const [funderPickerOpen, setFunderPickerOpen] = useState(false);
+  const openPnlCalendar = usePnlCalendarStore((s) => s.openCalendar);
   const walletSelectorRef = useRef<HTMLDivElement>(null);
   const funderPickerRef = useRef<HTMLDivElement>(null);
 
@@ -307,6 +326,7 @@ export function PortfolioDashboard({
 
   const portfolioEnabled =
     authenticated &&
+    backendReady &&
     walletsReady &&
     activeChain === 'sol' &&
     (selectedPortfolioWalletId === 'all' ||
@@ -315,6 +335,7 @@ export function PortfolioDashboard({
   const query = useQuery({
     queryKey: ['portfolio', activeChain, selectedPortfolioWalletId, selectedWalletAddress, timeFilter],
     enabled: portfolioEnabled,
+    retry: (count, err) => count < 2 && err instanceof Error && /sync/i.test(err.message),
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
@@ -327,11 +348,15 @@ export function PortfolioDashboard({
       });
       const json: unknown = await res.json();
       if (!res.ok) {
-        throw new Error(
-          typeof json === 'object' && json && 'message' in json
-            ? String((json as { message: unknown }).message)
-            : 'portfolio failed',
-        );
+        const msg =
+          typeof json === 'object' && json
+            ? 'message' in json
+              ? String((json as { message: unknown }).message)
+              : 'error' in json
+                ? String((json as { error: unknown }).error)
+                : 'portfolio failed'
+            : 'portfolio failed';
+        throw new Error(msg);
       }
       return json as PortfolioJson;
     },
@@ -384,6 +409,21 @@ export function PortfolioDashboard({
       ? combinedNativeUi
       : balanceLamportsToSol(selectedPortfolioWallet?.balance_lamports ?? null);
 
+  /** Keep floating PNL in sync when Portfolio wallet selector changes while tracker is open. */
+  useEffect(() => {
+    if (!pnlTrackerOpen || pnlPortfolioScope === null) return;
+    setPnlPortfolioScope({
+      walletAddress: selectedWalletAddress,
+      label: selectedDisplayName,
+    });
+  }, [
+    pnlTrackerOpen,
+    pnlPortfolioScope,
+    selectedWalletAddress,
+    selectedDisplayName,
+    setPnlPortfolioScope,
+  ]);
+
   function onSelectFunder(id: string) {
     setFunderWalletId(id);
     setReceiverWalletIds((current) => current.filter((walletId) => walletId !== id));
@@ -410,6 +450,7 @@ export function PortfolioDashboard({
     if (!res.ok && res.status !== 409) throw new Error(res.message);
     void qc.invalidateQueries({ queryKey: ['wallets-my'] });
     void qc.invalidateQueries({ queryKey: ['portfolio'] });
+    dispatchSolanaAccountRefresh('portfolio_wallet_import');
   }
 
   async function onCreateEmbedded() {
@@ -427,6 +468,7 @@ export function PortfolioDashboard({
       toast.success('Wallet created');
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       void qc.invalidateQueries({ queryKey: ['portfolio'] });
+      dispatchSolanaAccountRefresh('portfolio_wallet_create');
     } catch (e) {
       toast.error('Could not create wallet', {
         description: e instanceof Error ? e.message : 'Unknown error',
@@ -507,11 +549,33 @@ export function PortfolioDashboard({
   }
 
   const portfolioShowsLoadingSpinner =
-    portfolioEnabled && query.isPending && query.fetchStatus === 'fetching';
+    (authenticated && authSyncing && !backendReady) ||
+    (portfolioEnabled && query.isPending && query.fetchStatus === 'fetching');
   if (portfolioShowsLoadingSpinner) {
     return (
       <div className={cn('flex h-full min-h-[320px] items-center justify-center', className)}>
         <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
+      </div>
+    );
+  }
+
+  if (authenticated && !backendReady && authSyncError) {
+    return (
+      <div
+        className={cn(
+          'rounded border border-border-subtle bg-bg-raised p-3 text-[12px] text-signal-bear',
+          className,
+        )}
+      >
+        Account sync failed — portfolio needs your user profile in the database.
+        <p className="mt-1 text-[11px] text-fg-muted">{authSyncError}</p>
+        <button
+          type="button"
+          className="mt-2 text-[11px] font-semibold text-accent-primary hover:underline"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -525,6 +589,16 @@ export function PortfolioDashboard({
         )}
       >
         Could not load portfolio.
+        {query.error instanceof Error && query.error.message ? (
+          <p className="mt-1 text-[11px] text-fg-muted">{query.error.message}</p>
+        ) : null}
+        <button
+          type="button"
+          className="mt-2 text-[11px] font-semibold text-accent-primary hover:underline"
+          onClick={() => void query.refetch()}
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -609,11 +683,25 @@ export function PortfolioDashboard({
         </div>
         <button
           type="button"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-raised text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-          aria-label="Expand"
-          title="Expand"
+          onClick={() => {
+            if (activeChain !== 'sol') {
+              toast.message('PNL tracker is available on Solana');
+              return;
+            }
+            openPnlFromPortfolio({
+              walletAddress: selectedWalletAddress,
+              label: selectedDisplayName,
+            });
+          }}
+          className={cn(
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-raised text-fg-muted transition',
+            'hover:border-accent-primary/35 hover:bg-accent-primary/10 hover:text-accent-primary',
+            pnlTrackerOpen && pnlPortfolioScope !== null && 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
+          )}
+          aria-label="Open PNL tracker"
+          title={`Open PNL tracker — ${selectedDisplayName}`}
         >
-          <Maximize2 className="h-3.5 w-3.5" strokeWidth={2} />
+          <ImageUp className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
         <button
           type="button"
@@ -702,17 +790,37 @@ export function PortfolioDashboard({
               </div>
             </div>
 
-            <div className="min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
-              <div className="flex items-center justify-between px-4 pb-2 pt-4">
+            <div className="relative min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
+              <div className="relative z-10 flex items-center justify-between px-4 pb-2 pt-4">
                 <span className="text-xs font-semibold text-fg-primary">Realized PNL</span>
-                <div className="flex items-center gap-2">
+                <div className="pointer-events-auto relative z-10 flex items-center gap-2">
                   <span className="text-[10px] text-fg-muted">30d</span>
                   <button
                     type="button"
-                    className="flex h-6 w-6 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-                    aria-label="Date range"
+                    title="View PNL Calendar"
+                    aria-label="View PNL Calendar"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openPnlCalendar({
+                        closedSells: closed.map((c) => ({
+                          submittedAt: c.submittedAt,
+                          realizedPnlUsd: c.realizedPnlUsd,
+                          realizedPnlSol: c.solProceeds - c.costBasisSol,
+                        })),
+                        trades: trades.map((t) => ({
+                          side: t.side,
+                          submittedAt: t.submittedAt,
+                          amountSol: t.amountSol,
+                          status: t.status,
+                        })),
+                        solUsd: portfolio.solUsd,
+                        usdMode,
+                      });
+                    }}
+                    className="relative z-10 flex h-7 w-7 items-center justify-center rounded border border-border-subtle text-fg-muted transition hover:border-accent-primary/35 hover:bg-bg-hover hover:text-fg-primary"
                   >
-                    <Calendar className="h-3.5 w-3.5" strokeWidth={2} />
+                    <Calendar className="pointer-events-none h-3.5 w-3.5" strokeWidth={2} />
                   </button>
                 </div>
               </div>
@@ -1450,7 +1558,7 @@ export function PortfolioDashboard({
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end">
                 <div
                   className={cn(
                     'rounded-xl border border-border-subtle bg-bg-sunken px-3 py-2.5 focus-within:ring-1 focus-within:ring-accent-primary/30',
@@ -1474,13 +1582,28 @@ export function PortfolioDashboard({
                 <button
                   type="button"
                   onClick={() => {
+                    if (!funderWallet || receiverWallets.length === 0) return;
+                    if (activeChain !== 'sol') {
+                      toast.message('Private transfer is available on Solana');
+                      return;
+                    }
+                    setPrivateTransferOpen(true);
+                  }}
+                  disabled={!funderWallet || receiverWallets.length === 0}
+                  className="h-11 min-w-[132px] rounded-xl border border-border-subtle bg-bg-sunken px-4 text-[11px] font-bold text-fg-secondary transition hover:border-accent-primary/35 hover:bg-accent-primary/10 hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Private Transfer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     if (funderWallet && receiverWallets.length > 0 && transferAmount.trim()) setTransferOpen(true);
                   }}
                   disabled={!funderWallet || receiverWallets.length === 0 || !transferAmount.trim()}
                   className="h-11 min-w-[132px] rounded-xl bg-accent-primary px-4 text-[11px] font-bold text-fg-inverse transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                   title={!funderWallet || receiverWallets.length === 0 ? 'Select one funder and at least one receiver' : undefined}
                 >
-                  Preview split
+                  Start Transfer
                 </button>
               </div>
 
@@ -1543,6 +1666,41 @@ export function PortfolioDashboard({
           }}
         />
       ) : null}
+
+      {privateTransferOpen && funderWallet && receiverWallets.length > 0 ? (
+        <PrivateTransferProviderModal
+          visible={privateTransferOpen && !splitNowOpen}
+          sourceLabel={funderWallet.label?.trim() || shortenAddress(funderWallet.wallet_address, 4)}
+          receiverLabel={
+            receiverWallets.length === 1
+              ? receiverWallets[0]!.label?.trim() || shortenAddress(receiverWallets[0]!.wallet_address, 4)
+              : `${receiverWallets.length} wallets`
+          }
+          onClose={() => setPrivateTransferOpen(false)}
+          onSelect={(provider: PrivateTransferProvider) => {
+            if (provider === 'splitnow') {
+              setSplitNowOpen(true);
+              return;
+            }
+            toast.message('Coming soon');
+          }}
+        />
+      ) : null}
+
+      {splitNowOpen && funderWallet && receiverWallets.length > 0 ? (
+        <SplitNowTransferModal
+          visible={splitNowOpen}
+          source={funderWallet}
+          receivers={receiverWallets}
+          nativeSym={nativeSym}
+          onClose={() => {
+            setSplitNowOpen(false);
+            setPrivateTransferOpen(false);
+          }}
+          onBack={() => setSplitNowOpen(false)}
+        />
+      ) : null}
+
     </div>
   );
 }

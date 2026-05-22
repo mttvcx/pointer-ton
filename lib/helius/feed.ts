@@ -6,13 +6,15 @@ import { emitGlobalPulseNewTokenAlert } from '@/lib/alerts/generate';
 import {
   bundlePulseTokens,
   getTokenByMint,
-  listPulseFeedTokens,
   listPulseStretchTokens,
-  listRecentTokens,
   type TokenRow,
   updateToken,
   upsertToken,
 } from '@/lib/db/tokens';
+import {
+  cachedListPulseFeedTokens,
+  cachedListRecentTokens,
+} from '@/lib/server/cachedPulseTokens';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
 import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
@@ -165,7 +167,7 @@ async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): 
 }
 
 async function widenChainBackfill(column: PulseColumnId, chain: AppChainId): Promise<TokenRow[]> {
-  const recent = await listRecentTokens(1500);
+  const recent = await cachedListRecentTokens(1500);
   let pool = recent.filter((t) => mintMatchesAppChain(t.mint, chain));
   if (column === 'new') {
     const since = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
@@ -261,7 +263,7 @@ export async function getPulseFeed(
   column: PulseColumnId,
   chain: AppChainId = DEFAULT_APP_CHAIN,
 ): Promise<PulseTokenBundle[]> {
-  let tokens = await listPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
+  let tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   debugTon('getPulseFeed: DB rows after chain filter', { column, chain, count: tokens.length });
 
   if (chain === 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
@@ -276,7 +278,7 @@ export async function getPulseFeed(
       const cause = isSupabase ? 'supabase reachability' : 'ton center / tonapi / parse';
       console.warn(`[pointer][pulse TON] poll failed (${cause}):`, msg);
     }
-    tokens = await listPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
+    tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
     try {
       if (chain === 'sol') {
@@ -293,7 +295,7 @@ export async function getPulseFeed(
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`[pointer][pulse] chain poll failed (${chain}):`, msg);
     }
-    tokens = await listPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
+    tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
     if (tokens.length < MIN_ROWS_BEFORE_POLL) {
       tokens = await widenChainBackfill(column, chain);
     }
@@ -357,7 +359,7 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
   }
 
   const existing = await getTokenByMint(canonical);
-  if (existing) return existing;
+  if (existing?.name?.trim()) return existing;
 
   try {
     getHeliusRpcUrl();

@@ -3,13 +3,23 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { Bell, ChevronDown, ExternalLink, Images, Loader2, PanelLeft, Trash2 } from 'lucide-react';
+import { Bell, ChevronDown, ExternalLink, Loader2, PanelLeft, Trash2 } from 'lucide-react';
+import {
+  AutomationRuleBuilder,
+  automationDraftToBody,
+  defaultAutomationDraft,
+  type AutomationRuleDraft,
+} from '@/components/alerts/AutomationRuleBuilder';
 import { toast } from 'sonner';
 import { type PulseProtocolId, PULSE_PROTOCOL_IDS } from '@/lib/tokens/columnPresetModel';
 import { playAlertPresetSound } from '@/lib/alerts/alertRulePayloadAudio';
 import { dispatchAlertFlashPreview } from '@/lib/alerts/alertUxPreview';
-import { normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
-import type { TweetImageMintMode } from '@/lib/alerts/alertRuleModel';
+import {
+  actionTypeLabel,
+  triggerTypeLabel,
+  type AutomationActionType,
+  type AutomationTriggerType,
+} from '@/lib/alerts/automationRuleModel';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
@@ -62,6 +72,13 @@ type RuleDto = {
   name: string;
   ruleType: string;
   ruleConfig: unknown;
+  triggerType: AutomationTriggerType | null;
+  triggerConfig: unknown;
+  actionType: AutomationActionType | null;
+  actionConfig: unknown;
+  disableAfterSuccess: boolean;
+  cooldownSeconds: number;
+  dailyCapSol: number | null;
   flashEnabled: boolean;
   flashColor: string;
   flashSize: string;
@@ -137,16 +154,8 @@ export function AlertRulesSection({
   const [audioUrl, setAudioUrl] = useState('');
   const [builderOpen, setBuilderOpen] = useState(true);
   const [advancedNotifOpen, setAdvancedNotifOpen] = useState(false);
-  const [creatorKind, setCreatorKind] = useState<'pulse_launchpad' | 'sol_twitter_listen'>(
-    'pulse_launchpad',
-  );
-  const [twHandles, setTwHandles] = useState('');
-  const [twPhrases, setTwPhrases] = useState('');
-  const [twPhraseMatch, setTwPhraseMatch] = useState<'substring' | 'whole_word'>('substring');
-  const [twExecution, setTwExecution] = useState<'notify' | 'auto_buy'>('notify');
-  const [twBuySol, setTwBuySol] = useState('');
-  const [twImageMintMode, setTwImageMintMode] = useState<TweetImageMintMode>('smart');
-  const [twOpenWithMedia, setTwOpenWithMedia] = useState(true);
+  const [creatorKind, setCreatorKind] = useState<'pulse_launchpad' | 'automation'>('pulse_launchpad');
+  const [automationDraft, setAutomationDraft] = useState<AutomationRuleDraft>(defaultAutomationDraft);
 
   const useFlatHeader = embedInFloatingPanel || variant === 'strip' || variant === 'modal';
   const showForm = useFlatHeader || builderOpen;
@@ -166,24 +175,6 @@ export function AlertRulesSection({
     },
   });
 
-  function parseTwitterHandles(raw: string): string[] {
-    const parts = raw
-      .split(/[\s,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => normalizeTwitterHandle(s))
-      .filter(Boolean);
-    return [...new Set(parts)];
-  }
-
-  function parseTwitterPhrases(raw: string): string[] {
-    const parts = raw
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    return [...new Set(parts)].slice(0, 64);
-  }
-
   const createMutation = useMutation({
     mutationFn: async () => {
       const token = await getAccessToken();
@@ -200,31 +191,26 @@ export function AlertRulesSection({
         }
       }
 
-      let ruleType: 'pulse_launchpad' | 'sol_twitter_listen' = 'pulse_launchpad';
-      let ruleConfig: Record<string, unknown>;
+      const sharedNotif = {
+        flashEnabled,
+        flashColor,
+        flashSize,
+        audioEnabled,
+        audioPreset,
+        ...(safeAudioUrl != null ? { audioUrl: safeAudioUrl } : { audioUrl: null }),
+        isActive: true,
+      };
 
-      if (creatorKind === 'sol_twitter_listen') {
-        const handles = parseTwitterHandles(twHandles);
-        const phrases = parseTwitterPhrases(twPhrases);
-        if (handles.length === 0) {
-          throw new Error('Add at least one X handle');
-        }
-        ruleType = 'sol_twitter_listen';
-        const buyParsed =
-          twBuySol.trim() === '' ? null : Number(twBuySol.trim());
-        const buyPreset =
-          buyParsed != null && Number.isFinite(buyParsed) && buyParsed > 0 ? buyParsed : null;
-        ruleConfig = {
-          handles,
-          phrases,
-          phraseMatch: twPhraseMatch,
-          execution: twExecution,
-          tweetImageMintMode: twImageMintMode,
-          openWithTweetMedia: twOpenWithMedia,
-          ...(buyPreset != null ? { buySolPreset: buyPreset } : {}),
-        };
+      let body: Record<string, unknown>;
+
+      if (creatorKind === 'automation') {
+        const automationBody = automationDraftToBody({
+          ...automationDraft,
+          name: name.trim(),
+        });
+        body = { ...automationBody, ...sharedNotif };
       } else {
-        ruleConfig = {};
+        const ruleConfig: Record<string, unknown> = {};
         if (selectedPads.size > 0) {
           ruleConfig.launchpads = [...selectedPads];
         }
@@ -232,6 +218,12 @@ export function AlertRulesSection({
         if (liq != null && Number.isFinite(liq) && liq > 0) {
           ruleConfig.minInitialLiquiditySol = liq;
         }
+        body = {
+          name: name.trim(),
+          ruleType: 'pulse_launchpad',
+          ruleConfig,
+          ...sharedNotif,
+        };
       }
 
       const res = await fetch('/api/alert-rules', {
@@ -240,18 +232,7 @@ export function AlertRulesSection({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: name.trim(),
-          ruleType,
-          ruleConfig,
-          flashEnabled,
-          flashColor,
-          flashSize,
-          audioEnabled,
-          audioPreset,
-          ...(safeAudioUrl != null ? { audioUrl: safeAudioUrl } : { audioUrl: null }),
-          isActive: true,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -262,13 +243,7 @@ export function AlertRulesSection({
       setName('');
       setMinLiq('');
       setSelectedPads(new Set());
-      setTwHandles('');
-      setTwPhrases('');
-      setTwPhraseMatch('substring');
-      setTwExecution('notify');
-      setTwBuySol('');
-      setTwImageMintMode('smart');
-      setTwOpenWithMedia(true);
+      setAutomationDraft(defaultAutomationDraft());
       setCreatorKind('pulse_launchpad');
       void qc.invalidateQueries({ queryKey: ['alert-rules'] });
       toast.success('Alert rule saved');
@@ -466,9 +441,11 @@ export function AlertRulesSection({
                 toast.error('Name your rule');
                 return;
               }
-              if (creatorKind === 'sol_twitter_listen') {
-                if (parseTwitterHandles(twHandles).length === 0) {
-                  toast.error('Add at least one X handle');
+              if (creatorKind === 'automation') {
+                try {
+                  automationDraftToBody({ ...automationDraft, name: name.trim() });
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Invalid automation rule');
                   return;
                 }
               }
@@ -493,18 +470,18 @@ export function AlertRulesSection({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCreatorKind('sol_twitter_listen')}
+                  onClick={() => setCreatorKind('automation')}
                   className={cn(
                     'flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold transition',
-                    creatorKind === 'sol_twitter_listen'
+                    creatorKind === 'automation'
                       ? 'bg-white/[0.12] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
                       : 'text-fg-muted hover:bg-white/[0.04]',
                   )}
                 >
-                  X listens
+                  Automation
                 </button>
               </div>
-              {activeChain !== 'sol' && creatorKind === 'sol_twitter_listen' ? (
+              {activeChain !== 'sol' && creatorKind === 'automation' ? (
                 <p className="text-[9px] leading-snug text-amber-200/85">
                   Live tweet ingest runs on <span className="font-semibold">Solana</span> — you can still author
                   rules here; switch the header chain to SOL to see hits in the Pulse rail.
@@ -516,9 +493,7 @@ export function AlertRulesSection({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={
-                    creatorKind === 'sol_twitter_listen'
-                      ? 'Whale-watch · CA drops'
-                      : 'Pump fresh launches'
+                    creatorKind === 'automation' ? 'Whale-watch · CA drops' : 'Pump fresh launches'
                   }
                   className={inputCls}
                   style={{
@@ -529,59 +504,16 @@ export function AlertRulesSection({
                 />
               </div>
 
-              {creatorKind === 'sol_twitter_listen' ? (
-                <>
-                  <div className="space-y-1.5">
-                    <FieldLabel hint="@optional — comma or space">Handles</FieldLabel>
-                    <textarea
-                      value={twHandles}
-                      onChange={(e) => setTwHandles(e.target.value)}
-                      rows={2}
-                      placeholder={'elonmusk, solana'}
-                      className={cn(inputCls, 'min-h-[2.75rem] resize-y text-[12px] leading-snug')}
-                      style={{
-                        borderColor: UI.border,
-                        backgroundColor: UI.elevated,
-                        color: UI.text,
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel hint="Empty = any tweet from those handles">
-                      Literal phrases (optional)
-                    </FieldLabel>
-                    <textarea
-                      value={twPhrases}
-                      onChange={(e) => setTwPhrases(e.target.value)}
-                      rows={2}
-                      placeholder={'One phrase per line (or comma-separated)'}
-                      className={cn(inputCls, 'min-h-[2.75rem] resize-y text-[12px] leading-snug')}
-                      style={{
-                        borderColor: UI.border,
-                        backgroundColor: UI.elevated,
-                        color: UI.text,
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <FieldLabel hint="Substring vs standalone token">Phrase match</FieldLabel>
-                    <select
-                      value={twPhraseMatch}
-                      onChange={(e) =>
-                        setTwPhraseMatch(e.target.value as 'substring' | 'whole_word')
-                      }
-                      className={cn(inputCls, 'py-2 text-[12px]')}
-                      style={{
-                        borderColor: UI.border,
-                        backgroundColor: UI.elevated,
-                        color: UI.text,
-                      }}
-                    >
-                      <option value="substring">Substring</option>
-                      <option value="whole_word">Whole word</option>
-                    </select>
-                  </div>
-                </>
+              {creatorKind === 'automation' ? (
+                <AutomationRuleBuilder
+                  draft={automationDraft}
+                  onChange={(patch) =>
+                    setAutomationDraft((d) =>
+                      typeof patch === 'function' ? patch(d) : { ...d, ...patch },
+                    )
+                  }
+                  inputCls={inputCls}
+                />
               ) : (
                 <div className="space-y-1.5">
                   <FieldLabel hint="Leave empty for any launchpad">
@@ -652,166 +584,32 @@ export function AlertRulesSection({
                 </div>
                 <div className="border-t border-white/[0.06] pt-3" />
               </>
-            ) : (
-              <>
+            ) : null}
+
+            {creatorKind === 'pulse_launchpad' ? (
+              <div className="space-y-2">
+                <SectionLabel>Action</SectionLabel>
+                <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+                  <span
+                    className="rounded-lg bg-white/[0.11] py-2 text-center text-[11px] font-semibold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]"
+                    style={{ color: UI.text }}
+                  >
+                    Notify only
+                  </span>
+                  <button
+                    type="button"
+                    disabled
+                    title="Auto-buy is available on automation rules"
+                    className="rounded-lg py-2 text-center text-[11px] font-medium text-fg-muted opacity-45"
+                  >
+                    Auto-buy
+                  </button>
+                </div>
                 <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
-                  When ingest posts a tweet, we literal-match phrases in the tweet text. Mints can appear in the
-                  caption, linked URLs, or attached image CDN URLs (when your rule uses Tweet media settings below).
-                  Auto-buy intent is applied only when a mint is resolved and server env allows it.
+                  Launchpad rules are notify-only today. Use an automation rule for buy / sell / deploy.
                 </p>
-                <div className="border-t border-white/[0.06] pt-3" />
-              </>
-            )}
-
-            {/* Action */}
-            <div className="space-y-2">
-              <SectionLabel>Action</SectionLabel>
-              {creatorKind === 'sol_twitter_listen' ? (
-                <>
-                  <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
-                    <button
-                      type="button"
-                      onClick={() => setTwExecution('notify')}
-                      className={cn(
-                        'rounded-lg py-2 text-center text-[11px] font-semibold transition',
-                        twExecution === 'notify'
-                          ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
-                          : 'text-fg-muted hover:bg-white/[0.04]',
-                      )}
-                    >
-                      Notify only
-                    </button>
-                    <button
-                      type="button"
-                      title="Marked auto_buy when ingest finds a mint and POINTER_TWITTER_AUTOBUY=1"
-                      onClick={() => setTwExecution('auto_buy')}
-                      className={cn(
-                        'rounded-lg py-2 text-center text-[11px] font-semibold transition',
-                        twExecution === 'auto_buy'
-                          ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
-                          : 'text-fg-muted hover:bg-white/[0.04]',
-                      )}
-                    >
-                      Auto-buy
-                    </button>
-                  </div>
-                  {twExecution === 'auto_buy' ? (
-                    <div className="space-y-1">
-                      <FieldLabel hint="Empty = derive from Pulse quick-buy later">SOL per buy</FieldLabel>
-                      <input
-                        value={twBuySol}
-                        onChange={(e) => setTwBuySol(e.target.value)}
-                        inputMode="decimal"
-                        placeholder="inherit"
-                        className={cn(inputCls, 'tabular-nums')}
-                        style={{
-                          borderColor: UI.border,
-                          backgroundColor: UI.elevated,
-                          color: UI.text,
-                        }}
-                      />
-                    </div>
-                  ) : null}
-                  <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
-                    Server unattended swap wiring is separate—alerts carry mint + intent for client
-                    follow-up today.
-                  </p>
-                  <div className="space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
-                    <div className="flex items-center gap-2">
-                      <Images className="h-3.5 w-3.5 shrink-0 opacity-80" style={{ color: UI.muted }} aria-hidden />
-                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: UI.muted }}>
-                        Tweet media
-                      </span>
-                    </div>
-                    <FieldLabel hint="Caption vs attached images">
-                      Mint routing when images ship with the post
-                    </FieldLabel>
-                    <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
-                      <button
-                        type="button"
-                        title="Caption & links only — ignore attachment URLs"
-                        onClick={() => setTwImageMintMode('off')}
-                        className={cn(
-                          'rounded-lg px-1 py-2 text-center text-[10px] font-semibold leading-tight transition',
-                          twImageMintMode === 'off'
-                            ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
-                            : 'text-fg-muted hover:bg-white/[0.04]',
-                        )}
-                      >
-                        Caption only
-                      </button>
-                      <button
-                        type="button"
-                        title="Prefer caption mint; otherwise scan images — balanced default"
-                        onClick={() => setTwImageMintMode('smart')}
-                        className={cn(
-                          'rounded-lg px-1 py-2 text-center text-[10px] font-semibold leading-tight transition',
-                          twImageMintMode === 'smart'
-                            ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
-                            : 'text-fg-muted hover:bg-white/[0.04]',
-                        )}
-                      >
-                        Smart
-                      </button>
-                      <button
-                        type="button"
-                        title="When images exist, prefer mint found in media URLs over caption alone"
-                        onClick={() => setTwImageMintMode('prefer_media')}
-                        className={cn(
-                          'rounded-lg px-1 py-2 text-center text-[10px] font-semibold leading-tight transition',
-                          twImageMintMode === 'prefer_media'
-                            ? 'bg-white/[0.11] text-[#f0f4fc] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]'
-                            : 'text-fg-muted hover:bg-white/[0.04]',
-                        )}
-                      >
-                        Prefer images
-                      </button>
-                    </div>
-                    <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-white/[0.07] bg-white/[0.02] px-2.5 py-2 transition hover:bg-white/[0.03]">
-                      <input
-                        type="checkbox"
-                        checked={twOpenWithMedia}
-                        onChange={(e) => setTwOpenWithMedia(e.target.checked)}
-                        className="mt-0.5 rounded border"
-                        style={{ borderColor: UI.border }}
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-[11px] font-semibold text-[#f0f4fc]">Use post image as cover</span>
-                        <span className="mt-0.5 block text-[9px] leading-snug" style={{ color: UI.muted }}>
-                          Pulse rail & hooks receive <span className="font-medium text-fg-secondary">coverImageUrl</span>{' '}
-                          when the ingest sends attachment URLs — handy for launches where art matters alongside auto-buy.
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
-                    <span
-                      className="rounded-lg bg-white/[0.11] py-2 text-center text-[11px] font-semibold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07)]"
-                      style={{ color: UI.text }}
-                    >
-                      Notify only
-                    </span>
-                    <button
-                      type="button"
-                      disabled
-                      title="Auto-buy on rule match — coming soon"
-                      className="rounded-lg py-2 text-center text-[11px] font-medium text-fg-muted opacity-45"
-                    >
-                      Auto-buy
-                    </button>
-                  </div>
-                  <p className="text-[10px] leading-snug" style={{ color: UI.muted }}>
-                    Auto-buy will mirror your Pulse quick-buy amount when a launch hits this rule —
-                    wiring next.
-                  </p>
-                </>
-              )}
-            </div>
-
-            <div className="border-t border-white/[0.06] pt-3" />
+              </div>
+            ) : null}
 
             {/* C. Notification */}
             <div className="space-y-3">
@@ -1129,31 +927,31 @@ export function AlertRulesSection({
 }
 
 function ruleSummary(r: RuleDto, chain: AppChainId): string {
+  if (
+    (r.ruleType === 'automation' || r.ruleType === 'sol_twitter_listen') &&
+    r.triggerType &&
+    r.actionType
+  ) {
+    const handles =
+      r.triggerConfig &&
+      typeof r.triggerConfig === 'object' &&
+      'handles' in (r.triggerConfig as object)
+        ? ((r.triggerConfig as { handles?: string[] }).handles ?? [])
+        : [];
+    const h = handles.length ? `@${handles.slice(0, 2).join(', @')}` : 'handles';
+    return `${triggerTypeLabel(r.triggerType)} · ${actionTypeLabel(r.actionType)} · ${h}`;
+  }
   if (r.ruleType === 'sol_twitter_listen' && r.ruleConfig && typeof r.ruleConfig === 'object') {
-    const cfg = r.ruleConfig as {
-      handles?: string[];
-      phrases?: string[];
-      execution?: string;
-      buySolPreset?: number | null;
-      tweetImageMintMode?: TweetImageMintMode;
-      openWithTweetMedia?: boolean;
-    };
-    const h =
-      cfg.handles?.length ? `@${cfg.handles.slice(0, 3).join(', @')}` : 'handles';
+    const cfg = r.ruleConfig as { handles?: string[]; phrases?: string[]; execution?: string };
+    const h = cfg.handles?.length ? `@${cfg.handles.slice(0, 3).join(', @')}` : 'handles';
     const ph = cfg.phrases?.length ? ` · phrases ${cfg.phrases.length}` : ' · any text';
-    const exe = cfg.execution === 'auto_buy' ? ' · auto-buy' : '';
-    const sol =
-      cfg.execution === 'auto_buy' && cfg.buySolPreset != null && cfg.buySolPreset > 0
-        ? ` · ${cfg.buySolPreset} SOL`
-        : '';
-    const img =
-      cfg.tweetImageMintMode === 'prefer_media'
-        ? ' · mint:media-first'
-        : cfg.tweetImageMintMode === 'smart'
-          ? ' · mint:balanced'
+    const exe =
+      cfg.execution === 'auto_buy'
+        ? ' · auto-buy'
+        : cfg.execution === 'auto_launch'
+          ? ' · auto-launch'
           : '';
-    const cov = cfg.openWithTweetMedia ? ' · cover' : '';
-    return `X listens ${h}${ph}${exe}${sol}${img}${cov}`;
+    return `X listen · ${h}${ph}${exe}`;
   }
   if (r.ruleType !== 'pulse_launchpad' || !r.ruleConfig || typeof r.ruleConfig !== 'object') {
     return r.ruleType;

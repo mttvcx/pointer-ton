@@ -1,6 +1,7 @@
 'use client';
 
 import { formatDistanceToNowStrict, subMilliseconds } from 'date-fns';
+import { ProtocolBrandIcon } from '@/components/tokens/ProtocolBrandIcon';
 import {
   BadgeCheck,
   BarChart3,
@@ -9,7 +10,6 @@ import {
   Clock,
   Coins,
   Copy,
-  Flame,
   Globe,
   GraduationCap,
   LayoutList,
@@ -57,12 +57,13 @@ const PROTOCOL_CHIPS: {
   id: ProtocolId;
   label: string;
   Icon: ComponentType<{ className?: string }>;
+  protocolLogo?: string;
   activeClass: string;
   idleClass: string;
 }[] = [
   { id: 'pump', label: 'Launchpad', Icon: Coins, activeClass: 'border-emerald-500/80 text-emerald-300 shadow-[0_0_12px_-4px_rgba(52,211,153,0.45)]', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
-  { id: 'bonk', label: 'Bonk', Icon: Flame, activeClass: 'border-orange-500/75 text-orange-300 shadow-[0_0_12px_-4px_rgba(251,146,60,0.4)]', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
-  { id: 'printr', label: 'Printr', Icon: Printer, activeClass: 'border-sky-500/75 text-sky-300', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
+  { id: 'bonk', label: 'Bonk', Icon: Coins, protocolLogo: 'bonk', activeClass: 'border-orange-500/75 text-orange-300 shadow-[0_0_12px_-4px_rgba(251,146,60,0.4)]', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
+  { id: 'printr', label: 'Printr', Icon: Printer, protocolLogo: 'printr', activeClass: 'border-sky-500/75 text-sky-300', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
   { id: 'og_mode', label: 'OG Mode', Icon: Crown, activeClass: 'border-violet-500/70 text-violet-300', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
   { id: 'graduated', label: 'Graduated', Icon: GraduationCap, activeClass: 'border-amber-500/65 text-amber-200', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
   { id: 'dex_paid', label: 'Dex Paid', Icon: BadgeCheck, activeClass: 'border-cyan-500/65 text-cyan-300', idleClass: 'border-[#2a2f3a] text-[#9ca3af]' },
@@ -358,7 +359,7 @@ export function GlobalSearchModal() {
         <div className="shrink-0 border-b px-3 pt-2 pb-2" style={{ borderColor: MODAL_BORDER }}>
           <div className="flex flex-wrap items-center gap-1">
             <div className="-ml-0.5 flex min-w-0 flex-1 flex-wrap items-center gap-1">
-              {PROTOCOL_CHIPS.map(({ id, label, Icon, activeClass, idleClass }) => {
+              {PROTOCOL_CHIPS.map(({ id, label, Icon, protocolLogo, activeClass, idleClass }) => {
                 const on = activeProtocols.has(id);
                 return (
                   <button
@@ -372,7 +373,11 @@ export function GlobalSearchModal() {
                       on ? activeClass : idleClass,
                     )}
                   >
-                    <Icon className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                    {protocolLogo ? (
+                      <ProtocolBrandIcon protocolId={protocolLogo} dotClassName="h-3 w-3" />
+                    ) : (
+                      <Icon className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                    )}
                     {label}
                   </button>
                 );

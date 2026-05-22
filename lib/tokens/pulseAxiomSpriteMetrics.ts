@@ -16,9 +16,9 @@ export type AxiomSpriteMetrics = {
   devPct: number | null;
   /** Crosshair — sniper-style allocation when present in payload JSON. */
   sniperPct: number | null;
-  /** Tombstone — bundled / banded allocation when present. */
+  /** Triple circles — bundled / banded allocation when present. */
   bundlePct: number | null;
-  /** Triple circles — cluster / linked-wallet style signals when present. */
+  /** Tombstone — cluster / linked-wallet style signals when present. */
   clusterPct: number | null;
 };
 

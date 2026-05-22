@@ -86,6 +86,8 @@ export function explorerTokenUrl(mint: string): string {
 /** Native SOL pseudo-mint Jupiter and most aggregators use. */
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+/** World Liberty Financial USD1 on Solana (SPL). */
+export const USD1_MINT = 'USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB';
 
 export function isNativeSol(mint: string): boolean {
   return mint === SOL_MINT;

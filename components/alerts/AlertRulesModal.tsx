@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
-import { AlertRulesSection, openAlertRulesPopoutDetached } from '@/components/alerts/AlertRulesSection';
+import { XMonitorPanel } from '@/components/monitor/XMonitorPanel';
+import { openAlertRulesPopoutDetached } from '@/components/alerts/AlertRulesSection';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
@@ -74,9 +75,9 @@ export function AlertRulesModal() {
         <header className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-bg-raised px-4 py-3">
           <div className="flex flex-col gap-0.5">
             <h2 id="alert-rules-modal-title" className="text-sm font-semibold tracking-tight text-fg-primary">
-              Pulse alerts
+              X monitor
             </h2>
-            <p className="text-xs text-fg-muted">Create and manage notification rules for new Pulse listings.</p>
+            <p className="text-xs text-fg-muted">Tweet feed, AI deploy, and @ listen rules.</p>
           </div>
           <button
             type="button"
@@ -88,8 +89,8 @@ export function AlertRulesModal() {
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <AlertRulesSection variant="modal" />
+        <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden">
+          <XMonitorPanel embedded />
         </div>
 
         <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border-subtle bg-bg-raised px-4 py-3">
