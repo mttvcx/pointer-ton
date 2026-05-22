@@ -33,6 +33,7 @@ import { pollGeckoNewPools } from '@/lib/evm/geckoTerminalPulse';
 import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
 import { launchpadEventFromDasAsset } from '@/lib/helius/parsers';
 import { heliusDasRpc, pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
+import { enrichPulseBundlesWithDexScreener } from '@/lib/market/dexscreenerPulse';
 import { PublicKey } from '@solana/web3.js';
 import type { Asset } from 'helius-sdk/types/das';
 import { getHeliusRpcUrl } from '@/lib/utils/constants';
@@ -310,7 +311,9 @@ export async function getPulseFeed(
     });
   }
 
-  return bundlePulseTokens(tokens);
+  tokens = await hydratePulseTokenRows(tokens);
+  const bundles = await bundlePulseTokens(tokens);
+  return enrichPulseBundlesWithDexScreener(bundles, chain);
 }
 
 /**
@@ -359,7 +362,13 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
   }
 
   const existing = await getTokenByMint(canonical);
-  if (existing?.name?.trim()) return existing;
+  if (
+    existing?.name?.trim() &&
+    existing?.symbol?.trim() &&
+    existing?.image_url?.trim()
+  ) {
+    return existing;
+  }
 
   try {
     getHeliusRpcUrl();
@@ -389,3 +398,26 @@ export async function ensureTokenRowForMint(mint: string): Promise<TokenRow | nu
 
 /** @deprecated Renamed to {@link ensureTokenRowForMint} — supports Solana + EVM, not only TON. */
 export const ensureTokenRowFromDas = ensureTokenRowForMint;
+
+/** Backfill name/symbol/image for rows indexed via webhook before DAS metadata exists. */
+async function hydratePulseTokenRows(tokens: TokenRow[]): Promise<TokenRow[]> {
+  const stale = tokens.filter(
+    (t) => !t.symbol?.trim() || !t.name?.trim() || !t.image_url?.trim(),
+  );
+  if (stale.length === 0) return tokens;
+
+  const refreshed = new Map<string, TokenRow>();
+  const batch = stale.slice(0, 18);
+  await Promise.all(
+    batch.map(async (t) => {
+      try {
+        const row = await ensureTokenRowForMint(t.mint);
+        if (row) refreshed.set(row.mint, row);
+      } catch {
+        /* best-effort metadata hydrate */
+      }
+    }),
+  );
+  if (refreshed.size === 0) return tokens;
+  return tokens.map((t) => refreshed.get(t.mint) ?? t);
+}

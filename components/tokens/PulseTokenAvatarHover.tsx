@@ -101,11 +101,8 @@ export function PulseTokenAvatarHover({
   return (
     <div
       className={cn('group/pulseAv relative flex items-center overflow-visible', className)}
-      data-row-click-skip="true"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
     >
       <div
         className={cn(
@@ -120,6 +117,7 @@ export function PulseTokenAvatarHover({
                 type="button"
                 disabled={action.disabled}
                 aria-label={action.title}
+                data-row-click-skip="true"
                 onClick={(e) => onAction(action.key, e)}
                 className={cn(
                   'flex items-center justify-center rounded-[3px] border border-white/[0.12] bg-[#141820]/95 shadow-sm',
@@ -163,6 +161,7 @@ export function PulseTokenAvatarHover({
             type="button"
             aria-label="Search image on Google Lens"
             title="Search image"
+            data-row-click-skip="true"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -170,7 +169,9 @@ export function PulseTokenAvatarHover({
             }}
             className={cn(
               'absolute inset-0 z-[18] flex items-center justify-center rounded-lg transition-[background-color,opacity] duration-150',
-              hovered ? 'bg-black/40' : 'bg-transparent',
+              hovered
+                ? 'pointer-events-auto bg-black/40'
+                : 'pointer-events-none bg-transparent',
             )}
           >
             <Camera

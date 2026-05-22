@@ -5,6 +5,8 @@ import { getPulseBondingRingState, PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/b
 import {
   type LaunchpadAvatarChrome,
 } from '@/lib/tokens/launchpadAvatarChrome';
+import { dexScreenerTokenIconUrl } from '@/lib/explore/demoTokenIcons';
+import { useUIStore } from '@/store/ui';
 import { protocolBrand, type ProtocolBrandId } from '@/lib/tokens/protocolBrand';
 import { cn } from '@/lib/utils/cn';
 import type { PulseColumnId } from '@/lib/utils/constants';
@@ -213,8 +215,11 @@ export function PulseTokenAvatar({
   );
   const [pathLen, setPathLen] = useState(lengthApprox);
   const [imageFailed, setImageFailed] = useState(false);
+  const activeChain = useUIStore((s) => s.activeChain);
   const { token } = bundle;
-  const showImage = Boolean(token.image_url) && !imageFailed;
+  const dexFallback = dexScreenerTokenIconUrl(activeChain, token.mint);
+  const imageSrc = token.image_url?.trim() || dexFallback;
+  const showImage = Boolean(imageSrc) && !imageFailed;
   const fallbackInitials = (token.symbol ?? token.name ?? '??')
     .replace(/[^a-zA-Z0-9]/g, '')
     .slice(0, 2)
@@ -282,7 +287,7 @@ export function PulseTokenAvatar({
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={token.image_url!}
+          src={imageSrc!}
           alt={token.symbol ?? 'Token'}
           width={size}
           height={size}

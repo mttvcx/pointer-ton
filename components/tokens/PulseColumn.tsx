@@ -151,7 +151,8 @@ function PulseColumnBody({
         return { items: [], fetchError: message };
       }
     },
-    staleTime: 15_000,
+    staleTime: 3_000,
+    refetchInterval: 5_000,
     retry: 2,
   });
 

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Eye, Loader2, Zap } from 'lucide-react';
@@ -565,9 +564,7 @@ export function TokenRow({
           {...hoverProps}
         >
           <div className="flex h-full min-h-0 w-full min-w-0 items-start gap-2.5 sm:gap-3">
-            <div className="shrink-0 self-start" data-row-click-skip="true">
-              {avatarStack}
-            </div>
+            <div className="shrink-0 self-start">{avatarStack}</div>
             <div
               className={cn(
                 /** Pulse board: overflow visible so social-strip / compact hovers aren't clipped vertically. */
@@ -576,15 +573,12 @@ export function TokenRow({
               )}
             >
               <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
-                <Link
-                  href={tokenPath}
-                  className="block min-w-0 flex-1 overflow-hidden outline-none focus-visible:bg-bg-hover rounded-sm"
-                >
+                <div className="block min-w-0 flex-1 overflow-hidden">
                   <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
                     {identityCluster}
                     {heroMcBlock}
                   </div>
-                </Link>
+                </div>
                 {!ultraChrome && !heroMc && (showVol || showMc) ? (
                   <div className="pointer-events-none shrink-0 tabular-nums">
                     <PulseRowVolMc
