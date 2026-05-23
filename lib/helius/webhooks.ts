@@ -14,6 +14,7 @@ import { parseEnhancedTransaction } from '@/lib/helius/parsers';
 import { ruleMatchesTokenLaunch } from '@/lib/trackers/evaluateRules';
 import { parseRuleCondition } from '@/lib/trackers/ruleCondition';
 import type { Json } from '@/lib/supabase/types';
+import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 
 /** Constant-time compare for webhook auth header. */
 export function verifyHeliusWebhookAuthorization(
@@ -149,6 +150,10 @@ export async function processHeliusWebhookBody(
         }
       }
     }
+  }
+
+  if (tokensUpserted > 0 || migrations > 0) {
+    revalidatePulseFeedCache();
   }
 
   return { events, tokensUpserted, alerts, migrations };

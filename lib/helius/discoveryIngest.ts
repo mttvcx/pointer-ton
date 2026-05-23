@@ -5,6 +5,7 @@ import type { PulseNewTokenAlertInput } from '@/lib/alerts/pulseNewTokenTypes';
 import { getTokenByMint, updateToken, upsertToken } from '@/lib/db/tokens';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import type { Json, TablesInsert } from '@/lib/supabase/types';
+import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 
 function inferDecimalsFromRaw(raw: Json): number {
   try {
@@ -79,9 +80,11 @@ export async function ingestLaunchpadDiscovery(
       creator_wallet: enrichedEv.creator_wallet ?? existing.creator_wallet,
       ...(bonding_progress != null ? { bonding_progress } : {}),
     });
+    revalidatePulseFeedCache();
     return 0;
   }
   await upsertToken(launchEventToTokenInsert(enrichedEv));
+  revalidatePulseFeedCache();
   await emitGlobalPulseNewTokenAlert({
     mint: enrichedEv.mint,
     symbol: enrichedEv.symbol,

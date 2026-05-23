@@ -5,7 +5,7 @@ import { listPulseFeedTokens, listRecentTokens } from '@/lib/db/tokens';
 import type { AppChainId } from '@/lib/chains/appChain';
 import type { PulseColumnId } from '@/lib/utils/constants';
 
-const PULSE_FEED_CACHE_SECONDS = 3;
+const PULSE_FEED_CACHE_SECONDS = 1;
 
 /** Cached recent-token scan (NEW column wide candidate set). */
 export async function cachedListRecentTokens(limit: number) {

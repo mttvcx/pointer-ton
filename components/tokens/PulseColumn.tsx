@@ -21,6 +21,10 @@ import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { TokenRow } from '@/components/tokens/TokenRow';
 import { createClient } from '@/lib/supabase/client';
 import {
+  mergeSnapshotIntoPulseCache,
+  mergeTokenIntoPulseCache,
+} from '@/lib/pulse/realtimeCache';
+import {
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
   type ColumnDisplayOptions,
   type ColumnPresetSharePayload,
@@ -151,8 +155,8 @@ function PulseColumnBody({
         return { items: [], fetchError: message };
       }
     },
-    staleTime: 3_000,
-    refetchInterval: 5_000,
+    staleTime: 1_000,
+    refetchInterval: 2_000,
     retry: 2,
   });
 
@@ -168,36 +172,58 @@ function PulseColumnBody({
     return raw;
   }, [column, query.data.items, query.data.fetchError, uiDemo, activeChain]);
 
+  const flashTrackPulseMint = useUIStore((s) => s.flashTrackPulseMint);
+
   useEffect(() => {
     const supabase = createClient();
+    let refetchTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleBackgroundRefetch = () => {
+      if (refetchTimer) return;
+      refetchTimer = setTimeout(() => {
+        refetchTimer = null;
+        void qc.invalidateQueries({ queryKey: ['pulse', column, activeChain] });
+      }, 800);
+    };
+
     const channel = supabase
-      .channel(`pulse:${column}`)
+      .channel(`pulse:${column}:${activeChain}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'tokens' },
-        () => {
-          void qc.invalidateQueries({ queryKey: ['pulse', column] });
+        (payload) => {
+          const row = payload.new as PulseTokenBundle['token'] | null;
+          if (!row?.mint) return;
+          const merged = mergeTokenIntoPulseCache(qc, column, activeChain, row);
+          if (merged && column === 'new') flashTrackPulseMint(row.mint);
+          scheduleBackgroundRefetch();
         },
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'tokens' },
-        () => {
-          void qc.invalidateQueries({ queryKey: ['pulse', column] });
+        (payload) => {
+          const row = payload.new as PulseTokenBundle['token'] | null;
+          if (!row?.mint) return;
+          mergeTokenIntoPulseCache(qc, column, activeChain, row);
+          scheduleBackgroundRefetch();
         },
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'token_market_snapshots' },
-        () => {
-          void qc.invalidateQueries({ queryKey: ['pulse', column] });
+        (payload) => {
+          const row = payload.new as PulseTokenBundle['snapshot'];
+          if (!row?.mint) return;
+          if (mergeSnapshotIntoPulseCache(qc, column, activeChain, row)) return;
+          scheduleBackgroundRefetch();
         },
       )
       .subscribe();
     return () => {
+      if (refetchTimer) clearTimeout(refetchTimer);
       void supabase.removeChannel(channel);
     };
-  }, [column, qc]);
+  }, [column, activeChain, qc, flashTrackPulseMint]);
 
   useEffect(() => {
     listMountRef.current?.scrollTo({ top: 0 });

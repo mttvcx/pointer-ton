@@ -5,5 +5,11 @@
   "framework": "nextjs",
   "git": {
     "deploymentEnabled": true
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/pulse-poll",
+      "schedule": "*/2 * * * *"
+    }
+  ]
 }

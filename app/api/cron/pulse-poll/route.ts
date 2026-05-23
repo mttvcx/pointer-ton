@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { runScheduledPulsePoll } from '@/lib/helius/feed';
+import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
   }
   try {
     const result = await runScheduledPulsePoll();
+    revalidatePulseFeedCache();
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'poll_failed';
