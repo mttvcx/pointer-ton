@@ -2,20 +2,31 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, ArrowUpDown, BarChart3, ChevronUp, Copy, HelpCircle, Wallet, Zap } from 'lucide-react';
+import { Activity, BarChart3, ChevronUp, Settings, Zap } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
-import { formatCompactUsd, formatDuration, formatNumber, formatRelativeTime, formatAgeShort } from '@/lib/utils/formatters';
+import { formatCompactUsd } from '@/lib/format';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { buildDeskFundingSynth } from '@/lib/tokens/holderDeskSynth';
+import { tradeTraderHint, tradeRowMatchesDeskFilter, type TradesDeskFilter } from '@/lib/tokens/tradeFormatting';
 import type { Tables } from '@/lib/supabase/types';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import { cn } from '@/lib/utils/cn';
+import { ChainIcon } from '@/components/squads/ChainIcon';
 import { HoldersTable } from '@/components/tokens/HoldersTable';
-import { DevSection } from '@/components/tokens/DevSection';
-import { TopTraderWalletCell } from '@/components/tokens/TopTraderWalletCell';
+import { MintTradesTable } from '@/components/tokens/MintTradesTable';
+import { TopTradersTable } from '@/components/tokens/TopTradersTable';
+import { DevTokensPane } from '@/components/tokens/DevTokensPane';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { Skeleton } from '@/components/shared/Skeleton';
-import { demoWalletAt, syntheticTradesForMint, syntheticTopTradersForMint } from '@/lib/dev/demoTokenFixtures';
+import {
+  formatDemoPositionUsd,
+  syntheticCreatorDev,
+  syntheticDevTokensForCreator,
+  syntheticHoldersResponse,
+  syntheticPositionsForMint,
+  syntheticTradesForMint,
+  syntheticTopTradersForMint,
+} from '@/lib/dev/demoTokenFixtures';
 import { preferTokenTableDemoRows } from '@/lib/dev/uiDemoMode';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
@@ -24,6 +35,10 @@ import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
 import type { TraderDeskFilter } from '@/lib/walletIdentity/traderFilters';
 import { traderRowMatchesFilter, TRADER_FILTER_OPTIONS } from '@/lib/walletIdentity/traderFilters';
 import { useUIStore } from '@/store/ui';
+import { DeskFilterPill } from '@/components/tokens/cells/DeskFilterPill';
+import { TradesDeskFilterPill } from '@/components/tokens/cells/TradesDeskFilterPill';
+import { DESK_TABLE_CLASS } from '@/components/tokens/cells/deskTokens';
+import { useActiveWalletStore } from '@/store/activeWallet';
 
 /** Rough native/USD for converting USD notionals in the “native units” column toggle (UI preview). */
 const NATIVE_USD_HINT: Record<AppChainId, number> = {
@@ -37,11 +52,6 @@ type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'traders' | 'dev_to
 
 type TradeRow = Tables<'trades'>;
 
-/** Theme-aware Axiom-style zebra — two greys separated by ~1 step in RGB space. */
-function zebraDesk(i: number): string {
-  return i % 2 === 0 ? 'bg-desk-a' : 'bg-desk-b';
-}
-
 const TABS: { id: TabId; label: string }[] = [
   { id: 'trades', label: 'Trades' },
   { id: 'positions', label: 'Positions' },
@@ -51,45 +61,31 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'dev_tokens', label: 'Dev Tokens' },
 ];
 
-/** USD notional at print (price × size) — same read as the live trades side-panel “MC” hint. */
-function tradeFillMcUsdLabel(t: TradeRow): string {
-  const px = t.price_usd_at_fill;
-  const amt = t.amount_token;
-  if (px == null || amt == null || !Number.isFinite(px) || !Number.isFinite(amt)) return '\u2014';
-  const v = px * amt;
-  if (!Number.isFinite(v) || v === 0) return '\u2014';
-  return formatCompactUsd(v);
-}
-
-function tradeTraderHint(t: TradeRow, rowIndex: number): string {
-  if (String(t.id).startsWith('demo-')) {
-    const w = demoWalletAt(rowIndex);
-    return `${w.slice(0, 4)}\u2026${w.slice(-4)}`;
-  }
-  const sig = t.tx_signature;
-  if (sig.length >= 12) return `${sig.slice(0, 4)}\u2026${sig.slice(-4)}`;
-  return shortenAddress(String(t.user_id), 4);
-}
-
 function MintTradesScroll({
   rows,
+  mint,
+  tokenSymbol,
+  creatorWallet,
   nativeSym,
+  displayMode,
   onHoverChange,
+  onFilterMintTrades,
+  tradesMakerFilter,
+  onToggleDisplayMode,
 }: {
   rows: TradeRow[];
+  mint: string;
+  tokenSymbol: string;
+  creatorWallet: string | null;
   nativeSym: string;
+  displayMode: 'USD' | 'SOL';
   onHoverChange: (paused: boolean) => void;
+  onFilterMintTrades?: (address: string) => void;
+  tradesMakerFilter?: string | null;
+  onToggleDisplayMode?: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showBackTop, setShowBackTop] = useState(false);
-  const maxSol = useMemo(
-    () => rows.reduce((m, t) => Math.max(m, t.amount_sol ?? 0), 0),
-    [rows],
-  );
-  const maxTok = useMemo(
-    () => rows.reduce((m, t) => Math.max(m, t.amount_token ?? 0), 0),
-    [rows],
-  );
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -104,110 +100,21 @@ function MintTradesScroll({
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
-        className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] touch-pan-y border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] [-ms-overflow-style:auto] [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]"
+        className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] touch-pan-y border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] [-ms-overflow-style:auto] [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]"
         onPointerEnter={() => onHoverChange(true)}
         onPointerLeave={() => onHoverChange(false)}
       >
-        <table className="w-full min-w-[720px] border-collapse text-left tabular-nums">
-          <thead className="sticky top-0 z-[2] border-b border-border-subtle/30 bg-bg-raised/90 text-left shadow-[0_1px_0_rgb(var(--border-subtle-rgb)/0.35)] backdrop-blur-md">
-            <tr>
-              <th className="px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                <span className="inline-flex items-center gap-0.5">
-                  Age / Time
-                  <ArrowUpDown className="h-3 w-3 opacity-60" strokeWidth={2} aria-hidden />
-                </span>
-              </th>
-              <th className="px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Type
-              </th>
-              <th className="px-2.5 py-1.5 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                MC
-              </th>
-              <th className="px-2.5 py-1.5 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Amount
-              </th>
-              <th className="relative px-2.5 py-1.5 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                <span className="flex items-center justify-end gap-0.5">
-                  Total {nativeSym}
-                  <HelpCircle className="h-3 w-3 opacity-50" strokeWidth={2} aria-hidden />
-                </span>
-              </th>
-              <th className="px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Trader
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((t, i) => {
-              const sol = t.amount_sol ?? 0;
-              const tok = t.amount_token ?? 0;
-              const pctSol = maxSol > 0 && sol > 0 ? Math.min(100, (sol / maxSol) * 100) : 0;
-              const pctTok = maxTok > 0 && tok > 0 ? Math.min(100, (tok / maxTok) * 100) : 0;
-              const zebra = zebraDesk(i);
-              const sideBuy = t.side === 'buy';
-              const barCls = sideBuy ? 'bg-signal-bull/55' : 'bg-signal-bear/50';
-              return (
-                <tr
-                  key={t.id}
-                  className={cn(
-                    'group border-b border-border-subtle/35 transition-colors hover:bg-bg-hover/40',
-                    zebra,
-                  )}
-                >
-                  <td className="whitespace-nowrap px-2.5 py-2.5 align-middle text-[12px] text-fg-muted">
-                    {formatRelativeTime(t.submitted_at)}
-                  </td>
-                  <td className="px-2.5 py-2.5 align-middle text-[12px] font-semibold capitalize">
-                    <span className={sideBuy ? 'text-signal-bull' : 'text-signal-bear'}>{t.side}</span>
-                  </td>
-                  <td className="px-2.5 py-2.5 text-right align-middle text-[12px] text-fg-secondary">
-                    {tradeFillMcUsdLabel(t)}
-                  </td>
-                  <td className="px-2.5 py-2.5 text-right align-middle text-[12px] font-medium text-fg-primary">
-                    <div className="relative min-h-[2.5rem] overflow-hidden rounded-sm py-1.5 pr-1">
-                      <div
-                        className={cn('pointer-events-none absolute inset-y-0 left-0 opacity-80', barCls)}
-                        style={{ width: `${pctTok}%` }}
-                      />
-                      <span className="relative z-[1] block text-right tabular-nums">
-                        {t.amount_token != null ? formatNumber(t.amount_token, { compact: true }) : '\u2014'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="relative px-0 py-0 align-middle">
-                    <div className="relative min-h-[2.75rem] overflow-hidden px-2.5 py-2">
-                      <div
-                        className={cn('pointer-events-none absolute inset-y-0 left-0 opacity-90', barCls)}
-                        style={{ width: `${pctSol}%` }}
-                      />
-                      <span className="relative z-[1] block text-right text-[12px] font-semibold tabular-nums text-fg-primary">
-                        {t.amount_sol != null ? formatNumber(t.amount_sol, { decimals: 4 }) : '\u2014'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-2.5 py-2.5 align-middle">
-                    <div className="flex min-w-0 items-center justify-between gap-1">
-                      <span className="min-w-0 truncate font-mono text-[11px] text-fg-secondary">
-                        {tradeTraderHint(t, i)}
-                      </span>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded p-0.5 text-fg-muted opacity-0 transition-opacity hover:text-fg-primary group-hover:opacity-100"
-                        title="Copy tx signature"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void navigator.clipboard.writeText(t.tx_signature);
-                        }}
-                      >
-                        <Copy className="h-3 w-3" strokeWidth={2} aria-hidden />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <MintTradesTable
+          rows={rows}
+          mint={mint}
+          tokenSymbol={tokenSymbol}
+          creatorWallet={creatorWallet}
+          displayMode={displayMode}
+          nativeSym={nativeSym}
+          onFilterMintTrades={onFilterMintTrades}
+          tradesMakerFilter={tradesMakerFilter}
+          onToggleDisplayMode={onToggleDisplayMode}
+        />
       </div>
       {showBackTop ? (
         <button
@@ -232,17 +139,18 @@ function PlaceholderTab({ title, body }: { title: string; body: string }) {
   );
 }
 
-/** No live positions API yet — Axiom empty state: structured desk + skeleton rows (not fake PnL). */
-function PositionsDesk({ sym }: { sym: string }) {
+/** Positions desk — demo rows until wallet-scoped positions API ships. */
+function PositionsDesk({ sym, mint }: { sym: string; mint: string }) {
+  const rows = useMemo(() => syntheticPositionsForMint(sym, mint), [sym, mint]);
   const cols = ['Token', 'Bought', 'Sold', 'Remaining', 'PnL', 'Actions'] as const;
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle/40 px-2 py-1.5 text-[10px] text-fg-muted">
-        <span>Your wallets · this mint</span>
-        <span className="tabular-nums opacity-80">—</span>
+        <span>Your wallets · preview rows (layout)</span>
+        <span className="tabular-nums">{rows.length} open</span>
       </div>
-      <div className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
-        <table className="w-full min-w-[640px] border-collapse text-left tabular-nums">
+      <div className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
+        <table className={cn('w-full min-w-[640px] border-collapse text-left', DESK_TABLE_CLASS)}>
           <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
             <tr>
               {cols.map((name) => (
@@ -259,88 +167,48 @@ function PositionsDesk({ sym }: { sym: string }) {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: 12 }, (_, i) => (
-              <tr key={i} className={cn('border-b border-border-subtle/35', zebraDesk(i))}>
-                <td className="px-2.5 py-2.5 align-middle">
-                  <div className="h-2 max-w-[5rem] rounded-sm bg-fg-muted/[0.14]" />
-                </td>
-                <td className="px-2.5 py-2.5 align-middle">
-                  <div className="ml-auto h-2 max-w-[4.5rem] rounded-sm bg-fg-muted/[0.12]" />
-                </td>
-                <td className="px-2.5 py-2.5 align-middle">
-                  <div className="ml-auto h-2 max-w-[4rem] rounded-sm bg-fg-muted/[0.12]" />
-                </td>
-                <td className="px-2.5 py-2.5 align-middle">
-                  <div className="ml-auto h-2 max-w-[5rem] rounded-sm bg-fg-muted/[0.13]" />
-                </td>
-                <td className="px-2.5 py-2.5 align-middle">
-                  <div className="ml-auto h-2 max-w-[3.5rem] rounded-sm bg-fg-muted/[0.11]" />
-                </td>
-                <td className="px-2.5 py-2.5 align-middle">
-                  <div className="ml-auto h-6 max-w-[4.25rem] rounded-md bg-fg-muted/[0.08]" />
-                </td>
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              const pnlTone =
+                row.pnlUsd > 0 ? 'text-signal-bull' : row.pnlUsd < 0 ? 'text-signal-bear' : 'text-fg-muted';
+              return (
+                <tr
+                  key={i}
+                  className="border-b border-border-subtle/35 bg-transparent transition-colors hover:bg-bg-hover/60"
+                >
+                  <td className="px-2.5 py-2 text-[12px] font-semibold text-fg-primary">{row.token}</td>
+                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-secondary">
+                    {formatDemoPositionUsd(row.boughtUsd)}
+                  </td>
+                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-secondary">
+                    {formatDemoPositionUsd(row.soldUsd)}
+                  </td>
+                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-primary">
+                    {formatDemoPositionUsd(row.remainingUsd)}
+                  </td>
+                  <td className={cn('px-2.5 py-2 text-right text-[12px] font-semibold', pnlTone)}>
+                    {row.pnlUsd >= 0 ? '+' : ''}
+                    {formatDemoPositionUsd(row.pnlUsd)}
+                  </td>
+                  <td className="px-2.5 py-2 text-right">
+                    <button
+                      type="button"
+                      className="btn-press rounded-sm border border-border-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted hover:text-fg-primary"
+                    >
+                      Close
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      <p className="shrink-0 border-t border-border-subtle/30 px-2 py-1.5 text-center text-[10px] text-fg-muted">
-        No active positions for {sym} · connect wallet to populate
-      </p>
     </div>
   );
 }
 
 function OrdersDesk({ sym }: { sym: string }) {
-  const showDemoRows = preferTokenTableDemoRows();
   const types = ['Limit', 'TWAP', 'Limit', 'Stop'] as const;
-
-  if (!showDemoRows) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle/40 px-2 py-1.5 text-[10px] text-fg-muted">
-          <span>Your open orders · this mint</span>
-          <span className="tabular-nums opacity-70">0 open</span>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <table className="w-full min-w-[720px] border-collapse text-left tabular-nums">
-            <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
-              <tr>
-                <th className="px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Token
-                </th>
-                <th className="px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Type
-                </th>
-                <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Amount
-                </th>
-                <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Current MC
-                </th>
-                <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Target MC
-                </th>
-                <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Settings
-                </th>
-                <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Action
-                </th>
-              </tr>
-            </thead>
-          </table>
-          <div className="flex min-h-[12rem] flex-1 flex-col items-center justify-center px-6 py-10">
-            <p className="text-[13px] font-medium text-fg-secondary">No orders found</p>
-            <p className="mt-1 max-w-sm text-center text-[11px] leading-relaxed text-fg-muted">
-              Active limit MC and TWAP instructions you place from this terminal appear here — scoped to your
-              signed-in wallets.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -348,8 +216,8 @@ function OrdersDesk({ sym }: { sym: string }) {
         <span>Your open orders · preview rows (layout)</span>
         <span className="tabular-nums">14 open</span>
       </div>
-      <div className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
-        <table className="w-full min-w-[780px] border-collapse text-left tabular-nums">
+      <div className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
+        <table className={cn('w-full min-w-[780px] border-collapse text-left', DESK_TABLE_CLASS)}>
           <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
             <tr>
               <th className="px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
@@ -381,10 +249,7 @@ function OrdersDesk({ sym }: { sym: string }) {
               return (
                 <tr
                   key={i}
-                  className={cn(
-                    'border-b border-border-subtle/35 transition-colors hover:bg-bg-hover/35',
-                    zebraDesk(i),
-                  )}
+                  className="border-b border-border-subtle/35 bg-transparent transition-colors hover:bg-bg-hover/60"
                 >
                   <td className="px-2.5 py-2 text-[12px] font-semibold text-fg-primary">{sym}</td>
                   <td className="px-2.5 py-2 text-[12px] text-fg-secondary">{types[i % types.length]}</td>
@@ -418,64 +283,6 @@ function OrdersDesk({ sym }: { sym: string }) {
   );
 }
 
-/**
- * Header cell — uppercase comes from thead; subtitles use explicit `normal-case`.
- * Sort glyph: hover-only unless `sortGlyph` disabled (non-sort columns).
- */
-function SortableTh({
-  children,
-  className,
-  align = 'left',
-  sortGlyph = true,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  align?: 'left' | 'right' | 'center';
-  sortGlyph?: boolean;
-}) {
-  const justify =
-    align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start';
-  return (
-    <th
-      className={cn(
-        'group/th px-2.5 py-1.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-fg-muted leading-none',
-        align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
-        className,
-      )}
-    >
-      <span className={cn('inline-flex items-center gap-1', justify)}>
-        <span>{children}</span>
-        {sortGlyph ? (
-          <ArrowUpDown
-            className="h-3 w-3 shrink-0 text-fg-muted opacity-0 transition-opacity duration-100 group-hover/th:opacity-100"
-            strokeWidth={2}
-            aria-hidden
-          />
-        ) : null}
-      </span>
-    </th>
-  );
-}
-
-function RealPnlInfoTooltip({ sym }: { sym: string }) {
-  return (
-    <span className="group/info relative inline-flex cursor-default items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/38" tabIndex={0} aria-label="What is Real. PnL?">
-      <HelpCircle
-        className="h-3 w-3 cursor-help text-fg-muted/80 transition-colors group-hover/info:text-fg-secondary"
-        strokeWidth={2}
-      />
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 w-64 rounded-md border border-border-subtle bg-bg-raised/95 px-2.5 py-2 text-[11px] font-normal normal-case leading-snug tracking-normal text-fg-muted opacity-0 shadow-lg backdrop-blur-md transition-opacity duration-100 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
-      >
-        <span className="font-semibold text-fg-primary">Realized PnL</span> ranks wallets on{' '}
-        <span className="font-semibold text-fg-primary">{sym}</span> only (Pointer fills · FIFO desk). Same
-        terminal pattern as majors: token-scoped, not global best traders on-chain.
-      </span>
-    </span>
-  );
-}
-
 export function TokenActivityTabs({
   mint,
   symbol,
@@ -501,6 +308,7 @@ export function TokenActivityTabs({
   const [tradesFeedHoverPause, setTradesFeedHoverPause] = useState(false);
   const [onlyTracked, setOnlyTracked] = useState(false);
   const [traderDeskFilter, setTraderDeskFilter] = useState<TraderDeskFilter>('all');
+  const [holderDeskFilter, setHolderDeskFilter] = useState<TraderDeskFilter>('all');
   const [tableUsd, setTableUsd] = useState(true);
   const uiDemo = useUiDemoMode();
   const { isTracked } = useTrackedWalletsLookup();
@@ -508,6 +316,38 @@ export function TokenActivityTabs({
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
   const nativeUsdHint = NATIVE_USD_HINT[activeChain];
+  const sym = symbol ?? 'TOK';
+  const tableDemoEnv = preferTokenTableDemoRows();
+  const demoTrades = useMemo(() => syntheticTradesForMint(mint), [mint]);
+  const demoTraders = useMemo(() => syntheticTopTradersForMint(mint), [mint]);
+  const demoHolders = useMemo(() => syntheticHoldersResponse(mint, 9), [mint]);
+  const effectiveDevCount =
+    dev?.tokens_launched ??
+    (creatorWallet ? syntheticCreatorDev(creatorWallet).tokens_launched : 0);
+
+  const [traderPnlSortDir, setTraderPnlSortDir] = useState<'asc' | 'desc' | null>(null);
+  const [tradesMakerFilter, setTradesMakerFilter] = useState<string | null>(null);
+  const [tradesDeskFilter, setTradesDeskFilter] = useState<TradesDeskFilter>('all');
+  const activeWalletAddress = useActiveWalletStore((s) => s.activeWalletAddress);
+
+  const handleFilterMintTrades = (address: string) => {
+    setTradesMakerFilter(address);
+    setTradesDeskFilter('all');
+    setTab('trades');
+  };
+
+  const handleClearTradesMakerFilter = () => {
+    setTradesMakerFilter(null);
+  };
+
+  const handleClearTradesDeskFilter = () => {
+    setTradesDeskFilter('all');
+  };
+
+  const toggleTradesDeskFilter = (id: Exclude<TradesDeskFilter, 'all'>) => {
+    setTradesMakerFilter(null);
+    setTradesDeskFilter((cur) => (cur === id ? 'all' : id));
+  };
 
   const tradesQ = useQuery({
     queryKey: ['mint-trades', mint],
@@ -517,6 +357,7 @@ export function TokenActivityTabs({
       return r.json() as Promise<{ trades: TradeRow[] }>;
     },
     enabled: tab === 'trades',
+    placeholderData: { trades: demoTrades },
     staleTime: 15_000,
     refetchInterval: tab === 'trades' && !tradesFeedHoverPause ? 4500 : false,
     refetchOnWindowFocus: tab === 'trades' ? !tradesFeedHoverPause : true,
@@ -530,6 +371,7 @@ export function TokenActivityTabs({
       return r.json() as Promise<{ traders: MintTopTraderRow[] }>;
     },
     enabled: tab === 'traders',
+    placeholderData: { traders: demoTraders },
     staleTime: 30_000,
   });
 
@@ -540,21 +382,48 @@ export function TokenActivityTabs({
       if (!r.ok) throw new Error('holders_failed');
       return r.json() as Promise<{ holders: { id: number }[] }>;
     },
+    placeholderData: demoHolders,
     staleTime: 60_000,
   });
 
-  const sym = symbol ?? 'TOK';
-  const tableDemoEnv = preferTokenTableDemoRows();
-
   const tradeRowsForTable = useMemo((): TradeRow[] => {
-    if (tradesQ.isLoading && !tradesQ.data) return [];
     const raw = tradesQ.data?.trades ?? [];
-    const showSynthetic =
-      !tradesQ.isLoading &&
-      tradesQ.data != null &&
-      (tableDemoEnv || (uiDemo && (raw.length === 0 || tradesQ.isError)));
-    return showSynthetic ? syntheticTradesForMint(mint) : raw;
-  }, [tradesQ.data, tradesQ.isLoading, tradesQ.isError, uiDemo, mint, tableDemoEnv]);
+    let base: TradeRow[];
+    if (tableDemoEnv) base = demoTrades;
+    else if (uiDemo && (raw.length === 0 || tradesQ.isError)) base = demoTrades;
+    else if (raw.length === 0 || tradesQ.isError) base = demoTrades;
+    else base = raw;
+
+    if (tradesMakerFilter) {
+      return base.filter((row, i) => tradeTraderHint(row, i).fullAddress === tradesMakerFilter);
+    }
+
+    if (tradesDeskFilter !== 'all') {
+      return base.filter((row, i) => {
+        const wallet = tradeTraderHint(row, i).fullAddress;
+        return tradeRowMatchesDeskFilter({
+          wallet,
+          creatorWallet,
+          tracked: wallet ? isTracked(wallet) : false,
+          userWallet: activeWalletAddress,
+          filter: tradesDeskFilter,
+        });
+      });
+    }
+
+    return base;
+  }, [
+    tradesQ.data?.trades,
+    tradesQ.isError,
+    uiDemo,
+    tableDemoEnv,
+    demoTrades,
+    tradesMakerFilter,
+    tradesDeskFilter,
+    creatorWallet,
+    isTracked,
+    activeWalletAddress,
+  ]);
 
   useEffect(() => {
     onLiveTradesSnapshot?.({
@@ -567,279 +436,96 @@ export function TokenActivityTabs({
     if (tab !== 'trades') setTradesFeedHoverPause(false);
   }, [tab]);
 
-  const tradersBody = useMemo(() => {
-    if (tradersQ.isLoading) {
-      return (
-        <div className="space-y-2 p-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-7 w-full" />
-          ))}
-        </div>
-      );
-    }
-    const raw = tradersQ.data?.traders ?? [];
-    const showSynthetic =
-      !tradersQ.isLoading &&
-      (tableDemoEnv || (uiDemo && (raw.length === 0 || tradersQ.isError)));
-    const rows = showSynthetic ? syntheticTopTradersForMint(mint) : raw;
-    const afterTrack = onlyTracked ? rows.filter((w) => isTracked(w.wallet_address)) : rows;
-    const displayRows =
-      traderDeskFilter === 'all'
-        ? afterTrack
-        : afterTrack.filter((w) =>
-            traderRowMatchesFilter({
-              row: w,
-              creatorWallet,
-              tracked: isTracked(w.wallet_address),
-              labelDisp: resolveLabel(w.wallet_address, 5),
-              filter: traderDeskFilter,
-            }),
-          );
-    const maxBuy = displayRows.reduce((m, w) => Math.max(m, w.buy_usd), 0);
-    const maxSell = displayRows.reduce((m, w) => Math.max(m, w.sell_usd), 0);
-    const fmtUsdCell = (v: number) =>
-      tableUsd ? formatCompactUsd(v) : `${formatNumber(v / nativeUsdHint, { decimals: 4 })} ${nativeSym}`;
+  const displayMode: 'USD' | 'SOL' = tableUsd ? 'USD' : 'SOL';
 
-    if (displayRows.length === 0) {
-      const lensEmpty = traderDeskFilter !== 'all' && afterTrack.length > 0;
-      return (
-        <div className="p-4">
-          <EmptyState
-            icon={BarChart3}
-            title={
-              lensEmpty
-                ? 'No wallets match filter'
-                : onlyTracked
-                  ? 'No tracked traders here'
-                  : 'No ranked traders'
-            }
-            description={
-              lensEmpty
-                ? 'Loosen desk filters / pick “All”.'
-                : onlyTracked
-                  ? 'Add wallets in Trackers, then filter this table to them.'
-                  : 'Desk ranks only include Pointer fills seen on this mint (FIFO realized PnL).'
-            }
-          />
-        </div>
-      );
-    }
-    return (
-      <div className="flex w-full min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle/80 px-2 py-1.5">
-          {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTraderDeskFilter(id)}
-              className={cn(
-                'btn-press inline-flex h-6 items-center rounded px-2 text-[10px] font-semibold uppercase tracking-wide transition-colors',
-                traderDeskFilter === id
-                  ? 'bg-fg-primary/12 text-fg-primary'
-                  : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="desk-scroll-well min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
-          <table className="w-full min-w-[720px] border-collapse text-left tabular-nums">
-            <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 text-left backdrop-blur-sm">
-              <tr>
-                <SortableTh className="w-9" align="center" sortGlyph={false}>
-                  #
-                </SortableTh>
-                <SortableTh className="min-w-[168px]" align="left">
-                  Wallet
-                </SortableTh>
-                <SortableTh className="w-[92px]" align="right">
-                  <span className="block">Balance</span>
-                  <span className="mt-0.5 block text-[10px] font-normal normal-case tracking-normal text-fg-muted">
-                    Last
-                  </span>
-                </SortableTh>
-                <SortableTh className="w-[118px]" align="right">
-                  <span className="block">Bought</span>
-                  <span className="mt-0.5 block text-[10px] font-normal normal-case tracking-normal text-fg-muted">
-                    Avg · n
-                  </span>
-                </SortableTh>
-                <SortableTh className="w-[118px]" align="right">
-                  <span className="block">Sold</span>
-                  <span className="mt-0.5 block text-[10px] font-normal normal-case tracking-normal text-fg-muted">
-                    Avg · n
-                  </span>
-                </SortableTh>
-                <SortableTh className="w-[92px]" align="right">
-                  <span className="inline-flex items-center justify-end gap-0.5 normal-case">
-                    <span className="text-[11px] uppercase tracking-wide">R. PnL</span>
-                    <RealPnlInfoTooltip sym={sym} />
-                  </span>
-                </SortableTh>
-                <SortableTh className="w-[72px]" align="right">
-                  Held
-                </SortableTh>
-              </tr>
-            </thead>
-            <tbody>
-              {displayRows.map((w, i) => {
-                const pnl = w.realized_pnl_usd;
-                const pnlTone =
-                  pnl > 0
-                    ? 'text-signal-bull'
-                    : pnl < 0
-                      ? 'text-signal-bear'
-                      : 'text-fg-muted';
-                const lastAct = w.last_trade_at ? formatAgeShort(w.last_trade_at) : '\u2014';
-                const held =
-                  w.held_seconds != null && w.held_seconds > 0 ? formatDuration(w.held_seconds) : '\u2014';
-                const buyBar = maxBuy > 0 ? Math.min(100, (w.buy_usd / maxBuy) * 100) : 0;
-                const sellBar = maxSell > 0 ? Math.min(100, (w.sell_usd / maxSell) * 100) : 0;
-                const zebra = zebraDesk(i);
-                return (
-                  <tr
-                    key={w.wallet_address}
-                    className={cn(
-                      'group cursor-pointer border-b border-border-subtle/35 transition-colors duration-100',
-                      'hover:bg-bg-hover/35',
-                      zebra,
-                    )}
-                  >
-                    <td className="px-2.5 py-2 text-center align-middle text-[11px] font-medium tabular-nums text-fg-muted">
-                      {i + 1}
-                    </td>
-                    <td className="min-w-[168px] px-2.5 py-2 align-middle">
-                      <div className="flex min-w-0 items-center gap-1">
-                        <Wallet
-                          className="h-3 w-3 shrink-0 text-fg-muted opacity-70"
-                          strokeWidth={2}
-                        />
-                        <div className="min-w-0 text-[12px] leading-tight">
-                          <TopTraderWalletCell
-                            mint={mint}
-                            wallet={w.wallet_address}
-                            sym={sym}
-                            topTraderRow={w}
-                            rank={i + 1}
-                            creatorWallet={creatorWallet}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-2.5 py-2 text-right align-middle">
-                      <div className="text-[11px] tabular-nums text-fg-muted">—</div>
-                      <div className="mt-0.5 text-[10px] tabular-nums leading-none text-fg-muted">{lastAct}</div>
-                    </td>
-                    <td className="w-[118px] px-2.5 py-2 text-right align-middle">
-                      <div className="text-[12px] font-medium tabular-nums leading-tight text-fg-primary">
-                        {fmtUsdCell(w.buy_usd)}
-                      </div>
-                      <div className="mx-auto mt-1 h-px max-w-[4.5rem] overflow-hidden rounded-full bg-border-subtle">
-                        <div
-                          className="h-full rounded-full bg-signal-bull/45"
-                          style={{ width: `${buyBar}%` }}
-                        />
-                      </div>
-                      <div className="mt-0.5 text-right text-[10px] leading-tight text-fg-muted">
-                        <span className="block opacity-90">
-                          {formatNumber(w.buy_token_qty, { compact: true })} · {w.buy_count}
-                        </span>
-                        {w.avg_buy_usd_per_token != null ? (
-                          <span className="block tabular-nums">
-                            {tableUsd ? formatCompactUsd(w.avg_buy_usd_per_token) : '—'}
-                          </span>
-                        ) : (
-                          <span className="block">—</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="w-[118px] px-2.5 py-2 text-right align-middle">
-                      <div className="text-[12px] font-medium tabular-nums leading-tight text-fg-primary">
-                        {fmtUsdCell(w.sell_usd)}
-                      </div>
-                      <div className="ml-auto mt-1 h-px max-w-[4.5rem] overflow-hidden rounded-full bg-border-subtle">
-                        <div
-                          className="h-full rounded-full bg-signal-bear/45"
-                          style={{ width: `${sellBar}%` }}
-                        />
-                      </div>
-                      <div className="mt-0.5 text-right text-[10px] leading-tight text-fg-muted">
-                        <span className="block opacity-90">
-                          {formatNumber(w.sell_token_qty, { compact: true })} · {w.sell_count}
-                        </span>
-                        {w.avg_sell_usd_per_token != null ? (
-                          <span className="block tabular-nums">
-                            {tableUsd ? formatCompactUsd(w.avg_sell_usd_per_token) : '—'}
-                          </span>
-                        ) : (
-                          <span className="block">—</span>
-                        )}
-                      </div>
-                    </td>
-                    <td
-                      className={cn(
-                        'px-2.5 py-2 text-right align-middle text-[12px] font-semibold tabular-nums leading-tight',
-                        pnlTone,
-                      )}
-                    >
-                      {pnl >= 0 ? '+' : ''}
-                      {tableUsd
-                        ? formatCompactUsd(pnl)
-                        : `${formatNumber(pnl / nativeUsdHint, { decimals: 2 })} ${nativeSym}`}
-                    </td>
-                    <td
-                      className={cn(
-                        'w-[72px] px-2.5 py-2 text-right align-middle text-[12px] tabular-nums leading-tight',
-                        held === '\u2014' ? 'text-fg-muted' : 'text-fg-secondary',
-                      )}
-                    >
-                      {held}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+  const traderRowsAfterTrack = useMemo((): MintTopTraderRow[] => {
+    const raw = tradersQ.data?.traders ?? [];
+    const rows =
+      tableDemoEnv || (uiDemo && (raw.length === 0 || tradersQ.isError))
+        ? demoTraders
+        : raw.length === 0 || tradersQ.isError
+          ? demoTraders
+          : raw;
+    return onlyTracked ? rows.filter((w) => isTracked(w.wallet_address)) : rows;
   }, [
     tradersQ.data?.traders,
-    tradersQ.isLoading,
     tradersQ.isError,
     uiDemo,
     tableDemoEnv,
-    mint,
-    sym,
+    demoTraders,
     onlyTracked,
+    isTracked,
+  ]);
+
+  const filteredTraders = useMemo((): MintTopTraderRow[] => {
+    return traderDeskFilter === 'all'
+      ? traderRowsAfterTrack
+      : traderRowsAfterTrack.filter((w) =>
+          traderRowMatchesFilter({
+            row: w,
+            creatorWallet,
+            tracked: isTracked(w.wallet_address),
+            labelDisp: resolveLabel(w.wallet_address, 5),
+            filter: traderDeskFilter,
+          }),
+        );
+  }, [
+    traderRowsAfterTrack,
     traderDeskFilter,
     creatorWallet,
     resolveLabel,
     isTracked,
-    tableUsd,
-    nativeSym,
-    nativeUsdHint,
   ]);
 
-  const showTableControls = tab === 'traders' || tab === 'trades';
+  const sortedTraders = useMemo(() => {
+    const withFunding = filteredTraders.map((row) => ({
+      ...row,
+      funding: buildDeskFundingSynth(row.wallet_address, mint),
+    }));
+    if (!traderPnlSortDir) return withFunding;
+    return [...withFunding].sort((a, b) => {
+      const diff = (a.realized_pnl_usd ?? 0) - (b.realized_pnl_usd ?? 0);
+      return traderPnlSortDir === 'asc' ? diff : -diff;
+    });
+  }, [filteredTraders, traderPnlSortDir, mint]);
+
+  const handleSortPnL = () => {
+    setTraderPnlSortDir((d) => (d === null ? 'desc' : d === 'desc' ? 'asc' : null));
+  };
+
+  const devTokens = useMemo(
+    () => (creatorWallet ? syntheticDevTokensForCreator(creatorWallet, mint) : []),
+    [creatorWallet, mint],
+  );
+
+  const tradersEmpty = sortedTraders.length === 0;
+  const tradersLensEmpty =
+    traderDeskFilter !== 'all' && traderRowsAfterTrack.length > 0 && filteredTraders.length === 0;
+
+  const showTableControls = tab === 'traders' || tab === 'trades' || tab === 'holders';
 
   const tabLabel = (t: (typeof TABS)[number]) => {
     if (t.id === 'holders') {
-      if (preferTokenTableDemoRows()) return 'Holders (22)';
       const n = holdersQ.data?.holders.length;
-      return n != null ? `Holders (${n})` : 'Holders';
+      if (n != null && n > 0) return `Holders (${n})`;
+      return 'Holders (22)';
     }
-    if (t.id === 'dev_tokens' && dev && dev.tokens_launched > 0) {
-      return `Dev Tokens (${dev.tokens_launched})`;
+    if (t.id === 'traders') return `Top Traders (${demoTraders.length})`;
+    if (t.id === 'dev_tokens' && effectiveDevCount > 0) {
+      return `Dev Tokens (${effectiveDevCount})`;
     }
     return t.label;
   };
 
+  const showDeskFilters = tab === 'traders' || tab === 'holders';
+  const activeDeskFilter = tab === 'holders' ? holderDeskFilter : traderDeskFilter;
+  const setActiveDeskFilter =
+    tab === 'holders' ? setHolderDeskFilter : setTraderDeskFilter;
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col border-t border-border-subtle/30 bg-desk-panel/80 text-[12px] leading-snug text-fg-primary antialiased backdrop-blur-[1px]">
-      <div className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-1 border-b border-border-subtle/35 px-2 py-0">
-        <nav className="flex shrink-0 items-end gap-0" aria-label="Token activity">
+    <div className="flex min-h-0 flex-1 flex-col border-t border-border-subtle/30 bg-desk-panel/80 font-sans text-[12px] leading-snug text-fg-primary antialiased backdrop-blur-[1px]">
+      <div className="flex shrink-0 items-center gap-1 border-b border-border-subtle/35 px-2 py-0.5">
+        <nav className="flex shrink-0 items-center gap-0" aria-label="Token activity">
           {TABS.map((t) => {
             const active = tab === t.id;
             return (
@@ -848,10 +534,8 @@ export function TokenActivityTabs({
                 type="button"
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  'btn-press relative inline-flex h-8 items-center px-2.5 pb-2 pt-1.5 text-[11px] font-semibold tracking-tight transition-colors',
-                  active
-                    ? 'text-fg-primary'
-                    : 'text-fg-muted hover:text-fg-secondary',
+                  'btn-press relative inline-flex h-7 items-center px-2.5 text-[11px] font-semibold tracking-tight transition-colors',
+                  active ? 'text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
                 )}
                 aria-current={active ? 'page' : undefined}
               >
@@ -863,7 +547,45 @@ export function TokenActivityTabs({
             );
           })}
         </nav>
-        <div className="ml-1 flex flex-wrap items-center gap-1">
+
+        {tab === 'trades' ? (
+          <div className="ml-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto border-l border-border-subtle/40 pl-1.5 [scrollbar-width:none]">
+            <TradesDeskFilterPill
+              id="dev"
+              label="Dev"
+              active={tradesDeskFilter === 'dev'}
+              onClick={() => toggleTradesDeskFilter('dev')}
+            />
+            <TradesDeskFilterPill
+              id="tracked"
+              label="Tracked"
+              active={tradesDeskFilter === 'tracked'}
+              onClick={() => toggleTradesDeskFilter('tracked')}
+            />
+            <TradesDeskFilterPill
+              id="you"
+              label="You"
+              active={tradesDeskFilter === 'you'}
+              onClick={() => toggleTradesDeskFilter('you')}
+            />
+          </div>
+        ) : showDeskFilters ? (
+          <div className="ml-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto border-l border-border-subtle/40 pl-1.5 [scrollbar-width:none]">
+            {TRADER_FILTER_OPTIONS.map(({ id, label }) => (
+              <DeskFilterPill
+                key={id}
+                active={activeDeskFilter === id}
+                onClick={() => setActiveDeskFilter(id)}
+              >
+                {label}
+              </DeskFilterPill>
+            ))}
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 py-0.5">
           {tab === 'orders' ? (
             <button
               type="button"
@@ -875,125 +597,219 @@ export function TokenActivityTabs({
               Cancel all
             </button>
           ) : null}
-          {tab === 'traders' ? (
+          {tab === 'traders' || tab === 'holders' ? (
             <button
               type="button"
               onClick={() => setOnlyTracked((o) => !o)}
               className={cn(
-                'btn-press inline-flex h-6 items-center rounded-md px-2 text-[11px] font-medium transition-colors',
+                'btn-press inline-flex h-6 items-center rounded-md px-2.5 text-[11px] font-medium transition-colors',
                 onlyTracked
-                  ? 'bg-fg-primary/10 text-fg-primary'
-                  : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
+                  ? 'bg-bg-hover text-fg-primary'
+                  : 'text-fg-muted hover:text-fg-primary',
               )}
             >
               Only Tracked
             </button>
           ) : null}
           {tab === 'trades' && tradesFeedHoverPause ? (
-            <span className="inline-flex h-6 items-center rounded border border-signal-info/35 bg-signal-info/10 px-2 text-[10px] font-semibold uppercase tracking-wide text-signal-info">
+            <span className="inline-flex h-6 items-center rounded-md border border-signal-info/35 bg-signal-info/10 px-2 text-[10px] font-semibold uppercase tracking-wide text-signal-info">
               Paused
             </span>
           ) : null}
           {showTableControls ? (
             <>
-              <label
-                className="inline-flex h-6 cursor-pointer items-center gap-1.5 px-1 text-[11px] text-fg-muted hover:text-fg-secondary"
-                title="Shows the compact live feed beside the chart. This bottom Trades desk stays visible — they are separate."
-              >
-                <input
-                  type="checkbox"
-                  checked={tradesPanel}
-                  onChange={(e) => onTradesPanelChange(e.target.checked)}
-                  className="h-3 w-3 rounded border-border-subtle bg-bg-raised"
-                />
-                Trades panel
-              </label>
+              {tab === 'trades' ? (
+                <label
+                  className="inline-flex h-6 cursor-pointer items-center gap-1.5 px-1 text-[11px] text-fg-muted hover:text-fg-primary"
+                  title="Shows the compact live feed beside the chart."
+                >
+                  <input
+                    type="checkbox"
+                    checked={tradesPanel}
+                    onChange={(e) => onTradesPanelChange(e.target.checked)}
+                    className="h-3 w-3 rounded border-border-subtle bg-bg-raised"
+                  />
+                  Trades Panel
+                </label>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setTableUsd((u) => !u)}
                 className={cn(
-                  'btn-press inline-flex h-6 items-center rounded-md px-2 text-[11px] font-semibold tabular-nums transition-colors',
+                  'btn-press inline-flex h-6 items-center gap-1 rounded-md px-2.5 text-[11px] font-semibold tabular-nums transition-colors',
                   tableUsd
-                    ? 'bg-fg-primary/10 text-fg-primary'
-                    : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
+                    ? 'bg-bg-hover text-fg-primary'
+                    : 'text-fg-muted hover:text-fg-primary',
                 )}
+                title="Toggle USD / SOL"
               >
-                USD
+                {tableUsd ? (
+                  'USD'
+                ) : (
+                  <>
+                    {nativeSym}
+                    <ChainIcon chain="sol" size={12} />
+                  </>
+                )}
               </button>
             </>
           ) : null}
-        </div>
-        <div className="ml-auto flex items-center gap-2 py-1">
           {onOpenInstantTrade ? (
             <button
               type="button"
               onClick={onOpenInstantTrade}
               aria-pressed={instantTradeOpen}
               className={cn(
-                'btn-press focus-ring inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold tracking-tight shadow-sm transition',
+                'btn-press focus-ring inline-flex h-6 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold tracking-tight shadow-sm transition',
                 instantTradeOpen
                   ? 'bg-bg-sunken text-accent-primary ring-1 ring-accent-primary/45 hover:bg-bg-hover'
                   : 'bg-accent-primary text-fg-inverse hover:brightness-110',
               )}
             >
               <Zap className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-              Instant
+              Instant Trade
             </button>
           ) : null}
-          <span className="text-[10px] tabular-nums uppercase tracking-wider text-fg-muted">
-            {sym}
-          </span>
+          <button
+            type="button"
+            className="btn-press inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted/40 transition-colors hover:text-fg-primary"
+            aria-label="Table settings"
+          >
+            <Settings className="h-3 w-3" strokeWidth={2} />
+          </button>
         </div>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-x-4 border-b border-border-subtle/25 bg-bg-base/25 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted backdrop-blur-sm">
-        {tab === 'trades' ? <span>Global · live pool fills</span> : null}
-        {tab === 'positions' ? <span>Your wallets · this mint</span> : null}
-        {tab === 'orders' ? <span>Your open orders</span> : null}
-        {tab === 'holders' ? <span>Holders · on-chain</span> : null}
-        {tab === 'traders' ? <span>Desk · FIFO realized PnL</span> : null}
-        {tab === 'dev_tokens' ? <span>Creator · deployer</span> : null}
-      </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden w-full">
+        {tab === 'trades' && (tradesMakerFilter || tradesDeskFilter !== 'all') ? (
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle/35 bg-bg-base/40 px-3 py-1.5 text-[11px]">
+            <span className="text-fg-muted">
+              {tradesMakerFilter ? (
+                <>
+                  Showing{' '}
+                  <span className="font-medium tabular-nums text-fg-primary">
+                    {tradeRowsForTable.length}
+                  </span>{' '}
+                  transaction{tradeRowsForTable.length === 1 ? '' : 's'} of maker{' '}
+                  <span className="font-medium text-fg-secondary">
+                    {shortenAddress(tradesMakerFilter, 5)}
+                  </span>
+                </>
+              ) : tradesDeskFilter === 'you' ? (
+                <>
+                  Showing{' '}
+                  <span className="font-medium tabular-nums text-fg-primary">
+                    {tradeRowsForTable.length}
+                  </span>{' '}
+                  of your transaction{tradeRowsForTable.length === 1 ? '' : 's'}
+                </>
+              ) : tradesDeskFilter === 'dev' ? (
+                <>
+                  Showing{' '}
+                  <span className="font-medium tabular-nums text-fg-primary">
+                    {tradeRowsForTable.length}
+                  </span>{' '}
+                  dev wallet transaction{tradeRowsForTable.length === 1 ? '' : 's'}
+                </>
+              ) : (
+                <>
+                  Showing{' '}
+                  <span className="font-medium tabular-nums text-fg-primary">
+                    {tradeRowsForTable.length}
+                  </span>{' '}
+                  tracked wallet transaction{tradeRowsForTable.length === 1 ? '' : 's'}
+                </>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={
+                tradesMakerFilter ? handleClearTradesMakerFilter : handleClearTradesDeskFilter
+              }
+              className="btn-press shrink-0 text-[11px] font-semibold uppercase tracking-wide text-signal-info hover:text-signal-info/80"
+            >
+              Reset
+            </button>
+          </div>
+        ) : null}
         {tab === 'trades' ? (
-          tradesQ.isLoading && !tradesQ.data ? (
-            <div className="space-y-2 p-3">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-7 w-full" />
-              ))}
-            </div>
-          ) : tradeRowsForTable.length === 0 ? (
-            <div className="p-4">
-              <EmptyState
-                icon={Activity}
-                title="No trades indexed yet"
-                description="Activity fills in as users trade on Pointer."
-              />
+          tradeRowsForTable.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center p-8 text-[11px] font-mono text-fg-muted">
+              No transactions found
             </div>
           ) : (
             <MintTradesScroll
               rows={tradeRowsForTable}
+              mint={mint}
+              tokenSymbol={sym}
+              creatorWallet={creatorWallet}
               nativeSym={nativeSym}
+              displayMode={displayMode}
               onHoverChange={setTradesFeedHoverPause}
+              onFilterMintTrades={handleFilterMintTrades}
+              tradesMakerFilter={tradesMakerFilter}
+              onToggleDisplayMode={() => setTableUsd((u) => !u)}
             />
           )
         ) : null}
-        {tab === 'positions' ? <PositionsDesk sym={sym} /> : null}
+        {tab === 'positions' ? <PositionsDesk sym={sym} mint={mint} /> : null}
         {tab === 'orders' ? <OrdersDesk sym={sym} /> : null}
         {tab === 'holders' ? (
-          <HoldersTable mint={mint} tokenSymbol={sym} creatorWallet={creatorWallet} />
+          <HoldersTable
+            mint={mint}
+            tokenSymbol={sym}
+            creatorWallet={creatorWallet}
+            onlyTracked={onlyTracked}
+            deskFilter={holderDeskFilter}
+            onFilterMintTrades={handleFilterMintTrades}
+            tradesMakerFilter={tradesMakerFilter}
+          />
         ) : null}
-        {tab === 'traders' ? tradersBody : null}
-        {tab === 'dev_tokens' ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-auto">
-            <div className="border-b border-border-subtle p-2 text-[10px] text-fg-muted">
-              Creator / deployer analytics for this token.
+        {tab === 'traders' ? (
+          tradersEmpty ? (
+            <div className="p-4">
+              <EmptyState
+                icon={BarChart3}
+                title={
+                  tradersLensEmpty
+                    ? 'No wallets match filter'
+                    : onlyTracked
+                      ? 'No tracked traders here'
+                      : 'No ranked traders'
+                }
+                description={
+                  tradersLensEmpty
+                    ? 'Loosen desk filters / pick “All”.'
+                    : onlyTracked
+                      ? 'Add wallets in Trackers, then filter this table to them.'
+                      : 'Desk ranks only include Pointer fills seen on this mint (FIFO realized PnL).'
+                }
+              />
             </div>
-            <DevSection creatorWallet={creatorWallet} mint={mint} tokenSymbol={sym} dev={dev} />
-            <PlaceholderTab
-              title="Dev token list"
-              body="Cross-mint “dev wallet” history is not indexed yet; this tab reserves Axiom-style space."
-            />
-          </div>
+          ) : (
+            <div className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
+                <TopTradersTable
+                  rows={sortedTraders}
+                  mint={mint}
+                  tokenSymbol={sym}
+                  creatorWallet={creatorWallet}
+                  displayMode={displayMode}
+                  nativeSym={nativeSym}
+                  solPriceUsd={nativeUsdHint}
+                  onSortPnL={handleSortPnL}
+                  sortDir={traderPnlSortDir}
+                  onFilterMintTrades={handleFilterMintTrades}
+                  tradesMakerFilter={tradesMakerFilter}
+                />
+            </div>
+          )
+        ) : null}
+        {tab === 'dev_tokens' && creatorWallet ? (
+          <DevTokensPane creatorWallet={creatorWallet} dev={dev} tokens={devTokens} />
+        ) : tab === 'dev_tokens' ? (
+          <PlaceholderTab
+            title="Dev token list"
+            body="No creator wallet found for this token."
+          />
         ) : null}
       </div>
     </div>

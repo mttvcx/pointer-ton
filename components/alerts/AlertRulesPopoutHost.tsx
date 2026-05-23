@@ -52,16 +52,14 @@ export function AlertBuilderEmbeddedPlaceholder() {
   if (!popped) return null;
 
   return (
-    <div
-      className="rounded-2xl border border-white/10 bg-[rgba(255,255,255,0.04)] px-4 py-4 text-center backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
-    >
+    <div className="rounded-sm border border-white/[0.08] bg-bg-raised px-3 py-2.5 text-center">
       <p className="text-[11px] leading-relaxed text-fg-secondary">
         X monitor is open in a floating window. Drag the grip to the left edge to dock, or close to use the
         tracker Monitor tab.
       </p>
       <button
         type="button"
-        className="mt-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-fg-primary hover:bg-white/[0.08]"
+        className="btn-press mt-2 rounded-sm border border-white/[0.1] bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-primary hover:bg-white/[0.08]"
         onClick={() => clearFloat(null)}
       >
         Put back in co-pilot

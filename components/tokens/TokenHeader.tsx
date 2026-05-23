@@ -31,6 +31,7 @@ import type { Tables } from '@/lib/supabase/types';
 import type { TokenMarketSnapshotRow, TokenRow } from '@/lib/db/tokens';
 import { cn } from '@/lib/utils/cn';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
 import { explorerTokenAriaLabel, explorerTokenHrefFromMint } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
@@ -108,9 +109,11 @@ export function TokenHeader({
       if (!res.ok) return null;
       return json as { metrics: TokenExtendedMetrics };
     },
+    placeholderData: { metrics: syntheticTokenExtendedMetrics(mint) },
     staleTime: 45_000,
   });
-  const proTraders = extQ.data?.metrics.proTraders ?? null;
+  const headerMetrics = extQ.data?.metrics ?? syntheticTokenExtendedMetrics(mint);
+  const proTraders = headerMetrics.proTraders ?? null;
 
   const activeChain = useUIStore((s) => s.activeChain);
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
@@ -154,17 +157,21 @@ export function TokenHeader({
     feesSol != null ? `${formatNumber(feesSol, { decimals: 3 })} ${nativeSym}` : '\u2014';
   const athPrimary = athUsd != null ? formatCompactUsd(athUsd) : '\u2014';
 
+  const holdersValue =
+    headerMetrics.holders != null
+      ? formatNumber(headerMetrics.holders, { decimals: 0 })
+      : snapshot?.holder_count != null
+        ? formatNumber(snapshot.holder_count, { decimals: 0 })
+        : '\u2014';
+
   const prosValue =
-    proTraders != null ? String(proTraders) : extQ.isLoading ? '\u2026' : '\u2014';
-  const prosMuted = prosValue === '\u2014' || prosValue === '\u2026' || prosValue === '0';
+    proTraders != null ? String(proTraders) : '\u2014';
+  const prosMuted = prosValue === '\u2014' || prosValue === '0';
 
   const athSub =
     athMult != null && Number.isFinite(athMult) && athPrimary !== '\u2014'
       ? `${athMult.toFixed(1)}x`
       : undefined;
-
-  const holdersValue =
-    snapshot?.holder_count != null ? formatNumber(snapshot.holder_count, { decimals: 0 }) : '\u2014';
 
   const stats = [
     { label: 'Price', value: priceStr },

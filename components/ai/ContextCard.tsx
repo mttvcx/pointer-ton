@@ -38,14 +38,11 @@ type CommonResult = {
 type TokenResult = CommonResult & { data: ExplainTokenOutput };
 type WalletResult = CommonResult & { data: ExplainWalletOutput };
 
-const COPILOT = {
-  card: 'rgba(255, 255, 255, 0.04)',
-  border: 'rgba(255, 255, 255, 0.1)',
-  muted: '#9ba3b0',
-  text: '#f0f4fc',
-  accent: '#0077b6',
-  cyan: '#34d5ff',
-} as const;
+const COPILOT_CARD =
+  'rounded-sm border border-white/[0.08] bg-bg-raised px-3 py-2';
+
+const COPILOT_ACTION =
+  'btn-press inline-flex items-center gap-0.5 rounded-sm border border-white/[0.1] bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-primary hover:bg-white/[0.08]';
 
 function dispatchCopilotAsk(detail: string) {
   window.dispatchEvent(new CustomEvent('pointer-copilot-quick-ask', { detail }));
@@ -139,10 +136,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
 
   if (!authenticated) {
     return (
-      <div
-        className="rounded-2xl border px-3 py-2.5 text-[12px] leading-snug backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
-        style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card, color: COPILOT.muted }}
-      >
+      <div className={cn(COPILOT_CARD, 'text-[11px] leading-snug text-fg-muted')}>
         Sign in to use Pointer Co-Pilot.
       </div>
     );
@@ -150,27 +144,16 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
 
   if (!debounced) {
     return (
-      <div
-        className="rounded-2xl border px-3 py-2.5 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
-        style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card }}
-      >
-        <div className="flex items-start gap-2.5">
-          <span
-            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
-            style={{
-              borderColor: `${COPILOT.accent}55`,
-              color: COPILOT.cyan,
-              boxShadow: `0 0 14px -3px ${COPILOT.accent}55`,
-              backgroundColor: 'rgba(21, 25, 36, 0.55)',
-            }}
-          >
-            <Sparkles className="h-4 w-4" strokeWidth={2.25} />
+      <div className={COPILOT_CARD}>
+        <div className="flex items-start gap-2">
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-white/[0.08] bg-bg-base text-fg-muted">
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold leading-tight" style={{ color: COPILOT.text }}>
+            <p className="text-[12px] font-semibold leading-tight text-fg-primary">
               Co-Pilot is ready
             </p>
-            <p className="mt-1 text-[11px] leading-snug" style={{ color: COPILOT.muted }}>
+            <p className="mt-1 text-[11px] leading-snug text-fg-muted">
               Hover a token, open a token page, or ask anything about market structure, holders, or alerts.
             </p>
             <div className="mt-2 flex flex-wrap gap-1">
@@ -181,13 +164,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
                   ['alert', 'Build alert', openAlertBuilder],
                 ] as const
               ).map(([key, label, fn]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={fn}
-                  className="inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-medium transition hover:bg-white/[0.04]"
-                  style={{ borderColor: COPILOT.border, color: COPILOT.text }}
-                >
+                <button key={key} type="button" onClick={fn} className={COPILOT_ACTION}>
                   {label}
                   <ChevronRight className="h-2.5 w-2.5 opacity-60" aria-hidden />
                 </button>
@@ -206,14 +183,11 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
     debounced.type === 'token' ? `/token/${debounced.id}` : `/wallet/${debounced.id}`;
 
   return (
-    <div
-      className="rounded-2xl border px-3 py-2.5 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
-      style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card }}
-    >
-      <div className="space-y-3">
+    <div className={COPILOT_CARD}>
+      <div className="space-y-2.5">
         <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: COPILOT.muted }}>
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
             <span className="capitalize">{debounced.type === 'token' ? 'Token' : 'Wallet'}</span>
             <PinIndicator
               source={lockSource}
@@ -223,8 +197,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
           </p>
           <Link
             href={detailHref}
-            className="mt-0.5 block truncate text-[14px] font-semibold transition hover:text-[#9b87ff]"
-            style={{ color: COPILOT.text }}
+            className="mt-0.5 block truncate text-[13px] font-semibold text-fg-primary transition hover:text-accent-primary"
             title={debounced.id}
           >
             {subjectLabel}

@@ -10,21 +10,29 @@ import {
   type TokenHolderRow,
   type TokenRow,
 } from '@/lib/db/tokens';
+import { resolveTokenHolders } from '@/lib/onchain/resolveTokenHolders';
 
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 
 const CACHE_PREFIX = 'token:extended_metrics:';
 const CACHE_TTL_SEC = 60;
 
-async function loadHolders(mint: string): Promise<TokenHolderRow[]> {
-  const supabase = createAdminSupabase();
-  const { data, error } = await supabase
-    .from('token_holders')
-    .select('*')
-    .eq('mint', mint)
-    .order('rank', { ascending: true });
-  if (error) throw new Error(`loadHolders failed: ${error.message}`);
-  return data ?? [];
+async function loadHolders(mint: string): Promise<{
+  rows: TokenHolderRow[];
+  holderCount: number | null;
+  top10HolderPct: number | null;
+  devHoldingPct: number | null;
+}> {
+  const resolved = await resolveTokenHolders(mint, { limit: 20 });
+  if (!resolved) {
+    return { rows: [], holderCount: null, top10HolderPct: null, devHoldingPct: null };
+  }
+  return {
+    rows: resolved.holders,
+    holderCount: resolved.holderCount,
+    top10HolderPct: resolved.top10HolderPct,
+    devHoldingPct: resolved.devHoldingPct,
+  };
 }
 
 /** Pro traders count: wallets in holder set matching wallet_stats heuristics. */
@@ -87,13 +95,14 @@ export async function getTokenExtendedMetrics(
     return { metrics: cached, token };
   }
 
-  const [token, snap, holders, since] = await Promise.all([
+  const [token, snap, holderDesk, since] = await Promise.all([
     getTokenByMint(mint),
     getLatestSnapshotForMint(mint),
     loadHolders(mint),
     Promise.resolve(subHours(new Date(), 6).toISOString()),
   ]);
 
+  const holders = holderDesk.rows;
   const trades = await listTradesForMintSince(mint, since, 2_000);
   const agg = aggregate6hTrades(trades);
 
@@ -105,13 +114,13 @@ export async function getTokenExtendedMetrics(
   const proTraders = await countProTraders(holders);
 
   const metrics: TokenExtendedMetrics = {
-    top10HolderPct: snap?.top10_holder_pct ?? null,
-    devHoldingPct: snap?.dev_holding_pct ?? null,
+    top10HolderPct: holderDesk.top10HolderPct ?? snap?.top10_holder_pct ?? null,
+    devHoldingPct: holderDesk.devHoldingPct ?? snap?.dev_holding_pct ?? null,
     sniperHolderPct: sniperPct > 0 ? sniperPct : null,
     insidersPct: null,
     bundlersPct: null,
     lpBurnedPct: null,
-    holders: snap?.holder_count ?? null,
+    holders: holderDesk.holderCount ?? snap?.holder_count ?? null,
     proTraders,
     dexPaid: token?.is_paid ?? null,
     vol6hUsd: agg.vol6hUsd > 0 ? agg.vol6hUsd : null,
@@ -121,6 +130,7 @@ export async function getTokenExtendedMetrics(
     sellVol6hUsd: agg.sellVol6hUsd > 0 ? agg.sellVol6hUsd : null,
     netVol6hUsd:
       agg.netVol6hUsd !== 0 ? agg.netVol6hUsd : agg.vol6hUsd > 0 ? agg.netVol6hUsd : null,
+    taxPct: null,
   };
 
   await redis.set(key, JSON.stringify(metrics), { ex: CACHE_TTL_SEC });

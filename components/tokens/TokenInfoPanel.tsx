@@ -1,11 +1,13 @@
 'use client';
 
-import { AlertTriangle, Loader2 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@/lib/utils/formatters';
+import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
+import { TokenInfoTaxBanner, hasTokenTax } from '@/components/tokens/TokenInfoTaxBanner';
 import { cn } from '@/lib/utils/cn';
 
 function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
@@ -74,7 +76,9 @@ function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
   return (
     <>
       <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-muted">Token Info</h3>
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-border-subtle">
+      <div className="overflow-hidden rounded-lg bg-border-subtle">
+        {hasTokenTax(m.taxPct) ? <TokenInfoTaxBanner taxPct={m.taxPct} /> : null}
+        <div className="grid grid-cols-3 gap-px">
         {cells.map((item) => (
           <div
             key={item.label}
@@ -89,12 +93,18 @@ function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
             <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg-muted">{item.label}</div>
           </div>
         ))}
+        </div>
       </div>
     </>
   );
 }
 
 export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGrid?: boolean }) {
+  const demoPayload = useMemo(
+    () => ({ metrics: syntheticTokenExtendedMetrics(mint), symbol: null as string | null }),
+    [mint],
+  );
+
   const q = useQuery({
     queryKey: ['token-extended-metrics', mint],
     queryFn: async (): Promise<{ metrics: TokenExtendedMetrics; symbol: string | null }> => {
@@ -109,28 +119,11 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
       }
       return json as { metrics: TokenExtendedMetrics; symbol: string | null };
     },
+    placeholderData: demoPayload,
     staleTime: 45_000,
   });
 
-  if (q.isLoading && !q.data) {
-    return (
-      <div className="flex h-full min-h-[120px] w-full min-w-0 flex-col bg-bg-base p-2">
-        <div className="flex items-center gap-2 text-[10px] text-fg-muted">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Metrics…
-        </div>
-      </div>
-    );
-  }
-
-  const m = q.data?.metrics;
-  if (!m || q.isError) {
-    return (
-      <div className="flex h-full min-h-[120px] w-full min-w-0 flex-col bg-bg-base p-2">
-        <p className="text-[11px] text-signal-warn">Could not load token intel.</p>
-      </div>
-    );
-  }
+  const m = q.data?.metrics ?? syntheticTokenExtendedMetrics(mint);
 
   const footer = (
     <div className="mt-2 space-y-1 text-[10px] text-fg-muted">

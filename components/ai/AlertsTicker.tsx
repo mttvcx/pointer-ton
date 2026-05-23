@@ -15,33 +15,18 @@ import {
 } from '@/lib/alerts/alertRuleModel';
 import { ALERT_TYPE_USER_TRADE, type UserTradeAlertPayload } from '@/lib/alerts/userActivityAlerts';
 
-const AT = {
-  card: 'rgba(255, 255, 255, 0.04)',
-  border: 'rgba(255, 255, 255, 0.1)',
-  elevated: 'rgba(255, 255, 255, 0.07)',
-  muted: '#9ba3b0',
-  text: '#f0f4fc',
-  accent: '#0077b6',
-} as const;
-
 export function AlertsTicker() {
   const query = useAlertsTickerQuery();
 
   return (
-    <div
-      className="rounded-2xl border px-3 py-2.5 backdrop-blur-md shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]"
-      style={{ borderColor: AT.border, backgroundColor: AT.card }}
-    >
+    <div className="rounded-sm border border-white/[0.08] bg-bg-raised px-3 py-2">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: AT.text }}>
-          <Bell className="h-3.5 w-3.5" style={{ color: AT.accent }} />
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-fg-primary">
+          <Bell className="h-3 w-3 text-fg-muted" strokeWidth={2.25} />
           Activity
         </span>
         {query.data ? (
-          <span
-            className="rounded-full border px-1.5 py-px text-[10px] font-semibold tabular-nums"
-            style={{ borderColor: `${AT.accent}44`, color: AT.accent }}
-          >
+          <span className="rounded-sm border border-white/[0.08] bg-bg-base px-1.5 py-px text-[10px] font-semibold tabular-nums text-fg-muted">
             {query.data.length}
           </span>
         ) : null}
@@ -52,13 +37,12 @@ export function AlertsTicker() {
           {Array.from({ length: 3 }, (_, i) => (
             <li
               key={i}
-              className="h-10 animate-pulse rounded-lg border"
-              style={{ borderColor: AT.border, backgroundColor: AT.elevated }}
+              className="h-9 animate-pulse rounded-sm border border-white/[0.06] bg-bg-base"
             />
           ))}
         </ul>
       ) : !query.data || query.data.length === 0 ? (
-        <p className="text-[10px] leading-snug" style={{ color: AT.muted }}>
+        <p className="text-[10px] leading-snug text-fg-muted">
           No events yet — your trades, keyword alerts, and Pulse rules will show up here.
         </p>
       ) : (
@@ -78,24 +62,22 @@ function AlertItem({ alert }: { alert: AlertsTickerItem }) {
 
   return (
     <li
-      className="group rounded-lg border px-2 py-1.5 text-[11px] leading-snug transition hover:bg-white/[0.03]"
-      style={{ borderColor: AT.border, backgroundColor: AT.elevated }}
+      className="group rounded-sm border border-white/[0.06] bg-bg-base px-2 py-1.5 text-[11px] leading-snug transition hover:bg-white/[0.03]"
       {...hoverProps}
     >
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold capitalize" style={{ color: AT.accent }}>
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold capitalize text-fg-secondary">
         <span>{activityHeading(alert)}</span>
-        <span className="ml-auto tabular-nums font-normal" style={{ color: AT.muted }}>
+        <span className="ml-auto tabular-nums font-normal text-fg-muted">
           {formatRelativeTime(alert.createdAt)}
         </span>
       </div>
-      <p className="mt-1 line-clamp-3" style={{ color: AT.text }}>
+      <p className="mt-1 line-clamp-3 text-fg-primary">
         {alert.narration ?? rawSummary(alert.payload)}
       </p>
       {target ? (
         <Link
           href={target.href}
-          className="mt-1 inline-block tabular-nums text-[10px] transition hover:underline"
-          style={{ color: AT.muted }}
+          className="mt-1 inline-block tabular-nums text-[10px] text-fg-muted transition hover:text-fg-primary hover:underline"
         >
           {target.label}
         </Link>

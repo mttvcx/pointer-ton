@@ -41,6 +41,7 @@ import {
 } from '@/lib/utils/formatters';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
 import { cn } from '@/lib/utils/cn';
 import { explorerTokenAriaLabel, explorerTokenHrefFromMint, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
@@ -52,6 +53,7 @@ import { PresetEditorModal } from '@/components/trading/PresetEditorModal';
 import { AdvancedTradingSettingsModal } from '@/components/trading/AdvancedTradingSettingsModal';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
+import { TokenInfoTaxBanner, hasTokenTax } from '@/components/tokens/TokenInfoTaxBanner';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 
@@ -271,7 +273,9 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
   return (
     <section>
       <div className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-muted">Token Info</div>
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-border-subtle">
+      <div className="overflow-hidden rounded-lg bg-border-subtle">
+        {hasTokenTax(m?.taxPct) ? <TokenInfoTaxBanner taxPct={m.taxPct} /> : null}
+        <div className="grid grid-cols-3 gap-px">
         {cells.map((item) => (
           <div
             key={item.label}
@@ -286,6 +290,7 @@ function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
             <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg-muted">{item.label}</div>
           </div>
         ))}
+        </div>
       </div>
     </section>
   );
@@ -436,6 +441,8 @@ export function BuySellPanel({
     return Math.min(5000, Math.max(1, Math.round(n)));
   }, [slippageBps, slippageCustom, useCustomSlippage]);
 
+  const demoExtendedTape = useMemo(() => syntheticTokenExtendedMetrics(mint), [mint]);
+
   const { data: extendedTape } = useQuery({
     queryKey: ['trade-extended-tape', mint],
     queryFn: async (): Promise<TokenExtendedMetrics | null> => {
@@ -447,8 +454,11 @@ export function BuySellPanel({
       }
       return null;
     },
+    placeholderData: demoExtendedTape,
     staleTime: 45_000,
   });
+
+  const effectiveExtendedTape = extendedTape ?? demoExtendedTape;
 
   const baseMcUsd = marketSnapshot?.market_cap_usd;
   const targetMcUsd = useMemo(() => {
@@ -1011,7 +1021,7 @@ export function BuySellPanel({
       className="relative flex w-full min-w-0 flex-col bg-transparent text-[12px] text-fg-primary"
     >
       <div className="space-y-2 px-3 pb-5 pt-2 lg:px-2.5 lg:pb-4 lg:pt-0">
-        {extendedTape ? <TradeTapeStrip m={extendedTape} /> : (
+        {effectiveExtendedTape ? <TradeTapeStrip m={effectiveExtendedTape} /> : (
           <div className="rounded-md border border-border-subtle bg-bg-raised px-2 py-1.5 text-[11px] text-fg-muted">
             6h Vol - <span className="text-signal-bull">Buys -</span> <span className="text-signal-bear">Sells -</span> Net -
           </div>
@@ -1218,7 +1228,7 @@ export function BuySellPanel({
         </div>
 
         {wallet && authenticated ? <PresetSelector presets={presetRowsForSelector} onEdit={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setPresetEditorOpen(true); }} onAdvancedSettings={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setAdvancedSettingsOpen(true); }} disabled={!authenticated} /> : null}
-        <TokenInfoGrid m={extendedTape} />
+        <TokenInfoGrid m={effectiveExtendedTape} />
         <div className="border-t border-border-subtle pt-2">
           <div className="flex items-center gap-1.5 py-1">
             <span className="shrink-0 text-[10px] uppercase tracking-wider text-fg-muted">CA:</span>

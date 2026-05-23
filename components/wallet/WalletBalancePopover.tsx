@@ -41,7 +41,6 @@ type Props = {
 };
 
 const USDC_ICON = '/logos/protocols/usdc.png';
-const DEPOSIT_BLUE = '#4f8ff7';
 
 function formatUsdcAmount(amount: number): string {
   if (amount === 0) return '0';
@@ -95,7 +94,7 @@ export function WalletBalancePopover({
           type="button"
           title="Wallet"
           className={cn(
-            'focus-ring flex h-8 items-center rounded-full border border-border-subtle bg-bg-base px-2 transition-colors hover:border-white/[0.12] hover:bg-bg-hover/40',
+            'focus-ring flex h-7 items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-raised px-2 transition-colors hover:bg-bg-hover hover:border-border-default',
             className,
           )}
         >
@@ -111,10 +110,10 @@ export function WalletBalancePopover({
       <Popover.Content
         align="end"
         sideOffset={6}
-        className="flex w-[248px] flex-col gap-2 rounded-xl border border-border-subtle bg-bg-base p-2.5 shadow-[0_16px_40px_-10px_rgba(0,0,0,0.85)]"
+        className="flex w-[240px] flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised p-0 shadow-panel"
       >
         {!hasActiveWallet ? (
-          <div className="rounded-lg border border-amber-400/15 bg-amber-400/[0.06] px-2 py-1.5 text-[10px] leading-snug text-amber-200/80">
+          <div className="mx-3 mt-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.06] px-2 py-1.5 text-[10px] leading-snug text-amber-200/80">
             No {nativeSym} wallet.{' '}
             <Link
               href="/wallets"
@@ -126,13 +125,16 @@ export function WalletBalancePopover({
           </div>
         ) : null}
 
-        <div>
-          <div className="text-[10px] font-medium text-fg-muted">Total Value</div>
-          <div className="text-[20px] font-medium leading-tight tabular-nums text-fg-primary">
+        {/* Header */}
+        <div className="px-3 pb-2.5 pt-3">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-widest text-fg-muted">
+            Total Value
+          </div>
+          <div className="text-[26px] font-semibold tabular-nums leading-none text-fg-primary">
             {totalUsd != null && totalUsd > 0 ? formatUsd(totalUsd, { decimals: 2 }) : '$0.00'}
           </div>
           {walletAddress ? (
-            <div className="mt-0.5 flex items-center gap-0.5">
+            <div className="mt-1.5 flex items-center gap-1">
               <span className="font-mono text-[10px] text-fg-muted">
                 {shortenAddress(walletAddress)}
               </span>
@@ -140,103 +142,108 @@ export function WalletBalancePopover({
                 value={walletAddress}
                 toastLabel="Address copied"
                 iconOnly
-                iconClassName="h-2.5 w-2.5 rounded p-0 text-fg-muted hover:text-fg-secondary"
-                label="Copy wallet address"
+                iconClassName="h-2.5 w-2.5 text-fg-muted hover:text-fg-secondary"
+                label="Copy"
               />
             </div>
           ) : null}
         </div>
 
+        <div className="border-t border-border-subtle/40" />
+
+        {/* Asset tabs */}
         {showSpendAssetTabs ? (
-          <div className="flex items-center gap-1">
-            <div className="flex min-w-0 flex-1 items-center gap-0.5 rounded-full bg-bg-sunken/80 p-0.5">
-              {assetTabs.map(([id, label]) => {
-                const disabled = id === 'usol';
-                const active = spendAsset === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    disabled={disabled}
-                    title={disabled ? 'Coming soon' : undefined}
-                    onClick={() => {
-                      if (disabled || !onSpendAssetChange) return;
-                      onSpendAssetChange(id);
-                    }}
-                    className={cn(
-                      'min-w-0 flex-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
-                      active
-                        ? 'bg-[#4f8ff7] text-white'
-                        : 'text-fg-muted hover:text-fg-secondary',
-                      disabled && 'cursor-not-allowed opacity-30',
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+          <>
+            <div className="flex items-center gap-1.5 px-3 py-2">
+              <div className="flex flex-1 items-center gap-0.5 rounded-lg bg-bg-sunken p-0.5">
+                {assetTabs.map(([id, label]) => {
+                  const disabled = id === 'usol';
+                  const active = spendAsset === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={disabled}
+                      title={disabled ? 'Coming soon' : undefined}
+                      onClick={() => {
+                        if (disabled || !onSpendAssetChange) return;
+                        onSpendAssetChange(id);
+                      }}
+                      className={cn(
+                        'flex-1 rounded-md py-1 text-[11px] font-semibold transition-colors',
+                        active
+                          ? 'bg-bg-raised text-fg-primary shadow-sm'
+                          : 'text-fg-muted hover:text-fg-secondary',
+                        disabled && 'cursor-not-allowed opacity-30',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <Link
+                href="/wallets"
+                title="Manage wallets"
+                onClick={() => setOpen(false)}
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+              >
+                <Settings className="h-3 w-3" strokeWidth={2} aria-hidden />
+              </Link>
             </div>
-            <Link
-              href="/wallets"
-              title="Manage wallets"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-secondary"
-              onClick={() => setOpen(false)}
-            >
-              <Settings className="h-3 w-3" strokeWidth={2} aria-hidden />
-            </Link>
-          </div>
+            <div className="border-t border-border-subtle/40" />
+          </>
         ) : null}
 
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2 rounded-full bg-bg-sunken/70 px-2.5 py-1.5">
-            <span className="inline-flex min-w-0 items-center gap-1.5">
+        {/* Balance rows */}
+        <div className="flex flex-col gap-2 px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <img
+              src={CHAIN_ICON_PNG[activeChain]}
+              alt=""
+              className="h-4 w-4 shrink-0 rounded-full object-contain"
+              draggable={false}
+              aria-hidden
+            />
+            <TerminalNativeBalance
+              amount={solAmount}
+              className="text-[13px] font-medium tabular-nums text-fg-primary"
+            />
+          </div>
+          {showSpendAssetTabs ? (
+            <div className="flex items-center gap-2">
               <img
-                src={CHAIN_ICON_PNG[activeChain]}
+                src={USDC_ICON}
                 alt=""
                 className="h-4 w-4 shrink-0 rounded-full object-contain"
                 draggable={false}
                 aria-hidden
               />
-              <TerminalNativeBalance
-                amount={solAmount}
-                className="text-[12px] font-medium tabular-nums text-fg-primary"
-              />
-            </span>
-          </div>
-          {showSpendAssetTabs ? (
-            <div className="flex items-center justify-between gap-2 rounded-full bg-bg-sunken/70 px-2.5 py-1.5">
-              <span className="inline-flex min-w-0 items-center gap-1.5">
-                <img
-                  src={USDC_ICON}
-                  alt=""
-                  className="h-4 w-4 shrink-0 rounded-full object-contain"
-                  draggable={false}
-                  aria-hidden
-                />
-                <span className="text-[12px] font-medium tabular-nums text-fg-primary">
-                  {formatUsdcAmount(usdcAmount)}
-                </span>
+              <span className="text-[13px] font-medium tabular-nums text-fg-primary">
+                {formatUsdcAmount(usdcAmount)}
               </span>
             </div>
           ) : null}
         </div>
 
-        <div className="flex gap-1.5 pt-0.5">
+        <div className="border-t border-border-subtle/40" />
+
+        {/* Buttons */}
+        <div className="flex gap-2 px-3 py-2.5">
           <button
             type="button"
             onClick={handleDeposit}
-            className="btn-press flex flex-1 items-center justify-center gap-1 rounded-full py-2 text-[11px] font-semibold text-white transition-colors hover:brightness-110"
-            style={{ backgroundColor: DEPOSIT_BLUE }}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-primary py-1.5 text-[12px] font-semibold text-white transition-colors hover:brightness-110"
           >
-            <ArrowDownToLine className="h-3 w-3 shrink-0" strokeWidth={2.25} aria-hidden />
+            <ArrowDownToLine className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
             Deposit
           </button>
           <button
             type="button"
             onClick={handleWithdraw}
-            className="btn-press flex flex-1 items-center justify-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/80 py-2 text-[11px] font-semibold text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border-subtle bg-bg-hover py-1.5 text-[12px] font-semibold text-fg-primary transition-colors hover:bg-bg-raised"
           >
-            <ArrowUpToLine className="h-3 w-3 shrink-0" strokeWidth={2.25} aria-hidden />
+            <ArrowUpToLine className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
             Withdraw
           </button>
         </div>

@@ -19,11 +19,14 @@ import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import { WalletIdentityBadges } from '@/components/wallet/identity/WalletIdentityBadges';
 import { WalletCompactTooltipPanel } from '@/components/wallet/identity/WalletCompactTooltipPanel';
 import { WalletIdentityDossier } from '@/components/wallet/identity/WalletIdentityDossier';
+import { WalletMintTradesFilterButton } from '@/components/tokens/cells/WalletMintTradesFilterButton';
 import { mockWalletWideStats } from '@/lib/walletIdentity/mockWalletWideStats';
 import { cn } from '@/lib/utils/cn';
 
-const COMPACT_MS = 380;
-const LEAVE_MS = 160;
+const COMPACT_MS = 150;
+const COMPACT_PANEL_W = 300;
+const COMPACT_PANEL_H = 210;
+const LEAVE_MS = 280;
 
 export function WalletIdentityAnchor({
   address,
@@ -34,12 +37,20 @@ export function WalletIdentityAnchor({
   creatorWallet,
   href,
   preferIntelModal = false,
+  navigateOnClick = false,
   truncate = 5,
   className,
   inlineBadges = [],
   isDev,
   isSniper,
   showInlineBadges,
+  badgeBeforeAddress = false,
+  suppressFilterButton = false,
+  addressFormat = 'default',
+  onFilterMintTrades,
+  tradesFilterActive,
+  addressNoTruncate = false,
+  maxBadges = 3,
 }: {
   address: string;
   mint?: string;
@@ -50,12 +61,27 @@ export function WalletIdentityAnchor({
   href?: string;
   /** Plain click opens centered desk intel (+ share) instead of the dossier popover. */
   preferIntelModal?: boolean;
+  /** Plain click follows `href` (Trades desk — hover popup still works). */
+  navigateOnClick?: boolean;
   truncate?: number;
   className?: string;
   inlineBadges?: WalletIntelBadgeKind[];
   isDev?: boolean;
   isSniper?: boolean;
   showInlineBadges?: boolean;
+  /** Render classification icons before the address (Axiom Trades column). */
+  badgeBeforeAddress?: boolean;
+  /** Hide built-in filter button when rendered externally at row end. */
+  suppressFilterButton?: boolean;
+  /** `axiom` → `H13. MYa` (3 + dot + space + 3). */
+  addressFormat?: 'default' | 'axiom';
+  /** Jump to Trades tab filtered to this wallet on the current mint. */
+  onFilterMintTrades?: (address: string) => void;
+  tradesFilterActive?: boolean;
+  /** Desk trades row — never collapse the address to zero width. */
+  addressNoTruncate?: boolean;
+  /** Cap badge icons before/after the address. */
+  maxBadges?: number;
 }) {
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const dossierWrapRef = useRef<HTMLDivElement | null>(null);
@@ -125,18 +151,24 @@ export function WalletIdentityAnchor({
   const displayText =
     labelDisp?.labeled === true
       ? labelDisp.label + (labelDisp.emoji ? ` ${labelDisp.emoji}` : '')
-      : labelDisp?.text ?? address;
+      : addressFormat === 'axiom' && address.length >= 6
+        ? `${address.slice(0, 3)}. ${address.slice(-3)}`
+        : labelDisp?.text ?? address;
 
-  const positionPanel = useCallback((wPanel: number) => {
+  const positionPanel = useCallback((wPanel: number, hPanel: number) => {
     const el = anchorRef.current;
     if (!el) return { x: 12, y: 80 };
     const r = el.getBoundingClientRect();
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const gap = 8;
     let x = r.left;
-    let y = r.bottom + 6;
+    let y = r.bottom + gap;
     if (x + wPanel > vw - 10) x = Math.max(8, vw - wPanel - 10);
-    if (y > vh - 120) y = Math.max(60, r.top - 340);
+    if (y + hPanel > vh - 10) {
+      y = r.top - hPanel - gap;
+    }
+    if (y < 10) y = Math.max(10, r.bottom + gap);
     return { x, y };
   }, []);
 
@@ -151,7 +183,7 @@ export function WalletIdentityAnchor({
     clearT();
     tCompact.current = window.setTimeout(() => {
       setCompact(true);
-      setXyCompact(positionPanel(312));
+      setXyCompact(positionPanel(COMPACT_PANEL_W, COMPACT_PANEL_H));
       tCompact.current = null;
     }, COMPACT_MS);
   };
@@ -170,7 +202,7 @@ export function WalletIdentityAnchor({
     setCompact(false);
     setXyCompact(null);
     setDossier(true);
-    setXyDossier(positionPanel(360));
+    setXyDossier(positionPanel(360, 420));
   };
 
   useEffect(() => {
@@ -214,8 +246,8 @@ export function WalletIdentityAnchor({
   };
 
   const textClsBase = cn(
-    'font-mono text-sm tabular-nums tracking-tight',
-    labelDisp?.labeled === true ? labelColorClass(labelDisp.color) : 'text-accent-primary',
+    'font-sans text-[12px] font-normal tabular-nums tracking-normal',
+    labelDisp?.labeled === true ? labelColorClass(labelDisp.color) : 'text-fg-secondary',
   );
 
   function linkModifierNav(e: React.MouseEvent): boolean {
@@ -226,10 +258,18 @@ export function WalletIdentityAnchor({
     href != null ? (
       <Link
         href={href}
-        className={cn('min-w-0 truncate underline-offset-2 hover:underline focus:outline-none', textClsBase, className)}
+        className={cn(
+          'underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
+          addressNoTruncate ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate',
+          textClsBase,
+          className,
+        )}
         prefetch={false}
+        onMouseEnter={scheduleCompact}
+        onMouseLeave={hideCompactSoon}
         onClick={(e) => {
           if (linkModifierNav(e)) return;
+          if (navigateOnClick) return;
           e.preventDefault();
           openClickSurface();
         }}
@@ -240,10 +280,13 @@ export function WalletIdentityAnchor({
       <button
         type="button"
         className={cn(
-          'min-w-0 truncate text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-info/35',
+          'text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
+          addressNoTruncate ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate',
           textClsBase,
           className,
         )}
+        onMouseEnter={scheduleCompact}
+        onMouseLeave={hideCompactSoon}
         onClick={openClickSurface}
       >
         {displayText}
@@ -252,11 +295,24 @@ export function WalletIdentityAnchor({
 
   const showBadgeRow = showInlineBadges !== false && identity.badges.length > 0;
 
+  const badgeRow =
+    showBadgeRow ? (
+      <WalletIdentityBadges
+        kinds={identity.badges}
+        max={maxBadges}
+        variant="icon"
+        className="font-sans"
+      />
+    ) : null;
+
   return (
     <>
       <span
         ref={anchorRef}
-        className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
+        className={cn(
+          'inline-flex items-center gap-x-1 gap-y-0.5',
+          addressNoTruncate ? 'shrink-0' : 'max-w-full min-w-0 flex-wrap',
+        )}
         onMouseEnter={() => {
           scheduleCompact();
         }}
@@ -269,16 +325,21 @@ export function WalletIdentityAnchor({
           openLabelModal(address);
         }}
       >
-        {triggerInner}
-        {showBadgeRow ? (
-          <WalletIdentityBadges kinds={identity.badges} max={3} className="font-sans" />
+        {badgeBeforeAddress ? badgeRow : null}
+        {mint && onFilterMintTrades && !suppressFilterButton ? (
+          <WalletMintTradesFilterButton
+            active={tradesFilterActive}
+            onClick={() => onFilterMintTrades(address)}
+          />
         ) : null}
+        {triggerInner}
+        {!badgeBeforeAddress ? badgeRow : null}
       </span>
 
       {compact && xyCompact && !dossier
         ? createPortal(
             <div
-              className="fixed z-[420]"
+              className="fixed z-[500]"
               style={{ left: xyCompact.x, top: xyCompact.y }}
               onMouseEnter={() => {
                 clearT();
@@ -286,7 +347,16 @@ export function WalletIdentityAnchor({
               }}
               onMouseLeave={hideCompactSoon}
             >
-              <WalletCompactTooltipPanel stats={stats} wide={wideDemo} tokenCtx={tokenSurface} />
+              <WalletCompactTooltipPanel
+                address={address}
+                stats={stats}
+                tokenCtx={tokenSurface}
+                onOpenChart={onIntel}
+                onOpenSettings={openDossier}
+                onFilter={
+                  onFilterMintTrades ? () => onFilterMintTrades(address) : undefined
+                }
+              />
             </div>,
             document.body,
           )

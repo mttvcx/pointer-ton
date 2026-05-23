@@ -1,6 +1,5 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
 import { Bell, ChevronDown, ChevronUp, Square } from 'lucide-react';
 import { useCopilotMode } from './CopilotModeContext';
 import { useCopilotBriefSlotVisibility } from './useCopilotBriefVisibility';
@@ -15,8 +14,6 @@ import { cn } from '@/lib/utils/cn';
  *   Show closes the rail first (then stays minimized until user expands).
  */
 export function CopilotTopbarSlot() {
-  const pathname = usePathname();
-  const onTokenDetail = pathname?.startsWith('/token/') ?? false;
   const { mode, setMode } = useCopilotMode();
   const setDisplayMode = useUIStore((s) => s.setCopilotDisplayMode);
   const setPanelOpen = useUIStore((s) => s.setPanelOpen);
@@ -81,21 +78,19 @@ export function CopilotTopbarSlot() {
         />
       </span>
 
-      {!onTokenDetail ? (
-        <button
-          type="button"
-          onClick={openPulseAlertsModal}
-          title="Pulse alerts"
-          aria-label="Open Pulse alerts"
-          className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
-            'bg-bg-hover/70 text-fg-muted hover:bg-bg-hover hover:text-fg-primary',
-            alertRulesModalOpen && 'bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/35',
-          )}
-        >
-          <Bell className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-        </button>
-      ) : null}
+      <button
+        type="button"
+        onClick={openPulseAlertsModal}
+        title="Pulse alerts"
+        aria-label="Open Pulse alerts"
+        className={cn(
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
+          'bg-bg-hover/70 text-fg-muted hover:bg-bg-hover hover:text-fg-primary',
+          alertRulesModalOpen && 'bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/35',
+        )}
+      >
+        <Bell className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+      </button>
 
       <button
         type="button"

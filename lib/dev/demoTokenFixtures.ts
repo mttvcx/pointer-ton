@@ -1,6 +1,8 @@
 import type { Tables } from '@/lib/supabase/types';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import type { MintTopTraderRow, TraderMintHoverStats } from '@/lib/trading/mintTopTraders';
+import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import { formatCompactUsd } from '@/lib/utils/formatters';
 
 type TradeRow = Tables<'trades'>;
 
@@ -33,6 +35,28 @@ export function demoWalletAt(i: number): string {
 
 function isoMinsAgo(m: number): string {
   return new Date(Date.now() - m * 60_000).toISOString();
+}
+
+function simpleHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(31, h) + s.charCodeAt(i);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(a: number): () => number {
+  return function rng() {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function relativeAgo(n: number, unit: 'd' | 'h' | 'm'): string {
+  const mins = unit === 'd' ? n * 24 * 60 : unit === 'h' ? n * 60 : n;
+  return isoMinsAgo(mins);
 }
 
 /** Activity tab: dense fills list for Axiom-style table typography tuning. */
@@ -188,4 +212,134 @@ export function syntheticHoldersResponse(mint: string, decimals: number): Holder
     });
   }
   return { mint, decimals, holders };
+}
+
+/** Token info grid / buy panel when extended-metrics API is quiet. */
+export function syntheticTokenExtendedMetrics(mint: string): TokenExtendedMetrics {
+  let h = 0;
+  for (let i = 0; i < mint.length; i++) {
+    h = Math.imul(31, h) + mint.charCodeAt(i);
+  }
+  const u = Math.abs(h);
+  return {
+    top10HolderPct: 14 + (u % 12),
+    devHoldingPct: 2.5 + (u % 8),
+    sniperHolderPct: 4 + (u % 6),
+    insidersPct: 1.2 + (u % 4),
+    bundlersPct: 8 + (u % 10),
+    lpBurnedPct: u % 3 === 0 ? 100 : 0,
+    holders: 420 + (u % 2400),
+    proTraders: 12 + (u % 40),
+    dexPaid: u % 5 === 0,
+    vol6hUsd: 180_000 + (u % 900) * 420,
+    buys6h: 120 + (u % 280),
+    sells6h: 80 + (u % 160),
+    buyVol6hUsd: 110_000 + (u % 400) * 220,
+    sellVol6hUsd: 70_000 + (u % 300) * 180,
+    netVol6hUsd: 40_000 + (u % 200) * 120,
+    taxPct: u % 4 === 1 ? 0.25 : u % 11 === 0 ? 1.2 : null,
+  };
+}
+
+export type SyntheticPositionRow = {
+  token: string;
+  boughtUsd: number;
+  soldUsd: number;
+  remainingUsd: number;
+  pnlUsd: number;
+};
+
+export function syntheticPositionsForMint(sym: string, mint: string): SyntheticPositionRow[] {
+  let h = 0;
+  for (let i = 0; i < mint.length; i++) {
+    h = Math.imul(31, h) + mint.charCodeAt(i);
+  }
+  const skew = Math.abs(h % 50) / 10;
+  return Array.from({ length: 8 }, (_, i) => {
+    const bought = 840 + i * 420 + skew * 40;
+    const sold = i < 3 ? bought * 0.35 : bought * 0.62;
+    const remaining = Math.max(0, bought - sold * 0.88);
+    const pnl = sold - bought * 0.52 + (i % 2 === 0 ? 120 : -80);
+    return { token: sym, boughtUsd: bought, soldUsd: sold, remainingUsd: remaining, pnlUsd: pnl };
+  });
+}
+
+export type SyntheticDevTokenRow = {
+  mint: string;
+  symbol: string;
+  name: string;
+  mcUsd: number;
+  athUsd: number;
+  liquidityUsd: number;
+  volume1hUsd: number;
+  balanceUsd: number;
+  pnlUsd: number;
+  migrated: boolean;
+  dex: string | null;
+  status: 'active' | 'mooned' | 'rugged';
+  launchedAt: string;
+};
+
+export function syntheticDevTokensForCreator(
+  creatorWallet: string,
+  currentMint: string,
+): SyntheticDevTokenRow[] {
+  const seed = simpleHash(creatorWallet);
+  const rng = mulberry32(seed);
+
+  const baseSymbols = ['PEPE2', 'RUGCAT', 'MOONX', 'DEVTEST', 'BONKJR', 'PUMPIT', 'GRAIL', 'SENDIT'];
+  const statuses: SyntheticDevTokenRow['status'][] = [
+    'active',
+    'mooned',
+    'rugged',
+    'active',
+    'mooned',
+    'active',
+    'rugged',
+    'active',
+  ];
+  const dexes: (string | null)[] = [
+    'raydium',
+    'meteora',
+    'raydium',
+    null,
+    'raydium',
+    'meteora',
+    null,
+    'raydium',
+  ];
+
+  return baseSymbols.map((symbol, i) => {
+    const mcUsd = Math.round((42 + i * 80 + rng() * 50) * 1000);
+    const athMultiplier = 1.4 + rng() * 3.2;
+    const athUsd = Math.round(mcUsd * athMultiplier);
+    const liquidityUsd = Math.round(mcUsd * (0.05 + rng() * 0.15));
+    const volume1hUsd = Math.round(mcUsd * (0.02 + rng() * 0.4));
+    const balanceUsd = Math.round(mcUsd * (0.001 + rng() * 0.15));
+    const pnlUsd = Math.round((rng() - 0.3) * mcUsd * 0.5);
+    const status = statuses[i]!;
+    const migrated = status === 'mooned' || (status === 'active' && rng() > 0.4);
+    const dex = migrated ? dexes[i] ?? null : null;
+
+    return {
+      mint: i === 0 ? currentMint : `${currentMint.slice(0, 6)}_${symbol}`,
+      symbol,
+      name: `${symbol} demo`,
+      mcUsd,
+      athUsd,
+      liquidityUsd,
+      volume1hUsd,
+      balanceUsd,
+      pnlUsd,
+      migrated,
+      dex,
+      status,
+      launchedAt: relativeAgo(2 + i, 'd'),
+    };
+  });
+}
+
+/** Format helper for positions desk demo cells. */
+export function formatDemoPositionUsd(n: number): string {
+  return formatCompactUsd(n);
 }

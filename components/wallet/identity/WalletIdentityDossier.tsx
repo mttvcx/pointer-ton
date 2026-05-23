@@ -67,7 +67,7 @@ export function WalletIdentityDossier({
             <h3 className="truncate text-[13px] font-semibold tracking-tight text-fg-primary">
               {identity.displayName}
             </h3>
-            <WalletIdentityBadges kinds={headerKinds.slice(0, 8)} max={8} />
+            <WalletIdentityBadges kinds={headerKinds.slice(0, 8)} max={8} variant="text" />
           </div>
           {identity.handle ? (
             <p className="mt-0.5 truncate text-[11px] text-signal-info/90">{identity.handle}</p>

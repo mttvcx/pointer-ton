@@ -10,15 +10,6 @@ import { cn } from '@/lib/utils/cn';
 import type { TooltipOutput } from '@/lib/ai/schemas';
 import type { EntityRef } from '@/store/ui';
 
-const COPILOT = {
-  card: 'rgba(255, 255, 255, 0.04)',
-  border: 'rgba(255, 255, 255, 0.1)',
-  elevated: 'rgba(255, 255, 255, 0.07)',
-  muted: '#9ba3b0',
-  text: '#f0f4fc',
-  accent: '#0077b6',
-} as const;
-
 const SUGGESTIONS = [
   'rug pull',
   'bonding curve',
@@ -116,12 +107,9 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
   }, [authenticated, mutation.isPending]);
 
   return (
-    <div
-      className="rounded-xl border px-3 py-2.5"
-      style={{ borderColor: COPILOT.border, backgroundColor: COPILOT.card }}
-    >
-      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: COPILOT.text }}>
-        <Sparkles className="h-3.5 w-3.5" style={{ color: COPILOT.accent }} />
+    <div className="rounded-sm border border-white/[0.08] bg-bg-raised px-3 py-2">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-fg-primary">
+        <Sparkles className="h-3 w-3 text-fg-muted" strokeWidth={2.25} />
         Ask Pointer
       </div>
 
@@ -139,48 +127,34 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
           placeholder="Ask about bonding curve, holders, risk, or entry…"
           aria-label="Ask Pointer"
           className={cn(
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/50',
-            'h-11 w-full rounded-full border pr-11 pl-4 text-[13px] placeholder:font-normal',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40',
+            'h-9 w-full rounded-sm border border-white/[0.08] bg-bg-base pr-10 pl-3 text-[12px] text-fg-primary placeholder:text-fg-muted',
             'disabled:opacity-50',
           )}
-          style={{
-            borderColor: COPILOT.border,
-            backgroundColor: COPILOT.elevated,
-            color: COPILOT.text,
-          }}
           maxLength={80}
         />
         <button
           type="submit"
           disabled={!authenticated || mutation.isPending || !term.trim()}
           aria-label="Send"
-          className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition disabled:opacity-40"
-          style={{
-            backgroundImage: `linear-gradient(135deg, ${COPILOT.accent} 0%, #5b8cff 100%)`,
-            color: '#080d14',
-          }}
+          className="btn-press absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-sm border border-white/[0.1] bg-white/[0.06] text-fg-primary transition hover:bg-white/[0.1] disabled:opacity-40"
         >
           {mutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
+            <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
           )}
         </button>
       </form>
 
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-1.5 flex flex-wrap gap-1">
         {SUGGESTIONS.map((s) => (
           <button
             key={s}
             type="button"
             disabled={!authenticated || mutation.isPending}
             onClick={() => submit(s)}
-            className="rounded-full border px-2 py-0.5 text-[10px] font-medium transition hover:border-accent-primary/40 hover:text-fg-primary disabled:opacity-50"
-            style={{
-              borderColor: COPILOT.border,
-              backgroundColor: COPILOT.elevated,
-              color: COPILOT.muted,
-            }}
+            className="btn-press rounded-sm border border-white/[0.08] bg-bg-base px-2 py-0.5 text-[10px] font-medium text-fg-muted transition hover:bg-white/[0.04] hover:text-fg-primary disabled:opacity-50"
           >
             {s}
           </button>
@@ -188,7 +162,7 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
       </div>
 
       {mutation.isError ? (
-        <div className="mt-2 flex flex-col gap-1.5 rounded border border-signal-bear/20 bg-signal-bear/10 p-2">
+        <div className="mt-2 flex flex-col gap-1.5 rounded-sm border border-signal-bear/20 bg-signal-bear/10 p-2">
           <div className="flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-signal-bear" />
             <span className="text-xs font-medium text-signal-bear">AI unavailable</span>
@@ -200,15 +174,14 @@ export function AskBox({ entity }: { entity: EntityRef | null }) {
       ) : null}
 
       {history.length > 0 ? (
-        <ul className="mt-2 space-y-1.5 border-t pt-2" style={{ borderColor: COPILOT.border }}>
+        <ul className="mt-2 space-y-1.5 border-t border-white/[0.08] pt-2">
           {history.map((entry, i) => (
             <li
               key={`${i}-${entry.modelUsed}`}
-              className="border-b pb-2 text-[11px] leading-snug last:border-b-0 last:pb-0"
-              style={{ borderColor: COPILOT.border, color: COPILOT.text }}
+              className="border-b border-white/[0.06] pb-2 text-[11px] leading-snug text-fg-primary last:border-b-0 last:pb-0"
             >
               {entry.data.text}
-              <div className="mt-1 flex gap-2 text-[9px]" style={{ color: COPILOT.muted }}>
+              <div className="mt-1 flex gap-2 text-[9px] text-fg-muted">
                 <span>{entry.cacheHit ? 'cached' : 'fresh'}</span>
                 <span className="tabular-nums">{entry.modelUsed.split('-').slice(0, 2).join('-')}</span>
               </div>

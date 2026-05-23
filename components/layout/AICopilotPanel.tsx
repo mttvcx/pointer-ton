@@ -43,48 +43,6 @@ const FLOAT_CORNER = 12;
 const MIN_FLOAT_H = 200;
 const COPILOT_DOCK_ZONE_PX = 88;
 
-/**
- * Panel chrome — all values are CSS-variable strings so the side co-pilot
- * panel recolors automatically when the user switches between Pointer, Axiom,
- * and Terminal themes. Previously this was a hardcoded blueish glass palette
- * (`#0077b6` accent / `#7f8aa3` muted / fixed rgba bg). With these `rgb(var(...))`
- * strings, the panel now reads from the same `--bg-raised-rgb` / `--border-subtle-rgb`
- * / `--accent-primary-rgb` / `--fg-*-rgb` triplets defined in `app/globals.css`
- * under each `:root[data-theme=...]` block.
- */
-const COPILOT_CHROME = {
-  /** Glass panels — translucent so backdrop blur reads through */
-  card: 'rgb(var(--bg-raised-rgb) / 0.55)',
-  border: 'rgb(var(--border-subtle-rgb) / 1)',
-  muted: 'rgb(var(--fg-muted-rgb) / 1)',
-  text: 'rgb(var(--fg-primary-rgb) / 1)',
-  accent: 'rgb(var(--accent-primary-rgb) / 1)',
-  cyan: 'rgb(var(--accent-glow-rgb) / 1)',
-  bg: 'rgb(var(--bg-base-rgb) / 0.48)',
-  success: 'rgb(var(--signal-bull-rgb) / 1)',
-  glass:
-    'linear-gradient(180deg, rgb(var(--bg-raised-rgb) / 0.55) 0%, rgb(var(--bg-base-rgb) / 0.48) 55%, rgb(var(--bg-sunken-rgb) / 0.5) 100%)',
-} as const;
-
-/**
- * Theme-aware alpha helpers — produce `rgb(var(--token-rgb) / α)` strings.
- * Replaces the previous `${HEX}AA` string-concat trick which only worked
- * because the constants were 6-char hex literals. With CSS-var-backed values
- * we cannot just append hex alpha digits; use these to compose translucent
- * fills, borders, and shadows.
- */
-function withAlpha(token: 'accent' | 'cyan' | 'border' | 'fg', alpha: number): string {
-  const v =
-    token === 'accent'
-      ? 'var(--accent-primary-rgb)'
-      : token === 'cyan'
-        ? 'var(--accent-glow-rgb)'
-        : token === 'border'
-          ? 'var(--border-subtle-rgb)'
-          : 'var(--fg-primary-rgb)';
-  return `rgb(${v} / ${alpha})`;
-}
-
 type FloatEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 function bottomBarPx(): number {
@@ -617,65 +575,34 @@ export function AICopilotPanel() {
 
       <div
         className={cn(
-          'relative z-10 flex shrink-0 items-center justify-between border-b px-2.5 py-2 backdrop-blur-md',
+          'relative z-10 flex shrink-0 items-center justify-between border-b border-border-subtle bg-bg-base px-2.5 py-1.5',
           detached && !narrow && 'copilot-drag-handle cursor-grab touch-none active:cursor-grabbing',
         )}
-        style={{
-          borderColor: COPILOT_CHROME.border,
-          background: COPILOT_CHROME.glass,
-        }}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <span
-            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
-            style={{
-              borderColor: withAlpha('accent', 0.33),
-              boxShadow: `0 0 16px -4px ${withAlpha('accent', 0.4)}`,
-              backgroundColor: 'rgb(var(--bg-sunken-rgb) / 0.65)',
-            }}
-          >
-            <Sparkles className="h-4 w-4" style={{ color: COPILOT_CHROME.cyan }} strokeWidth={2.25} />
+          <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-white/[0.08] bg-bg-sunken text-fg-muted">
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} />
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-semibold leading-tight" style={{ color: COPILOT_CHROME.text }}>
+            <div className="truncate text-[12px] font-semibold leading-tight text-fg-primary">
               Pointer Co-Pilot
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
               <span
-                className="inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium tabular-nums"
-                style={{
-                  borderColor:
-                    copilotStatus === 'armed'
-                      ? withAlpha('cyan', 0.33)
-                      : copilotStatus === 'watching'
-                        ? withAlpha('accent', 0.27)
-                        : COPILOT_CHROME.border,
-                  color:
-                    copilotStatus === 'armed'
-                      ? COPILOT_CHROME.cyan
-                      : copilotStatus === 'watching'
-                        ? COPILOT_CHROME.accent
-                        : COPILOT_CHROME.muted,
-                  backgroundColor:
-                    copilotStatus === 'idle'
-                      ? 'rgb(var(--bg-sunken-rgb) / 0.55)'
-                      : copilotStatus === 'watching'
-                        ? withAlpha('accent', 0.07)
-                        : withAlpha('cyan', 0.06),
-                  boxShadow:
-                    copilotStatus === 'armed'
-                      ? `0 0 12px -2px ${withAlpha('cyan', 0.33)}`
-                      : copilotStatus === 'watching'
-                        ? `0 0 10px -2px ${withAlpha('accent', 0.25)}`
-                        : 'none',
-                }}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-sm border px-1.5 py-px text-[10px] font-medium tabular-nums',
+                  copilotStatus === 'idle' && 'border-border-subtle bg-bg-sunken text-fg-muted',
+                  copilotStatus === 'watching' && 'border-accent-primary/30 bg-accent-primary/5 text-accent-primary',
+                  copilotStatus === 'armed' && 'border-signal-bull/30 bg-signal-bull/5 text-signal-bull',
+                )}
               >
                 <span
-                  className="h-1 w-1 rounded-full"
-                  style={{
-                    backgroundColor:
-                      copilotStatus === 'idle' ? COPILOT_CHROME.muted : copilotStatus === 'watching' ? COPILOT_CHROME.accent : COPILOT_CHROME.success,
-                  }}
+                  className={cn(
+                    'h-1 w-1 rounded-full',
+                    copilotStatus === 'idle' && 'bg-fg-muted',
+                    copilotStatus === 'watching' && 'bg-accent-primary',
+                    copilotStatus === 'armed' && 'bg-signal-bull',
+                  )}
                   aria-hidden
                 />
                 {copilotStatus === 'idle'
@@ -688,7 +615,7 @@ export function AICopilotPanel() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
-          <span className="mr-0.5 hidden items-center rounded-md border p-0.5 sm:inline-flex" style={{ borderColor: COPILOT_CHROME.border }}>
+          <span className="mr-0.5 hidden items-center rounded-sm border border-border-subtle p-0.5 sm:inline-flex">
             <button
               type="button"
               aria-label="Co-pilot as right panel"
@@ -697,11 +624,12 @@ export function AICopilotPanel() {
                 e.stopPropagation();
                 setDisplayMode('panel');
               }}
-              className="focus-ring rounded px-1.5 py-1"
-              style={{
-                color: displayMode === 'panel' ? COPILOT_CHROME.cyan : COPILOT_CHROME.muted,
-                backgroundColor: displayMode === 'panel' ? withAlpha('accent', 0.13) : 'transparent',
-              }}
+              className={cn(
+                'focus-ring rounded-sm px-1.5 py-1',
+                displayMode === 'panel'
+                  ? 'bg-white/[0.06] text-fg-primary'
+                  : 'text-fg-muted hover:text-fg-secondary',
+              )}
             >
               <PanelRight className="h-3.5 w-3.5" strokeWidth={2.25} />
             </button>
@@ -713,11 +641,12 @@ export function AICopilotPanel() {
                 e.stopPropagation();
                 setDisplayMode('pill');
               }}
-              className="focus-ring rounded px-1.5 py-1"
-              style={{
-                color: displayMode === 'pill' ? COPILOT_CHROME.cyan : COPILOT_CHROME.muted,
-                backgroundColor: displayMode === 'pill' ? withAlpha('accent', 0.13) : 'transparent',
-              }}
+              className={cn(
+                'focus-ring rounded-sm px-1.5 py-1',
+                displayMode === 'pill'
+                  ? 'bg-white/[0.06] text-fg-primary'
+                  : 'text-fg-muted hover:text-fg-secondary',
+              )}
             >
               <Pill className="h-3.5 w-3.5" strokeWidth={2.25} />
             </button>
@@ -731,8 +660,7 @@ export function AICopilotPanel() {
               setCopilotMode('embedded');
               setOpen(false);
             }}
-            className="focus-ring rounded-md p-1.5"
-            style={{ color: COPILOT_CHROME.muted }}
+            className="focus-ring rounded-sm p-1.5 text-fg-muted hover:text-fg-secondary"
           >
             <ArrowUpToLine className="h-3.5 w-3.5" strokeWidth={2.25} />
           </button>
@@ -745,8 +673,7 @@ export function AICopilotPanel() {
                 e.stopPropagation();
                 setCollapsed(true);
               }}
-              className="focus-ring rounded-md p-1.5"
-              style={{ color: COPILOT_CHROME.muted }}
+              className="focus-ring rounded-sm p-1.5 text-fg-muted hover:text-fg-secondary"
             >
               <ChevronsRight className="h-3.5 w-3.5" strokeWidth={2.25} />
             </button>
@@ -759,8 +686,7 @@ export function AICopilotPanel() {
               e.stopPropagation();
               setDetached(!detached);
             }}
-            className="focus-ring rounded-md p-1.5"
-            style={{ color: COPILOT_CHROME.muted }}
+            className="focus-ring rounded-sm p-1.5 text-fg-muted hover:text-fg-secondary"
           >
             <Settings2 className="h-3.5 w-3.5" strokeWidth={2.25} />
           </button>
@@ -773,8 +699,7 @@ export function AICopilotPanel() {
               setCopilotMode('minimized');
               setOpen(false);
             }}
-            className="focus-ring rounded-md p-1.5"
-            style={{ color: COPILOT_CHROME.muted }}
+            className="focus-ring rounded-sm p-1.5 text-fg-muted hover:text-fg-secondary"
           >
             <X className="h-3.5 w-3.5" strokeWidth={2.25} />
           </button>
@@ -788,7 +713,7 @@ export function AICopilotPanel() {
           paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
         }}
       >
-        <div className="flex flex-col gap-3 pb-2">
+        <div className="flex flex-col gap-2 pb-2">
           <ContextCard entity={entity} />
           <AskBox entity={entity} />
           {alertRulesDocked ? null : alertRulesPopped ? (
@@ -800,33 +725,16 @@ export function AICopilotPanel() {
         </div>
       </div>
 
-      <div
-        className="flex shrink-0 items-center gap-3 border-t px-2.5 py-2 text-[10px] backdrop-blur-md"
-        style={{
-          borderColor: COPILOT_CHROME.border,
-          backgroundColor: 'rgba(17, 20, 27, 0.45)',
-          color: COPILOT_CHROME.muted,
-        }}
-      >
-        <span
-          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold tabular-nums"
-          style={{
-            border: `1px solid rgba(40,224,160,0.35)`,
-            background: 'rgba(40,224,160,0.08)',
-            color: COPILOT_CHROME.success,
-          }}
-        >
+      <div className="flex shrink-0 items-center gap-3 border-t border-border-subtle bg-bg-base px-2.5 py-1.5 text-[10px] text-fg-muted">
+        <span className="inline-flex items-center gap-1 rounded-sm border border-signal-bull/30 bg-signal-bull/5 px-2 py-0.5 font-semibold tabular-nums text-signal-bull">
           <span className="relative flex h-1.5 w-1.5">
-            <span
-              className="absolute inset-0 animate-ping rounded-full opacity-35"
-              style={{ backgroundColor: COPILOT_CHROME.success }}
-            />
-            <span className="relative h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COPILOT_CHROME.success }} />
+            <span className="absolute inset-0 animate-ping rounded-full bg-signal-bull opacity-35" />
+            <span className="relative h-1.5 w-1.5 rounded-full bg-signal-bull" />
           </span>
           Stable
         </span>
         <span className="font-medium tabular-nums">US-E</span>
-        <div className="ml-auto flex items-center gap-0.5" style={{ color: COPILOT_CHROME.muted }}>
+        <div className="ml-auto flex items-center gap-0.5 text-fg-muted">
           <span className="rounded p-1 opacity-70" title="Network">
             <Globe className="h-3 w-3" strokeWidth={2} />
           </span>
@@ -847,7 +755,7 @@ export function AICopilotPanel() {
           <aside
             ref={floatAsideRef}
             data-onboarding="copilot"
-            className="relative flex min-h-0 flex-col overflow-hidden rounded-xl shadow-[0_24px_56px_-18px_rgba(0,0,0,0.55)] backdrop-blur-2xl backdrop-saturate-150"
+            className="relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-base shadow-[0_16px_40px_-16px_rgba(0,0,0,0.65)]"
             style={{
               position: 'fixed',
               zIndex: 260,
@@ -861,11 +769,6 @@ export function AICopilotPanel() {
                 copilotFloatHeight != null
                   ? undefined
                   : `calc(100dvh - var(--app-topbar-h) - var(--app-bottombar-h))`,
-              borderWidth: 1,
-              borderStyle: 'solid',
-              borderColor: COPILOT_CHROME.border,
-              background: COPILOT_CHROME.glass,
-              boxShadow: '0 28px 56px -16px rgba(0,0,0,0.5)',
             }}
             aria-label="AI co-pilot floating"
             onPointerDown={onFloatShellPointerDown}
@@ -904,8 +807,8 @@ export function AICopilotPanel() {
       <aside
         data-onboarding="copilot"
         className={cn(
-          'relative flex h-full min-h-0 flex-col border-white/[0.07] bg-[rgba(8,13,20,0.48)] backdrop-blur-xl backdrop-saturate-150',
-          copilotRailSide === 'left' ? 'border-r' : 'border-l',
+          'relative flex h-full min-h-0 flex-col bg-bg-base',
+          copilotRailSide === 'left' ? 'border-r border-border-subtle' : 'border-l border-border-subtle',
           narrow
             ? cn(
                 open

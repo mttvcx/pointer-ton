@@ -15,4 +15,6 @@ export interface TokenExtendedMetrics {
   buyVol6hUsd: number | null;
   sellVol6hUsd: number | null;
   netVol6hUsd: number | null;
+  /** Transfer / trade tax % when known (buy+sell combined or total fee). */
+  taxPct: number | null;
 }

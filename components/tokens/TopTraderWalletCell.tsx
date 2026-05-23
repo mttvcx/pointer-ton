@@ -13,14 +13,21 @@ export function TopTraderWalletCell({
   topTraderRow,
   rank,
   creatorWallet,
+  isDev,
+  isSniper,
+  onFilterMintTrades,
+  tradesFilterActive,
 }: {
   mint: string;
   wallet: string;
   sym: string;
-  /** When provided, dossier + filters use authoritative row stats for this mint. */
   topTraderRow?: MintTopTraderRow | null;
   rank?: number | null;
   creatorWallet?: string | null;
+  isDev?: boolean;
+  isSniper?: boolean;
+  onFilterMintTrades?: (address: string) => void;
+  tradesFilterActive?: boolean;
 }) {
   return (
     <WalletIdentityAnchor
@@ -33,7 +40,12 @@ export function TopTraderWalletCell({
       topTraderRow={topTraderRow ?? null}
       rank={rank ?? null}
       creatorWallet={creatorWallet ?? null}
-      className="text-xs text-fg-secondary hover:text-accent-primary"
+      isDev={isDev}
+      isSniper={isSniper}
+      showInlineBadges
+      onFilterMintTrades={onFilterMintTrades}
+      tradesFilterActive={tradesFilterActive}
+      className="text-[12px] text-fg-secondary hover:text-accent-primary"
     />
   );
 }

@@ -8,7 +8,6 @@ import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { formatDuration, formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import { syntheticCreatorDev } from '@/lib/dev/demoTokenFixtures';
-import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 
 export function DevSection({
   creatorWallet,
@@ -21,12 +20,11 @@ export function DevSection({
   mint?: string;
   tokenSymbol?: string | null;
 }) {
-  const uiDemo = useUiDemoMode();
   const effectiveDev = useMemo(() => {
     if (dev) return dev;
-    if (uiDemo && creatorWallet) return syntheticCreatorDev(creatorWallet);
+    if (creatorWallet) return syntheticCreatorDev(creatorWallet);
     return null;
-  }, [creatorWallet, dev, uiDemo]);
+  }, [creatorWallet, dev]);
 
   if (!creatorWallet) {
     return (

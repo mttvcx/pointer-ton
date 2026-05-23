@@ -1,13 +1,15 @@
 'use client';
 
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
+import { walletIntelBadgeDisplay } from '@/lib/walletIdentity/walletIntelBadgeDisplay';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils/cn';
 
-/**
- * Trojan-style table badges:
- *   h-4, text-[10px], px-1.5 py-0, no border, ~10% accent-tinted bg, uppercase + tracking-wide.
- * They are designed to sit inline next to a wallet address — never on their own visual line.
- */
 const BADGE_STYLES: Record<WalletIntelBadgeKind, string> = {
   kol: 'bg-signal-info/15 text-signal-info',
   smart_money: 'bg-signal-bull/15 text-signal-bull',
@@ -22,61 +24,63 @@ const BADGE_STYLES: Record<WalletIntelBadgeKind, string> = {
   sniper: 'bg-signal-bear/15 text-signal-bear',
 };
 
-function badgeLabel(k: WalletIntelBadgeKind): string {
-  switch (k) {
-    case 'kol':
-      return 'KOL';
-    case 'smart_money':
-      return 'SMART';
-    case 'high_win_rate':
-      return 'WIN%';
-    case 'top_trader':
-      return 'TOP';
-    case 'tracked':
-      return 'TRACKED';
-    case 'renamed':
-      return 'RENAMED';
-    case 'insider':
-      return 'INSIDER';
-    case 'dev':
-      return 'DEV';
-    case 'fresh':
-      return 'FRESH';
-    case 'whale':
-      return 'WHALE';
-    case 'sniper':
-      return 'SNIPER';
-    default:
-      return String(k).toUpperCase();
-  }
-}
-
 export function WalletIdentityBadges({
   kinds,
   className,
   max = 3,
+  variant = 'icon',
 }: {
   kinds: WalletIntelBadgeKind[];
   className?: string;
   /** Cap inline noise on table rows. */
   max?: number;
+  /** Desk rows: symbolic icons; dossier header: text chips. */
+  variant?: 'icon' | 'text';
 }) {
   const show = kinds.slice(0, max);
   if (show.length === 0) return null;
+
+  if (variant === 'text') {
+    return (
+      <span className={cn('inline-flex flex-wrap items-center gap-1', className)}>
+        {show.map((k) => {
+          const { textLabel } = walletIntelBadgeDisplay(k);
+          return (
+            <span
+              key={k}
+              className={cn(
+                'inline-flex items-center rounded px-1 py-px text-[9px] font-normal uppercase leading-none tracking-wide',
+                BADGE_STYLES[k],
+              )}
+              title={walletIntelBadgeDisplay(k).tooltip}
+            >
+              {textLabel}
+            </span>
+          );
+        })}
+      </span>
+    );
+  }
+
   return (
-    <span className={cn('inline-flex flex-wrap items-center gap-1', className)}>
-      {show.map((k) => (
-        <span
-          key={k}
-          className={cn(
-            'inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium uppercase leading-none tracking-wide',
-            BADGE_STYLES[k],
-          )}
-          title={badgeLabel(k)}
-        >
-          {badgeLabel(k)}
-        </span>
-      ))}
-    </span>
+    <TooltipProvider delayDuration={200}>
+      <span className={cn('inline-flex shrink-0 items-center gap-0.5 overflow-hidden', className)}>
+        {show.map((k) => {
+          const { Icon, iconClass, tooltip } = walletIntelBadgeDisplay(k);
+          return (
+            <Tooltip key={k}>
+              <TooltipTrigger asChild>
+                <span className="inline-flex shrink-0 items-center justify-center">
+                  <Icon className={cn('h-3 w-3 shrink-0', iconClass)} strokeWidth={2.25} aria-hidden />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-[10px]">
+                {tooltip}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </span>
+    </TooltipProvider>
   );
 }
