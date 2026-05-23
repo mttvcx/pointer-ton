@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "__nextDev": "node --use-system-ca node_modules/next/dist/bin/next",
-    "dev": "npm run __nextDev -- dev --port 3001 --webpack",
-    "dev:turbo": "npm run __nextDev -- dev --port 3001",
+    "dev": "npm run __nextDev -- dev --port 3001",
+    "dev:webpack": "npm run __nextDev -- dev --port 3001 --webpack",
     "dev:prod": "npm run build && npm run __nextDev -- start --port 3001",
-    "dev:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-dev.ps1",
+    "dev:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-reset.ps1",
     "dev:3000": "npm run __nextDev -- dev --port 3000",
     "dev:lan": "npm run __nextDev -- dev --hostname 0.0.0.0 --port 3001",
     "build": "next build",
