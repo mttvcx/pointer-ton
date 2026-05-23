@@ -93,7 +93,7 @@ export function getAxiomSpriteMetrics(bundle: PulseTokenBundle): AxiomSpriteMetr
 }
 
 export function formatAxiomPctCell(n: number | null): string {
-  if (n == null || !Number.isFinite(n)) return '0%';
+  if (n == null || !Number.isFinite(n)) return '—';
   return `${Math.round(Math.min(100, Math.max(0, n)))}%`;
 }
 

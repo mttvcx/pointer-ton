@@ -10,11 +10,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useConnectWallet } from '@privy-io/react-auth';
 import { TonConnectUIProvider, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
+import { useUIStore } from '@/store/ui';
 
 function fallbackTonConnectManifestUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -84,6 +85,7 @@ function decodeJwtWallet(token: string): string | null {
 
 function InnerAuth({ children }: { children: ReactNode }) {
   const privy = usePrivy();
+  const { connectWallet } = useConnectWallet();
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
   const queryClient = useQueryClient();
@@ -92,6 +94,8 @@ function InnerAuth({ children }: { children: ReactNode }) {
   const payloadTokenRef = useRef<string | null>(null);
   const syncingRef = useRef(false);
 
+  const [privyReadyTimedOut, setPrivyReadyTimedOut] = useState(false);
+
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
       setSessionToken(readSession());
@@ -99,6 +103,15 @@ function InnerAuth({ children }: { children: ReactNode }) {
     });
     return () => cancelAnimationFrame(raf);
   }, []);
+
+  useEffect(() => {
+    if (privy.ready) {
+      setPrivyReadyTimedOut(false);
+      return;
+    }
+    const t = setTimeout(() => setPrivyReadyTimedOut(true), 20_000);
+    return () => clearTimeout(t);
+  }, [privy.ready]);
 
   useEffect(() => {
     const id0 =
@@ -176,11 +189,37 @@ function InnerAuth({ children }: { children: ReactNode }) {
   }, [sessionToken, wallet]);
 
   const authenticated =
-    (privy.ready && privy.authenticated) || Boolean(localReady && pointerSessionValid);
+    (privy.authenticated && (privy.ready || privyReadyTimedOut)) ||
+    Boolean(localReady && pointerSessionValid);
 
   const login = useCallback(async () => {
+    if (!privy.ready) {
+      if (!privyReadyTimedOut) {
+        toast.message('Loading sign-in…', { description: 'One moment, then try again.' });
+        return;
+      }
+      toast.error('Sign-in provider blocked', {
+        description:
+          'Allow auth.privy.io in your ad blocker, then refresh. In dashboard.privy.io add http://127.0.0.1:3001 and http://localhost:3001 as allowed origins.',
+      });
+      return;
+    }
     if (!privy.authenticated) {
-      privy.login();
+      try {
+        const chain = useUIStore.getState().activeChain;
+        if (chain === 'sol' || chain === 'bnb' || chain === 'base') {
+          await connectWallet();
+          return;
+        }
+        await privy.login();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Could not open sign-in';
+        toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
+      }
+      return;
+    }
+    const chain = useUIStore.getState().activeChain;
+    if (chain !== 'ton') {
       return;
     }
     const existing = readSession();
@@ -188,7 +227,15 @@ function InnerAuth({ children }: { children: ReactNode }) {
       await tonConnectUI.disconnect();
     }
     tonConnectUI.openModal();
-  }, [privy.authenticated, privy.login, tonConnectUI, wallet]);
+  }, [
+    privy.ready,
+    privyReadyTimedOut,
+    privy.authenticated,
+    privy.login,
+    connectWallet,
+    tonConnectUI,
+    wallet,
+  ]);
 
   const logout = useCallback(async () => {
     writeSession(null);
@@ -228,7 +275,8 @@ function InnerAuth({ children }: { children: ReactNode }) {
     return null;
   }, [privy.authenticated, privy.user, wallet?.account?.address, pointerSessionValid]);
 
-  const ready = privy.ready && localReady;
+  /** Shell paints after hydration — never block Topbar/BottomBar on Privy SDK load. */
+  const ready = localReady;
 
   const value = useMemo(
     () => ({

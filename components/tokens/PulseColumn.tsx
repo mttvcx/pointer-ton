@@ -1,11 +1,11 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -38,6 +38,7 @@ import {
 } from '@/lib/tokens/columnPresetModel';
 import { PULSE_COLUMN_ACCENT_DOT, type PulseColumnId } from '@/lib/utils/constants';
 import { syntheticPulseFeedItems } from '@/lib/dev/demoPulseBundles';
+import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
@@ -83,11 +84,7 @@ export function PulseColumn({
   column: PulseColumnId;
   initialShare?: ColumnPresetSharePayload | null;
 }) {
-  return (
-    <Suspense fallback={<PulseColumnSkeleton column={column} />}>
-      <PulseColumnBody column={column} initialShare={initialShare} />
-    </Suspense>
-  );
+  return <PulseColumnBody column={column} initialShare={initialShare} />;
 }
 
 function PulseColumnBody({
@@ -144,7 +141,12 @@ function PulseColumnBody({
     staleTime: 30_000,
   });
 
-  const query = useSuspenseQuery({
+  const pulsePollingPaused = process.env.NEXT_PUBLIC_POINTER_PAUSE_POLLING === '1';
+  const pulseRefetchMs = pulsePollingPaused
+    ? false
+    : Number(process.env.NEXT_PUBLIC_PULSE_REFETCH_MS ?? 15_000);
+
+  const query = useQuery({
     queryKey: ['pulse', column, activeChain],
     queryFn: async (): Promise<{ items: PulseTokenBundle[]; fetchError: string | null }> => {
       try {
@@ -156,21 +158,21 @@ function PulseColumnBody({
       }
     },
     staleTime: 1_000,
-    refetchInterval: 2_000,
+    refetchInterval: pulseRefetchMs,
     retry: 2,
   });
 
   const quoteSymbol = isUsdcQuickBuy ? 'USDC' : nativeTicker(activeChain);
 
   const feedItems = useMemo(() => {
-    const raw = query.data.items ?? [];
+    const raw = dedupePulseBundlesByMint(query.data?.items ?? []);
     /** Real indexer rows always win — demo deck only when API is empty and demo mode is on. */
     if (raw.length > 0) return raw;
-    if (uiDemo && (query.data.fetchError || raw.length === 0)) {
+    if (uiDemo && (query.data?.fetchError || raw.length === 0)) {
       return syntheticPulseFeedItems(column, activeChain);
     }
     return raw;
-  }, [column, query.data.items, query.data.fetchError, uiDemo, activeChain]);
+  }, [column, query.data?.items, query.data?.fetchError, uiDemo, activeChain]);
 
   const flashTrackPulseMint = useUIStore((s) => s.flashTrackPulseMint);
 
@@ -229,7 +231,7 @@ function PulseColumnBody({
     listMountRef.current?.scrollTo({ top: 0 });
   }, [activeChain]);
 
-  const fetchError = query.data.fetchError;
+  const fetchError = query.data?.fetchError ?? null;
 
   const { buyToken, sellTokenPct, busyMint } = usePulseQuickBuy();
 
@@ -393,7 +395,7 @@ function PulseColumnBody({
     /** Demo decks reuse mints across rows — index keeps keys unique for React + the virtualizer. */
     getItemKey: (index) => {
       const row = visibleRows[index];
-      return row ? `${activeChain}:${index}:${row.token.mint}` : `${activeChain}:${index}`;
+      return row ? `${activeChain}:${row.token.mint}` : `${activeChain}:empty:${index}`;
     },
   });
   /* eslint-enable react-hooks/incompatible-library */
@@ -422,6 +424,10 @@ function PulseColumnBody({
   const dotClass = PULSE_COLUMN_ACCENT_DOT[column];
   const title = COLUMN_LABEL[column];
   const effectiveBuyStyle = displayForRow.buyButtonStyle;
+
+  if (query.isPending && query.data === undefined) {
+    return <PulseColumnSkeleton column={column} />;
+  }
 
   return (
     <section
@@ -632,7 +638,7 @@ function PulseColumnBody({
             {rowVirtualizer.getVirtualItems().map((vi) => {
               const bundle = visibleRows[vi.index];
               if (!bundle) return null;
-              const rowKey = `${activeChain}:${vi.index}:${bundle.token.mint}`;
+              const rowKey = `${activeChain}:${bundle.token.mint}`;
               return (
                 <div
                   key={rowKey}

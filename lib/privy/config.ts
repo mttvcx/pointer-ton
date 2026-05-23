@@ -3,9 +3,9 @@ import 'server-only';
 import { PrivyClient } from '@privy-io/node';
 import { verifyPointerAccessToken } from '@/lib/auth/pointerSession';
 import { getUserByPrivyId } from '@/lib/db/users';
-import { PRIVY_APP_ID } from '@/lib/privy/publicConfig';
+import { PRIVY_APP_ID } from '@/lib/privy/appId';
 
-export { PRIVY_APP_ID } from '@/lib/privy/publicConfig';
+export { PRIVY_APP_ID } from '@/lib/privy/appId';
 
 function requireServerPrivyEnv() {
   const appId = PRIVY_APP_ID;

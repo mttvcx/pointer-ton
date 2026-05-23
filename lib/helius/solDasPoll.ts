@@ -31,6 +31,7 @@ export async function heliusDasRpc<T>(method: string, params: unknown): Promise<
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 'pointer-das', method, params }),
+      signal: AbortSignal.timeout(8_000),
     });
     const json = (await res.json()) as DasResult<T>;
     if (json.error?.message) {

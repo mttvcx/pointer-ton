@@ -34,6 +34,8 @@ import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
 import { launchpadEventFromDasAsset } from '@/lib/helius/parsers';
 import { heliusDasRpc, pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
 import { enrichPulseBundlesWithDexScreener } from '@/lib/market/dexscreenerPulse';
+import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
+import { withTimeout } from '@/lib/utils/withTimeout';
 import { PublicKey } from '@solana/web3.js';
 import type { Asset } from 'helius-sdk/types/das';
 import { getHeliusRpcUrl } from '@/lib/utils/constants';
@@ -281,21 +283,7 @@ export async function getPulseFeed(
     }
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
-    try {
-      if (chain === 'sol') {
-        const inserted = await pollSolanaPulseFromDas();
-        debugTon('getPulseFeed: Sol DAS poll inserted', { inserted });
-      } else if (chain === 'bnb') {
-        const inserted = await pollGeckoNewPools('bsc');
-        debugTon('getPulseFeed: Gecko BSC poll inserted', { inserted });
-      } else if (chain === 'base') {
-        const inserted = await pollGeckoNewPools('base');
-        debugTon('getPulseFeed: Gecko Base poll inserted', { inserted });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[pointer][pulse] chain poll failed (${chain}):`, msg);
-    }
+    // DAS / Gecko backfill runs on cron — not on every 2s Pulse refetch (was blocking 20s+).
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
     if (tokens.length < MIN_ROWS_BEFORE_POLL) {
       tokens = await widenChainBackfill(column, chain);
@@ -313,7 +301,16 @@ export async function getPulseFeed(
 
   tokens = await hydratePulseTokenRows(tokens);
   const bundles = await bundlePulseTokens(tokens);
-  return enrichPulseBundlesWithDexScreener(bundles, chain);
+  const deduped = dedupePulseBundlesByMint(bundles);
+  try {
+    return await withTimeout(
+      enrichPulseBundlesWithDexScreener(deduped, chain),
+      6_000,
+      'pulse_dex_enrich',
+    );
+  } catch {
+    return deduped;
+  }
 }
 
 /**
@@ -407,11 +404,15 @@ async function hydratePulseTokenRows(tokens: TokenRow[]): Promise<TokenRow[]> {
   if (stale.length === 0) return tokens;
 
   const refreshed = new Map<string, TokenRow>();
-  const batch = stale.slice(0, 18);
+  const batch = stale.slice(0, 4);
   await Promise.all(
     batch.map(async (t) => {
       try {
-        const row = await ensureTokenRowForMint(t.mint);
+        const row = await withTimeout(
+          ensureTokenRowForMint(t.mint),
+          4_000,
+          'pulse_hydrate_mint',
+        );
         if (row) refreshed.set(row.mint, row);
       } catch {
         /* best-effort metadata hydrate */

@@ -45,7 +45,8 @@ function writeSyncedUserId(userId: string | null) {
 
 function isRetryableSyncError(status: number, message: string): boolean {
   if (status === 401 || status === 403 || status === 429) return true;
-  return /token|auth|verify|expired|sync|too many|rate.?limit/i.test(message);
+  if (status >= 500) return false;
+  return /token|auth|verify|expired|too many|rate.?limit/i.test(message);
 }
 
 function retryDelayMs(status: number, message: string, attempt: number): number {
@@ -87,7 +88,7 @@ async function postPrivySync(
   getAccessToken: () => Promise<string | null>,
   body: { walletAddress: string | null; email: string | null; username: string | null },
 ): Promise<SyncedUser> {
-  const maxAttempts = 5;
+  const maxAttempts = 3;
   let lastError = 'sync failed';
   let lastStatus = 0;
 

@@ -326,7 +326,6 @@ export function PortfolioDashboard({
 
   const portfolioEnabled =
     authenticated &&
-    backendReady &&
     walletsReady &&
     activeChain === 'sol' &&
     (selectedPortfolioWalletId === 'all' ||
@@ -339,7 +338,7 @@ export function PortfolioDashboard({
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const base = '/api/portfolio?tradesLimit=80&fifoLimit=3000';
+      const base = '/api/portfolio?tradesLimit=80&fifoLimit=400';
       const url = selectedWalletAddress
         ? `${base}&wallet=${encodeURIComponent(selectedWalletAddress)}`
         : base;
@@ -549,8 +548,8 @@ export function PortfolioDashboard({
   }
 
   const portfolioShowsLoadingSpinner =
-    (authenticated && authSyncing && !backendReady) ||
-    (portfolioEnabled && query.isPending && query.fetchStatus === 'fetching');
+    (authenticated && authSyncing && !backendReady && !authSyncError) ||
+    (portfolioEnabled && query.isPending && query.fetchStatus === 'fetching' && !query.data);
   if (portfolioShowsLoadingSpinner) {
     return (
       <div className={cn('flex h-full min-h-[320px] items-center justify-center', className)}>

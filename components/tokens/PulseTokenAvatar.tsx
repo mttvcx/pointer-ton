@@ -268,7 +268,9 @@ export function PulseTokenAvatar({
   const arcStroke = useBrandGradient && showArc ? `url(#${gradientId})` : arcColor ?? undefined;
   const showTrack = showRing && (useLaunchpadProgress || useGenericProgress);
   const trackColor = 'rgba(51, 65, 85, 0.32)';
-  const offset = pct >= 100 ? 0 : pathLen * (1 - pct / 100);
+  const fullRing = displayMigrated || pct >= 99.95;
+  const arcLen = fullRing ? pathLen + STROKE * 2 : pathLen * (pct / 100);
+  const offset = 0;
 
   useLayoutEffect(() => {
     if (!showTrack) return;
@@ -365,8 +367,8 @@ export function PulseTokenAvatar({
               stroke={arcStroke}
               strokeWidth={STROKE}
               strokeLinejoin="round"
-              strokeLinecap="butt"
-              strokeDasharray={`${pathLen} ${pathLen}`}
+              strokeLinecap="round"
+              strokeDasharray={`${arcLen} ${pathLen + STROKE * 2}`}
               strokeDashoffset={offset}
               style={{
                 transition: 'stroke-dashoffset 0.35s ease, stroke 0.2s ease',

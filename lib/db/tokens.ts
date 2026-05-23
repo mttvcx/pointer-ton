@@ -6,6 +6,7 @@ import { createAdminSupabase } from '@/lib/supabase/server';
 import { withSupabaseRetry } from '@/lib/db/supabaseRetry';
 import { PULSE_THRESHOLDS, type PulseColumnId, type MigrationDestination } from '@/lib/utils/constants';
 import { PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
+import { dedupeTokenRowsByMint } from '@/lib/tokens/dedupePulseTokens';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 
@@ -247,10 +248,11 @@ export async function listPulseFeedTokens(
   if (column === 'new') {
     const since = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
     const recent = await listRecentTokens(PULSE_FEED_SCAN_DEPTH);
-    return recent
-      .filter((t) => t.created_at >= since && mintMatchesAppChain(t.mint, chain))
-      .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .slice(0, limit);
+    return dedupeTokenRowsByMint(
+      recent
+        .filter((t) => t.created_at >= since && mintMatchesAppChain(t.mint, chain))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    ).slice(0, limit);
   }
 
   if (column === 'migrated') {
@@ -262,7 +264,9 @@ export async function listPulseFeedTokens(
         .order('migrated_at', { ascending: false })
         .limit(1200);
       if (error) throw new Error(`listPulseFeedTokens(migrated) failed: ${error.message}`);
-      return (data ?? []).filter((t) => mintMatchesAppChain(t.mint, chain)).slice(0, limit);
+      return dedupeTokenRowsByMint(
+        (data ?? []).filter((t) => mintMatchesAppChain(t.mint, chain)),
+      ).slice(0, limit);
     });
   }
 
@@ -279,16 +283,23 @@ export async function getLatestSnapshotsForMints(
   if (mints.length === 0) return map;
 
   const supabase = createAdminSupabase();
-  const { data, error } = await supabase
-    .from('token_market_snapshots')
-    .select('*')
-    .in('mint', mints)
-    .order('snapshot_at', { ascending: false });
+  const uniqueMints = [...new Set(mints)];
+  const batchSize = 150;
 
-  if (error) throw new Error(`getLatestSnapshotsForMints failed: ${error.message}`);
-  for (const row of data ?? []) {
-    if (!map.has(row.mint)) map.set(row.mint, row);
+  for (let i = 0; i < uniqueMints.length; i += batchSize) {
+    const batch = uniqueMints.slice(i, i + batchSize);
+    const { data, error } = await supabase
+      .from('token_market_snapshots')
+      .select('*')
+      .in('mint', batch)
+      .order('snapshot_at', { ascending: false });
+
+    if (error) throw new Error(`getLatestSnapshotsForMints failed: ${error.message}`);
+    for (const row of data ?? []) {
+      if (!map.has(row.mint)) map.set(row.mint, row);
+    }
   }
+
   return map;
 }
 

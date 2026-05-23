@@ -14,6 +14,7 @@ import { extractBondingProgressPct } from '@/lib/tokens/bondingProgress';
 
 import type { Json, TablesInsert } from '@/lib/supabase/types';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
+import { extractChainObservedAt } from '@/lib/helius/chainTimestamp';
 
 
 
@@ -135,7 +136,7 @@ export async function ingestWebhookMintFromPayload(
 
     bonding_progress,
 
-    created_at: now,
+    created_at: extractChainObservedAt(rawWithSource) ?? now,
 
     last_seen_at: now,
 

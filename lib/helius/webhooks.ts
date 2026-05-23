@@ -7,6 +7,7 @@ import {
 } from '@/lib/db/trackerRules';
 import { getTrackedWallet, listUserIdsTrackingWallet } from '@/lib/db/wallets';
 import { markTokenMigrated } from '@/lib/db/tokens';
+import { extractChainObservedAt } from '@/lib/helius/chainTimestamp';
 import { upsertWebhookEvent } from '@/lib/db/webhooks';
 import { ingestWebhookMintFromPayload } from '@/lib/helius/webhookIngest';
 import { parseMigrationTransaction } from '@/lib/helius/migrationParse';
@@ -70,7 +71,8 @@ export async function processHeliusWebhookBody(
     const migration = parseMigrationTransaction(tx);
     if (migration) {
       migrations += 1;
-      await markTokenMigrated(migration.mint, migration.destination);
+      const migratedAt = extractChainObservedAt(migration.raw) ?? undefined;
+      await markTokenMigrated(migration.mint, migration.destination, migratedAt);
     }
 
     const ev = parseEnhancedTransaction(tx);

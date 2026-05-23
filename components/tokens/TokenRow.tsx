@@ -14,6 +14,7 @@ import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
+import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { syntheticPulseVolMc } from '@/lib/dev/demoTokenFixtures';
 import type { BuyButtonStyle, ColumnDisplayOptions } from '@/lib/tokens/columnPresetModel';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
@@ -76,9 +77,10 @@ export function TokenRow({
   const pulseFlashHighlight =
     Boolean(trackPulseFlashMint) && token.mint === trackPulseFlashMint;
 
+  const uiDemo = useUiDemoMode();
   const demoMetrics = useMemo(
-    () => syntheticPulseVolMc(token.mint),
-    [token.mint],
+    () => (uiDemo ? syntheticPulseVolMc(token.mint) : null),
+    [uiDemo, token.mint],
   );
   const { isTracked, labelFor } = useTrackedWalletsLookup();
 
@@ -122,11 +124,13 @@ export function TokenRow({
     autoTranslate.showOnHover;
   const volRaw = snapshot?.volume_24h_usd ?? snapshot?.volume_1h_usd;
   const vol =
-    volRaw != null && Number.isFinite(volRaw) ? volRaw : demoMetrics.volUsd;
+    volRaw != null && Number.isFinite(volRaw)
+      ? volRaw
+      : demoMetrics?.volUsd ?? null;
   const mcUsd =
     snapshot?.market_cap_usd != null && Number.isFinite(snapshot.market_cap_usd)
       ? snapshot.market_cap_usd
-      : demoMetrics.mcUsd;
+      : demoMetrics?.mcUsd ?? null;
 
   const showMc = display?.showMc ?? true;
   const showVol = display?.showVol ?? true;

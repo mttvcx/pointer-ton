@@ -54,6 +54,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   useAuthSync();
 
   const onSharePage = Boolean(pathname?.startsWith('/share/'));
+  const guestBrowse =
+    Boolean(pathname?.startsWith('/pulse')) ||
+    Boolean(pathname?.startsWith('/explore')) ||
+    Boolean(pathname?.startsWith('/token/'));
 
   useEffect(() => {
     document.title = APP_NAME;
@@ -107,7 +111,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!authenticated && !onSharePage) {
+  if (!authenticated && !onSharePage && !guestBrowse) {
     return (
       <div className="flex min-h-screen flex-col bg-bg-base text-fg-primary">
         <header

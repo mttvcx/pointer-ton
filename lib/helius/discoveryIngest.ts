@@ -6,6 +6,7 @@ import { getTokenByMint, updateToken, upsertToken } from '@/lib/db/tokens';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import type { Json, TablesInsert } from '@/lib/supabase/types';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
+import { extractChainObservedAt } from '@/lib/helius/chainTimestamp';
 
 function inferDecimalsFromRaw(raw: Json): number {
   try {
@@ -31,6 +32,7 @@ function inferDecimalsFromRaw(raw: Json): number {
 
 export function launchEventToTokenInsert(ev: Readonly<LaunchpadEvent>): TablesInsert<'tokens'> {
   const now = new Date().toISOString();
+  const chainAt = extractChainObservedAt(ev.raw);
   return {
     mint: ev.mint,
     symbol: ev.symbol,
@@ -43,7 +45,7 @@ export function launchEventToTokenInsert(ev: Readonly<LaunchpadEvent>): TablesIn
     bonding_progress: ev.bonding_progress,
     initial_liquidity_sol: ev.initial_liquidity_sol,
     initial_liquidity_at: ev.initial_liquidity_sol != null ? now : null,
-    created_at: now,
+    created_at: chainAt ?? now,
     last_seen_at: now,
   };
 }

@@ -31,6 +31,9 @@ export async function GET(req: NextRequest) {
   if (!authorizeCron(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
+  if (process.env.POINTER_PAUSE_INGEST === '1') {
+    return NextResponse.json({ ok: true, paused: true, reason: 'POINTER_PAUSE_INGEST' });
+  }
   try {
     const result = await runScheduledPulsePoll();
     revalidatePulseFeedCache();

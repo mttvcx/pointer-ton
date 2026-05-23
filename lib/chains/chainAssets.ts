@@ -19,7 +19,7 @@ export const CHAIN_ICON_PNG: Record<AppChainId, string> = {
  */
 export const SPOT_TICKER_ICON_SRC: Record<string, string> = {
   /** Transparent raster — carousel + Lighthouse pairing (official SVG replaced per brand kit). */
-  BTC: '/chains/btc.png',
+  BTC: '/chains/btc.svg',
   ETH: '/chains/eth.svg',
   SOL: CHAIN_ICON_PNG.sol,
   TON: CHAIN_ICON_PNG.ton,

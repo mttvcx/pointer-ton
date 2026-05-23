@@ -5,18 +5,22 @@ import { inferMintKind } from '@/lib/chains/mintKind';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { TablesInsert } from '@/lib/supabase/types';
 
-type DexPair = {
+/** One DexScreener pair row — `/tokens/v1/{chain}/{addrs}` returns a flat array of these. */
+type DexPairRow = {
+  chainId?: string;
+  dexId?: string;
+  baseToken?: { address?: string };
+  quoteToken?: { address?: string };
   priceUsd?: string | number | null;
   volume?: { h24?: number; h1?: number; m5?: number } | null;
   marketCap?: number | null;
   fdv?: number | null;
   liquidity?: { usd?: number | null } | null;
-};
-
-type DexTokenBlock = {
-  chainId?: string;
-  baseToken?: { address?: string };
-  pairs?: DexPair[] | null;
+  txns?: {
+    m5?: { buys?: number; sells?: number } | null;
+    h1?: { buys?: number; sells?: number } | null;
+    h24?: { buys?: number; sells?: number } | null;
+  } | null;
 };
 
 const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
@@ -25,7 +29,7 @@ const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   base: 'base',
 };
 
-function pickBestPair(pairs: DexPair[]): DexPair | null {
+function pickBestPair(pairs: DexPairRow[]): DexPairRow | null {
   if (pairs.length === 0) return null;
   return [...pairs].sort((a, b) => {
     const la = Number(a.liquidity?.usd) || 0;
@@ -37,7 +41,19 @@ function pickBestPair(pairs: DexPair[]): DexPair | null {
   })[0]!;
 }
 
-function pairToSnapshot(mint: string, pair: DexPair): TablesInsert<'token_market_snapshots'> {
+function txnCount(
+  txns: DexPairRow['txns'],
+  window: 'm5' | 'h1' | 'h24',
+): number | null {
+  const bucket = txns?.[window];
+  if (!bucket) return null;
+  const buys = Number(bucket.buys) || 0;
+  const sells = Number(bucket.sells) || 0;
+  const total = buys + sells;
+  return total > 0 ? total : null;
+}
+
+function pairToSnapshot(mint: string, pair: DexPairRow): TablesInsert<'token_market_snapshots'> {
   const priceRaw = pair.priceUsd;
   const price_usd =
     priceRaw != null && Number.isFinite(Number(priceRaw)) ? Number(priceRaw) : null;
@@ -64,8 +80,23 @@ function pairToSnapshot(mint: string, pair: DexPair): TablesInsert<'token_market
       pair.volume?.m5 != null && Number.isFinite(Number(pair.volume.m5))
         ? Number(pair.volume.m5)
         : null,
+    txns_5m: txnCount(pair.txns, 'm5'),
+    txns_1h: txnCount(pair.txns, 'h1'),
     snapshot_at: new Date().toISOString(),
   };
+}
+
+function groupPairsByMint(rows: DexPairRow[], mintSet: Set<string>): Map<string, DexPairRow[]> {
+  const grouped = new Map<string, DexPairRow[]>();
+  for (const row of rows) {
+    const base = row.baseToken?.address?.trim();
+    if (base && mintSet.has(base)) {
+      const list = grouped.get(base) ?? [];
+      list.push(row);
+      grouped.set(base, list);
+    }
+  }
+  return grouped;
 }
 
 async function fetchDexMetricsForMints(
@@ -75,6 +106,8 @@ async function fetchDexMetricsForMints(
   const out = new Map<string, TablesInsert<'token_market_snapshots'>>();
   if (mints.length === 0) return out;
 
+  const mintSet = new Set(mints);
+
   for (let i = 0; i < mints.length; i += 30) {
     const batch = mints.slice(i, i + 30);
     const url = `https://api.dexscreener.com/tokens/v1/${chainPath}/${batch.join(',')}`;
@@ -82,17 +115,24 @@ async function fetchDexMetricsForMints(
       const res = await fetch(url, {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(5_000),
       });
       if (!res.ok) continue;
-      const json = (await res.json()) as DexTokenBlock[] | DexTokenBlock;
-      const blocks = Array.isArray(json) ? json : [json];
-      for (const block of blocks) {
-        const addr = block.baseToken?.address?.trim();
-        if (!addr) continue;
-        const pairs = (block.pairs ?? []).filter(Boolean);
+      const json = (await res.json()) as DexPairRow[] | DexPairRow | { pairs?: DexPairRow[] };
+      let rows: DexPairRow[] = [];
+      if (Array.isArray(json)) {
+        rows = json;
+      } else if (json && typeof json === 'object' && Array.isArray((json as { pairs?: DexPairRow[] }).pairs)) {
+        rows = (json as { pairs: DexPairRow[] }).pairs;
+      } else if (json && typeof json === 'object') {
+        rows = [json as DexPairRow];
+      }
+
+      const grouped = groupPairsByMint(rows, mintSet);
+      for (const [mint, pairs] of grouped) {
         const best = pickBestPair(pairs);
         if (!best) continue;
-        out.set(addr, pairToSnapshot(addr, best));
+        out.set(mint, pairToSnapshot(mint, best));
       }
     } catch {
       /* best-effort live metrics */
@@ -137,8 +177,8 @@ export async function enrichPulseBundlesWithDexScreener(
         volume_5m_usd: snap.volume_5m_usd ?? bundle.snapshot?.volume_5m_usd ?? null,
         volume_1h_usd: snap.volume_1h_usd ?? bundle.snapshot?.volume_1h_usd ?? null,
         volume_24h_usd: snap.volume_24h_usd ?? bundle.snapshot?.volume_24h_usd ?? null,
-        txns_5m: bundle.snapshot?.txns_5m ?? null,
-        txns_1h: bundle.snapshot?.txns_1h ?? null,
+        txns_5m: snap.txns_5m ?? bundle.snapshot?.txns_5m ?? null,
+        txns_1h: snap.txns_1h ?? bundle.snapshot?.txns_1h ?? null,
         holder_count: bundle.snapshot?.holder_count ?? null,
         top10_holder_pct: bundle.snapshot?.top10_holder_pct ?? null,
         dev_holding_pct: bundle.snapshot?.dev_holding_pct ?? null,

@@ -608,7 +608,7 @@ export function PulseRowSocialStrip({
     twFollowers != null &&
     twFollowers > 0;
 
-  const txLabel = txns != null ? formatNumber(txns, { decimals: 0 }) : '0';
+  const txLabel = txns != null ? formatNumber(txns, { decimals: 0 }) : '—';
   const devMigrateFrac = useMemo(() => devMigrateFractionFromBundle(bundle), [bundle]);
   const crownSlashDisplay = formatDevMigrateSlash(devMigrateFrac);
   const proTradersCount = useMemo(() => proTradersCountFromBundle(bundle), [bundle]);
@@ -824,7 +824,7 @@ export function PulseRowSocialStrip({
         {model.twitterCommunity?.url ? (
           <ExternalCommunityStatLink
             href={model.twitterCommunity.url}
-            stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '0'}
+            stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
             previewTitle="X community"
             previewSubtitle="Community from metadata"
             glyphPx={sx}
@@ -832,7 +832,7 @@ export function PulseRowSocialStrip({
         ) : (
           <InternalCommunityStatLink
             href={tokenPath}
-            stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '0'}
+            stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
             glyphPx={sx}
           />
         )}

@@ -20,10 +20,9 @@ import { snapshotRecentClientErrors } from '@/lib/reports/clientErrorRing';
 import { cn } from '@/lib/utils/cn';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useDockTrackerHotkeys } from '@/lib/hooks/useDockTrackerHotkeys';
-import { CHAIN_ICON_PNG, spotTickerIconSrc } from '@/lib/chains/chainAssets';
+import { spotTickerIconSrc } from '@/lib/chains/chainAssets';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
-import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
-import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import type { DockTrackerId, DockTrackerMode } from '@/lib/dock/dockTrackerConfig';
 import {
@@ -35,6 +34,7 @@ import { useUIStore } from '@/store/ui';
 import { useTradingStore } from '@/store/trading';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { WalletPickerPopover } from '@/components/wallets/WalletPickerPopover';
+import { TerminalWalletChip } from '@/components/wallet/TerminalWalletChip';
 import { TradingSettingsPopover } from '@/components/trading/TradingSettingsPopover';
 import { DockTrackersSettingsModal } from '@/components/layout/DockTrackersSettingsModal';
 import { MarketLighthouseHover } from '@/components/layout/MarketLighthouseHover';
@@ -287,9 +287,7 @@ export function BottomBar() {
     staleTime: 30_000,
   });
 
-  const { activeAddress, ready: walletsReady } = useActiveSolanaWallet(
-    myWalletsQ.data?.wallets,
-  );
+  const { activeAddress } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
 
   const tickersQ = useQuery({
     queryKey: ['jupiter-tickers'],
@@ -306,33 +304,11 @@ export function BottomBar() {
     staleTime: 25_000,
   });
 
-  const portfolioQ = useQuery({
-    queryKey: ['portfolio', activeAddress],
-    queryFn: async () => {
-      const token = await getAccessToken();
-      if (!token) throw new Error('no_token');
-      const q = activeAddress ? `?wallet=${encodeURIComponent(activeAddress)}` : '';
-      const res = await fetch(`/api/portfolio${q}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('portfolio');
-      return res.json() as Promise<{ solLamports: string | null }>;
-    },
-    enabled: Boolean(
-      authenticated &&
-        walletsReady &&
-        activeAddress &&
-        activeChain === 'sol' &&
-        mintMatchesAppChain(activeAddress, 'sol'),
-    ),
-    staleTime: 20_000,
-  });
-
   const rows = tickersQ.data ?? [];
 
-  const solBal = parseLamportsStringToSol(portfolioQ.data?.solLamports);
-
   const rowForActive = myWalletsQ.data?.wallets?.find((w) => w.wallet_address === activeAddress);
+  const solBal = parseLamportsStringToSol(rowForActive?.balance_lamports ?? null);
+
   const tonBalUi =
     activeChain === 'ton'
       ? parseLamportsStringToSol(rowForActive?.balance_lamports ?? null) ?? 0
@@ -342,6 +318,7 @@ export function BottomBar() {
     activeChain === 'sol' ? solBal : activeChain === 'ton' ? tonBalUi : null;
 
   const shortlistLen = useTradingStore((s) => s.instantTradeWalletShortlist.length);
+  const walletTotalCount = (myWalletsQ.data?.wallets ?? []).filter((w) => !w.is_archived).length;
 
   const setDockSettingsOpen = useDockTrackersStore((s) => s.setSettingsOpen);
   const dockOrderRaw = useDockTrackersStore((s) => s.order);
@@ -381,6 +358,7 @@ export function BottomBar() {
               barBal={barBal}
               authenticated={authenticated}
               shortlistLen={shortlistLen}
+              walletTotalCount={walletTotalCount}
             />
           ))}
         </div>
@@ -394,9 +372,6 @@ export function BottomBar() {
         </div>
 
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          {tickersQ.isLoading && !tickersQ.data ? (
-            <span className="text-fg-secondary">Prices...</span>
-          ) : null}
           <BottomBarVerticalTicker rows={rows} chain={activeChain} mode={spotTickerMode} />
         </div>
 
@@ -441,6 +416,7 @@ function DockTrackerSlot({
   barBal,
   authenticated,
   shortlistLen,
+  walletTotalCount,
 }: {
   id: DockTrackerId;
   mode: DockTrackerMode;
@@ -449,6 +425,7 @@ function DockTrackerSlot({
   barBal: number | null;
   authenticated: boolean;
   shortlistLen: number;
+  walletTotalCount: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -538,13 +515,18 @@ function DockTrackerSlot({
 
   if (id === 'wallet') {
     const splitOuter = cn(
-      chipBase,
-      'relative inline-flex min-w-0 max-w-[10.75rem] gap-0 overflow-hidden p-0 transition-colors hover:bg-bg-hover/75 active:brightness-105',
+      'relative inline-flex min-w-0 max-w-[12rem] gap-0 overflow-hidden rounded-full border border-border-subtle bg-bg-base p-0 transition-colors hover:border-white/[0.12] hover:bg-bg-hover/40',
       authenticated ? '' : 'opacity-95',
     );
 
     const pickerRail =
-      'btn-press relative flex h-[26px] w-[29px] shrink-0 items-center justify-center border-l border-white/[0.08] bg-transparent text-white/85 hover:bg-bg-hover/85 hover:text-white';
+      'btn-press relative flex h-[26px] w-[26px] shrink-0 items-center justify-center border-l border-white/[0.08] bg-transparent text-white/70 hover:bg-white/[0.04] hover:text-white';
+
+    const dockCount = authenticated
+      ? shortlistLen > 0
+        ? shortlistLen
+        : walletTotalCount
+      : null;
 
     return (
       <span className={splitOuter}>
@@ -553,27 +535,19 @@ function DockTrackerSlot({
           type="button"
           title={dockTrackerLabel(id, 'full')}
           aria-label="Open wallets · balances & accounts"
-          className="btn-press flex h-[26px] min-w-0 flex-1 items-center gap-1 pl-[7px] pr-1 text-left"
+          className="btn-press flex h-[26px] min-w-0 flex-1 items-center px-1.5 text-left"
           onClick={openWalletsHub}
         >
-          <Wallet className={iconCls} strokeWidth={2} aria-hidden />
-          <span className="shrink-0 tabular-nums leading-none text-white/95">
-            {authenticated ? String(Math.max(0, shortlistLen || 0)) : '–'}
-          </span>
-          <img
-            src={CHAIN_ICON_PNG[activeChain]}
-            alt=""
-            width={14}
-            height={14}
-            draggable={false}
-            className="h-[14px] w-[14px] shrink-0 rounded-[4px] object-contain opacity-95"
+          <TerminalWalletChip
+            walletCount={dockCount}
+            nativeBalance={authenticated ? barBal : 0}
+            activeChain={activeChain}
+            variant="dock"
+            showChevron={false}
           />
-          <span className="min-w-0 flex-1 truncate font-semibold tabular-nums leading-none tracking-tight text-white/95">
-            {authenticated && barBal != null ? formatNumber(barBal, { decimals: 4 }) : '0'}
-          </span>
         </button>
         <WalletPickerPopover className={pickerRail}>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-85" strokeWidth={2.5} aria-hidden />
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-85" strokeWidth={2.5} aria-hidden />
         </WalletPickerPopover>
       </span>
     );

@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { getPulseFeed } from '@/lib/helius/feed';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN, isAppChainId } from '@/lib/chains/appChain';
+import { withTimeout } from '@/lib/utils/withTimeout';
+
+const FEED_TIMEOUT_MS = 12_000;
 
 const QuerySchema = z.object({
   column: z.enum(['new', 'stretch', 'migrated']).default('new'),
@@ -22,10 +25,24 @@ export async function pulseFeedRouteGET(req: NextRequest) {
   const chainRaw = parsed.data.chain;
   const chain: AppChainId = chainRaw && isAppChainId(chainRaw) ? chainRaw : DEFAULT_APP_CHAIN;
   try {
-    const items = await getPulseFeed(column, chain);
+    const items = await withTimeout(
+      getPulseFeed(column, chain),
+      FEED_TIMEOUT_MS,
+      'pulse_feed',
+    );
     return NextResponse.json({ column, chain, items });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'feed failed';
-    return NextResponse.json({ error: 'feed_failed', message }, { status: 500 });
+    const timedOut = message.includes('_timeout_');
+    if (timedOut) {
+      console.warn('[pointer][pulse] feed GET timed out', { column, chain, message });
+      return NextResponse.json({
+        column,
+        chain,
+        items: [],
+        warning: 'feed_timeout',
+      });
+    }
+    return NextResponse.json({ error: 'feed_failed', message, items: [] }, { status: 500 });
   }
 }
