@@ -7,8 +7,11 @@ import {
   type DockTrackerId,
   type DockTrackerMode,
 } from '@/lib/dock/dockTrackerConfig';
-
-export type DockSpotTickerMode = 'full' | 'icons';
+import {
+  DEFAULT_SPOT_TICKER_CHAINS,
+  normalizeSpotTickerChains,
+  type SpotTickerSymbol,
+} from '@/lib/chains/chainAssets';
 
 const DEFAULT_ORDER = [...DOCK_TRACKER_IDS];
 
@@ -69,8 +72,11 @@ interface DockTrackersState {
   setHotkeysEnabled: (on: boolean) => void;
   setHotkey: (id: DockTrackerId, key: string | null) => void;
   resetDock: () => void;
-  spotTickerMode: DockSpotTickerMode;
-  setSpotTickerMode: (m: DockSpotTickerMode) => void;
+  /** Ordered subset of majors shown in the bottom-bar spot carousel; empty hides it. */
+  spotTickerChains: SpotTickerSymbol[];
+  setSpotTickerChains: (chains: SpotTickerSymbol[]) => void;
+  toggleSpotTickerChain: (symbol: SpotTickerSymbol, on?: boolean) => void;
+  setAllSpotTickerChains: (enabled: boolean) => void;
 }
 
 export const useDockTrackersStore = create<DockTrackersState>()(
@@ -109,8 +115,26 @@ export const useDockTrackersStore = create<DockTrackersState>()(
         set((s) => ({
           hotkeys: { ...s.hotkeys, [id]: key },
         })),
-      spotTickerMode: 'full',
-      setSpotTickerMode: (spotTickerMode) => set({ spotTickerMode }),
+      spotTickerChains: [...DEFAULT_SPOT_TICKER_CHAINS],
+      setSpotTickerChains: (chains) =>
+        set({ spotTickerChains: normalizeSpotTickerChains(chains) }),
+      toggleSpotTickerChain: (symbol, on) =>
+        set((s) => {
+          const current = normalizeSpotTickerChains(s.spotTickerChains);
+          const has = current.includes(symbol);
+          const nextOn = on ?? !has;
+          if (nextOn === has) return {};
+          if (nextOn) {
+            return {
+              spotTickerChains: normalizeSpotTickerChains([...current, symbol]),
+            };
+          }
+          return { spotTickerChains: current.filter((c) => c !== symbol) };
+        }),
+      setAllSpotTickerChains: (enabled) =>
+        set({
+          spotTickerChains: enabled ? [...DEFAULT_SPOT_TICKER_CHAINS] : [],
+        }),
       resetDock: () =>
         set({
           order: [...DEFAULT_ORDER],
@@ -118,18 +142,32 @@ export const useDockTrackersStore = create<DockTrackersState>()(
           badges: { ...DEFAULT_BADGE },
           hotkeysEnabled: true,
           hotkeys: {},
-          spotTickerMode: 'full',
+          spotTickerChains: [...DEFAULT_SPOT_TICKER_CHAINS],
         }),
     }),
     {
       name: 'pointer-dock-trackers',
+      version: 1,
+      migrate: (persisted, version) => {
+        const s = (persisted ?? {}) as Record<string, unknown>;
+        if (version === 0 && s.spotTickerMode != null && !s.spotTickerChains) {
+          s.spotTickerChains = [...DEFAULT_SPOT_TICKER_CHAINS];
+          delete s.spotTickerMode;
+        }
+        s.spotTickerChains = normalizeSpotTickerChains(
+          Array.isArray(s.spotTickerChains)
+            ? (s.spotTickerChains as string[])
+            : [...DEFAULT_SPOT_TICKER_CHAINS],
+        );
+        return s as unknown as DockTrackersState;
+      },
       partialize: (s) => ({
         order: s.order,
         modes: s.modes,
         badges: s.badges,
         hotkeysEnabled: s.hotkeysEnabled,
         hotkeys: s.hotkeys,
-        spotTickerMode: s.spotTickerMode,
+        spotTickerChains: s.spotTickerChains,
       }),
     },
   ),

@@ -6,8 +6,6 @@ export type BugSubmitResult = { ok: true; receiptId?: string } | { ok: false; er
 /**
  * Ships structured diagnostics using `POST /api/reports/bug`.
  * Fallback: deterministic mock receipt in dev/offline (`console.info` only — no outbound network spam).
- *
- * Future: Slack / Linear / ticketing via same route.
  */
 export async function submitBugReport(payload: BugReportPayload): Promise<BugSubmitResult> {
   const body = sanitizeSubmittedPayload(payload);
@@ -21,6 +19,13 @@ export async function submitBugReport(payload: BugReportPayload): Promise<BugSub
     });
 
     const json = (await res.json().catch(() => ({}))) as { receiptId?: string; error?: string };
+
+    if (res.status === 503 && json.error === 'reporting_disabled') {
+      return {
+        ok: false,
+        error: 'Bug reporting is not configured yet. Set BUG_REPORT_WEBHOOK_URL on the server.',
+      };
+    }
 
     if (res.ok) {
       return { ok: true, receiptId: typeof json.receiptId === 'string' ? json.receiptId : undefined };

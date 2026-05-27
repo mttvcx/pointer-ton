@@ -6,7 +6,6 @@ import {
   AtSign,
   CircleDollarSign,
   Compass,
-  Monitor,
   Sparkles,
   Users,
   Wallet,
@@ -15,8 +14,8 @@ import type { DockTrackerId } from '@/lib/dock/dockTrackerConfig';
 
 export const DOCK_TRACKER_ICON: Record<DockTrackerId, LucideIcon> = {
   wallet: Wallet,
-  tracker: Monitor,
-  social: AtSign,
+  tracker: AtSign,
+  social: Wallet,
   discover: Compass,
   pulse: Activity,
   pnl: CircleDollarSign,

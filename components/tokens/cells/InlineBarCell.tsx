@@ -34,10 +34,10 @@ export function InlineBarCell({
   const pct = max > 0 ? Math.min(100, (Math.abs(value) / max) * 100) : 0;
 
   return (
-    <div className={cn('relative block h-full w-full min-h-9 pointer-events-none', className)}>
+    <div className={cn('relative block h-full w-full min-h-7 pointer-events-none', className)}>
       <div
         aria-hidden
-        className={cn('pointer-events-none absolute inset-y-0 left-0', barToneClass[tone])}
+        className={cn('pointer-events-none absolute inset-y-0.5 left-0 rounded-sm', barToneClass[tone])}
         style={{ width: `${pct}%` }}
       />
       <div

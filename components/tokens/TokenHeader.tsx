@@ -1,18 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLiveClock } from '@/lib/hooks/useLiveClock';
-import { Bell, ExternalLink, Globe, Search, Send } from 'lucide-react';
+import { Bell, ExternalLink, Search, Share2, Star } from 'lucide-react';
+import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
+import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
+import { TokenHeaderNameHover } from '@/components/tokens/TokenHeaderNameHover';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { RiskFlags } from '@/components/tokens/RiskFlags';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
-import { resolveLaunchpadAvatarChrome } from '@/lib/tokens/launchpadAvatarChrome';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
-import { getPulseSocialModel } from '@/lib/tokens/pulseSocialLinks';
+import { enrichBundleTwitterFromSocialModel } from '@/lib/tokens/pulseSocialLinks';
+import { resolveLaunchpadAvatarChromeWithFallback } from '@/lib/tokens/launchpadAvatarChrome';
 import {
   extractGlobalFeesSol,
   extractSupplyTokens,
@@ -26,18 +29,27 @@ import {
   formatPercent,
   formatPriceUsd,
 } from '@/lib/utils/formatters';
-import { shortenAddress } from '@/lib/utils/addresses';
 import type { Tables } from '@/lib/supabase/types';
 import type { TokenMarketSnapshotRow, TokenRow } from '@/lib/db/tokens';
 import { cn } from '@/lib/utils/cn';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import { EMPTY_TOKEN_EXTENDED_METRICS } from '@/lib/dev/demoPolicy';
 import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
+import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { openAlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import { explorerTokenAriaLabel, explorerTokenHrefFromMint } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
+import { useWatchlistStore } from '@/store/watchlist';
 
 const iconRow =
-  'inline-flex h-3.5 w-3.5 shrink-0 cursor-pointer text-fg-muted transition-colors hover:text-fg-primary';
+  'inline-flex h-4 w-4 shrink-0 cursor-pointer text-fg-muted transition-colors hover:text-fg-primary';
+
+/** Axiom-scale identity column on token detail header. */
+const HEADER_AVATAR_PX = 48;
+const HEADER_SOCIAL_GLYPH_PX = 24;
+const HEADER_PROFILE_GLYPH_PX = 28;
 
 function pickPriceChange24hPct(ext: unknown): number | null {
   if (ext == null || typeof ext !== 'object' || Array.isArray(ext)) return null;
@@ -94,12 +106,21 @@ export function TokenHeader({
   const name = token.name ?? 'Unknown';
   const now = useLiveClock();
 
-  const bundle: PulseTokenBundle = { token, snapshot };
+  const bundle = useMemo(
+    () => enrichBundleTwitterFromSocialModel({ token, snapshot }),
+    [token, snapshot],
+  );
   const bonding = getPulseBondingRingState(bundle);
   const supplyRaw = extractSupplyTokens(token.raw_metadata);
   const supplyLabel = formatSupplyHint(supplyRaw);
   const feesSol = extractGlobalFeesSol(snapshot?.extended_metrics);
   const extJson = snapshot?.extended_metrics;
+
+  const uiDemo = useUiDemoMode();
+  const demoMetrics = useMemo(
+    () => (uiDemo ? syntheticTokenExtendedMetrics(mint) : EMPTY_TOKEN_EXTENDED_METRICS),
+    [uiDemo, mint],
+  );
 
   const extQ = useQuery({
     queryKey: ['token-header-metrics', mint],
@@ -109,17 +130,17 @@ export function TokenHeader({
       if (!res.ok) return null;
       return json as { metrics: TokenExtendedMetrics };
     },
-    placeholderData: { metrics: syntheticTokenExtendedMetrics(mint) },
+    placeholderData: uiDemo ? { metrics: demoMetrics } : undefined,
     staleTime: 45_000,
   });
-  const headerMetrics = extQ.data?.metrics ?? syntheticTokenExtendedMetrics(mint);
+  const headerMetrics = extQ.data?.metrics ?? (uiDemo ? demoMetrics : EMPTY_TOKEN_EXTENDED_METRICS);
   const proTraders = headerMetrics.proTraders ?? null;
 
   const activeChain = useUIStore((s) => s.activeChain);
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
   const launchpadChrome = useMemo(
     () =>
-      resolveLaunchpadAvatarChrome(bundle, {
+      resolveLaunchpadAvatarChromeWithFallback(bundle, {
         showFrame: true,
         isMigrated: bonding.migrated,
         pumpFunOnBondingCurve: traits.pumpFunBonding,
@@ -127,14 +148,12 @@ export function TokenHeader({
       }),
     [bundle, bonding.migrated, traits.pumpFunBonding, activeChain],
   );
-  const alertRulesModalOpen = useUIStore((s) => s.alertRulesModalOpen);
-  const setAlertRulesModalOpen = useUIStore((s) => s.setAlertRulesModalOpen);
+  const setSearchOpen = useUIStore((s) => s.setSearchOpen);
+  const xMonitorOpen = usePulseTwitterRailStore((s) => s.side !== 'hidden');
+  const watchlisted = useWatchlistStore((s) => s.items.some((i) => i.mint === mint));
+  const toggleWatchlist = useWatchlistStore((s) => s.toggleItem);
+  const setShowTicker = useWatchlistStore((s) => s.setShowTicker);
   const nativeSym = nativeTicker(activeChain);
-
-  const tw = token.twitter_handle?.replace(/^@/, '').trim();
-  const xUrl = tw ? `https://x.com/${encodeURIComponent(tw)}` : null;
-
-  const pulseSocial = useMemo(() => getPulseSocialModel({ token, snapshot }), [token, snapshot]);
 
   const priceChangePct = pickPriceChange24hPct(extJson);
   const athUsd = pickAthUsd(extJson);
@@ -173,6 +192,20 @@ export function TokenHeader({
       ? `${athMult.toFixed(1)}x`
       : undefined;
 
+  const shareTokenLink = useCallback(async () => {
+    const url = `${window.location.origin}/token/${encodeURIComponent(mint)}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `${ticker} on Pointer`, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied');
+    } catch {
+      /* user dismissed share sheet */
+    }
+  }, [mint, ticker]);
+
   const stats = [
     { label: 'Price', value: priceStr },
     { label: 'Liquidity', value: liquidityStr },
@@ -188,122 +221,115 @@ export function TokenHeader({
     { label: 'Pros', value: prosValue, prosMuted },
   ];
 
-  const mintShort = shortenAddress(mint, 5);
-
   return (
-    <div className="min-w-0 border-b border-border-subtle bg-bg-raised font-sans">
-      <div className="flex min-h-[68px] min-w-0 items-stretch px-4">
-        {/* Left — identity (unchanged) */}
-        <div className="flex shrink-0 items-center gap-2.5 py-2.5">
-          <PulseTokenAvatar
-            bundle={bundle}
-            size={40}
-            showRing={false}
-            launchpadChrome={launchpadChrome}
-            className="shrink-0"
-          />
+    <div className="relative z-20 min-w-0 overflow-visible border-b border-white/[0.06] bg-bg-raised font-sans">
+      <div className="flex min-w-0 items-center overflow-visible px-2.5 sm:px-3">
+        <div className="flex min-w-0 shrink-0 items-center gap-2 py-2.5">
+          <div className="relative shrink-0 overflow-visible pr-1.5 pb-1.5">
+            <PulseTokenAvatar
+              bundle={bundle}
+              size={HEADER_AVATAR_PX}
+              showRing
+              launchpadChrome={launchpadChrome}
+              ringPresentation="brand-full"
+              cornerBadgeEmphasis="header"
+              className="shrink-0"
+            />
+          </div>
 
-          <div className="flex flex-col gap-0.5">
-            <div className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-base font-bold text-fg-primary">{ticker}</span>
-
-              <span className="ml-1 shrink-0">
-                <CopyButton
-                  value={mint}
-                  toastLabel="Mint copied"
-                  label="Copy mint"
-                  iconOnly
-                  iconClassName="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-                />
-              </span>
-              {token.website_url ? (
-                <a
-                  href={token.website_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex shrink-0"
-                  aria-label="Website"
-                  title="Website"
-                >
-                  <Globe className={iconRow} strokeWidth={2} />
-                </a>
-              ) : null}
-              {xUrl ? (
-                <a href={xUrl} target="_blank" rel="noreferrer" className="inline-flex shrink-0" aria-label="Twitter / X">
-                  <svg className={iconRow} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                </a>
-              ) : null}
-              {pulseSocial.telegram ? (
-                <a
-                  href={pulseSocial.telegram}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex shrink-0"
-                  aria-label="Telegram"
-                  title="Telegram"
-                >
-                  <Send className={iconRow} strokeWidth={2} />
-                </a>
-              ) : null}
+          <div className="flex min-w-0 flex-col justify-center gap-0.5 overflow-visible">
+            <div className="flex min-w-0 items-center gap-1.5 overflow-visible">
+              <TokenHeaderNameHover ticker={ticker} name={name} mint={mint} />
+              <CopyButton
+                value={mint}
+                toastLabel="Mint copied"
+                label="Copy mint"
+                iconOnly
+                iconClassName="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-fg-muted transition-colors hover:text-fg-primary"
+              />
               <button
                 type="button"
-                className={cn(iconRow, 'inline-flex shrink-0 rounded')}
-                aria-label="Search"
-                tabIndex={-1}
+                className={cn(iconRow, 'rounded-sm')}
+                aria-label="Share token"
+                title="Share"
+                onClick={() => void shareTokenLink()}
               >
-                <Search className="h-3.5 w-3.5" strokeWidth={2} />
+                <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
               <button
                 type="button"
-                onClick={() => setAlertRulesModalOpen(true)}
-                title="Pulse alerts"
-                className={cn(
-                  iconRow,
-                  'inline-flex shrink-0 rounded',
-                  alertRulesModalOpen &&
-                    'text-accent-primary ring-1 ring-accent-primary/35 ring-offset-1 ring-offset-bg-raised rounded-full',
-                )}
-                aria-label="Open Pulse alerts"
+                className={cn(iconRow, watchlisted && 'text-accent-primary')}
+                aria-label={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+                title={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+                onClick={() => {
+                  const wasWatchlisted = watchlisted;
+                  toggleWatchlist({
+                    mint,
+                    symbol: token.symbol,
+                    name: token.name,
+                    imageUrl: token.image_url,
+                    marketCapUsd: snapshot?.market_cap_usd ?? null,
+                  });
+                  if (!wasWatchlisted) {
+                    setShowTicker(true);
+                    toast.success('Added to watchlist');
+                  } else {
+                    toast.message('Removed from watchlist');
+                  }
+                }}
               >
-                <Bell className="h-3.5 w-3.5" strokeWidth={2} />
+                <Star className="h-3.5 w-3.5" strokeWidth={2} fill={watchlisted ? 'currentColor' : 'none'} />
               </button>
             </div>
 
-            <div className="flex min-w-0 max-w-[20rem] items-center gap-2 truncate text-[10px] leading-none">
-              <span className="shrink-0 text-fg-secondary">{name}</span>
-              <span className="shrink-0 font-mono tabular-nums text-fg-muted">{formatAgeShort(token.created_at, now)}</span>
-              <span className="min-w-0 truncate font-mono text-fg-muted">{mintShort}</span>
+            <div className="flex min-w-0 items-center gap-1.5 overflow-visible">
+              <span className="shrink-0 text-[11px] font-semibold tabular-nums leading-none text-signal-bull">
+                {formatAgeShort(token.created_at, now)}
+              </span>
+              <PulseRowSocialStrip
+                bundle={bundle}
+                compact
+                inlineHeader
+                glyphSize={HEADER_SOCIAL_GLYPH_PX}
+                profileGlyphSize={HEADER_PROFILE_GLYPH_PX}
+                showTxCount={false}
+                showDevWallet={false}
+                showHoldersCommunity={false}
+                showProTradersStat={false}
+                showDevCrownStat={false}
+                fallbackXSearchQuery={name.trim() || ticker}
+                showTwitterFooter={false}
+                traits={traits}
+                chain={activeChain}
+              />
             </div>
           </div>
         </div>
 
-        <div
-          className="mx-3 hidden w-px shrink-0 self-stretch bg-border-subtle/80 sm:block"
-          aria-hidden
-        />
+        <div className="mx-2.5 hidden h-9 w-px shrink-0 bg-white/[0.08] sm:block" aria-hidden />
 
-        {/* Middle — focal market cap + stat columns */}
-        <div className="scrollbar-thin flex min-w-0 flex-1 items-center overflow-x-auto py-2.5">
-          <div className="flex shrink-0 flex-col justify-center pr-5 sm:pr-6">
-            <span className="text-[1.375rem] font-bold tabular-nums leading-none tracking-tight text-fg-primary sm:text-[1.5rem]">
-              {focalPrimary}
-            </span>
-            {priceChangePct != null ? (
-              <span
-                className={cn(
-                  'mt-1 text-[10px] font-medium tabular-nums leading-none',
-                  priceChangePct >= 0 ? 'text-signal-bull' : 'text-signal-bear',
-                )}
-              >
-                {priceChangePct >= 0 ? '+' : ''}
-                {priceChangePct.toFixed(2)}%
+        <div className="scrollbar-thin flex min-w-0 flex-1 items-center overflow-x-auto py-2">
+          <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+            <div className="flex shrink-0 flex-col justify-center">
+              <span className="text-[1.25rem] font-bold tabular-nums leading-none tracking-tight text-fg-primary sm:text-[1.375rem]">
+                {focalPrimary}
               </span>
-            ) : null}
-          </div>
+              {priceChangePct != null ? (
+                <span
+                  className={cn(
+                    'mt-1 text-[10px] font-medium tabular-nums leading-none',
+                    priceChangePct >= 0 ? 'text-signal-bull' : 'text-signal-bear',
+                  )}
+                >
+                  {priceChangePct >= 0 ? '+' : ''}
+                  {priceChangePct.toFixed(2)}%
+                </span>
+              ) : null}
+            </div>
 
-          <div className="flex items-center gap-x-5 sm:gap-x-6">
+            <div className="hidden h-5 w-px shrink-0 bg-white/[0.08] sm:block" aria-hidden />
+
+            <div className="flex shrink-0 items-start gap-x-3 sm:gap-x-4">
             {stats.map((stat) => {
               const mutedBase =
                 stat.value === '\u2014' || stat.value === '\u2026' || stat.value === '';
@@ -316,46 +342,67 @@ export function TokenHeader({
                 valueClassName = 'text-fg-muted';
               }
 
+              const sub = 'sub' in stat ? stat.sub : undefined;
+
               return (
-                <div
-                  key={stat.label}
-                  className="flex min-w-[3.25rem] shrink-0 flex-col gap-1 sm:min-w-[3.75rem]"
-                >
-                  <span className="whitespace-nowrap text-[10px] font-medium uppercase leading-none tracking-wide text-fg-muted/75">
+                <div key={stat.label} className="flex min-w-[3.25rem] shrink-0 flex-col">
+                  <span className="whitespace-nowrap text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted/85">
                     {stat.label}
                   </span>
                   <span
                     className={cn(
-                      'whitespace-nowrap text-sm font-semibold tabular-nums leading-none',
+                      'mt-1 inline-flex items-baseline gap-1 whitespace-nowrap text-[13px] font-semibold tabular-nums leading-none sm:text-[14px]',
                       valueClassName,
                     )}
                   >
                     {stat.value}
+                    {sub ? (
+                      <span className="text-[10px] font-medium tabular-nums leading-none text-signal-bull">
+                        {sub}
+                      </span>
+                    ) : null}
                   </span>
-                  {'sub' in stat && stat.sub ? (
-                    <span className="text-[10px] font-medium tabular-nums leading-none text-signal-bull">
-                      {stat.sub}
-                    </span>
-                  ) : null}
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
 
-        {/* Right — launchpad / risk / explorer */}
-        <div className="flex shrink-0 items-center gap-2 self-center py-2.5 pl-2 sm:pl-3">
+        <div className="flex shrink-0 items-center gap-1 self-center py-2 pl-1">
           {launchpadChrome || !token.launch_pad || token.launch_pad === 'pump.fun' ? null : (
             <LaunchpadBadge launchPad={token.launch_pad} />
           )}
           <LaunchpadSubBadges token={token} snapshot={snapshot} variant="detail" />
           <RiskFlags token={token as Tables<'tokens'>} snapshot={snapshot} className="shrink-0" />
-          <span className="hidden h-5 w-px shrink-0 bg-border-subtle sm:inline-block" aria-hidden />
+          <span className="hidden h-4 w-px shrink-0 bg-border-subtle/50 sm:inline-block" aria-hidden />
+          <button
+            type="button"
+            className={cn(iconRow, 'rounded-sm')}
+            aria-label="Search token"
+            title="Search"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onClick={() => openAlertRulesModal()}
+            title="Pulse alerts"
+            className={cn(
+              iconRow,
+              'rounded-sm',
+              xMonitorOpen && 'text-accent-primary',
+            )}
+            aria-label="Open Pulse alerts"
+          >
+            <Bell className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
           <a
             href={explorerTokenHrefFromMint(mint, activeChain)}
             target="_blank"
             rel="noreferrer"
-            className={cn('focus-ring inline-flex shrink-0 rounded', iconRow)}
+            className={cn('focus-ring inline-flex shrink-0 rounded-sm', iconRow)}
             aria-label={explorerTokenAriaLabel(activeChain)}
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />

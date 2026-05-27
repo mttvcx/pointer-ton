@@ -20,6 +20,7 @@ import { WalletIdentityBadges } from '@/components/wallet/identity/WalletIdentit
 import { WalletCompactTooltipPanel } from '@/components/wallet/identity/WalletCompactTooltipPanel';
 import { WalletIdentityDossier } from '@/components/wallet/identity/WalletIdentityDossier';
 import { WalletMintTradesFilterButton } from '@/components/tokens/cells/WalletMintTradesFilterButton';
+import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { mockWalletWideStats } from '@/lib/walletIdentity/mockWalletWideStats';
 import { cn } from '@/lib/utils/cn';
 
@@ -47,6 +48,7 @@ export function WalletIdentityAnchor({
   badgeBeforeAddress = false,
   suppressFilterButton = false,
   addressFormat = 'default',
+  outlineOnHover = false,
   onFilterMintTrades,
   tradesFilterActive,
   addressNoTruncate = false,
@@ -73,8 +75,10 @@ export function WalletIdentityAnchor({
   badgeBeforeAddress?: boolean;
   /** Hide built-in filter button when rendered externally at row end. */
   suppressFilterButton?: boolean;
-  /** `axiom` → `H13. MYa` (3 + dot + space + 3). */
-  addressFormat?: 'default' | 'axiom';
+  /** `axiom` → `H13. MYa` (3 + dot + space + 3); `axiom-ticker` → last 3 chars. */
+  addressFormat?: 'default' | 'axiom' | 'axiom-ticker';
+  /** Rounded hover ring instead of underline (compact trade rails). */
+  outlineOnHover?: boolean;
   /** Jump to Trades tab filtered to this wallet on the current mint. */
   onFilterMintTrades?: (address: string) => void;
   tradesFilterActive?: boolean;
@@ -94,6 +98,7 @@ export function WalletIdentityAnchor({
   const tLeave = useRef<number | null>(null);
 
   const { resolveLabel, openLabelModal } = useWalletLabels();
+  const uiDemo = useUiDemoMode();
   const { isTracked } = useTrackedWalletsLookup();
   const openIntel = useWalletIntelStore((s) => s.openWallet);
 
@@ -118,11 +123,15 @@ export function WalletIdentityAnchor({
         isTracked: tracked,
         extras,
         creatorWallet: creatorWallet ?? null,
+        allowDemoDirectory: uiDemo,
       }),
-    [address, labelDisp, tracked, extras, creatorWallet],
+    [address, labelDisp, tracked, extras, creatorWallet, uiDemo],
   );
 
-  const wideDemo = useMemo(() => mockWalletWideStats(address), [address]);
+  const wideDemo = useMemo(
+    () => (uiDemo ? mockWalletWideStats(address) : null),
+    [address, uiDemo],
+  );
 
   const tokenCtxFromRow =
     mint != null &&
@@ -151,9 +160,11 @@ export function WalletIdentityAnchor({
   const displayText =
     labelDisp?.labeled === true
       ? labelDisp.label + (labelDisp.emoji ? ` ${labelDisp.emoji}` : '')
-      : addressFormat === 'axiom' && address.length >= 6
-        ? `${address.slice(0, 3)}. ${address.slice(-3)}`
-        : labelDisp?.text ?? address;
+      : addressFormat === 'axiom-ticker' && address.length >= 3
+        ? address.slice(-3)
+        : addressFormat === 'axiom' && address.length >= 6
+          ? `${address.slice(0, 3)}. ${address.slice(-3)}`
+          : labelDisp?.text ?? address;
 
   const positionPanel = useCallback((wPanel: number, hPanel: number) => {
     const el = anchorRef.current;
@@ -254,12 +265,17 @@ export function WalletIdentityAnchor({
     return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0;
   }
 
+  const hoverSurfaceCls = outlineOnHover
+    ? 'rounded px-0.5 transition-colors hover:bg-white/[0.06] hover:ring-1 hover:ring-white/12'
+    : 'underline-offset-2 hover:underline';
+
   const triggerInner =
     href != null ? (
       <Link
         href={href}
         className={cn(
-          'underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
+          hoverSurfaceCls,
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
           addressNoTruncate ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate',
           textClsBase,
           className,
@@ -280,7 +296,9 @@ export function WalletIdentityAnchor({
       <button
         type="button"
         className={cn(
-          'text-left underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
+          'text-left',
+          hoverSurfaceCls,
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
           addressNoTruncate ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate',
           textClsBase,
           className,

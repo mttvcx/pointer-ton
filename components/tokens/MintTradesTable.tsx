@@ -1,9 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ArrowLeftRight, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { formatRelativeShort, formatCompactUsd, formatCompactNumber } from '@/lib/format';
+import {
+  formatRelativeShort,
+  formatTradeClockTime,
+  formatCompactUsd,
+  formatCompactNumber,
+} from '@/lib/format';
 import {
   tradeFillMcUsdLabel,
   tradeTraderHint,
@@ -48,6 +53,10 @@ type Props = {
   onFilterMintTrades?: (address: string) => void;
   tradesMakerFilter?: string | null;
   onToggleDisplayMode?: () => void;
+  ageSortDir: 'asc' | 'desc';
+  onAgeSortDirChange: (dir: 'asc' | 'desc') => void;
+  ageDisplay: 'age' | 'time';
+  onAgeDisplayChange: (mode: 'age' | 'time') => void;
 };
 
 export function MintTradesTable({
@@ -60,9 +69,11 @@ export function MintTradesTable({
   onFilterMintTrades,
   tradesMakerFilter,
   onToggleDisplayMode,
+  ageSortDir,
+  onAgeSortDirChange,
+  ageDisplay,
+  onAgeDisplayChange,
 }: Props) {
-  const [ageSortDir, setAgeSortDir] = useState<'asc' | 'desc'>('desc');
-
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
       const ta = new Date(a.submitted_at).getTime();
@@ -98,29 +109,50 @@ export function MintTradesTable({
       <thead className={DESK_STICKY_HEAD_CLASS}>
         <tr>
           <th className={cn(DESK_HEADER_CLASS, 'text-right pl-3')}>
-            <button
-              type="button"
-              onClick={() => setAgeSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
-              className="inline-flex items-center gap-0.5 hover:text-fg-primary"
-              aria-label={`Sort trades by time, ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
-            >
-              <span>Age</span>
-              <SortIndicator sortDir={ageSortDir} />
+            <span className="inline-flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => onAgeDisplayChange('age')}
+                className={cn(
+                  'rounded px-0.5 transition-colors',
+                  ageDisplay === 'age' ? 'text-fg-primary' : 'text-fg-muted/60 hover:text-fg-secondary',
+                )}
+              >
+                Age
+              </button>
+              <button
+                type="button"
+                onClick={() => onAgeSortDirChange(ageSortDir === 'desc' ? 'asc' : 'desc')}
+                className="inline-flex items-center rounded px-0.5 text-fg-muted/60 transition-colors hover:text-fg-primary"
+                aria-label={`Sort trades by time, ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
+                title={`Sort ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
+              >
+                <SortIndicator sortDir={ageSortDir} />
+              </button>
               <span className="text-fg-muted/40">/</span>
-              <span className="text-fg-muted">Time</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onAgeDisplayChange('time')}
+                className={cn(
+                  'rounded px-0.5 transition-colors',
+                  ageDisplay === 'time' ? 'text-fg-primary' : 'text-fg-muted/60 hover:text-fg-secondary',
+                )}
+              >
+                Time
+              </button>
+            </span>
           </th>
           <th className={DESK_HEADER_CLASS}>Type</th>
           <SortableTh label="MC" align="right" />
           <SortableTh
             label={
-              <span className="flex flex-col items-end leading-tight">
+              <span className="flex flex-col items-end gap-0 leading-none">
                 <span>Amount</span>
                 {onToggleDisplayMode ? (
                   <button
                     type="button"
                     onClick={onToggleDisplayMode}
-                    className="inline-flex items-center gap-0.5 text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60 transition hover:text-fg-primary"
+                    className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-normal normal-case tracking-normal text-fg-muted/60 transition hover:text-fg-primary"
                     title="Toggle USD / SOL"
                   >
                     {displayMode === 'SOL' ? nativeSym : 'USD'}
@@ -129,7 +161,7 @@ export function MintTradesTable({
                     </span>
                   </button>
                 ) : (
-                  <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
+                  <span className="mt-0.5 text-[9px] font-normal normal-case tracking-normal text-fg-muted/60">
                     {displayMode === 'SOL' ? nativeSym : 'USD'}
                   </span>
                 )}
@@ -182,7 +214,9 @@ export function MintTradesTable({
             <tr key={row.id} className={DESK_ROW_CLASS}>
               <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
                 <span className={CELL_MUTED_CLASS}>
-                  {formatRelativeShort(row.submitted_at)}
+                  {ageDisplay === 'time'
+                    ? formatTradeClockTime(row.submitted_at)
+                    : formatRelativeShort(row.submitted_at)}
                 </span>
               </td>
               <td className={DESK_CELL_CLASS}>
@@ -206,7 +240,7 @@ export function MintTradesTable({
                   {formatCompactNumber(tokens)}
                 </span>
               </td>
-              <td className="relative h-9 w-[140px] max-w-[140px] overflow-hidden p-0 align-middle [contain:paint] pointer-events-none">
+              <td className="relative h-7 w-[140px] max-w-[140px] overflow-hidden bg-bg-hover/35 p-0 align-middle [contain:paint] pointer-events-none">
                 <InlineBarCell
                   className="h-full w-full"
                   value={totalBarValue}
@@ -233,7 +267,7 @@ export function MintTradesTable({
                         tokenSymbol={tokenSymbol}
                         creatorWallet={creatorWallet}
                         href={`/wallet/${encodeURIComponent(wallet)}`}
-                        navigateOnClick
+                        preferIntelModal
                         truncate={4}
                         addressFormat="axiom"
                         badgeBeforeAddress

@@ -1,11 +1,11 @@
 import { cn } from '@/lib/utils/cn';
 
-/** Subtle cell tint from the value text tier (bull/warn/bear). */
+/** Subtle cell tint from the value text tier (bull/warn/bear) on grey workspace surfaces. */
 export function tokenMetricCellSurface(valueTextClass: string): string {
-  if (valueTextClass.includes('text-signal-bull')) return 'bg-signal-bull/10';
-  if (valueTextClass.includes('text-signal-bear')) return 'bg-signal-bear/10';
-  if (valueTextClass.includes('text-signal-warn')) return 'bg-signal-warn/10';
-  return 'bg-bg-raised';
+  if (valueTextClass.includes('text-signal-bull')) return 'bg-signal-bull/[0.08]';
+  if (valueTextClass.includes('text-signal-bear')) return 'bg-signal-bear/[0.08]';
+  if (valueTextClass.includes('text-signal-warn')) return 'bg-signal-warn/[0.08]';
+  return 'bg-bg-hover/70';
 }
 
 /**

@@ -47,16 +47,45 @@ const DEFAULT_TAB: PulseColumnId = 'new';
 const DEFAULT_POS = { x: 14, y: 112 };
 /** Comfortable default footprint — stays large even when a column has sparse rows */
 export const DEFAULT_PULSE_PEEK_SIZE: PulsePeekPanelSize = {
-  width: 520,
+  width: 380,
   height: 620,
 };
 /** First open anchor; after that position is persisted while dragging. */
 const DEFAULT_WALLET_POS = { x: 16, y: 360 };
 /** Wallet / trades peek — roomy default so sparse rows never shrink chrome */
 export const DEFAULT_WALLET_TRACKER_PEEK_SIZE: PulsePeekPanelSize = {
-  width: 440,
+  width: 380,
   height: 480,
 };
+/** Max dock peek width — matches embedded Pulse X-monitor rail (`PulsePageLayout`). */
+export const DOCK_PEEK_MAX_PANEL_W = 420;
+
+export function clampDockPeekWidth(width: number, minW = 320): number {
+  const floor = Math.max(280, minW);
+  if (typeof window === 'undefined') {
+    return Math.min(DOCK_PEEK_MAX_PANEL_W, Math.max(floor, Math.round(width)));
+  }
+  const viewportCap = Math.max(floor, window.innerWidth - 24);
+  return Math.min(DOCK_PEEK_MAX_PANEL_W, viewportCap, Math.max(floor, Math.round(width)));
+}
+
+export function clampDockPeekPanelSize(
+  size: PulsePeekPanelSize,
+  minW: number,
+  minH: number,
+): PulsePeekPanelSize {
+  const floorW = Math.max(280, minW);
+  let maxH = size.height;
+  if (typeof window !== 'undefined') {
+    const { topbar, botbar } = { topbar: 48, botbar: 40 };
+    const vh = window.innerHeight;
+    maxH = Math.max(minH, vh - topbar - botbar - 12);
+  }
+  return {
+    width: clampDockPeekWidth(size.width, floorW),
+    height: Math.round(Math.min(maxH, Math.max(minH, size.height))),
+  };
+}
 /** X monitor float / edge dock */
 export const DEFAULT_X_MONITOR_PEEK_SIZE: PulsePeekPanelSize = {
   width: 380,
@@ -110,6 +139,39 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
         dockXMonitorDockSnap: s.dockXMonitorDockSnap,
         dockXMonitorPanelSize: s.dockXMonitorPanelSize,
       }),
+      version: 2,
+      migrate: (persisted: unknown) => {
+        const p = persisted as Record<string, unknown> | undefined;
+        if (!p || typeof p !== 'object') return persisted;
+        const clampSize = (raw: unknown, fallback: PulsePeekPanelSize, minW: number, minH: number) => {
+          if (!raw || typeof raw !== 'object') return fallback;
+          const o = raw as Partial<PulsePeekPanelSize>;
+          return clampDockPeekPanelSize(
+            {
+              width: typeof o.width === 'number' ? o.width : fallback.width,
+              height: typeof o.height === 'number' ? o.height : fallback.height,
+            },
+            minW,
+            minH,
+          );
+        };
+        return {
+          ...p,
+          dockPulsePanelSize: clampSize(p.dockPulsePanelSize, DEFAULT_PULSE_PEEK_SIZE, 320, 360),
+          dockWalletPanelSize: clampSize(
+            p.dockWalletPanelSize,
+            DEFAULT_WALLET_TRACKER_PEEK_SIZE,
+            300,
+            300,
+          ),
+          dockXMonitorPanelSize: clampSize(
+            p.dockXMonitorPanelSize,
+            DEFAULT_X_MONITOR_PEEK_SIZE,
+            320,
+            360,
+          ),
+        };
+      },
     },
   ),
 );

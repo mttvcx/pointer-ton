@@ -51,6 +51,7 @@ export function clientIp(request: NextRequest): string {
 export async function enforcePublicApiRateLimit(
   request: NextRequest,
 ): Promise<NextResponse | null> {
+  if (process.env.POINTER_DISABLE_PUBLIC_RATE_LIMIT === '1') return null;
   if (request.method === 'OPTIONS') return null;
   if (!isPublicApiRateLimitPath(request.nextUrl.pathname)) return null;
 
@@ -69,6 +70,9 @@ export async function enforcePublicApiRateLimit(
     if (success) return null;
 
     const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[rate-limit] public API limit exceeded for', ip, `(retry in ${retryAfter}s)`);
+    }
     return NextResponse.json(
       { error: 'rate_limited', message: 'Too many requests. Try again shortly.' },
       {

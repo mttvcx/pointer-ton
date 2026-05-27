@@ -4,7 +4,7 @@
  */
 
 export const DESK_ROW_CLASS =
-  'group h-9 border-b border-border-subtle/40 bg-transparent transition-colors hover:bg-bg-hover/60';
+  'group h-8 border-b border-border-subtle/40 bg-transparent transition-colors hover:bg-bg-hover/60';
 
 export const DESK_CELL_CLASS = 'px-2.5 py-1.5 align-middle';
 export const DESK_CELL_FIRST_CLASS = 'pl-3 pr-2 py-1.5 align-middle';
@@ -15,7 +15,7 @@ export const DESK_TABLE_CLASS =
   'font-[system-ui] font-stretch-condensed tabular-nums';
 
 export const DESK_HEADER_CLASS =
-  'px-2.5 py-2 text-[11px] font-normal uppercase tracking-wide text-fg-muted text-left font-sans';
+  'px-2.5 py-1 text-[10px] font-normal uppercase tracking-wide text-fg-muted text-left font-sans';
 
 export const DESK_HEADER_NUM_CLASS = `${DESK_HEADER_CLASS} text-right`;
 
@@ -46,6 +46,10 @@ export const CELL_MUTED_CLASS =
 export const CELL_HERO_CLASS =
   'text-[14px] font-medium leading-tight font-sans tabular-nums';
 
-/** Opaque sticky thead — rows scroll underneath without bleed-through. */
+/** Sticky thead — flat on desk panel, hairline separator only (Axiom parity). */
 export const DESK_STICKY_HEAD_CLASS =
-  'sticky top-0 z-20 bg-bg-base shadow-[0_1px_0_rgba(255,255,255,0.04)]';
+  'sticky top-0 z-20 bg-bg-raised shadow-[0_1px_0_rgb(var(--border-subtle-rgb)/0.28)]';
+
+/** Scroll region — no nested border/inset; inherits desk panel background. */
+export const DESK_SCROLL_WELL_CLASS =
+  'relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto touch-pan-y [scrollbar-gutter:stable] [-ms-overflow-style:auto] [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.4)_transparent]';

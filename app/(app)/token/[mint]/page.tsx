@@ -7,6 +7,9 @@ import { TokenHeader } from '@/components/tokens/TokenHeader';
 import { getLatestSnapshotForMint } from '@/lib/db/tokens';
 import { getDevWalletStats } from '@/lib/db/wallets';
 import { ensureTokenRowFromDas } from '@/lib/helius/feed';
+import { pulseTwitterProfileHoverTestBundle } from '@/lib/dev/demoPulseBundles';
+import { demoFixturesEnabledServer } from '@/lib/dev/demoPolicy';
+import { PULSE_X_HOVER_QA_MINT } from '@/lib/utils/solDemoMints';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 import { extractSupplyTokens } from '@/lib/tokens/metadataHints';
 
@@ -59,7 +62,10 @@ export default async function TokenDetailPage({
     notFound();
   }
 
-  const snapshot = await getLatestSnapshotForMint(mint);
+  let snapshot = await getLatestSnapshotForMint(mint);
+  if (mint === PULSE_X_HOVER_QA_MINT && demoFixturesEnabledServer()) {
+    snapshot = pulseTwitterProfileHoverTestBundle('sol')?.snapshot ?? snapshot;
+  }
   const dev = token.creator_wallet ? await getDevWalletStats(token.creator_wallet) : null;
   const supplyTokens = extractSupplyTokens(token.raw_metadata);
 
@@ -68,8 +74,8 @@ export default async function TokenDetailPage({
       <EntityLocker type="token" id={mint} label={token.symbol ?? token.name ?? null} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
         {/* Scroll the header + chart away first; desk sticks and owns vertical scroll inside */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto [-ms-overflow-style:auto] [scrollbar-gutter:stable]">
-          <div className="shrink-0 border-b border-border-subtle/40 bg-transparent">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto bg-bg-raised [-ms-overflow-style:auto] [scrollbar-gutter:stable]">
+          <div className="shrink-0 bg-bg-raised">
             <TokenHeader token={token} snapshot={snapshot} mint={mint} />
           </div>
 

@@ -19,6 +19,11 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
 import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { ensureTokenRowFromGeckoEvm } from '@/lib/evm/geckoTerminalPulse';
+import {
+  pulseTwitterProfileHoverTestTokenRow,
+} from '@/lib/dev/demoPulseBundles';
+import { demoFixturesEnabledServer } from '@/lib/dev/demoPolicy';
+import { PULSE_X_HOVER_QA_MINT } from '@/lib/utils/solDemoMints';
 import type { TablesInsert } from '@/lib/supabase/types';
 import {
   listTonApiJettons,
@@ -231,6 +236,33 @@ async function pollPulseColumn(): Promise<{ inserted: number; via: 'tonapi' }> {
   }
 }
 
+/**
+ * Throttled background trigger: when Pulse asks for a Sol column and the DB is
+ * cold (no rows in the window), kick off `pollSolanaPulseFromDas()` without
+ * blocking the response. The next 2s refetch picks up freshly-ingested mints.
+ *
+ * In production the Vercel cron at `/api/cron/pulse-poll` already runs every
+ * minute, so this is a no-op fallback. In local dev (no cron, no webhook
+ * registered) it's the only way the NEW column ever fills.
+ */
+let _lastSolInlinePoll = 0;
+const SOL_INLINE_POLL_MIN_INTERVAL_MS = 30_000;
+
+function maybeKickSolDasPollAsync(): void {
+  const now = Date.now();
+  if (now - _lastSolInlinePoll < SOL_INLINE_POLL_MIN_INTERVAL_MS) return;
+  _lastSolInlinePoll = now;
+  void (async () => {
+    try {
+      const n = await pollSolanaPulseFromDas();
+      debugTon('inline sol DAS poll done', { insertedNewMints: n });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[pointer][pulse DAS] inline poll failed:', msg);
+    }
+  })();
+}
+
 export async function runScheduledPulsePoll(): Promise<{
   tonapi: number;
   solDas: number;
@@ -284,6 +316,9 @@ export async function getPulseFeed(
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
     // DAS / Gecko backfill runs on cron — not on every 2s Pulse refetch (was blocking 20s+).
+    // For Sol we additionally fire-and-forget the DAS poll so the NEW column
+    // fills in local dev (no cron) without blocking the current request.
+    if (chain === 'sol') maybeKickSolDasPollAsync();
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
     if (tokens.length < MIN_ROWS_BEFORE_POLL) {
       tokens = await widenChainBackfill(column, chain);
@@ -356,6 +391,10 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
     canonical = new PublicKey(mint.trim()).toBase58();
   } catch {
     return null;
+  }
+
+  if (canonical === PULSE_X_HOVER_QA_MINT && demoFixturesEnabledServer()) {
+    return pulseTwitterProfileHoverTestTokenRow();
   }
 
   const existing = await getTokenByMint(canonical);

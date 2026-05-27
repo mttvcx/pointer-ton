@@ -14,6 +14,7 @@ import {
   SOL_DEMO_MINT_USDC,
   SOL_DEMO_MINT_WIF,
   SOL_DEMO_MINT_WSOL,
+  PULSE_X_HOVER_QA_MINT,
 } from '@/lib/utils/solDemoMints';
 import { USDC_MINT } from '@/lib/utils/addresses';
 import {
@@ -183,6 +184,25 @@ function withBondingProgress(bundleRow: PulseTokenBundle, f: number): PulseToken
         }
       : bundleRow.snapshot,
   };
+}
+
+/**
+ * Pinned Pulse New row for Twitter profile HoverCard QA (@elonmusk mock).
+ * Remove once live tokens reliably expose creator X handles.
+ */
+export function pulseTwitterProfileHoverTestBundle(chain: AppChainId): PulseTokenBundle | null {
+  if (chain !== 'sol') return null;
+  return solBundle(PULSE_X_HOVER_QA_MINT, 'ELONQA', 'Elon hover QA', 'pump.fun', 2, 420_000, 88_000, {
+    decimals: 5,
+    twitter_handle: 'https://x.com/elonmusk',
+    website_url: 'https://x.com/elonmusk',
+    snapshotPatch: { txns_1h: 42, holder_count: 128, extended_metrics: { pro_traders: 12 } },
+  });
+}
+
+/** Synthetic token row for `/token/{PULSE_X_HOVER_QA_MINT}` (Helius won't resolve system program). */
+export function pulseTwitterProfileHoverTestTokenRow(): TokenRow {
+  return pulseTwitterProfileHoverTestBundle('sol')!.token;
 }
 
 /** Feed rows when the Pulse API returns an empty list (UI demo mode only). */

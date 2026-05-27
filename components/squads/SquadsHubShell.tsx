@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
+import { DemoSimulatedBanner } from '@/components/shared/DemoSimulatedBanner';
 import { SquadsSubnav } from '@/components/squads/SquadsSubnav';
 import { squadsSubtitleForPath } from '@/lib/squads/squadsUiCopy';
 import { cn } from '@/lib/utils/cn';
@@ -15,6 +16,10 @@ export function SquadsHubShell({ children }: { children: ReactNode }) {
   if (hideHubChrome) {
     return (
       <div className="flex min-h-0 flex-1 flex-col px-2 py-3 pb-[calc(var(--app-bottombar-h)+12px)] sm:px-3">
+        <DemoSimulatedBanner
+          title="Simulated · not live trading"
+          detail="Squads rooms use sample data for private beta. Do not treat balances or fills as real."
+        />
         {children}
       </div>
     );
@@ -64,6 +69,11 @@ export function SquadsHubShell({ children }: { children: ReactNode }) {
         </header>
 
         <SquadsSubnav className="bg-bg-base/90 backdrop-blur-sm" />
+
+        <DemoSimulatedBanner
+          title="Simulated · not live trading"
+          detail="Squads rooms, missions, and leaderboard use sample data for private beta. Do not treat balances or fills as real."
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-bg-base/40 px-2 py-3 sm:px-3">
           {children}

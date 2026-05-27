@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils/cn';
 
-/** Inline Pointer bird — `/public/branding/logo-bird.svg` (brand mark, not chain glyphs). */
+/** Official Pointer swallow mark — same asset as the app topbar (`/branding/pointer-bird.png`). */
 export function PointerBirdMark({
   className,
   size = 20,
@@ -12,8 +12,9 @@ export function PointerBirdMark({
   size?: number;
 }) {
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/branding/logo-bird.svg"
+      src="/branding/pointer-bird.png"
       alt=""
       width={size}
       height={size}

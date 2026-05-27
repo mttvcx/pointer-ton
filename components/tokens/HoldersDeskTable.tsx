@@ -20,6 +20,7 @@ import {
   CELL_MUTED_CLASS,
 } from './cells/deskTokens';
 import type { HolderDeskSynth } from '@/lib/tokens/holderDeskSynth';
+import { useHoldersTableSettingsStore } from '@/store/holdersTableSettings';
 
 export type HolderDeskRow = {
   id: number;
@@ -45,6 +46,7 @@ type Props = {
   sortDir?: 'asc' | 'desc' | null;
   onFilterMintTrades?: (address: string) => void;
   tradesMakerFilter?: string | null;
+  onOpenSettings?: () => void;
 };
 
 export function HoldersDeskTable({
@@ -57,7 +59,10 @@ export function HoldersDeskTable({
   sortDir,
   onFilterMintTrades,
   tradesMakerFilter,
+  onOpenSettings,
 }: Props) {
+  const col = useHoldersTableSettingsStore((s) => s.settings.columns);
+
   return (
     <table className={cn('w-full table-fixed border-collapse', DESK_TABLE_CLASS)}>
       <colgroup>
@@ -80,25 +85,39 @@ export function HoldersDeskTable({
           <th className={DESK_HEADER_NUM_CLASS}>
             <div className="flex flex-col items-end leading-tight">
               <span>{nativeSym} Balance</span>
-              <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
-                (Last active)
-              </span>
+              {col.lastActive ? (
+                <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
+                  (Last active)
+                </span>
+              ) : null}
             </div>
           </th>
           <th className={DESK_HEADER_NUM_CLASS}>
             <div className="flex flex-col items-end leading-tight">
               <span>Bought</span>
-              <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
-                Avg · qty · n
-              </span>
+              {col.averageEntry || col.totalTransactions ? (
+                <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
+                  {col.averageEntry && col.totalTransactions
+                    ? 'Avg · qty · n'
+                    : col.averageEntry
+                      ? 'Avg'
+                      : 'qty · n'}
+                </span>
+              ) : null}
             </div>
           </th>
           <th className={DESK_HEADER_NUM_CLASS}>
             <div className="flex flex-col items-end leading-tight">
               <span>Sold</span>
-              <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
-                Avg · qty · n
-              </span>
+              {col.averageExit || col.totalTransactions ? (
+                <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
+                  {col.averageExit && col.totalTransactions
+                    ? 'Avg · qty · n'
+                    : col.averageExit
+                      ? 'Avg'
+                      : 'qty · n'}
+                </span>
+              ) : null}
             </div>
           </th>
           <SortableTh
@@ -127,7 +146,7 @@ export function HoldersDeskTable({
           />
           <th className={DESK_HEADER_CLASS}>Funding</th>
           <SortableTh label="Held" align="right" className="pr-3" />
-          <DeskHeaderSettings />
+          <DeskHeaderSettings onOpen={onOpenSettings} />
         </tr>
       </thead>
 
@@ -163,18 +182,18 @@ export function HoldersDeskTable({
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
                 <StackedNumericCell
                   primary={`${synth.solBalance} ${nativeSym}`}
-                  secondary={synth.lastActive ? `(${synth.lastActive})` : null}
+                  secondary={col.lastActive && synth.lastActive ? `(${synth.lastActive})` : null}
                 />
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
                 <StackedNumericCell
                   primary={synth.boughtUsd}
                   secondary={
-                    synth.boughtTokensCompact && synth.buyTxCount != null
+                    col.totalTransactions && synth.boughtTokensCompact && synth.buyTxCount != null
                       ? `${synth.boughtTokensCompact} / ${synth.buyTxCount}`
                       : null
                   }
-                  tertiary={synth.avgBuyUsd ? `(${synth.avgBuyUsd})` : null}
+                  tertiary={col.averageEntry && synth.avgBuyUsd ? `(${synth.avgBuyUsd})` : null}
                   tone={synth.boughtUsd === '$0' ? 'neutral' : 'buy'}
                 />
               </td>
@@ -182,13 +201,15 @@ export function HoldersDeskTable({
                 <StackedNumericCell
                   primary={synth.soldUsd}
                   secondary={
-                    synth.soldUsd === '$0'
-                      ? '0 / 0'
-                      : synth.soldTokensCompact && synth.sellTxCount != null
-                        ? `${synth.soldTokensCompact} / ${synth.sellTxCount}`
-                        : null
+                    !col.totalTransactions
+                      ? null
+                      : synth.soldUsd === '$0'
+                        ? '0 / 0'
+                        : synth.soldTokensCompact && synth.sellTxCount != null
+                          ? `${synth.soldTokensCompact} / ${synth.sellTxCount}`
+                          : null
                   }
-                  tertiary={synth.avgSellUsd ? `(${synth.avgSellUsd})` : null}
+                  tertiary={col.averageExit && synth.avgSellUsd ? `(${synth.avgSellUsd})` : null}
                   tone={synth.soldUsd === '$0' ? 'neutral' : 'sell'}
                 />
               </td>
@@ -207,12 +228,21 @@ export function HoldersDeskTable({
                   venue={synth.funding?.venue}
                   ageSinceFund={synth.funding?.ageSinceFund}
                   solFunding={synth.funding?.solFunding}
-                  txCount={synth.funding?.txCount}
-                  sharedFundedCount={synth.funding?.sharedFundedCount}
+                  txCount={col.fundingCount ? synth.funding?.txCount : null}
+                  sharedFundedCount={
+                    col.sharedWalletFunding ? synth.funding?.sharedFundedCount : null
+                  }
                 />
               </td>
               <td className={cn(DESK_CELL_LAST_CLASS, 'text-right')}>
-                <span className={CELL_MUTED_CLASS}>{synth.heldAge}</span>
+                <span
+                  className={cn(
+                    CELL_MUTED_CLASS,
+                    col.timeLinkedFunding && 'text-signal-info',
+                  )}
+                >
+                  {synth.heldAge}
+                </span>
               </td>
               <td className="w-8 p-0" aria-hidden />
             </tr>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
   Languages,
@@ -50,6 +50,7 @@ import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshList
  */
 export function Topbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { authenticated, logout, getAccessToken, login, linkedTonAddress } = usePointerAuth();
   const searchQuery = useUIStore((s) => s.searchQuery);
@@ -62,7 +63,7 @@ export function Topbar() {
   const [exchangeTab, setExchangeTab] = useState<ExchangeTab>('deposit');
   const [depositHistoryOpen, setDepositHistoryOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const openSettings = useUIStore((s) => s.openSettings);
   const [autoTranslateOpen, setAutoTranslateOpen] = useState(false);
   const [featureUpdatesOpen, setFeatureUpdatesOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
@@ -197,7 +198,7 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b border-border-subtle bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1 relative">
+    <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1 relative">
       <Link
         href="/pulse"
         prefetch={true}
@@ -255,8 +256,8 @@ export function Topbar() {
         })}
       </nav>
 
-      {/* Viewport-centered cluster: co-pilot pill + compact clipboard token chip (to the right of Hide). */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 z-[65] block min-w-0 -translate-x-1/2 -translate-y-1/2">
+      {/* Viewport-centered cluster: co-pilot pill + compact clipboard token chip (offset right of center). */}
+      <div className="pointer-events-none absolute left-[calc(50%+10px)] top-1/2 z-[65] block min-w-0 -translate-x-1/2 -translate-y-1/2 sm:left-[calc(50%+14px)]">
         <div className="pointer-events-auto flex items-center justify-center gap-2">
           <CopilotTopbarSlot />
           <ClipboardMintTopbarChip />
@@ -368,11 +369,19 @@ export function Topbar() {
                 onClick={() => setAvatarMenuOpen((o) => !o)}
                 aria-haspopup="menu"
                 aria-expanded={avatarMenuOpen}
-                aria-label="Account menu"
-                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40"
+                aria-label="Account menu — settings, wallets, sign out"
+                title="Account · Sign out"
+                className="group/avatar rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-bg-sunken/90 text-fg-muted shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.06)] ring-1 ring-border-subtle/70">
-                  <UserRound className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                <span
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-accent-primary',
+                    'border border-accent-primary/35 bg-accent-primary/[0.07] shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.08)]',
+                    'transition-colors group-hover/avatar:border-accent-primary/55 group-hover/avatar:bg-accent-primary/[0.13]',
+                    avatarMenuOpen && 'border-accent-primary/65 bg-accent-primary/[0.15]',
+                  )}
+                >
+                  <UserRound className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
                 </span>
               </button>
               {avatarMenuPresence.mounted ? (
@@ -409,7 +418,7 @@ export function Topbar() {
                       role="menuitem"
                       onClick={() => {
                         setAvatarMenuOpen(false);
-                        setSettingsOpen(true);
+                        openSettings('general');
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] transition-colors hover:bg-bg-hover hover:text-fg-primary"
                     >
@@ -444,12 +453,19 @@ export function Topbar() {
                       role="menuitem"
                       onClick={() => {
                         setAvatarMenuOpen(false);
-                        void logout();
+                        void (async () => {
+                          try {
+                            await logout();
+                          } finally {
+                            queryClient.clear();
+                            router.replace('/');
+                          }
+                        })();
                       }}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-signal-bear transition-colors hover:bg-signal-bear/10"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] font-semibold text-signal-bear transition-colors hover:bg-signal-bear/10"
                     >
                       <LogOut className="h-4 w-4 shrink-0 opacity-90" strokeWidth={2} aria-hidden />
-                      <span>Log out</span>
+                      <span>Sign out</span>
                     </button>
                   </div>
                 </div>
@@ -470,7 +486,7 @@ export function Topbar() {
       onOpenDepositHistory={() => setDepositHistoryOpen(true)}
     />
     <DepositHistoryModal open={depositHistoryOpen} onOpenChange={setDepositHistoryOpen} />
-    <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    <SettingsModal />
     <AutoTranslateModal open={autoTranslateOpen} onClose={() => setAutoTranslateOpen(false)} />
     <FeatureUpdatesModal open={featureUpdatesOpen} onClose={() => setFeatureUpdatesOpen(false)} />
     </>

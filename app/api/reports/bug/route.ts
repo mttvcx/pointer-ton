@@ -31,14 +31,73 @@ function coercePayload(raw: unknown): BugReportPayload | null {
   return o as BugReportPayload;
 }
 
+function bugReportWebhookConfigured(): boolean {
+  return Boolean(process.env.BUG_REPORT_WEBHOOK_URL?.trim());
+}
+
+async function deliverBugReport(
+  receiptId: string,
+  payload: BugReportPayload,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const webhookUrl = process.env.BUG_REPORT_WEBHOOK_URL?.trim();
+  if (!webhookUrl) {
+    return { ok: false, reason: 'webhook_not_configured' };
+  }
+
+  const categoryLabel =
+    BUG_CATEGORY_OPTIONS.find((c) => c.id === payload.category)?.label ?? payload.category;
+  const severityLabel =
+    BUG_SEVERITY_OPTIONS.find((s) => s.id === payload.severity)?.label ?? payload.severity;
+
+  const ctx = payload.context;
+  const mintHint = ctx.tokenMintHints?.[0] ?? ctx.pulseHighlightMint ?? null;
+  const lines = [
+    `**Pointer bug report** · \`${receiptId.slice(0, 8)}\``,
+    `**Severity:** ${severityLabel}`,
+    `**Category:** ${categoryLabel}`,
+    `**Route:** ${ctx.route}`,
+    `**Chain:** ${ctx.activeChain}`,
+    mintHint ? `**Mint:** ${mintHint}` : null,
+    ctx.activeWalletMasked ? `**Wallet:** ${ctx.activeWalletMasked}` : null,
+    '',
+    payload.description.trim().slice(0, 3500),
+  ].filter(Boolean);
+
+  const body = {
+    content: lines.join('\n').slice(0, 1900),
+    embeds: [
+      {
+        title: 'Diagnostics context',
+        description: '```json\n' + JSON.stringify(ctx, null, 2).slice(0, 3500) + '\n```',
+      },
+    ],
+  };
+
+  const res = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(12_000),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    return { ok: false, reason: `webhook_${res.status}:${text.slice(0, 120)}` };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Diagnostics intake endpoint.
- *
- * TODO: Persist to warehouse / ticketing (Supabase bug_reports etc.), alerting on `urgent_funds`,
- * and attach optional screenshot blobs when capture ships client-side.
+ * Set `BUG_REPORT_WEBHOOK_URL` (Discord/Slack incoming webhook) so beta reports reach you.
  */
 export async function POST(req: Request) {
   try {
+    if (!bugReportWebhookConfigured()) {
+      return NextResponse.json({ error: 'reporting_disabled' }, { status: 503 });
+    }
+
     const jsonUnknown: unknown = await req.json().catch(() => null);
     const parsed = coercePayload(jsonUnknown);
 
@@ -50,8 +109,15 @@ export async function POST(req: Request) {
     const trace = `[bug-report] receipt=${receiptId} route=${parsed.context.route ?? '?'} severity=${parsed.severity} category=${parsed.category}`;
     console.info(trace);
 
+    const delivered = await deliverBugReport(receiptId, parsed);
+    if (!delivered.ok) {
+      console.error('[bug-report] delivery failed:', delivered.reason, trace);
+      return NextResponse.json({ error: 'delivery_failed' }, { status: 502 });
+    }
+
     return NextResponse.json({ ok: true, receiptId }, { status: 200 });
-  } catch {
+  } catch (err) {
+    console.error('[bug-report] unexpected failure:', err);
     return NextResponse.json({ error: 'report_failed' }, { status: 500 });
   }
 }

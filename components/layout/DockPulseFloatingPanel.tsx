@@ -11,6 +11,7 @@ import {
 } from '@/lib/layout/dockPeekSnap';
 import { stickyDockSideFromFloatingRect } from '@/lib/layout/floatingPeekSticky';
 import {
+  clampDockPeekWidth,
   DEFAULT_PULSE_PEEK_SIZE,
   type PulseDockSnapSide,
   useTokenDockPeekStore,
@@ -26,7 +27,7 @@ const TAB_LABEL: Record<PulseColumnId, string> = {
 };
 const TAB_ORDER: PulseColumnId[] = ['new', 'stretch', 'migrated'];
 
-const MIN_PANEL_W = 400;
+const MIN_PANEL_W = 320;
 const MIN_PANEL_H = 420;
 /** Edge-ghost overlay width near screen bezel while dragging */
 const EDGE_GHOST_W_PX = 72;
@@ -98,9 +99,9 @@ export function DockPulseFloatingPanel() {
   };
 
   const clampPanelSize = useCallback((w: number, h: number) => {
-    const { maxFloatH, maxFloatW } = readMetrics();
+    const { maxFloatH } = readMetrics();
     return {
-      w: Math.round(Math.min(maxFloatW, Math.max(MIN_PANEL_W, w))),
+      w: clampDockPeekWidth(w, MIN_PANEL_W),
       h: Math.round(Math.min(maxFloatH, Math.max(MIN_PANEL_H, h))),
     };
   }, []);

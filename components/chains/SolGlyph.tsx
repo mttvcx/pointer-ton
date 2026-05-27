@@ -12,7 +12,7 @@ export function SolGlyph({
   /** Pixel width & height */
   size?: number;
 }) {
-  const px = Math.max(14, size);
+  const px = Math.max(12, size);
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img

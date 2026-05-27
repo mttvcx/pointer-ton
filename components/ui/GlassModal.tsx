@@ -67,7 +67,7 @@ export function GlassModal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative w-full overflow-hidden rounded-2xl border border-white/[0.09] fill-mode-forwards',
+          'relative flex w-full flex-col overflow-hidden rounded-2xl border border-white/[0.09] fill-mode-forwards',
           'bg-[rgba(8,13,20,0.82)] shadow-[0_28px_72px_-28px_rgba(0,0,0,0.88)] backdrop-blur-xl backdrop-saturate-150',
           maxWidthClass,
           overlayPanelClasses(visible),
@@ -77,7 +77,7 @@ export function GlassModal({
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.07] via-transparent to-transparent" />
         {hasHeader ? (
-          <div className="relative flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 pb-3 pt-4">
+          <div className="relative shrink-0 flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 pb-3 pt-4">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 {title ? (
@@ -115,10 +115,14 @@ export function GlassModal({
           </div>
         )}
 
-        {children ? <div className="relative px-4 py-3">{children}</div> : null}
+        {children ? (
+          <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-3">
+            {children}
+          </div>
+        ) : null}
 
         {footer ? (
-          <div className="relative flex flex-wrap items-center justify-end gap-2 border-t border-white/[0.06] px-4 py-3">
+          <div className="relative flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-white/[0.06] px-4 py-3">
             {footer}
           </div>
         ) : null}

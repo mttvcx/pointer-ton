@@ -2,7 +2,9 @@
 
 import { ChevronDown, Layers, Search, Signal, Wallet2 } from 'lucide-react';
 import type { MouseEventHandler, ReactNode } from 'react';
+import { ChainIcon } from '@/components/squads/ChainIcon';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
+import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatNumber } from '@/lib/utils/formatters';
@@ -27,7 +29,7 @@ export function WalletMonogram({ address, label }: { address: string; label: str
   const sym = pair.toUpperCase();
   return (
     <span
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-gradient-to-br from-bg-hover to-bg-sunken text-[11px] font-bold tracking-tight text-accent-glow shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.08)] ring-1 ring-border-subtle/80"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-[10px] font-semibold tracking-tight text-fg-secondary"
       aria-hidden
     >
       {sym}
@@ -103,6 +105,7 @@ export function PortfolioWalletSelector({
   tradingWalletAddress,
 }: PortfolioWalletSelectorProps) {
   const showSearch = visibleWalletCount > 8;
+  const activeChain = useUIStore((s) => s.activeChain);
 
   return (
     <div className="relative" ref={containerRef}>
@@ -110,7 +113,7 @@ export function PortfolioWalletSelector({
         type="button"
         onClick={() => onOpenChange(!open)}
         className={cn(
-          'inline-flex min-w-[200px] max-w-[min(420px,92vw)] items-center justify-between gap-2 rounded-lg border border-border-subtle bg-bg-raised px-3 text-left text-xs font-medium text-fg-primary shadow-none transition hover:bg-bg-hover',
+          'inline-flex min-w-[220px] max-w-[min(420px,92vw)] items-center justify-between gap-3 rounded-lg border border-border-subtle bg-bg-raised px-3 py-2.5 text-left text-xs font-medium text-fg-primary shadow-none transition hover:bg-bg-hover',
           open && 'border-accent-primary/35 ring-1 ring-accent-primary/25',
         )}
         aria-haspopup="listbox"
@@ -132,17 +135,12 @@ export function PortfolioWalletSelector({
             </span>
           </span>
         </span>
-        <span className="flex shrink-0 items-center gap-1">
-          <span className="flex h-7 shrink-0 items-center gap-1 rounded border border-border-subtle bg-bg-sunken px-2 font-mono text-xs tabular-nums text-fg-primary">
-            <span
-              className="h-3.5 w-3.5 shrink-0 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195]"
-              aria-hidden
-            />
-            <span className="tabular-nums">
-              {formatNumber(selectedId === 'all' ? combinedNative : balanceOf(selectedWallet?.balance_lamports), {
-                decimals: 4,
-              })}
-            </span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold tabular-nums text-fg-primary">
+            <ChainIcon chain={activeChain} size={14} className="opacity-90" />
+            {formatNumber(selectedId === 'all' ? combinedNative : balanceOf(selectedWallet?.balance_lamports), {
+              decimals: 4,
+            })}
             <span className="text-[10px] font-medium text-fg-muted">{nativeSym}</span>
           </span>
           <ChevronDown
@@ -416,12 +414,11 @@ export function WalletTableRowShell({
           : undefined
       }
       className={cn(
-        'group relative rounded-xl border border-transparent bg-gradient-to-b from-bg-sunken/40 to-transparent px-3 py-2.5 outline-none transition',
-        'hover:border-border-default hover:from-bg-hover hover:shadow-[0_12px_40px_-28px_rgba(0,0,0,0.75)]',
+        'group relative rounded-lg bg-transparent px-2.5 py-1.5 outline-none transition',
+        'hover:bg-white/[0.03]',
         onClick &&
           'cursor-pointer focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/35 focus-visible:ring-offset-0',
-        selected &&
-          'border-accent-primary/35 from-bg-hover/50 shadow-[inset_0_0_0_1px_rgb(var(--accent-primary-rgb)/0.15),0_0_24px_-16px_rgb(var(--accent-primary-rgb)/0.25)]',
+        selected && 'bg-white/[0.04]',
         className,
       )}
     >

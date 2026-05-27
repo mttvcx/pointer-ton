@@ -17,7 +17,7 @@ import { protocolBrand } from '@/lib/tokens/protocolBrand';
 import { ProtocolBrandIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
-import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
+import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { useUIStore } from '@/store/ui';
 import { XMonitorRules } from '@/components/monitor/XMonitorRules';
@@ -194,9 +194,9 @@ export function XMonitorPanel({
   onDragHandlePointerMove?: (e: ReactPointerEvent<HTMLDivElement>) => void;
   onDragHandlePointerUp?: (e: ReactPointerEvent<HTMLDivElement>) => void;
   onClose?: () => void;
-}) {  const [tab, setTab] = useState<MonitorTab>(defaultTab);
+}) {
+  const [tab, setTab] = useState<MonitorTab>(defaultTab);
   const activeChain = useUIStore((s) => s.activeChain);
-  const setRailSide = usePulseTwitterRailStore((s) => s.setSide);
   const launchMode = useAutoLaunchStore((s) => s.launchMode);
   const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: true });
 
@@ -291,23 +291,21 @@ export function XMonitorPanel({
               {tab === 'feed' ? (
                 <span className="text-[10px] tabular-nums text-fg-muted">{rows.length}</span>
               ) : null}
-              {!embedded || floating ? (
-                <button
-                  type="button"
-                  title="Hide X monitor"
-                  aria-label="Hide X monitor"
-                  onClick={() => {
-                    if (floating && onClose) {
-                      onClose();
-                      return;
-                    }
-                    setRailSide('hidden');
-                  }}
-                  className="btn-press flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
-                >
-                  <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                </button>
-              ) : null}
+              <button
+                type="button"
+                title="Hide X monitor"
+                aria-label="Hide X monitor"
+                onClick={() => {
+                  if (floating && onClose) {
+                    onClose();
+                    return;
+                  }
+                  closeXMonitor();
+                }}
+                className="btn-press flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              </button>
             </div>
           </div>
         </div>

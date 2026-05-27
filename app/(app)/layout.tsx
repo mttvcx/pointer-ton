@@ -6,6 +6,7 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { Loader2 } from 'lucide-react';
 import { RoutePrefetcher } from '@/components/layout/RoutePrefetcher';
 import { Topbar } from '@/components/layout/Topbar';
+import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
 import { GlobalSearchModal } from '@/components/layout/GlobalSearchModal';
 import { LabelWalletModal } from '@/components/wallets/LabelWalletModal';
 import { WalletAnalyticsHost } from '@/components/wallet/analytics/WalletAnalyticsHost';
@@ -18,9 +19,6 @@ import { AutoLaunchExecutor } from '@/components/auto-launch/AutoLaunchExecutor'
 import { AutoBuyToastHost } from '@/components/auto-buy/AutoBuyToastHost';
 import { AutoSellExecutor } from '@/components/auto-sell/AutoSellExecutor';
 import { AutoSellToastHost } from '@/components/auto-sell/AutoSellToastHost';
-import { AlertRulesDockPanel } from '@/components/alerts/AlertRulesDockPanel';
-import { AlertRulesPopoutHost } from '@/components/alerts/AlertRulesPopoutHost';
-import { AlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import { AlertRuleAudioPlayer } from '@/components/alerts/AlertRuleAudioPlayer';
 import { AICopilotPanel } from '@/components/layout/AICopilotPanel';
 import { BottomBar } from '@/components/layout/BottomBar';
@@ -61,6 +59,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.title = APP_NAME;
+  }, []);
+
+  /** Drop legacy alert popouts — X monitor float + Pulse rail stay user-controlled. */
+  useEffect(() => {
+    const ui = useUIStore.getState();
+    ui.setAlertRulesPopout(null);
+    ui.setAlertRulesDocked(false);
+    ui.setAlertRulesModalOpen(false);
   }, []);
 
   useEffect(() => {
@@ -151,6 +157,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
       <RoutePrefetcher />
       <Topbar />
+      <WatchlistTickerBar />
       {/* Task S: Level 2 co-pilot body — full-width strip under topbar; Mode
           toggles height (embedded vs collapsed). */}
       <CopilotStripSlot />
@@ -168,7 +175,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <AutoSellExecutor />
       <AutoSellToastHost />
       <div className="flex min-h-0 flex-1">
-        <AlertRulesDockPanel />
         <ShellCopilotSlot side="left" />
         <main
           className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-raised pb-[var(--app-bottombar-h)] pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px))] transition-[padding] duration-200 ease-out"
@@ -177,8 +183,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </main>
         <ShellCopilotSlot side="right" />
       </div>
-      <AlertRulesModal />
-      <AlertRulesPopoutHost />
       <DockPulseFloatingPanel />
       <DockWalletTrackerFloatingPanel />
       <DockXMonitorFloatingPanel />

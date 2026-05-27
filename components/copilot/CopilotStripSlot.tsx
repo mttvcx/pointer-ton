@@ -6,7 +6,6 @@ import { CopilotStripBody } from './CopilotStripBody';
 import { useCopilotMode } from './CopilotModeContext';
 import { useCopilotBriefSlotVisibility } from './useCopilotBriefVisibility';
 import { useUIStore } from '@/store/ui';
-import { cn } from '@/lib/utils/cn';
 
 /**
  * Strip under the topbar. Hover briefing hides while another co-pilot surface is open.
@@ -29,8 +28,6 @@ export function CopilotStripSlot() {
   const { showBriefSlot } = useCopilotBriefSlotVisibility();
 
   const showBrief = isEmbedded && showBriefSlot;
-  /** Topbar already has border-b; a strip border-t here stacks when the briefing card is open. */
-  const hairlineOnlyUnderTopbar = isEmbedded && !showBrief;
   /** Pulse keeps the brief in-flow so the answer card never sits on top of token rows. */
   const inFlowBrief = Boolean(pathname?.startsWith('/pulse')) && showBrief;
   const floatingBrief = showBrief && !inFlowBrief;
@@ -45,33 +42,31 @@ export function CopilotStripSlot() {
     if (dm === 'pill') useUIStore.getState().setCopilotDisplayMode('panel');
   }, []);
 
-  return (
-    <div
-      className={cn(
-        'relative w-full shrink-0 bg-bg-base',
-        hairlineOnlyUnderTopbar && 'border-t border-white/[0.07]',
-        // In-flow brief reserves layout height (Pulse case).
-        inFlowBrief && 'pb-0 pt-0 sm:pb-0',
-        isEmbedded && !showBrief && 'py-0',
-        !isEmbedded && 'h-2 min-h-0 overflow-hidden border-b border-border-subtle/25',
-      )}
-    >
-      {inFlowBrief ? (
+  if (inFlowBrief) {
+    return (
+      <div className="relative w-full shrink-0 bg-bg-base">
         <div className="relative z-[1] flex flex-col">
           <div className="mx-auto w-full max-w-[440px] px-3 pb-0 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.22)_transparent]">
             <CopilotStripBody />
           </div>
         </div>
-      ) : floatingBrief ? (
-        <div
-          className="pointer-events-none fixed inset-x-0 z-[55]"
-          style={{ top: 'var(--app-topbar-h)' }}
-        >
-          <div className="pointer-events-auto mx-auto w-full max-w-[440px] px-3 pb-0 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.22)_transparent]">
-            <CopilotStripBody />
-          </div>
+      </div>
+    );
+  }
+
+  if (floatingBrief) {
+    return (
+      <div
+        className="pointer-events-none fixed inset-x-0 z-[55]"
+        style={{ top: 'var(--app-topbar-h)' }}
+      >
+        <div className="pointer-events-auto mx-auto w-full max-w-[440px] px-3 pb-0 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.22)_transparent]">
+          <CopilotStripBody />
         </div>
-      ) : null}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  /** Brief hidden / minimized — no in-flow spacer (avoids black bar under watchlist). */
+  return null;
 }

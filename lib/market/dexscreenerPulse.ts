@@ -141,6 +141,19 @@ async function fetchDexMetricsForMints(
   return out;
 }
 
+/** Fetch best-effort spot USD for a single mint (DexScreener). */
+export async function fetchDexScreenerSpotUsd(
+  mint: string,
+  chain: AppChainId = 'sol',
+): Promise<number | null> {
+  const chainPath = CHAIN_PATH[chain];
+  if (!chainPath) return null;
+  const live = await fetchDexMetricsForMints(chainPath, [mint]);
+  const snap = live.get(mint);
+  const px = snap?.price_usd;
+  return px != null && Number.isFinite(px) && px > 0 ? px : null;
+}
+
 /**
  * Overlay DexScreener spot V/MC on Pulse bundles so rows tick on refetch
  * even when `token_market_snapshots` is empty in Supabase.

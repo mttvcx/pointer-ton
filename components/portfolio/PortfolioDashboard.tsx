@@ -4,14 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useCreateWallet } from '@/lib/auth/solanaShims';
+import { useCreateWallet, useExportWallet } from '@/lib/auth/solanaShims';
+import { generateEmbeddedWalletForChain } from '@/lib/wallets/embeddedCreate';
+import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
 import {
   Activity,
+  ArrowLeftRight,
   Calendar,
   Check,
   ChevronDown,
   Copy,
   ExternalLink,
+  Eye,
   EyeOff,
   ImageUp,
   Loader2,
@@ -30,7 +34,6 @@ import {
   type PrivateTransferProvider,
 } from '@/components/portfolio/PrivateTransferProviderModal';
 import { SplitNowTransferModal } from '@/components/portfolio/SplitNowTransferModal';
-import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
 import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
@@ -58,8 +61,14 @@ import {
   OS,
   PortfolioWalletSelector,
   WalletMonogram,
-  WalletTableRowShell,
 } from '@/components/portfolio/walletOs';
+import { PortfolioWalletTableRow } from '@/components/portfolio/PortfolioWalletTableRow';
+import {
+  WalletGroupsSidebar,
+  filterWalletsByGroup,
+} from '@/components/portfolio/WalletGroupsSidebar';
+import { useWalletGroupsStore } from '@/store/walletGroups';
+import { ChainIcon } from '@/components/squads/ChainIcon';
 
 type PositionRow = {
   mint: string;
@@ -214,6 +223,7 @@ export function PortfolioDashboard({
   const pnlPortfolioScope = usePnlTrackerStore((s) => s.portfolioScope);
   const qc = useQueryClient();
   const { createWallet } = useCreateWallet();
+  const { exportWallet } = useExportWallet();
   const [tab, setTab] = useState<PortfolioTab>(initialTab ?? 'spot');
   const [spotTableTab, setSpotTableTab] = useState<SpotTableTab>('active_positions');
   const [spotActivityTab, setSpotActivityTab] = useState<'activity' | 'transfers'>('activity');
@@ -223,6 +233,8 @@ export function PortfolioDashboard({
   const [walletSelectorSearch, setWalletSelectorSearch] = useState('');
   const [searchWallets, setSearchWallets] = useState('');
   const [searchTable, setSearchTable] = useState('');
+  const [selectedWalletGroupId, setSelectedWalletGroupId] = useState<string | null>(null);
+  const walletGroups = useWalletGroupsStore((s) => s.groups);
   const [showHidden, setShowHidden] = useState(false);
   const [usdMode, setUsdMode] = useState(true);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('30d');
@@ -262,10 +274,15 @@ export function PortfolioDashboard({
     () => allWallets.filter((w) => mintMatchesAppChain(w.wallet_address, activeChain)),
     [allWallets, activeChain],
   );
-  const visibleWallets = useMemo(
-    () => chainWallets.filter((w) => showHidden || !w.is_archived),
+  const activeWallets = useMemo(
+    () => chainWallets.filter((w) => !w.is_archived),
+    [chainWallets],
+  );
+  const tableWallets = useMemo(
+    () => chainWallets.filter((w) => (showHidden ? w.is_archived : !w.is_archived)),
     [chainWallets, showHidden],
   );
+  const visibleWallets = activeWallets;
   const selectedPortfolioWallet =
     selectedPortfolioWalletId === 'all'
       ? null
@@ -373,14 +390,15 @@ export function PortfolioDashboard({
 
   const walletRows = useMemo(() => {
     const q = searchWallets.trim().toLowerCase();
-    return visibleWallets.filter((w) => {
+    const grouped = filterWalletsByGroup(tableWallets, selectedWalletGroupId, walletGroups);
+    return grouped.filter((w) => {
       if (!q) return true;
       return (
         w.wallet_address.toLowerCase().includes(q) ||
         (w.label ?? '').toLowerCase().includes(q)
       );
     });
-  }, [visibleWallets, searchWallets]);
+  }, [tableWallets, searchWallets, selectedWalletGroupId, walletGroups]);
   const selectorWallets = useMemo(() => {
     const q = walletSelectorSearch.trim().toLowerCase();
     if (!q) return visibleWallets;
@@ -439,6 +457,51 @@ export function PortfolioDashboard({
     openWalletIntel({ address: walletAddress, chain: activeChain, rowDemo: true });
   }
 
+  async function saveWalletLabel(walletId: string, label: string) {
+    const token = await getAccessToken();
+    if (!token) throw new Error('no_token');
+    const res = await authJson<{ wallet: MyWalletRow }>(token, `/api/wallets/${walletId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ label }),
+    });
+    if (!res.ok) throw new Error(res.message);
+    void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+    toast.success('Wallet renamed');
+  }
+
+  async function archiveWallet(walletId: string, archived: boolean) {
+    const token = await getAccessToken();
+    if (!token) throw new Error('no_token');
+    const res = await authJson<{ wallet: MyWalletRow }>(token, `/api/wallets/${walletId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_archived: !archived }),
+    });
+    if (!res.ok) throw new Error(res.message);
+    void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+    toast.success(archived ? 'Wallet unarchived' : 'Wallet archived');
+  }
+
+  function onExportWalletKey(w: MyWalletRow) {
+    if (w.is_imported) {
+      toast.info('Private key isn’t stored in Pointer', {
+        description:
+          'Use the key or phrase you saved when you created or imported this wallet.',
+      });
+      return;
+    }
+    if (activeChain === 'sol') {
+      void exportWallet({ address: w.wallet_address }).catch((e: unknown) => {
+        toast.error('Export failed', {
+          description: e instanceof Error ? e.message.slice(0, 200) : 'Unknown error',
+        });
+      });
+      return;
+    }
+    toast.info('Linked wallet', {
+      description: 'Keys stay in your wallet app — Pointer never receives your phrase.',
+    });
+  }
+
   async function persistImportedPointerRow(address: string) {
     const token = await getAccessToken();
     if (!token) throw new Error('no_token');
@@ -456,12 +519,24 @@ export function PortfolioDashboard({
     setCreating(true);
     setCreateMenuOpen(false);
     try {
-      const { wallet: w } = await createWallet({ createAdditional: true });
+      let address: string;
+      let isImported = false;
+      if (activeChain === 'sol') {
+        const { wallet: w } = await createWallet({ createAdditional: true });
+        address = w.address;
+      } else {
+        const generated = await generateEmbeddedWalletForChain(activeChain);
+        address = generated.address;
+        isImported = true;
+      }
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const res = await authJson<{ wallet: MyWalletRow }>(token, '/api/wallets/create', {
         method: 'POST',
-        body: JSON.stringify({ wallet_address: w.address }),
+        body: JSON.stringify({
+          wallet_address: address,
+          ...(isImported ? { is_imported: true } : {}),
+        }),
       });
       if (!res.ok && res.status !== 409) throw new Error(res.message);
       toast.success('Wallet created');
@@ -481,6 +556,25 @@ export function PortfolioDashboard({
   const positions = portfolio.positions ?? EMPTY_POSITIONS;
   const closed = portfolio.closedSells ?? EMPTY_CLOSED_SELLS;
   const trades = portfolio.trades ?? EMPTY_TRADES;
+  const solUsdRate = portfolio.solUsd != null && portfolio.solUsd > 0 ? portfolio.solUsd : null;
+
+  const formatBalancePrimary = (usd: number | null | undefined, compact = false) => {
+    if (usdMode) {
+      return compact ? formatCompactUsd(usd) : formatUsd(usd);
+    }
+    if (usd == null || !Number.isFinite(usd) || solUsdRate == null) return '\u2014';
+    const native = usd / solUsdRate;
+    const sign = native < 0 ? '-' : '';
+    return `${sign}${formatNumber(Math.abs(native), { decimals: 4 })} ${nativeSym}`;
+  };
+
+  const formatNativePrimary = (native: number) => {
+    if (usdMode) {
+      if (solUsdRate == null) return '\u2014';
+      return formatUsd(native * solUsdRate);
+    }
+    return `${formatNumber(native, { decimals: 4 })} ${nativeSym}`;
+  };
 
   const rowsForSpotTable = useMemo(() => {
     if (spotTableTab === 'active_positions') return positions;
@@ -736,21 +830,34 @@ export function PortfolioDashboard({
           <TrackersPanel className="min-h-0 flex-1" prefillWallet={prefillTrackerWallet} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col',
+            tab === 'wallets' ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain',
+          )}
+        >
           {tab === 'spot' ? (
         <div className="flex flex-col gap-4 p-2 sm:p-3">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2.5fr_1fr]">
             <div className="min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
               <div className="flex flex-col gap-3 p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-fg-primary">Balance</span>
-                  <span className="text-[10px] uppercase tracking-wider text-fg-muted">USD ↕</span>
+                  <button
+                    type="button"
+                    onClick={() => setUsdMode((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium uppercase tracking-wide text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
+                    title={`Switch to ${usdMode ? nativeSym : 'USD'}`}
+                  >
+                    {usdMode ? 'USD' : nativeSym}
+                    <ArrowLeftRight className="h-2.5 w-2.5 shrink-0 opacity-70" strokeWidth={2.25} aria-hidden />
+                  </button>
                 </div>
 
                 <div>
                   <p className="text-[10px] text-fg-muted">Total Value</p>
-                  <p className="mt-0.5 text-2xl font-bold tabular-nums text-fg-primary">
-                    {formatCompactUsd(portfolio.summary.totalValueUsd)}
+                  <p className="mt-0.5 font-sans text-2xl font-bold tabular-nums leading-none text-fg-primary">
+                    {formatBalancePrimary(portfolio.summary.totalValueUsd, true)}
                   </p>
                 </div>
 
@@ -758,7 +865,7 @@ export function PortfolioDashboard({
                   <p className="text-[10px] text-fg-muted">Unrealized PNL</p>
                   <p
                     className={cn(
-                      'mt-0.5 text-lg font-semibold tabular-nums',
+                      'mt-0.5 font-sans text-lg font-semibold tabular-nums leading-none',
                       (portfolio.summary.unrealizedPnlUsd ?? 0) > 0
                         ? 'text-signal-bull'
                         : (portfolio.summary.unrealizedPnlUsd ?? 0) < 0
@@ -766,22 +873,23 @@ export function PortfolioDashboard({
                           : 'text-fg-muted',
                     )}
                   >
-                    {formatUsd(portfolio.summary.unrealizedPnlUsd)}
+                    {formatBalancePrimary(portfolio.summary.unrealizedPnlUsd)}
                   </p>
                 </div>
 
-                <div className="flex items-start justify-between gap-2 border-t border-border-subtle pt-1">
+                <div className="flex items-start justify-between gap-2 border-t border-border-subtle pt-2">
                   <div>
                     <p className="text-[10px] text-fg-muted">Tradeable Balance</p>
-                    <p className="mt-0.5 text-sm font-semibold tabular-nums text-fg-primary">
-                      {formatNumber(selectedNativeUi, { decimals: 4 })} {nativeSym}
+                    <p className="mt-0.5 font-sans text-sm font-semibold tabular-nums text-fg-primary">
+                      {formatNativePrimary(selectedNativeUi)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-fg-muted">Wallets Funding</p>
-                    <div className="mt-0.5 flex items-center justify-end gap-1">
-                      <span className="text-xs font-mono tabular-nums text-fg-secondary">
-                        ≡ {formatNumber(combinedNativeUi, { decimals: 4 })} {nativeSym}
+                    <div className="mt-0.5 flex items-center justify-end gap-1.5">
+                      <ChainIcon chain={activeChain} size={14} className="shrink-0 rounded-full" />
+                      <span className="font-sans text-sm font-semibold tabular-nums text-fg-primary">
+                        {formatNativePrimary(combinedNativeUi)}
                       </span>
                     </div>
                   </div>
@@ -1255,12 +1363,12 @@ export function PortfolioDashboard({
       ) : null}
 
       {tab === 'wallets' ? (
-        <div className="grid grid-cols-12 gap-2 p-2 md:gap-3 md:p-3">
-          <section className="col-span-12 flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
-            <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2.5">
+        <div className="grid min-h-0 flex-1 grid-cols-12 gap-2 overflow-hidden p-2 md:gap-3 md:p-3">
+          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2">
               <div
                 className={cn(
-                  'flex min-w-[140px] flex-1 items-center gap-2 rounded-xl border px-2.5 py-1.5 transition focus-within:border-border-default focus-within:ring-1 focus-within:ring-accent-primary/25',
+                  'flex min-w-[140px] flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 transition focus-within:border-border-default focus-within:ring-1 focus-within:ring-accent-primary/25',
                   OS.borderSoft,
                   'bg-bg-sunken',
                 )}
@@ -1273,20 +1381,22 @@ export function PortfolioDashboard({
                   className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
                 />
               </div>
-              <label className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-sunken px-2 py-1.5 text-[10px] text-fg-secondary">
-                <input
-                  type="checkbox"
-                  checked={showHidden}
-                  onChange={(e) => setShowHidden(e.target.checked)}
-                  className="h-3 w-3 rounded border-border-default bg-bg-sunken text-accent-primary focus:ring-accent-primary/40"
-                />
-                Archived
-              </label>
+              <button
+                type="button"
+                onClick={() => setShowHidden((v) => !v)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-sunken px-2.5 py-1.5 text-[10px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary',
+                  showHidden && 'border-accent-primary/35 text-fg-primary',
+                )}
+              >
+                {showHidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={2} /> : <Eye className="h-3.5 w-3.5" strokeWidth={2} />}
+                {showHidden ? 'Hide archived' : 'Show archived'}
+              </button>
               <button
                 type="button"
                 onClick={() => setImportOpen(true)}
                 className={cn(
-                  'rounded-xl border px-2.5 py-1.5 text-[10px] font-semibold text-fg-secondary transition hover:border-border-default hover:bg-bg-hover hover:text-fg-primary',
+                  'rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold text-fg-secondary transition hover:border-border-default hover:bg-bg-hover hover:text-fg-primary',
                   OS.borderSoft,
                   'bg-bg-sunken',
                 )}
@@ -1298,7 +1408,7 @@ export function PortfolioDashboard({
                   type="button"
                   onClick={() => setCreateMenuOpen((v) => !v)}
                   disabled={creating}
-                  className="inline-flex items-center gap-1 rounded-xl bg-accent-primary px-2.5 py-1.5 text-[10px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-lg bg-accent-primary px-2.5 py-1.5 text-[10px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
                 >
                   {creating ? 'Creating' : 'Create'}{' '}
                   <ChevronDown className="h-3 w-3 opacity-90" />
@@ -1323,149 +1433,67 @@ export function PortfolioDashboard({
               </div>
             </div>
 
-            <div className="space-y-1.5 px-2 pb-5 pt-2">
-              <div className="mb-1 hidden grid-cols-12 gap-2 px-1 text-[10px] font-bold uppercase tracking-[0.12em] text-fg-muted md:grid">
-                <span className="col-span-5 pl-1">Wallet</span>
-                <span className="col-span-3">Address</span>
-                <span className="col-span-2 text-right">Balance</span>
-                <span className="col-span-2 text-right">Status · actions</span>
-              </div>
+            <WalletGroupsSidebar
+              wallets={activeWallets}
+              selectedGroupId={selectedWalletGroupId}
+              onSelectGroup={setSelectedWalletGroupId}
+            />
 
+            <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+              <span className="min-w-0 flex-1">Wallet</span>
+              <span className="flex shrink-0 items-center gap-6 pr-[5.5rem]">
+                <span className="min-w-[4.5rem] text-right">Balance</span>
+                <span className="min-w-[2.5rem] text-right">Holdings</span>
+              </span>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 py-1.5 [scrollbar-width:thin]">
               {walletRows.map((w) => {
                 const trading = activeTradingAddress === w.wallet_address;
                 return (
-                  <WalletTableRowShell
+                  <PortfolioWalletTableRow
                     key={w.id}
+                    wallet={w}
+                    activeChain={activeChain}
+                    trading={trading}
                     selected={selectedPortfolioWalletId === w.id}
-                    onClick={() => {
+                    balanceSol={balanceLamportsToSol(w.balance_lamports)}
+                    holdingsCount={0}
+                    onSelect={() => {
                       setSelectedPortfolioWalletId(w.id);
                       setFunderWalletId(w.id);
                     }}
-                    onDoubleClick={() => openWalletAnalytics(w.wallet_address)}
-                  >
-                    <div className="flex flex-col gap-3 md:grid md:grid-cols-12 md:items-center md:gap-2">
-                      <div className="flex min-w-0 items-start justify-between gap-3 md:col-span-5">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <WalletMonogram address={w.wallet_address} label={w.label} />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-1">
-                              <span className="truncate text-[12.5px] font-semibold text-fg-primary">
-                                {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
-                              </span>
-                              {trading ? (
-                                <span className="rounded border border-cyan-900/50 bg-cyan-950/35 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-cyan-100/90">
-                                  Live
-                                </span>
-                              ) : null}
-                              {w.is_primary ? (
-                                <span className="rounded border border-accent-primary/30 bg-accent-primary/10 px-1.5 py-px text-[9px] font-bold uppercase text-accent-glow">
-                                  Primary
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-fg-muted">
-                              <span
-                                className={cn(
-                                  'inline-block h-1.5 w-1.5 rounded-full ring-2 ring-black/30',
-                                  w.is_active && !w.is_archived ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.45)]' : 'bg-fg-muted',
-                                )}
-                              />
-                              <span>{w.is_imported ? 'Imported' : 'Embedded'}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right md:hidden">
-                          <div className="text-[13px] font-semibold tabular-nums text-accent-glow">
-                            {formatNumber(balanceLamportsToSol(w.balance_lamports), { decimals: 3 })}{' '}
-                            <span className="text-[10px] font-medium text-fg-muted">{nativeSym}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="hidden tabular-nums tracking-tight text-[11px] text-fg-muted md:col-span-3 md:block">
-                        {shortenAddress(w.wallet_address, 8)}
-                      </div>
-
-                        <div className="hidden text-right md:col-span-2 md:block">
-                        <div className="text-[12px] font-semibold tabular-nums text-accent-glow">
-                          {formatNumber(balanceLamportsToSol(w.balance_lamports), { decimals: 3 })}
-                        </div>
-                        <div className="text-[9px] font-medium uppercase tracking-wide text-fg-muted">{nativeSym}</div>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3 md:col-span-2">
-                        <div className="tabular-nums tracking-tight text-[10px] text-fg-muted md:hidden">{shortenAddress(w.wallet_address, 6)}</div>
-                        <span
-                          className={cn(
-                            'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                            w.is_archived
-                              ? 'border border-amber-500/25 bg-amber-500/10 text-amber-200'
-                              : w.is_active
-                                ? 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
-                                : 'border border-border-subtle bg-bg-sunken text-fg-muted',
-                          )}
-                        >
-                          {w.is_archived ? 'Archived' : w.is_active ? 'Active' : 'Idle'}
-                        </span>
-                        <div className="flex justify-end gap-0.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openWalletAnalytics(w.wallet_address);
-                            }}
-                            className="rounded-lg p-1.5 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-                            title="Open analytics"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void navigator.clipboard.writeText(w.wallet_address);
-                              toast.success('Address copied');
-                            }}
-                            className="rounded-lg p-1.5 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-                            title="Copy address"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </button>
-                          <a
-                            href={explorerAccountUrlForChain(w.wallet_address, activeChain)}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex rounded-lg p-1.5 text-fg-muted transition hover:bg-bg-hover hover:text-accent-glow"
-                            title="View explorer"
-                          >
-                            ↗
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </WalletTableRowShell>
+                    onOpenAnalytics={() => openWalletAnalytics(w.wallet_address)}
+                    onSaveLabel={(label) => saveWalletLabel(w.id, label)}
+                    onArchive={() => void archiveWallet(w.id, w.is_archived)}
+                    onExportKey={() => onExportWalletKey(w)}
+                    explorerUrl={explorerAccountUrlForChain(w.wallet_address, activeChain)}
+                  />
                 );
               })}
 
               {walletRows.length === 0 ? (
                 <div
                   className={cn(
-                    'flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed px-4 py-10 text-center',
+                    'flex min-h-[120px] flex-col items-center justify-center rounded-lg border border-dashed px-4 py-8 text-center',
                     OS.borderSoft,
                   )}
                 >
-                  <Wallet className="mb-2 h-8 w-8 text-fg-muted" strokeWidth={1.5} />
-                  <p className="text-[12px] font-medium text-fg-secondary">No wallets on {nativeSym}</p>
+                  <Wallet className="mb-2 h-7 w-7 text-fg-muted" strokeWidth={1.5} />
+                  <p className="text-[12px] font-medium text-fg-secondary">
+                    {showHidden ? 'No archived wallets' : `No wallets on ${nativeSym}`}
+                  </p>
                   <p className="mt-1 max-w-[240px] text-[11px] leading-relaxed text-fg-muted">
-                    Import an external wallet or create an embedded one to begin routing capital.
+                    {showHidden
+                      ? 'Archived wallets appear here when you archive them from the list.'
+                      : 'Import an external wallet or create one to get started.'}
                   </p>
                 </div>
               ) : null}
             </div>
           </section>
 
-          <section className="col-span-12 flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
+          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
             <div className="border-b border-border-subtle bg-bg-base/40 px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -1478,15 +1506,15 @@ export function PortfolioDashboard({
               </div>
             </div>
 
-            <div className="space-y-3 p-3">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2.5">
+              <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4">
                 <SummaryTile label="Wallets" value={String(visibleWallets.length)} />
-                <SummaryTile label="Total" value={`${formatNumber(combinedNativeUi, { decimals: 3 })}`} sub={nativeSym} />
-                <SummaryTile label="Active" value={String(visibleWallets.filter((x) => x.is_active && !x.is_archived).length)} />
+                <SummaryTile label="Total" value={formatNumber(combinedNativeUi, { decimals: 3 })} />
+                <SummaryTile label="Active" value={String(visibleWallets.filter((x) => x.is_active).length)} />
                 <SummaryTile label="Receivers" value={String(receiverWallets.length)} />
               </div>
 
-              <div className={cn('rounded-xl border border-border-subtle bg-bg-sunken p-3', OS.borderSoft)}>
+              <div className={cn('shrink-0 rounded-lg border border-border-subtle bg-bg-sunken p-2.5', OS.borderSoft)}>
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">01 — Source</p>
                 <div className="mt-2" ref={funderPickerRef}>
                   <CapitalFunderPicker
@@ -1504,7 +1532,7 @@ export function PortfolioDashboard({
 
               <CapitalFlowArrow />
 
-              <div className={cn('rounded-xl border border-border-subtle bg-bg-sunken p-3', OS.borderSoft)}>
+              <div className={cn('flex min-h-0 flex-1 flex-col rounded-lg border border-border-subtle bg-bg-sunken p-2.5', OS.borderSoft)}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">02 — Receivers</p>
@@ -1514,7 +1542,7 @@ export function PortfolioDashboard({
                     {receiverWallets.length} selected
                   </span>
                 </div>
-                <div className="mt-3 grid max-h-[220px] gap-1.5 overflow-y-auto overscroll-contain sm:grid-cols-2">
+                <div className="mt-2 min-h-0 flex-1 grid gap-1 overflow-y-auto overscroll-contain sm:grid-cols-2 [scrollbar-width:thin]">
                   {visibleWallets.map((w) => {
                     const disabled = w.id === funderWalletId;
                     const checked = receiverWalletIds.includes(w.id);

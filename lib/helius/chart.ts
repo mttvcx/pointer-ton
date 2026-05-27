@@ -1,5 +1,8 @@
 import 'server-only';
+
 import { subDays } from 'date-fns';
+import { inferMintKind } from '@/lib/chains/mintKind';
+import { fetchDexScreenerSpotUsd } from '@/lib/market/dexscreenerPulse';
 import { fetchTonApiJettonUsdPrice } from '@/lib/ton/tonApi';
 import { listSnapshotsForMintRange, type TokenMarketSnapshotRow } from '@/lib/db/tokens';
 
@@ -36,9 +39,18 @@ export function chartIntervalSeconds(interval: ChartInterval): number {
   }
 }
 
-/** Live spot USD from TonAPI rates (display only; not for settlement). */
+/** Live spot USD — TonAPI for TON jettons, DexScreener for Solana/EVM. */
+export async function getLiveTokenSpotUsd(mint: string): Promise<number | null> {
+  const kind = inferMintKind(mint);
+  if (kind === 'ton') return fetchTonApiJettonUsdPrice(mint);
+  if (kind === 'sol') return fetchDexScreenerSpotUsd(mint, 'sol');
+  if (kind === 'evm') return fetchDexScreenerSpotUsd(mint, 'base') ?? fetchDexScreenerSpotUsd(mint, 'bnb');
+  return null;
+}
+
+/** @deprecated Use {@link getLiveTokenSpotUsd}. */
 export async function getLiveJettonSpotUsd(mint: string): Promise<number | null> {
-  return fetchTonApiJettonUsdPrice(mint);
+  return getLiveTokenSpotUsd(mint);
 }
 
 export function aggregateSnapshotsToOhlc(
@@ -90,7 +102,7 @@ export function aggregateSnapshotsToOhlc(
     }));
 }
 
-/** Append or extend the last candle with a live TonAPI spot. */
+/** Append or extend the last candle with a live spot. */
 export function mergeLiveSpot(bars: OhlcBar[], intervalSec: number, spotUsd: number | null): OhlcBar[] {
   if (spotUsd == null || !Number.isFinite(spotUsd) || spotUsd <= 0) return bars;
   const nowSec = Math.floor(Date.now() / 1000);
@@ -145,6 +157,6 @@ export async function getTokenChartBars(mint: string, interval: ChartInterval): 
   const limit = interval === '1d' || interval === '5d' ? 8000 : 4000;
   const snaps = await listSnapshotsForMintRange(mint, since, limit);
   const fromDb = aggregateSnapshotsToOhlc(snaps, intervalSec);
-  const spot = await getLiveJettonSpotUsd(mint);
+  const spot = await getLiveTokenSpotUsd(mint);
   return mergeLiveSpot(fromDb, intervalSec, spot);
 }

@@ -68,6 +68,10 @@ const MOCK: RecognizedWalletRecord[] = [
 
 const byAddr = new Map(MOCK.map((r) => [r.address, r]));
 
-export function getRecognizedWallet(address: string): RecognizedWalletRecord | null {
+export function getRecognizedWallet(
+  address: string,
+  opts?: { demo?: boolean },
+): RecognizedWalletRecord | null {
+  if (!opts?.demo) return null;
   return byAddr.get(address) ?? null;
 }

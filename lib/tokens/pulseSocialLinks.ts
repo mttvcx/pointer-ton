@@ -131,6 +131,29 @@ function isTiktokHost(hostname: string): boolean {
   return h === 'tiktok.com' || h === 'www.tiktok.com';
 }
 
+/** IPFS / storage gateways are not user-facing websites for the globe icon. */
+export function isNonWebsiteInfrastructureUrl(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+    if (h.includes('ipfs')) return true;
+    if (h.includes('arweave')) return true;
+    if (h === 'nftstorage.link') return true;
+    if (h.endsWith('.ipfs.dweb.link')) return true;
+    if (h.endsWith('.ipfs.nftstorage.link')) return true;
+    if (h === 'gateway.pinata.cloud') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveDisplayWebsite(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const normalized = ensureBrowserUrl(url) ?? normalizeHttpUrl(url);
+  if (!normalized || isNonWebsiteInfrastructureUrl(normalized)) return null;
+  return normalized;
+}
+
 /** Tweet, community, search/query, or profile path on x.com / twitter.com */
 export function classifyTwitterUrl(url: string): TwitterLinkKind {
   try {
@@ -332,6 +355,7 @@ function pickWebsiteTelegram(urls: Iterable<string>, twitterUrls: Set<string>): 
       !host.includes('dexscreener') &&
       !host.includes('birdeye') &&
       !host.includes('photon.sol') &&
+      !isNonWebsiteInfrastructureUrl(u) &&
       !isInstagramHost(host) &&
       !isGithubHost(parsed.hostname) &&
       !isYoutubeHost(parsed.hostname) &&
@@ -430,6 +454,7 @@ export function getPulseSocialModel(bundle: PulseTokenBundle): PulseSocialModel 
   const { website: wFromUrls, telegram: tgFromUrls } = pickWebsiteTelegram(urls, twitterUrls);
 
   let primarySite = token.website_url ? normalizeHttpUrl(token.website_url) : null;
+  if (primarySite && isNonWebsiteInfrastructureUrl(primarySite)) primarySite = null;
   let instagram = pickInstagram(urls);
   let github = pickGithub(urls);
   let youtube = pickYoutube(urls);
@@ -461,7 +486,7 @@ export function getPulseSocialModel(bundle: PulseTokenBundle): PulseSocialModel 
       (ensureBrowserUrl(token.telegram_url) ?? normalizeHttpUrl(token.telegram_url))) ||
     tgFromUrls;
 
-  const website = websiteRaw ? ensureBrowserUrl(websiteRaw) : null;
+  const website = resolveDisplayWebsite(websiteRaw ? ensureBrowserUrl(websiteRaw) : null);
   const telegram = telegramRaw ? ensureBrowserUrl(telegramRaw) : null;
 
   const isPump =
@@ -483,6 +508,19 @@ export function getPulseSocialModel(bundle: PulseTokenBundle): PulseSocialModel 
     twitterTweet: finalizeTwitterInfo(tweet),
     twitterSearch: finalizeTwitterInfo(search),
   };
+}
+
+/** Merge Twitter profile URL/handle from raw metadata when DB columns are empty. */
+export function enrichBundleTwitterFromSocialModel(bundle: PulseTokenBundle): PulseTokenBundle {
+  const model = getPulseSocialModel(bundle);
+  const profile = model.twitterProfile;
+  if (!profile?.url && !profile?.handle) return bundle;
+
+  const token = { ...bundle.token };
+  if (!token.twitter_handle?.trim()) {
+    token.twitter_handle = profile.url ?? (profile.handle ? `https://x.com/${profile.handle}` : null);
+  }
+  return { ...bundle, token };
 }
 
 /** Persistable fields from Helius DAS asset (call from ingest). */

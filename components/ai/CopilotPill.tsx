@@ -23,6 +23,7 @@ import { ContextCard } from '@/components/ai/ContextCard';
 import { AskBox } from '@/components/ai/AskBox';
 import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { cn } from '@/lib/utils/cn';
 
 const CHROME = {
@@ -132,8 +133,7 @@ function CopilotPillExpandedCard({
   entity: ReturnType<typeof selectActiveEntity>;
 }) {
   const setMode = useUIStore((s) => s.setCopilotDisplayMode);
-  const alertRulesPopped = useUIStore((s) => s.alertRulesPopout != null);
-  const alertRulesDocked = useUIStore((s) => s.alertRulesDocked);
+  const xMonitorOpen = usePulseTwitterRailStore((s) => s.side !== 'hidden');
   const { data: alertsData } = useAlertsTickerQuery();
   const pillInsight = useCopilotPillInsight(alertsData);
 
@@ -241,7 +241,7 @@ function CopilotPillExpandedCard({
             </div>
             <ContextCard entity={entity} />
             <AskBox entity={entity} />
-            {alertRulesDocked ? null : alertRulesPopped ? (
+            {xMonitorOpen ? (
               <AlertBuilderEmbeddedPlaceholder />
             ) : (
               <XMonitorCopilotCard />

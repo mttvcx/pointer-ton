@@ -36,7 +36,7 @@ function AssetPair({
   isNative?: boolean;
   size: 'header' | 'dock';
 }) {
-  const iconCls = size === 'dock' ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5';
+  const iconCls = size === 'dock' ? 'h-3 w-3' : 'h-3 w-3';
   const textCls = size === 'dock' ? 'text-[11px]' : 'text-[11px]';
   return (
     <span className="inline-flex shrink-0 items-center gap-1">
@@ -44,7 +44,7 @@ function AssetPair({
         src={iconSrc}
         alt=""
         draggable={false}
-        className={cn('shrink-0 rounded-full object-contain', iconCls)}
+        className={cn('shrink-0 object-contain object-center', iconCls)}
         aria-hidden
       />
       {isNative ? (
@@ -78,28 +78,25 @@ export function TerminalWalletChip({
     <span
       className={cn(
         'inline-flex min-w-0 items-center',
-        isDock ? 'gap-1.5' : 'gap-1.5',
+        isDock ? 'gap-1' : 'gap-1.5',
         className,
       )}
     >
       <Wallet
-        className={cn('shrink-0 text-white/55', isDock ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5')}
+        className={cn('shrink-0 text-white/50', isDock ? 'h-3 w-3' : 'h-3.5 w-3.5')}
         strokeWidth={isDock ? 2 : 1.75}
         aria-hidden
       />
 
       {showCount ? (
-        <>
-          <span
-            className={cn(
-              'shrink-0 tabular-nums font-medium text-white/80',
-              isDock ? 'text-[11px]' : 'text-[12px]',
-            )}
-          >
-            {walletCount}
-          </span>
-          <span className="h-3 w-px shrink-0 bg-white/10" aria-hidden />
-        </>
+        <span
+          className={cn(
+            'shrink-0 tabular-nums font-semibold text-white/90',
+            isDock ? 'text-[11px]' : 'text-[12px]',
+          )}
+        >
+          {walletCount}
+        </span>
       ) : null}
 
       <AssetPair
@@ -115,7 +112,7 @@ export function TerminalWalletChip({
 
       {showChevron ? (
         <ChevronDown
-          className={cn('shrink-0 text-white/40', isDock ? 'h-3 w-3' : 'h-3.5 w-3.5')}
+          className={cn('ml-0.5 shrink-0 text-white/35', isDock ? 'h-3 w-3' : 'h-3.5 w-3.5')}
           strokeWidth={2.25}
           aria-hidden
         />

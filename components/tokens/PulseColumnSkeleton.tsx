@@ -27,7 +27,7 @@ export function PulseColumnSkeleton({ column }: { column: PulseColumnId }) {
           <h2 className="text-[13px] font-semibold uppercase tracking-wide text-fg-primary">{title}</h2>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-hidden bg-bg-raised">
+      <div className="min-h-0 flex-1 overflow-hidden bg-bg-raised px-1.5 py-1">
         {Array.from({ length: 8 }, (_, i) => (
           <PulseRowSkeleton key={i} />
         ))}

@@ -18,9 +18,9 @@ export const CHAIN_ICON_PNG: Record<AppChainId, string> = {
  * Falls back to ticker initials in UI when unknown.
  */
 export const SPOT_TICKER_ICON_SRC: Record<string, string> = {
-  /** Transparent raster — carousel + Lighthouse pairing (official SVG replaced per brand kit). */
-  BTC: '/chains/btc.svg',
-  ETH: '/chains/eth.svg',
+  /** Official transparent PNGs — no faux SVG rings. */
+  BTC: '/chains/btc.png',
+  ETH: '/chains/eth.png',
   SOL: CHAIN_ICON_PNG.sol,
   TON: CHAIN_ICON_PNG.ton,
   BNB: CHAIN_ICON_PNG.bnb,
@@ -30,6 +30,21 @@ export const SPOT_TICKER_ICON_SRC: Record<string, string> = {
 export function spotTickerIconSrc(symbol: string): string | undefined {
   const k = symbol.trim().toUpperCase();
   return SPOT_TICKER_ICON_SRC[k];
+}
+
+/** Bottom-bar spot carousel — all majors, not just BTC · ETH · active native. */
+export const SPOT_TICKER_ROTATION = ['BTC', 'ETH', 'SOL', 'BNB', 'TON'] as const;
+export type SpotTickerSymbol = (typeof SPOT_TICKER_ROTATION)[number];
+
+export const DEFAULT_SPOT_TICKER_CHAINS: SpotTickerSymbol[] = [...SPOT_TICKER_ROTATION];
+
+/** Keep rotation order; drop unknown symbols; empty = ticker hidden. */
+export function normalizeSpotTickerChains(
+  chains: readonly string[] | undefined,
+): SpotTickerSymbol[] {
+  if (!chains?.length) return [];
+  const pick = new Set(chains.map((s) => s.trim().toUpperCase()));
+  return SPOT_TICKER_ROTATION.filter((sym) => pick.has(sym));
 }
 
 /**
@@ -43,8 +58,8 @@ export const chainLogoSrc: Record<string, string> = {
   base: '/chains/base.png',
   bnb: '/chains/bnb.png',
   hyperliquid: '/chains/hyperliquid.svg',
-  ethereum: '/chains/eth.svg',
-  eth: '/chains/eth.svg',
+  ethereum: '/chains/eth.png',
+  eth: '/chains/eth.png',
 };
 
 export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {

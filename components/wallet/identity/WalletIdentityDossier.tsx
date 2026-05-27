@@ -37,7 +37,7 @@ export function WalletIdentityDossier({
   identity: WalletIdentityView;
   tokenCtx: WalletTokenContextView | null;
   mintStats: TraderMintHoverStats | null | undefined;
-  wide: MockWideStatsShape;
+  wide?: MockWideStatsShape | null;
   onTrack: () => void;
   onLabel: () => void;
 }) {
@@ -201,20 +201,22 @@ export function WalletIdentityDossier({
           </div>
         ) : null}
 
-        <div>
-          <SectionTitle>Wallet rollup (preview)</SectionTitle>
-          <div className="mt-1 divide-y divide-white/[0.05]">
-            <RowKV k="7D PnL (est)" v={`${wide.pnl7dUsd >= 0 ? '+' : ''}$${formatNumber(wide.pnl7dUsd, { decimals: 0 })}`} />
-            <RowKV
-              k="30D PnL (est)"
-              v={`${(wide.pnl30dUsd ?? 0) >= 0 ? '+' : ''}$${formatNumber(wide.pnl30dUsd ?? 0, { decimals: 0 })}`}
-            />
-            <RowKV k="7D tokens" v={`${wide.tokenCount7d}`} />
-            <RowKV k="Tracked by" v={`${wide.trackedByCount}`} />
-            <RowKV k="Renamed by" v={`${wide.renamedByCount}`} />
-            <RowKV k="Rolling volume est." v={formatCompactUsd(wide.totalVolumeUsd)} />
+        {wide ? (
+          <div>
+            <SectionTitle>Wallet rollup (preview)</SectionTitle>
+            <div className="mt-1 divide-y divide-white/[0.05]">
+              <RowKV k="7D PnL (est)" v={`${wide.pnl7dUsd >= 0 ? '+' : ''}$${formatNumber(wide.pnl7dUsd, { decimals: 0 })}`} />
+              <RowKV
+                k="30D PnL (est)"
+                v={`${(wide.pnl30dUsd ?? 0) >= 0 ? '+' : ''}$${formatNumber(wide.pnl30dUsd ?? 0, { decimals: 0 })}`}
+              />
+              <RowKV k="7D tokens" v={`${wide.tokenCount7d}`} />
+              <RowKV k="Tracked by" v={`${wide.trackedByCount}`} />
+              <RowKV k="Renamed by" v={`${wide.renamedByCount}`} />
+              <RowKV k="Rolling volume est." v={formatCompactUsd(wide.totalVolumeUsd)} />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-1 border-t border-white/[0.07] bg-black/25 px-3 py-2">

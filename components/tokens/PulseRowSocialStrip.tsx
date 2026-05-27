@@ -5,7 +5,7 @@ import { ChefHat } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { extractTwitterHandle } from '@/lib/utils/extractTwitterHandle';
-import { getPulseSocialModel, isTweetOlderThan, ensureBrowserUrl } from '@/lib/tokens/pulseSocialLinks';
+import { getPulseSocialModel, isTweetOlderThan, ensureBrowserUrl, resolveDisplayWebsite, twitterHandleFromProfileUrl } from '@/lib/tokens/pulseSocialLinks';
 import { usePrefetchTwitterProfileOnVisible } from '@/lib/hooks/usePrefetchTwitterProfileOnVisible';
 import { twitterFollowersFromBundle } from '@/lib/tokens/columnPresetModel';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -30,8 +30,11 @@ import {
   AgentHoverPanel,
   PulseCashbackCompactHover,
   PulseCompactHoverAbove,
+  TelegramCompactHover,
   TwitterProfileHoverTrigger,
+  WebsiteGlobeCompactHover,
 } from '@/components/tokens/PulseRichPopovers';
+import { PulseHeaderSocialIcon } from '@/components/tokens/PulseHeaderSocialIcon';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type GlyphKey = keyof typeof PULSE_GLYPH;
@@ -505,11 +508,13 @@ function ExternalInstagramLink({
   previewTitle,
   previewSubtitle,
   glyphPx,
+  linkClassName,
 }: {
   href: string;
   previewTitle: string;
   previewSubtitle?: string;
   glyphPx: number;
+  linkClassName?: string;
 }) {
   return (
     <WithHoverTooltip previewTitle={previewTitle} previewSubtitle={previewSubtitle}>
@@ -518,7 +523,7 @@ function ExternalInstagramLink({
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Instagram"
-        className={iconHit}
+        className={cn(iconHit, linkClassName)}
       >
         {/* Same luminance-mask treatment as other strip glyphs — avoids baked black tiles. */}
         <PulseLuminanceGlyph src={PULSE_INSTAGRAM_SRC} size={glyphPx} />
@@ -533,12 +538,14 @@ function BrandIconLink({
   src,
   panelTitle,
   glyphPx,
+  linkClassName,
 }: {
   href: string;
   label: string;
   src: string;
   panelTitle: string;
   glyphPx: number;
+  linkClassName?: string;
 }) {
   return (
     <PulseRichHover panel={<BrandLinkHoverPanel url={href} title={panelTitle} />} wide={false}>
@@ -547,7 +554,7 @@ function BrandIconLink({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={label}
-        className={iconHit}
+        className={cn(iconHit, linkClassName)}
       >
         <PulseLuminanceGlyph src={src} size={glyphPx} />
       </a>
@@ -560,8 +567,16 @@ export function PulseRowSocialStrip({
   compact,
   traits,
   glyphSize,
+  profileGlyphSize,
   showTxCount = true,
   showDevWallet = true,
+  showHoldersCommunity = true,
+  showProTradersStat = true,
+  showDevCrownStat = true,
+  /** Fallback X search when metadata has no search URL (token page header). */
+  fallbackXSearchQuery,
+  showTwitterFooter = true,
+  inlineHeader = false,
   /** Pulse table rows: stack icon row / @handle row with spacing for metric pills below (Axiom-style). */
   pulseBoard = false,
   chain = 'sol',
@@ -570,14 +585,28 @@ export function PulseRowSocialStrip({
   compact?: boolean;
   traits?: { cashback: boolean; feeShare: boolean; agent: boolean };
   glyphSize?: number;
+  /** Token header: profile outline PNG renders slightly larger than sibling glyphs. */
+  profileGlyphSize?: number;
   showTxCount?: boolean;
   showDevWallet?: boolean;
+  showHoldersCommunity?: boolean;
+  showProTradersStat?: boolean;
+  showDevCrownStat?: boolean;
+  fallbackXSearchQuery?: string | null;
+  showTwitterFooter?: boolean;
+  inlineHeader?: boolean;
   pulseBoard?: boolean;
   chain?: AppChainId;
 }) {
   // Default ~25% larger than the previous 20/24 to match Axiom's icon weight.
-  // Each call site can still override (Track / share previews use smaller).
-  const sx = glyphSize ?? 26;
+  // Token detail header uses explicit glyphSize (28px) for Axiom parity.
+  const sx = glyphSize ?? (inlineHeader ? 22 : 26);
+  const profileSx = profileGlyphSize ?? (inlineHeader ? sx + 4 : sx);
+  const hit = cn(
+    iconHit,
+    inlineHeader && 'h-6 min-w-[22px] justify-center px-0',
+  );
+  const headerLinkCls = inlineHeader ? 'h-7 min-w-[28px] justify-center px-1' : undefined;
   const followerGlyph = Math.max(14, Math.round(sx * 0.55));
   const model = useMemo(() => getPulseSocialModel(bundle), [bundle]);
   const twFollowers = useMemo(() => twitterFollowersFromBundle(bundle), [bundle]);
@@ -598,7 +627,10 @@ export function PulseRowSocialStrip({
     ? extractTwitterHandle(bundle.token.twitter_handle)
     : '';
   const twitterDisplayHandle =
-    profile?.handle?.replace(/^@/, '') || (handleFromToken !== '' ? handleFromToken : null);
+    profile?.handle?.replace(/^@/, '') ||
+    (handleFromToken !== '' ? handleFromToken : null) ||
+    (profile?.url ? twitterHandleFromProfileUrl(profile.url) ?? null : null) ||
+    (twitterProfileUrl ? twitterHandleFromProfileUrl(twitterProfileUrl) ?? null : null);
 
   const prefetchTwitterRef = usePrefetchTwitterProfileOnVisible(twitterDisplayHandle);
 
@@ -617,23 +649,119 @@ export function PulseRowSocialStrip({
 
   const tweetUrl = model.twitterTweet?.url;
   const tweetStale = tweetUrl ? isTweetOlderThan(tweetUrl, MS_PER_DAY) : null;
+  const fallbackXSearch =
+    fallbackXSearchQuery?.trim() &&
+    `https://x.com/search?q=${encodeURIComponent(fallbackXSearchQuery.trim())}`;
 
   const devWalletAddr = bundle.token.creator_wallet;
   const solscanDevWalletUrl = devWalletAddr
     ? `https://solscan.io/account/${encodeURIComponent(devWalletAddr)}`
     : null;
 
+  const xSearchUrl = model.twitterSearch?.url ?? fallbackXSearch ?? null;
+  const displayWebsite = resolveDisplayWebsite(model.website);
+
+  if (inlineHeader) {
+    const headerHoverPlacement = 'below' as const;
+    const showSearchIcon = Boolean(xSearchUrl);
+
+    return (
+      <div ref={prefetchTwitterRef} className="inline-flex min-w-0 items-center font-sans">
+        <div className="flex h-6 min-w-0 flex-nowrap items-center gap-0.5 overflow-visible py-0">
+          {twitterProfileUrl && twitterDisplayHandle ? (
+            <TwitterProfileHoverTrigger
+              handle={twitterDisplayHandle}
+              side="bottom"
+              align="start"
+              sideOffset={8}
+            >
+              <a
+                href={twitterProfileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Creator profile on X (@${twitterDisplayHandle})`}
+                className={hit}
+              >
+                <PulseHeaderSocialIcon kind="profile" size={profileSx} />
+              </a>
+            </TwitterProfileHoverTrigger>
+          ) : null}
+
+          {displayWebsite ? (
+            <WebsiteGlobeCompactHover
+              url={displayWebsite}
+              tokenCreatedAt={bundle.token.created_at}
+              placement={headerHoverPlacement}
+            >
+              <a
+                href={displayWebsite}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${displayWebsite}`}
+                className={hit}
+              >
+                <PulseHeaderSocialIcon kind="globe" size={sx} />
+              </a>
+            </WebsiteGlobeCompactHover>
+          ) : null}
+
+          {model.telegram ? (
+            <TelegramCompactHover url={model.telegram} placement={headerHoverPlacement}>
+              <a
+                href={model.telegram}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Telegram"
+                className={hit}
+              >
+                <PulseHeaderSocialIcon kind="telegram" size={sx} />
+              </a>
+            </TelegramCompactHover>
+          ) : null}
+
+          {showSearchIcon ? (
+            <PulseCompactHoverAbove
+              placement={headerHoverPlacement}
+              content={
+                <>
+                  <p className="text-[11px] font-bold leading-none text-white">Search on X</p>
+                  <p className="mt-1.5 max-w-[12rem] truncate text-[9px] leading-snug text-white/45">
+                    {fallbackXSearchQuery?.trim() || 'Token search'}
+                  </p>
+                </>
+              }
+            >
+              <a
+                href={xSearchUrl!}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Search on X"
+                className={hit}
+              >
+                <PulseHeaderSocialIcon kind="search" size={sx} />
+              </a>
+            </PulseCompactHoverAbove>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={prefetchTwitterRef}
       className={cn(
         'min-w-0 font-sans',
+        inlineHeader && 'inline-flex min-w-0 items-center',
         pulseBoard ? 'flex min-w-0 flex-1 flex-col gap-1' : compact ? 'mt-0' : 'mt-1',
       )}
     >
-      {/* gap-px (was gap-0.5 → 2): even tighter Axiom-style cluster so the strip
-          stays single-line under the name without cutting the trailing crown stat. */}
-      <div className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain py-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        className={cn(
+          'flex min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          'gap-1 py-px',
+        )}
+      >
         {twitterProfileUrl && twitterDisplayHandle ? (
           /**
            * Creator profile icon — opens the full {@link TwitterProfileHoverCard}
@@ -647,7 +775,7 @@ export function PulseRowSocialStrip({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Creator profile on X (@${twitterDisplayHandle})`}
-              className={cn(iconHit, '!text-[#7dd3fc] hover:!text-[#9be2ff]')}
+              className={cn(hit, '!text-[#7dd3fc] hover:!text-[#9be2ff]')}
             >
               <PulseGlyphMask name="profile" size={sx} />
             </a>
@@ -664,7 +792,7 @@ export function PulseRowSocialStrip({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={tweetStale === true ? 'Post on X (over 24h old)' : 'Post on X'}
-                className={iconHit}
+                className={hit}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- bundled PNG asset */}
                 <img
@@ -691,18 +819,32 @@ export function PulseRowSocialStrip({
             previewTitle="X search or query"
             previewSubtitle="Search, hashtag, or explore link from metadata"
             glyphPx={sx}
+            linkClassName={headerLinkCls}
+          />
+        ) : fallbackXSearch ? (
+          <ExternalGlyphLink
+            href={fallbackXSearch}
+            label="Search on X"
+            glyph="xLogo"
+            previewTitle="Search on X"
+            previewSubtitle={fallbackXSearchQuery ?? ''}
+            glyphPx={sx}
+            linkClassName={headerLinkCls}
           />
         ) : null}
 
         {model.telegram ? (
-          <ExternalGlyphLink
-            href={model.telegram}
-            label="Telegram"
-            glyph="telegram"
-            previewTitle="Telegram"
-            previewSubtitle="Channel or chat"
-            glyphPx={sx}
-          />
+          <TelegramCompactHover url={model.telegram}>
+            <a
+              href={model.telegram}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Telegram"
+              className={iconHit}
+            >
+              <PulseGlyphMask name="telegram" size={sx} />
+            </a>
+          </TelegramCompactHover>
         ) : null}
 
         {model.instagram ? (
@@ -711,6 +853,7 @@ export function PulseRowSocialStrip({
             previewTitle="Instagram"
             previewSubtitle={model.instagram.replace(/^https?:\/\//i, '').slice(0, 52)}
             glyphPx={sx}
+            linkClassName={headerLinkCls}
           />
         ) : null}
 
@@ -721,6 +864,7 @@ export function PulseRowSocialStrip({
             src={PULSE_BRAND_SRC.github}
             panelTitle="GitHub"
             glyphPx={sx}
+            linkClassName={headerLinkCls}
           />
         ) : null}
         {model.youtube ? (
@@ -730,6 +874,7 @@ export function PulseRowSocialStrip({
             src={PULSE_BRAND_SRC.youtube}
             panelTitle="YouTube"
             glyphPx={sx}
+            linkClassName={headerLinkCls}
           />
         ) : null}
         {model.tiktok ? (
@@ -739,50 +884,27 @@ export function PulseRowSocialStrip({
             src={PULSE_BRAND_SRC.tiktok}
             panelTitle="TikTok"
             glyphPx={sx}
+            linkClassName={headerLinkCls}
           />
         ) : null}
 
         {model.website ? (
           (() => {
-            const websiteUrl = model.website;
-            /** Domain (no `www.`) + truncated full URL for the tooltip body. */
-            let domain = websiteUrl;
-            try {
-              domain = new URL(websiteUrl).hostname.replace(/^www\./i, '');
-            } catch {
-              /* leave `domain` as-is when URL parsing fails */
-            }
-            const TRUNC = 45;
-            const displayUrl =
-              websiteUrl.length > TRUNC ? `${websiteUrl.slice(0, TRUNC - 1)}…` : websiteUrl;
+            const websiteUrl = resolveDisplayWebsite(model.website);
+            if (!websiteUrl) return null;
 
             return (
-              <Tooltip delayDuration={150}>
-                <TooltipTrigger asChild>
-                  <a
-                    href={websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Open ${domain}`}
-                    className={iconHit}
-                  >
-                    <PulseGlyphMask name="globe" size={sx} />
-                  </a>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  sideOffset={6}
-                  className={cn(
-                    'max-w-[220px] rounded-md border border-white/[0.08] bg-[#1a1a1a]',
-                    'px-3 py-2 shadow-lg shadow-black/50',
-                  )}
+              <WebsiteGlobeCompactHover url={websiteUrl} tokenCreatedAt={bundle.token.created_at}>
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${websiteUrl}`}
+                  className={hit}
                 >
-                  <p className="text-[12px] font-medium leading-tight text-white/90">{domain}</p>
-                  <p className="mt-0.5 break-all text-[10.5px] font-normal leading-tight text-white/40">
-                    {displayUrl}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+                  <PulseGlyphMask name="globe" size={sx} />
+                </a>
+              </WebsiteGlobeCompactHover>
             );
           })()
         ) : null}
@@ -791,7 +913,7 @@ export function PulseRowSocialStrip({
 
         {agent ? (
           <PulseRichHover wide panel={<AgentHoverPanel bundle={bundle} />}>
-            <Link href={tokenPath} aria-label="Pump agent mode — hover for controls" className={iconHit}>
+            <Link href={tokenPath} aria-label="Pump agent mode — hover for controls" className={hit}>
               <PulseGlyphMask name="agent" size={sx} variant="natural" />
             </Link>
           </PulseRichHover>
@@ -800,7 +922,7 @@ export function PulseRowSocialStrip({
         {cashback ? (
           <PulseCashbackCompactHover>
             <span
-              className={cn(iconHit, 'pointer-events-none cursor-default')}
+              className={cn(hit, 'pointer-events-none cursor-default')}
               aria-label="Cashback token"
               role="img"
             >
@@ -812,7 +934,7 @@ export function PulseRowSocialStrip({
         {feeShare ? (
           <PulseRichHover wide panel={<FeeShareHoverPanel bundle={bundle} />}>
             <span
-              className={cn(iconHit, 'cursor-default')}
+              className={cn(hit, 'cursor-default')}
               aria-label="Pump fee-share / rebates — hover for breakdown"
               role="button"
             >
@@ -821,7 +943,7 @@ export function PulseRowSocialStrip({
           </PulseRichHover>
         ) : null}
 
-        {model.twitterCommunity?.url ? (
+        {showHoldersCommunity && model.twitterCommunity?.url ? (
           <ExternalCommunityStatLink
             href={model.twitterCommunity.url}
             stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
@@ -829,77 +951,76 @@ export function PulseRowSocialStrip({
             previewSubtitle="Community from metadata"
             glyphPx={sx}
           />
-        ) : (
+        ) : showHoldersCommunity ? (
           <InternalCommunityStatLink
             href={tokenPath}
             stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
             glyphPx={sx}
           />
-        )}
+        ) : null}
 
-        {/* Trophy → "Pro Traders" — simple Radix Tooltip, no rich hover card. */}
-        <Tooltip delayDuration={150}>
-          <TooltipTrigger asChild>
-            <Link
-              href={tokenPath}
-              aria-label="Pro traders — open token page"
-              className={cn(iconHit, 'pl-0 pr-0')}
+        {showProTradersStat ? (
+          <Tooltip delayDuration={150}>
+            <TooltipTrigger asChild>
+              <Link
+                href={tokenPath}
+                aria-label="Pro traders — open token page"
+                className={cn(hit, 'pl-0 pr-0')}
+              >
+                <PulseGlyphMask name="trophy" size={sx} />
+                <span className={statNumberClsFor(sx)}>{proTradersLabel}</span>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              sideOffset={6}
+              className={cn(
+                'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
+                'text-[11.5px] font-normal text-white/80 shadow-lg shadow-black/50',
+              )}
             >
-              <PulseGlyphMask name="trophy" size={sx} />
-              <span className={statNumberClsFor(sx)}>{proTradersLabel}</span>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            sideOffset={6}
-            className={cn(
-              'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
-              'text-[11.5px] font-normal text-white/80 shadow-lg shadow-black/50',
-            )}
-          >
-            Pro Traders
-          </TooltipContent>
-        </Tooltip>
+              Pro Traders
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
 
-        {/**
-         * Crown → "Dev Migrations/Created". Clicking opens the creator wallet on
-         * Solscan directly; hovering shows the two-line Radix Tooltip.
-         */}
-        <Tooltip delayDuration={150}>
-          <TooltipTrigger asChild>
-            <a
-              href={solscanDevWalletUrl ?? '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Dev migrations / created — open on Solscan"
-              data-row-click-skip="true"
-              className={cn(iconHit, 'relative z-[2] pl-0 pr-0')}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!solscanDevWalletUrl) e.preventDefault();
-              }}
+        {showDevCrownStat ? (
+          <Tooltip delayDuration={150}>
+            <TooltipTrigger asChild>
+              <a
+                href={solscanDevWalletUrl ?? '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Dev migrations / created — open on Solscan"
+                data-row-click-skip="true"
+                className={cn(hit, 'relative z-[2] pl-0 pr-0')}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!solscanDevWalletUrl) e.preventDefault();
+                }}
+              >
+                <PulseGlyphMask name="crown" size={sx} />
+                <span className={statNumberClsFor(sx)}>{crownSlashDisplay}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              sideOffset={6}
+              className={cn(
+                'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
+                'shadow-lg shadow-black/50',
+              )}
             >
-              <PulseGlyphMask name="crown" size={sx} />
-              <span className={statNumberClsFor(sx)}>{crownSlashDisplay}</span>
-            </a>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            sideOffset={6}
-            className={cn(
-              'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
-              'shadow-lg shadow-black/50',
-            )}
-          >
-            <p className="text-[12px] font-medium leading-tight text-white/90">
-              Dev Migrations/Created
-            </p>
-            <p className="mt-0.5 text-[10.5px] leading-tight text-white/40">
-              click to open in Solscan
-            </p>
-          </TooltipContent>
-        </Tooltip>
+              <p className="text-[12px] font-medium leading-tight text-white/90">
+                Dev Migrations/Created
+              </p>
+              <p className="mt-0.5 text-[10.5px] leading-tight text-white/40">
+                click to open in Solscan
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
 
         {showDevWallet && devWalletAddr && !pulseBoard ? (
           <Tooltip>
@@ -924,7 +1045,7 @@ export function PulseRowSocialStrip({
         ) : null}
       </div>
 
-      {showFollowerRow && twitterDisplayHandle ? (
+      {showTwitterFooter && showFollowerRow && twitterDisplayHandle ? (
         <div
           className={cn(
             /** Single line always — long handles/counts slide under the buy column (Axiom). */
@@ -952,7 +1073,7 @@ export function PulseRowSocialStrip({
             </span>
           </span>
         </div>
-      ) : twitterDisplayHandle && twitterProfileUrl ? (
+      ) : showTwitterFooter && twitterDisplayHandle && twitterProfileUrl ? (
         <TwitterProfileHoverTrigger handle={twitterDisplayHandle}>
           <a
             href={twitterProfileUrl}

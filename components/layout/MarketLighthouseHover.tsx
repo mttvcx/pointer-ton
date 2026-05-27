@@ -400,7 +400,7 @@ export function MarketLighthouseHover({
                 width={16}
                 height={16}
                 draggable={false}
-                className="h-4 w-4 shrink-0 rounded-full object-cover opacity-95 ring-1 ring-black/35"
+                className="h-4 w-4 shrink-0 rounded-full object-cover opacity-95"
               />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

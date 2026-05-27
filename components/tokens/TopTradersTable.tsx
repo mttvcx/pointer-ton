@@ -24,6 +24,7 @@ import { formatCompactUsd, formatCompactNumber, formatAgeShort, formatDuration }
 import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
 
 import type { HolderDeskSynthFunding } from '@/lib/tokens/holderDeskSynth';
+import { useHoldersTableSettingsStore } from '@/store/holdersTableSettings';
 
 export type EnrichedTopTraderRow = MintTopTraderRow & {
   funding?: HolderDeskSynthFunding | null;
@@ -41,6 +42,7 @@ type Props = {
   sortDir?: 'asc' | 'desc' | null;
   onFilterMintTrades?: (address: string) => void;
   tradesMakerFilter?: string | null;
+  onOpenSettings?: () => void;
 };
 
 export function TopTradersTable({
@@ -55,8 +57,10 @@ export function TopTradersTable({
   sortDir,
   onFilterMintTrades,
   tradesMakerFilter,
+  onOpenSettings,
 }: Props) {
   const sym = tokenSymbol ?? 'TOK';
+  const col = useHoldersTableSettingsStore((s) => s.settings.columns);
 
   return (
     <table className={cn('w-full table-fixed border-collapse', DESK_TABLE_CLASS)}>
@@ -78,27 +82,33 @@ export function TopTradersTable({
           <th className={cn(DESK_HEADER_CLASS, 'pl-3 text-right text-fg-muted/60')}>#</th>
           <th className={DESK_HEADER_CLASS}>Wallet</th>
           <th className={DESK_HEADER_NUM_CLASS}>
-            <div className="flex flex-col items-end leading-tight">
+            <div className="flex flex-col items-end gap-0 leading-none">
               <span>{nativeSym} Balance</span>
-              <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
-                (Last Active)
-              </span>
+              {col.lastActive ? (
+                <span className="mt-0.5 text-[9px] font-normal normal-case tracking-normal text-fg-muted/60">
+                  (Last Active)
+                </span>
+              ) : null}
             </div>
           </th>
           <th className={DESK_HEADER_NUM_CLASS}>
-            <div className="flex flex-col items-end leading-tight">
+            <div className="flex flex-col items-end gap-0 leading-none">
               <span>Bought</span>
-              <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
-                Avg · Buy
-              </span>
+              {col.averageEntry || col.totalTransactions ? (
+                <span className="mt-0.5 text-[9px] font-normal normal-case tracking-normal text-fg-muted/60">
+                  {col.averageEntry && col.totalTransactions ? 'Avg · Buy' : col.averageEntry ? 'Avg' : 'Buy'}
+                </span>
+              ) : null}
             </div>
           </th>
           <th className={DESK_HEADER_NUM_CLASS}>
-            <div className="flex flex-col items-end leading-tight">
+            <div className="flex flex-col items-end gap-0 leading-none">
               <span>Sold</span>
-              <span className="text-[9.5px] font-normal normal-case tracking-normal text-fg-muted/60">
-                Avg · Sell
-              </span>
+              {col.averageExit || col.totalTransactions ? (
+                <span className="mt-0.5 text-[9px] font-normal normal-case tracking-normal text-fg-muted/60">
+                  {col.averageExit && col.totalTransactions ? 'Avg · Sell' : col.averageExit ? 'Avg' : 'Sell'}
+                </span>
+              ) : null}
             </div>
           </th>
           <SortableTh
@@ -117,7 +127,7 @@ export function TopTradersTable({
           />
           <th className={DESK_HEADER_CLASS}>Funding</th>
           <SortableTh label="Held" align="right" className="pr-3" />
-          <DeskHeaderSettings />
+          <DeskHeaderSettings onOpen={onOpenSettings} />
         </tr>
       </thead>
 
@@ -155,16 +165,22 @@ export function TopTradersTable({
                 <StackedNumericCell
                   primary="—"
                   secondary={
-                    row.last_trade_at ? `(${formatAgeShort(row.last_trade_at)})` : null
+                    col.lastActive && row.last_trade_at
+                      ? `(${formatAgeShort(row.last_trade_at)})`
+                      : null
                   }
                 />
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
                 <StackedNumericCell
                   primary={formatCompactUsd(row.buy_usd)}
-                  secondary={`${formatCompactNumber(row.buy_token_qty)} / ${row.buy_count}`}
+                  secondary={
+                    col.totalTransactions
+                      ? `${formatCompactNumber(row.buy_token_qty)} / ${row.buy_count}`
+                      : null
+                  }
                   tertiary={
-                    row.avg_buy_usd_per_token != null
+                    col.averageEntry && row.avg_buy_usd_per_token != null
                       ? `(${formatCompactUsd(row.avg_buy_usd_per_token)})`
                       : null
                   }
@@ -174,9 +190,13 @@ export function TopTradersTable({
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
                 <StackedNumericCell
                   primary={formatCompactUsd(row.sell_usd)}
-                  secondary={`${formatCompactNumber(row.sell_token_qty)} / ${row.sell_count}`}
+                  secondary={
+                    col.totalTransactions
+                      ? `${formatCompactNumber(row.sell_token_qty)} / ${row.sell_count}`
+                      : null
+                  }
                   tertiary={
-                    row.avg_sell_usd_per_token != null
+                    col.averageExit && row.avg_sell_usd_per_token != null
                       ? `(${formatCompactUsd(row.avg_sell_usd_per_token)})`
                       : null
                   }
@@ -197,12 +217,19 @@ export function TopTradersTable({
                   venue={row.funding?.venue ?? null}
                   ageSinceFund={row.funding?.ageSinceFund ?? null}
                   solFunding={row.funding?.solFunding ?? null}
-                  txCount={row.funding?.txCount ?? null}
-                  sharedFundedCount={row.funding?.sharedFundedCount ?? null}
+                  txCount={col.fundingCount ? row.funding?.txCount ?? null : null}
+                  sharedFundedCount={
+                    col.sharedWalletFunding ? row.funding?.sharedFundedCount ?? null : null
+                  }
                 />
               </td>
               <td className={cn(DESK_CELL_LAST_CLASS, 'text-right')}>
-                <span className={CELL_MUTED_CLASS}>
+                <span
+                  className={cn(
+                    CELL_MUTED_CLASS,
+                    col.timeLinkedFunding && 'text-signal-info',
+                  )}
+                >
                   {row.held_seconds != null ? formatDuration(row.held_seconds) : '\u2014'}
                 </span>
               </td>

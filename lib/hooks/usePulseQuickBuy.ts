@@ -14,7 +14,11 @@ import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { formatNumber } from '@/lib/utils/formatters';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
-import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import {
+  viewOnlyWalletTradeMessage,
+  walletConnectRequiredMessage,
+  walletConnectRequiredTitle,
+} from '@/lib/trading/walletConnectCopy';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
@@ -113,7 +117,7 @@ export function usePulseQuickBuy() {
       };
 
       if (!walletsReady || !wallet) {
-        return fail('Connect wallet via TonConnect after sign-in.');
+        return fail(walletConnectRequiredMessage(activeChain));
       }
       if (activeWalletRow?.is_imported === true) {
         return fail('View-only wallet — use a linked trading wallet.');
@@ -248,14 +252,16 @@ export function usePulseQuickBuy() {
 
       if (!walletsReady || !wallet) {
         if (!silent) {
-          toast.error('Connect TON wallet', { description: 'Use TonConnect after sign-in.' });
+          toast.error(walletConnectRequiredTitle(activeChain), {
+            description: walletConnectRequiredMessage(activeChain),
+          });
         }
         return silent ? fail('Wallet not connected') : undefined;
       }
       if (activeWalletRow?.is_imported === true) {
         if (!silent) {
           toast.error('View-only wallet', {
-            description: 'Use a non-imported wallet linked in TonConnect to trade.',
+            description: viewOnlyWalletTradeMessage(activeChain),
           });
         }
         return silent ? fail('View-only wallet') : undefined;

@@ -1,29 +1,44 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, X } from 'lucide-react';
 import { ThemePicker } from '@/components/theme/ThemePicker';
 import { CustomThemeImport } from '@/components/theme/CustomThemeImport';
 import { DisplayPreferences } from '@/components/preferences/DisplayPreferences';
 import { AutoSellSettings } from '@/components/settings/AutoSellSettings';
+import { WatchlistSettingsSection } from '@/components/settings/WatchlistSettingsSection';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
+import { useUIStore } from '@/store/ui';
 
-interface SettingsModalProps {
-  open: boolean;
-  onClose: () => void;
-}
+type SettingsTab = 'general' | 'watchlist';
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'general', label: 'General' },
+  { id: 'watchlist', label: 'Watchlist' },
+];
 
 /**
  * Centered settings overlay. Opens on top of the current page, URL does not
  * change, theme picker live-previews so the user sees swatches apply behind
  * the dialog.
  */
-export function SettingsModal({ open, onClose }: SettingsModalProps) {
+export function SettingsModal() {
+  const open = useUIStore((s) => s.settingsOpen);
+  const initialTab = useUIStore((s) => s.settingsTab);
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   const dialogRef = useRef<HTMLDivElement>(null);
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (open) setTab(initialTab);
+  }, [open, initialTab]);
+
+  const onClose = () => setSettingsOpen(false);
 
   useEffect(() => {
     if (!open) return;
@@ -32,7 +47,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -42,6 +57,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const visibleTabs = useMemo(() => {
+    if (!q) return TABS;
+    return TABS.filter((t) => t.label.toLowerCase().includes(q));
+  }, [q]);
 
   if (!mounted) return null;
 
@@ -64,65 +85,102 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         aria-modal="true"
         aria-labelledby="settings-modal-title"
         className={cn(
-          'relative z-10 mx-4 max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
+          'relative z-10 mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised shadow-2xl',
           overlayPanelClasses(visible),
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="sticky top-0 z-[1] flex items-center justify-between border-b border-border-subtle bg-bg-raised px-4 py-3">
-          <div className="flex flex-col gap-0.5">
-            <h2
-              id="settings-modal-title"
-              className="text-sm font-semibold tracking-tight text-fg-primary"
+        <header className="shrink-0 border-b border-border-subtle bg-bg-raised px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2
+                id="settings-modal-title"
+                className="text-sm font-semibold tracking-tight text-fg-primary"
+              >
+                Settings
+              </h2>
+              <p className="mt-0.5 text-xs text-fg-muted">Manage your Pointer preferences.</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+              aria-label="Close"
             >
-              Settings
-            </h2>
-            <p className="text-xs text-fg-muted">Manage your Pointer preferences.</p>
+              <X className="h-4 w-4" aria-hidden />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
+
+          <div className="relative mt-3">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search settings"
+              className="h-8 w-full rounded-md border border-border-subtle bg-bg-base pl-8 pr-3 text-[12px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/45"
+            />
+          </div>
+
+          <div className="mt-2 flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {visibleTabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors duration-200',
+                  tab === t.id
+                    ? 'bg-accent-primary/15 text-accent-primary'
+                    : 'text-fg-muted hover:bg-white/[0.05] hover:text-fg-secondary',
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </header>
 
-        <div className="space-y-6 px-4 py-4">
-          <section>
-            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
-              Appearance
-            </h3>
-            <ThemePicker />
-          </section>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {tab === 'watchlist' ? (
+            <WatchlistSettingsSection />
+          ) : (
+            <div className="space-y-6">
+              <section>
+                <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+                  Appearance
+                </h3>
+                <ThemePicker />
+              </section>
 
-          <section>
-            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
-              Display
-            </h3>
-            <DisplayPreferences />
-          </section>
+              <section>
+                <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+                  Display
+                </h3>
+                <DisplayPreferences />
+              </section>
 
-          <section>
-            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
-              Auto-Sell
-            </h3>
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3">
-              <AutoSellSettings />
+              <section>
+                <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+                  Auto-Sell
+                </h3>
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3">
+                  <AutoSellSettings />
+                </div>
+              </section>
+
+              <section>
+                <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+                  Custom theme
+                </h3>
+                <p className="mb-3 text-xs leading-relaxed text-fg-muted">
+                  Paste a JSON theme to apply your own palette. Use hex values (#0a0a0b) or RGB
+                  triplets (&quot;10 10 11&quot;).
+                </p>
+                <CustomThemeImport />
+              </section>
             </div>
-          </section>
-
-          <section>
-            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
-              Custom theme
-            </h3>
-            <p className="mb-3 text-xs leading-relaxed text-fg-muted">
-              Paste a JSON theme to apply your own palette. Use hex values
-              (#0a0a0b) or RGB triplets ("10 10 11").
-            </p>
-            <CustomThemeImport />
-          </section>
+          )}
         </div>
       </div>
     </div>

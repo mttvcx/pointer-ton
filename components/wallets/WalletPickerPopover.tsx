@@ -125,6 +125,8 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label="Select wallets"
+        title="Wallets"
         onClick={() =>
           setOpen((v) => {
             const next = !v;

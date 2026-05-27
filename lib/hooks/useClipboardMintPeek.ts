@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
+import { MINT_CLIPBOARD_SIGNAL } from '@/lib/clipboard/mintClipboardSignal';
 
 function mintFromTokenPath(pathname: string | null): string | null {
   if (!pathname?.startsWith('/token/')) return null;
@@ -59,6 +60,17 @@ export function useClipboardMintPeek() {
     } catch {
       /* permission denied or unsupported */
     }
+  }, [applyMintCandidate]);
+
+  useEffect(() => {
+    const onSignal = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail !== 'string') return;
+      dismissedRef.current = null;
+      applyMintCandidate(detail);
+    };
+    window.addEventListener(MINT_CLIPBOARD_SIGNAL, onSignal);
+    return () => window.removeEventListener(MINT_CLIPBOARD_SIGNAL, onSignal);
   }, [applyMintCandidate]);
 
   useEffect(() => {

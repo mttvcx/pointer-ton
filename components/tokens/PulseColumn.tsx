@@ -16,7 +16,7 @@ import {
 import { toast } from 'sonner';
 import { ColumnFilterModal, type ColumnPresetRowDto } from '@/components/tokens/ColumnFilterModal';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { PulseColumnSkeleton } from '@/components/tokens/PulseColumnSkeleton';
+import { PulseRowSkeleton } from '@/components/shared/Skeleton';
 import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { TokenRow } from '@/components/tokens/TokenRow';
 import { createClient } from '@/lib/supabase/client';
@@ -37,7 +37,7 @@ import {
   sortPulseBundles,
 } from '@/lib/tokens/columnPresetModel';
 import { PULSE_COLUMN_ACCENT_DOT, type PulseColumnId } from '@/lib/utils/constants';
-import { syntheticPulseFeedItems } from '@/lib/dev/demoPulseBundles';
+import { syntheticPulseFeedItems, pulseTwitterProfileHoverTestBundle } from '@/lib/dev/demoPulseBundles';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
@@ -166,13 +166,24 @@ function PulseColumnBody({
 
   const feedItems = useMemo(() => {
     const raw = dedupePulseBundlesByMint(query.data?.items ?? []);
+    let items: PulseTokenBundle[];
     /** Real indexer rows always win — demo deck only when API is empty and demo mode is on. */
-    if (raw.length > 0) return raw;
-    if (uiDemo && (query.data?.fetchError || raw.length === 0)) {
-      return syntheticPulseFeedItems(column, activeChain);
+    if (raw.length > 0) {
+      items = raw;
+    } else if (uiDemo && (query.isPending || query.data?.fetchError || raw.length === 0)) {
+      items = syntheticPulseFeedItems(column, activeChain);
+    } else {
+      items = raw;
     }
-    return raw;
-  }, [column, query.data?.items, query.data?.fetchError, uiDemo, activeChain]);
+
+    const twitterHoverQa =
+      uiDemo && column === 'new' ? pulseTwitterProfileHoverTestBundle(activeChain) : null;
+    if (twitterHoverQa) {
+      items = dedupePulseBundlesByMint([twitterHoverQa, ...items]);
+    }
+
+    return items;
+  }, [column, query.data?.items, query.data?.fetchError, query.isPending, uiDemo, activeChain]);
 
   const flashTrackPulseMint = useUIStore((s) => s.flashTrackPulseMint);
 
@@ -424,10 +435,7 @@ function PulseColumnBody({
   const dotClass = PULSE_COLUMN_ACCENT_DOT[column];
   const title = COLUMN_LABEL[column];
   const effectiveBuyStyle = displayForRow.buyButtonStyle;
-
-  if (query.isPending && query.data === undefined) {
-    return <PulseColumnSkeleton column={column} />;
-  }
+  const listLoading = query.isPending && query.data === undefined && feedItems.length === 0;
 
   return (
     <section
@@ -604,8 +612,15 @@ function PulseColumnBody({
          * `--bg-hover` in globals.css.
          */
         className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-bg-raised"
+        aria-busy={listLoading || undefined}
       >
-        {fetchError && visibleRows.length === 0 ? (
+        {listLoading ? (
+          <div className="px-1.5 py-1">
+            {Array.from({ length: 8 }, (_, i) => (
+              <PulseRowSkeleton key={i} />
+            ))}
+          </div>
+        ) : fetchError && visibleRows.length === 0 ? (
           <EmptyState
             icon={AlertTriangle}
             title="Feed unavailable"

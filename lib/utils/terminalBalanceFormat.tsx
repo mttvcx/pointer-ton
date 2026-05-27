@@ -66,3 +66,28 @@ export function TerminalNativeBalance({
     </span>
   );
 }
+
+/** Axiom-style tiny USD prices — e.g. $0.0₃1 for sub-cent tokens. */
+export function TerminalUsdPrice({
+  price,
+  className,
+  subClassName,
+}: {
+  price: number | null | undefined;
+  className?: string;
+  subClassName?: string;
+}) {
+  const parts = parseTerminalNativeBalance(price);
+  if (parts.kind === 'plain') {
+    return <span className={cn('tabular-nums', className)}>${parts.text}</span>;
+  }
+  return (
+    <span className={cn('tabular-nums', className)}>
+      ${parts.leading}
+      <sub className={cn('relative -bottom-px text-[0.72em] font-normal', subClassName)}>
+        {toSubscript(parts.zeroCount)}
+      </sub>
+      {parts.tail}
+    </span>
+  );
+}

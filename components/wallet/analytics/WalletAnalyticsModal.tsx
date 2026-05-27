@@ -2,13 +2,15 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Globe, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { WalletAnalyticsHeader } from '@/components/wallet/analytics/WalletAnalyticsHeader';
 import { WalletBalancePanel } from '@/components/wallet/analytics/WalletBalancePanel';
+import { WalletCurrencyToggle } from '@/components/wallet/analytics/WalletCurrencyToggle';
 import { WalletIntelActivityDemo } from '@/components/wallet/analytics/WalletIntelDemoPanels';
 import { WalletPerformancePanel } from '@/components/wallet/analytics/WalletPerformancePanel';
 import { WalletPnlChart } from '@/components/wallet/analytics/WalletPnlChart';
 import { WalletPositionsTable } from '@/components/wallet/analytics/WalletPositionsTable';
+import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { buildDemoWalletAnalyticsPayload } from '@/lib/dev/demoWalletAnalyticsPayload';
 import {
   demoWalletActivityRows,
@@ -19,6 +21,7 @@ import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
 import type { WalletPositionRow } from '@/lib/wallet-analytics/types';
 import type { PnlSharePayload } from '@/lib/share/types';
 import { cn } from '@/lib/utils/cn';
+import { CHAIN_TICKER } from '@/lib/chains/chainAssets';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useWalletLabelsStore } from '@/store/walletLabels';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
@@ -60,9 +63,11 @@ export function WalletAnalyticsModal() {
   );
 
   const byLabel = useWalletLabelsStore((s) => s.byAddress);
+  const uiDemo = useUiDemoMode();
 
   const [tf, setTf] = useState<WalletAnalyticsTimeframe>('30d');
   const [deskTab, setDeskTab] = useState<DeskTabId>('most_profitable');
+  const [usdMode, setUsdMode] = useState(true);
   const [posSearch, setPosSearch] = useState('');
   const [labelDraftState, setLabelDraftState] = useState<{ address: string; value: string }>({
     address: '',
@@ -71,6 +76,12 @@ export function WalletAnalyticsModal() {
 
   const walletAddress = displayWallet?.address;
   const walletChain = displayWallet?.chain;
+  const nativeSym = walletChain ? CHAIN_TICKER[walletChain] : 'SOL';
+
+  useEffect(() => {
+    if (open) setUsdMode(true);
+  }, [open, walletAddress]);
+
   const walletRowDemo = displayWallet?.rowDemo ?? false;
   const labelDraft =
     walletAddress && labelDraftState.address === walletAddress
@@ -106,14 +117,14 @@ export function WalletAnalyticsModal() {
 
   const fallbackDemo = useMemo(
     () =>
-      walletAddress && walletChain
+      uiDemo && walletAddress && walletChain
         ? buildDemoWalletAnalyticsPayload(walletAddress, walletChain, tf)
         : undefined,
-    [walletAddress, walletChain, tf],
+    [uiDemo, walletAddress, walletChain, tf],
   );
 
-  /** API failed or unreachable — show full client-side demo so layout + Share PnL still work. */
-  const isOfflineDemo = Boolean(!q.isLoading && q.isError);
+  /** Demo-only: API failed — show synthetic layout for screenshots, not live beta. */
+  const isOfflineDemo = Boolean(uiDemo && !q.isLoading && q.isError);
 
   const effectiveData = useMemo((): WalletAnalyticsPayload | undefined => {
     if (!walletAddress) return undefined;
@@ -187,13 +198,13 @@ export function WalletAnalyticsModal() {
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-50 flex h-[min(92vh,880px)] max-h-[min(92vh,880px)] w-full max-w-[1220px] flex-col overflow-hidden rounded-xl border border-border-subtle fill-mode-forwards',
+          'relative z-50 flex h-[min(94vh,920px)] max-h-[min(94vh,920px)] w-full max-w-[1220px] flex-col overflow-hidden rounded-xl border border-border-subtle fill-mode-forwards',
           'bg-bg-raised shadow-panel',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <WalletAnalyticsHeader
             address={displayWallet.address}
             chain={displayWallet.chain}
@@ -208,11 +219,11 @@ export function WalletAnalyticsModal() {
           />
 
           {q.isLoading ? (
-            <div className="flex min-h-[560px] items-center justify-center py-24 text-fg-muted">
+            <div className="flex flex-1 items-center justify-center py-24 text-fg-muted">
               <Loader2 className="h-6 w-6 animate-spin" strokeWidth={2} />
             </div>
           ) : !effectiveData ? (
-            <div className="flex min-h-[560px] flex-col items-center justify-center px-6 py-16">
+            <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
               <p className="text-center text-[13px] text-signal-bear">
                 Could not load wallet intelligence. Try again shortly.
               </p>
@@ -220,29 +231,32 @@ export function WalletAnalyticsModal() {
           ) : (
             <>
               {isOfflineDemo ? (
-                <div className="mx-3 mt-2 flex h-7 items-center gap-2 rounded-md border border-amber-300/[0.13] bg-amber-300/[0.035] px-2.5 text-[10px] font-medium text-amber-100/70 sm:mx-4">
+                <div className="mx-4 mt-2 flex h-7 shrink-0 items-center gap-2 rounded-md border border-amber-300/[0.13] bg-amber-300/[0.035] px-2.5 text-[10px] font-medium text-amber-100/70">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-300/65" aria-hidden />
                   <span>
                     <span className="font-semibold text-amber-100/80">Demo mode</span> · synthetic wallet data shown
                   </span>
                 </div>
               ) : null}
-              {!isOfflineDemo && walletRowDemo ? (
-                <div className="mx-3 mt-2 flex h-7 items-center gap-2 rounded-md border border-white/[0.07] bg-white/[0.025] px-2.5 text-[10px] font-medium text-fg-muted sm:mx-4">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent-primary/60" aria-hidden />
-                  Preview rows · Share PnL is enabled on positions
+              <div className="grid shrink-0 border-b border-border-subtle lg:grid-cols-[0.86fr_1.2fr_0.98fr] lg:divide-x lg:divide-border-subtle">
+                <WalletBalancePanel
+                  data={effectiveData}
+                  usdMode={usdMode}
+                  onToggleCurrency={() => setUsdMode((v) => !v)}
+                />
+                <div className="flex min-h-[190px] flex-col border-t border-border-subtle p-3 lg:border-t-0">
+                  <h3 className="mb-2 text-xs font-semibold text-fg-primary">Realized PNL</h3>
+                  <WalletPnlChart
+                    points={effectiveData.chart}
+                    usdMode={usdMode}
+                    solUsd={effectiveData.solUsd}
+                    className="mt-1 min-h-[160px] flex-1"
+                  />
                 </div>
-              ) : null}
-              <div className="mx-3 mt-2 grid overflow-hidden rounded-lg border border-border-subtle bg-bg-sunken/40 lg:grid-cols-[0.86fr_1.2fr_0.98fr] lg:divide-x lg:divide-border-subtle sm:mx-4">
-                <WalletBalancePanel data={effectiveData} currency="USD" />
-                <div className="flex min-h-[206px] flex-col border-t border-border-subtle p-3 lg:border-t-0">
-                  <h3 className="mb-3 text-xs font-semibold text-fg-primary">REALIZED PNL</h3>
-                  <WalletPnlChart points={effectiveData.chart} className="mt-1.5 min-h-[174px] flex-1" />
-                </div>
-                <WalletPerformancePanel data={effectiveData} timeframe={tf} />
+                <WalletPerformancePanel data={effectiveData} timeframe={tf} usdMode={usdMode} />
               </div>
 
-              <div className="mx-3 mt-3 flex flex-wrap items-end justify-between gap-3 border-b border-border-subtle pb-0 sm:mx-4">
+              <div className="flex shrink-0 flex-wrap items-end justify-between gap-3 border-b border-border-subtle px-4 pb-0 pt-2">
                 <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-2">
                   {DESK_TABS.map((t) => (
                     <button
@@ -267,29 +281,37 @@ export function WalletAnalyticsModal() {
                       value={posSearch}
                       onChange={(e) => setPosSearch(e.target.value)}
                       placeholder="Search by name or address"
-                      className="h-7 w-[min(100%,220px)] rounded border border-border-subtle bg-bg-sunken px-2.5 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
+                      className="h-7 w-[min(100%,240px)] rounded border border-border-subtle bg-transparent px-2.5 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
                     />
                   ) : null}
-                  <span className="inline-flex h-5 items-center rounded border border-border-subtle bg-bg-sunken px-2 text-[10px] text-fg-muted transition-colors hover:text-fg-primary">
-                    <Globe className="mr-1 h-3 w-3 opacity-80" strokeWidth={2} aria-hidden />
-                    USD
-                  </span>
+                  <WalletCurrencyToggle
+                    usdMode={usdMode}
+                    nativeSym={nativeSym}
+                    onToggle={() => setUsdMode((v) => !v)}
+                  />
                 </div>
               </div>
 
-              <div className="mx-3 min-h-[380px] sm:mx-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3">
                 {deskTab === 'most_profitable' || deskTab === 'active_positions' ? (
-                  <WalletPositionsTable rows={displayPositions} timeframe={tf} onShareRow={shareFromRow} />
+                  <WalletPositionsTable
+                    rows={displayPositions}
+                    timeframe={tf}
+                    onShareRow={shareFromRow}
+                    usdMode={usdMode}
+                    solUsd={effectiveData.solUsd}
+                    chain={effectiveData.chain}
+                  />
                 ) : deskTab === 'trades_history' ? (
                   showExtraDemos ? (
                     <WalletIntelActivityDemo rows={demoActivity} />
                   ) : (
-                    <div className="flex min-h-[320px] items-center justify-center rounded-b-lg border border-t-0 border-white/[0.07] bg-[#070a0f]/45 px-4 py-9 text-center text-[12px] text-fg-muted">
+                    <div className="flex min-h-[280px] items-center justify-center px-4 py-9 text-center text-[12px] text-fg-muted">
                       Trade history is indexed as activity streams online — demo mode shows sample rows.
                     </div>
                   )
                 ) : (
-                  <div className="flex min-h-[280px] flex-col items-center justify-center rounded-b-lg border border-t-0 border-white/[0.07] bg-[#070a0f]/45 px-4 py-12 text-center">
+                  <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-12 text-center">
                     <p className="text-[12px] font-medium text-fg-secondary">Dev tokens</p>
                     <p className="mt-2 max-w-sm text-[11px] leading-relaxed text-fg-muted">
                       Cross-launch tokens from this deployer will appear here when the index is wired.
@@ -297,13 +319,6 @@ export function WalletAnalyticsModal() {
                   </div>
                 )}
               </div>
-
-              {effectiveData.statsComputedAt ? (
-                <p className="mx-3 mb-3 mt-2 text-[10px] text-fg-muted sm:mx-4">
-                  Indexed stats refreshed from telemetry when available — chart illustrates the selected
-                  window.
-                </p>
-              ) : null}
             </>
           )}
         </div>

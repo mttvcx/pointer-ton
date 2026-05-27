@@ -7,6 +7,7 @@ import {
   DOCK_TRACKER_IDS,
   WALLET_HOTKEY_ROUTE,
 } from '@/lib/dock/dockTrackerConfig';
+import { openXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { useDockTrackersStore } from '@/store/dockTrackers';
 import { useUIStore } from '@/store/ui';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
@@ -42,12 +43,14 @@ export function useDockTrackerHotkeys() {
         e.preventDefault();
         if (id === 'wallet') {
           router.push(WALLET_HOTKEY_ROUTE);
-        } else if (id === 'tracker') {
+        } else if (id === 'social') {
           if (activeChain === 'sol' && !(pathname?.startsWith('/wallets'))) {
             useTokenDockPeekStore.getState().toggleWalletPeek();
           } else {
             router.push('/track');
           }
+        } else if (id === 'tracker') {
+          openXMonitorOnPulse('left');
         } else if (id === 'pnl') {
           if (activeChain === 'sol') {
             usePnlTrackerStore.getState().toggleOpen();

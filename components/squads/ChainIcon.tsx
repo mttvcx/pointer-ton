@@ -42,7 +42,7 @@ export function ChainIcon({ chain, size = 14, className }: ChainIconProps) {
   const title = chain;
   return (
     <span className={cn('inline-flex shrink-0', className)} title={title}>
-      <Image src={src} alt="" width={size} height={size} className="rounded-sm" unoptimized />
+      <Image src={src} alt="" width={size} height={size} className="block" unoptimized />
     </span>
   );
 }

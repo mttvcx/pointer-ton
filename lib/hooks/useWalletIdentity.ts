@@ -7,6 +7,7 @@ import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { resolveWalletIdentityCore } from '@/lib/walletIdentity/resolveWalletIdentity';
 import { mockWalletWideStats } from '@/lib/walletIdentity/mockWalletWideStats';
+import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 
 /**
@@ -22,6 +23,7 @@ export function useWalletIdentity(params: {
   const { address, truncateLen = 5, extras = [], creatorWallet = null, topTraderRow = null } = params;
   const { resolveLabel } = useWalletLabels();
   const { isTracked } = useTrackedWalletsLookup();
+  const uiDemo = useUiDemoMode();
 
   const labelDisp = resolveLabel(address, truncateLen);
   const tracked = isTracked(address);
@@ -35,11 +37,15 @@ export function useWalletIdentity(params: {
         isTracked: tracked,
         extras,
         creatorWallet,
+        allowDemoDirectory: uiDemo,
       }),
-    [address, labelDisp, tracked, extras, creatorWallet],
+    [address, labelDisp, tracked, extras, creatorWallet, uiDemo],
   );
 
-  const wide = useMemo(() => mockWalletWideStats(address), [address]);
+  const wide = useMemo(
+    () => (uiDemo ? mockWalletWideStats(address) : null),
+    [address, uiDemo],
+  );
 
   return {
     identity,

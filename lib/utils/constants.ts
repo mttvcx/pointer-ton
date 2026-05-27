@@ -235,7 +235,7 @@ export function getHeliusRpcUrl(): string {
 /* --------------------------------- misc ---------------------------------- */
 
 export const APP_NAME = 'Pointer';
-export const APP_TAGLINE = 'TON memecoin terminal with an AI co-pilot.';
+export const APP_TAGLINE = 'The meme terminal — Solana-first, with an AI co-pilot.';
 
 /** Canonical origin (no trailing slash). Used for OG URLs and share links in metadata. */
 export function getPublicOrigin(): string {

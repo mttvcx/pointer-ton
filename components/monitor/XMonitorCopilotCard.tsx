@@ -1,18 +1,19 @@
 'use client';
 
 import { PanelLeft } from 'lucide-react';
-import { useUIStore } from '@/store/ui';
+import { openXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 
-/** Compact co-pilot entry — opens the unified X monitor (same surface as tracker Monitor tab). */
+/** Compact co-pilot entry — opens the Pulse side-rail X monitor. */
 export function XMonitorCopilotCard() {
-  const docked = useUIStore((s) => s.alertRulesDocked);
+  const railSide = usePulseTwitterRailStore((s) => s.side);
   const walletOpen = useTokenDockPeekStore((s) => s.walletPeekOpen);
 
-  if (docked) {
+  if (railSide !== 'hidden') {
     return (
       <div className="rounded-sm border border-white/[0.08] bg-bg-raised px-3 py-2.5">
-        <p className="text-[11px] text-fg-secondary">X monitor is docked on the left.</p>
+        <p className="text-[11px] text-fg-secondary">X monitor is open on Pulse.</p>
       </div>
     );
   }
@@ -20,16 +21,16 @@ export function XMonitorCopilotCard() {
   return (
     <div className="rounded-sm border border-white/[0.08] bg-bg-raised px-3 py-2.5">
       <p className="text-[11px] leading-snug text-fg-secondary">
-        Tweet feed, AI deploy, and @ listen rules — one panel.
+        Tweet feed, AI deploy, and @ listen rules — one panel on Pulse.
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => useUIStore.getState().setAlertRulesDocked(true)}
+          onClick={() => openXMonitorOnPulse('left')}
           className="btn-press inline-flex items-center gap-1.5 rounded-sm border border-white/[0.1] bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-primary hover:bg-white/[0.08]"
         >
           <PanelLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          Dock monitor
+          Open on Pulse
         </button>
         <button
           type="button"

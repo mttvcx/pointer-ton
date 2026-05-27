@@ -1,6 +1,6 @@
 /**
  * Bottom dock shortcuts (Axiom-style). `wallet` → `/wallets` hub + picker rail;
- * `tracker` toggles the draggable trades-tracker peek on Solana.
+ * `social` toggles the draggable wallet-trades peek; `tracker` opens X monitor on Pulse.
  */
 export type DockTrackerId =
   | 'wallet'
@@ -25,12 +25,11 @@ export const DOCK_TRACKER_IDS: DockTrackerId[] = [
   'squads',
 ];
 
-/** Dock chips that navigate via `<Link>` — `wallet` / `pulse` / `tracker` use bespoke handlers. */
+/** Dock chips that navigate via `<Link>` — bespoke handlers for wallet / pulse / tracker / social. */
 export const DOCK_TRACKER_HREF: Record<
-  Exclude<DockTrackerId, 'wallet' | 'pulse' | 'tracker'>,
+  Exclude<DockTrackerId, 'wallet' | 'pulse' | 'tracker' | 'social'>,
   string
 > = {
-  social: '/track',
   discover: '/explore',
   pnl: '/portfolio',
   alpha: '/points',
@@ -41,8 +40,8 @@ export const WALLET_HOTKEY_ROUTE = '/wallets';
 
 const FULL: Record<DockTrackerId, string> = {
   wallet: 'Wallet',
-  tracker: 'Tracker',
-  social: 'Social Tracker',
+  tracker: 'Social Tracker',
+  social: 'Wallet Tracker',
   discover: 'Discover Tracker',
   pulse: 'Pulse Tracker',
   pnl: 'PnL Tracker',
@@ -52,8 +51,8 @@ const FULL: Record<DockTrackerId, string> = {
 
 const COMPACT: Record<DockTrackerId, string> = {
   wallet: 'Wallet',
-  tracker: 'Tracker',
-  social: 'Social',
+  tracker: 'Social',
+  social: 'Wallet',
   discover: 'Discover',
   pulse: 'Pulse',
   pnl: 'PnL',

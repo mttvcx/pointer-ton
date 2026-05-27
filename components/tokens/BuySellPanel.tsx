@@ -17,10 +17,12 @@ import {
   Bell,
   Copy,
   ExternalLink,
+  Check,
   CircleDollarSign,
   Clock,
   Coins,
   Loader2,
+  Pencil,
   Settings,
   TrendingDown,
   Wallet,
@@ -35,27 +37,46 @@ import { USDC_MINT } from '@/lib/utils/addresses';
 import {
   formatCompactUsd,
   formatNumber,
+  formatUsd,
   lamportsToSol,
   rawToUi,
   uiToRaw,
 } from '@/lib/utils/formatters';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import { EMPTY_TOKEN_EXTENDED_METRICS } from '@/lib/dev/demoPolicy';
 import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
+import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import {
+  noWalletLinkedBanner,
+  viewOnlyWalletTradeMessage,
+  walletConnectRequiredMessage,
+  walletConnectRequiredTitle,
+} from '@/lib/trading/walletConnectCopy';
 import { cn } from '@/lib/utils/cn';
 import { explorerTokenAriaLabel, explorerTokenHrefFromMint, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import type { AppChainId } from '@/lib/chains/appChain';
 import type { Tables } from '@/lib/supabase/types';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
-import { PresetSelector } from '@/components/trading/PresetSelector';
-import { PresetEditorModal } from '@/components/trading/PresetEditorModal';
-import { AdvancedTradingSettingsModal } from '@/components/trading/AdvancedTradingSettingsModal';
+import { PresetTradePanel, type PresetTradeRow } from '@/components/trading/PresetTradePanel';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
 import { TokenInfoTaxBanner, hasTokenTax } from '@/components/tokens/TokenInfoTaxBanner';
+import { TokenTradeDeskStrip } from '@/components/tokens/TokenTradeDeskStrip';
+import {
+  pickTokenTradePerfChanges,
+  type TokenTradePerfTf,
+} from '@/lib/tokens/tokenTradePerfTfs';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
+import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import {
+  addInstantTradeBuyTon,
+  addInstantTradeSellTon,
+  readInstantTradeLifetimeStats,
+} from '@/lib/trading/instantTradeStats';
+import { WalletCurrencyToggle } from '@/components/wallet/analytics/WalletCurrencyToggle';
 
 type LimitOrderRow = Tables<'limit_orders'>;
 
@@ -99,7 +120,7 @@ function TradeAmountInput({
 }) {
   const Icon = icon === 'sol' ? Coins : Wallet;
   return (
-    <div className="relative flex min-h-[2.35rem] items-center gap-2 rounded-md border border-border-subtle bg-bg-base px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ring-1 ring-white/[0.06] transition-colors focus-within:border-accent-primary/55 focus-within:ring-accent-primary/20">
+    <div className="relative flex min-h-[2.35rem] items-center gap-2 rounded-md border border-border-subtle bg-bg-hover/40 px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors focus-within:border-accent-primary/55 focus-within:ring-accent-primary/20">
       <Icon className="h-3.5 w-3.5 shrink-0 text-fg-muted" aria-hidden />
       <input
         type="text"
@@ -112,96 +133,6 @@ function TradeAmountInput({
       />
       <span className="pointer-events-none shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
         {suffix}
-      </span>
-    </div>
-  );
-}
-
-function TradeTapeStrip({ m }: { m: TokenExtendedMetrics }) {
-  const buys = m.buys6h ?? 0;
-  const sells = m.sells6h ?? 0;
-  const total = buys + sells;
-  const buyRatio = total > 0 ? buys / total : 0.5;
-
-  return (
-    <div className="space-y-1.5 rounded-lg border border-border-subtle/80 bg-bg-hover/12 px-2.5 py-2">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[10px] tabular-nums leading-tight">
-        <span className="shrink-0 text-fg-muted">
-          6h Vol{' '}
-          <span className="font-semibold text-fg-primary">
-            {formatCompactUsd(m.vol6hUsd ?? 0)}
-          </span>
-        </span>
-        <span className="shrink-0">
-          <span className="text-fg-muted">Buys </span>
-          <span className="font-semibold text-signal-bull">
-            {buys} / {formatCompactUsd(m.buyVol6hUsd ?? 0)}
-          </span>
-        </span>
-        <span className="shrink-0">
-          <span className="text-fg-muted">Sells </span>
-          <span className="font-semibold text-signal-bear">
-            {sells} / {formatCompactUsd(m.sellVol6hUsd ?? 0)}
-          </span>
-        </span>
-        <span className="shrink-0 text-fg-muted">
-          Net{' '}
-          <span
-            className={cn(
-              'font-semibold',
-              (m.netVol6hUsd ?? 0) < 0 ? 'text-signal-bear' : 'text-signal-bull',
-            )}
-          >
-            {(m.netVol6hUsd ?? 0) >= 0 ? '+' : ''}
-            {formatCompactUsd(m.netVol6hUsd ?? 0)}
-          </span>
-        </span>      </div>
-      <div className="flex h-1 w-full overflow-hidden rounded-full bg-bg-sunken">
-        <div
-          className="h-full bg-signal-bull transition-[width]"
-          style={{ width: `${buyRatio * 100}%` }}
-        />
-        <div className="h-full flex-1 bg-signal-bear/85" />
-      </div>
-    </div>
-  );
-}
-
-function CompactFeeStrip({
-  slippageBps,
-  priorityLamports,
-  jitoLamports,
-  nativeQuoteSym,
-}: {
-  slippageBps: number;
-  priorityLamports: number;
-  jitoLamports: number;
-  nativeQuoteSym: string;
-}) {
-  const gas = formatNumber(lamportsToSol(BigInt(Math.max(0, priorityLamports))), {
-    decimals: 3,
-  });
-  const tip = formatNumber(lamportsToSol(BigInt(Math.max(0, jitoLamports))), { decimals: 3 });
-  const slipPct = slippageBps / 100;
-  const slipStr = (slipPct < 1 ? slipPct.toFixed(2) : slipPct.toFixed(1)) + '%';
-  return (
-    <div className="flex flex-wrap items-center gap-3 font-sans">
-      <span className="inline-flex flex-wrap items-baseline gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-fg-muted">Slip</span>
-        <span className="text-xs font-medium text-fg-secondary tabular-nums">{slipStr}</span>
-      </span>
-      <span className="inline-flex flex-wrap items-baseline gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-fg-muted">Gas</span>
-        <span className="text-xs font-medium text-fg-secondary tabular-nums">
-          {gas} {nativeQuoteSym}
-        </span>
-      </span>
-      <span className="inline-flex flex-wrap items-baseline gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-fg-muted">Tip</span>
-        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-fg-secondary tabular-nums">
-          {tip} {nativeQuoteSym}
-          <AlertTriangle className="inline h-3 w-3 shrink-0 text-signal-warn" strokeWidth={2} aria-hidden />
-        </span>
       </span>
     </div>
   );
@@ -339,6 +270,7 @@ export function BuySellPanel({
 }) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
+  const uiDemo = useUiDemoMode();
   const nativeSym = nativeTicker(activeChain);
   const qc = useQueryClient();
   const myWalletsQ = useQuery({
@@ -385,8 +317,6 @@ export function BuySellPanel({
   const initialBuySolAppliedRef = useRef(false);
 
   const [tradePanelMode, setTradePanelMode] = useState<TradePanelMode>('market');
-  const [presetEditorOpen, setPresetEditorOpen] = useState(false);
-  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
   const [limitTriggerUsd, setLimitTriggerUsd] = useState('');
   const [limitExpiry, setLimitExpiry] = useState<'1h' | '4h' | '24h' | 'never'>('24h');
 
@@ -400,6 +330,7 @@ export function BuySellPanel({
   const [dcaMaxMc, setDcaMaxMc] = useState('');
 
   const [tab, setTab] = useState<TradeSide>(initialTradeSide);
+  const [perfTf, setPerfTf] = useState<TokenTradePerfTf>('6h');
   const [activePresetSol, setActivePresetSol] = useState<number | null>(BUY_PRESETS_SOL[0] ?? 0.1);
   const [buyCustomSol, setBuyCustomSol] = useState('');
   const [sellPct, setSellPct] = useState<(typeof SELL_PCTS)[number]>(100);
@@ -411,9 +342,12 @@ export function BuySellPanel({
   const [useCustomSlippage, setUseCustomSlippage] = useState(false);
   const [dynamicSlippage, setDynamicSlippage] = useState(true);
   const [landing, setLanding] = useState<LandingMode>('jito');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [selectedWalletAddresses, setSelectedWalletAddresses] = useState<string[]>([]);
+  const [buyChipsEditing, setBuyChipsEditing] = useState(false);
+  const [buyChipsDraft, setBuyChipsDraft] = useState(['', '', '', '']);
+  const [statsUsdMode, setStatsUsdMode] = useState(false);
+  const [statsRevision, setStatsRevision] = useState(0);
 
   useEffect(() => {
     setTab(initialTradeSide);
@@ -441,9 +375,12 @@ export function BuySellPanel({
     return Math.min(5000, Math.max(1, Math.round(n)));
   }, [slippageBps, slippageCustom, useCustomSlippage]);
 
-  const demoExtendedTape = useMemo(() => syntheticTokenExtendedMetrics(mint), [mint]);
+  const demoExtendedTape = useMemo(
+    () => (uiDemo ? syntheticTokenExtendedMetrics(mint) : EMPTY_TOKEN_EXTENDED_METRICS),
+    [uiDemo, mint],
+  );
 
-  const { data: extendedTape } = useQuery({
+  const { data: extendedTape, isLoading: extendedTapeLoading } = useQuery({
     queryKey: ['trade-extended-tape', mint],
     queryFn: async (): Promise<TokenExtendedMetrics | null> => {
       const res = await fetch(`/api/tokens/${encodeURIComponent(mint)}/extended-metrics`);
@@ -454,11 +391,17 @@ export function BuySellPanel({
       }
       return null;
     },
-    placeholderData: demoExtendedTape,
+    placeholderData: uiDemo ? demoExtendedTape : undefined,
     staleTime: 45_000,
   });
 
-  const effectiveExtendedTape = extendedTape ?? demoExtendedTape;
+  const effectiveExtendedTape =
+    extendedTape ?? (uiDemo ? demoExtendedTape : EMPTY_TOKEN_EXTENDED_METRICS);
+
+  const perfChanges = useMemo(
+    () => pickTokenTradePerfChanges(marketSnapshot?.extended_metrics, mint),
+    [marketSnapshot?.extended_metrics, mint],
+  );
 
   const baseMcUsd = marketSnapshot?.market_cap_usd;
   const targetMcUsd = useMemo(() => {
@@ -521,6 +464,47 @@ export function BuySellPanel({
   }, [usdcBalanceData?.rawAmount]);
 
   const balanceRaw = balanceData?.rawAmount ?? '0';
+
+  const { data: solUsdRate } = useQuery({
+    queryKey: ['portfolio-sol-usd'],
+    queryFn: async (): Promise<number | null> => {
+      const token = await getAccessToken();
+      if (!token) return null;
+      const res = await fetch('/api/portfolio?tradesLimit=0&fifoLimit=0', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { solUsd?: number | null };
+      const px = json.solUsd;
+      return typeof px === 'number' && Number.isFinite(px) && px > 0 ? px : null;
+    },
+    enabled: authenticated,
+    staleTime: 60_000,
+  });
+
+  const lifetimeStats = useMemo(() => {
+    if (!wallet?.address) return { buyTon: 0, sellTon: 0 };
+    return readInstantTradeLifetimeStats(mint, wallet.address);
+  }, [mint, wallet?.address, balanceRaw, statsRevision]);
+
+  const netSessionPnlSol = lifetimeStats.sellTon - lifetimeStats.buyTon;
+  const holdingSol = Math.max(0, lifetimeStats.buyTon - lifetimeStats.sellTon);
+  const netPnlPct =
+    lifetimeStats.buyTon > 0 ? (netSessionPnlSol / lifetimeStats.buyTon) * 100 : null;
+
+  const formatSessionStat = useCallback(
+    (solAmount: number) => {
+      if (statsUsdMode) {
+        if (solUsdRate == null) return '$0';
+        const usd = solAmount * solUsdRate;
+        return Math.abs(usd) >= 1000
+          ? formatCompactUsd(usd)
+          : formatUsd(usd, { decimals: 2 });
+      }
+      return formatNumber(solAmount, { decimals: 4 });
+    },
+    [statsUsdMode, solUsdRate],
+  );
 
   const ctaSym = useMemo(() => tradeCtaLabel(symbol, tokenName), [symbol, tokenName]);
 
@@ -590,6 +574,74 @@ export function BuySellPanel({
     if (fromPreset && fromPreset.length > 0) return fromPreset;
     return [...BUY_PRESETS_SOL];
   }, [activePreset?.buy_amounts_sol, activeChain, spendAsset]);
+
+  const buyRowChips = useMemo(() => {
+    const chips = buyChipAmounts.slice(0, 4);
+    while (chips.length < 4) {
+      chips.push(BUY_PRESETS_SOL[chips.length] ?? BUY_PRESETS_SOL[0] ?? 0.1);
+    }
+    return chips;
+  }, [buyChipAmounts]);
+
+  const canEditBuyChips = activeChain === 'sol' && spendAsset === 'sol';
+
+  useEffect(() => {
+    setBuyChipsEditing(false);
+  }, [activePresetSlot, spendAsset, tab, mint]);
+
+  const saveBuyChipsMut = useMutation({
+    mutationFn: async (amounts: number[]) => {
+      if (!activePreset) throw new Error('no_preset');
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const merged = [...amounts, ...activePreset.buy_amounts_sol.slice(4)];
+      const res = await fetch('/api/presets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          slot: activePreset.slot,
+          buy_amounts_sol: merged,
+        }),
+      });
+      const json: unknown = await res.json();
+      if (!res.ok) {
+        const msg =
+          typeof json === 'object' && json && 'message' in json
+            ? String((json as { message: unknown }).message)
+            : 'Save failed';
+        throw new Error(msg);
+      }
+      return json;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['trading-presets'] });
+      setBuyChipsEditing(false);
+      toast.success('Buy amounts saved');
+    },
+    onError: () => toast.error('Could not save buy amounts'),
+  });
+
+  const toggleBuyChipsEdit = () => {
+    if (!canEditBuyChips) return;
+    if (buyChipsEditing) {
+      const amounts = buyChipsDraft.map((s) => Number.parseFloat(s.trim()));
+      if (amounts.some((n) => !Number.isFinite(n) || n <= 0)) {
+        toast.error('Enter four valid SOL amounts');
+        return;
+      }
+      if (!activePreset) {
+        toast.error('Preset still loading');
+        return;
+      }
+      saveBuyChipsMut.mutate(amounts);
+      return;
+    }
+    setBuyChipsDraft(buyRowChips.map((n) => String(n)));
+    setBuyChipsEditing(true);
+  };
 
   useEffect(() => {
     if (!activePreset) return;
@@ -793,20 +845,14 @@ export function BuySellPanel({
 
   const runTrade = useCallback(async () => {
     if (!wallet) {
-      toast.error(`Connect ${nativeTicker(activeChain)} wallet`, {
-        description:
-          activeChain === 'ton'
-            ? 'Use TonConnect after sign-in.'
-            : 'Use your linked on-chain wallet after sign-in.',
+      toast.error(walletConnectRequiredTitle(activeChain), {
+        description: walletConnectRequiredMessage(activeChain),
       });
       return;
     }
     if (activeWalletRow?.is_imported === true) {
       toast.error('View-only wallet', {
-        description:
-          activeChain === 'ton'
-            ? 'Use a non-imported wallet linked in TonConnect to trade.'
-            : 'This imported wallet cannot sign swaps in Pointer yet.',
+        description: viewOnlyWalletTradeMessage(activeChain),
       });
       return;
     }
@@ -911,6 +957,9 @@ export function BuySellPanel({
       if (tab === 'buy' && buyAmount != null && buyAmount > 0) {
         const paySym = spendAssetLabel(activeChain === 'sol' ? spendAsset : 'sol');
         const narration = `Bought ${formatNumber(buyAmount, { decimals: spendAsset === 'usdc' ? 2 : 4 })} ${paySym} · token page.`;
+        if (wallet?.address && activeChain === 'sol' && spendAsset === 'sol') {
+          addInstantTradeBuyTon(mint, wallet.address, buyAmount);
+        }
         void (async () => {
           const posted = await recordUserTradeActivity(token, narration, {
             kind: 'token_panel_buy',
@@ -926,6 +975,9 @@ export function BuySellPanel({
           typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
             ? Math.max(0, ok.summary.amountSolEstimate)
             : undefined;
+        if (wallet?.address && est != null && est > 0) {
+          addInstantTradeSellTon(mint, wallet.address, est);
+        }
         const narration =
           est != null
             ? `Sold tokens for ~${formatNumber(est, { decimals: 4 })} ${sym} · token page.`
@@ -944,6 +996,7 @@ export function BuySellPanel({
       setQuote(null);
       setQuoteForKey(null);
       setQuoteWallet(null);
+      setStatsRevision((n) => n + 1);
       void refetchBalance();
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       dispatchSolanaAccountRefresh('buy_sell_panel');
@@ -963,6 +1016,7 @@ export function BuySellPanel({
     submitFromQuote,
     tab,
     mint,
+    buyAmount,
     buyAmountSol,
     sellAmountTokenRaw,
     balanceRaw,
@@ -973,24 +1027,31 @@ export function BuySellPanel({
     refetchBalance,
     activePreset,
     activeWalletRow?.is_imported,
+    spendAsset,
     qc,
   ]);
 
   const sym = symbol ?? 'Token';
 
-  const presetRowsForSelector = useMemo((): { slot: PresetSlot; name: string }[] => {
+  const presetTradeRows = useMemo((): PresetTradeRow[] => {
     const list = presetsPayload?.presets;
-    if (list && list.length > 0) return list.map((p) => ({ slot: p.slot, name: p.name }));
-    return [
-      { slot: 1, name: 'Fast' },
-      { slot: 2, name: 'Normal' },
-      { slot: 3, name: 'Safe' },
-    ];
+    if (list && list.length > 0) return list;
+    const fallbackNames = ['Fast', 'Normal', 'Safe'] as const;
+    return ([1, 2, 3] as const).map((slot, i) => ({
+      slot,
+      name: fallbackNames[i] ?? `Preset ${slot}`,
+      buy_amounts_sol: [...BUY_PRESETS_SOL],
+      slippage_bps: DEFAULT_SLIPPAGE_BPS,
+      dynamic_slippage: true,
+      mev_mode: 'reduced' as MevMode,
+      priority_fee_lamports: 100_000,
+      jito_tip_lamports: 4_000,
+      auto_fee: false,
+      max_fee_sol: 0.1,
+    }));
   }, [presetsPayload?.presets]);
 
-  const editorPresetFull = activePreset;
   const panelMode = tradePanelMode === 'limit_alerts' ? 'market' : tradePanelMode;
-  const axiomBuyAmounts = [0.5, 1, 2, 3];
   const walletMenuRows = useMemo(() => {
     const raw = myWalletsQ.data?.wallets ?? [];
     return raw.filter((w) => mintMatchesAppChain(w.wallet_address, activeChain));
@@ -1018,35 +1079,76 @@ export function BuySellPanel({
     <div
       ref={walletPickerShellRef}
       data-mint={mint}
-      className="relative flex w-full min-w-0 flex-col bg-transparent text-[12px] text-fg-primary"
+      className="relative flex w-full min-w-0 flex-col bg-bg-raised text-[12px] text-fg-primary"
     >
-      <div className="space-y-2 px-3 pb-5 pt-2 lg:px-2.5 lg:pb-4 lg:pt-0">
-        {effectiveExtendedTape ? <TradeTapeStrip m={effectiveExtendedTape} /> : (
-          <div className="rounded-md border border-border-subtle bg-bg-raised px-2 py-1.5 text-[11px] text-fg-muted">
-            6h Vol - <span className="text-signal-bull">Buys -</span> <span className="text-signal-bear">Sells -</span> Net -
-          </div>
-        )}
-
+      <div className="space-y-3 px-3 pb-5 pt-2 lg:px-3 lg:pb-4">
         {!walletsReady ? (
           <p className="flex items-center gap-2 rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px] text-fg-secondary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading wallet...
           </p>
         ) : !wallet ? (
           <p className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px] text-signal-warn">
-            {activeChain === 'ton'
-              ? 'No TON wallet linked. Connect with TonConnect after sign-in.'
-              : `No ${nativeTicker(activeChain)} wallet selected. Add or connect a wallet for this network.`}
+            {noWalletLinkedBanner(activeChain)}
           </p>
         ) : null}
 
-        <div className="flex w-full overflow-hidden rounded-lg border border-border-subtle bg-bg-base p-0.5 gap-0.5">
-          <button type="button" onClick={() => setTab('buy')} className={cn('btn-press focus-ring flex flex-1 h-8 items-center justify-center rounded text-sm font-semibold transition-all duration-150', tab === 'buy' ? 'cta-bull' : 'bg-bg-sunken text-fg-muted hover:text-fg-secondary')}>Buy</button>
-          <button type="button" disabled={panelMode === 'limit_mcap'} onClick={() => setTab('sell')} className={cn('btn-press focus-ring flex flex-1 h-8 items-center justify-center rounded text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40', tab === 'sell' ? 'cta-bear' : 'bg-bg-sunken text-fg-muted hover:text-fg-secondary')}>Sell</button>
+        <TokenTradeDeskStrip
+          metrics={effectiveExtendedTape}
+          mint={mint}
+          changes={perfChanges}
+          selected={perfTf}
+          onSelect={setPerfTf}
+        />
+
+        <div className="flex w-full rounded-lg bg-bg-hover/50 p-1">
+          <button
+            type="button"
+            aria-pressed={tab === 'buy'}
+            onClick={() => setTab('buy')}
+            className={cn(
+              'btn-press focus-ring flex h-9 flex-1 items-center justify-center rounded-md text-[13px] font-semibold',
+              'transition-[background-color,color,box-shadow,filter] duration-200 ease-out',
+              tab === 'buy'
+                ? 'cta-bull'
+                : 'bg-transparent text-fg-muted hover:bg-signal-bull/10 hover:text-signal-bull',
+            )}
+          >
+            Buy
+          </button>
+          <button
+            type="button"
+            aria-pressed={tab === 'sell'}
+            disabled={panelMode === 'limit_mcap'}
+            onClick={() => setTab('sell')}
+            className={cn(
+              'btn-press focus-ring flex h-9 flex-1 items-center justify-center rounded-md text-[13px] font-semibold',
+              'transition-[background-color,color,box-shadow,filter] duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-40',
+              tab === 'sell'
+                ? 'cta-bear'
+                : 'bg-transparent text-fg-muted hover:bg-signal-bear/10 hover:text-signal-bear disabled:hover:bg-transparent disabled:hover:text-fg-muted',
+            )}
+          >
+            Sell
+          </button>
         </div>
 
-        <div className="flex min-w-0 items-center gap-1 border-b border-border-subtle pb-1">
+        <div className="flex min-w-0 items-center gap-1 border-b border-border-subtle/40 pb-0 pt-0.5">
           {([['market', 'Market'], ['limit_mcap', 'Limit'], ['advanced', 'Adv.']] as const).map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setTradePanelMode(id)} className={cn('rounded px-2 py-1 text-[12px] font-semibold transition', panelMode === id ? 'bg-white/10 text-fg-primary' : 'text-fg-secondary hover:text-fg-primary')}>{label}</button>
+            <button
+              key={id}
+              type="button"
+              aria-pressed={panelMode === id}
+              onClick={() => setTradePanelMode(id)}
+              className={cn(
+                'px-2.5 pb-2 pt-1 text-[12px] font-semibold transition-colors duration-150',
+                'border-b-2',
+                panelMode === id
+                  ? 'border-fg-primary text-fg-primary'
+                  : 'border-transparent text-fg-muted hover:text-fg-secondary',
+              )}
+            >
+              {label}
+            </button>
           ))}
           <div className="relative ml-auto">
             <button
@@ -1063,6 +1165,33 @@ export function BuySellPanel({
             </button>
           </div>
         </div>
+
+        {panelMode === 'advanced' ? (
+          <div className="grid grid-cols-2 gap-1.5">
+            {(
+              [
+                ['migration', 'Migration'],
+                ['dev_sell', 'Dev Sell'],
+                ['trail_sl', 'Trail SL'],
+                ['dca', 'DCA'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setAdvStrategy(id)}
+                className={cn(
+                  'rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors',
+                  advStrategy === id
+                    ? 'border-accent-primary/40 bg-accent-primary/10 text-fg-primary'
+                    : 'border-border-subtle/60 text-fg-muted hover:border-border-subtle hover:text-fg-secondary',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {limitAlertOrder?.status === 'triggered' ? <div className="rounded border border-signal-warn/40 bg-signal-warn/10 px-2 py-1.5 text-[10px] leading-snug text-fg-secondary"><span className="font-semibold text-signal-warn">Limit alert fired</span> - spot reached your ${limitAlertOrder.trigger_price_usd} target.</div> : null}
 
@@ -1117,25 +1246,62 @@ export function BuySellPanel({
               icon={activeChain === 'sol' && spendAsset === 'usdc' ? 'token' : 'sol'}
               aria-label={`${activeChain === 'sol' && spendAsset === 'usdc' ? 'USDC' : nativeSym} amount to buy`}
             />
-            <div className="mt-1 grid grid-cols-5 gap-1.5">
-              {axiomBuyAmounts.map((s) => (
+            <div className={cn('mt-1 grid gap-1.5', canEditBuyChips ? 'grid-cols-5' : 'grid-cols-4')}>
+              {buyChipsEditing
+                ? buyChipsDraft.map((chip, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      inputMode="decimal"
+                      value={chip}
+                      onChange={(e) =>
+                        setBuyChipsDraft((current) => {
+                          const next = [...current];
+                          next[i] = e.target.value;
+                          return next;
+                        })
+                      }
+                      aria-label={`Buy amount ${i + 1}`}
+                      className="focus-ring h-8 rounded border border-sky-400/45 bg-sky-500/10 px-1 text-center text-sm font-medium tabular-nums text-fg-primary"
+                    />
+                  ))
+                : buyRowChips.map((s, i) => (
+                    <button
+                      key={`${i}-${s}`}
+                      type="button"
+                      onClick={() => pickBuyPreset(s)}
+                      className={cn(
+                        'btn-press focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium tabular-nums transition-all duration-100',
+                        activePresetSol === Number(s)
+                          ? 'border-accent-primary/40 bg-accent-primary/15 text-accent-primary'
+                          : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border hover:bg-bg-hover hover:text-fg-primary',
+                      )}
+                    >
+                      {s}
+                    </button>
+                  ))}
+              {canEditBuyChips ? (
                 <button
-                  key={s}
                   type="button"
-                  onClick={() => pickBuyPreset(s)}
+                  aria-pressed={buyChipsEditing}
+                  aria-label={buyChipsEditing ? 'Save buy amounts' : 'Edit buy amounts'}
+                  disabled={saveBuyChipsMut.isPending}
+                  onClick={toggleBuyChipsEdit}
                   className={cn(
-                    'btn-press focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium tabular-nums transition-all duration-100',
-                    activePresetSol === Number(s)
-                      ? 'border-accent-primary/40 bg-accent-primary/15 text-accent-primary'
+                    'focus-ring flex h-8 items-center justify-center rounded border text-sm font-medium transition-all duration-100',
+                    buyChipsEditing
+                      ? 'border-sky-400/50 bg-sky-500/20 text-sky-100'
                       : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border hover:bg-bg-hover hover:text-fg-primary',
+                    saveBuyChipsMut.isPending && 'cursor-wait opacity-60',
                   )}
                 >
-                  {s}
+                  {buyChipsEditing ? (
+                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  ) : (
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+                  )}
                 </button>
-              ))}
-              <button type="button" className="focus-ring flex h-8 items-center justify-center rounded border border-border-subtle bg-bg-sunken text-sm font-medium text-fg-secondary transition-all duration-100 hover:border-border hover:bg-bg-hover hover:text-fg-primary">
-                %
-              </button>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -1177,57 +1343,124 @@ export function BuySellPanel({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-border-subtle bg-bg-base px-2 py-1.5">
-          <CompactFeeStrip
-            slippageBps={effectiveSlippageBps}
-            priorityLamports={activePreset?.priority_fee_lamports ?? 0}
-            jitoLamports={activePreset?.jito_tip_lamports ?? 0}
-            nativeQuoteSym={nativeSym}
-          />
-          <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={dynamicSlippage}
-              onChange={(e) => setDynamicSlippage(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-border-subtle bg-bg-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/45 [accent-color:var(--accent-primary)]"
-            />
-            <span className="text-xs text-fg-muted">Dynamic</span>
-          </label>
-        </div>
-
-        <div className="rounded-md border border-border-subtle bg-bg-base px-2 py-1.5">
-          <label className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-fg-primary"><input type="checkbox" checked={advancedOpen && panelMode === 'advanced'} onChange={(e) => { setAdvancedOpen(e.target.checked); if (e.target.checked) setTradePanelMode('advanced'); }} className="h-3.5 w-3.5 rounded border-border-subtle" />Advanced Trading Strategy</label>
-          {panelMode === 'advanced' && advancedOpen ? <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">{([['migration', 'Migration'], ['dev_sell', 'Dev Sell'], ['trail_sl', 'Trail SL'], ['dca', 'DCA']] as const).map(([id, label]) => <button key={id} type="button" onClick={() => setAdvStrategy(id)} className={cn('rounded border border-border-subtle px-2 py-1 font-semibold', advStrategy === id ? 'bg-accent-primary/20 text-fg-primary' : 'text-fg-secondary')}>{label}</button>)}</div> : null}
-        </div>
-
         {quote && !quoteStale ? <div className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px]"><div className="flex justify-between gap-2 text-fg-secondary"><span>You pay</span><span className="tabular-nums text-fg-primary">{formattedPay ?? '-'}</span></div><div className="mt-0.5 flex justify-between gap-2 text-fg-secondary"><span>You receive</span><span className="tabular-nums text-fg-primary">{formattedReceive ?? '-'}</span></div></div> : null}
         {quoteStale ? <p className="text-[10px] text-signal-warn">Settings changed. Tap the action button for a fresh quote.</p> : null}
         {tradingBlockedImported ? <p className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[10px] leading-snug text-fg-secondary">Imported wallets are view-only for swaps right now. Switch to an embedded Pointer wallet to trade.</p> : null}
 
-        <button type="button" disabled={!wallet || tradingBlockedImported || (panelMode === 'limit_mcap' && targetMcUsd == null)} onClick={() => { if (panelMode === 'limit_mcap') { toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' }); return; } void runTrade(); }} className={cn('btn-press focus-ring sticky bottom-0 z-[1] flex w-full items-center justify-center gap-2 rounded-lg h-10 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50', tab === 'buy' ? 'cta-bull' : 'cta-bear')}>
-          {panelMode === 'limit_mcap' && targetMcUsd != null ? `Buy @ ${formatCompactUsd(targetMcUsd)} MC` : `${tab === 'buy' ? 'Buy' : 'Sell'} ${ctaSym}`}
-        </button>
+        <div className="pt-0.5">
+          <button
+            type="button"
+            disabled={!wallet || tradingBlockedImported || (panelMode === 'limit_mcap' && targetMcUsd == null)}
+            onClick={() => {
+              if (panelMode === 'limit_mcap') {
+                toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' });
+                return;
+              }
+              void runTrade();
+            }}
+            className={cn(
+              'btn-press focus-ring flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50',
+              tab === 'buy' ? 'cta-bull' : 'cta-bear',
+            )}
+          >
+            {panelMode === 'limit_mcap' && targetMcUsd != null
+              ? `Buy @ ${formatCompactUsd(targetMcUsd)} MC`
+              : `${tab === 'buy' ? 'Buy' : 'Sell'} ${ctaSym}`}
+          </button>
+        </div>
 
-        <div className="grid grid-cols-4 gap-0 border-t border-border-subtle pt-2 mt-1">
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] uppercase tracking-wider text-fg-muted">Bought</div>
-            <div className="text-xs font-semibold tabular-nums text-fg-primary">$0</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] uppercase tracking-wider text-fg-muted">Sold</div>
-            <div className="text-xs font-semibold tabular-nums text-fg-primary">$0</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] uppercase tracking-wider text-fg-muted">Holding</div>
-            <div className="text-xs font-semibold tabular-nums text-fg-primary">$0</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] uppercase tracking-wider text-fg-muted">PnL</div>
-            <div className="text-xs font-semibold tabular-nums text-fg-primary">+$0 (0%)</div>
+        <div className="flex overflow-hidden rounded-md border border-border-subtle/50 bg-bg-hover/20">
+          <WalletCurrencyToggle
+            usdMode={statsUsdMode}
+            nativeSym={nativeSym}
+            onToggle={() => setStatsUsdMode((m) => !m)}
+            className="h-auto shrink-0 flex-col gap-0.5 rounded-none border-0 border-r border-border-subtle/50 px-2 py-3"
+          />
+          <div className="grid min-w-0 flex-1 grid-cols-4 divide-x divide-border-subtle/40 py-3">
+            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Bought</span>
+              <span className="inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums text-signal-bull">
+                {!statsUsdMode ? (
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                ) : null}
+                {formatSessionStat(lifetimeStats.buyTon)}
+              </span>
+            </div>
+            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Sold</span>
+              <span className="inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums text-signal-bear">
+                {!statsUsdMode ? (
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                ) : null}
+                {formatSessionStat(lifetimeStats.sellTon)}
+              </span>
+            </div>
+            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Holding</span>
+              <span className="inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums text-fg-primary">
+                {!statsUsdMode ? (
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                ) : null}
+                {formatSessionStat(holdingSol)}
+              </span>
+            </div>
+            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">PnL</span>
+              <span
+                className={cn(
+                  'inline-flex max-w-full items-center gap-1 truncate text-[13px] font-semibold tabular-nums',
+                  netSessionPnlSol >= 0 ? 'text-signal-bull' : 'text-signal-bear',
+                )}
+              >
+                {!statsUsdMode ? (
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                    draggable={false}
+                  />
+                ) : null}
+                <span className="truncate">
+                  {netSessionPnlSol >= 0 ? '+' : ''}
+                  {formatSessionStat(netSessionPnlSol)}
+                </span>
+                {netPnlPct != null ? (
+                  <span className="text-[11px] font-medium opacity-90">
+                    ({netPnlPct >= 0 ? '+' : ''}
+                    {formatNumber(netPnlPct, { decimals: 1 })}%)
+                  </span>
+                ) : null}
+              </span>
+            </div>
           </div>
         </div>
 
-        {wallet && authenticated ? <PresetSelector presets={presetRowsForSelector} onEdit={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setPresetEditorOpen(true); }} onAdvancedSettings={() => { if (!activePreset) { toast.error('Still loading presets...'); return; } setAdvancedSettingsOpen(true); }} disabled={!authenticated} /> : null}
+        {wallet && authenticated ? (
+          <PresetTradePanel presets={presetTradeRows} disabled={!authenticated} />
+        ) : null}
         <TokenInfoGrid m={effectiveExtendedTape} />
         <div className="border-t border-border-subtle pt-2">
           <div className="flex items-center gap-1.5 py-1">
@@ -1350,17 +1583,6 @@ export function BuySellPanel({
           </div>
         </div>
       ) : null}
-
-      <PresetEditorModal
-        open={presetEditorOpen}
-        onClose={() => setPresetEditorOpen(false)}
-        preset={editorPresetFull}
-      />
-      <AdvancedTradingSettingsModal
-        open={advancedSettingsOpen}
-        onClose={() => setAdvancedSettingsOpen(false)}
-        preset={editorPresetFull}
-      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ interface TradingState {
   /** Addresses toggled for multi-wallet UI; execution still uses the active wallet until batch trading exists. */
   instantTradeWalletShortlist: string[];
   toggleInstantTradeWallet: (walletAddress: string) => void;
+  setInstantTradeWalletShortlist: (walletAddresses: string[]) => void;
   clearInstantTradeWalletShortlist: () => void;
   /** Compact instant-trade panel open — survives token navigation. */
   compactInstantTradeOpen: boolean;
@@ -40,6 +41,13 @@ export const useTradingStore = create<TradingState>()(
           }
           if (cur.length >= INSTANT_TRADE_WALLET_CAP) return {};
           return { instantTradeWalletShortlist: [...cur, walletAddress] };
+        }),
+      setInstantTradeWalletShortlist: (walletAddresses) =>
+        set({
+          instantTradeWalletShortlist: [...new Set(walletAddresses)].slice(
+            0,
+            INSTANT_TRADE_WALLET_CAP,
+          ),
         }),
       clearInstantTradeWalletShortlist: () => set({ instantTradeWalletShortlist: [] }),
       compactInstantTradeOpen: false,

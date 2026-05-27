@@ -140,6 +140,12 @@ interface UIState {
   /** Centered Pulse alerts dialog (matches Settings modal pattern). */
   alertRulesModalOpen: boolean;
   setAlertRulesModalOpen: (open: boolean) => void;
+
+  /** Centered settings overlay — tab selects Watchlist vs General. */
+  settingsOpen: boolean;
+  settingsTab: 'general' | 'watchlist';
+  setSettingsOpen: (open: boolean) => void;
+  openSettings: (tab?: 'general' | 'watchlist') => void;
 }
 
 const PANEL_DEFAULT = 380;
@@ -212,6 +218,8 @@ export const useUIStore = create<UIState>()(
       copilotTopStripActive: false,
       copilotStripTab: 'brief',
       alertRulesModalOpen: false,
+      settingsOpen: false,
+      settingsTab: 'general',
 
       setHovered: (entity) => {
         if (sameEntity(entity, get().hoveredEntity)) return;
@@ -335,6 +343,9 @@ export const useUIStore = create<UIState>()(
       setCopilotTopStripActive: (active) => set({ copilotTopStripActive: active }),
       setCopilotStripTab: (tab) => set({ copilotStripTab: tab }),
       setAlertRulesModalOpen: (modalOpen) => set({ alertRulesModalOpen: modalOpen }),
+      setSettingsOpen: (open) => set({ settingsOpen: open }),
+      openSettings: (tab = 'general') =>
+        set({ settingsOpen: true, settingsTab: tab }),
     }),
     {
       name: 'pointer-ui',

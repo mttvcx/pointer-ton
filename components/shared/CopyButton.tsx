@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { toastCopyFailed, toastCopied, type CopyToastVariant } from '@/lib/ui/copyToast';
+import { signalMintCopied } from '@/lib/clipboard/mintClipboardSignal';
+import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 import { cn } from '@/lib/utils/cn';
 
 interface CopyButtonProps {
@@ -46,6 +48,7 @@ export function CopyButton({
     e.stopPropagation();
     try {
       await navigator.clipboard.writeText(value);
+      if (isValidTokenMintParam(value)) signalMintCopied(value);
       setCopied(true);
       toastCopied(value, {
         variant: toastVariant === 'auto' ? undefined : toastVariant,

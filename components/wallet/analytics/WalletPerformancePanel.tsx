@@ -1,10 +1,10 @@
 'use client';
 
 import { cn } from '@/lib/utils/cn';
-import { formatCompactUsd } from '@/lib/utils/formatters';
+import { formatWalletMoney } from '@/lib/wallet-analytics/displayCurrency';
+import { CHAIN_TICKER } from '@/lib/chains/chainAssets';
 import type { WalletAnalyticsPayload } from '@/lib/wallet-analytics/types';
 import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
-
 function tfLabel(tf: WalletAnalyticsTimeframe): string {
   switch (tf) {
     case '1d':
@@ -23,12 +23,16 @@ function tfLabel(tf: WalletAnalyticsTimeframe): string {
 export function WalletPerformancePanel({
   data,
   timeframe,
+  usdMode,
 }: {
   data: WalletAnalyticsPayload;
   timeframe: WalletAnalyticsTimeframe;
+  usdMode: boolean;
 }) {
   const label = tfLabel(timeframe);
-  const buckets = data.buckets;
+  const chainTicker = CHAIN_TICKER[data.chain];
+  const fmt = (usd: number | null | undefined) =>
+    formatWalletMoney(usd, { usdMode, solUsd: data.solUsd, nativeSym: chainTicker });  const buckets = data.buckets;
   const total = buckets.reduce((s, b) => s + b.count, 0) || 1;
 
   const tx = data.performance.txns;
@@ -42,35 +46,35 @@ export function WalletPerformancePanel({
 
   return (
     <div className="flex min-h-0 flex-col p-3">
-      <h3 className="mb-3 text-xs font-semibold text-fg-primary">PERFORMANCE</h3>
+      <h3 className="mb-3 text-xs font-semibold text-fg-primary">Performance</h3>
 
       <dl className="space-y-1.5 text-xs">
         <div className="flex justify-between gap-2">
           <dt className="text-fg-muted">{label} realized PNL</dt>
           <dd
             className={cn(
-              'text-right font-semibold tabular-nums',
+              'text-right font-sans font-medium tabular-nums',
               realizedUsd == null && 'text-fg-muted',
               realizedUsd != null && realizedUsd > 0 && 'text-signal-bull',
               realizedUsd != null && realizedUsd < 0 && 'text-signal-bear',
               realizedUsd === 0 && 'text-fg-primary',
             )}
           >
-            {realizedUsd != null ? formatCompactUsd(realizedUsd) : '—'}
+            {realizedUsd != null ? fmt(realizedUsd) : '—'}
           </dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-fg-muted">TXNS</dt>
-          <dd className="text-right font-semibold tabular-nums text-fg-primary">
+          <dd className="text-right font-sans font-medium tabular-nums text-fg-primary">
             {tx != null ? (
               <>
                 {tx}
                 {wins != null && losses != null ? (
                   <span className="text-fg-muted">
                     {' ('}
-                    <span className="font-bold text-signal-bull">{wins}</span>
+                    <span className="font-medium text-signal-bull">{wins}</span>
                     {'/'}
-                    <span className="font-bold text-signal-bear">{losses}</span>
+                    <span className="font-medium text-signal-bear">{losses}</span>
                     {')'}
                   </span>
                 ) : null}
@@ -82,23 +86,23 @@ export function WalletPerformancePanel({
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-fg-muted">Coins traded</dt>
-          <dd className="text-right font-semibold tabular-nums text-fg-primary">{coinsTraded}</dd>
+          <dd className="text-right font-sans font-medium tabular-nums text-fg-primary">{coinsTraded}</dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-fg-muted">Wins</dt>
-          <dd className="text-right font-bold tabular-nums text-signal-bull">{wins != null ? wins : '—'}</dd>
+          <dd className="text-right font-sans font-medium tabular-nums text-signal-bull">{wins != null ? wins : '—'}</dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-fg-muted">Losses</dt>
-          <dd className="text-right font-bold tabular-nums text-signal-bear">{losses != null ? losses : '—'}</dd>
+          <dd className="text-right font-sans font-medium tabular-nums text-signal-bear">{losses != null ? losses : '—'}</dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-fg-muted">Win rate</dt>
           <dd
             className={cn(
-              'text-right tabular-nums',
-              wr == null && 'font-semibold text-fg-muted',
-              wr != null && 'font-bold',
+              'text-right font-sans tabular-nums',
+              wr == null && 'font-medium text-fg-muted',
+              wr != null && 'font-medium',
               wr != null && wr >= 50 && 'text-signal-bull',
               wr != null && wr < 50 && 'text-signal-bear',
             )}
@@ -110,14 +114,14 @@ export function WalletPerformancePanel({
           <dt className="text-fg-muted">{label} total PNL</dt>
           <dd
             className={cn(
-              'text-right font-semibold tabular-nums',
+              'text-right font-sans font-medium tabular-nums',
               totalUsd == null && 'text-fg-muted',
               totalUsd != null && totalUsd > 0 && 'text-signal-bull',
               totalUsd != null && totalUsd < 0 && 'text-signal-bear',
               totalUsd === 0 && 'text-fg-primary',
             )}
           >
-            {totalUsd != null ? formatCompactUsd(totalUsd) : '—'}
+            {totalUsd != null ? fmt(totalUsd) : '—'}
           </dd>
         </div>
       </dl>

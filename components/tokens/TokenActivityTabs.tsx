@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BarChart3, ChevronUp, Settings, Zap } from 'lucide-react';
+import { Activity, BarChart3, ChevronUp, LayoutPanelTop, Settings, Table2, Zap } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd } from '@/lib/format';
@@ -14,6 +14,7 @@ import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import { cn } from '@/lib/utils/cn';
 import { ChainIcon } from '@/components/squads/ChainIcon';
 import { HoldersTable } from '@/components/tokens/HoldersTable';
+import { HoldersTableSettingsModal } from '@/components/tokens/HoldersTableSettingsModal';
 import { MintTradesTable } from '@/components/tokens/MintTradesTable';
 import { TopTradersTable } from '@/components/tokens/TopTradersTable';
 import { DevTokensPane } from '@/components/tokens/DevTokensPane';
@@ -28,6 +29,7 @@ import {
   syntheticTopTradersForMint,
 } from '@/lib/dev/demoTokenFixtures';
 import { preferTokenTableDemoRows } from '@/lib/dev/uiDemoMode';
+import { demoTablesEnabled } from '@/lib/dev/demoPolicy';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
@@ -37,7 +39,16 @@ import { traderRowMatchesFilter, TRADER_FILTER_OPTIONS } from '@/lib/walletIdent
 import { useUIStore } from '@/store/ui';
 import { DeskFilterPill } from '@/components/tokens/cells/DeskFilterPill';
 import { TradesDeskFilterPill } from '@/components/tokens/cells/TradesDeskFilterPill';
-import { DESK_TABLE_CLASS } from '@/components/tokens/cells/deskTokens';
+import {
+  DESK_CELL_CLASS,
+  DESK_CELL_FIRST_CLASS,
+  DESK_HEADER_CLASS,
+  DESK_HEADER_NUM_CLASS,
+  DESK_ROW_CLASS,
+  DESK_SCROLL_WELL_CLASS,
+  DESK_STICKY_HEAD_CLASS,
+  DESK_TABLE_CLASS,
+} from '@/components/tokens/cells/deskTokens';
 import { useActiveWalletStore } from '@/store/activeWallet';
 
 /** Rough native/USD for converting USD notionals in the “native units” column toggle (UI preview). */
@@ -72,6 +83,10 @@ function MintTradesScroll({
   onFilterMintTrades,
   tradesMakerFilter,
   onToggleDisplayMode,
+  ageSortDir,
+  onAgeSortDirChange,
+  ageDisplay,
+  onAgeDisplayChange,
 }: {
   rows: TradeRow[];
   mint: string;
@@ -83,6 +98,10 @@ function MintTradesScroll({
   onFilterMintTrades?: (address: string) => void;
   tradesMakerFilter?: string | null;
   onToggleDisplayMode?: () => void;
+  ageSortDir: 'asc' | 'desc';
+  onAgeSortDirChange: (dir: 'asc' | 'desc') => void;
+  ageDisplay: 'age' | 'time';
+  onAgeDisplayChange: (mode: 'age' | 'time') => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showBackTop, setShowBackTop] = useState(false);
@@ -100,7 +119,7 @@ function MintTradesScroll({
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
-        className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] touch-pan-y border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] [-ms-overflow-style:auto] [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]"
+        className={cn('desk-scroll-well', DESK_SCROLL_WELL_CLASS)}
         onPointerEnter={() => onHoverChange(true)}
         onPointerLeave={() => onHoverChange(false)}
       >
@@ -114,6 +133,10 @@ function MintTradesScroll({
           onFilterMintTrades={onFilterMintTrades}
           tradesMakerFilter={tradesMakerFilter}
           onToggleDisplayMode={onToggleDisplayMode}
+          ageSortDir={ageSortDir}
+          onAgeSortDirChange={onAgeSortDirChange}
+          ageDisplay={ageDisplay}
+          onAgeDisplayChange={onAgeDisplayChange}
         />
       </div>
       {showBackTop ? (
@@ -139,146 +162,149 @@ function PlaceholderTab({ title, body }: { title: string; body: string }) {
   );
 }
 
-/** Positions desk — demo rows until wallet-scoped positions API ships. */
-function PositionsDesk({ sym, mint }: { sym: string; mint: string }) {
-  const rows = useMemo(() => syntheticPositionsForMint(sym, mint), [sym, mint]);
-  const cols = ['Token', 'Bought', 'Sold', 'Remaining', 'PnL', 'Actions'] as const;
+function DeskEmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle/40 px-2 py-1.5 text-[10px] text-fg-muted">
-        <span>Your wallets · preview rows (layout)</span>
-        <span className="tabular-nums">{rows.length} open</span>
-      </div>
-      <div className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
-        <table className={cn('w-full min-w-[640px] border-collapse text-left', DESK_TABLE_CLASS)}>
-          <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
-            <tr>
-              {cols.map((name) => (
-                <th
-                  key={name}
-                  className={cn(
-                    'px-2.5 py-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted',
-                    name === 'Token' ? 'text-left' : 'text-right',
-                  )}
-                >
-                  {name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => {
-              const pnlTone =
-                row.pnlUsd > 0 ? 'text-signal-bull' : row.pnlUsd < 0 ? 'text-signal-bear' : 'text-fg-muted';
-              return (
-                <tr
-                  key={i}
-                  className="border-b border-border-subtle/35 bg-transparent transition-colors hover:bg-bg-hover/60"
-                >
-                  <td className="px-2.5 py-2 text-[12px] font-semibold text-fg-primary">{row.token}</td>
-                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-secondary">
-                    {formatDemoPositionUsd(row.boughtUsd)}
-                  </td>
-                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-secondary">
-                    {formatDemoPositionUsd(row.soldUsd)}
-                  </td>
-                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-primary">
-                    {formatDemoPositionUsd(row.remainingUsd)}
-                  </td>
-                  <td className={cn('px-2.5 py-2 text-right text-[12px] font-semibold', pnlTone)}>
-                    {row.pnlUsd >= 0 ? '+' : ''}
-                    {formatDemoPositionUsd(row.pnlUsd)}
-                  </td>
-                  <td className="px-2.5 py-2 text-right">
-                    <button
-                      type="button"
-                      className="btn-press rounded-sm border border-border-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted hover:text-fg-primary"
-                    >
-                      Close
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+    <div className="flex min-h-[10rem] flex-1 flex-col items-center justify-center gap-1.5 px-6 py-10 text-center">
+      <p className="text-[12px] font-semibold text-fg-primary">{title}</p>
+      <p className="max-w-sm text-[11px] leading-relaxed text-fg-muted">{body}</p>
     </div>
   );
 }
 
-function OrdersDesk({ sym }: { sym: string }) {
+/** Positions desk — demo rows in uiDemo only; live shows empty state until wallet-scoped positions API ships. */
+function PositionsDesk({ sym, mint, demoTables }: { sym: string; mint: string; demoTables: boolean }) {
+  const rows = useMemo(
+    () => (demoTables ? syntheticPositionsForMint(sym, mint) : []),
+    [sym, mint, demoTables],
+  );
+
+  if (rows.length === 0) {
+    return (
+      <DeskEmptyState
+        title="No open positions"
+        body="Buy this token from the panel on the right — your positions and PnL will show here."
+      />
+    );
+  }
+
+  const cols = ['Token', 'Bought', 'Sold', 'Remaining', 'PnL', 'Actions'] as const;
+  return (
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', DESK_SCROLL_WELL_CLASS)}>
+      <table className={cn('w-full min-w-[640px] border-collapse text-left', DESK_TABLE_CLASS)}>
+        <thead className={DESK_STICKY_HEAD_CLASS}>
+          <tr>
+            {cols.map((name) => (
+              <th
+                key={name}
+                className={name === 'Token' ? DESK_HEADER_CLASS : DESK_HEADER_NUM_CLASS}
+              >
+                {name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const pnlTone =
+              row.pnlUsd > 0 ? 'text-signal-bull' : row.pnlUsd < 0 ? 'text-signal-bear' : 'text-fg-muted';
+            return (
+              <tr key={i} className={DESK_ROW_CLASS}>
+                <td className={cn(DESK_CELL_FIRST_CLASS, 'text-[12px] font-semibold text-fg-primary')}>
+                  {row.token}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right text-[12px] text-fg-secondary')}>
+                  {formatDemoPositionUsd(row.boughtUsd)}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right text-[12px] text-fg-secondary')}>
+                  {formatDemoPositionUsd(row.soldUsd)}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right text-[12px] text-fg-primary')}>
+                  {formatDemoPositionUsd(row.remainingUsd)}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right text-[12px] font-semibold', pnlTone)}>
+                  {row.pnlUsd >= 0 ? '+' : ''}
+                  {formatDemoPositionUsd(row.pnlUsd)}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right')}>
+                  <button
+                    type="button"
+                    className="btn-press text-[10px] font-semibold uppercase tracking-wide text-fg-muted transition hover:text-fg-primary"
+                  >
+                    Close
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function OrdersDesk({ sym, demoTables }: { sym: string; demoTables: boolean }) {
+  if (!demoTables) {
+    return (
+      <DeskEmptyState
+        title="No active orders"
+        body="Set a Limit, TWAP, or Stop from the Buy panel — your open orders for this token will appear here."
+      />
+    );
+  }
+
   const types = ['Limit', 'TWAP', 'Limit', 'Stop'] as const;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle/40 px-2 py-1.5 text-[10px] text-fg-muted">
-        <span>Your open orders · preview rows (layout)</span>
-        <span className="tabular-nums">14 open</span>
-      </div>
-      <div className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
-        <table className={cn('w-full min-w-[780px] border-collapse text-left', DESK_TABLE_CLASS)}>
-          <thead className="sticky top-0 z-[1] border-b border-border-subtle bg-bg-raised/95 backdrop-blur-sm">
-            <tr>
-              <th className="px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Token
-              </th>
-              <th className="px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Type
-              </th>
-              <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Amount
-              </th>
-              <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Current MC
-              </th>
-              <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Target MC
-              </th>
-              <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Settings
-              </th>
-              <th className="px-2.5 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: 14 }, (_, i) => {
-              const side = i % 2 === 0 ? 'Buy' : 'Sell';
-              return (
-                <tr
-                  key={i}
-                  className="border-b border-border-subtle/35 bg-transparent transition-colors hover:bg-bg-hover/60"
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', DESK_SCROLL_WELL_CLASS)}>
+      <table className={cn('w-full min-w-[780px] border-collapse text-left', DESK_TABLE_CLASS)}>
+        <thead className={DESK_STICKY_HEAD_CLASS}>
+          <tr>
+            <th className={DESK_HEADER_CLASS}>Token</th>
+            <th className={DESK_HEADER_CLASS}>Type</th>
+            <th className={DESK_HEADER_NUM_CLASS}>Amount</th>
+            <th className={DESK_HEADER_NUM_CLASS}>Current MC</th>
+            <th className={DESK_HEADER_NUM_CLASS}>Target MC</th>
+            <th className={DESK_HEADER_NUM_CLASS}>Settings</th>
+            <th className={DESK_HEADER_NUM_CLASS}>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 14 }, (_, i) => {
+            const side = i % 2 === 0 ? 'Buy' : 'Sell';
+            return (
+              <tr key={i} className={DESK_ROW_CLASS}>
+                <td className={cn(DESK_CELL_FIRST_CLASS, 'text-[12px] font-semibold text-fg-primary')}>
+                  {sym}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-[12px] text-fg-secondary')}>
+                  {types[i % types.length]}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right text-[12px] text-fg-primary')}>
+                  {(1.8 + i * 0.31).toFixed(2)} {sym}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right text-[12px] text-fg-secondary')}>
+                  {formatCompactUsd(1_200_000 + i * 80_000)}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right text-[12px] text-fg-secondary')}>
+                  {formatCompactUsd(2_400_000 + i * 50_000)}
+                </td>
+                <td className={cn(DESK_CELL_CLASS, 'text-right')}>
+                  <span className="inline-block h-2 w-8 rounded bg-fg-muted/15" title="Preview" />
+                </td>
+                <td
+                  className={cn(
+                    DESK_CELL_CLASS,
+                    'text-right text-[11px] font-semibold',
+                    side === 'Buy' ? 'text-signal-bull' : 'text-signal-bear',
+                  )}
                 >
-                  <td className="px-2.5 py-2 text-[12px] font-semibold text-fg-primary">{sym}</td>
-                  <td className="px-2.5 py-2 text-[12px] text-fg-secondary">{types[i % types.length]}</td>
-                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-primary">
-                    {(1.8 + i * 0.31).toFixed(2)} {sym}
-                  </td>
-                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-secondary">
-                    {formatCompactUsd(1_200_000 + i * 80_000)}
-                  </td>
-                  <td className="px-2.5 py-2 text-right text-[12px] text-fg-secondary">
-                    {formatCompactUsd(2_400_000 + i * 50_000)}
-                  </td>
-                  <td className="px-2.5 py-2 text-right">
-                    <span className="inline-block h-2 w-8 rounded bg-fg-muted/20" title="Preview" />
-                  </td>
-                  <td
-                    className={cn(
-                      'px-2.5 py-2 text-right text-[11px] font-semibold',
-                      side === 'Buy' ? 'text-signal-bull' : 'text-signal-bear',
-                    )}
-                  >
-                    {side}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  {side}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -290,6 +316,12 @@ export function TokenActivityTabs({
   dev,
   tradesPanel,
   onTradesPanelChange,
+  tradesDeskFilter,
+  onTradesDeskFilterChange,
+  tradesAgeSortDir,
+  onTradesAgeSortDirChange,
+  tradesAgeDisplay,
+  onTradesAgeDisplayChange,
   onLiveTradesSnapshot,
   onOpenInstantTrade,
   instantTradeOpen = false,
@@ -300,6 +332,12 @@ export function TokenActivityTabs({
   dev: DevWalletStatsRow | null;
   tradesPanel: boolean;
   onTradesPanelChange: (v: boolean) => void;
+  tradesDeskFilter: TradesDeskFilter;
+  onTradesDeskFilterChange: (filter: TradesDeskFilter) => void;
+  tradesAgeSortDir: 'asc' | 'desc';
+  onTradesAgeSortDirChange: (dir: 'asc' | 'desc') => void;
+  tradesAgeDisplay: 'age' | 'time';
+  onTradesAgeDisplayChange: (mode: 'age' | 'time') => void;
   onLiveTradesSnapshot?: (s: { rows: TradeRow[]; isLoading: boolean }) => void;
   onOpenInstantTrade?: () => void;
   instantTradeOpen?: boolean;
@@ -318,21 +356,22 @@ export function TokenActivityTabs({
   const nativeUsdHint = NATIVE_USD_HINT[activeChain];
   const sym = symbol ?? 'TOK';
   const tableDemoEnv = preferTokenTableDemoRows();
+  const demoTables = demoTablesEnabled(uiDemo);
   const demoTrades = useMemo(() => syntheticTradesForMint(mint), [mint]);
   const demoTraders = useMemo(() => syntheticTopTradersForMint(mint), [mint]);
   const demoHolders = useMemo(() => syntheticHoldersResponse(mint, 9), [mint]);
   const effectiveDevCount =
     dev?.tokens_launched ??
-    (creatorWallet ? syntheticCreatorDev(creatorWallet).tokens_launched : 0);
+    (creatorWallet && demoTables ? syntheticCreatorDev(creatorWallet).tokens_launched : 0);
 
   const [traderPnlSortDir, setTraderPnlSortDir] = useState<'asc' | 'desc' | null>(null);
   const [tradesMakerFilter, setTradesMakerFilter] = useState<string | null>(null);
-  const [tradesDeskFilter, setTradesDeskFilter] = useState<TradesDeskFilter>('all');
+  const [holdersSettingsOpen, setHoldersSettingsOpen] = useState(false);
   const activeWalletAddress = useActiveWalletStore((s) => s.activeWalletAddress);
 
   const handleFilterMintTrades = (address: string) => {
     setTradesMakerFilter(address);
-    setTradesDeskFilter('all');
+    onTradesDeskFilterChange('all');
     setTab('trades');
   };
 
@@ -341,12 +380,12 @@ export function TokenActivityTabs({
   };
 
   const handleClearTradesDeskFilter = () => {
-    setTradesDeskFilter('all');
+    onTradesDeskFilterChange('all');
   };
 
   const toggleTradesDeskFilter = (id: Exclude<TradesDeskFilter, 'all'>) => {
     setTradesMakerFilter(null);
-    setTradesDeskFilter((cur) => (cur === id ? 'all' : id));
+    onTradesDeskFilterChange(tradesDeskFilter === id ? 'all' : id);
   };
 
   const tradesQ = useQuery({
@@ -357,7 +396,7 @@ export function TokenActivityTabs({
       return r.json() as Promise<{ trades: TradeRow[] }>;
     },
     enabled: tab === 'trades',
-    placeholderData: { trades: demoTrades },
+    placeholderData: demoTables ? { trades: demoTrades } : undefined,
     staleTime: 15_000,
     refetchInterval: tab === 'trades' && !tradesFeedHoverPause ? 4500 : false,
     refetchOnWindowFocus: tab === 'trades' ? !tradesFeedHoverPause : true,
@@ -371,7 +410,7 @@ export function TokenActivityTabs({
       return r.json() as Promise<{ traders: MintTopTraderRow[] }>;
     },
     enabled: tab === 'traders',
-    placeholderData: { traders: demoTraders },
+    placeholderData: demoTables ? { traders: demoTraders } : undefined,
     staleTime: 30_000,
   });
 
@@ -382,17 +421,18 @@ export function TokenActivityTabs({
       if (!r.ok) throw new Error('holders_failed');
       return r.json() as Promise<{ holders: { id: number }[] }>;
     },
-    placeholderData: demoHolders,
+    placeholderData: demoTables ? demoHolders : undefined,
     staleTime: 60_000,
   });
 
-  const tradeRowsForTable = useMemo((): TradeRow[] => {
+  const tradeRowsRaw = useMemo((): TradeRow[] => {
     const raw = tradesQ.data?.trades ?? [];
-    let base: TradeRow[];
-    if (tableDemoEnv) base = demoTrades;
-    else if (uiDemo && (raw.length === 0 || tradesQ.isError)) base = demoTrades;
-    else if (raw.length === 0 || tradesQ.isError) base = demoTrades;
-    else base = raw;
+    if (tableDemoEnv || (uiDemo && (raw.length === 0 || tradesQ.isError))) return demoTrades;
+    return raw;
+  }, [tradesQ.data?.trades, tradesQ.isError, uiDemo, tableDemoEnv, demoTrades]);
+
+  const tradeRowsForTable = useMemo((): TradeRow[] => {
+    let base = tradeRowsRaw;
 
     if (tradesMakerFilter) {
       return base.filter((row, i) => tradeTraderHint(row, i).fullAddress === tradesMakerFilter);
@@ -413,11 +453,7 @@ export function TokenActivityTabs({
 
     return base;
   }, [
-    tradesQ.data?.trades,
-    tradesQ.isError,
-    uiDemo,
-    tableDemoEnv,
-    demoTrades,
+    tradeRowsRaw,
     tradesMakerFilter,
     tradesDeskFilter,
     creatorWallet,
@@ -427,10 +463,10 @@ export function TokenActivityTabs({
 
   useEffect(() => {
     onLiveTradesSnapshot?.({
-      rows: tradeRowsForTable,
+      rows: tradeRowsRaw,
       isLoading: tradesQ.isLoading,
     });
-  }, [tradeRowsForTable, tradesQ.isLoading, onLiveTradesSnapshot]);
+  }, [tradeRowsRaw, tradesQ.isLoading, onLiveTradesSnapshot]);
 
   useEffect(() => {
     if (tab !== 'trades') setTradesFeedHoverPause(false);
@@ -443,9 +479,7 @@ export function TokenActivityTabs({
     const rows =
       tableDemoEnv || (uiDemo && (raw.length === 0 || tradersQ.isError))
         ? demoTraders
-        : raw.length === 0 || tradersQ.isError
-          ? demoTraders
-          : raw;
+        : raw;
     return onlyTracked ? rows.filter((w) => isTracked(w.wallet_address)) : rows;
   }, [
     tradersQ.data?.traders,
@@ -493,10 +527,11 @@ export function TokenActivityTabs({
     setTraderPnlSortDir((d) => (d === null ? 'desc' : d === 'desc' ? 'asc' : null));
   };
 
-  const devTokens = useMemo(
-    () => (creatorWallet ? syntheticDevTokensForCreator(creatorWallet, mint) : []),
-    [creatorWallet, mint],
-  );
+  const devTokens = useMemo(() => {
+    if (!creatorWallet) return [];
+    if (!demoTables) return [];
+    return syntheticDevTokensForCreator(creatorWallet, mint);
+  }, [creatorWallet, mint, demoTables]);
 
   const tradersEmpty = sortedTraders.length === 0;
   const tradersLensEmpty =
@@ -506,25 +541,30 @@ export function TokenActivityTabs({
 
   const tabLabel = (t: (typeof TABS)[number]) => {
     if (t.id === 'holders') {
-      const n = holdersQ.data?.holders.length;
+      const n = holdersQ.data?.holders?.length;
       if (n != null && n > 0) return `Holders (${n})`;
-      return 'Holders (22)';
+      return 'Holders';
     }
-    if (t.id === 'traders') return `Top Traders (${demoTraders.length})`;
+    if (t.id === 'traders') {
+      const n = traderRowsAfterTrack.length;
+      if (n > 0) return `Top Traders (${n})`;
+      return 'Top Traders';
+    }
     if (t.id === 'dev_tokens' && effectiveDevCount > 0) {
       return `Dev Tokens (${effectiveDevCount})`;
     }
     return t.label;
   };
 
+  const showDeskSettings = tab === 'holders' || tab === 'traders';
   const showDeskFilters = tab === 'traders' || tab === 'holders';
   const activeDeskFilter = tab === 'holders' ? holderDeskFilter : traderDeskFilter;
   const setActiveDeskFilter =
     tab === 'holders' ? setHolderDeskFilter : setTraderDeskFilter;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col border-t border-border-subtle/30 bg-desk-panel/80 font-sans text-[12px] leading-snug text-fg-primary antialiased backdrop-blur-[1px]">
-      <div className="flex shrink-0 items-center gap-1 border-b border-border-subtle/35 px-2 py-0.5">
+    <div className="flex min-h-0 flex-1 flex-col bg-bg-raised font-sans text-[12px] leading-snug text-fg-primary antialiased">
+      <div className="flex shrink-0 items-center gap-1 border-b border-border-subtle/25 px-2 py-0.5">
         <nav className="flex shrink-0 items-center gap-0" aria-label="Token activity">
           {TABS.map((t) => {
             const active = tab === t.id;
@@ -619,18 +659,33 @@ export function TokenActivityTabs({
           {showTableControls ? (
             <>
               {tab === 'trades' ? (
-                <label
-                  className="inline-flex h-6 cursor-pointer items-center gap-1.5 px-1 text-[11px] text-fg-muted hover:text-fg-primary"
-                  title="Shows the compact live feed beside the chart."
+                <button
+                  type="button"
+                  onClick={() => onTradesPanelChange(!tradesPanel)}
+                  className={cn(
+                    'btn-press inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold transition-colors duration-200',
+                    tradesPanel
+                      ? 'border-border-subtle bg-bg-hover text-fg-primary'
+                      : 'border-border-subtle/80 text-fg-muted hover:border-border-default hover:text-fg-primary',
+                  )}
+                  title={
+                    tradesPanel
+                      ? 'Show full trades table below the chart'
+                      : 'Show compact live feed beside the chart'
+                  }
                 >
-                  <input
-                    type="checkbox"
-                    checked={tradesPanel}
-                    onChange={(e) => onTradesPanelChange(e.target.checked)}
-                    className="h-3 w-3 rounded border-border-subtle bg-bg-raised"
-                  />
-                  Trades Panel
-                </label>
+                  {tradesPanel ? (
+                    <>
+                      <Table2 className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                      Trades Table
+                    </>
+                  ) : (
+                    <>
+                      <LayoutPanelTop className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                      Trades Panel
+                    </>
+                  )}
+                </button>
               ) : null}
               <button
                 type="button"
@@ -672,7 +727,14 @@ export function TokenActivityTabs({
           ) : null}
           <button
             type="button"
-            className="btn-press inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted/40 transition-colors hover:text-fg-primary"
+            onClick={() => {
+              if (showDeskSettings) setHoldersSettingsOpen(true);
+            }}
+            disabled={!showDeskSettings}
+            className={cn(
+              'btn-press inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted/40 transition-colors hover:text-fg-primary',
+              !showDeskSettings && 'pointer-events-none opacity-30',
+            )}
             aria-label="Table settings"
           >
             <Settings className="h-3 w-3" strokeWidth={2} />
@@ -681,7 +743,7 @@ export function TokenActivityTabs({
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden w-full">
         {tab === 'trades' && (tradesMakerFilter || tradesDeskFilter !== 'all') ? (
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle/35 bg-bg-base/40 px-3 py-1.5 text-[11px]">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle/25 px-3 py-1 text-[11px]">
             <span className="text-fg-muted">
               {tradesMakerFilter ? (
                 <>
@@ -732,8 +794,25 @@ export function TokenActivityTabs({
           </div>
         ) : null}
         {tab === 'trades' ? (
-          tradeRowsForTable.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-[11px] font-mono text-fg-muted">
+          tradesPanel ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+              <p className="text-[12px] font-semibold text-fg-primary">Trades live in the panel</p>
+              <p className="max-w-xs text-[11px] leading-relaxed text-fg-muted">
+                The compact feed is beside the chart. Click{' '}
+                <span className="font-semibold text-fg-secondary">Trades Table</span> above to move
+                trades back here.
+              </p>
+              <button
+                type="button"
+                onClick={() => onTradesPanelChange(false)}
+                className="btn-press mt-1 inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-bg-hover px-3 text-[11px] font-semibold text-fg-primary transition hover:border-border-default"
+              >
+                <Table2 className="h-3 w-3" strokeWidth={2} aria-hidden />
+                Trades Table
+              </button>
+            </div>
+          ) : tradeRowsForTable.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center p-8 text-[11px] font-sans text-fg-muted">
               No transactions found
             </div>
           ) : (
@@ -748,11 +827,15 @@ export function TokenActivityTabs({
               onFilterMintTrades={handleFilterMintTrades}
               tradesMakerFilter={tradesMakerFilter}
               onToggleDisplayMode={() => setTableUsd((u) => !u)}
+              ageSortDir={tradesAgeSortDir}
+              onAgeSortDirChange={onTradesAgeSortDirChange}
+              ageDisplay={tradesAgeDisplay}
+              onAgeDisplayChange={onTradesAgeDisplayChange}
             />
           )
         ) : null}
-        {tab === 'positions' ? <PositionsDesk sym={sym} mint={mint} /> : null}
-        {tab === 'orders' ? <OrdersDesk sym={sym} /> : null}
+        {tab === 'positions' ? <PositionsDesk sym={sym} mint={mint} demoTables={demoTables} /> : null}
+        {tab === 'orders' ? <OrdersDesk sym={sym} demoTables={demoTables} /> : null}
         {tab === 'holders' ? (
           <HoldersTable
             mint={mint}
@@ -762,6 +845,7 @@ export function TokenActivityTabs({
             deskFilter={holderDeskFilter}
             onFilterMintTrades={handleFilterMintTrades}
             tradesMakerFilter={tradesMakerFilter}
+            onOpenSettings={() => setHoldersSettingsOpen(true)}
           />
         ) : null}
         {tab === 'traders' ? (
@@ -786,7 +870,7 @@ export function TokenActivityTabs({
               />
             </div>
           ) : (
-            <div className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
+            <div className={cn('desk-scroll-well', DESK_SCROLL_WELL_CLASS)}>
                 <TopTradersTable
                   rows={sortedTraders}
                   mint={mint}
@@ -799,6 +883,7 @@ export function TokenActivityTabs({
                   sortDir={traderPnlSortDir}
                   onFilterMintTrades={handleFilterMintTrades}
                   tradesMakerFilter={tradesMakerFilter}
+                  onOpenSettings={() => setHoldersSettingsOpen(true)}
                 />
             </div>
           )
@@ -812,6 +897,11 @@ export function TokenActivityTabs({
           />
         ) : null}
       </div>
+      <HoldersTableSettingsModal
+        open={holdersSettingsOpen}
+        onClose={() => setHoldersSettingsOpen(false)}
+        title={tab === 'traders' ? 'Top Traders Table Settings' : 'Holders Table Settings'}
+      />
     </div>
   );
 }

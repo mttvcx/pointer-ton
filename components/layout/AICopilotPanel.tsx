@@ -25,6 +25,7 @@ import { ContextCard } from '@/components/ai/ContextCard';
 import { AskBox } from '@/components/ai/AskBox';
 import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { AlertsTicker } from '@/components/ai/AlertsTicker';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { cn } from '@/lib/utils/cn';
@@ -368,8 +369,7 @@ export function AICopilotPanel() {
   const lockedEntity = useUIStore((s) => s.lockedEntity);
   const hoveredEntity = useUIStore((s) => s.hoveredEntity);
 
-  const alertRulesPopped = useUIStore((s) => s.alertRulesPopout != null);
-  const alertRulesDocked = useUIStore((s) => s.alertRulesDocked);
+  const xMonitorOpen = usePulseTwitterRailStore((s) => s.side !== 'hidden');
 
   const [narrow, setNarrow] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -716,7 +716,7 @@ export function AICopilotPanel() {
         <div className="flex flex-col gap-2 pb-2">
           <ContextCard entity={entity} />
           <AskBox entity={entity} />
-          {alertRulesDocked ? null : alertRulesPopped ? (
+          {xMonitorOpen ? (
             <AlertBuilderEmbeddedPlaceholder />
           ) : (
             <XMonitorCopilotCard />

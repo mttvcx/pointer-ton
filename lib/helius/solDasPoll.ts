@@ -71,6 +71,58 @@ function mergeLaunchpad(ev: LaunchpadEvent, pad: LaunchpadId): LaunchpadEvent {
   return { ...ev, launchpad: pad };
 }
 
+function isPaginationSortError(message: string): boolean {
+  return /pagination sorting error/i.test(message);
+}
+
+async function dasAssetsByAuthority(params: {
+  pad: LaunchpadId;
+  authority: string;
+}): Promise<Asset[]> {
+  const { pad, authority } = params;
+  const base = {
+    authorityAddress: authority,
+    page: 1,
+    limit: 48,
+  };
+
+  try {
+    const page = await heliusDasRpc<{ items?: Asset[] }>('getAssetsByAuthority', {
+      ...base,
+      sortBy: { sortBy: 'created', sortDirection: 'desc' },
+    });
+    return page.items ?? [];
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!isPaginationSortError(msg)) throw err;
+    debugDas('getAssetsByAuthority retry without sortBy', { pad, authority });
+    const page = await heliusDasRpc<{ items?: Asset[] }>('getAssetsByAuthority', base);
+    return page.items ?? [];
+  }
+}
+
+async function dasSearchOwnerAssets(owner: string): Promise<Asset[]> {
+  const base = {
+    ownerAddress: owner,
+    tokenType: 'fungible',
+    limit: 40,
+  };
+
+  try {
+    const search = await heliusDasRpc<{ items?: Asset[] }>('searchAssets', base);
+    return search.items ?? [];
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!isPaginationSortError(msg)) throw err;
+    debugDas('searchAssets retry without sortBy', { owner });
+    const search = await heliusDasRpc<{ items?: Asset[] }>('searchAssets', {
+      ...base,
+      sortBy: { sortBy: 'created', sortDirection: 'desc' },
+    });
+    return search.items ?? [];
+  }
+}
+
 /**
  * Backfill Solana Pulse from Helius DAS (`getAssetsByAuthority` + optional `searchAssets`).
  * Requires HELIUS_API_KEY or SOLANA_RPC_URL.
@@ -91,13 +143,7 @@ export async function pollSolanaPulseFromDas(): Promise<number> {
 
   for (const { pad, authority } of authorities) {
     try {
-      const page = await heliusDasRpc<{ items?: Asset[] }>('getAssetsByAuthority', {
-        authorityAddress: authority,
-        page: 1,
-        limit: 48,
-        sortBy: { sortBy: 'created', sortDirection: 'desc' },
-      });
-      const items = page.items ?? [];
+      const items = await dasAssetsByAuthority({ pad, authority });
       debugDas('getAssetsByAuthority', { pad, authority, n: items.length });
       for (const asset of items) {
         const ev0 = launchpadEventFromDasAsset(asset);
@@ -116,13 +162,7 @@ export async function pollSolanaPulseFromDas(): Promise<number> {
   const owner =
     process.env.PULSE_DAS_POLL_OWNER_WALLET?.trim() || PULSE_DAS_FALLBACK_POLL_OWNER;
   try {
-    const search = await heliusDasRpc<{ items?: Asset[] }>('searchAssets', {
-      ownerAddress: owner,
-      tokenType: 'fungible',
-      limit: 40,
-      sortBy: { sortBy: 'id', sortDirection: 'desc' },
-    });
-    const items = search.items ?? [];
+    const items = await dasSearchOwnerAssets(owner);
     debugDas('searchAssets', { owner, n: items.length });
     for (const asset of items) {
       const ev = launchpadEventFromDasAsset(asset);

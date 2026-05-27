@@ -20,6 +20,18 @@ export function formatRelativeShort(iso: string): string {
   return formatAgeShortBase(iso);
 }
 
+/** Clock time for trade desk Age/Time toggle — "14:32:05". */
+export function formatTradeClockTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '\u2014';
+  return d.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+}
+
 /** Compact numeric without currency: "135K", "66.7K", "9.999". */
 export function formatCompactNumber(n: number): string {
   if (!Number.isFinite(n)) return '\u2014';

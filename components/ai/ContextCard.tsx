@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { openAlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import {
   AlertTriangle,
   Loader2,
@@ -86,10 +87,7 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
   const enabled = Boolean(authenticated && debounced && copilotSurfaceOpen);
 
   const openAlertBuilder = useCallback(() => {
-    useUIStore.getState().setAlertRulesModalOpen(true);
-    queueMicrotask(() => {
-      document.getElementById('copilot-alert-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    openAlertRulesModal();
   }, []);
 
   const query = useQuery({

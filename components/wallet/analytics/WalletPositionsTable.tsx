@@ -3,7 +3,9 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { SharePnlRowButton } from '@/components/wallet/analytics/SharePnlRowButton';
-import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
+import { formatNumber } from '@/lib/utils/formatters';
+import { formatWalletMoney } from '@/lib/wallet-analytics/displayCurrency';
+import { CHAIN_TICKER } from '@/lib/chains/chainAssets';
 import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
 import type { WalletPositionRow } from '@/lib/wallet-analytics/types';
 import { cn } from '@/lib/utils/cn';
@@ -12,12 +14,21 @@ export function WalletPositionsTable({
   rows,
   timeframe,
   onShareRow,
+  usdMode,
+  solUsd,
+  chain,
 }: {
   rows: WalletPositionRow[];
   timeframe: WalletAnalyticsTimeframe;
   onShareRow: (row: WalletPositionRow) => void;
+  usdMode: boolean;
+  solUsd: number | null;
+  chain: WalletPositionRow['chain'];
 }) {
   const router = useRouter();
+  const nativeSym = CHAIN_TICKER[chain];
+  const fmt = (usd: number | null | undefined) =>
+    formatWalletMoney(usd, { usdMode, solUsd, nativeSym });
 
   const pctRemaining = (row: WalletPositionRow) => {
     const b = row.boughtUsd ?? 0;
@@ -41,17 +52,17 @@ export function WalletPositionsTable({
   };
 
   return (
-    <div className="overflow-x-auto rounded-b-lg border border-t-0 border-border-subtle bg-bg-raised">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[860px] border-collapse text-left text-xs">
-        <thead className="bg-bg-sunken text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+        <thead className="sticky top-0 z-[1] bg-bg-raised text-[10px] font-medium uppercase tracking-wider text-fg-muted">
           <tr className="border-b border-border-subtle">
-            <th className="px-3 py-2 text-left font-medium">Token</th>
-            <th className="px-3 py-2 text-right font-medium">Remaining</th>
-            <th className="px-3 py-2 text-right font-medium">R. PNL</th>
-            <th className="px-3 py-2 text-right font-medium">Buys</th>
-            <th className="px-3 py-2 text-right font-medium">Sells</th>
-            <th className="px-3 py-2 text-right font-medium">Activity</th>
-            <th className="w-12 px-2 py-2 text-right font-medium">Share</th>
+            <th className="px-3 py-2.5 text-left font-medium">Token</th>
+            <th className="px-3 py-2.5 text-right font-medium">Remaining</th>
+            <th className="px-3 py-2.5 text-right font-medium">R. PNL</th>
+            <th className="px-3 py-2.5 text-right font-medium">Buys</th>
+            <th className="px-3 py-2.5 text-right font-medium">Sells</th>
+            <th className="px-3 py-2.5 text-right font-medium">Activity</th>
+            <th className="w-12 px-2 py-2.5 text-right font-medium">Share</th>
           </tr>
         </thead>
         <tbody>
@@ -76,9 +87,9 @@ export function WalletPositionsTable({
                     router.push(`/token/${encodeURIComponent(row.mint)}`);
                   }
                 }}
-                className="group h-11 cursor-pointer border-b border-border-subtle outline-none transition-colors duration-100 last:border-b-0 hover:bg-bg-hover focus-tr-accent"
+                className="group cursor-pointer border-b border-border-subtle outline-none transition-colors duration-100 last:border-b-0 hover:bg-bg-hover focus-tr-accent"
               >
-                <td className="px-3 align-middle">
+                <td className="px-3 py-3 align-middle">
                   <div className="flex items-center gap-2">
                     <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-bg-sunken">
                       {row.imageUrl ? (
@@ -96,10 +107,10 @@ export function WalletPositionsTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-3 align-middle text-right tabular-nums">
+                <td className="px-3 py-3 align-middle text-right">
                   <div className="flex flex-col items-end gap-1">
-                    <span className="font-mono text-xs text-fg-primary">
-                      {row.remainingUsd != null ? formatCompactUsd(row.remainingUsd) : '—'}
+                    <span className="font-sans text-xs font-medium tabular-nums text-fg-primary">
+                      {fmt(row.remainingUsd)}
                     </span>
                     <div className="mt-0.5 h-0.5 w-[4.25rem] max-w-full overflow-hidden rounded-full bg-accent-primary/40">
                       <div
@@ -110,22 +121,22 @@ export function WalletPositionsTable({
                     <span className="text-[10px] text-fg-muted">{pctRemaining(row).toFixed(0)}%</span>
                   </div>
                 </td>
-                <td className="px-3 align-middle text-right tabular-nums">
+                <td className="px-3 py-3 align-middle text-right">
                   <div className="flex flex-col items-end gap-px">
                     <span
                       className={cn(
-                        'font-mono text-xs font-semibold tabular-nums',
+                        'font-sans text-xs font-medium tabular-nums',
                         row.pnlUsd != null && row.pnlUsd > 0 && 'text-signal-bull',
                         row.pnlUsd != null && row.pnlUsd < 0 && 'text-signal-bear',
                         row.pnlUsd == null && 'text-fg-muted',
                       )}
                     >
-                      {row.pnlUsd != null ? formatCompactUsd(row.pnlUsd) : '—'}
+                      {row.pnlUsd != null ? fmt(row.pnlUsd) : '—'}
                     </span>
                     {row.pnlPct != null && row.pnlUsd != null && row.pnlUsd !== 0 ? (
                       <span
                         className={cn(
-                          'font-mono text-[10px] font-semibold tabular-nums',
+                          'font-sans text-[10px] font-medium tabular-nums',
                           row.pnlUsd > 0 && 'text-signal-bull',
                           row.pnlUsd < 0 && 'text-signal-bear',
                         )}
@@ -136,16 +147,16 @@ export function WalletPositionsTable({
                     ) : null}
                   </div>
                 </td>
-                <td className="px-3 align-middle text-right">
-                  <ColUsdTxn usd={row.boughtUsd} txns={row.boughtTxnCount} tokenQty={row.boughtTokenUi} tone="bull" />
+                <td className="px-3 py-3 align-middle text-right">
+                  <ColUsdTxn usd={row.boughtUsd} txns={row.boughtTxnCount} tokenQty={row.boughtTokenUi} tone="bull" fmt={fmt} />
                 </td>
-                <td className="px-3 align-middle text-right">
-                  <ColUsdTxn usd={row.soldUsd} txns={row.soldTxnCount} tokenQty={row.soldTokenUi} tone="bear" />
+                <td className="px-3 py-3 align-middle text-right">
+                  <ColUsdTxn usd={row.soldUsd} txns={row.soldTxnCount} tokenQty={row.soldTokenUi} tone="bear" fmt={fmt} />
                 </td>
-                <td className="px-3 align-middle text-right tabular-nums text-xs text-fg-muted">
+                <td className="px-3 py-3 align-middle text-right font-sans text-xs text-fg-muted">
                   {row.lastActivityLabel ?? '—'}
                 </td>
-                <td className="px-2 align-middle text-right">
+                <td className="px-2 py-3 align-middle text-right">
                   <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                     <SharePnlRowButton
                       onClick={() => onShareRow(row)}
@@ -167,11 +178,13 @@ function ColUsdTxn({
   txns,
   tokenQty,
   tone,
+  fmt,
 }: {
   usd: number | null;
   txns?: number | null;
   tokenQty?: number | null;
   tone: 'bull' | 'bear';
+  fmt: (usd: number | null | undefined) => string;
 }) {
   const qtyLine =
     tokenQty != null && Number.isFinite(tokenQty)
@@ -184,13 +197,13 @@ function ColUsdTxn({
     <div className="flex flex-col items-end gap-px leading-tight">
       <span
         className={cn(
-          'font-mono text-xs tabular-nums',
+          'font-sans text-xs font-medium tabular-nums',
           tone === 'bull' ? 'text-signal-bull' : 'text-signal-bear',
         )}
       >
-        {usd != null ? formatCompactUsd(usd) : '—'}
+        {fmt(usd)}
       </span>
-      <span className="text-[10px] font-mono text-fg-muted">{qtyLine}</span>
+      <span className="text-[10px] font-sans text-fg-muted">{qtyLine}</span>
     </div>
   );
 }

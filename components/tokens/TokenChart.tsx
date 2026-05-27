@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import type { ChartInterval } from '@/lib/helius/chart';
 import { formatCompactUsd, formatNumber, formatPercent } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { cssRgbFromVar } from '@/lib/theme/cssSurfaceColors';
 import {
   readChartOverlays,
   persistChartOverlays,
@@ -143,6 +144,25 @@ export function TokenChart({
     },
   });
 
+  const barsCount = data?.bars?.length ?? 0;
+
+  /**
+   * Spot-price fallback: when the chart returns ≤1 bar (no DB snapshots + no
+   * DexScreener history), surface Jupiter's spot USD so users see *something*
+   * meaningful instead of the empty grid. Advanced TradingView feed is paid &
+   * shipping separately.
+   */
+  const spotFallbackQ = useQuery({
+    queryKey: ['token-chart-spot-fallback', mint],
+    enabled: !isLoading && barsCount <= 1,
+    staleTime: 30_000,
+    queryFn: async (): Promise<{ usdPrice: number | null; priceChange24h: number | null }> => {
+      const r = await fetch(`/api/prices/mint?mint=${encodeURIComponent(mint)}`);
+      if (!r.ok) return { usdPrice: null, priceChange24h: null };
+      return r.json() as Promise<{ usdPrice: number | null; priceChange24h: number | null }>;
+    },
+  });
+
   const { data: markersRes } = useQuery({
     queryKey: ['token-wallet-markers', mint],
     enabled: authenticated,
@@ -188,39 +208,43 @@ export function TokenChart({
     const el = wrapRef.current;
     if (!el) return;
 
+    const chartBg = cssRgbFromVar('--bg-raised-rgb', 'rgb(18, 18, 20)');
+    const gridColor = cssRgbFromVar('--border-subtle-rgb', 'rgb(28, 28, 32)');
+    const crosshairColor = cssRgbFromVar('--border-default-rgb', 'rgb(38, 38, 44)');
+
     const chart = createChart(el, {
       width: el.clientWidth,
       height: Math.max(1, el.clientHeight),
       layout: {
-        background: { type: ColorType.Solid, color: '#080d14' },
+        background: { type: ColorType.Solid, color: chartBg },
         textColor: '#8b92a4',
         fontSize: 12,
       },
       grid: {
-        vertLines: { color: '#1b1f2a' },
-        horzLines: { color: '#1b1f2a' },
+        vertLines: { color: gridColor },
+        horzLines: { color: gridColor },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: {
-          color: '#2e3548',
+          color: crosshairColor,
           width: 1,
           style: LineStyle.Solid,
-          labelBackgroundColor: '#3d4458',
+          labelBackgroundColor: crosshairColor,
         },
         horzLine: {
-          color: '#2e3548',
+          color: crosshairColor,
           width: 1,
           style: LineStyle.Solid,
-          labelBackgroundColor: '#3d4458',
+          labelBackgroundColor: crosshairColor,
         },
       },
       rightPriceScale: {
-        borderColor: '#1b1f2a',
+        borderColor: gridColor,
         scaleMargins: { top: 0.08, bottom: 0.12 },
       },
       timeScale: {
-        borderColor: '#1b1f2a',
+        borderColor: gridColor,
         fixLeftEdge: true,
         fixRightEdge: false,
       },
@@ -504,6 +528,13 @@ export function TokenChart({
             Could not load price history.
           </div>
         ) : null}
+        {!isLoading && !isError && barsCount <= 1 ? (
+          <ChartSpotFallback
+            spotUsd={spotFallbackQ.data?.usdPrice ?? null}
+            change24h={spotFallbackQ.data?.priceChange24h ?? null}
+            isLoading={spotFallbackQ.isLoading}
+          />
+        ) : null}
       </div>
 
       {/* Bottom chart controls */}
@@ -541,6 +572,55 @@ export function TokenChart({
         >
           auto
         </button>
+      </div>
+    </div>
+  );
+}
+
+function ChartSpotFallback({
+  spotUsd,
+  change24h,
+  isLoading,
+}: {
+  spotUsd: number | null;
+  change24h: number | null;
+  isLoading: boolean;
+}) {
+  const positive = (change24h ?? 0) >= 0;
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-bg-raised/40 backdrop-blur-[2px]">
+      <div className="pointer-events-auto flex max-w-sm flex-col items-center gap-2 rounded-xl border border-border-subtle bg-bg-raised/95 px-6 py-5 text-center shadow-xl">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+          Spot only
+        </span>
+        {isLoading && spotUsd == null ? (
+          <span className="text-[20px] font-semibold tabular-nums text-fg-muted">
+            Loading{'\u2026'}
+          </span>
+        ) : spotUsd != null && spotUsd > 0 ? (
+          <>
+            <span className="text-[26px] font-semibold tabular-nums text-fg-primary">
+              {formatCompactUsd(spotUsd)}
+            </span>
+            {change24h != null && Number.isFinite(change24h) ? (
+              <span
+                className={cn(
+                  'text-[12px] font-semibold tabular-nums',
+                  positive ? 'text-signal-bull' : 'text-signal-bear',
+                )}
+              >
+                {positive ? '+' : ''}
+                {formatPercent(change24h, { decimals: 2 })} 24h
+              </span>
+            ) : null}
+          </>
+        ) : (
+          <span className="text-[13px] font-semibold text-fg-secondary">No spot price yet</span>
+        )}
+        <p className="mt-1 max-w-[240px] text-[11px] leading-snug text-fg-muted">
+          Full OHLC chart unlocks with the paid Dex feed — coming soon. Trades and live spot still
+          stream below.
+        </p>
       </div>
     </div>
   );

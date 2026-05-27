@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DemoSimulatedBanner } from '@/components/shared/DemoSimulatedBanner';
 import { DEMO_PREDICTION_MARKETS } from '@/lib/perps/predictionMarketsDemo';
 import { PredictionMarketTicker } from '@/components/perps/PredictionMarketTicker';
 import { PredictionMarketSidebar } from '@/components/perps/PredictionMarketSidebar';
@@ -99,6 +100,10 @@ export function PerpsTerminal() {
 
   return (
     <div className="flex min-h-full w-full min-w-0 flex-col bg-bg-base text-fg-primary xl:h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] xl:max-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h)-8px)] xl:overflow-hidden">
+      <DemoSimulatedBanner
+        title="Simulated perps · not live trading"
+        detail="Mark prices, funding, and prediction markets are demo targets only. No real positions are opened or settled on-chain."
+      />
       <div className="shrink-0 border-b border-white/[0.06] bg-[#080b11] px-2 py-1.5">
         <div className="flex min-w-0 items-stretch gap-1.5 overflow-x-auto">
           {DEMO_PERP_MARKETS.slice(0, 3).map((p) => {

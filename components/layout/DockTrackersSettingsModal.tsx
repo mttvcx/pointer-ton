@@ -5,6 +5,8 @@ import { X, GripVertical, RefreshCw } from 'lucide-react';
 import type { DockTrackerId } from '@/lib/dock/dockTrackerConfig';
 import { DOCK_TRACKER_IDS, dockTrackerLabel } from '@/lib/dock/dockTrackerConfig';
 import { DOCK_TRACKER_ICON } from '@/components/layout/dockTrackerUi';
+import { SpotTickerIcon } from '@/components/chains/SpotTickerIcon';
+import { SPOT_TICKER_ROTATION } from '@/lib/chains/chainAssets';
 import {
   normalizeDockModes,
   normalizeDockOrder,
@@ -45,8 +47,9 @@ function DockTrackersSettingsModalContent() {
   const setHotkeysEnabled = useDockTrackersStore((s) => s.setHotkeysEnabled);
   const setHotkey = useDockTrackersStore((s) => s.setHotkey);
   const resetDock = useDockTrackersStore((s) => s.resetDock);
-  const spotTickerMode = useDockTrackersStore((s) => s.spotTickerMode);
-  const setSpotTickerMode = useDockTrackersStore((s) => s.setSpotTickerMode);
+  const spotTickerChains = useDockTrackersStore((s) => s.spotTickerChains);
+  const toggleSpotTickerChain = useDockTrackersStore((s) => s.toggleSpotTickerChain);
+  const setAllSpotTickerChains = useDockTrackersStore((s) => s.setAllSpotTickerChains);
 
   const [listening, setListening] = useState<DockTrackerId | null>(null);
   const listeningRef = useRef<DockTrackerId | null>(null);
@@ -127,7 +130,7 @@ function DockTrackersSettingsModalContent() {
         <div className="flex-1 overflow-y-auto px-4 pb-4 pt-2.5 sm:px-5">
           <p className="mb-2 text-[11px] font-medium leading-snug text-fg-primary/92">
             Drag to reorder dock items · tap the pink dot for the badge ping. Full · Compact · Icon applies to{' '}
-            <span className="font-semibold text-fg-primary">every</span> dock chip (Wallet, Tracker, Social, … Squads).
+            <span className="font-semibold text-fg-primary">every</span> dock chip (Wallet, Social, … Squads).
           </p>
 
           <div className="flex flex-wrap items-start justify-center gap-1.5 rounded-lg border border-border-subtle bg-bg-sunken/40 p-1.5">
@@ -217,25 +220,62 @@ function DockTrackersSettingsModalContent() {
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2.5">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-fg-primary">Major spot strip (BTC · ETH · native)</p>
-              <p className="text-[10px] text-fg-secondary">Icons = colored badges only · Full = rotating price line</p>
-            </div>
-            <div className="flex gap-1 rounded-lg border border-border-subtle bg-bg-sunken/45 p-0.5">
-              {(['full', 'icons'] as const).map((m) => (
+          <div className="mt-4 border-t border-border-subtle pt-2.5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-fg-primary">Spot price ticker</p>
+                <p className="text-[10px] text-fg-secondary">
+                  Toggle majors in the rotating bottom-bar strip · turn all off to hide it.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1 rounded-lg border border-border-subtle bg-bg-sunken/45 p-0.5">
                 <button
-                  key={m}
                   type="button"
-                  onClick={() => setSpotTickerMode(m)}
+                  onClick={() => setAllSpotTickerChains(false)}
                   className={cn(
-                    'rounded-md px-2 py-1 text-[10px] font-semibold capitalize transition-colors',
-                    spotTickerMode === m ? 'bg-accent-primary/[0.2] text-fg-primary' : 'text-fg-muted hover:text-fg-primary',
+                    'rounded-md px-2 py-1 text-[10px] font-semibold transition-colors',
+                    spotTickerChains.length === 0
+                      ? 'bg-accent-primary/[0.2] text-fg-primary'
+                      : 'text-fg-muted hover:text-fg-primary',
                   )}
                 >
-                  {m}
+                  None
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setAllSpotTickerChains(true)}
+                  className={cn(
+                    'rounded-md px-2 py-1 text-[10px] font-semibold transition-colors',
+                    spotTickerChains.length === SPOT_TICKER_ROTATION.length
+                      ? 'bg-accent-primary/[0.2] text-fg-primary'
+                      : 'text-fg-muted hover:text-fg-primary',
+                  )}
+                >
+                  All
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {SPOT_TICKER_ROTATION.map((sym) => {
+                const on = spotTickerChains.includes(sym);
+                return (
+                  <button
+                    key={sym}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleSpotTickerChain(sym)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-semibold transition-colors',
+                      on
+                        ? 'border-accent-primary/50 bg-accent-primary/[0.1] text-fg-primary'
+                        : 'border-border-subtle bg-bg-sunken/35 text-fg-muted hover:border-white/[0.1] hover:text-fg-primary',
+                    )}
+                  >
+                    <SpotTickerIcon symbol={sym} />
+                    {sym}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

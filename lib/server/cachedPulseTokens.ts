@@ -7,13 +7,16 @@ import type { PulseColumnId } from '@/lib/utils/constants';
 
 const PULSE_FEED_CACHE_SECONDS = 1;
 
-/** Cached recent-token scan (NEW column wide candidate set). */
+/**
+ * Recent-token scan for wide-chain backfill.
+ *
+ * Intentionally NOT wrapped in `unstable_cache`: the 1500-row payload routinely
+ * exceeds Next 16's hard 2MB per-entry limit, and a rejected cache-set leaks
+ * the resolved promise reference — over hours of polling that OOM'd the dev
+ * server. The 1s TTL we'd save is negligible vs. that failure mode.
+ */
 export async function cachedListRecentTokens(limit: number) {
-  return unstable_cache(
-    async () => listRecentTokens(limit),
-    ['pulse', 'listRecentTokens', String(limit)],
-    { revalidate: PULSE_FEED_CACHE_SECONDS, tags: ['pulse-feed'] },
-  )();
+  return listRecentTokens(limit);
 }
 
 /** Cached per-column Pulse feed rows (NEW / STRETCH / MIGRATED). */

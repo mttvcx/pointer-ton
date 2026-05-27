@@ -6,6 +6,7 @@ import { Users } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TableRowSkeleton } from '@/components/shared/Skeleton';
 import { syntheticHoldersResponse } from '@/lib/dev/demoTokenFixtures';
+import { demoTablesEnabled } from '@/lib/dev/demoPolicy';
 import { preferTokenTableDemoRows } from '@/lib/dev/uiDemoMode';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { rawToUi } from '@/lib/utils/formatters';
@@ -17,6 +18,8 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
 import { buildHolderDeskSynth } from '@/lib/tokens/holderDeskSynth';
 import { HoldersDeskTable, type HolderDeskRow } from '@/components/tokens/HoldersDeskTable';
+import { DESK_SCROLL_WELL_CLASS } from '@/components/tokens/cells/deskTokens';
+import { cn } from '@/lib/utils/cn';
 
 type HoldersResponse = {
   mint: string;
@@ -32,6 +35,7 @@ export function HoldersTable({
   deskFilter = 'all',
   onFilterMintTrades,
   tradesMakerFilter = null,
+  onOpenSettings,
 }: {
   mint: string;
   creatorWallet?: string | null;
@@ -40,6 +44,7 @@ export function HoldersTable({
   deskFilter?: TraderDeskFilter;
   onFilterMintTrades?: (address: string) => void;
   tradesMakerFilter?: string | null;
+  onOpenSettings?: () => void;
 }) {
   const uiDemo = useUiDemoMode();
   const activeChain = useUIStore((s) => s.activeChain);
@@ -49,6 +54,9 @@ export function HoldersTable({
   const { resolveLabel } = useWalletLabels();
   const demoRows = useMemo(() => syntheticHoldersResponse(mint, 9), [mint]);
 
+  const tableDemoEnv = preferTokenTableDemoRows();
+  const demoTables = demoTablesEnabled(uiDemo);
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['token-holders', mint],
     queryFn: async (): Promise<HoldersResponse> => {
@@ -56,23 +64,20 @@ export function HoldersTable({
       if (!r.ok) throw new Error('holders_failed');
       return r.json() as Promise<HoldersResponse>;
     },
-    placeholderData: demoRows,
+    placeholderData: demoTables ? demoRows : undefined,
     staleTime: 60_000,
   });
 
   const filled = useMemo(() => {
     const decimals = data?.decimals ?? 9;
-    if (preferTokenTableDemoRows()) {
-      return syntheticHoldersResponse(mint, decimals);
-    }
-    if (uiDemo && (isError || !data || data.holders.length === 0)) {
+    if (tableDemoEnv || (uiDemo && (isError || !data || data.holders.length === 0))) {
       return syntheticHoldersResponse(mint, decimals);
     }
     if (isError || !data?.holders?.length) {
-      return syntheticHoldersResponse(mint, decimals);
+      return { mint, decimals, holders: [] as HolderDeskRow[] };
     }
     return data;
-  }, [isLoading, mint, data, isError, uiDemo]);
+  }, [mint, data, isError, uiDemo, tableDemoEnv]);
 
   const sym = tokenSymbol ?? 'TOK';
   const decimals = filled?.decimals ?? 9;
@@ -142,7 +147,7 @@ export function HoldersTable({
           description="Clear pills or widen the lens."
         />
       ) : filled ? (
-        <div className="desk-scroll-well relative min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-auto rounded-b-[6px] border border-border-subtle/25 border-t-0 bg-bg-base/25 shadow-[inset_0_1px_0_rgb(var(--border-subtle-rgb)/0.45)] [scrollbar-gutter:stable] touch-pan-y [scrollbar-width:thin] [scrollbar-color:rgb(var(--border-strong-rgb)/0.65)_transparent]">
+        <div className={cn('desk-scroll-well', DESK_SCROLL_WELL_CLASS)}>
             <HoldersDeskTable
               rows={visibleRows}
               mint={mint}
@@ -153,6 +158,7 @@ export function HoldersTable({
               sortDir={uPnlSortDir}
               onFilterMintTrades={onFilterMintTrades}
               tradesMakerFilter={tradesMakerFilter}
+              onOpenSettings={onOpenSettings}
             />
         </div>
       ) : null}

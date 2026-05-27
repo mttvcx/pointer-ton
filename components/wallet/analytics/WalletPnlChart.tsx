@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   ColorType,
   createChart,
@@ -11,6 +11,8 @@ import {
   type Time,
 } from 'lightweight-charts';
 import type { WalletAnalyticsChartPoint } from '@/lib/wallet-analytics/types';
+import { usdToNative } from '@/lib/wallet-analytics/displayCurrency';
+import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
 import { cn } from '@/lib/utils/cn';
 
 const BULL_HEX = '#3DDC97';
@@ -18,14 +20,26 @@ const BEAR_HEX = '#FF5E78';
 
 export function WalletPnlChart({
   points,
+  usdMode = true,
+  solUsd = null,
   className,
 }: {
   points: WalletAnalyticsChartPoint[];
+  usdMode?: boolean;
+  solUsd?: number | null;
   className?: string;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Baseline'> | null>(null);
+
+  const displayPoints = useMemo(() => {
+    if (usdMode) return points;
+    return points.map((p) => {
+      const native = usdToNative(p.v, solUsd);
+      return { ...p, v: native ?? p.v };
+    });
+  }, [points, usdMode, solUsd]);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -117,18 +131,18 @@ export function WalletPnlChart({
   useEffect(() => {
     const series = seriesRef.current;
     if (!series) return;
-    if (points.length === 0) {
+    if (displayPoints.length === 0) {
       series.setData([]);
       return;
     }
-    const data = points.map((p) => ({
+    const data = displayPoints.map((p) => ({
       time: Math.floor(p.t / 1000) as Time,
       value: p.v,
     }));
     series.setData(data);
     chartRef.current?.timeScale().fitContent();
 
-    const last = points[points.length - 1]?.v ?? 0;
+    const last = displayPoints[displayPoints.length - 1]?.v ?? 0;
     const line =
       last > 0 ? BULL_HEX : last < 0 ? BEAR_HEX : 'rgba(155, 163, 176, 0.75)';
     const priceLineMuted =
@@ -142,15 +156,16 @@ export function WalletPnlChart({
       bottomLineColor: line,
       priceLineColor: priceLineMuted,
     });
-  }, [points]);
+  }, [displayPoints]);
 
   return (
     <div className={cn('relative min-h-[174px] flex-1', className)}>
       <div ref={wrapRef} className="absolute inset-0" />
-      <div className="pointer-events-none absolute bottom-1.5 left-2 flex items-center gap-1.5 opacity-18">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/branding/logo-bird.svg" alt="" width={18} height={18} />
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-fg-muted">pointer.</span>
+      <div className="pointer-events-none absolute bottom-2 left-2.5 flex items-center gap-1.5">
+        <PointerBirdMark size={16} className="opacity-45" />
+        <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-fg-muted/45">
+          POINTER
+        </span>
       </div>
     </div>
   );

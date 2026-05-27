@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { formatCompactUsd, formatAgeShort, formatDuration } from '@/lib/format';
 import { DevTokenStatsPanel } from './DevTokenStatsPanel';
@@ -40,7 +41,7 @@ export function DevTokensPane({ creatorWallet, dev, tokens }: Props) {
         <div className="relative min-w-0 flex-1 overflow-auto">
           <DevTokensTable tokens={tokens} />
         </div>
-        <div className="w-[320px] shrink-0 overflow-auto bg-bg-raised/20">
+        <div className="w-[320px] shrink-0 overflow-auto border-l border-border-subtle/25">
           <DevTokenStatsPanel tokens={tokens} lastLaunchAgo={lastLaunchAgo} />
         </div>
       </div>
@@ -56,17 +57,17 @@ function CreatorStatStrip({
   dev: DevWalletStatsRow | null;
 }) {
   return (
-    <div className="flex items-center gap-4 border-b border-border-subtle bg-bg-raised/30 px-3 py-1.5 text-[11px]">
-      <span className="font-sans text-fg-secondary">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border-subtle/25 px-3 py-1 text-[10px] leading-tight">
+      <span className="font-sans tabular-nums text-fg-secondary">
         {creatorWallet.slice(0, 6)}…{creatorWallet.slice(-4)}
       </span>
-      <span className="text-fg-muted/60">·</span>
+      <span className="hidden text-fg-muted/40 sm:inline">·</span>
       <Stat label="Launched" value={dev?.tokens_launched ?? 0} tone="neutral" />
       <Stat label="Mooned" value={dev?.tokens_mooned ?? 0} tone="bull" />
       <Stat label="Rugged" value={dev?.tokens_rugged ?? 0} tone="bear" />
       {dev?.median_time_to_rug_seconds != null && dev.median_time_to_rug_seconds > 0 ? (
         <>
-          <span className="text-fg-muted/60">·</span>
+          <span className="hidden text-fg-muted/40 sm:inline">·</span>
           <span className="text-fg-muted">
             Median t-to-rug:{' '}
             <span className="font-sans tabular-nums text-fg-secondary">
@@ -77,7 +78,7 @@ function CreatorStatStrip({
       ) : null}
       {dev?.reputation_score != null ? (
         <>
-          <span className="text-fg-muted/60">·</span>
+          <span className="hidden text-fg-muted/40 sm:inline">·</span>
           <span className="text-fg-muted">
             Rep:{' '}
             <span className="font-sans tabular-nums text-fg-secondary">
@@ -114,6 +115,75 @@ function Stat({
 }
 
 function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
+  type DevSortKey =
+    | 'token'
+    | 'mcUsd'
+    | 'athUsd'
+    | 'liquidityUsd'
+    | 'volume1hUsd'
+    | 'balanceUsd'
+    | 'pnlUsd';
+
+  const [sortKey, setSortKey] = useState<DevSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null);
+
+  const cycleSort = (key: DevSortKey) => {
+    if (sortKey !== key) {
+      setSortKey(key);
+      setSortDir('desc');
+      return;
+    }
+    if (sortDir === 'desc') {
+      setSortDir('asc');
+      return;
+    }
+    setSortKey(null);
+    setSortDir(null);
+  };
+
+  const colSort = (key: DevSortKey): 'asc' | 'desc' | null =>
+    sortKey === key ? sortDir : null;
+
+  const sortedTokens = useMemo(() => {
+    const copy = [...tokens];
+    if (!sortKey || !sortDir) {
+      return copy.sort(
+        (a, b) => new Date(b.launchedAt).getTime() - new Date(a.launchedAt).getTime(),
+      );
+    }
+    const dir = sortDir === 'asc' ? 1 : -1;
+    copy.sort((a, b) => {
+      let diff = 0;
+      switch (sortKey) {
+        case 'token':
+          diff = new Date(a.launchedAt).getTime() - new Date(b.launchedAt).getTime();
+          break;
+        case 'mcUsd':
+          diff = a.mcUsd - b.mcUsd;
+          break;
+        case 'athUsd':
+          diff = a.athUsd - b.athUsd;
+          break;
+        case 'liquidityUsd':
+          diff = a.liquidityUsd - b.liquidityUsd;
+          break;
+        case 'volume1hUsd':
+          diff = a.volume1hUsd - b.volume1hUsd;
+          break;
+        case 'balanceUsd':
+          diff = a.balanceUsd - b.balanceUsd;
+          break;
+        case 'pnlUsd':
+          diff = a.pnlUsd - b.pnlUsd;
+          break;
+        default:
+          break;
+      }
+      return diff * dir;
+    });
+    return copy;
+  }, [tokens, sortKey, sortDir]);
+
   return (
     <table className="w-full min-w-[820px] table-fixed border-collapse">
       <colgroup>
@@ -130,20 +200,56 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
       </colgroup>
       <thead className={DESK_STICKY_HEAD_CLASS}>
         <tr>
-          <th className={cn(DESK_HEADER_CLASS, 'pl-3')}>Token</th>
+          <SortableTh
+            label="Token"
+            className="pl-3"
+            sortDir={colSort('token')}
+            onSort={() => cycleSort('token')}
+          />
           <th className={DESK_HEADER_CLASS}>Migrated</th>
           <th className={DESK_HEADER_CLASS}>Dex</th>
-          <SortableTh label="Market Cap" align="right" />
-          <SortableTh label="ATH" align="right" />
-          <SortableTh label="Liquidity" align="right" />
-          <SortableTh label="1h Volume" align="right" />
-          <SortableTh label="Bal." align="right" />
-          <SortableTh label="PnL" align="right" className="pr-3" />
+          <SortableTh
+            label="Market Cap"
+            align="right"
+            sortDir={colSort('mcUsd')}
+            onSort={() => cycleSort('mcUsd')}
+          />
+          <SortableTh
+            label="ATH"
+            align="right"
+            sortDir={colSort('athUsd')}
+            onSort={() => cycleSort('athUsd')}
+          />
+          <SortableTh
+            label="Liquidity"
+            align="right"
+            sortDir={colSort('liquidityUsd')}
+            onSort={() => cycleSort('liquidityUsd')}
+          />
+          <SortableTh
+            label="1h Volume"
+            align="right"
+            sortDir={colSort('volume1hUsd')}
+            onSort={() => cycleSort('volume1hUsd')}
+          />
+          <SortableTh
+            label="Bal."
+            align="right"
+            sortDir={colSort('balanceUsd')}
+            onSort={() => cycleSort('balanceUsd')}
+          />
+          <SortableTh
+            label="PnL"
+            align="right"
+            className="pr-3"
+            sortDir={colSort('pnlUsd')}
+            onSort={() => cycleSort('pnlUsd')}
+          />
           <DeskHeaderSettings />
         </tr>
       </thead>
       <tbody>
-        {tokens.map((t) => (
+        {sortedTokens.map((t) => (
           <tr key={t.mint} className={DESK_ROW_CLASS}>
             <td className={DESK_CELL_FIRST_CLASS}>
               <div className="flex items-center gap-2">

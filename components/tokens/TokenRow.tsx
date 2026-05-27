@@ -23,7 +23,7 @@ import { resolveLaunchpadAvatarChrome } from '@/lib/tokens/launchpadAvatarChrome
 import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
 import { resolvePulseTranslationGloss } from '@/lib/translate/pulseTranslationGloss';
 import { useAutoTranslateStore } from '@/store/autoTranslate';
-import { shortenAddress } from '@/lib/utils/addresses';
+import { PulseMintCopyCaption } from '@/components/tokens/PulseMintCopyCaption';
 import { formatAgeShort } from '@/lib/utils/formatters';
 import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { cn } from '@/lib/utils/cn';
@@ -235,25 +235,15 @@ export function TokenRow({
   }, [pulseBuyBusy]);
 
 
-  /** Truncated mint under avatar — Axiom-style: centered CA, muted sans, modest gap below image. */
+  /** Truncated mint under avatar — Axiom-style hover + custom copy chip (no browser title). */
   const mintCaption = (
-    <span
-      className={cn(
-        'block w-full truncate px-px text-center font-sans font-normal tabular-nums tracking-tight',
-        slotHeight != null
-          ? 'text-[11px] leading-normal text-fg-secondary/80'
-          : 'text-[10px] leading-snug text-fg-muted/70',
-      )}
-      title={token.mint}
-    >
-      {shortenAddress(token.mint, 4)}
-    </span>
+    <PulseMintCopyCaption mint={token.mint} compact={slotHeight == null} />
   );
 
   const avatarStack = (
     <div
       className={cn(
-        'flex shrink-0 flex-col items-center overflow-visible',
+        'flex shrink-0 flex-col items-center',
         slotHeight != null ? 'gap-1.5' : 'gap-px',
       )}
       style={{ minWidth: avatarSize }}

@@ -294,6 +294,9 @@ export function resolveLaunchpadProtocolFromBundle(
   if (isPulseMayhemToken(bundle)) return 'mayhem';
 
   const { token } = bundle;
+  const mintLower = token.mint?.trim().toLowerCase() ?? '';
+  if (mintLower.endsWith('pump')) return 'pump.fun';
+
   const fromPad = launchPadToProtocolId(token.launch_pad, chain);
   if (fromPad && LAUNCHPAD_AVATAR_PROTOCOLS.has(fromPad as ProtocolBrandId)) {
     return fromPad as ProtocolBrandId;
@@ -363,4 +366,30 @@ export function resolveLaunchpadAvatarChrome(
 /** @deprecated Avatar rings no longer use box-shadow frames. */
 export function launchpadFrameShadow(_frameRgba: string): string {
   return 'none';
+}
+
+/** Token header / detail — always try to surface launchpad chrome when possible. */
+export function resolveLaunchpadAvatarChromeWithFallback(
+  bundle: PulseTokenBundle,
+  opts: {
+    showFrame?: boolean;
+    isMigrated?: boolean;
+    pumpFunOnBondingCurve?: boolean;
+    chain?: AppChainId;
+  },
+): LaunchpadAvatarChrome | null {
+  const chain = opts.chain ?? 'sol';
+  const chrome = resolveLaunchpadAvatarChrome(bundle, opts);
+  if (chrome) return chrome;
+
+  if (chain !== 'sol') return null;
+
+  const pad =
+    bundle.token.launch_pad?.trim() ||
+    (bundle.token.mint.toLowerCase().endsWith('pump') ? 'pump.fun' : 'pump.fun');
+
+  return resolveLaunchpadAvatarChrome(
+    { ...bundle, token: { ...bundle.token, launch_pad: pad } },
+    opts,
+  );
 }

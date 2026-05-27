@@ -28,9 +28,10 @@ import {
   type DayActivity,
 } from '@/lib/portfolio/dailyPnlCalendar';
 import { formatNumber, formatSol } from '@/lib/utils/formatters';
-import { SolGlyph } from '@/components/chains/SolGlyph';
+import { ChainIcon } from '@/components/squads/ChainIcon';
 import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
 import { cn } from '@/lib/utils/cn';
+import { useUIStore } from '@/store/ui';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
@@ -60,13 +61,14 @@ function CalendarAmount({
   iconClassName?: string;
   className?: string;
 }) {
+  const activeChain = useUIStore((s) => s.activeChain);
   const text = amount.replace(/^\+/, '');
   if (currency === 'usd') {
-    return <span className={cn('tabular-nums', className)}>{text}</span>;
+    return <span className={cn('font-sans tabular-nums', className)}>{text}</span>;
   }
   return (
-    <span className={cn('inline-flex items-center gap-0.5 tabular-nums', className)}>
-      <SolGlyph size={iconSize} className={iconSize >= 16 ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+    <span className={cn('inline-flex items-center gap-1 font-sans tabular-nums', className)}>
+      <ChainIcon chain={activeChain} size={iconSize} className="shrink-0 rounded-full" />
       <span>{text}</span>
     </span>
   );
@@ -161,12 +163,12 @@ function DayDetailPanel({
             <div className="flex items-center gap-0.5 text-[#00c27a]">
               <ArrowUp className="h-3 w-3" strokeWidth={2.5} aria-hidden />
               {currency === 'sol' ? (
-                <span className="inline-flex items-center gap-0.5 text-[13px] font-medium tabular-nums">
-                  <SolGlyph size={14} className="h-3.5 w-3.5" />
+                <span className="inline-flex items-center gap-1 text-[13px] font-medium font-sans tabular-nums">
+                  <ChainIcon chain="solana" size={14} className="shrink-0 rounded-full" />
                   {fmtVol(activity.buyVolSol)}
                 </span>
               ) : (
-                <span className="text-[13px] font-medium tabular-nums">{fmtVol(activity.buyVolSol)}</span>
+                <span className="text-[13px] font-medium font-sans tabular-nums">{fmtVol(activity.buyVolSol)}</span>
               )}
             </div>
             <span className="text-[9px] uppercase text-white/40">Buy Vol.</span>
@@ -175,12 +177,12 @@ function DayDetailPanel({
             <div className="flex items-center gap-0.5 text-red-400">
               <ArrowDown className="h-3 w-3" strokeWidth={2.5} aria-hidden />
               {currency === 'sol' ? (
-                <span className="inline-flex items-center gap-0.5 text-[13px] font-medium tabular-nums">
-                  <SolGlyph size={14} className="h-3.5 w-3.5" />
+                <span className="inline-flex items-center gap-1 text-[13px] font-medium font-sans tabular-nums">
+                  <ChainIcon chain="solana" size={14} className="shrink-0 rounded-full" />
                   {fmtVol(activity.sellVolSol)}
                 </span>
               ) : (
-                <span className="text-[13px] font-medium tabular-nums">{fmtVol(activity.sellVolSol)}</span>
+                <span className="text-[13px] font-medium font-sans tabular-nums">{fmtVol(activity.sellVolSol)}</span>
               )}
             </div>
             <span className="text-[9px] uppercase text-white/40">Sell Vol.</span>
@@ -224,27 +226,27 @@ function CalendarDayCell({
           type="button"
           onClick={() => onSelect(dayKey)}
           className={cn(
-            'relative flex h-[64px] w-full flex-col justify-between rounded-lg p-1.5',
+            'relative flex h-[68px] w-full flex-col rounded-lg p-2',
             'cursor-pointer transition-all hover:brightness-110',
             cellBackground(activity),
             isToday && 'ring-1 ring-white/[0.15]',
             selected && !isToday && 'ring-1 ring-white/35',
           )}
         >
-          <span className="text-left text-[10px] tabular-nums text-white/25">{day}</span>
-          <div className="text-left">
+          <span className="text-left text-[10px] font-sans tabular-nums text-white/25">{day}</span>
+          <div className="mt-auto text-left pt-1">
             {showPnl ? (
               currency === 'sol' ? (
                 <CalendarAmount
                   amount={pnlLabel}
                   currency="sol"
-                  iconSize={14}
-                  className={cn('text-[11px] font-medium leading-none', cellPnlTextClass(activity, currency))}
+                  iconSize={12}
+                  className={cn('text-[11px] font-semibold leading-none', cellPnlTextClass(activity, currency))}
                 />
               ) : (
                 <span
                   className={cn(
-                    'text-[11px] font-medium tabular-nums leading-none',
+                    'text-[11px] font-semibold font-sans tabular-nums leading-none',
                     cellPnlTextClass(activity, currency),
                   )}
                 >
@@ -561,7 +563,7 @@ export function PnlCalendarModal({
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: leadingBlanks }, (_, i) => (
-                  <div key={`blank-${i}`} className="h-[64px] w-full bg-transparent" aria-hidden />
+                  <div key={`blank-${i}`} className="h-[68px] w-full bg-transparent" aria-hidden />
                 ))}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const day = i + 1;
@@ -608,8 +610,10 @@ export function PnlCalendarModal({
               <span className="font-semibold text-white">{bestStreak}</span> days
             </p>
             <div className="flex shrink-0 items-center gap-1.5">
-              <PointerBirdMark size={16} className="opacity-30" />
-              <span className="text-[10px] font-medium tracking-widest text-white/20">POINTER</span>
+              <PointerBirdMark size={18} className="opacity-95" />
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/35">
+                POINTER
+              </span>
             </div>
           </div>
         </div>

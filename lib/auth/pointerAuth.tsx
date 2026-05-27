@@ -36,7 +36,19 @@ export type PointerAuthUser = {
 type Ctx = {
   ready: boolean;
   authenticated: boolean;
+  /**
+   * In-app "Connect wallet" CTA. Chain-aware: SOL/BNB/Base jump straight to a
+   * wallet picker via Privy's `useConnectWallet`; TON falls back to the full
+   * Privy modal. Use this only inside the authenticated shell.
+   */
   login: () => Promise<void>;
+  /**
+   * Landing / marketing CTA. Always opens Privy's full sign-in modal
+   * (email · Google · X · wallet) regardless of active chain. Use this on
+   * unauthenticated pages so users actually see a sign-in prompt instead of
+   * a silent wallet auto-reconnect.
+   */
+  signIn: () => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   user: PointerAuthUser | null;
@@ -237,6 +249,30 @@ function InnerAuth({ children }: { children: ReactNode }) {
     wallet,
   ]);
 
+  const signIn = useCallback(async () => {
+    if (!privy.ready) {
+      if (!privyReadyTimedOut) {
+        toast.message('Loading sign-in…', { description: 'One moment, then try again.' });
+        return;
+      }
+      toast.error('Sign-in provider blocked', {
+        description:
+          'Allow auth.privy.io in your ad blocker, then refresh. In dashboard.privy.io add this origin as allowed.',
+      });
+      return;
+    }
+    if (privy.authenticated) {
+      /** Already authenticated — caller decides routing (e.g. landing pushes /pulse). */
+      return;
+    }
+    try {
+      await privy.login();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not open sign-in';
+      toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
+    }
+  }, [privy.ready, privy.authenticated, privy.login, privyReadyTimedOut]);
+
   const logout = useCallback(async () => {
     writeSession(null);
     setSessionToken(null);
@@ -283,12 +319,13 @@ function InnerAuth({ children }: { children: ReactNode }) {
       ready,
       authenticated,
       login,
+      signIn,
       logout,
       getAccessToken,
       user: authenticated ? user : null,
       linkedTonAddress,
     }),
-    [ready, authenticated, login, logout, getAccessToken, user, linkedTonAddress],
+    [ready, authenticated, login, signIn, logout, getAccessToken, user, linkedTonAddress],
   );
 
   return <PointerAuthContext.Provider value={value}>{children}</PointerAuthContext.Provider>;

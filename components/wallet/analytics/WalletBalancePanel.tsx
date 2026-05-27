@@ -4,21 +4,32 @@ import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
 import { CHAIN_ICON_PNG, CHAIN_TICKER } from '@/lib/chains/chainAssets';
-import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
+import { formatNumber } from '@/lib/utils/formatters';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { formatWalletMoney } from '@/lib/wallet-analytics/displayCurrency';
 import type { WalletAnalyticsPayload } from '@/lib/wallet-analytics/types';
+import { WalletCurrencyToggle } from '@/components/wallet/analytics/WalletCurrencyToggle';
 
 export function WalletBalancePanel({
   data,
-  currency,
+  usdMode,
+  onToggleCurrency,
 }: {
   data: WalletAnalyticsPayload;
-  currency: 'USD';
+  usdMode: boolean;
+  onToggleCurrency: () => void;
 }) {
   const pos = (v: number | null | undefined) =>
     v == null || !Number.isFinite(v) ? 'default' : v >= 0 ? 'bull' : 'bear';
   const chainTicker = CHAIN_TICKER[data.chain];
   const funding = data.funding;
+  const fmt = (usd: number | null | undefined, compact = true) =>
+    formatWalletMoney(usd, {
+      usdMode,
+      solUsd: data.solUsd,
+      nativeSym: chainTicker,
+      compact,
+    });
   const fundingHref =
     data.chain === 'sol' && funding?.fundingTxSignature
       ? explorerUrlSolanaTx(funding.fundingTxSignature)
@@ -29,46 +40,42 @@ export function WalletBalancePanel({
   return (
     <div className="flex min-h-0 flex-col p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-xs font-semibold text-fg-primary">BALANCE</h3>
-        <span className="rounded border border-border-subtle bg-bg-sunken px-1.5 py-0.5 text-[8.5px] font-semibold uppercase tracking-wide text-fg-muted">
-          {currency}
-        </span>
+        <h3 className="text-xs font-semibold text-fg-primary">Balance</h3>
+        <WalletCurrencyToggle usdMode={usdMode} nativeSym={chainTicker} onToggle={onToggleCurrency} />
       </div>
 
       <dl className="space-y-2 text-xs">
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">Total value</dt>
-          <dd className="text-2xl font-bold tabular-nums text-fg-primary">
-            {data.totalValueUsd != null ? formatCompactUsd(data.totalValueUsd) : '—'}
+          <dd className="font-sans text-2xl font-semibold tabular-nums text-fg-primary">
+            {fmt(data.totalValueUsd)}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">Unrealized PNL</dt>
           <dd
             className={cn(
-              'text-lg font-semibold tabular-nums',
+              'font-sans text-lg font-medium tabular-nums',
               pos(data.unrealizedPnlUsd) === 'bull' && 'text-signal-bull',
               pos(data.unrealizedPnlUsd) === 'bear' && 'text-signal-bear',
               pos(data.unrealizedPnlUsd) === 'default' && 'text-fg-muted',
             )}
           >
-            {data.unrealizedPnlUsd != null ? formatCompactUsd(data.unrealizedPnlUsd) : '—'}
+            {fmt(data.unrealizedPnlUsd)}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">Current balance</dt>
-          <dd className="text-sm font-medium tabular-nums text-fg-primary">
+          <dd className="font-sans text-sm font-medium tabular-nums text-fg-primary">
             {data.chain === 'ton' && data.nativeBalanceLabel
               ? data.nativeBalanceLabel
-              : data.tradeableBalanceUsd != null
-                ? formatCompactUsd(data.tradeableBalanceUsd)
-                : '—'}
+              : fmt(data.tradeableBalanceUsd)}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-fg-muted">Stable balance</dt>
-          <dd className="text-sm font-medium tabular-nums text-fg-primary">
-            {data.stableCoinBalanceUsd != null ? formatCompactUsd(data.stableCoinBalanceUsd) : '—'}
+          <dd className="font-sans text-sm font-medium tabular-nums text-fg-primary">
+            {fmt(data.stableCoinBalanceUsd)}
           </dd>
         </div>
       </dl>
@@ -95,7 +102,7 @@ export function WalletBalancePanel({
                   if (!fundingHref) e.preventDefault();
                 }}
               >
-                <span className="truncate font-mono tabular-nums">{shortenAddress(funding.fromAddress, 5)}</span>
+                <span className="truncate font-sans text-[11px] font-medium tabular-nums">{shortenAddress(funding.fromAddress, 5)}</span>
                 {fundingHref ? (
                   <ExternalLink className="h-3 w-3 shrink-0 opacity-70 group-hover:opacity-100" strokeWidth={2} />
                 ) : null}

@@ -4,15 +4,21 @@ import { AlertTriangle } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@/lib/utils/formatters';
+import { EMPTY_TOKEN_EXTENDED_METRICS } from '@/lib/dev/demoPolicy';
 import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
+import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
 import { TokenInfoTaxBanner, hasTokenTax } from '@/components/tokens/TokenInfoTaxBanner';
 import { cn } from '@/lib/utils/cn';
 
-function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
-  const pct = (n: number | null | undefined) =>
-    `${formatNumber(n ?? 0, { decimals: 2 })}%`;
+function pctOrDash(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '\u2014';
+  return `${formatNumber(n, { decimals: 2 })}%`;
+}
+
+function TokenInfoMetricGrid({ m, loading }: { m: TokenExtendedMetrics; loading?: boolean }) {
+  const pct = (n: number | null | undefined) => (loading ? '\u2026' : pctOrDash(n));
 
   const dexLabel = m.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid';
   const dexCls = tokenMetricValueClass('dex', 0, m.dexPaid);
@@ -50,12 +56,20 @@ function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
     },
     {
       label: 'Holders',
-      value: formatNumber(m.holders ?? 0, { decimals: 0 }),
+      value: loading
+        ? '\u2026'
+        : m.holders != null
+          ? formatNumber(m.holders, { decimals: 0 })
+          : '\u2014',
       valueClass: tokenMetricValueClass('holders', m.holders ?? 0),
     },
     {
       label: 'Pro Traders',
-      value: formatNumber(m.proTraders ?? 0, { decimals: 0 }),
+      value: loading
+        ? '\u2026'
+        : m.proTraders != null
+          ? formatNumber(m.proTraders, { decimals: 0 })
+          : '\u2014',
       valueClass: tokenMetricValueClass('pro', m.proTraders ?? 0),
     },
     {
@@ -76,7 +90,7 @@ function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
   return (
     <>
       <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-muted">Token Info</h3>
-      <div className="overflow-hidden rounded-lg bg-border-subtle">
+      <div className="overflow-hidden rounded-lg border border-border-subtle/70 bg-bg-hover/40">
         {hasTokenTax(m.taxPct) ? <TokenInfoTaxBanner taxPct={m.taxPct} /> : null}
         <div className="grid grid-cols-3 gap-px">
         {cells.map((item) => (
@@ -100,6 +114,7 @@ function TokenInfoMetricGrid({ m }: { m: TokenExtendedMetrics }) {
 }
 
 export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGrid?: boolean }) {
+  const uiDemo = useUiDemoMode();
   const demoPayload = useMemo(
     () => ({ metrics: syntheticTokenExtendedMetrics(mint), symbol: null as string | null }),
     [mint],
@@ -119,11 +134,12 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
       }
       return json as { metrics: TokenExtendedMetrics; symbol: string | null };
     },
-    placeholderData: demoPayload,
+    placeholderData: uiDemo ? demoPayload : undefined,
     staleTime: 45_000,
   });
 
-  const m = q.data?.metrics ?? syntheticTokenExtendedMetrics(mint);
+  const m = q.data?.metrics ?? (uiDemo ? demoPayload.metrics : EMPTY_TOKEN_EXTENDED_METRICS);
+  const metricsLoading = q.isLoading && !q.data;
 
   const footer = (
     <div className="mt-2 space-y-1 text-[10px] text-fg-muted">
@@ -131,7 +147,11 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
       <div className="flex justify-between gap-2 font-medium">
         <span>Vol $</span>
         <span className="tabular-nums text-fg-secondary">
-          {m.vol6hUsd != null ? `$${formatNumber(m.vol6hUsd, { decimals: 0 })}` : '$0'}
+          {metricsLoading
+            ? '\u2026'
+            : m.vol6hUsd != null
+              ? `$${formatNumber(m.vol6hUsd, { decimals: 0 })}`
+              : '\u2014'}
         </span>
       </div>
     </div>
@@ -139,15 +159,15 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
 
   if (compactGrid) {
     return (
-      <div className="w-full min-w-0 bg-bg-base p-2">
-        <TokenInfoMetricGrid m={m} />
+      <div className="w-full min-w-0 bg-bg-raised p-2">
+        <TokenInfoMetricGrid m={m} loading={metricsLoading} />
         {footer}
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-[200px] w-full min-w-0 flex-col gap-2 bg-bg-base p-2">
+    <div className="flex h-full min-h-[200px] w-full min-w-0 flex-col gap-2 bg-bg-raised p-2">
       <TokenInfoMetricGrid m={m} />
       {footer}
     </div>

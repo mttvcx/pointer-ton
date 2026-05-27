@@ -24,7 +24,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
-import { clampAlertRulesPopoutFrame } from '@/lib/ui/alertRulesPopoutFrame';
+import { openXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 
 /** Glass tokens — airy layers on `bg-base`, not flat grey slabs */
 const UI = {
@@ -116,16 +116,9 @@ function ToggleRow({ children }: { children: React.ReactNode }) {
   return <div className="inline-flex items-center gap-2">{children}</div>;
 }
 
-/** Detached Pulse alert builder — reused from Explore and other shells. */
+/** Opens the Pulse side-rail X monitor (single canonical surface). */
 export function openAlertRulesPopoutDetached() {
-  const header = document.querySelector('header');
-  const top = Math.round((header?.getBoundingClientRect().bottom ?? 72) + 8);
-  const w = Math.min(440, Math.max(300, Math.round(window.innerWidth * 0.38)));
-  const bottomReserve = 64;
-  const h = Math.min(560, Math.max(320, window.innerHeight - top - bottomReserve));
-  const st = useUIStore.getState();
-  st.setAlertRulesDocked(false);
-  st.setAlertRulesPopout(clampAlertRulesPopoutFrame(top, 14, w, h));
+  openXMonitorOnPulse('left');
 }
 
 export function AlertRulesSection({
@@ -363,7 +356,7 @@ export function AlertRulesSection({
                 <>
                   <button
                     type="button"
-                    onClick={() => useUIStore.getState().setAlertRulesDocked(true)}
+                    onClick={() => openXMonitorOnPulse('left')}
                     className="focus-ring shrink-0 self-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
                     title="Dock in left shell"
                     aria-label="Dock alert builder in left rail"
@@ -410,7 +403,7 @@ export function AlertRulesSection({
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => useUIStore.getState().setAlertRulesDocked(true)}
+                    onClick={() => openXMonitorOnPulse('left')}
                     className="focus-ring rounded-lg border border-white/10 bg-white/[0.03] p-1.5 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
                     title="Dock in left shell"
                     aria-label="Dock alert builder in left rail"

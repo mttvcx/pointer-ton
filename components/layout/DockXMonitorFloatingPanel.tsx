@@ -10,6 +10,7 @@ import {
 import { stickyDockSideFromFloatingRect } from '@/lib/layout/floatingPeekSticky';
 import { embedXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorFloat';
 import {
+  clampDockPeekWidth,
   DEFAULT_X_MONITOR_PEEK_SIZE,
   useTokenDockPeekStore,
   type PeekDockSnapSide,
@@ -84,9 +85,9 @@ export function DockXMonitorFloatingPanel() {
   };
 
   const clampPanelSize = useCallback((w: number, h: number) => {
-    const { maxFloatH, maxFloatW } = readMetrics();
+    const { maxFloatH } = readMetrics();
     return {
-      w: Math.round(Math.min(maxFloatW, Math.max(MIN_PANEL_W, w))),
+      w: clampDockPeekWidth(w, MIN_PANEL_W),
       h: Math.round(Math.min(maxFloatH, Math.max(MIN_PANEL_H, h))),
     };
   }, []);

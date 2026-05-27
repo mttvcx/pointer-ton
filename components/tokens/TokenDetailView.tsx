@@ -4,18 +4,33 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
-  ArrowUpDown,
+  ArrowLeftRight,
   ChefHat,
   Crosshair,
-  Filter,
   Fish,
   Target,
-  User,
 } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { TradesDeskFilterPill } from '@/components/tokens/cells/TradesDeskFilterPill';
+import { useActiveWalletStore } from '@/store/activeWallet';
+import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
+import {
+  tradeRowMatchesDeskFilter,
+  tradeFillMarketCapUsdLabel,
+  tradeMakerWallet,
+  tradeRowDemoIndex,
+  tradeTraderHint,
+  tradeWalletDeskExtras,
+  type TradesDeskFilter,
+} from '@/lib/tokens/tradeFormatting';
+import { formatRelativeShort } from '@/lib/format';
+import { SortIndicator } from '@/components/tokens/cells/SortableTh';
+import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
+import { ChainIcon } from '@/components/squads/ChainIcon';
+import { TerminalUsdPrice } from '@/lib/utils/terminalBalanceFormat';
 
 const TokenChart = dynamic(
   () => import('@/components/tokens/TokenChart').then((m) => ({ default: m.TokenChart })),
@@ -30,13 +45,7 @@ import { CompactInstantTradePanel } from '@/components/trading/CompactInstantTra
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { Tables } from '@/lib/supabase/types';
-import { shortenAddress } from '@/lib/utils/addresses';
-import { formatAgeShort, formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
-import {
-  persistChartOverlays,
-  readChartOverlays,
-  type ChartOverlayFlags,
-} from '@/lib/chart/tokenChartOverlays';
+import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { noteRecentTradeMint } from '@/store/recentTradeMints';
 import { useTradingStore } from '@/store/trading';
@@ -127,13 +136,12 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
-function tradeMcSnapshot(t: MintTradeRow): string {
-  const px = t.price_usd_at_fill;
-  const amt = t.amount_token;
-  if (px == null || amt == null || !Number.isFinite(px) || !Number.isFinite(amt)) return '\u2014';
-  const v = px * amt;
-  if (!Number.isFinite(v) || v === 0) return '\u2014';
-  return formatCompactUsd(v);
+function tradeMcSnapshot(
+  t: MintTradeRow,
+  supplyTokens: number | null | undefined,
+  fallbackMcUsd: number | null | undefined,
+): string {
+  return tradeFillMarketCapUsdLabel(t, supplyTokens, fallbackMcUsd);
 }
 
 function optionalTradeBool(row: MintTradeRow, key: string): boolean {
@@ -144,137 +152,224 @@ function optionalTradeBool(row: MintTradeRow, key: string): boolean {
 function TokenLiveTradesSidePanel({
   rows,
   isLoading,
+  mint,
+  symbol,
+  creatorWallet,
+  supplyTokens,
+  marketCapUsd,
+  tradesDeskFilter,
+  onToggleDeskFilter,
+  ageSortDir,
+  onToggleAgeSort,
 }: {
   rows: MintTradeRow[];
   isLoading: boolean;
+  mint: string;
+  symbol: string | null;
+  creatorWallet: string | null;
+  supplyTokens: number | null | undefined;
+  marketCapUsd: number | null | undefined;
+  tradesDeskFilter: TradesDeskFilter;
+  onToggleDeskFilter: (id: Exclude<TradesDeskFilter, 'all'>) => void;
+  ageSortDir: 'asc' | 'desc';
+  onToggleAgeSort: () => void;
 }) {
-  const [overlays, setOverlays] = useState<ChartOverlayFlags>(() => readChartOverlays());
+  const { isTracked } = useTrackedWalletsLookup();
+  const activeWalletAddress = useActiveWalletStore((s) => s.activeWalletAddress);
+  const [displayMode, setDisplayMode] = useState<'USD' | 'SOL'>('SOL');
+  const [valueColumn, setValueColumn] = useState<'mc' | 'price'>('mc');
 
-  useEffect(() => {
-    const sync = () => setOverlays(readChartOverlays());
-    window.addEventListener('pointer-chart-overlays', sync);
-    return () => window.removeEventListener('pointer-chart-overlays', sync);
-  }, []);
-
-  const patchOverlays = useCallback((patch: Partial<ChartOverlayFlags>) => {
-    setOverlays((prev) => {
-      const next = { ...prev, ...patch };
-      persistChartOverlays(next);
-      return next;
+  const filteredRows = useMemo(() => {
+    if (tradesDeskFilter === 'all') return rows;
+    return rows.filter((row, rowIndex) => {
+      const wallet = tradeMakerWallet(row, rowIndex) ?? row.user_id;
+      return tradeRowMatchesDeskFilter({
+        wallet,
+        creatorWallet,
+        tracked: wallet ? isTracked(wallet) : false,
+        userWallet: activeWalletAddress,
+        filter: tradesDeskFilter,
+      });
     });
-  }, []);
+  }, [rows, tradesDeskFilter, creatorWallet, isTracked, activeWalletAddress]);
+
+  const sortedRows = useMemo(() => {
+    return [...filteredRows].sort((a, b) => {
+      const ta = new Date(a.submitted_at).getTime();
+      const tb = new Date(b.submitted_at).getTime();
+      if (!Number.isFinite(ta) || !Number.isFinite(tb)) return 0;
+      return ageSortDir === 'asc' ? ta - tb : tb - ta;
+    });
+  }, [filteredRows, ageSortDir]);
 
   return (
     <div className="flex min-w-[220px] max-w-[280px] shrink-0 flex-1 flex-col overflow-hidden border-l border-border-subtle bg-bg-raised lg:max-w-none lg:flex-none lg:basis-[240px]">
-      <div className="flex items-center gap-1 border-b border-border-subtle px-3 py-2">
-        <button
-          type="button"
-          className="filter-pill shrink-0"
-          data-active={overlays.devTrades ? true : undefined}
-          onClick={() => patchOverlays({ devTrades: !overlays.devTrades })}
-        >
-          <Filter className="h-3 w-3 shrink-0" aria-hidden />
-          <span>Dev</span>
-        </button>
-        <button
-          type="button"
-          className="filter-pill shrink-0"
-          data-active={overlays.trackedOnly ? true : undefined}
-          onClick={() => patchOverlays({ trackedOnly: !overlays.trackedOnly })}
-        >
-          <Filter className="h-3 w-3 shrink-0" aria-hidden />
-          <span>Tracked</span>
-        </button>
-        <button
-          type="button"
-          className="filter-pill shrink-0"
-          data-active={overlays.alertBubbles ? true : undefined}
-          onClick={() => patchOverlays({ alertBubbles: !overlays.alertBubbles })}
-        >
-          <User className="h-3 w-3 shrink-0" aria-hidden />
-          <span>You</span>
-        </button>
-        <button
-          type="button"
-          className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-          aria-label="Sort trades"
-        >
-          <ArrowUpDown className="h-3 w-3" aria-hidden />
-        </button>
+      <div className="flex items-center gap-0.5 border-b border-border-subtle/25 px-2 py-0.5">
+        <TradesDeskFilterPill
+          id="dev"
+          label="Dev"
+          active={tradesDeskFilter === 'dev'}
+          onClick={() => onToggleDeskFilter('dev')}
+        />
+        <TradesDeskFilterPill
+          id="tracked"
+          label="Tracked"
+          active={tradesDeskFilter === 'tracked'}
+          onClick={() => onToggleDeskFilter('tracked')}
+        />
+        <TradesDeskFilterPill
+          id="you"
+          label="You"
+          active={tradesDeskFilter === 'you'}
+          onClick={() => onToggleDeskFilter('you')}
+        />
       </div>
-      <div className="flex items-center border-b border-border-subtle bg-bg-sunken px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-fg-muted">
-        <span className="w-[68px] shrink-0">Amount</span>
-        <span className="w-[58px] shrink-0">MC</span>
+      <div className="flex items-center border-b border-border-subtle/25 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted">
+        <span className="flex w-[72px] shrink-0 items-center gap-0.5 normal-case tracking-normal">
+          <span>Amount</span>
+          <button
+            type="button"
+            onClick={() => setDisplayMode((m) => (m === 'USD' ? 'SOL' : 'USD'))}
+            className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-signal-bull/15 text-signal-bull transition hover:bg-signal-bull/25"
+            title="Toggle USD / SOL"
+            aria-label="Toggle USD / SOL amount"
+          >
+            <ArrowLeftRight className="h-2 w-2" strokeWidth={2.5} aria-hidden />
+          </button>
+        </span>
+        <span className="flex w-[58px] shrink-0 items-center gap-0.5 normal-case tracking-normal">
+          <span>{valueColumn === 'mc' ? 'MC' : 'Price'}</span>
+          <button
+            type="button"
+            onClick={() => setValueColumn((c) => (c === 'mc' ? 'price' : 'mc'))}
+            className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded text-fg-muted/60 transition hover:bg-white/[0.06] hover:text-fg-primary"
+            title="Toggle MC / Price"
+            aria-label="Toggle MC / Price"
+          >
+            <ArrowLeftRight className="h-2 w-2" strokeWidth={2.5} aria-hidden />
+          </button>
+        </span>
         <span className="min-w-0 flex-1">Trader</span>
-        <span className="shrink-0">Age</span>
+        <button
+          type="button"
+          onClick={onToggleAgeSort}
+          className="ml-auto flex shrink-0 items-center gap-0.5 normal-case tracking-normal text-fg-primary transition-colors hover:text-fg-primary"
+          aria-label={`Sort trades by age, ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
+          title={`Sort ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
+        >
+          Age
+          <SortIndicator sortDir={ageSortDir} />
+        </button>
       </div>
-      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {isLoading ? (
           <div className="space-y-2 p-2">
             {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="h-6 animate-pulse rounded bg-bg-sunken/80" />
+              <div key={i} className="h-6 animate-pulse rounded bg-bg-hover/40" />
             ))}
           </div>
-        ) : rows.length === 0 ? (
-          <p className="px-3 py-4 text-center text-[11px] text-fg-muted">No trades indexed yet.</p>
+        ) : sortedRows.length === 0 ? (
+          <p className="px-3 py-4 text-center text-[11px] text-fg-muted">No transactions found</p>
         ) : (
-          rows.map((t) => {
-            const sol = t.amount_sol;
-            const solStr = sol != null ? formatNumber(sol, { decimals: 4 }) : '\u2014';
+          sortedRows.map((t, i) => {
+            const sol = t.amount_sol ?? 0;
+            const usdValue = Math.abs(sol * (t.price_usd_at_fill ?? 0));
+            const solStr =
+              sol != null && Number.isFinite(sol)
+                ? formatNumber(sol, { decimals: Math.abs(sol) < 1 ? 3 : 2 })
+                : '\u2014';
             const bull = t.side === 'buy';
-            const traderShort = shortenAddress(t.user_id, 4);
-            const mc = tradeMcSnapshot(t);
-            const isDev = optionalTradeBool(t, 'isDev');
-            const isSniper = optionalTradeBool(t, 'isSniper');
-            const isWhale = optionalTradeBool(t, 'isWhale');
-            const isTracked = optionalTradeBool(t, 'isTracked');
-            const isInsider = optionalTradeBool(t, 'isInsider');
+            const traderHint = tradeTraderHint(t, i);
+            const wallet = traderHint.fullAddress;
+            const demoIdx = tradeRowDemoIndex(t);
+            const deskExtras = wallet ? tradeWalletDeskExtras(wallet, demoIdx, creatorWallet) : null;
+            const mc = tradeMcSnapshot(t, supplyTokens, marketCapUsd);
+            const ageLabel = formatRelativeShort(t.submitted_at);
 
             return (
               <div
                 key={t.id}
-                className="flex items-center border-b border-border-subtle/30 px-3 py-1 text-xs transition-colors last:border-b-0 hover:bg-bg-hover"
+                className="flex items-center border-b border-border-subtle/25 px-2 py-1 text-xs transition-colors last:border-b-0 hover:bg-white/[0.03]"
               >
                 <span
                   className={cn(
-                    'w-[68px] shrink-0 font-mono tabular-nums',
+                    'flex w-[72px] shrink-0 items-center gap-0.5 font-sans tabular-nums',
                     bull ? 'text-signal-bull' : 'text-signal-bear',
                   )}
                 >
-                  ≡ {solStr}
+                  {displayMode === 'SOL' ? (
+                    <>
+                      <ChainIcon chain="sol" size={11} />
+                      {solStr}
+                    </>
+                  ) : (
+                    formatCompactUsd(usdValue)
+                  )}
                 </span>
-                <span className="w-[58px] shrink-0 font-mono tabular-nums text-fg-secondary">{mc}</span>
-                <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <span className="truncate font-mono text-fg-secondary" title={t.user_id}>
-                    {traderShort}
-                  </span>
-                  {isDev ? (
-                    <span title="Dev wallet">
-                      <ChefHat className="h-3 w-3 shrink-0 text-signal-warn" aria-hidden />
-                    </span>
-                  ) : null}
-                  {isSniper ? (
-                    <span title="Sniper">
-                      <Crosshair className="h-3 w-3 shrink-0 text-signal-bear" aria-hidden />
-                    </span>
-                  ) : null}
-                  {isWhale ? (
-                    <span title="Whale">
-                      <Fish className="h-3 w-3 shrink-0 text-signal-info" aria-hidden />
-                    </span>
-                  ) : null}
-                  {isTracked ? (
-                    <span title="Tracked">
-                      <Target className="h-3 w-3 shrink-0 text-accent-primary" aria-hidden />
-                    </span>
-                  ) : null}
-                  {isInsider ? (
-                    <span title="Insider">
-                      <AlertCircle className="h-3 w-3 shrink-0 text-signal-bear" aria-hidden />
-                    </span>
-                  ) : null}
+                <span className="w-[58px] shrink-0 font-sans tabular-nums text-fg-secondary">
+                  {valueColumn === 'mc' ? (
+                    mc
+                  ) : (
+                    <TerminalUsdPrice price={t.price_usd_at_fill} className="text-[11px]" />
+                  )}
+                </span>
+                <div className="flex min-w-0 flex-1 items-center gap-0.5">
+                  {wallet && deskExtras ? (
+                    <WalletIdentityAnchor
+                      address={wallet}
+                      mint={mint}
+                      tokenSymbol={symbol}
+                      creatorWallet={creatorWallet}
+                      href={`/wallet/${encodeURIComponent(wallet)}`}
+                      preferIntelModal
+                      addressFormat="axiom-ticker"
+                      outlineOnHover
+                      badgeBeforeAddress
+                      suppressFilterButton
+                      addressNoTruncate
+                      maxBadges={2}
+                      isDev={deskExtras.isDev}
+                      isSniper={deskExtras.isSniper}
+                      inlineBadges={deskExtras.inlineBadges}
+                      showInlineBadges
+                      className="cursor-pointer font-mono text-[11px] text-fg-secondary hover:text-fg-primary"
+                    />
+                  ) : (
+                    <>
+                      <span className="truncate font-mono text-[11px] text-fg-secondary" title={t.user_id}>
+                        {traderHint.shortLabel}
+                      </span>
+                      {optionalTradeBool(t, 'isDev') ? (
+                        <span title="Dev wallet">
+                          <ChefHat className="h-3 w-3 shrink-0 text-signal-warn" aria-hidden />
+                        </span>
+                      ) : null}
+                      {optionalTradeBool(t, 'isSniper') ? (
+                        <span title="Sniper">
+                          <Crosshair className="h-3 w-3 shrink-0 text-signal-bear" aria-hidden />
+                        </span>
+                      ) : null}
+                      {optionalTradeBool(t, 'isWhale') ? (
+                        <span title="Whale">
+                          <Fish className="h-3 w-3 shrink-0 text-signal-info" aria-hidden />
+                        </span>
+                      ) : null}
+                      {optionalTradeBool(t, 'isTracked') ? (
+                        <span title="Tracked">
+                          <Target className="h-3 w-3 shrink-0 text-accent-primary" aria-hidden />
+                        </span>
+                      ) : null}
+                      {optionalTradeBool(t, 'isInsider') ? (
+                        <span title="Insider">
+                          <AlertCircle className="h-3 w-3 shrink-0 text-signal-bear" aria-hidden />
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                 </div>
-                <span className="ml-2 shrink-0 text-[10px] text-fg-muted">{formatAgeShort(t.submitted_at)}</span>
+                <span className="ml-auto shrink-0 pl-1 text-right font-sans tabular-nums text-[10px] text-fg-muted">
+                  {ageLabel}
+                </span>
               </div>
             );
           })
@@ -326,10 +421,27 @@ export function TokenDetailView({
   const toggleCompactInstantTrade = useTradingStore((s) => s.toggleCompactInstantTrade);
   const setCompactInstantTradeOpen = useTradingStore((s) => s.setCompactInstantTradeOpen);
   const [tradesPanel, setTradesPanel] = useState(true);
+  const [tradesDeskFilter, setTradesDeskFilter] = useState<TradesDeskFilter>('all');
+  const [tradesAgeSortDir, setTradesAgeSortDir] = useState<'asc' | 'desc'>('desc');
+  const [tradesAgeDisplay, setTradesAgeDisplay] = useState<'age' | 'time'>('age');
   const [liveTrades, setLiveTrades] = useState<{ rows: MintTradeRow[]; isLoading: boolean }>({
     rows: [],
     isLoading: true,
   });
+  const toggleTradesDeskFilter = useCallback((id: Exclude<TradesDeskFilter, 'all'>) => {
+    setTradesDeskFilter((cur) => (cur === id ? 'all' : id));
+  }, []);
+
+  const toggleTradesAgeSort = useCallback(() => {
+    setTradesAgeSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+  }, []);
+
+  const onLiveTradesSnapshot = useCallback(
+    (s: { rows: MintTradeRow[]; isLoading: boolean }) => {
+      setLiveTrades(s);
+    },
+    [],
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const leftColRef = useRef<HTMLDivElement>(null);
@@ -363,6 +475,13 @@ export function TokenDetailView({
     if (deepLinkOrder.status !== 'triggered') return null;
     return deepLinkOrder;
   }, [deepLinkOrder, mint]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--token-trade-rail-w', `${rightStackW}px`);
+    return () => {
+      document.documentElement.style.removeProperty('--token-trade-rail-w');
+    };
+  }, [rightStackW]);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
@@ -469,7 +588,7 @@ export function TokenDetailView({
           <div
             ref={leftColRef}
             className={cn(
-              'flex min-w-0 flex-1 flex-col lg:overflow-visible',
+              'flex min-w-0 flex-1 flex-col bg-bg-raised lg:overflow-visible',
               lg && 'min-w-[360px]',
             )}
           >
@@ -488,7 +607,19 @@ export function TokenDetailView({
                 <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
               </div>
               {tradesPanel ? (
-                <TokenLiveTradesSidePanel rows={liveTrades.rows} isLoading={liveTrades.isLoading} />
+                <TokenLiveTradesSidePanel
+                  rows={liveTrades.rows}
+                  isLoading={liveTrades.isLoading}
+                  mint={mint}
+                  symbol={symbol}
+                  creatorWallet={creatorWallet}
+                  supplyTokens={supplyTokens}
+                  marketCapUsd={marketSnapshot?.market_cap_usd}
+                  tradesDeskFilter={tradesDeskFilter}
+                  onToggleDeskFilter={toggleTradesDeskFilter}
+                  ageSortDir={tradesAgeSortDir}
+                  onToggleAgeSort={toggleTradesAgeSort}
+                />
               ) : null}
             </div>
 
@@ -500,7 +631,7 @@ export function TokenDetailView({
             />
 
             {/* Sticky desk: outer page scroll stops once this fills the viewport; lists scroll inside */}
-            <div className="sticky top-0 z-[8] flex h-[calc(100dvh-var(--app-bottombar-h)-72px)] min-h-[260px] max-h-[calc(100dvh-var(--app-bottombar-h)-72px)] shrink-0 flex-col overflow-hidden overscroll-y-auto border-t border-border-subtle bg-bg-base shadow-[0_-12px_32px_-16px_rgba(0,0,0,0.45)]">
+            <div className="sticky top-0 z-[8] flex h-[calc(100dvh-var(--app-bottombar-h)-72px)] min-h-[260px] max-h-[calc(100dvh-var(--app-bottombar-h)-72px)] shrink-0 flex-col overflow-hidden overscroll-y-auto border-t border-border-subtle/25 bg-bg-raised">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <TokenActivityTabs
                   mint={mint}
@@ -509,7 +640,13 @@ export function TokenDetailView({
                   dev={dev}
                   tradesPanel={tradesPanel}
                   onTradesPanelChange={setTradesPanel}
-                  onLiveTradesSnapshot={setLiveTrades}
+                  tradesDeskFilter={tradesDeskFilter}
+                  onTradesDeskFilterChange={setTradesDeskFilter}
+                  tradesAgeSortDir={tradesAgeSortDir}
+                  onTradesAgeSortDirChange={setTradesAgeSortDir}
+                  tradesAgeDisplay={tradesAgeDisplay}
+                  onTradesAgeDisplayChange={setTradesAgeDisplay}
+                  onLiveTradesSnapshot={onLiveTradesSnapshot}
                   onOpenInstantTrade={toggleCompactInstantTrade}
                   instantTradeOpen={instantTradeOpen}
                 />
@@ -526,12 +663,11 @@ export function TokenDetailView({
 
           <div
             className={cn(
-              'flex w-full max-w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-transparent lg:sticky lg:top-0 lg:min-h-0 lg:max-h-[calc(100dvh-var(--app-bottombar-h)-72px)] lg:self-stretch lg:overflow-y-auto lg:overscroll-y-auto lg:border-l lg:border-t-0 [-ms-overflow-style:auto] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+              'flex w-full max-w-full min-w-0 shrink-0 flex-col border-t border-border-subtle bg-bg-raised lg:sticky lg:top-0 lg:min-h-0 lg:max-h-[calc(100dvh-var(--app-bottombar-h)-72px)] lg:self-stretch lg:overflow-hidden lg:border-l lg:border-t-0',
             )}
             style={lg ? { width: rightStackW } : undefined}
           >
-            {/* Fill the stretched column so wheel-scroll works over the whole rail, not only over control height. */}
-            <div className="flex min-h-full min-w-0 flex-1 flex-col">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:overflow-y-auto lg:overscroll-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <BuySellPanel
                 key={
                   mint +

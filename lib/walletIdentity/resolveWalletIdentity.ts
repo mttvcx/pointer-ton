@@ -44,9 +44,12 @@ export function resolveWalletIdentityCore(params: {
   isTracked: boolean;
   extras?: WalletIntelBadgeKind[];
   creatorWallet?: string | null;
+  /** When true, demo KOL/directory fixtures may enrich identity. */
+  allowDemoDirectory?: boolean;
 }): WalletIdentityView {
-  const { address, chain, labelDisplay, isTracked, extras = [], creatorWallet } = params;
-  const recognized = getRecognizedWallet(address);
+  const { address, chain, labelDisplay, isTracked, extras = [], creatorWallet, allowDemoDirectory = false } =
+    params;
+  const recognized = getRecognizedWallet(address, { demo: allowDemoDirectory });
   const renamed = Boolean(labelDisplay?.labeled);
   const userLabelText = labelDisplay?.labeled ? labelDisplay.label.trim() || null : null;
 

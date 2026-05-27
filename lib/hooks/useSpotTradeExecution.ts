@@ -11,6 +11,10 @@ import { toast } from 'sonner';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import {
+  walletConnectRequiredMessage,
+  viewOnlyWalletTradeMessage,
+} from '@/lib/trading/walletConnectCopy';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { formatNumber } from '@/lib/utils/formatters';
@@ -184,15 +188,12 @@ export function useSpotTradeExecution(mint: string) {
       const asset: SolSpendAsset =
         spendAssetOverride ?? (activeChain === 'sol' ? spendAsset : 'sol');
       if (!wallet) {
-        toast.error(`Connect ${nativeTicker(activeChain)} wallet`);
+        toast.error(walletConnectRequiredMessage(activeChain));
         return;
       }
       if (activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
-          description:
-            activeChain === 'ton'
-              ? 'Use a wallet linked in TonConnect to trade.'
-              : 'This imported wallet cannot sign swaps in Pointer yet.',
+          description: viewOnlyWalletTradeMessage(activeChain),
         });
         return;
       }
@@ -315,15 +316,12 @@ export function useSpotTradeExecution(mint: string) {
   const runSell = useCallback(
     async (sellPct: number) => {
       if (!wallet) {
-        toast.error(`Connect ${nativeTicker(activeChain)} wallet`);
+        toast.error(walletConnectRequiredMessage(activeChain));
         return;
       }
       if (activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
-          description:
-            activeChain === 'ton'
-              ? 'Use a wallet linked in TonConnect to trade.'
-              : 'This imported wallet cannot sign swaps in Pointer yet.',
+          description: viewOnlyWalletTradeMessage(activeChain),
         });
         return;
       }
@@ -452,15 +450,12 @@ export function useSpotTradeExecution(mint: string) {
   const runSellSolOut = useCallback(
     async (amountSolOut: number, opts?: { clearCostBasis?: boolean }) => {
       if (!wallet) {
-        toast.error(`Connect ${nativeTicker(activeChain)} wallet`);
+        toast.error(walletConnectRequiredMessage(activeChain));
         return;
       }
       if (activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
-          description:
-            activeChain === 'ton'
-              ? 'Use a wallet linked in TonConnect to trade.'
-              : 'This imported wallet cannot sign swaps in Pointer yet.',
+          description: viewOnlyWalletTradeMessage(activeChain),
         });
         return;
       }
@@ -587,7 +582,7 @@ export function useSpotTradeExecution(mint: string) {
 
   const runSellInitial = useCallback(async () => {
     if (!wallet?.address) {
-      toast.error('Connect wallet');
+      toast.error(walletConnectRequiredMessage(activeChain));
       return;
     }
     const basis = readInstantTradeCostBasisTon(mint, wallet.address);
@@ -598,7 +593,7 @@ export function useSpotTradeExecution(mint: string) {
       return;
     }
     await runSellSolOut(basis, { clearCostBasis: true });
-  }, [mint, wallet?.address, runSellSolOut]);
+  }, [mint, wallet?.address, runSellSolOut, activeChain]);
 
   return {
     wallet,

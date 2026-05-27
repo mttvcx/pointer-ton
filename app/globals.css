@@ -19,6 +19,7 @@
    */
   :root {
     --app-topbar-h: calc(56px + env(safe-area-inset-top, 0px));
+    --app-watchlist-bar-h: 32px;
     --app-bottombar-h: calc(2.5rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -225,8 +226,8 @@
   --desk-zebra-a-rgb: 14 20 28;
   --desk-zebra-b-rgb: 16 22 32;
 
-  --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, monospace;
+  --font-mono: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Arial, sans-serif;
 
   /* shadcn HSL bridge - used by any shadcn primitives that read CSS vars */
   --background: 218 43% 6%;
@@ -768,6 +769,8 @@
    Tabled mode forces a strong hairline between every row so the column
    reads as a true table — independent of the row-separators toggle. */
 .pulse-columns {
+  /* Black gutter between the three grey column panels (page bg stays raised). */
+  background-color: rgb(var(--bg-base-rgb) / 1);
   /* ~2× prior 0.5rem gutter — three panels read as separate tables (Task O). */
   gap: 1rem;
 }

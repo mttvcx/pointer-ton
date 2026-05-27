@@ -20,15 +20,14 @@ import { snapshotRecentClientErrors } from '@/lib/reports/clientErrorRing';
 import { cn } from '@/lib/utils/cn';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useDockTrackerHotkeys } from '@/lib/hooks/useDockTrackerHotkeys';
-import { spotTickerIconSrc } from '@/lib/chains/chainAssets';
+import { SpotTickerIcon } from '@/components/chains/SpotTickerIcon';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { parseLamportsStringToSol } from '@/lib/utils/formatters';
-import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import type { SpotTickerSymbol } from '@/lib/chains/chainAssets';
 import type { DockTrackerId, DockTrackerMode } from '@/lib/dock/dockTrackerConfig';
 import {
   DOCK_TRACKER_HREF,
   dockTrackerLabel,
-  WALLET_HOTKEY_ROUTE,
 } from '@/lib/dock/dockTrackerConfig';
 import { useUIStore } from '@/store/ui';
 import { useTradingStore } from '@/store/trading';
@@ -39,10 +38,11 @@ import { TradingSettingsPopover } from '@/components/trading/TradingSettingsPopo
 import { DockTrackersSettingsModal } from '@/components/layout/DockTrackersSettingsModal';
 import { MarketLighthouseHover } from '@/components/layout/MarketLighthouseHover';
 import { DOCK_TRACKER_ICON } from '@/components/layout/dockTrackerUi';
-import type { DockSpotTickerMode } from '@/store/dockTrackers';
 import { normalizeDockModes, normalizeDockOrder, useDockTrackersStore } from '@/store/dockTrackers';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePnlTrackerStore } from '@/store/pnlTracker';
+import { openXMonitorOnPulse, toggleXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
@@ -59,25 +59,10 @@ function TickerLine({ row }: { row: TickerRow }) {
     row.usdPrice != null && Number.isFinite(row.usdPrice)
       ? `$${row.usdPrice < 1000 ? row.usdPrice.toFixed(2) : row.usdPrice.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
       : '\u2014';
-  const logo = spotTickerIconSrc(row.symbol);
   return (
     <>
       <span className="sr-only">{row.symbol}</span>
-      <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.06] ring-1 ring-white/[0.08]">
-        {logo ? (
-          // eslint-disable-next-line @next/next/no-img-element -- small chain marks from /public/chains
-          <img
-            src={logo}
-            alt=""
-            width={18}
-            height={18}
-            draggable={false}
-            className="h-[18px] w-[18px] object-contain"
-          />
-        ) : (
-          <span className="text-[8px] font-bold uppercase leading-none text-white/75">{row.symbol.slice(0, 3)}</span>
-        )}
-      </span>
+      <SpotTickerIcon symbol={row.symbol} />
       <span className="min-w-[4.75rem] tabular-nums text-[12px] text-white">{price}</span>
       <span
         className={cn(
@@ -95,20 +80,16 @@ function TickerLine({ row }: { row: TickerRow }) {
   );
 }
 
-function rotatingCenterSymbols(chain: AppChainId): string[] {
-  return ['BTC', 'ETH', nativeTicker(chain)];
-}
-
 function BottomBarVerticalTicker({
   rows,
   chain,
-  mode,
+  symbols,
 }: {
   rows: TickerRow[];
   chain: AppChainId;
-  mode: DockSpotTickerMode;
+  symbols: SpotTickerSymbol[];
 }) {
-  const order = rotatingCenterSymbols(chain);
+  const order = symbols;
   const map = new Map(rows.map((r) => [r.symbol, r] as const));
   const resolved: TickerRow[] = order.map((sym) => {
     const hit = map.get(sym);
@@ -121,43 +102,10 @@ function BottomBarVerticalTicker({
     );
   });
 
-  const dupFirst = resolved[0] ?? {
-    symbol: order[0] ?? 'BTC',
-    usdPrice: null,
-    priceChange24h: null,
-  };
-  const slides: TickerRow[] = [...resolved, dupFirst];
+  if (resolved.length === 0) return null;
 
-  if (mode === 'icons') {
-    return (
-      <div className="flex shrink-0 items-center gap-1 px-0.5" aria-label="Spot prices">
-        {resolved.map((row) => {
-          const src = spotTickerIconSrc(row.symbol);
-          return (
-            <span
-              key={row.symbol}
-              title={`${row.symbol} spot`}
-              className="pointer-events-none flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-white/[0.08]"
-            >
-              {src ? (
-                // eslint-disable-next-line @next/next/no-img-element -- chain marks from /public/chains
-                <img
-                  src={src}
-                  alt=""
-                  width={16}
-                  height={16}
-                  draggable={false}
-                  className="h-4 w-4 object-contain"
-                />
-              ) : (
-                <span className="text-[7px] font-bold uppercase leading-none text-white/75">{row.symbol.slice(0, 2)}</span>
-              )}
-            </span>
-          );
-        })}
-      </div>
-    );
-  }
+  const dupFirst = resolved[0]!;
+  const slides: TickerRow[] = [...resolved, dupFirst];
 
   const [ix, setIx] = useState(0);
   const [instant, setInstant] = useState(false);
@@ -235,11 +183,11 @@ function IssuesIndicator({ onOpenDiagnostics }: { onOpenDiagnostics: () => void 
     };
   }, []);
 
-  // Hidden in production: end users don't need a live error counter; they have
-  // the silent diagnostics drawer (DiagnosticsTriggerButton) if they want to
-  // report something. Dev keeps the counter so engineers see issues in their
-  // sessions. Mirrors the comment in next.config.ts about chrome consistency.
-  if (process.env.NODE_ENV === 'production') return null;
+  // Hidden outside explicit debug chrome — end users use Diagnostics drawer instead.
+  const debugChrome =
+    process.env.NEXT_PUBLIC_POINTER_DEBUG_CHROME === '1' ||
+    process.env.POINTER_DEBUG_CHROME === '1';
+  if (!debugChrome) return null;
   if (dismissed || count === 0) return null;
 
   return (
@@ -326,7 +274,7 @@ export function BottomBar() {
   const dockModes = useMemo(() => normalizeDockModes(dockModesRaw), [dockModesRaw]);
   const dockBadges = useDockTrackersStore((s) => s.badges);
   const dockOrder = useMemo(() => normalizeDockOrder(dockOrderRaw), [dockOrderRaw]);
-  const spotTickerMode = useDockTrackersStore((s) => s.spotTickerMode);
+  const spotTickerChains = useDockTrackersStore((s) => s.spotTickerChains);
 
   return (
     <>
@@ -371,9 +319,11 @@ export function BottomBar() {
           />
         </div>
 
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <BottomBarVerticalTicker rows={rows} chain={activeChain} mode={spotTickerMode} />
-        </div>
+        {spotTickerChains.length > 0 ? (
+          <div className="hidden shrink-0 items-center gap-2 sm:flex">
+            <BottomBarVerticalTicker rows={rows} chain={activeChain} symbols={spotTickerChains} />
+          </div>
+        ) : null}
 
         <div className="min-w-0 flex-1" aria-hidden />
 
@@ -434,21 +384,24 @@ function DockTrackerSlot({
   const togglePulsePeek = useTokenDockPeekStore((s) => s.togglePulsePeek);
   const walletPeekOpen = useTokenDockPeekStore((s) => s.walletPeekOpen);
   const toggleWalletPeek = useTokenDockPeekStore((s) => s.toggleWalletPeek);
+  const xMonitorOpen =
+    usePulseTwitterRailStore((s) => s.side !== 'hidden') ||
+    useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
   const pnlPeekOpen = usePnlTrackerStore((s) => s.open);
   const togglePnlPeek = usePnlTrackerStore((s) => s.toggleOpen);
 
-  const openWalletsHub = () => {
-    useTokenDockPeekStore.getState().setWalletPeekOpen(false);
-    router.push(WALLET_HOTKEY_ROUTE);
-  };
-
-  const onTrackerPeek = () => {
+  const onWalletTrackerPeek = () => {
     if (activeChain !== 'sol') {
       router.push('/track');
       return;
     }
     toggleWalletPeek();
   };
+
+  const pulseActivePeek = id === 'pulse' && pulsePeekOpen;
+  const walletTrackerActivePeek = id === 'social' && walletPeekOpen;
+  const xMonitorActivePeek = id === 'tracker' && xMonitorOpen;
+  const pnlActivePeek = id === 'pnl' && pnlPeekOpen;
 
   /** Tonal pills, no thick light rims — closer to dense pro terminals. */
   const chipBase =
@@ -461,10 +414,6 @@ function DockTrackerSlot({
   );
 
   const iconCls = cn('shrink-0 text-white/95', mode === 'icon' ? 'h-[15px] w-[15px]' : 'h-[14px] w-[14px]');
-
-  const pulseActivePeek = id === 'pulse' && pulsePeekOpen;
-  const trackerActivePeek = id === 'tracker' && walletPeekOpen;
-  const pnlActivePeek = id === 'pnl' && pnlPeekOpen;
 
   const label =
     mode === 'full'
@@ -480,76 +429,62 @@ function DockTrackerSlot({
     />
   ) : null;
 
-  if (id === 'wallet' && mode === 'icon') {
-    const splitOuter = cn(
-      'relative',
-      chipBase,
-      'inline-flex shrink-0 gap-0 overflow-hidden p-0 transition-colors hover:bg-bg-hover/75 active:brightness-105',
-      'max-w-none min-w-[54px]',
-      authenticated ? '' : 'opacity-95',
-    );
-
-    const pickerRail =
-      'btn-press relative flex h-[26px] w-[26px] shrink-0 items-center justify-center border-l border-white/[0.08] bg-transparent text-white/85 hover:bg-bg-hover/80 hover:text-white';
-
-    return (
-      <span className={splitOuter}>
-        {dot}
-        <button
-          type="button"
-          title={dockTrackerLabel(id, 'full')}
-          aria-label="Open wallets · balances & accounts"
-          className="btn-press flex h-[26px] min-w-0 flex-1 items-center justify-center px-1.5"
-          onClick={openWalletsHub}
-        >
-          <Wallet className={iconCls} strokeWidth={2} aria-hidden />
-        </button>
-        <WalletPickerPopover className={pickerRail}>
-          <span aria-label="Open instant-trade wallet picker">
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-85" strokeWidth={2.5} aria-hidden />
-          </span>
-        </WalletPickerPopover>
-      </span>
-    );
-  }
-
   if (id === 'wallet') {
-    const splitOuter = cn(
-      'relative inline-flex min-w-0 max-w-[12rem] gap-0 overflow-hidden rounded-full border border-border-subtle bg-bg-base p-0 transition-colors hover:border-white/[0.12] hover:bg-bg-hover/40',
-      authenticated ? '' : 'opacity-95',
-    );
-
-    const pickerRail =
-      'btn-press relative flex h-[26px] w-[26px] shrink-0 items-center justify-center border-l border-white/[0.08] bg-transparent text-white/70 hover:bg-white/[0.04] hover:text-white';
-
     const dockCount = authenticated
       ? shortlistLen > 0
         ? shortlistLen
         : walletTotalCount
       : null;
 
+    const ovalCls = cn(
+      'btn-press focus-ring relative inline-flex h-[26px] shrink-0 items-center justify-center gap-0 rounded-full border border-white/[0.08] bg-bg-sunken/35 px-2 transition-colors hover:border-white/[0.12] hover:bg-bg-hover/75 active:brightness-105',
+      mode === 'icon' ? 'min-w-[52px] px-2' : 'max-w-[11rem] px-2.5',
+      authenticated ? '' : 'opacity-95',
+    );
+
     return (
-      <span className={splitOuter}>
+      <span className="relative inline-flex shrink-0">
         {dot}
-        <button
-          type="button"
-          title={dockTrackerLabel(id, 'full')}
-          aria-label="Open wallets · balances & accounts"
-          className="btn-press flex h-[26px] min-w-0 flex-1 items-center px-1.5 text-left"
-          onClick={openWalletsHub}
-        >
-          <TerminalWalletChip
-            walletCount={dockCount}
-            nativeBalance={authenticated ? barBal : 0}
-            activeChain={activeChain}
-            variant="dock"
-            showChevron={false}
-          />
-        </button>
-        <WalletPickerPopover className={pickerRail}>
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-85" strokeWidth={2.5} aria-hidden />
+        <WalletPickerPopover className={ovalCls}>
+          {mode === 'icon' ? (
+            <span className="inline-flex items-center gap-1">
+              <Wallet className={iconCls} strokeWidth={2} aria-hidden />
+              <ChevronDown className="h-3 w-3 shrink-0 text-white/45" strokeWidth={2.25} aria-hidden />
+            </span>
+          ) : (
+            <TerminalWalletChip
+              walletCount={dockCount}
+              nativeBalance={authenticated ? barBal : 0}
+              activeChain={activeChain}
+              variant="dock"
+              showChevron
+            />
+          )}
         </WalletPickerPopover>
       </span>
+    );
+  }
+
+  if (id === 'social') {
+    return (
+      <button
+        type="button"
+        className={cn(
+          chip,
+          walletTrackerActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.1]',
+        )}
+        title={dockTrackerLabel(id, 'full')}
+        aria-label={
+          walletPeekOpen ? 'Close wallet tracker' : 'Open draggable wallet tracker'
+        }
+        onClick={onWalletTrackerPeek}
+      >
+        {dot}
+        <Icon className={iconCls} strokeWidth={2} aria-hidden />
+        {mode !== 'icon' ? (
+          <span className="max-w-[7rem] truncate leading-none text-white/95 2xl:max-w-[8rem]">{label}</span>
+        ) : null}
+      </button>
     );
   }
 
@@ -559,13 +494,17 @@ function DockTrackerSlot({
         type="button"
         className={cn(
           chip,
-          trackerActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.1]',
+          xMonitorActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.1]',
         )}
         title={dockTrackerLabel(id, 'full')}
-        aria-label={
-          walletPeekOpen ? 'Close Tracker popup' : 'Open draggable Tracker popup'
-        }
-        onClick={onTrackerPeek}
+        aria-label={xMonitorOpen ? 'Close X monitor' : 'Open X monitor on Pulse'}
+        onClick={() => {
+          if (activeChain !== 'sol') {
+            openXMonitorOnPulse('left');
+            return;
+          }
+          toggleXMonitorOnPulse('left');
+        }}
       >
         {dot}
         <Icon className={iconCls} strokeWidth={2} aria-hidden />

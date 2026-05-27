@@ -1,6 +1,9 @@
 'use client';
 
 import { Bell, ChevronDown, ChevronUp, Square } from 'lucide-react';
+import { toggleXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
+import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
+import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { useCopilotMode } from './CopilotModeContext';
 import { useCopilotBriefSlotVisibility } from './useCopilotBriefVisibility';
 import { useUIStore } from '@/store/ui';
@@ -20,7 +23,9 @@ export function CopilotTopbarSlot() {
   const setPanelCollapsed = useUIStore((s) => s.setPanelCollapsed);
   const setDetached = useUIStore((s) => s.setCopilotDetached);
   const panelOpen = useUIStore((s) => s.panelOpen);
-  const alertRulesModalOpen = useUIStore((s) => s.alertRulesModalOpen);
+  const xMonitorOpen =
+    usePulseTwitterRailStore((s) => s.side !== 'hidden') ||
+    useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
 
   const { hideHoverBrief, showBriefSlot } = useCopilotBriefSlotVisibility();
 
@@ -54,8 +59,8 @@ export function CopilotTopbarSlot() {
     setPanelOpen(true);
   };
 
-  const openPulseAlertsModal = () => {
-    useUIStore.getState().setAlertRulesModalOpen(true);
+  const togglePulseAlerts = () => {
+    toggleXMonitorOnPulse('left');
   };
 
   return (
@@ -80,13 +85,13 @@ export function CopilotTopbarSlot() {
 
       <button
         type="button"
-        onClick={openPulseAlertsModal}
-        title="Pulse alerts"
-        aria-label="Open Pulse alerts"
+        onClick={togglePulseAlerts}
+        title={xMonitorOpen ? 'Close X monitor' : 'Open X monitor'}
+        aria-label={xMonitorOpen ? 'Close X monitor' : 'Open X monitor'}
         className={cn(
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
           'bg-bg-hover/70 text-fg-muted hover:bg-bg-hover hover:text-fg-primary',
-          alertRulesModalOpen && 'bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/35',
+          xMonitorOpen && 'bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/35',
         )}
       >
         <Bell className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />

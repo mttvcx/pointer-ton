@@ -18,7 +18,14 @@ import {
   X,
 } from 'lucide-react';
 import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
-import { SAMPLE_WALLET_GROUPS, getRecentGroups } from '@/lib/trade/sampleWalletGroups';
+import {
+  UNGROUPED_GROUP_ID,
+  addressesForGroupSelection,
+  getRecentGroups,
+  groupViewsFromStore,
+  ungroupedWalletAddresses,
+} from '@/lib/trade/walletGroups';
+import { useWalletGroupsStore } from '@/store/walletGroups';
 import { BUY_PRESETS_SOL, BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/utils/constants';
 import type { SolSpendAsset } from '@/lib/trading/spendAsset';
 import type { MevMode } from '@/lib/trading/mevMode';
@@ -523,29 +530,49 @@ export function CompactInstantTradePanel({
   const [presetEditorSlot, setPresetEditorSlot] = useState<PresetSlot | null>(null);
   const [advancedModalSlot, setAdvancedModalSlot] = useState<PresetSlot | null>(null);
 
-  /**
-   * Task BB — wallet-group switcher (top row).
-   * Sample data only; real persistence lands in a follow-up task.
-   */
-  const [activeWalletGroupId, setActiveWalletGroupId] = useState<string>(
-    SAMPLE_WALLET_GROUPS[0]?.id ?? 'g1',
-  );
+  const walletGroups = useWalletGroupsStore((s) => s.groups);
+  const activeWalletGroupId = useWalletGroupsStore((s) => s.activeGroupId);
+  const setActiveWalletGroupId = useWalletGroupsStore((s) => s.setActiveGroupId);
+  const touchWalletGroup = useWalletGroupsStore((s) => s.touchGroup);
+
   const [walletGroupMenuOpen, setWalletGroupMenuOpen] = useState(false);
-  const recentWalletGroups = useMemo(() => getRecentGroups(SAMPLE_WALLET_GROUPS, 5), []);
-  const overflowWalletGroups = useMemo(
-    () => SAMPLE_WALLET_GROUPS.filter((g) => !recentWalletGroups.find((r) => r.id === g.id)),
-    [recentWalletGroups],
-  );
   const walletGroupMenuRef = useRef<HTMLDivElement>(null);
+  const walletGroupMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const walletGroupMenuPopoverRef = useRef<HTMLDivElement>(null);
+  const [walletGroupMenuPos, setWalletGroupMenuPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   useEffect(() => {
     if (!walletGroupMenuOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (walletGroupMenuRef.current?.contains(e.target as Node)) return;
+      const t = e.target as Node;
+      if (walletGroupMenuRef.current?.contains(t)) return;
+      if (walletGroupMenuPopoverRef.current?.contains(t)) return;
       setWalletGroupMenuOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [walletGroupMenuOpen]);
+
+  useLayoutEffect(() => {
+    if (!walletGroupMenuOpen || !walletGroupMenuBtnRef.current) {
+      setWalletGroupMenuPos(null);
+      return;
+    }
+    const update = () => {
+      const r = walletGroupMenuBtnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      setWalletGroupMenuPos({ top: r.bottom + 6, left: Math.max(8, r.right - 160) });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [walletGroupMenuOpen, bounds.x, bounds.y, bounds.w, bounds.h]);
 
   const dragStart = useRef<{
     kind: 'move' | 'resize';
@@ -564,6 +591,7 @@ export function CompactInstantTradePanel({
     setActivePresetSlot,
     instantTradeWalletShortlist,
     toggleInstantTradeWallet,
+    setInstantTradeWalletShortlist,
     clearInstantTradeWalletShortlist,
   } = useTradingStore();
 
@@ -590,6 +618,64 @@ export function CompactInstantTradePanel({
   } = useSpotTradeExecution(mint);
 
   const activeChain = useUIStore((s) => s.activeChain);
+
+  const tradableWalletAddresses = useMemo(() => {
+    return (walletRows ?? [])
+      .filter((w) => !w.is_archived && w.is_active && signingWalletAddresses.has(w.wallet_address))
+      .map((w) => w.wallet_address);
+  }, [walletRows, signingWalletAddresses]);
+
+  const knownWalletAddressSet = useMemo(
+    () => new Set(tradableWalletAddresses),
+    [tradableWalletAddresses],
+  );
+
+  const ungroupedCount = useMemo(
+    () => ungroupedWalletAddresses(tradableWalletAddresses, walletGroups).length,
+    [tradableWalletAddresses, walletGroups],
+  );
+
+  const walletGroupViews = useMemo(
+    () =>
+      groupViewsFromStore(walletGroups, knownWalletAddressSet, ungroupedCount > 0, ungroupedCount).filter(
+        (g) => g.walletCount > 0,
+      ),
+    [walletGroups, knownWalletAddressSet, ungroupedCount],
+  );
+
+  const recentWalletGroups = useMemo(
+    () => getRecentGroups(walletGroupViews, 5),
+    [walletGroupViews],
+  );
+
+  const overflowWalletGroups = useMemo(
+    () => walletGroupViews.filter((g) => !recentWalletGroups.some((r) => r.id === g.id)),
+    [walletGroupViews, recentWalletGroups],
+  );
+
+  const selectWalletGroup = useCallback(
+    (groupId: string) => {
+      setActiveWalletGroupId(groupId);
+      if (groupId !== UNGROUPED_GROUP_ID) touchWalletGroup(groupId);
+      const addrs = addressesForGroupSelection(groupId, walletGroups, tradableWalletAddresses);
+      setInstantTradeWalletShortlist(addrs);
+      if (addrs[0]) setActiveWalletAddress(addrs[0]);
+    },
+    [
+      walletGroups,
+      tradableWalletAddresses,
+      setActiveWalletGroupId,
+      touchWalletGroup,
+      setInstantTradeWalletShortlist,
+      setActiveWalletAddress,
+    ],
+  );
+
+  useEffect(() => {
+    if (!open || walletGroupViews.length === 0) return;
+    if (activeWalletGroupId && walletGroupViews.some((g) => g.id === activeWalletGroupId)) return;
+    selectWalletGroup(walletGroupViews[0]!.id);
+  }, [open, walletGroupViews, activeWalletGroupId, selectWalletGroup]);
 
   const { data: presetsPayload } = useQuery({
     queryKey: ['trading-presets'],
@@ -955,6 +1041,16 @@ export function CompactInstantTradePanel({
     persistBoundsForWallet(boundsRef.current, wallet?.address ?? null);
   }, [wallet?.address]);
 
+  /** Empty chrome only — never wrap buttons/inputs (they must keep pointer events). */
+  const panelDragSurfaceClass =
+    'cursor-grab touch-none active:cursor-grabbing select-none';
+  const panelDragHandlers = {
+    onPointerDown: onMoveDown,
+    onPointerMove: onDragMove,
+    onPointerUp: onDragUp,
+    onPointerCancel: onDragUp,
+  } as const;
+
   /** Must run before any early return — otherwise opening the panel changes hook count (React crashes). */
   const selectAllWallets = useCallback(() => {
     if (!walletRows) return;
@@ -1000,8 +1096,8 @@ export function CompactInstantTradePanel({
   const panel = (
     <div
       className={cn(
-        'fixed z-[240] flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised font-sans shadow-[0_24px_48px_-16px_rgba(0,0,0,0.65)] transition-[opacity,transform,box-shadow] duration-150 ease-out',
-        grabbed && 'scale-[1.015] opacity-[0.88] shadow-[0_28px_64px_-12px_rgba(0,0,0,0.75)] ring-1 ring-border-subtle',
+        'fixed z-[240] isolate flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised font-sans shadow-[0_24px_48px_-16px_rgba(0,0,0,0.65)] transition-[transform,box-shadow] duration-150 ease-out',
+        grabbed && 'scale-[1.015] shadow-[0_28px_64px_-12px_rgba(0,0,0,0.75)] ring-1 ring-border-subtle',
       )}
       style={{ left: bounds.x, top: bounds.y, width: bounds.w, height: bounds.h }}
       role="dialog"
@@ -1082,15 +1178,11 @@ export function CompactInstantTradePanel({
         onPointerCancel={onDragUp}
       />
 
-      {/**
-       * Task BB — wallet-group switcher (top row).
-       * Top 5 by recency render as inline pills; the rest fall into a
-       * chevron dropdown anchored to the right. Sample data only.
-       */}
-      <div className="relative z-10 flex shrink-0 items-center gap-1 border-b border-border-subtle px-1.5 py-1">
+      {walletGroupViews.length > 0 ? (
+      <div className="relative z-20 flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-raised px-1.5 py-1">
         <div
           className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-label="Recent wallet groups"
+          aria-label="Wallet groups"
         >
           {recentWalletGroups.map((g) => {
             const active = activeWalletGroupId === g.id;
@@ -1098,13 +1190,13 @@ export function CompactInstantTradePanel({
               <button
                 key={g.id}
                 type="button"
-                onClick={() => setActiveWalletGroupId(g.id)}
+                onClick={() => selectWalletGroup(g.id)}
                 title={`${g.label} · ${g.walletCount} wallet${g.walletCount === 1 ? '' : 's'}`}
                 className={cn(
                   'btn-press h-6 shrink-0 rounded-md border px-2 text-[10px] font-semibold transition-colors',
                   active
                     ? 'border-accent-primary/55 bg-accent-primary/15 text-accent-primary'
-                    : 'border-border-subtle bg-transparent text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                    : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
                 )}
               >
                 {g.label}
@@ -1112,9 +1204,16 @@ export function CompactInstantTradePanel({
             );
           })}
         </div>
+        <div
+          {...panelDragHandlers}
+          className={cn(panelDragSurfaceClass, 'h-6 min-w-[1.25rem] shrink-0 rounded')}
+          aria-label="Drag instant trade panel"
+          title="Drag"
+        />
         {overflowWalletGroups.length > 0 ? (
           <div className="relative shrink-0" ref={walletGroupMenuRef}>
             <button
+              ref={walletGroupMenuBtnRef}
               type="button"
               onClick={() => setWalletGroupMenuOpen((v) => !v)}
               className={cn(
@@ -1127,45 +1226,19 @@ export function CompactInstantTradePanel({
             >
               <ChevronDown className="h-3 w-3" strokeWidth={2} />
             </button>
-            {walletGroupMenuOpen ? (
-              <div
-                role="listbox"
-                className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-md border border-border-subtle bg-bg-raised p-1 shadow-2xl"
-              >
-                {overflowWalletGroups.map((g) => {
-                  const active = activeWalletGroupId === g.id;
-                  return (
-                    <button
-                      key={g.id}
-                      role="option"
-                      aria-selected={active}
-                      type="button"
-                      onClick={() => {
-                        setActiveWalletGroupId(g.id);
-                        setWalletGroupMenuOpen(false);
-                      }}
-                      className={cn(
-                        'flex h-7 w-full items-center justify-between gap-2 rounded px-2 text-left text-[11px] transition-colors',
-                        active
-                          ? 'bg-accent-primary/15 text-accent-primary'
-                          : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
-                      )}
-                    >
-                      <span className="truncate">{g.label}</span>
-                      <span className="shrink-0 tabular-nums text-[9px] text-fg-muted">
-                        {g.walletCount}w
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
           </div>
         ) : null}
       </div>
+      ) : null}
 
-      <div className="relative z-10 flex shrink-0 items-center gap-0.5 border-b border-border-subtle px-1.5 py-1 pl-2">
-        <Keyboard className="h-3 w-3 shrink-0 text-fg-muted/70" aria-hidden />
+      <div className="relative z-20 flex shrink-0 items-center gap-0.5 border-b border-border-subtle bg-bg-raised px-1.5 py-1 pl-2">
+        <div
+          {...panelDragHandlers}
+          className={cn(panelDragSurfaceClass, 'shrink-0 rounded p-0.5')}
+          aria-hidden
+        >
+          <Keyboard className="h-3 w-3 text-fg-muted/70" />
+        </div>
         {([1, 2, 3] as const).map((slot) => (
           <button
             key={slot}
@@ -1213,14 +1286,15 @@ export function CompactInstantTradePanel({
           <Pencil className="h-2.5 w-2.5" strokeWidth={2} />
         </button>
         <div
-          className="mx-0.5 flex min-w-0 flex-1 cursor-grab touch-none items-center justify-center rounded py-0.5 active:cursor-grabbing"
-          onPointerDown={onMoveDown}
-          onPointerMove={onDragMove}
-          onPointerUp={onDragUp}
-          onPointerCancel={onDragUp}
-          aria-label="Drag"
+          className={cn(
+            'mx-0.5 flex min-w-0 flex-1 touch-none items-center justify-center rounded py-0.5',
+            panelDragSurfaceClass,
+          )}
+          {...panelDragHandlers}
+          aria-label="Drag instant trade panel"
+          title="Drag"
         >
-          <GripVertical className="h-3.5 w-3.5 text-fg-muted/40" strokeWidth={2} />
+          <GripVertical className="pointer-events-none h-3.5 w-3.5 text-fg-muted/40" strokeWidth={2} />
         </div>
         <button
           type="button"
@@ -1266,7 +1340,7 @@ export function CompactInstantTradePanel({
         </button>
       </div>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden bg-bg-raised">
         {!walletsReady ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-1.5 pt-1 text-[10px]">
             <p className="text-fg-muted">Loading...</p>
@@ -1279,9 +1353,15 @@ export function CompactInstantTradePanel({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2 pt-1 text-[10px]">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-1.5">
               <div className="flex min-h-0 flex-[1_1_0] flex-col">
-            <div className="flex shrink-0 items-center justify-between gap-2">
-              <span className="font-semibold uppercase tracking-wide text-fg-muted">Buy</span>
-              <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="shrink-0 font-semibold uppercase tracking-wide text-fg-muted">Buy</span>
+              <div
+                {...panelDragHandlers}
+                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
+                aria-label="Drag instant trade panel"
+                title="Drag"
+              />
+              <div className="flex shrink-0 items-center gap-2">
                 <span className="inline-flex items-center gap-1 tabular-nums text-fg-muted">
                   {buySpendAsset === 'usdc' ? (
                     <>
@@ -1404,7 +1484,13 @@ export function CompactInstantTradePanel({
                 />{' '}
                 On
               </span>
-              <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5">
+              <div
+                {...panelDragHandlers}
+                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
+                aria-label="Drag instant trade panel"
+                title="Drag"
+              />
+              <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5">
                 <input
                   type="checkbox"
                   checked={advChecked}
@@ -1417,8 +1503,8 @@ export function CompactInstantTradePanel({
               </div>
 
               <div className="mt-2 flex min-h-0 flex-[1_1_0] flex-col border-t border-border-subtle pt-2">
-            <div className="flex shrink-0 items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-fg-muted">
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="inline-flex shrink-0 items-center gap-1 font-semibold uppercase tracking-wide text-fg-muted">
                 Sell
                 <span
                   className={cn(
@@ -1449,7 +1535,13 @@ export function CompactInstantTradePanel({
                   {nativeSym}
                 </span>
               </span>
-              <span className="truncate tabular-nums text-[9px] text-fg-secondary">
+              <div
+                {...panelDragHandlers}
+                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
+                aria-label="Drag instant trade panel"
+                title="Drag"
+              />
+              <span className="shrink-0 truncate tabular-nums text-[9px] text-fg-secondary">
                 {uiBal} {tick}
               </span>
             </div>
@@ -1530,13 +1622,19 @@ export function CompactInstantTradePanel({
                 />{' '}
                 On
               </span>
+              <div
+                {...panelDragHandlers}
+                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
+                aria-label="Drag instant trade panel"
+                title="Drag"
+              />
               <button
                 type="button"
                 title={`Sell enough to recover tracked ${nativeSym} in (principal); profit stays in tokens`}
                 disabled={!costBasisTonSol || costBasisTonSol <= 0}
                 onClick={() => void runSellInitial()}
                 className={cn(
-                  'btn-press ml-auto rounded-md border px-1.5 py-0.5 font-semibold transition',
+                  'btn-press shrink-0 rounded-md border px-1.5 py-0.5 font-semibold transition',
                   presetLayout.metaText,
                   costBasisTonSol > 0
                     ? 'border-rose-400/35 text-rose-300/95 hover:border-rose-400/55 hover:bg-rose-500/[0.08]'
@@ -1548,11 +1646,18 @@ export function CompactInstantTradePanel({
             </div>
               </div>
             {instantUi.showPnlRow ? (
-              <div
-                className="grid shrink-0 grid-cols-4 divide-x divide-border-subtle border-t border-border-subtle px-0 py-2 text-[11px]"
-                role="group"
-                aria-label={`Instant trade stats · ${nativeSym}`}
-              >
+              <div className="shrink-0 border-t border-border-subtle">
+                <div
+                  {...panelDragHandlers}
+                  className={cn(panelDragSurfaceClass, 'h-2 w-full')}
+                  aria-label="Drag instant trade panel"
+                  title="Drag"
+                />
+                <div
+                  className="grid grid-cols-4 divide-x divide-border-subtle px-0 py-1 text-[11px]"
+                  role="group"
+                  aria-label={`Instant trade stats · ${nativeSym}`}
+                >
                 <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
                   <span
                     className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-400"
@@ -1632,7 +1737,24 @@ export function CompactInstantTradePanel({
                   </span>
                 </div>
               </div>
-            ) : null}
+                <div
+                  {...panelDragHandlers}
+                  className={cn(panelDragSurfaceClass, 'h-2 w-full')}
+                  aria-label="Drag instant trade panel"
+                  title="Drag"
+                />
+              </div>
+            ) : (
+              <div
+                {...panelDragHandlers}
+                className={cn(
+                  panelDragSurfaceClass,
+                  'h-3 shrink-0 border-t border-border-subtle',
+                )}
+                aria-label="Drag instant trade panel"
+                title="Drag"
+              />
+            )}
             </div>
           </div>
         )}
@@ -1777,14 +1899,61 @@ export function CompactInstantTradePanel({
                   Clear
                 </button>
                 <Link
-                  href="/wallets"
+                  href="/portfolio?tab=wallets"
                   className="text-accent-primary hover:underline"
                   onClick={() => setWalletMenuOpen(false)}
                 >
-                  Manage
+                  Manage groups
                 </Link>
               </div>
             </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  const walletGroupMenuDrop =
+    walletGroupMenuOpen && overflowWalletGroups.length > 0 && walletGroupMenuPos
+      ? createPortal(
+          <div
+            ref={walletGroupMenuPopoverRef}
+            role="listbox"
+            aria-label="More wallet groups"
+            style={{
+              position: 'fixed',
+              top: walletGroupMenuPos.top,
+              left: walletGroupMenuPos.left,
+              width: '10rem',
+              zIndex: 520,
+            }}
+            className="overflow-hidden rounded-md border border-border-subtle bg-bg-raised p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          >
+            {overflowWalletGroups.map((g) => {
+              const active = activeWalletGroupId === g.id;
+              return (
+                <button
+                  key={g.id}
+                  role="option"
+                  aria-selected={active}
+                  type="button"
+                  onClick={() => {
+                    selectWalletGroup(g.id);
+                    setWalletGroupMenuOpen(false);
+                  }}
+                  className={cn(
+                    'flex h-7 w-full items-center justify-between gap-2 rounded px-2 text-left text-[11px] transition-colors',
+                    active
+                      ? 'bg-accent-primary/15 text-accent-primary'
+                      : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                  )}
+                >
+                  <span className="truncate">{g.label}</span>
+                  <span className="shrink-0 tabular-nums text-[9px] text-fg-muted">
+                    {g.walletCount}
+                  </span>
+                </button>
+              );
+            })}
           </div>,
           document.body,
         )
@@ -1819,6 +1988,7 @@ export function CompactInstantTradePanel({
         }
       />
       {createPortal(panel, document.body)}
+      {walletGroupMenuDrop}
       {walletMenuDrop}
     </>
   );

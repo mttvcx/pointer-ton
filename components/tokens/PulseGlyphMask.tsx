@@ -81,7 +81,7 @@ type GlyphKey = keyof typeof PULSE_GLYPH;
 
 /**
  * mono: white-ish via luminance mask (no blend, no filter-on-black bugs).
- * natural: full-color img; black plate removed with mix-blend-lighten only (no brightness filter).
+ * natural: full-color img; opaque PNG black plates removed with mix-blend-lighten.
  */
 export function PulseGlyphMask({
   name,

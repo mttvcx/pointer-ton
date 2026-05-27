@@ -90,6 +90,23 @@ export function tradeFillMcUsdLabel(t: TradeRow): string {
   return formatCompactUsd(v);
 }
 
+/** Market cap at print (price × circulating supply). */
+export function tradeFillMarketCapUsdLabel(
+  t: TradeRow,
+  supplyTokens: number | null | undefined,
+  fallbackMcUsd?: number | null,
+): string {
+  const px = t.price_usd_at_fill;
+  if (px == null || !Number.isFinite(px)) return '\u2014';
+  if (supplyTokens != null && supplyTokens > 0) {
+    return formatCompactUsd(px * supplyTokens);
+  }
+  if (fallbackMcUsd != null && Number.isFinite(fallbackMcUsd)) {
+    return formatCompactUsd(fallbackMcUsd);
+  }
+  return '\u2014';
+}
+
 export type TradeTraderHint = {
   shortLabel: string;
   fullAddress: string | null;
@@ -101,7 +118,7 @@ export function tradeTraderHint(t: TradeRow, rowIndex: number): TradeTraderHint 
   if (demoIdx != null) {
     const w = demoTradeMakerWallet(demoIdx);
     return {
-      shortLabel: `${w.slice(0, 4)}\u2026${w.slice(-4)}`,
+      shortLabel: w.length >= 3 ? w.slice(-3) : w,
       fullAddress: w,
       tradeCountForMint: 1 + (demoIdx % 7),
     };

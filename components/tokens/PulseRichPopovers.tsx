@@ -131,29 +131,35 @@ const labelMuted = 'text-[10px] font-medium uppercase tracking-wide text-[#9ca3a
 
 /** Shared Axiom-ish micro-card shell (above trigger). Used by Pulse strip hovers + globe URL card. */
 export const pulseCompactAbovePanelCn = cn(
-  'pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-[260] w-max max-w-[min(17.5rem,calc(100vw-2rem))] -translate-x-1/2',
-  /**
-   * Card sits *above* the trigger, so the drop shadow must project *upward*
-   * (negative Y). The old `0 14px 40px` cast a dark band downward — exactly
-   * on top of the icon row underneath, which read as a "shadow thing"
-   * appearing on the trophy/crown on hover.
-   */
-  'rounded-lg border border-white/[0.12] bg-[#111418]/98 px-2.5 py-2 shadow-[0_-8px_24px_-10px_rgba(0,0,0,0.55)] backdrop-blur-sm',
+  'absolute left-1/2 z-[260] w-max max-w-[min(17.5rem,calc(100vw-2rem))] -translate-x-1/2',
+  'rounded-lg border border-white/[0.12] bg-[#111418]/98 px-2.5 py-2 shadow-[0_8px_24px_-10px_rgba(0,0,0,0.55)] backdrop-blur-sm',
 );
 
-/** Small dense hover anchored above icons (Pulse row parity with Axiom). */
+const pulseCompactBelowPanelCn = cn(
+  pulseCompactAbovePanelCn,
+  'top-[calc(100%+6px)] bottom-auto',
+);
+
+const pulseCompactAboveOnlyPanelCn = cn(
+  pulseCompactAbovePanelCn,
+  'bottom-[calc(100%+6px)]',
+);
+
+/** Small dense hover card — defaults above trigger; use `placement="below"` under token header icons. */
 export function PulseCompactHoverAbove({
   children,
   content,
-  openDelayMs = 80,
-  closeDelayMs = 160,
+  openDelayMs = 120,
+  closeDelayMs = 120,
   role = 'tooltip',
+  placement = 'above',
 }: {
   children: React.ReactNode;
   content: React.ReactNode;
   openDelayMs?: number;
   closeDelayMs?: number;
   role?: 'tooltip' | 'status';
+  placement?: 'above' | 'below';
 }) {
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -164,23 +170,30 @@ export function PulseCompactHoverAbove({
 
   useEffect(() => () => clear(), []);
 
+  const scheduleOpen = () => {
+    clear();
+    timer.current = setTimeout(() => setOpen(true), openDelayMs);
+  };
+  const scheduleClose = () => {
+    clear();
+    timer.current = setTimeout(() => setOpen(false), closeDelayMs);
+  };
+
   return (
-    <span className="relative isolate inline-flex">
-      <span
-        className="inline-flex"
-        onMouseEnter={() => {
-          clear();
-          timer.current = setTimeout(() => setOpen(true), openDelayMs);
-        }}
-        onMouseLeave={() => {
-          clear();
-          timer.current = setTimeout(() => setOpen(false), closeDelayMs);
-        }}
-      >
+    <span className="relative isolate inline-flex" data-popover-open={open ? 'true' : undefined}>
+      <span className="inline-flex" onMouseEnter={scheduleOpen} onMouseLeave={scheduleClose}>
         {children}
       </span>
       {open ? (
-        <div className={pulseCompactAbovePanelCn} role={role}>
+        <div
+          className={cn(
+            placement === 'below' ? pulseCompactBelowPanelCn : pulseCompactAboveOnlyPanelCn,
+            'pointer-events-auto',
+          )}
+          role={role}
+          onMouseEnter={scheduleOpen}
+          onMouseLeave={scheduleClose}
+        >
           {content}
         </div>
       ) : null}
@@ -571,31 +584,81 @@ export function WebsiteGlobeCompactHover({
   url,
   tokenCreatedAt,
   children,
+  placement = 'above',
 }: {
   url: string;
   tokenCreatedAt: Date | string | number | null | undefined;
   children: React.ReactNode;
+  placement?: 'above' | 'below';
 }) {
   const { hostname, href } = parseWebsiteHostnameAndHref(url);
   const age = websiteHoverGreenAgeShort(url, tokenCreatedAt);
 
   return (
     <PulseCompactHoverAbove
+      placement={placement}
       content={
         <>
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="min-w-0 truncate text-[12px] font-bold leading-none text-white" title={hostname}>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="min-w-0 truncate text-[11px] font-bold leading-none text-white" title={hostname}>
               {hostname}
             </p>
-            <span className="shrink-0 text-[11px] font-semibold tabular-nums leading-none text-emerald-400">
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums leading-none text-emerald-400">
               {age}
             </span>
           </div>
           <p
-            className="mt-2 max-w-[15.5rem] truncate font-mono text-[10px] leading-snug text-white/45"
+            className="mt-1.5 max-w-[14rem] truncate font-mono text-[9px] leading-snug text-white/45"
             title={href}
           >
             {href}
+          </p>
+        </>
+      }
+    >
+      {children}
+    </PulseCompactHoverAbove>
+  );
+}
+
+/** Axiom-style telegram peek — channel / invite URL above the icon. */
+export function TelegramCompactHover({
+  url,
+  children,
+  placement = 'above',
+}: {
+  url: string;
+  children: React.ReactNode;
+  placement?: 'above' | 'below';
+}) {
+  const display = url.replace(/^https?:\/\//i, '');
+  let label = 'Telegram';
+  try {
+    const u = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const path = u.pathname.replace(/^\//, '');
+    if (path) label = path.startsWith('+') ? path : `@${path.split('/')[0]}`;
+  } catch {
+    label = display.slice(0, 28);
+  }
+
+  return (
+    <PulseCompactHoverAbove
+      placement={placement}
+      content={
+        <>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="min-w-0 truncate text-[11px] font-bold leading-none text-white" title={label}>
+              {label}
+            </p>
+            <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide leading-none text-[#70C0E8]">
+              TG
+            </span>
+          </div>
+          <p
+            className="mt-1.5 max-w-[14rem] truncate font-mono text-[9px] leading-snug text-white/45"
+            title={url}
+          >
+            {display}
           </p>
         </>
       }

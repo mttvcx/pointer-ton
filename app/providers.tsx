@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { PrivyProvider } from '@privy-io/react-auth';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { Toaster } from 'sonner';
+import { AppToaster } from '@/components/providers/AppToaster';
 import { WalletTrackerToaster } from '@/components/providers/WalletTrackerToaster';
 import { PointerAuthProvider } from '@/lib/auth/pointerAuth';
 import { PRIVY_APP_ID, privyClientConfig } from '@/lib/privy/publicConfig';
@@ -81,18 +81,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <PointerAuthProvider>
           {children}
           <WalletTrackerToaster />
-          <Toaster
-            theme="dark"
-            position="bottom-right"
-            richColors
-            toastOptions={{
-              classNames: {
-                toast: 'border border-border-subtle text-fg-primary',
-                title: 'text-sm font-medium',
-                description: 'text-xs text-fg-secondary',
-              },
-            }}
-          />
+          <AppToaster />
         </PointerAuthProvider>
       </PrivyProvider>
       {process.env.NODE_ENV === 'development' ? (
