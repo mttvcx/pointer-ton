@@ -231,6 +231,7 @@ export function PulseTokenAvatar({
   columnId,
   ringPresentation = 'progress',
   cornerBadgeEmphasis = 'default',
+  imagePriority = false,
 }: {
   bundle: PulseTokenBundle;
   size?: number;
@@ -242,6 +243,8 @@ export function PulseTokenAvatar({
   ringPresentation?: 'progress' | 'brand-full';
   /** Larger protruding protocol circle (token detail header). */
   cornerBadgeEmphasis?: 'default' | 'header';
+  /** Above-the-fold Pulse rows — skip lazy image deferral. */
+  imagePriority?: boolean;
 }) {
   const gradientId = useId().replace(/:/g, '');
   const pathRef = useRef<SVGPathElement | null>(null);
@@ -344,7 +347,8 @@ export function PulseTokenAvatar({
           alt={token.symbol ?? 'Token'}
           width={innerSize}
           height={innerSize}
-          loading="lazy"
+          loading={imagePriority ? 'eager' : 'lazy'}
+          fetchPriority={imagePriority ? 'high' : 'auto'}
           decoding="async"
           onError={() => setImageFailed(true)}
           className="absolute z-0 block object-cover"

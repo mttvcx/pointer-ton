@@ -687,6 +687,7 @@ function PulseColumnBody({
                     columnId={column}
                     slotHeight={rowSize}
                     quoteSymbol={quoteSymbol}
+                    avatarImagePriority={vi.index < 8}
                     onPulseQuickBuy={() =>
                       void buyToken(bundle.token.mint, quickBuyAmount, {
                         spendAsset: isUsdcQuickBuy ? 'usdc' : 'sol',

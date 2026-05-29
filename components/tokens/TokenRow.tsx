@@ -51,6 +51,7 @@ export function TokenRow({
   slotHeight,
   /** Native quote for quick-buy chip (TON / SOL / …). */
   quoteSymbol = 'TON',
+  avatarImagePriority = false,
 }: {
   bundle: PulseTokenBundle;
   density?: PulseRowDensity;
@@ -69,6 +70,7 @@ export function TokenRow({
   columnId?: PulseColumnId;
   slotHeight?: number;
   quoteSymbol?: string;
+  avatarImagePriority?: boolean;
 }) {
   const router = useRouter();
   const { token, snapshot } = bundle;
@@ -254,6 +256,7 @@ export function TokenRow({
         showRing={showRing}
         launchpadChrome={launchpadChrome}
         columnId={columnId}
+        avatarImagePriority={avatarImagePriority}
       />
       {mintCaption}
     </div>

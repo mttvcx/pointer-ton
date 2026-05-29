@@ -147,19 +147,37 @@ export const useDockTrackersStore = create<DockTrackersState>()(
     }),
     {
       name: 'pointer-dock-trackers',
-      version: 1,
+      version: 2,
+      merge: (persisted, current) => {
+        const p = persisted as Partial<DockTrackersState> | undefined;
+        return {
+          ...current,
+          ...p,
+          order: normalizeOrder(p?.order),
+          modes: normalizeDockModes(p?.modes),
+          badges: { ...DEFAULT_BADGE, ...(p?.badges ?? {}) },
+          hotkeys: p?.hotkeys ?? {},
+          spotTickerChains: normalizeSpotTickerChains(p?.spotTickerChains),
+        };
+      },
       migrate: (persisted, version) => {
         const s = (persisted ?? {}) as Record<string, unknown>;
         if (version === 0 && s.spotTickerMode != null && !s.spotTickerChains) {
           s.spotTickerChains = [...DEFAULT_SPOT_TICKER_CHAINS];
           delete s.spotTickerMode;
         }
-        s.spotTickerChains = normalizeSpotTickerChains(
-          Array.isArray(s.spotTickerChains)
-            ? (s.spotTickerChains as string[])
-            : [...DEFAULT_SPOT_TICKER_CHAINS],
-        );
-        return s as unknown as DockTrackersState;
+        return {
+          order: normalizeOrder(Array.isArray(s.order) ? (s.order as DockTrackerId[]) : undefined),
+          modes: normalizeDockModes(
+            s.modes as Partial<Record<DockTrackerId, DockTrackerMode>> | undefined,
+          ),
+          badges: { ...DEFAULT_BADGE, ...(s.badges as Partial<Record<DockTrackerId, boolean>>) },
+          hotkeys: (s.hotkeys as Partial<Record<DockTrackerId, string | null>>) ?? {},
+          hotkeysEnabled: s.hotkeysEnabled !== false,
+          spotTickerChains: normalizeSpotTickerChains(
+            Array.isArray(s.spotTickerChains) ? (s.spotTickerChains as string[]) : undefined,
+          ),
+        } as unknown as DockTrackersState;
       },
       partialize: (s) => ({
         order: s.order,

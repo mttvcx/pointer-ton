@@ -39,6 +39,7 @@ export function PulseTokenAvatarHover({
   launchpadChrome,
   columnId,
   className,
+  avatarImagePriority = false,
 }: {
   bundle: PulseTokenBundle;
   size: number;
@@ -46,6 +47,7 @@ export function PulseTokenAvatarHover({
   launchpadChrome?: LaunchpadAvatarChrome | null;
   columnId?: PulseColumnId;
   className?: string;
+  avatarImagePriority?: boolean;
 }) {
   const { token } = bundle;
   const imageUrl = token.image_url;
@@ -154,6 +156,7 @@ export function PulseTokenAvatarHover({
           showRing={showRing}
           launchpadChrome={launchpadChrome}
           columnId={columnId}
+          imagePriority={avatarImagePriority}
         />
 
         {imageUrl ? (

@@ -35,7 +35,7 @@ export const useTradingStore = create<TradingState>()(
       instantTradeWalletShortlist: [],
       toggleInstantTradeWallet: (walletAddress) =>
         set((s) => {
-          const cur = s.instantTradeWalletShortlist;
+          const cur = s.instantTradeWalletShortlist ?? [];
           if (cur.includes(walletAddress)) {
             return { instantTradeWalletShortlist: cur.filter((a) => a !== walletAddress) };
           }
@@ -59,6 +59,16 @@ export const useTradingStore = create<TradingState>()(
     }),
     {
       name: 'pointer-trading-preset',
+      merge: (persisted, current) => {
+        const p = persisted as Partial<TradingState> | undefined;
+        return {
+          ...current,
+          ...p,
+          instantTradeWalletShortlist: Array.isArray(p?.instantTradeWalletShortlist)
+            ? p!.instantTradeWalletShortlist!
+            : [],
+        };
+      },
       partialize: (s) => ({
         activePresetSlot: s.activePresetSlot,
         instantTradeWalletShortlist: s.instantTradeWalletShortlist,

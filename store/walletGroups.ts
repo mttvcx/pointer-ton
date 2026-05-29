@@ -32,7 +32,7 @@ export const useWalletGroupsStore = create<WalletGroupsState>()(
         const now = Date.now();
         set((s) => ({
           groups: [
-            ...s.groups,
+            ...(s.groups ?? []),
             {
               id,
               label: trimmed || 'New group',
@@ -50,19 +50,19 @@ export const useWalletGroupsStore = create<WalletGroupsState>()(
         const trimmed = label.trim();
         if (!trimmed) return;
         set((s) => ({
-          groups: s.groups.map((g) => (g.id === id ? { ...g, label: trimmed } : g)),
+          groups: (s.groups ?? []).map((g) => (g.id === id ? { ...g, label: trimmed } : g)),
         }));
       },
 
       deleteGroup: (id) =>
         set((s) => ({
-          groups: s.groups.filter((g) => g.id !== id),
+          groups: (s.groups ?? []).filter((g) => g.id !== id),
           activeGroupId: s.activeGroupId === id ? null : s.activeGroupId,
         })),
 
       setGroupWallets: (id, walletAddresses) =>
         set((s) => ({
-          groups: s.groups.map((g) =>
+          groups: (s.groups ?? []).map((g) =>
             g.id === id ? { ...g, walletAddresses: [...new Set(walletAddresses)] } : g,
           ),
         })),
@@ -71,16 +71,15 @@ export const useWalletGroupsStore = create<WalletGroupsState>()(
         const addr = walletAddress.trim();
         if (!addr) return;
         set((s) => ({
-          groups: s.groups.map((g) => {
+          groups: (s.groups ?? []).map((g) => {
+            const addrs = g.walletAddresses ?? [];
             if (g.id !== id) {
-              return { ...g, walletAddresses: g.walletAddresses.filter((a) => a !== addr) };
+              return { ...g, walletAddresses: addrs.filter((a) => a !== addr) };
             }
-            const has = g.walletAddresses.includes(addr);
+            const has = addrs.includes(addr);
             return {
               ...g,
-              walletAddresses: has
-                ? g.walletAddresses.filter((a) => a !== addr)
-                : [...g.walletAddresses, addr],
+              walletAddresses: has ? addrs.filter((a) => a !== addr) : [...addrs, addr],
             };
           }),
         }));
@@ -88,13 +87,28 @@ export const useWalletGroupsStore = create<WalletGroupsState>()(
 
       touchGroup: (id) =>
         set((s) => ({
-          groups: s.groups.map((g) => (g.id === id ? { ...g, lastUsedAt: Date.now() } : g)),
+          groups: (s.groups ?? []).map((g) => (g.id === id ? { ...g, lastUsedAt: Date.now() } : g)),
         })),
 
       setActiveGroupId: (id) => set({ activeGroupId: id }),
     }),
     {
       name: 'pointer-wallet-groups',
+      merge: (persisted, current) => {
+        const p = persisted as Partial<WalletGroupsState> | undefined;
+        const groups = Array.isArray(p?.groups)
+          ? p!.groups!.map((g) => ({
+              ...g,
+              walletAddresses: Array.isArray(g.walletAddresses) ? g.walletAddresses : [],
+            }))
+          : [];
+        return {
+          ...current,
+          ...p,
+          groups,
+          activeGroupId: typeof p?.activeGroupId === 'string' ? p.activeGroupId : null,
+        };
+      },
       partialize: (s) => ({
         groups: s.groups,
         activeGroupId: s.activeGroupId,

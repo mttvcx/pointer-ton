@@ -23,7 +23,11 @@ import { useDockTrackerHotkeys } from '@/lib/hooks/useDockTrackerHotkeys';
 import { SpotTickerIcon } from '@/components/chains/SpotTickerIcon';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { parseLamportsStringToSol } from '@/lib/utils/formatters';
-import type { SpotTickerSymbol } from '@/lib/chains/chainAssets';
+import {
+  DEFAULT_SPOT_TICKER_CHAINS,
+  normalizeSpotTickerChains,
+  type SpotTickerSymbol,
+} from '@/lib/chains/chainAssets';
 import type { DockTrackerId, DockTrackerMode } from '@/lib/dock/dockTrackerConfig';
 import {
   DOCK_TRACKER_HREF,
@@ -267,7 +271,7 @@ export function BottomBar() {
   const barBal =
     activeChain === 'sol' ? solBal : activeChain === 'ton' ? tonBalUi : null;
 
-  const shortlistLen = useTradingStore((s) => s.instantTradeWalletShortlist.length);
+  const shortlistLen = useTradingStore((s) => (s.instantTradeWalletShortlist ?? []).length);
   const walletTotalCount = (myWalletsQ.data?.wallets ?? []).filter((w) => !w.is_archived).length;
 
   const setDockSettingsOpen = useDockTrackersStore((s) => s.setSettingsOpen);
@@ -276,7 +280,9 @@ export function BottomBar() {
   const dockModes = useMemo(() => normalizeDockModes(dockModesRaw), [dockModesRaw]);
   const dockBadges = useDockTrackersStore((s) => s.badges);
   const dockOrder = useMemo(() => normalizeDockOrder(dockOrderRaw), [dockOrderRaw]);
-  const spotTickerChains = useDockTrackersStore((s) => s.spotTickerChains);
+  const spotTickerChains = normalizeSpotTickerChains(
+    useDockTrackersStore((s) => s.spotTickerChains),
+  );
 
   return (
     <>

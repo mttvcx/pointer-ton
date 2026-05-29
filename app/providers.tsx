@@ -84,7 +84,8 @@ export function Providers({ children }: { children: ReactNode }) {
           <AppToaster />
         </PointerAuthProvider>
       </PrivyProvider>
-      {process.env.NODE_ENV === 'development' ? (
+      {process.env.NODE_ENV === 'development' &&
+      process.env.NEXT_PUBLIC_RQ_DEVTOOLS === '1' ? (
         <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
       ) : null}
     </QueryClientProvider>
