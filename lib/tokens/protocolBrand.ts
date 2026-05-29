@@ -87,7 +87,7 @@ const BRANDS: Record<ProtocolBrandId, ProtocolBrand> = {
   bags: {
     id: 'bags',
     label: 'Bags',
-    color: '#4ade80',
+    color: '#059669',
     logoFile: 'bags.png',
   },
   bonkers: {

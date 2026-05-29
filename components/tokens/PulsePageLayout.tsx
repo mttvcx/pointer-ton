@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils/cn';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { PulseColumn } from './PulseColumn';
 import { PulseAlertsAside } from './PulseAlertsAside';
+import { PulseSquadsAside } from './PulseSquadsAside';
+import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
 
 export function PulsePageLayout({
   initialNew,
@@ -17,6 +19,8 @@ export function PulsePageLayout({
 }) {
   const side = usePulseTwitterRailStore((s) => s.side);
   const showRail = side !== 'hidden';
+  const squadsSide = usePulseSquadsRailStore((s) => s.side);
+  const showSquadsRail = squadsSide !== 'hidden';
 
   const columnStrip = (
     <>
@@ -47,9 +51,15 @@ export function PulsePageLayout({
         {columnStrip}
       </div>
 
-      {showRail && side === 'right' ? (
+      {showRail && side === 'right' && !showSquadsRail ? (
         <aside className="flex h-full min-h-0 w-full shrink-0 flex-col self-stretch overflow-hidden xl:w-[min(380px,30vw)] xl:max-w-[420px]">
           <PulseAlertsAside dock="right" />
+        </aside>
+      ) : null}
+
+      {showSquadsRail && squadsSide === 'right' ? (
+        <aside className="flex h-full min-h-0 w-full shrink-0 flex-col self-stretch overflow-hidden xl:w-[min(380px,30vw)] xl:max-w-[420px]">
+          <PulseSquadsAside dock="right" />
         </aside>
       ) : null}
     </div>

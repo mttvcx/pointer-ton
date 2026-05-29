@@ -18,5 +18,10 @@ export const SOL_DEMO_MINT_POPCAT = '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2h
 /** Pulse-only QA row — not indexed; pinned on New for X HoverCard testing. */
 export const PULSE_X_HOVER_QA_MINT = '11111111111111111111111111111112';
 
+/** Showcase rows — real pump mints with live Coin Communities (see coincommunities.org). */
+export const PULSE_SHOWCASE_MINT_CUM = 'oqU4DdYCbdSf9j74vnEgvCn1YzNfYQEPWaC6pu6pump';
+export const PULSE_SHOWCASE_MINT_PUMPERS = '9XmquEzNyPbnHZkViQhEZo19NEQphvc4mWe62Duypump';
+export const PULSE_SHOWCASE_MINT_EIGHT = 'vhBZqcbfJvtqp3Bu48xB9JQQ6z66vBLwTGW7dK5pump';
+
 /** Demo creator wallet (valid base58) — only used for fixture rows. */
 export const SOL_DEMO_CREATOR_WALLET = 'Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE';

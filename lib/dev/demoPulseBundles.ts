@@ -15,6 +15,9 @@ import {
   SOL_DEMO_MINT_WIF,
   SOL_DEMO_MINT_WSOL,
   PULSE_X_HOVER_QA_MINT,
+  PULSE_SHOWCASE_MINT_CUM,
+  PULSE_SHOWCASE_MINT_EIGHT,
+  PULSE_SHOWCASE_MINT_PUMPERS,
 } from '@/lib/utils/solDemoMints';
 import { USDC_MINT } from '@/lib/utils/addresses';
 import {
@@ -203,6 +206,385 @@ export function pulseTwitterProfileHoverTestBundle(chain: AppChainId): PulseToke
 /** Synthetic token row for `/token/{PULSE_X_HOVER_QA_MINT}` (Helius won't resolve system program). */
 export function pulseTwitterProfileHoverTestTokenRow(): TokenRow {
   return pulseTwitterProfileHoverTestBundle('sol')!.token;
+}
+
+type ShowcaseSocial = {
+  website?: string;
+  telegram?: string;
+  /** Profile URL, tweet URL, or bare @handle — parsed by {@link getPulseSocialModel}. */
+  twitter?: string;
+  instagram?: string;
+  github?: string;
+  youtube?: string;
+  tiktok?: string;
+  twitterSearch?: string;
+  twitterFollowers?: number;
+  cashback?: boolean;
+  agent?: boolean;
+  feeShare?: boolean;
+  proTraders?: number;
+};
+
+/** Rich social + protocol showcase rows — merged on top of live Pulse when UI demo is on. */
+function showcaseSol(
+  mint: string,
+  symbol: string,
+  name: string,
+  launchPad: string | null,
+  createdOffsetMin: number,
+  mcUsd: number,
+  volUsd: number,
+  social: ShowcaseSocial,
+  extra?: SolBundleOpts,
+): PulseTokenBundle {
+  const links: string[] = [];
+  if (social.instagram) links.push(social.instagram);
+  if (social.github) links.push(social.github);
+  if (social.youtube) links.push(social.youtube);
+  if (social.tiktok) links.push(social.tiktok);
+  if (social.twitterSearch) links.push(social.twitterSearch);
+
+  const meta: Record<string, unknown> = {
+    ...(typeof extra?.raw_metadata === 'object' && extra.raw_metadata
+      ? (extra.raw_metadata as Record<string, unknown>)
+      : {}),
+    links,
+    external_url: social.website,
+    instagram: social.instagram,
+    github: social.github,
+    youtube: social.youtube,
+    tiktok: social.tiktok,
+  };
+  if (social.cashback) meta.cashback = true;
+  if (social.agent) meta.agent_mode = true;
+  if (social.feeShare) meta.fee_share = true;
+  if (social.twitterFollowers != null) {
+    meta.twitter_followers = social.twitterFollowers;
+    meta.twitterFollowers = social.twitterFollowers;
+  }
+
+  const { raw_metadata: _drop, snapshotPatch: snapExtra, ...tokenRest } = extra ?? {};
+  void _drop;
+
+  return solBundle(mint, symbol, name, launchPad, createdOffsetMin, mcUsd, volUsd, {
+    ...tokenRest,
+    website_url: social.website ?? tokenRest.website_url,
+    telegram_url: social.telegram ?? tokenRest.telegram_url,
+    twitter_handle: social.twitter ?? tokenRest.twitter_handle,
+    raw_metadata: meta as SolBundleOpts['raw_metadata'],
+    snapshotPatch: {
+      holder_count: Math.max(12, Math.floor(mcUsd / 8000)),
+      txns_1h: Math.max(3, Math.floor(volUsd / 1200)),
+      extended_metrics: {
+        pro_traders: social.proTraders ?? 8,
+        ...(snapExtra?.extended_metrics && typeof snapExtra.extended_metrics === 'object'
+          ? snapExtra.extended_metrics
+          : {}),
+      },
+      ...snapExtra,
+    },
+  });
+}
+
+/**
+ * Social-link + launchpad showcase deck — one row per icon type (website, IG, X profile,
+ * tweet, search, telegram, Coin Community, traits, etc.). No "demo" chrome; reads as live Pulse.
+ */
+export function pulseSocialShowcaseBundles(
+  column: PulseColumnId,
+  chain: AppChainId = 'sol',
+): PulseTokenBundle[] {
+  if (chain !== 'sol') return [];
+
+  const richWebsiteProfile = showcaseSol(
+    SOL_DEMO_MINT_POPCAT,
+    'RICH',
+    'I choose rich everytime',
+    'pump.fun',
+    6 * 24 * 60,
+    890_000,
+    42_000,
+    {
+      website: 'https://richcoin.xyz',
+      twitter: 'https://x.com/elonmusk',
+      twitterFollowers: 220_400_000,
+      proTraders: 14,
+    },
+    {
+      decimals: 5,
+      raw_metadata: { F: 42, bondingCurveProgress: 42, quoteSymbol: 'SOL' },
+    },
+  );
+
+  const instagramBonk = showcaseSol(
+    SOL_DEMO_MINT_BONK,
+    'BONK',
+    'Bonk on Instagram',
+    'bonk',
+    18,
+    52_000_000,
+    3_200_000,
+    {
+      instagram: 'https://instagram.com/bonk_inu',
+      website: 'https://bonkcoin.com',
+      proTraders: 88,
+    },
+    { decimals: 5 },
+  );
+
+  const tweetOnly = showcaseSol(
+    PULSE_X_HOVER_QA_MINT,
+    'TWEET',
+    'Status link only',
+    'pump.fun',
+    45,
+    120_000,
+    8_800,
+    {
+      twitter: 'https://x.com/elonmusk/status/1890000000000000000',
+    },
+    { decimals: 5, raw_metadata: { F: 8, bondingCurveProgress: 8 } },
+  );
+
+  const xSearch = showcaseSol(
+    SOL_DEMO_MINT_WIF,
+    'SRCH',
+    'X search query',
+    'pump.fun',
+    90,
+    95_000,
+    6_200,
+    {
+      twitterSearch: 'https://x.com/search?q=%24WIF&src=typed_query',
+    },
+    { raw_metadata: { F: 11, bondingCurveProgress: 11 } },
+  );
+
+  const telegramRow = showcaseSol(
+    SOL_DEMO_MINT_JUP,
+    'TELE',
+    'Telegram community',
+    'pump.fun',
+    120,
+    210_000,
+    14_000,
+    {
+      telegram: 'https://t.me/solana',
+      website: 'https://jup.ag',
+      twitter: 'https://x.com/JupiterExchange',
+      twitterFollowers: 420_000,
+    },
+  );
+
+  const brandLinks = showcaseSol(
+    SOL_DEMO_MINT_RAY,
+    'BRND',
+    'GitHub · YouTube · TikTok',
+    'raydium',
+    200,
+    1_100_000,
+    88_000,
+    {
+      github: 'https://github.com/raydium-io',
+      youtube: 'https://youtube.com/@raydium',
+      tiktok: 'https://www.tiktok.com/@raydium',
+      website: 'https://raydium.io',
+    },
+  );
+
+  const coinCommunityCum = showcaseSol(
+    PULSE_SHOWCASE_MINT_CUM,
+    'CUM',
+    'Coin Community live',
+    'pump.fun',
+    3,
+    420_000,
+    55_000,
+    {
+      twitter: 'https://x.com/CoinComms',
+      twitterFollowers: 12_400,
+      website: 'https://coincommunities.org',
+    },
+    {
+      decimals: 5,
+      raw_metadata: { F: 24, bondingCurveProgress: 24, source: 'pump.fun' },
+      snapshotPatch: { holder_count: 108, txns_1h: 42 },
+    },
+  );
+
+  const coinCommunityPumpers = showcaseSol(
+    PULSE_SHOWCASE_MINT_PUMPERS,
+    'PUMPERS',
+    'Community + profile',
+    'pump.fun',
+    8,
+    280_000,
+    31_000,
+    {
+      twitter: 'https://x.com/CoinComms',
+      twitterFollowers: 12_400,
+      telegram: 'https://t.me/coincommunities',
+    },
+    { decimals: 5, snapshotPatch: { holder_count: 33 } },
+  );
+
+  const bagsRow = showcaseSol(
+    SOL_DEMO_MINT_BOME,
+    'UNICLAW',
+    'Bags + X profile',
+    'bags',
+    0.35,
+    180_000,
+    22_000,
+    {
+      twitter: 'https://x.com/bagsapp',
+      twitterFollowers: 18_500,
+      website: 'https://bags.fm',
+    },
+    {
+      raw_metadata: {
+        programId: 'BSfTAhiifGCG9wftxQp7DjPkBkwjFxNsoEjr3iJYhyR8',
+        source: 'bags.fm',
+        F: 15,
+        bondingCurveProgress: 15,
+      },
+    },
+  );
+
+  const heavenRow = showcaseSol(
+    SOL_DEMO_MINT_ORCA,
+    'ASCND',
+    'Heaven launch',
+    'heaven',
+    19 * 60,
+    303_000,
+    5_000,
+    {
+      twitter: 'https://x.com/ascendonheaven',
+      twitterFollowers: 4_200,
+      website: 'https://heaven.xyz',
+    },
+    {
+      raw_metadata: { launchpad: 'heaven.xyz', source: 'heaven.xyz', F: 5.6, bondingCurveProgress: 5.6 },
+    },
+  );
+
+  const traitsRow = showcaseSol(
+    SOL_DEMO_MINT_MSOL,
+    'TRAIT',
+    'Cashback · agent · fee share',
+    'pump.fun',
+    2,
+    95_000,
+    7_500,
+    {
+      twitter: 'https://x.com/pumpdotfun',
+      twitterFollowers: 890_000,
+      cashback: true,
+      agent: true,
+      feeShare: true,
+    },
+    { raw_metadata: { F: 6, bondingCurveProgress: 6, quoteSymbol: 'SOL' } },
+  );
+
+  const pumpUsdc = showcaseSol(
+    SOL_DEMO_MINT_USDC,
+    'PEEPEE',
+    'Pump USDC pair',
+    'pump.fun',
+    0.05,
+    4_220,
+    118,
+    {
+      website: 'https://pump.fun',
+      twitter: 'https://x.com/pumpdotfun',
+    },
+    {
+      decimals: 6,
+      raw_metadata: {
+        F: 3.57,
+        bondingCurveProgress: 3.57,
+        quoteMint: USDC_MINT,
+      },
+      snapshotPatch: {
+        extended_metrics: { F: 3.57, quoteSymbol: 'USDC', quoteMint: USDC_MINT },
+      },
+    },
+  );
+
+  const fullStack = showcaseSol(
+    PULSE_SHOWCASE_MINT_EIGHT,
+    'FULL',
+    'Every social icon',
+    'bonk',
+    12,
+    640_000,
+    48_000,
+    {
+      website: 'https://letsbonk.fun',
+      telegram: 'https://t.me/bonk_inu',
+      instagram: 'https://instagram.com/bonk_inu',
+      twitter: 'https://x.com/bonk_inu',
+      twitterFollowers: 1_200_000,
+      twitterSearch: 'https://x.com/search?q=bonk',
+      github: 'https://github.com/bonk',
+      proTraders: 22,
+    },
+    { decimals: 5, snapshotPatch: { holder_count: 31 } },
+  );
+
+  const migratedTs = now();
+  const migratedShowcase = showcaseSol(
+    SOL_DEMO_MINT_WIF,
+    'MIGR',
+    'Graduated + socials',
+    'pump.fun',
+    180,
+    220_000_000,
+    9_900_000,
+    {
+      website: 'https://dogwifcoin.org',
+      twitter: 'https://x.com/dogwifcoin',
+      twitterFollowers: 180_000,
+      telegram: 'https://t.me/dogwifcoin',
+    },
+    {
+      migrated_at: migratedTs,
+      raw_metadata: { F: 100, bondingCurveProgress: 100 },
+      snapshotPatch: { extended_metrics: { F: 100, pro_traders: 205 } },
+    },
+  );
+
+  const stretchBase = withBondingProgress(coinCommunityCum, 91);
+
+  if (column === 'migrated') {
+    return [migratedShowcase, coinCommunityCum, instagramBonk, heavenRow, bagsRow, brandLinks];
+  }
+  if (column === 'stretch') {
+    return [
+      stretchBase,
+      withBondingProgress(fullStack, 88),
+      withBondingProgress(richWebsiteProfile, 92),
+      withBondingProgress(traitsRow, 89),
+      withBondingProgress(pumpUsdc, 93),
+      withBondingProgress(coinCommunityPumpers, 87),
+    ];
+  }
+  return [
+    bagsRow,
+    pumpUsdc,
+    withBondingProgress(fullStack, 22),
+    richWebsiteProfile,
+    coinCommunityCum,
+    coinCommunityPumpers,
+    instagramBonk,
+    tweetOnly,
+    xSearch,
+    telegramRow,
+    brandLinks,
+    heavenRow,
+    traitsRow,
+  ];
 }
 
 /** Feed rows when the Pulse API returns an empty list (UI demo mode only). */

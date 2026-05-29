@@ -2,11 +2,14 @@
 
 import Link from 'next/link';
 import { ChefHat } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils/cn';
 import { extractTwitterHandle } from '@/lib/utils/extractTwitterHandle';
 import { getPulseSocialModel, isTweetOlderThan, ensureBrowserUrl, resolveDisplayWebsite, twitterHandleFromProfileUrl } from '@/lib/tokens/pulseSocialLinks';
 import { usePrefetchTwitterProfileOnVisible } from '@/lib/hooks/usePrefetchTwitterProfileOnVisible';
+import { usePrefetchCoinCommunityOnVisible } from '@/lib/hooks/usePrefetchCoinCommunityOnVisible';
+import { enqueueCoinCommunityPrefetch } from '@/lib/communities/coinCommunityPrefetchQueue';
 import { twitterFollowersFromBundle } from '@/lib/tokens/columnPresetModel';
 import type { AppChainId } from '@/lib/chains/appChain';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -35,6 +38,8 @@ import {
   WebsiteGlobeCompactHover,
 } from '@/components/tokens/PulseRichPopovers';
 import { PulseHeaderSocialIcon } from '@/components/tokens/PulseHeaderSocialIcon';
+import { CoinCommunityHoverTrigger } from '@/components/tokens/CoinCommunityHover';
+import { coinCommunityWebUrl } from '@/lib/communities/coinCommunity';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type GlyphKey = keyof typeof PULSE_GLYPH;
@@ -413,35 +418,6 @@ function ExternalGlyphLink({
   );
 }
 
-function ExternalCommunityStatLink({
-  href,
-  stat,
-  previewTitle,
-  previewSubtitle,
-  glyphPx,
-}: {
-  href: string;
-  stat: ReactNode;
-  previewTitle: string;
-  previewSubtitle?: string;
-  glyphPx: number;
-}) {
-  return (
-    <WithHoverTooltip previewTitle={previewTitle} previewSubtitle={previewSubtitle}>
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="X community"
-        className={cn(iconHit, 'pl-0 pr-0')}
-      >
-        <PulseLuminanceGlyph src={PULSE_BRAND_SRC.communities} size={glyphPx} />
-        <span className={statNumberClsFor(glyphPx)}>{stat}</span>
-      </a>
-    </WithHoverTooltip>
-  );
-}
-
 /** Stat glyph + dense above-card hover (Axiom parity). */
 function PulseGlyphStatHoverCard({
   href,
@@ -484,22 +460,35 @@ function PulseGlyphStatHoverCard({
   );
 }
 
-function InternalCommunityStatLink({
-  href,
+/**
+ * Coin Communities entry point — the double-avatar glyph now opens the token's
+ * per-token community (replaces the dead X Communities link). Hover reveals a rich
+ * preview (members / posts / recent messages); click opens the community page.
+ */
+function CoinCommunityStatLink({
+  mint,
   stat,
   glyphPx,
 }: {
-  href: string;
+  mint: string;
   stat: ReactNode;
   glyphPx: number;
 }) {
+  const queryClient = useQueryClient();
   return (
-    <StripTip label="Holders">
-      <Link href={href} aria-label="Holders" className={cn(iconHit, 'pl-0 pr-0')}>
+    <CoinCommunityHoverTrigger mint={mint}>
+      <a
+        href={coinCommunityWebUrl(mint)}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Coin Community"
+        className={cn(iconHit, 'pl-0 pr-0')}
+        onPointerEnter={() => enqueueCoinCommunityPrefetch(queryClient, mint)}
+      >
         <PulseLuminanceGlyph src={PULSE_BRAND_SRC.communities} size={glyphPx} />
         <span className={statNumberClsFor(glyphPx)}>{stat}</span>
-      </Link>
-    </StripTip>
+      </a>
+    </CoinCommunityHoverTrigger>
   );
 }
 
@@ -633,6 +622,16 @@ export function PulseRowSocialStrip({
     (twitterProfileUrl ? twitterHandleFromProfileUrl(twitterProfileUrl) ?? null : null);
 
   const prefetchTwitterRef = usePrefetchTwitterProfileOnVisible(twitterDisplayHandle);
+  const prefetchCommunityRef = usePrefetchCoinCommunityOnVisible(
+    showHoldersCommunity ? bundle.token.mint : null,
+  );
+  const rowPrefetchRef = useCallback(
+    (node: HTMLElement | null) => {
+      prefetchTwitterRef(node);
+      prefetchCommunityRef(node);
+    },
+    [prefetchTwitterRef, prefetchCommunityRef],
+  );
 
   const showFollowerRow =
     twitterDisplayHandle &&
@@ -666,7 +665,7 @@ export function PulseRowSocialStrip({
     const showSearchIcon = Boolean(xSearchUrl);
 
     return (
-      <div ref={prefetchTwitterRef} className="inline-flex min-w-0 items-center font-sans">
+      <div ref={rowPrefetchRef} className="inline-flex min-w-0 items-center font-sans">
         <div className="flex h-6 min-w-0 flex-nowrap items-center gap-0.5 overflow-visible py-0">
           {twitterProfileUrl && twitterDisplayHandle ? (
             <TwitterProfileHoverTrigger
@@ -749,7 +748,7 @@ export function PulseRowSocialStrip({
 
   return (
     <div
-      ref={prefetchTwitterRef}
+      ref={rowPrefetchRef}
       className={cn(
         'min-w-0 font-sans',
         inlineHeader && 'inline-flex min-w-0 items-center',
@@ -943,17 +942,9 @@ export function PulseRowSocialStrip({
           </PulseRichHover>
         ) : null}
 
-        {showHoldersCommunity && model.twitterCommunity?.url ? (
-          <ExternalCommunityStatLink
-            href={model.twitterCommunity.url}
-            stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
-            previewTitle="X community"
-            previewSubtitle="Community from metadata"
-            glyphPx={sx}
-          />
-        ) : showHoldersCommunity ? (
-          <InternalCommunityStatLink
-            href={tokenPath}
+        {showHoldersCommunity ? (
+          <CoinCommunityStatLink
+            mint={bundle.token.mint}
             stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
             glyphPx={sx}
           />

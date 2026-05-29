@@ -337,8 +337,10 @@ export function resolveLaunchpadAvatarChrome(
     !isMigrated &&
     (opts.pumpFunOnBondingCurve === true || isPulseMayhemToken(bundle) || BONDING_LAUNCH_PADS.has(lp));
 
-  /** Thin SVG arc tints — no outer box frame (Axiom-style). */
-  const ringStrokeRgba = brandRgba(protocolId, isMigrated ? 0.9 : 0.95);
+  /** Thin SVG arc tints — protocol brand color; gold when migrated. */
+  const ringStrokeRgba = isMigrated
+    ? hexToRgba('#f59e0b', 0.96)
+    : brandRgba(protocolId, 0.95);
   const ringStyle: LaunchpadRingStyle =
     protocolId === 'raydium'
       ? 'raydium-gradient'

@@ -12,6 +12,7 @@ import {
   Settings,
   Shield,
   UserRound,
+  Users,
   Wallet,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -43,6 +44,8 @@ import { formatNumber, parseLamportsStringToSol, rawToUi } from '@/lib/utils/for
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshListener';
+import { toggleSquadsOnPulse } from '@/lib/squads/openSquadsOnPulse';
+import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
 
 /**
  * App topbar: brand, primary nav, search, chain pill, deposit, co-pilot, wallet.
@@ -69,6 +72,7 @@ export function Topbar() {
   const avatarMenuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const avatarMenuPresence = useOverlayPresence(avatarMenuOpen, POPOVER_ANIM_CLOSE_MS);
+  const squadsOpen = usePulseSquadsRailStore((s) => s.side !== 'hidden');
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -202,7 +206,7 @@ export function Topbar() {
       <Link
         href="/pulse"
         prefetch={true}
-        className="flex shrink-0 select-none items-center gap-2.5 pr-5 text-fg-primary sm:gap-3 sm:pr-8 md:pr-10 lg:pr-12"
+        className="flex shrink-0 select-none items-center gap-2 pr-3 text-fg-primary sm:gap-2.5 sm:pr-4 md:pr-5 lg:pr-6"
       >
         <span className="sr-only">pointer.</span>
         {/* True swallow mark (transparent PNG from brand assets). */}
@@ -220,7 +224,7 @@ export function Topbar() {
       </Link>
 
       <nav
-        className="flex max-w-[36%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[28%] sm:gap-1 md:max-w-[26%] lg:max-w-none [&::-webkit-scrollbar]:hidden"
+        className="flex max-w-[38%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[32%] sm:gap-1 md:max-w-[30%] lg:max-w-none [&::-webkit-scrollbar]:hidden"
         aria-label="Primary"
       >
         {APP_NAV.map((item) => {
@@ -257,7 +261,7 @@ export function Topbar() {
       </nav>
 
       {/* Viewport-centered cluster: co-pilot pill + compact clipboard token chip (offset right of center). */}
-      <div className="pointer-events-none absolute left-[calc(50%+10px)] top-1/2 z-[65] block min-w-0 -translate-x-1/2 -translate-y-1/2 sm:left-[calc(50%+14px)]">
+      <div className="pointer-events-none absolute left-[calc(50%-18px)] top-1/2 z-[65] block min-w-0 -translate-x-1/2 -translate-y-1/2 sm:left-[calc(50%-22px)]">
         <div className="pointer-events-auto flex items-center justify-center gap-2">
           <CopilotTopbarSlot />
           <ClipboardMintTopbarChip />
@@ -323,6 +327,31 @@ export function Topbar() {
           </button>
         ) : null}
 
+        <button
+          type="button"
+          onClick={() => toggleSquadsOnPulse()}
+          aria-label={squadsOpen ? 'Hide squads panel' : 'Open squads panel'}
+          title={squadsOpen ? 'Hide squads' : 'Open squads'}
+          className={cn(
+            'group/squads relative ml-0.5 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 sm:ml-1',
+            squadsOpen && 'ring-2 ring-violet-400/35',
+          )}
+        >
+          <span
+            className={cn(
+              'relative flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-white',
+              'bg-gradient-to-br from-emerald-500 to-sky-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]',
+              'transition-[filter,transform] group-hover/squads:brightness-110',
+            )}
+          >
+            <Users className="h-[17px] w-[17px]" strokeWidth={2.15} aria-hidden />
+            <span
+              className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full border border-bg-base bg-emerald-400"
+              aria-hidden
+            />
+          </span>
+        </button>
+
         {authenticated ? (
           <div className="ml-0.5 flex items-center gap-1 border-l border-border-subtle pl-1.5 sm:ml-1 sm:gap-2 sm:pl-2">
             <Link
@@ -359,8 +388,6 @@ export function Topbar() {
               hasActiveWallet={Boolean(walletAddress)}
               className="hidden sm:flex"
             />
-
-            {/* TODO(squads): Lobby / Squads popover trigger sits here next — same h-9 rounded-full slot. */}
 
             <div className="relative shrink-0" ref={avatarMenuRef}>
               <button

@@ -29,7 +29,8 @@ export const PULSE_BRAND_SRC = {
   github: `${GLYPH_BASE}/github.png`,
   youtube: `${GLYPH_BASE}/youtube.png`,
   tiktok: `${GLYPH_BASE}/tiktok.png`,
-  communities: `${GLYPH_BASE}/communities_alt.png`,
+  /** Coin Communities brand mark (clean transparent PNG; replaces the X-communities avatar). */
+  communities: `${GLYPH_BASE}/coin-communities.png`,
 } as const;
 
 function luminanceMaskStyle(src: string, size: number): CSSProperties {

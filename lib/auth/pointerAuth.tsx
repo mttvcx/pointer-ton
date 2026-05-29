@@ -16,6 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { useUIStore } from '@/store/ui';
+import { useAuthSyncStore } from '@/store/authSync';
 
 function fallbackTonConnectManifestUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -25,6 +26,36 @@ function fallbackTonConnectManifestUrl(): string {
 }
 
 const SESSION_KEY = 'pointer_ton_session';
+const SYNCED_USER_KEY = 'pointer_auth_synced_user';
+/** Set on sign-out so landing Start Trading never silently reuses a Privy cookie session. */
+const LANDING_REQUIRE_SIGN_IN_KEY = 'pointer_require_sign_in';
+
+function readLandingRequireSignIn(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(LANDING_REQUIRE_SIGN_IN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setLandingRequireSignIn() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(LANDING_REQUIRE_SIGN_IN_KEY, '1');
+  } catch {
+    /* no-op */
+  }
+}
+
+function clearLandingRequireSignIn() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(LANDING_REQUIRE_SIGN_IN_KEY);
+  } catch {
+    /* no-op */
+  }
+}
 
 export type PointerAuthUser = {
   id: string;
@@ -36,6 +67,8 @@ export type PointerAuthUser = {
 type Ctx = {
   ready: boolean;
   authenticated: boolean;
+  /** True only when Privy has an active session (not legacy TON JWT alone). */
+  privyAuthenticated: boolean;
   /**
    * In-app "Connect wallet" CTA. Chain-aware: SOL/BNB/Base jump straight to a
    * wallet picker via Privy's `useConnectWallet`; TON falls back to the full
@@ -49,6 +82,12 @@ type Ctx = {
    * a silent wallet auto-reconnect.
    */
   signIn: () => Promise<void>;
+  /**
+   * Landing "Start Trading" — opens Privy sign-in when needed; after an explicit
+   * sign-out, never silently reuses a lingering Privy session. Returns true when
+   * the user may enter the app (fresh Privy session or already signed in).
+   */
+  startTradingFromLanding: () => Promise<boolean>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   user: PointerAuthUser | null;
@@ -200,9 +239,11 @@ function InnerAuth({ children }: { children: ReactNode }) {
     return Boolean(jwtWallet && wa && normalizeTonAddress(jwtWallet) === wa);
   }, [sessionToken, wallet]);
 
+  const privyAuthenticated =
+    privy.authenticated && (privy.ready || privyReadyTimedOut);
+
   const authenticated =
-    (privy.authenticated && (privy.ready || privyReadyTimedOut)) ||
-    Boolean(localReady && pointerSessionValid);
+    privyAuthenticated || Boolean(localReady && pointerSessionValid);
 
   const login = useCallback(async () => {
     if (!privy.ready) {
@@ -261,24 +302,73 @@ function InnerAuth({ children }: { children: ReactNode }) {
       });
       return;
     }
-    if (privy.authenticated) {
-      /** Already authenticated — caller decides routing (e.g. landing pushes /pulse). */
-      return;
-    }
     try {
+      /** Always surface Privy's sign-in modal — never silently reuse a stale session. */
       await privy.login();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not open sign-in';
       toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
     }
-  }, [privy.ready, privy.authenticated, privy.login, privyReadyTimedOut]);
+  }, [privy.ready, privy.login, privyReadyTimedOut]);
+
+  const startTradingFromLanding = useCallback(async (): Promise<boolean> => {
+    if (!privy.ready) {
+      if (!privyReadyTimedOut) {
+        toast.message('Loading sign-in…', { description: 'One moment, then try again.' });
+        return false;
+      }
+      toast.error('Sign-in provider blocked', {
+        description:
+          'Allow auth.privy.io in your ad blocker, then refresh. In dashboard.privy.io add this origin as allowed.',
+      });
+      return false;
+    }
+
+    const requireFresh = readLandingRequireSignIn();
+
+    /** After sign-out, purge any lingering Privy cookie before opening the modal. */
+    if (requireFresh && privy.authenticated) {
+      await privy.logout();
+      await new Promise((r) => window.setTimeout(r, 150));
+    }
+
+    /** Returning visitor with an active session (did not sign out this tab). */
+    if (privy.authenticated && !requireFresh) {
+      clearLandingRequireSignIn();
+      const token = await privy.getAccessToken();
+      return Boolean(token);
+    }
+
+    try {
+      await privy.login();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not open sign-in';
+      toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
+      return false;
+    }
+
+    const token = await privy.getAccessToken();
+    if (token) {
+      clearLandingRequireSignIn();
+      return true;
+    }
+    return false;
+  }, [privy.ready, privyReadyTimedOut, privy.authenticated, privy.logout, privy.login, privy.getAccessToken]);
 
   const logout = useCallback(async () => {
+    setLandingRequireSignIn();
     writeSession(null);
     setSessionToken(null);
+    try {
+      sessionStorage.removeItem(SYNCED_USER_KEY);
+    } catch {
+      /* no-op */
+    }
+    useAuthSyncStore.getState().reset();
+    queryClient.clear();
     await tonConnectUI.disconnect();
     await privy.logout();
-  }, [privy, tonConnectUI]);
+  }, [privy, tonConnectUI, queryClient]);
 
   const getAccessToken = useCallback(async () => {
     if (privy.authenticated) {
@@ -318,14 +408,27 @@ function InnerAuth({ children }: { children: ReactNode }) {
     () => ({
       ready,
       authenticated,
+      privyAuthenticated,
       login,
       signIn,
+      startTradingFromLanding,
       logout,
       getAccessToken,
       user: authenticated ? user : null,
       linkedTonAddress,
     }),
-    [ready, authenticated, login, signIn, logout, getAccessToken, user, linkedTonAddress],
+    [
+      ready,
+      authenticated,
+      privyAuthenticated,
+      login,
+      signIn,
+      startTradingFromLanding,
+      logout,
+      getAccessToken,
+      user,
+      linkedTonAddress,
+    ],
   );
 
   return <PointerAuthContext.Provider value={value}>{children}</PointerAuthContext.Provider>;

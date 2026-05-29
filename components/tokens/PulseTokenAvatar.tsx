@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { getPulseBondingRingState, PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
+import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import {
   type LaunchpadAvatarChrome,
 } from '@/lib/tokens/launchpadAvatarChrome';
@@ -12,11 +12,14 @@ import { cn } from '@/lib/utils/cn';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
 
-/** Axiom-style thin progress stroke — arc only, no thick box frame. */
-const STROKE = 1.1;
+/** Universal Axiom/terminal square frame — thin stroke on the outer edge, image inset. */
+const STROKE = 1.25;
+const IMAGE_INSET = 2;
 
 function cornerRadiusForBox(px: number): number {
-  return Math.max(4, Math.min(12, Math.round(px * 0.156)));
+  if (px <= 32) return 4;
+  if (px <= 48) return 6;
+  return 8;
 }
 
 function buildRoundedRectRingPath(
@@ -51,14 +54,14 @@ function buildRoundedRectRingPath(
   return { d, lengthApprox };
 }
 
-function genericProgressColor(nearMigrate: boolean, pct: number): string {
-  if (nearMigrate || pct >= PULSE_NEAR_MIGRATE_PCT) return 'rgba(56, 189, 248, 0.96)';
-  if (pct <= 0) return 'rgba(100, 116, 139, 0.75)';
-  if (pct < 50) return 'rgba(100, 116, 139, 0.88)';
-  return 'rgba(52, 211, 153, 0.92)';
+function genericProgressColor(pct: number): string {
+  if (pct <= 0) return 'rgba(255, 255, 255, 0.08)';
+  if (pct < 50) return 'rgba(148, 163, 184, 0.82)';
+  return 'rgba(0, 194, 122, 0.9)';
 }
 
 const MIGRATED_GOLD = 'rgba(245, 158, 11, 0.96)';
+const MIGRATED_GOLD_TRACK = 'rgba(245, 158, 11, 0.24)';
 
 function hexToRgba(hex: string, alpha: number): string {
   const h = hex.replace('#', '').trim();
@@ -69,23 +72,28 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function protocolTrackColor(
+  protocolId: ProtocolBrandId | undefined,
+  displayMigrated: boolean,
+): string {
+  if (displayMigrated) return MIGRATED_GOLD_TRACK;
+  if (protocolId) {
+    const brand = protocolBrand(protocolId);
+    return hexToRgba(brand?.color ?? '#888888', 0.22);
+  }
+  return 'rgba(255, 255, 255, 0.07)';
+}
+
 function launchpadArcColor(
   protocolId: ProtocolBrandId | undefined,
   ringStrokeRgba: string | undefined,
-  ringStyle: LaunchpadAvatarChrome['ringStyle'] | undefined,
-  nearMigrate: boolean,
   pct: number,
   displayMigrated: boolean,
 ): string | null {
   if (displayMigrated) return MIGRATED_GOLD;
-  if (ringStyle === 'raydium-gradient' || ringStyle === 'printr-gradient' || ringStyle === 'jupiter-studio-gradient' || ringStyle === 'meteora-gradient') {
-    if (pct <= 0) return null;
-    return ringStrokeRgba ?? '#c084fc';
-  }
-  if (nearMigrate || pct >= PULSE_NEAR_MIGRATE_PCT) return 'rgba(56, 189, 248, 0.96)';
   if (pct <= 0) return null;
   if (protocolId && ringStrokeRgba) return ringStrokeRgba;
-  return genericProgressColor(nearMigrate, pct);
+  return null;
 }
 
 /** Axiom-style encircled launchpad chip — shell + inner logo scale. */
@@ -110,7 +118,7 @@ function cornerBadgeMetrics(
 }
 
 function cornerBadgeRingColor(protocolId: ProtocolBrandId, isMigrated: boolean): string {
-  if (isMigrated) return 'rgba(245, 158, 11, 0.88)';
+  if (isMigrated) return MIGRATED_GOLD;
   const brand = protocolBrand(protocolId);
   return hexToRgba(brand?.color ?? '#888888', 0.84);
 }
@@ -130,7 +138,7 @@ function cornerBadgeInnerBg(protocolId: ProtocolBrandId): string | undefined {
     case 'daos.fun':
       return '#38bdf8';
     case 'bags':
-      return '#4ade80';
+      return '#059669';
     default:
       return undefined;
   }
@@ -163,7 +171,15 @@ function LaunchpadCornerBadge({
         'block shrink-0 object-contain',
         innerBg && 'rounded-full',
       )}
-      style={{ width: iconPx, height: iconPx, maxWidth: iconPx, maxHeight: iconPx }}
+      style={{
+        width: iconPx,
+        height: iconPx,
+        maxWidth: iconPx,
+        maxHeight: iconPx,
+        filter: isMigrated
+          ? 'sepia(1) saturate(5) hue-rotate(5deg) brightness(1.08)'
+          : undefined,
+      }}
     />
   );
   const pos = cn(
@@ -230,6 +246,9 @@ export function PulseTokenAvatar({
   const gradientId = useId().replace(/:/g, '');
   const pathRef = useRef<SVGPathElement | null>(null);
   const rx = cornerRadiusForBox(size);
+  const innerRx = Math.max(3, rx - 1);
+  const contentInset = IMAGE_INSET + STROKE / 2;
+  const innerSize = size - contentInset * 2;
   const { d, lengthApprox } = useMemo(
     () => buildRoundedRectRingPath(size, STROKE, rx),
     [size, rx],
@@ -259,8 +278,6 @@ export function PulseTokenAvatar({
   const hasData = ringFillPct != null;
   const rawPct = hasData ? Math.min(100, Math.max(0, ringFillPct)) : 0;
   const pct = brandFullRing ? 100 : displayMigrated ? 100 : rawPct;
-  const nearMigrate =
-    !displayMigrated && !brandFullRing && hasData && ringFillPct != null && ringFillPct >= PULSE_NEAR_MIGRATE_PCT;
 
   const useLaunchpadProgress = Boolean(launchpadChrome && showRing);
   const useGenericProgress = Boolean(!launchpadChrome && showRing && (hasData || displayMigrated));
@@ -269,30 +286,42 @@ export function PulseTokenAvatar({
     ? launchpadArcColor(
         launchpadChrome!.protocolId,
         launchpadChrome!.ringStrokeRgba,
-        launchpadChrome!.ringStyle,
-        nearMigrate,
         pct,
         displayMigrated,
       )
     : useGenericProgress
       ? displayMigrated
-        ? 'rgba(245, 158, 11, 0.96)'
-        : genericProgressColor(nearMigrate, pct)
+        ? MIGRATED_GOLD
+        : genericProgressColor(pct)
       : null;
 
   const ringStyle = launchpadChrome?.ringStyle;
   const useBrandGradient =
-    ringStyle === 'raydium-gradient' ||
-    ringStyle === 'printr-gradient' ||
-    ringStyle === 'jupiter-studio-gradient' ||
-    ringStyle === 'meteora-gradient';
+    !displayMigrated &&
+    (ringStyle === 'raydium-gradient' ||
+      ringStyle === 'printr-gradient' ||
+      ringStyle === 'jupiter-studio-gradient' ||
+      ringStyle === 'meteora-gradient');
   const showArc = (arcColor != null || useBrandGradient) && pct > 0;
-  const arcStroke = useBrandGradient && showArc ? `url(#${gradientId})` : arcColor ?? undefined;
+  const arcStroke =
+    useBrandGradient && showArc ? `url(#${gradientId})` : arcColor ?? undefined;
   const showTrack = showRing && (useLaunchpadProgress || useGenericProgress);
-  const trackColor = 'rgba(51, 65, 85, 0.32)';
+  const trackColor = useLaunchpadProgress
+    ? protocolTrackColor(launchpadChrome!.protocolId, displayMigrated)
+    : displayMigrated
+      ? MIGRATED_GOLD_TRACK
+      : 'rgba(255, 255, 255, 0.07)';
   const fullRing = displayMigrated || pct >= 99.95;
   const arcLen = fullRing ? pathLen + STROKE * 2 : pathLen * (pct / 100);
   const offset = 0;
+
+  const imageClipStyle = {
+    top: contentInset,
+    left: contentInset,
+    width: innerSize,
+    height: innerSize,
+    borderRadius: innerRx,
+  } as const;
 
   useLayoutEffect(() => {
     if (!showTrack) return;
@@ -305,7 +334,7 @@ export function PulseTokenAvatar({
 
   return (
     <div
-      className={cn('pulse-avatar relative shrink-0 rounded-lg')}
+      className={cn('pulse-avatar relative shrink-0')}
       style={{ width: size, height: size }}
     >
       {showImage ? (
@@ -313,16 +342,18 @@ export function PulseTokenAvatar({
         <img
           src={imageSrc!}
           alt={token.symbol ?? 'Token'}
-          width={size}
-          height={size}
+          width={innerSize}
+          height={innerSize}
           loading="lazy"
           decoding="async"
           onError={() => setImageFailed(true)}
-          className="relative z-0 block h-full w-full rounded-lg object-cover"
+          className="absolute z-0 block object-cover"
+          style={imageClipStyle}
         />
       ) : (
         <div
-          className="relative z-0 flex h-full w-full items-center justify-center rounded-lg bg-[#0f1419] ring-1 ring-inset ring-white/[0.06]"
+          className="absolute z-0 flex items-center justify-center bg-[#0f1419]"
+          style={imageClipStyle}
           aria-hidden
         >
           <span
@@ -379,7 +410,7 @@ export function PulseTokenAvatar({
             fill="none"
             stroke={trackColor}
             strokeWidth={STROKE}
-            strokeLinejoin="round"
+            strokeLinejoin="miter"
             strokeLinecap="butt"
           />
           {showArc && arcStroke ? (
@@ -388,8 +419,8 @@ export function PulseTokenAvatar({
               fill="none"
               stroke={arcStroke}
               strokeWidth={STROKE}
-              strokeLinejoin="round"
-              strokeLinecap="round"
+              strokeLinejoin="miter"
+              strokeLinecap="butt"
               strokeDasharray={`${arcLen} ${pathLen + STROKE * 2}`}
               strokeDashoffset={offset}
               style={{

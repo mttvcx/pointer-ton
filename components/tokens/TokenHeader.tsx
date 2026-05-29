@@ -294,7 +294,7 @@ export function TokenHeader({
                 profileGlyphSize={HEADER_PROFILE_GLYPH_PX}
                 showTxCount={false}
                 showDevWallet={false}
-                showHoldersCommunity={false}
+                showHoldersCommunity={true}
                 showProTradersStat={false}
                 showDevCrownStat={false}
                 fallbackXSearchQuery={name.trim() || ticker}

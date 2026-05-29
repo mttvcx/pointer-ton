@@ -15,7 +15,7 @@ export const privyClientConfig: PrivyClientConfig = {
     theme: 'dark',
     accentColor: '#7C5CFF',
     logo: '/branding/logo-bird.svg',
-    showWalletLoginFirst: true,
+    showWalletLoginFirst: false,
     walletChainType: 'ethereum-and-solana',
     walletList: [
       'phantom',

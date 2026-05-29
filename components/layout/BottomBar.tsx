@@ -43,6 +43,8 @@ import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePnlTrackerStore } from '@/store/pnlTracker';
 import { openXMonitorOnPulse, toggleXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
+import { toggleSquadsOnPulse, isSquadsRailOpen } from '@/lib/squads/openSquadsOnPulse';
+import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
 
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
@@ -280,7 +282,7 @@ export function BottomBar() {
     <>
       <div className="fixed bottom-0 left-0 right-0 z-50 flex min-h-[2.5rem] shrink-0 border-t border-white/[0.06] bg-bg-base pb-[env(safe-area-inset-bottom,0px)] text-[11px] font-medium tabular-nums text-fg-secondary">
       <div className="flex min-h-[2.5rem] w-full min-w-0 items-center gap-1.5 overflow-x-auto px-2 sm:gap-2 sm:px-2.5">
-        <div className="hidden min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-r border-white/[0.06] pr-2 sm:flex">
+        <div className="hidden min-w-0 flex-wrap items-center gap-x-1 gap-y-1 border-r border-white/[0.06] pr-1.5 sm:flex sm:pr-2">
           <TradingSettingsPopover className="cursor-pointer rounded-md border border-accent-primary/35 bg-accent-primary/[0.08] px-2 py-[3px] text-[11px] font-semibold tabular-nums leading-none text-accent-primary transition-colors hover:bg-accent-primary/15">
             PRESET {activePresetSlot}
           </TradingSettingsPopover>
@@ -387,6 +389,8 @@ function DockTrackerSlot({
   const xMonitorOpen =
     usePulseTwitterRailStore((s) => s.side !== 'hidden') ||
     useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
+  const squadsRailOpen = usePulseSquadsRailStore((s) => s.side !== 'hidden');
+  const squadsOpen = squadsRailOpen || isSquadsRailOpen();
   const pnlPeekOpen = usePnlTrackerStore((s) => s.open);
   const togglePnlPeek = usePnlTrackerStore((s) => s.toggleOpen);
 
@@ -401,6 +405,7 @@ function DockTrackerSlot({
   const pulseActivePeek = id === 'pulse' && pulsePeekOpen;
   const walletTrackerActivePeek = id === 'social' && walletPeekOpen;
   const xMonitorActivePeek = id === 'tracker' && xMonitorOpen;
+  const squadsActivePeek = id === 'squads' && squadsOpen;
   const pnlActivePeek = id === 'pnl' && pnlPeekOpen;
 
   /** Tonal pills, no thick light rims — closer to dense pro terminals. */
@@ -561,6 +566,27 @@ function DockTrackerSlot({
           }
           togglePulsePeek();
         }}
+      >
+        {dot}
+        <Icon className={iconCls} strokeWidth={2} aria-hidden />
+        {mode !== 'icon' ? (
+          <span className="max-w-[7rem] truncate leading-none text-white/95 2xl:max-w-[8rem]">{label}</span>
+        ) : null}
+      </button>
+    );
+  }
+
+  if (id === 'squads') {
+    return (
+      <button
+        type="button"
+        className={cn(
+          chip,
+          squadsActivePeek && 'ring-1 ring-violet-400/40 bg-violet-500/[0.12]',
+        )}
+        title={dockTrackerLabel(id, 'full')}
+        aria-label={squadsOpen ? 'Close squads panel' : 'Open squads panel on Pulse'}
+        onClick={() => toggleSquadsOnPulse()}
       >
         {dot}
         <Icon className={iconCls} strokeWidth={2} aria-hidden />

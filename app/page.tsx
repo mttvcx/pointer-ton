@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -17,8 +17,12 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { cn } from '@/lib/utils/cn';
 import { APP_NAME } from '@/lib/utils/constants';
 
-/** Drop a hero loop into /public/landing/hero-loop.mp4 (or any URL) and set this env var. */
+/** Drop hero loops into /public/landing/ and set these env vars when ready. */
 const HERO_VIDEO_SRC = process.env.NEXT_PUBLIC_LANDING_HERO_VIDEO_URL?.trim() || '';
+const HERO_VIDEO_LEFT_SRC =
+  process.env.NEXT_PUBLIC_LANDING_HERO_VIDEO_LEFT_URL?.trim() || '';
+const HERO_VIDEO_RIGHT_SRC =
+  process.env.NEXT_PUBLIC_LANDING_HERO_VIDEO_RIGHT_URL?.trim() || '';
 
 type FeatureTabId = 'pulse' | 'desk' | 'copilot' | 'wallets';
 
@@ -127,26 +131,19 @@ const FAQ_ITEMS = [
 
 export default function LandingPage() {
   const router = useRouter();
-  const { authenticated, ready, signIn } = usePointerAuth();
+  const { ready, startTradingFromLanding } = usePointerAuth();
   const [loginBusy, setLoginBusy] = useState(false);
   const [activeTab, setActiveTab] = useState<FeatureTabId>('pulse');
 
   const handlePrimaryCta = useCallback(async () => {
-    if (authenticated) {
-      router.push('/pulse');
-      return;
-    }
     setLoginBusy(true);
     try {
-      await signIn();
+      const entered = await startTradingFromLanding();
+      if (entered) router.push('/pulse');
     } finally {
       setLoginBusy(false);
     }
-  }, [authenticated, signIn, router]);
-
-  useEffect(() => {
-    if (ready && authenticated) router.prefetch('/pulse');
-  }, [ready, authenticated, router]);
+  }, [startTradingFromLanding, router]);
 
   const ctaLabel = loginBusy ? 'Opening sign-in…' : 'Start Trading';
 
@@ -163,7 +160,6 @@ export default function LandingPage() {
         ctaLabel={ctaLabel}
         ready={ready}
         busy={loginBusy}
-        authenticated={authenticated}
       />
 
       <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 sm:px-8 sm:pb-32">
@@ -178,7 +174,7 @@ export default function LandingPage() {
               Built for{' '}
               <span className="bg-gradient-to-r from-accent-primary via-accent-glow to-accent-primary bg-clip-text text-transparent">
                 live trading
-              </span>
+      </span>
               .
             </>
           }
@@ -285,17 +281,17 @@ function Hero({
   ctaLabel,
   ready,
   busy,
-  authenticated,
 }: {
   onPrimary: () => void;
   ctaLabel: string;
   ready: boolean;
   busy: boolean;
-  authenticated: boolean;
 }) {
   return (
-    <section className="relative z-10 mx-auto w-full max-w-5xl px-5 pt-10 pb-16 text-center sm:px-8 sm:pt-20 sm:pb-20">
-      <div className="mx-auto flex max-w-3xl flex-col items-center">
+    <section className="relative z-10 mx-auto w-full max-w-6xl overflow-visible px-5 pt-10 pb-16 text-center sm:px-8 sm:pt-20 sm:pb-20">
+      <HeroFlankVideos />
+
+      <div className="relative mx-auto flex max-w-3xl flex-col items-center">
         {/* Centered brand mark — Axiom-style large mark above the H1 */}
         <div className="relative flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24">
           <span
@@ -356,6 +352,58 @@ function Hero({
   );
 }
 
+/** Axiom-style tilted video cards flanking the hero — drop in separate loops later. */
+function HeroFlankVideos() {
+  return (
+    <>
+      <HeroFlankVideo slot="left" src={HERO_VIDEO_LEFT_SRC} tilt={-8} sway="lg" delay={0} />
+      <HeroFlankVideo slot="right" src={HERO_VIDEO_RIGHT_SRC} tilt={8} sway="md" delay={-6} />
+    </>
+  );
+}
+
+function HeroFlankVideo({
+  slot,
+  src,
+  tilt,
+  sway,
+  delay,
+}: {
+  slot: 'left' | 'right';
+  src: string;
+  tilt: number;
+  sway: 'lg' | 'md';
+  delay: number;
+}) {
+  return (
+    <div
+      aria-hidden={!src}
+      className={cn(
+        'pointer-events-none absolute top-[42%] hidden w-[min(26vw,300px)] lg:block',
+        slot === 'left' ? 'left-[1.5%] xl:left-[3%]' : 'right-[1.5%] xl:right-[3%]',
+      )}
+      style={{ transform: `translateY(-50%) rotate(${tilt}deg)` }}
+    >
+      <div
+        className="will-change-transform"
+        style={{
+          animationName: `pointerFloat${sway.toUpperCase()}`,
+          animationDuration: sway === 'lg' ? '26s' : '28s',
+          animationDelay: `${delay}s`,
+          animationTimingFunction: 'ease-in-out',
+          animationIterationCount: 'infinite',
+        }}
+      >
+        <LandingVideoFrame
+          src={src}
+          label={slot === 'left' ? 'Feature loop A' : 'Feature loop B'}
+          className="rounded-2xl shadow-[0_40px_90px_-30px_rgb(var(--accent-primary-rgb)/0.55)]"
+        />
+      </div>
+    </div>
+  );
+}
+
 function BackedByPlaceholder() {
   return (
     <div
@@ -384,55 +432,76 @@ function ProductVideoFrame() {
         aria-hidden
         className="pointer-events-none absolute -inset-x-12 -inset-y-16 -z-10 rounded-[48px] bg-[radial-gradient(ellipse_60%_70%_at_50%_50%,rgb(var(--accent-primary-rgb)/0.18),transparent_70%)] blur-2xl"
       />
-      <div
-        className={cn(
-          'relative overflow-hidden rounded-3xl border border-border-strong/80 bg-bg-raised/85 shadow-[0_60px_120px_-40px_rgba(0,0,0,0.85)] backdrop-blur-sm',
+      <LandingVideoFrame
+        src={HERO_VIDEO_SRC}
+        label="Product loop"
+        className="rounded-3xl shadow-[0_60px_120px_-40px_rgba(0,0,0,0.85)]"
+        frameClassName="rounded-3xl"
+      />
+    </div>
+  );
+}
+
+function LandingVideoFrame({
+  src,
+  label,
+  className,
+  frameClassName,
+}: {
+  src: string;
+  label: string;
+  className?: string;
+  frameClassName?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'relative overflow-hidden border border-border-strong/80 bg-bg-raised/85 backdrop-blur-sm',
+        className,
+      )}
+    >
+      <div className={cn('relative aspect-video w-full', frameClassName)}>
+        {src ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption -- decorative product loop
+          <video
+            src={src}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <VideoPlaceholderInner label={label} />
         )}
-      >
-        <div className="relative aspect-video w-full">
-          {HERO_VIDEO_SRC ? (
-            // eslint-disable-next-line jsx-a11y/media-has-caption -- decorative product loop
-            <video
-              src={HERO_VIDEO_SRC}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <VideoPlaceholderInner />
-          )}
-          {/* subtle inset border + corner gradient */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/[0.05]"
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-bg-base/40 to-transparent"
-          />
-        </div>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.05]"
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-bg-base/40 to-transparent"
+        />
       </div>
     </div>
   );
 }
 
-function VideoPlaceholderInner() {
+function VideoPlaceholderInner({ label }: { label: string }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[linear-gradient(135deg,rgb(var(--bg-sunken-rgb))_0%,rgb(var(--bg-base-rgb))_100%)]">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,rgb(var(--bg-sunken-rgb))_0%,rgb(var(--bg-base-rgb))_100%)]">
       {/* eslint-disable-next-line @next/next/no-img-element -- brand mark */}
       <img
         src="/branding/pointer-bird.png"
         alt=""
-        width={48}
-        height={48}
-        className="h-12 w-auto opacity-60 drop-shadow-[0_4px_16px_rgb(var(--accent-primary-rgb)/0.4)]"
+        width={40}
+        height={40}
+        className="h-10 w-auto opacity-55 drop-shadow-[0_4px_16px_rgb(var(--accent-primary-rgb)/0.4)]"
         draggable={false}
       />
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-fg-muted/80">
-          Product loop
+        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-fg-muted/80">
+          {label}
         </span>
         <span className="text-[10px] text-fg-muted/50">coming soon</span>
       </div>
@@ -464,8 +533,6 @@ type FloatBlock = {
 };
 
 const PAGE_FLOAT_BLOCKS: FloatBlock[] = [
-  { left: '4%',  top: '3%',  w: 360, h: 260, rot: 8,   dur: 26, delay: 0,    sway: 'lg' },
-  { left: '70%', top: '6%',  w: 420, h: 300, rot: -6,  dur: 30, delay: -4,   sway: 'lg' },
   { left: '38%', top: '18%', w: 240, h: 180, rot: 20,  dur: 24, delay: -6,   sway: 'sm', intensity: 'soft' },
   { left: '14%', top: '24%', w: 320, h: 220, rot: -10, dur: 28, delay: -10,  sway: 'md' },
   { left: '64%', top: '28%', w: 380, h: 280, rot: 12,  dur: 32, delay: -14,  sway: 'lg' },

@@ -25,15 +25,14 @@ export const DOCK_TRACKER_IDS: DockTrackerId[] = [
   'squads',
 ];
 
-/** Dock chips that navigate via `<Link>` — bespoke handlers for wallet / pulse / tracker / social. */
+/** Dock chips that navigate via `<Link>` — bespoke handlers for wallet / pulse / tracker / social / squads. */
 export const DOCK_TRACKER_HREF: Record<
-  Exclude<DockTrackerId, 'wallet' | 'pulse' | 'tracker' | 'social'>,
+  Exclude<DockTrackerId, 'wallet' | 'pulse' | 'tracker' | 'social' | 'squads'>,
   string
 > = {
   discover: '/explore',
   pnl: '/portfolio',
   alpha: '/points',
-  squads: '/squads/discover-traders',
 };
 
 export const WALLET_HOTKEY_ROUTE = '/wallets';

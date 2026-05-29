@@ -37,7 +37,7 @@ import {
   sortPulseBundles,
 } from '@/lib/tokens/columnPresetModel';
 import { PULSE_COLUMN_ACCENT_DOT, type PulseColumnId } from '@/lib/utils/constants';
-import { syntheticPulseFeedItems, pulseTwitterProfileHoverTestBundle } from '@/lib/dev/demoPulseBundles';
+import { syntheticPulseFeedItems, pulseSocialShowcaseBundles } from '@/lib/dev/demoPulseBundles';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
@@ -167,23 +167,21 @@ function PulseColumnBody({
   const feedItems = useMemo(() => {
     const raw = dedupePulseBundlesByMint(query.data?.items ?? []);
     let items: PulseTokenBundle[];
-    /** Real indexer rows always win — demo deck only when API is empty and demo mode is on. */
-    if (raw.length > 0) {
+    if (uiDemo) {
+      /** Showcase + protocol deck on top of live rows — no demo chrome, just filled Pulse for QA. */
+      items = dedupePulseBundlesByMint([
+        ...pulseSocialShowcaseBundles(column, activeChain),
+        ...syntheticPulseFeedItems(column, activeChain),
+        ...raw,
+      ]);
+    } else if (raw.length > 0) {
       items = raw;
-    } else if (uiDemo && (query.isPending || query.data?.fetchError || raw.length === 0)) {
-      items = syntheticPulseFeedItems(column, activeChain);
     } else {
       items = raw;
     }
 
-    const twitterHoverQa =
-      uiDemo && column === 'new' ? pulseTwitterProfileHoverTestBundle(activeChain) : null;
-    if (twitterHoverQa) {
-      items = dedupePulseBundlesByMint([twitterHoverQa, ...items]);
-    }
-
     return items;
-  }, [column, query.data?.items, query.data?.fetchError, query.isPending, uiDemo, activeChain]);
+  }, [column, query.data?.items, uiDemo, activeChain]);
 
   const flashTrackPulseMint = useUIStore((s) => s.flashTrackPulseMint);
 
