@@ -1,6 +1,65 @@
 # Pointer TON — Agent Handoff
 
-> Last updated: 2026-05-30 · Commit: `3fdb761` on `main`
+> Last updated: 2026-05-30 · Commit: `3ec5080` on `main`
+
+---
+
+## What is Pointer? (read this so you're not lost)
+
+**Pointer** is a **dark-themed crypto trading terminal** — think Axiom/Photon-style UX, but with Pointer's own design system and a built-in **AI Co-pilot**. Tagline: *"Where the sharpest traders are."*
+
+This repo (`pointer-ton`) is the **main web app**. It's internal alpha / active development — not a toy demo, but not production-polished everywhere either.
+
+### What the app does (user-facing)
+
+| Surface | Route | What it is |
+|---------|-------|------------|
+| **Pulse** | `/pulse` | Live token board — 3 columns: **New**, **Stretch** (near migrate), **Migrated**. Streaming mints from launchpads, quick-buy on rows, column presets/filters, X Monitor rail, **Squads** side panel. **Primary QA surface.** |
+| **Explore** | `/explore` | Token discovery — table + **Mindshare** bubble canvas (force layout, hover cards, AI overview on click). |
+| **Token detail** | `/token/[mint]` | Chart, buy/sell panel, socials, holder/dev stats, AI explain. |
+| **Track** | `/track` | Wallet tracking OS — lists, alerts, cross-check with Pulse. |
+| **Squads** | `/squads/*` | Squad discovery, inbox, rooms, reputation — plus **Squads chat panel** docked/floating on Pulse (not a separate app). |
+| **Portfolio** | `/portfolio` | Holdings / PnL view. |
+| **Perps** | `/perps` | Perps desk (Hyperliquid-oriented). |
+| **Co-pilot** | Topbar / dock | AI panel — token explain, quick ask, scan cache. |
+| **Points** | `/points` | Campaign / points UI. |
+
+### Multi-chain header
+
+The **top bar chain switcher** (SOL / TON / BNB / Base) drives which launchpads, filters, and demo data show. Default chain in UI store may vary; Pulse protocol preset filters are **per active chain**. Backend ingest is strongest on **Solana** (Helius webhooks → NEW/STRETCH/MIGRATED columns).
+
+### Trading & auth
+
+- **Auth:** Pointer auth (Privy-style embedded wallets) — `usePointerAuth()`, `getAccessToken()`
+- **Trading:** Jupiter swaps on Sol, quick-buy from Pulse rows, buy/sell panel on token pages
+- **Fees / tiers:** Platform fee bps, AI daily quota — see `lib/db/tiers.ts`, `lib/utils/constants.ts`
+- **Do not break:** working buy/sell flows, auth gates, demo mode gating (`useUiDemoMode`)
+
+### AI
+
+- Cascade: Gemini Flash → Claude Haiku → Claude Sonnet (`lib/ai/cascade.ts`)
+- Used in Co-pilot, Explore hover → drawer overview, token explain, alert narratives
+- Redis/Upstash scan cache with MC-drift invalidation
+
+### Design language
+
+- **Pointer theme tokens** in Tailwind: `bg-base`, `bg-raised`, `bg-hover`, `fg-primary`, `accent-primary`, `signal-bull/bear`, etc. — defined in `globals.css` + theme provider
+- User explicitly **does not want** hardcoded Axiom clone colors (violet/emerald everywhere)
+- Pulse rows: Axiom-*inspired* layout (MC hero, quick-buy chip, protocol avatar rings) but Pointer chrome
+- Bottom bar dock: Wallet, Pulse, PnL, Alpha, Squads, Social — reorderable like trackers settings
+- Floating panels: X Monitor, Squads, Pulse popup — edge-dock, drag, resize (see `tokenDockPeek` store)
+
+### Stack (quick ref)
+
+Next.js App Router · React 19 · TS strict · Tailwind · Zustand · TanStack Query · Supabase · Upstash Redis · Helius · Jupiter · Anthropic/Gemini AI
+
+Full stack + setup: **`README.md`** in repo root. Canonical structure notes: `PHASE-1-PROMPT.md` if present.
+
+### Who you're helping
+
+Solo builder (`mttvcx`) iterating fast on UX parity with top Sol terminals while keeping Pointer identity. Expect blunt feedback ("doesn't look like chat", "filter doesn't work") — fix root cause, minimal diff.
+
+---
 
 ## Repo & dev
 
@@ -15,7 +74,7 @@
 
 ## Read this first
 
-You are continuing work on **Pointer TON** — a dark-themed crypto terminal (Pulse, Explore, Squads, Track, etc.). The prior session shipped a large squads/perf/filter polish pass. **Read this file fully before changing code.**
+You are continuing work on **Pointer** (this repo). **Read this entire file + skim `README.md` before changing code.** The sections above explain *what the product is*; below is *what we just shipped* and *where things live*.
 
 ### Do NOT
 
@@ -113,6 +172,7 @@ You are continuing work on **Pointer TON** — a dark-themed crypto terminal (Pu
 ## Recent commits
 
 ```
+3ec5080 Add HANDOFF.md for agent session continuity across chats.
 3fdb761 Squads chat UX, Pulse filters, perf, and Explore hover polish.
 f239f68 Fix persist rehydration crashes, bump base UI scale, and speed up Pulse avatars.
 449640b Checkpoint before perf and stability fixes: communities, squads rail, avatar outlines, auth.
