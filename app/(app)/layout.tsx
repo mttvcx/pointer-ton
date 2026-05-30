@@ -4,32 +4,19 @@ import { useEffect, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { Loader2 } from 'lucide-react';
+import { ClientNavigateBridge } from '@/components/navigation/ClientNavigateBridge';
 import { RoutePrefetcher } from '@/components/layout/RoutePrefetcher';
+import { ProtocolLogoPreloader } from '@/components/tokens/ProtocolLogoPreloader';
 import { Topbar } from '@/components/layout/Topbar';
 import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
 import { GlobalSearchModal } from '@/components/layout/GlobalSearchModal';
 import { LabelWalletModal } from '@/components/wallets/LabelWalletModal';
-import { WalletAnalyticsHost } from '@/components/wallet/analytics/WalletAnalyticsHost';
-import { SquadsTraderProfileHost } from '@/components/squads/SquadsTraderProfileHost';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { LaunchModal } from '@/components/launch/LaunchModal';
 import { AlertRuleFlashLayer } from '@/components/alerts/AlertRuleFlashLayer';
-import { AutoBuyExecutor } from '@/components/auto-buy/AutoBuyExecutor';
-import { AutoLaunchExecutor } from '@/components/auto-launch/AutoLaunchExecutor';
-import { AutoBuyToastHost } from '@/components/auto-buy/AutoBuyToastHost';
-import { AutoSellExecutor } from '@/components/auto-sell/AutoSellExecutor';
-import { AutoSellToastHost } from '@/components/auto-sell/AutoSellToastHost';
-import { AlertRuleAudioPlayer } from '@/components/alerts/AlertRuleAudioPlayer';
 import { AICopilotPanel } from '@/components/layout/AICopilotPanel';
 import { BottomBar } from '@/components/layout/BottomBar';
-import { DockPulseFloatingPanel } from '@/components/layout/DockPulseFloatingPanel';
-import { DockWalletTrackerFloatingPanel } from '@/components/layout/DockWalletTrackerFloatingPanel';
-import { DockXMonitorFloatingPanel } from '@/components/layout/DockXMonitorFloatingPanel';
-import { PnlTrackerFloatingWidget } from '@/components/pnl/PnlTrackerFloatingWidget';
-import { PnlCalendarHost } from '@/components/portfolio/PnlCalendarHost';
-import { ClientBugDiagnosticsBootstrap } from '@/components/reports/ClientBugDiagnosticsBootstrap';
-import { FeatureAnnouncementGate } from '@/components/onboarding/FeatureAnnouncementGate';
-import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeSpotlightOnboarding';
+import { DeferredAppShellGate } from '@/components/layout/DeferredAppShellHosts';
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { useUIStore } from '@/store/ui';
 import { APP_NAME } from '@/lib/utils/constants';
@@ -156,42 +143,29 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <CopilotModeProvider>
       <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
       <RoutePrefetcher />
+      <ClientNavigateBridge />
+      <ProtocolLogoPreloader />
       <Topbar />
       <WatchlistTickerBar />
       {/* Task S: Level 2 co-pilot body — full-width strip under topbar; Mode
           toggles height (embedded vs collapsed). */}
       <CopilotStripSlot />
       <GlobalSearchModal />
-      <WalletAnalyticsHost />
-      <SquadsTraderProfileHost />
       <WalletLabelsBootstrap />
       <LabelWalletModal />
       <LaunchModal />
       <AlertRuleFlashLayer />
-      <AlertRuleAudioPlayer />
-      <AutoBuyExecutor />
-      <AutoLaunchExecutor />
-      <AutoBuyToastHost />
-      <AutoSellExecutor />
-      <AutoSellToastHost />
       <div className="flex min-h-0 flex-1">
         <ShellCopilotSlot side="left" />
         <main
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-raised pb-[var(--app-bottombar-h)] pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px))] transition-[padding] duration-200 ease-out"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-raised pb-[var(--app-bottombar-h)] pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))] transition-[padding] duration-200 ease-out"
         >
           {children}
         </main>
         <ShellCopilotSlot side="right" />
       </div>
-      <DockPulseFloatingPanel />
-      <DockWalletTrackerFloatingPanel />
-      <DockXMonitorFloatingPanel />
-      <PnlTrackerFloatingWidget />
-      <PnlCalendarHost />
       <BottomBar />
-      <ClientBugDiagnosticsBootstrap />
-      <FirstTimeSpotlightOnboarding />
-      <FeatureAnnouncementGate />
+      <DeferredAppShellGate />
       </div>
       </CopilotModeProvider>
     </TooltipProvider>

@@ -31,17 +31,26 @@ export const usePulseHiddenMintsStore = create<PulseHiddenMintsState>()(
       mints: [],
       blacklistedDevs: [],
       blacklistedTwitter: [],
-      hideToken: (mint) => set((s) => ({ mints: uniqPush(s.mints, mint) })),
+      hideToken: (mint) => set((s) => ({ mints: uniqPush(s.mints ?? [], mint) })),
       blacklistDev: (wallet) =>
-        set((s) => ({ blacklistedDevs: uniqPush(s.blacklistedDevs, wallet.trim()) })),
+        set((s) => ({ blacklistedDevs: uniqPush(s.blacklistedDevs ?? [], wallet.trim()) })),
       blacklistTwitter: (handle) =>
         set((s) => ({
-          blacklistedTwitter: uniqPush(s.blacklistedTwitter, normTwitterHandle(handle)),
+          blacklistedTwitter: uniqPush(s.blacklistedTwitter ?? [], normTwitterHandle(handle)),
         })),
     }),
     {
       name: 'pointer-pulse-hidden-mints',
       version: 2,
+      merge: (persisted, current) => {
+        const p = persisted as Partial<PulseHiddenMintsState> | undefined;
+        return {
+          ...current,
+          mints: Array.isArray(p?.mints) ? p.mints : [],
+          blacklistedDevs: Array.isArray(p?.blacklistedDevs) ? p.blacklistedDevs : [],
+          blacklistedTwitter: Array.isArray(p?.blacklistedTwitter) ? p.blacklistedTwitter : [],
+        };
+      },
       migrate: (persisted: unknown) => {
         if (!persisted || typeof persisted !== 'object') return persisted;
         const p = persisted as Record<string, unknown>;

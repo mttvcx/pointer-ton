@@ -165,8 +165,8 @@ function sameEntity(a: EntityRef | null, b: EntityRef | null): boolean {
   return a.type === b.type && a.id === b.id && (a.label ?? null) === (b.label ?? null);
 }
 
-export function computeCopilotAlertsReadIso(alerts: { createdAt: string }[]): string {
-  if (alerts.length === 0) return new Date().toISOString();
+export function computeCopilotAlertsReadIso(alerts: { createdAt: string }[] | undefined): string {
+  if (!alerts?.length) return new Date().toISOString();
   const maxT = Math.max(...alerts.map((a) => new Date(a.createdAt).getTime()));
   return new Date(maxT).toISOString();
 }

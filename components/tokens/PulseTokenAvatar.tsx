@@ -149,11 +149,13 @@ function LaunchpadCornerBadge({
   avatarPx,
   isMigrated,
   emphasis = 'default',
+  imagePriority = false,
 }: {
   chrome: LaunchpadAvatarChrome;
   avatarPx: number;
   isMigrated: boolean;
   emphasis?: 'default' | 'header';
+  imagePriority?: boolean;
 }) {
   const { shellPx, iconPx } = cornerBadgeMetrics(avatarPx, chrome.protocolId, emphasis);
   const ringColor = cornerBadgeRingColor(chrome.protocolId, isMigrated);
@@ -167,6 +169,9 @@ function LaunchpadCornerBadge({
       width={iconPx}
       height={iconPx}
       draggable={false}
+      loading={imagePriority ? 'eager' : 'lazy'}
+      decoding={imagePriority ? 'sync' : 'async'}
+      fetchPriority={imagePriority ? 'high' : 'auto'}
       className={cn(
         'block shrink-0 object-contain',
         innerBg && 'rounded-full',
@@ -317,6 +322,8 @@ export function PulseTokenAvatar({
   const fullRing = displayMigrated || pct >= 99.95;
   const arcLen = fullRing ? pathLen + STROKE * 2 : pathLen * (pct / 100);
   const offset = 0;
+  /** Complete rings use one stroke — track + arc stacked reads as a thick/double gold border. */
+  const showDimTrack = showTrack && !fullRing;
 
   const imageClipStyle = {
     top: contentInset,
@@ -408,17 +415,30 @@ export function PulseTokenAvatar({
               )}
             </linearGradient>
           </defs>
-          <path
-            ref={pathRef}
-            d={d}
-            fill="none"
-            stroke={trackColor}
-            strokeWidth={STROKE}
-            strokeLinejoin="miter"
-            strokeLinecap="butt"
-          />
-          {showArc && arcStroke ? (
+          {showDimTrack ? (
             <path
+              ref={pathRef}
+              d={d}
+              fill="none"
+              stroke={trackColor}
+              strokeWidth={STROKE}
+              strokeLinejoin="miter"
+              strokeLinecap="butt"
+            />
+          ) : null}
+          {fullRing && arcStroke ? (
+            <path
+              ref={showDimTrack ? undefined : pathRef}
+              d={d}
+              fill="none"
+              stroke={arcStroke}
+              strokeWidth={STROKE}
+              strokeLinejoin="miter"
+              strokeLinecap="butt"
+            />
+          ) : showArc && arcStroke ? (
+            <path
+              ref={showDimTrack ? undefined : pathRef}
               d={d}
               fill="none"
               stroke={arcStroke}
@@ -440,6 +460,7 @@ export function PulseTokenAvatar({
           avatarPx={size}
           isMigrated={displayMigrated}
           emphasis={cornerBadgeEmphasis}
+          imagePriority={imagePriority}
         />
       ) : null}
     </div>

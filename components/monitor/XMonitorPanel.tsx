@@ -403,7 +403,7 @@ export function XMonitorPanel({
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                               <span className="truncate text-[12px] font-semibold text-fg-primary">
-                                @{row.tweet.authorHandle.replace(/^@/, '')}
+                                @{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}
                               </span>
                               <span className="text-[10px] tabular-nums text-fg-muted/80">
                                 · {formatListenAge(row.createdAt)}

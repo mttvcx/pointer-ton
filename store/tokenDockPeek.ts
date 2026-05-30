@@ -41,6 +41,14 @@ type TokenDockPeekState = {
   setXMonitorDockSnap: (side: PeekDockSnapSide) => void;
   dockXMonitorPanelSize: PulsePeekPanelSize;
   setXMonitorPanelSize: (s: PulsePeekPanelSize) => void;
+  squadsPeekOpen: boolean;
+  setSquadsPeekOpen: (open: boolean) => void;
+  dockSquadsPosition: { x: number; y: number };
+  setDockSquadsPosition: (p: { x: number; y: number }) => void;
+  dockSquadsPanelSize: PulsePeekPanelSize;
+  setSquadsPanelSize: (s: PulsePeekPanelSize) => void;
+  dockSquadsDockSnap: PeekDockSnapSide;
+  setSquadsDockSnap: (side: PeekDockSnapSide) => void;
 };
 
 const DEFAULT_TAB: PulseColumnId = 'new';
@@ -92,6 +100,12 @@ export const DEFAULT_X_MONITOR_PEEK_SIZE: PulsePeekPanelSize = {
   height: 640,
 };
 const DEFAULT_X_MONITOR_POS = { x: 12, y: 96 };
+/** Squads chat float */
+export const DEFAULT_SQUADS_PEEK_SIZE: PulsePeekPanelSize = {
+  width: 360,
+  height: 560,
+};
+const DEFAULT_SQUADS_POS = { x: 24, y: 104 };
 
 export const useTokenDockPeekStore = create<TokenDockPeekState>()(
   persist(
@@ -124,6 +138,14 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
       setXMonitorDockSnap: (dockXMonitorDockSnap) => set({ dockXMonitorDockSnap }),
       dockXMonitorPanelSize: { ...DEFAULT_X_MONITOR_PEEK_SIZE },
       setXMonitorPanelSize: (dockXMonitorPanelSize) => set({ dockXMonitorPanelSize }),
+      squadsPeekOpen: false,
+      setSquadsPeekOpen: (open) => set({ squadsPeekOpen: open }),
+      dockSquadsPosition: DEFAULT_SQUADS_POS,
+      setDockSquadsPosition: (dockSquadsPosition) => set({ dockSquadsPosition }),
+      dockSquadsPanelSize: { ...DEFAULT_SQUADS_PEEK_SIZE },
+      setSquadsPanelSize: (dockSquadsPanelSize) => set({ dockSquadsPanelSize }),
+      dockSquadsDockSnap: null,
+      setSquadsDockSnap: (dockSquadsDockSnap) => set({ dockSquadsDockSnap }),
     }),
     {
       name: 'pointer-dock-pulse-panel',
@@ -138,8 +160,31 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
         dockXMonitorPosition: s.dockXMonitorPosition,
         dockXMonitorDockSnap: s.dockXMonitorDockSnap,
         dockXMonitorPanelSize: s.dockXMonitorPanelSize,
+        dockSquadsPosition: s.dockSquadsPosition,
+        dockSquadsPanelSize: s.dockSquadsPanelSize,
+        dockSquadsDockSnap: s.dockSquadsDockSnap,
       }),
-      version: 2,
+      version: 4,
+      merge: (persisted, current) => {
+        const p = persisted as Partial<TokenDockPeekState> | undefined;
+        return {
+          ...current,
+          ...p,
+          dockPulseTab: p?.dockPulseTab ?? current.dockPulseTab,
+          dockPulsePosition: p?.dockPulsePosition ?? current.dockPulsePosition,
+          dockPulseDockSnap: p?.dockPulseDockSnap ?? current.dockPulseDockSnap,
+          dockPulsePanelSize: p?.dockPulsePanelSize ?? current.dockPulsePanelSize,
+          dockWalletPosition: p?.dockWalletPosition ?? current.dockWalletPosition,
+          dockWalletDockSnap: p?.dockWalletDockSnap ?? current.dockWalletDockSnap,
+          dockWalletPanelSize: p?.dockWalletPanelSize ?? current.dockWalletPanelSize,
+          dockXMonitorPosition: p?.dockXMonitorPosition ?? current.dockXMonitorPosition,
+          dockXMonitorDockSnap: p?.dockXMonitorDockSnap ?? current.dockXMonitorDockSnap,
+          dockXMonitorPanelSize: p?.dockXMonitorPanelSize ?? current.dockXMonitorPanelSize,
+          dockSquadsPosition: p?.dockSquadsPosition ?? current.dockSquadsPosition,
+          dockSquadsPanelSize: p?.dockSquadsPanelSize ?? current.dockSquadsPanelSize,
+          dockSquadsDockSnap: p?.dockSquadsDockSnap ?? current.dockSquadsDockSnap,
+        };
+      },
       migrate: (persisted: unknown) => {
         const p = persisted as Record<string, unknown> | undefined;
         if (!p || typeof p !== 'object') return persisted;
@@ -169,6 +214,12 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
             DEFAULT_X_MONITOR_PEEK_SIZE,
             320,
             360,
+          ),
+          dockSquadsPanelSize: clampSize(
+            p.dockSquadsPanelSize,
+            DEFAULT_SQUADS_PEEK_SIZE,
+            300,
+            340,
           ),
         };
       },

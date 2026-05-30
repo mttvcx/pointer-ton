@@ -38,6 +38,8 @@ export function ProtocolBrandIcon({
       alt=""
       className={cn('shrink-0 rounded-full object-cover', dotClassName, className)}
       draggable={false}
+      loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
       aria-hidden
     />

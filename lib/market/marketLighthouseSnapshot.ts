@@ -81,6 +81,34 @@ function pctAround(chain: AppChainId, tf: LighthouseTf, salt: string, span = 28)
   return Math.round((base + Number.EPSILON) * 100) / 100;
 }
 
+function genericVenueRows(
+  chain: AppChainId,
+  tf: LighthouseTf,
+  kind: 'launchpad' | 'protocol',
+): LighthouseVenueRow[] {
+  const icon = 'chain-logo' as const;
+  const iconSrc = CHAIN_ICON_PNG[chain];
+  const salt = kind === 'launchpad' ? 'lp' : 'pr';
+  const names =
+    kind === 'launchpad'
+      ? ['Launchpad A', 'Launchpad B', 'Launchpad C']
+      : ['Protocol A', 'Protocol B', 'Protocol C'];
+
+  return names.map((name, i) => {
+    const vol = (kind === 'launchpad' ? 12e6 : 88e6) * (0.7 + u(chain, tf, `${salt}${i}`) * 0.5) * tfScale(tf);
+    return {
+      key: `${kind}-${i}`,
+      name,
+      tooltip: `${name} Volume`,
+      icon,
+      iconSrc,
+      volumeLabel: fmtUsdCompact(vol),
+      volumeUsd: vol,
+      pct: pctAround(chain, tf, `${salt}p${i}`, 40),
+    };
+  });
+}
+
 function solLaunchpads(chain: AppChainId, tf: LighthouseTf): LighthouseVenueRow[] {
   const pumpVol = 862_000 * (0.85 + u(chain, tf, 'lp1') * 0.35);
   const bonkVol = 4_000 * (0.75 + u(chain, tf, 'lp2') * 0.45);
@@ -168,32 +196,12 @@ function solProtocols(chain: AppChainId, tf: LighthouseTf): LighthouseVenueRow[]
   ];
 }
 
-function genericVenueRows(
-  chain: AppChainId,
-  tf: LighthouseTf,
-  kind: 'launchpad' | 'protocol',
-): LighthouseVenueRow[] {
-  const icon = 'chain-logo' as const;
-  const iconSrc = CHAIN_ICON_PNG[chain];
-  const salt = kind === 'launchpad' ? 'lp' : 'pr';
-  const names =
-    kind === 'launchpad'
-      ? ['Launchpad A', 'Launchpad B', 'Launchpad C']
-      : ['Protocol A', 'Protocol B', 'Protocol C'];
-
-  return names.map((name, i) => {
-    const vol = (kind === 'launchpad' ? 12e6 : 88e6) * (0.7 + u(chain, tf, `${salt}${i}`) * 0.5) * tfScale(tf);
-    return {
-      key: `${kind}-${i}`,
-      name,
-      tooltip: `${name} Volume`,
-      icon,
-      iconSrc,
-      volumeLabel: fmtUsdCompact(vol),
-      volumeUsd: vol,
-      pct: pctAround(chain, tf, `${salt}p${i}`, 40),
-    };
-  });
+/** Keep only the largest venues for the fixed no-scroll panel (Axiom shows top 3). */
+function topVenuesByVolume(rows: LighthouseVenueRow[], n = 3): LighthouseVenueRow[] {
+  return [...rows]
+    .filter((r) => r.volumeUsd == null || r.volumeUsd > 0)
+    .sort((a, b) => (b.volumeUsd ?? 0) - (a.volumeUsd ?? 0))
+    .slice(0, n);
 }
 
 export function getMarketLighthouseSnapshot(chain: AppChainId, tf: LighthouseTf): MarketLighthouseSnapshot {
@@ -256,8 +264,12 @@ export function getMarketLighthouseSnapshot(chain: AppChainId, tf: LighthouseTf)
           ? 86
           : 34) + Math.round(u(chain, tf, 'mg') * 40);
 
-  const launchpads = chain === 'sol' ? solLaunchpads(chain, tf) : genericVenueRows(chain, tf, 'launchpad');
-  const protocols = chain === 'sol' ? solProtocols(chain, tf) : genericVenueRows(chain, tf, 'protocol');
+  const launchpads = topVenuesByVolume(
+    chain === 'sol' ? solLaunchpads(chain, tf) : genericVenueRows(chain, tf, 'launchpad'),
+  );
+  const protocols = topVenuesByVolume(
+    chain === 'sol' ? solProtocols(chain, tf) : genericVenueRows(chain, tf, 'protocol'),
+  );
 
   const volPct = pctAround(chain, tf, 'vol', 26);
 

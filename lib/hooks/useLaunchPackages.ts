@@ -14,7 +14,9 @@ export type LaunchPackageResult = {
 
 export function useLaunchPackages(tweets: TweetLaunchInput[], enabled: boolean) {
   const { authenticated, getAccessToken } = usePointerAuth();
-  const key = tweets.map((t) => `${t.id ?? ''}:${t.text.slice(0, 40)}`).join('|');
+  const key = tweets
+    .map((t) => `${t.id ?? ''}:${(t.text ?? '').slice(0, 40)}`)
+    .join('|');
 
   return useQuery({
     queryKey: ['launch-packages', key],
@@ -34,7 +36,8 @@ export function useLaunchPackages(tweets: TweetLaunchInput[], enabled: boolean) 
       });
       const json: unknown = await res.json();
       if (!res.ok) throw new Error('launch_packages_failed');
-      const items = (json as { items: { subject: string; package: LaunchPackage }[] }).items;
+      const items = (json as { items?: { subject: string; package: LaunchPackage }[] }).items;
+      if (!Array.isArray(items)) return [];
       return items.map((row, i) => ({
         subject: row.subject,
         tweet: tweets[i]!,

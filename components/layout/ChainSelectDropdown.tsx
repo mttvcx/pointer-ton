@@ -73,6 +73,8 @@ export function ChainSelectDropdown({
           alt=""
           width={showTicker ? 18 : 15}
           height={showTicker ? 18 : 15}
+          decoding="async"
+          fetchPriority="high"
           className={cn('object-contain', showTicker ? 'h-[18px] w-[18px]' : 'h-[15px] w-[15px]')}
           draggable={false}
         />
@@ -124,6 +126,8 @@ export function ChainSelectDropdown({
                   alt=""
                   width={22}
                   height={22}
+                  loading="lazy"
+                  decoding="async"
                   className="h-[22px] w-[22px] object-contain"
                   draggable={false}
                 />

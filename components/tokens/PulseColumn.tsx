@@ -110,10 +110,13 @@ function PulseColumnBody({
   const displayPopoverRef = useRef<HTMLDivElement>(null);
   const shareAppliedRef = useRef(false);
 
-  const buyButtonStyle = usePulseColumnStore((s) => s.byColumn[column].buyButtonStyle);
-  const quickBuySol = usePulseColumnStore((s) => s.byColumn[column].quickBuySol);
-  const quickBuyUsdc = usePulseColumnStore((s) => s.byColumn[column].quickBuyUsdc);
-  const presetSlot = usePulseColumnStore((s) => s.byColumn[column].presetSlot);
+  const buyButtonStyle = usePulseColumnStore(
+    (s) => s.byColumn?.[column]?.buyButtonStyle ?? 'medium',
+  );
+  const quickBuySol = usePulseColumnStore((s) => s.byColumn?.[column]?.quickBuySol ?? 0.5);
+  const quickBuyUsdc = usePulseColumnStore((s) => s.byColumn?.[column]?.quickBuyUsdc ?? 25);
+  const presetSlot = usePulseColumnStore((s) => s.byColumn?.[column]?.presetSlot ?? 1);
+  const localFiltersBySlot = usePulseColumnStore((s) => s.byColumn?.[column]?.localFiltersBySlot);
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
   const setQuickBuyUsdc = usePulseColumnStore((s) => s.setQuickBuyUsdc);
   const setPresetSlot = usePulseColumnStore((s) => s.setPresetSlot);
@@ -301,13 +304,14 @@ function PulseColumnBody({
     return list.find((p) => p.preset_slot === presetSlot) ?? null;
   }, [presetsQuery.data?.presets, presetSlot]);
 
-  const normalizedFilters = useMemo(
-    () =>
-      activePresetRow && authenticated
-        ? normalizeColumnFilters(activePresetRow.filters, activeChain)
-        : defaultColumnFiltersForChain(activeChain),
-    [activePresetRow, authenticated, activeChain],
-  );
+  const normalizedFilters = useMemo(() => {
+    if (activePresetRow && authenticated) {
+      return normalizeColumnFilters(activePresetRow.filters, activeChain);
+    }
+    const local = localFiltersBySlot?.[presetSlot as 1 | 2 | 3];
+    if (local) return normalizeColumnFilters(local, activeChain);
+    return defaultColumnFiltersForChain(activeChain);
+  }, [activePresetRow, authenticated, activeChain, localFiltersBySlot, presetSlot]);
 
   const displayFromServer = useMemo(
     () =>
@@ -357,9 +361,9 @@ function PulseColumnBody({
 
   const sortDir = activePresetRow?.sort_dir === 'asc' ? 'asc' : 'desc';
 
-  const hiddenMints = usePulseHiddenMintsStore((s) => s.mints);
-  const blacklistedDevs = usePulseHiddenMintsStore((s) => s.blacklistedDevs);
-  const blacklistedTwitter = usePulseHiddenMintsStore((s) => s.blacklistedTwitter);
+  const hiddenMints = usePulseHiddenMintsStore((s) => s.mints ?? []);
+  const blacklistedDevs = usePulseHiddenMintsStore((s) => s.blacklistedDevs ?? []);
+  const blacklistedTwitter = usePulseHiddenMintsStore((s) => s.blacklistedTwitter ?? []);
 
   const searchFiltered = useMemo(() => {
     const list = feedItems.filter((b) => {

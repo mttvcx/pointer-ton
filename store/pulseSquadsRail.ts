@@ -22,6 +22,14 @@ export const usePulseSquadsRailStore = create<PulseSquadsRailState>()(
     {
       name: 'pointer-pulse-squads-rail',
       version: 1,
+      merge: (persisted, current) => {
+        const p = persisted as Partial<PulseSquadsRailState> | undefined;
+        const side = p?.side;
+        return {
+          ...current,
+          side: side === 'right' ? 'right' : 'hidden',
+        };
+      },
       partialize: (s) => ({ side: s.side }),
     },
   ),

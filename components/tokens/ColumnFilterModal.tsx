@@ -253,6 +253,7 @@ export function ColumnFilterModal({
 }: Props) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
+  const setLocalColumnFilters = usePulseColumnStore((s) => s.setLocalColumnFilters);
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
   const activeChain = useUIStore((s) => s.activeChain);
   const quoteNativeSymbol = nativeTicker(activeChain);
@@ -965,16 +966,29 @@ export function ColumnFilterModal({
             </button>
             <button
               type="button"
-              disabled={!authenticated || saveOne.isPending}
+              disabled={saveOne.isPending}
               className="rounded-full bg-[#7c5cff] px-5 py-2 text-[13px] font-medium text-white transition hover:bg-[#8a6dff] disabled:opacity-50"
-              onClick={() => saveOne.mutate({ applyAll: true })}
+              onClick={() => {
+                if (authenticated) {
+                  saveOne.mutate({ applyAll: true });
+                  return;
+                }
+                for (const slot of [1, 2, 3] as const) {
+                  setLocalColumnFilters(scopeColumn, slot, filters);
+                }
+                toast.success('Filters applied to all presets');
+                onSaved();
+                onClose();
+              }}
             >
               Apply All
             </button>
           </div>
         </div>
         {!authenticated ? (
-          <p className="px-5 pb-3 text-center text-[10px] text-white/35">Sign in to save column presets.</p>
+          <p className="px-5 pb-3 text-center text-[10px] text-white/35">
+            Filters apply locally on this device. Sign in to sync presets across sessions.
+          </p>
         ) : null}
       </div>
     </div>

@@ -44,8 +44,9 @@ import { formatNumber, parseLamportsStringToSol, rawToUi } from '@/lib/utils/for
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshListener';
-import { toggleSquadsOnPulse } from '@/lib/squads/openSquadsOnPulse';
+import { toggleSquadsOnPulse, closeSquadsRail } from '@/lib/squads/openSquadsOnPulse';
 import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
+import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 
 /**
  * App topbar: brand, primary nav, search, chain pill, deposit, co-pilot, wallet.
@@ -72,7 +73,9 @@ export function Topbar() {
   const avatarMenuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const avatarMenuPresence = useOverlayPresence(avatarMenuOpen, POPOVER_ANIM_CLOSE_MS);
-  const squadsOpen = usePulseSquadsRailStore((s) => s.side !== 'hidden');
+  const squadsRailSide = usePulseSquadsRailStore((s) => s.side);
+  const squadsFloatOpen = useTokenDockPeekStore((s) => s.squadsPeekOpen);
+  const squadsOpen = squadsRailSide !== 'hidden' || squadsFloatOpen;
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -202,11 +205,16 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-50 box-border flex min-h-[var(--app-topbar-h)] shrink-0 items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1 relative">
+    <header className="sticky top-0 z-50 box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1">
+      {/* Left — logo + primary nav */}
+      <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
       <Link
         href="/pulse"
         prefetch={true}
-        className="flex shrink-0 select-none items-center gap-2 pr-3 text-fg-primary sm:gap-2.5 sm:pr-4 md:pr-5 lg:pr-6"
+        onClick={() => {
+          closeSquadsRail();
+        }}
+        className="flex shrink-0 select-none items-center gap-2 pr-2 text-fg-primary sm:gap-2.5 sm:pr-3"
       >
         <span className="sr-only">pointer.</span>
         {/* True swallow mark (transparent PNG from brand assets). */}
@@ -216,6 +224,7 @@ export function Topbar() {
           width={40}
           height={40}
           decoding="async"
+          fetchPriority="high"
           className="h-9 w-auto shrink-0 object-contain sm:h-10"
         />
         <span className="font-sans text-[1.35rem] font-semibold leading-none tracking-tight sm:text-[1.6rem] md:text-[1.85rem]">
@@ -259,18 +268,16 @@ export function Topbar() {
           );
         })}
       </nav>
-
-      {/* Viewport-centered cluster: co-pilot pill + compact clipboard token chip (offset right of center). */}
-      <div className="pointer-events-none absolute left-[calc(50%-18px)] top-1/2 z-[65] block min-w-0 -translate-x-1/2 -translate-y-1/2 sm:left-[calc(50%-22px)]">
-        <div className="pointer-events-auto flex items-center justify-center gap-2">
-          <CopilotTopbarSlot />
-          <ClipboardMintTopbarChip />
-        </div>
       </div>
 
-        {/* flex-1 spans the middle visually; without pointer-events-none it steals clicks from the centered co-pilot pill (z-index stacking). */}
-        <div className="pointer-events-none relative z-50 flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
-        <div className="pointer-events-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
+      {/* Center — co-pilot pill + clipboard chip (true header center, not viewport hack) */}
+      <div className="z-[65] flex min-w-0 items-center justify-center gap-2 px-0.5">
+        <CopilotTopbarSlot />
+        <ClipboardMintTopbarChip />
+      </div>
+
+      {/* Right — search, chain, squads, wallet */}
+      <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
           <DisplayPopover />
           <button
             type="button"
@@ -333,20 +340,20 @@ export function Topbar() {
           aria-label={squadsOpen ? 'Hide squads panel' : 'Open squads panel'}
           title={squadsOpen ? 'Hide squads' : 'Open squads'}
           className={cn(
-            'group/squads relative ml-0.5 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 sm:ml-1',
-            squadsOpen && 'ring-2 ring-violet-400/35',
+            'group/squads relative ml-0.5 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/45 sm:ml-1',
+            squadsOpen && 'ring-2 ring-accent-primary/35',
           )}
         >
           <span
             className={cn(
-              'relative flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-white',
-              'bg-gradient-to-br from-emerald-500 to-sky-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]',
+              'relative flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-fg-inverse',
+              'bg-gradient-to-br from-accent-primary to-accent-glow shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.18)]',
               'transition-[filter,transform] group-hover/squads:brightness-110',
             )}
           >
             <Users className="h-[17px] w-[17px]" strokeWidth={2.15} aria-hidden />
             <span
-              className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full border border-bg-base bg-emerald-400"
+              className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full border border-bg-base bg-signal-bull"
               aria-hidden
             />
           </span>
@@ -500,7 +507,6 @@ export function Topbar() {
             </div>
           </div>
         ) : null}
-        </div>
       </div>
     </header>
 

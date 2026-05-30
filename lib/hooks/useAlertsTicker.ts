@@ -34,7 +34,8 @@ export function useAlertsTickerQuery(options?: { pollAggressively?: boolean }) {
       });
       const json: unknown = await res.json();
       if (!res.ok) throw new Error('ticker_failed');
-      return (json as { alerts: AlertsTickerItem[] }).alerts;
+      const alerts = (json as { alerts?: AlertsTickerItem[] }).alerts;
+      return Array.isArray(alerts) ? alerts : [];
     },
   });
 }

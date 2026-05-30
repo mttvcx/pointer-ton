@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { PulseColumnId } from '@/lib/utils/constants';
-import type { BuyButtonStyle } from '@/lib/tokens/columnPresetModel';
+import type { BuyButtonStyle, ColumnFilters } from '@/lib/tokens/columnPresetModel';
 import { BUY_BUTTON_STYLES } from '@/lib/tokens/columnPresetModel';
 
 export type PulseRowDensity = 'compact' | 'normal' | 'expanded';
@@ -16,6 +16,8 @@ type PerColumn = {
   density: PulseRowDensity;
   presetSlot: ColumnPulsePresetSlot;
   buyButtonStyle: BuyButtonStyle;
+  /** Local-only preset filters when signed out (keyed by P1–P3). */
+  localFiltersBySlot: Partial<Record<ColumnPulsePresetSlot, ColumnFilters>>;
 };
 
 type PulseColumnsState = {
@@ -28,6 +30,12 @@ type PulseColumnsState = {
   setBuyButtonStyle: (column: PulseColumnId, style: BuyButtonStyle) => void;
   /** Pulse buy pill / ultra: same style on every column (Axiom-style global control). */
   setBuyButtonStyleAll: (style: BuyButtonStyle) => void;
+  setLocalColumnFilters: (
+    column: PulseColumnId,
+    slot: ColumnPulsePresetSlot,
+    filters: ColumnFilters,
+  ) => void;
+  clearLocalColumnFilters: (column: PulseColumnId, slot?: ColumnPulsePresetSlot) => void;
 };
 
 function coerceBuyButtonStyle(s: unknown, fallback: BuyButtonStyle): BuyButtonStyle {
@@ -46,6 +54,7 @@ const defaults = (): PerColumn => ({
   density: 'expanded',
   presetSlot: 1,
   buyButtonStyle: 'medium',
+  localFiltersBySlot: {},
 });
 
 const seed: Record<PulseColumnId, PerColumn> = {
@@ -117,6 +126,39 @@ export const usePulseColumnStore = create<PulseColumnsState>()(
             migrated: { ...s.byColumn.migrated, buyButtonStyle },
           },
         })),
+      setLocalColumnFilters: (column, slot, filters) =>
+        set((s) => ({
+          byColumn: {
+            ...s.byColumn,
+            [column]: {
+              ...s.byColumn[column],
+              localFiltersBySlot: {
+                ...s.byColumn[column].localFiltersBySlot,
+                [slot]: filters,
+              },
+            },
+          },
+        })),
+      clearLocalColumnFilters: (column, slot) =>
+        set((s) => {
+          const row = s.byColumn[column];
+          if (!slot) {
+            return {
+              byColumn: {
+                ...s.byColumn,
+                [column]: { ...row, localFiltersBySlot: {} },
+              },
+            };
+          }
+          const next = { ...row.localFiltersBySlot };
+          delete next[slot];
+          return {
+            byColumn: {
+              ...s.byColumn,
+              [column]: { ...row, localFiltersBySlot: next },
+            },
+          };
+        }),
     }),
     {
       /** TON build: avoids reusing saved per-column “compact” density from older sessions. */
@@ -135,6 +177,7 @@ export const usePulseColumnStore = create<PulseColumnsState>()(
             byColumn[col] = {
               ...current.byColumn[col],
               ...row,
+              localFiltersBySlot: row.localFiltersBySlot ?? current.byColumn[col].localFiltersBySlot ?? {},
               quickBuyUsdc:
                 typeof row.quickBuyUsdc === 'number' && Number.isFinite(row.quickBuyUsdc)
                   ? row.quickBuyUsdc

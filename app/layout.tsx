@@ -81,6 +81,12 @@ export default function RootLayout({
         {/* layout preferences paint on the first frame. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: PREFERENCES_BOOTSTRAP_SCRIPT }} />
+        {/* Critical chrome — win network before multi-MB protocol decks. */}
+        <link rel="preload" href="/branding/pointer-bird.png" as="image" type="image/png" />
+        <link rel="preload" href="/chains/sol.png" as="image" type="image/png" />
+        <link rel="preload" href="/chains/bnb.png" as="image" type="image/png" />
+        <link rel="preload" href="/chains/base.png" as="image" type="image/png" />
+        <link rel="preload" href="/chains/ton.png" as="image" type="image/png" />
       </head>
       <body className="min-h-screen bg-bg-base text-fg-primary antialiased">
         <PreferencesProvider>

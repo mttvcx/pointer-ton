@@ -27,6 +27,15 @@ export const usePulseTwitterRailStore = create<PulseTwitterRailState>()(
     {
       name: 'pointer-pulse-twitter-rail',
       version: 1,
+      merge: (persisted, current) => {
+        const p = persisted as Partial<PulseTwitterRailState> | undefined;
+        const side = p?.side;
+        return {
+          ...current,
+          side:
+            side === 'left' || side === 'right' || side === 'hidden' ? side : 'hidden',
+        };
+      },
       migrate: (persisted, version) => {
         const state = persisted as { side?: PulseTwitterRailSide } | undefined;
         if (version === 0) {

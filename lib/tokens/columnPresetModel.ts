@@ -315,26 +315,44 @@ function protocolsFromExtended(bundle: PulseTokenBundle): PulseProtocolId[] {
   return [...new Set(out)];
 }
 
+function protocolsFromIngestHints(bundle: PulseTokenBundle, chain: AppChainId): string[] {
+  const out: string[] = [];
+  const scan = (obj: unknown) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
+    const r = obj as Record<string, unknown>;
+    for (const key of ['protocol', 'source', 'poolType', 'poolDex', 'dex', 'dexId', 'launch_pad', 'launchPad']) {
+      const v = r[key];
+      if (typeof v !== 'string' || !v.trim()) continue;
+      const id = launchPadToProtocolId(v, chain);
+      if (id) out.push(id);
+    }
+  };
+  scan(bundle.token.raw_metadata);
+  scan(bundle.snapshot?.extended_metrics);
+  return out;
+}
+
 export function tokenProtocolIdsForChain(bundle: PulseTokenBundle, chain: AppChainId): Set<string> {
   const set = new Set<string>();
   if (chain === 'ton') {
     const id = launchPadToProtocolId(bundle.token.launch_pad ?? null, chain);
     if (id) set.add(id);
     for (const x of protocolsFromExtended(bundle)) set.add(x);
+    for (const x of protocolsFromIngestHints(bundle, chain)) set.add(x);
     return set;
   }
 
   const pad = bundle.token.launch_pad;
+  const fromPad = launchPadToProtocolId(pad ?? null, chain);
+  if (fromPad) set.add(fromPad);
+
   if (chain === 'sol') {
-    if (pad === 'pump.fun' || pad === 'bags' || pad === 'printr' || pad === 'moonshot') {
-      set.add(pad);
-    }
+    for (const x of protocolsFromIngestHints(bundle, chain)) set.add(x);
     return set;
   }
 
   if (chain === 'bnb' || chain === 'base') {
-    const id = launchPadToProtocolId(pad ?? null, chain);
-    if (id) set.add(id);
+    for (const x of protocolsFromIngestHints(bundle, chain)) set.add(x);
     return set;
   }
 
@@ -447,13 +465,13 @@ export function pulseBundleMatchesFilters(
   chain: AppChainId,
 ): boolean {
   const presetAll = pulseProtocolPresetIdsForChain(chain);
-  if (f.protocols.length === 0) return false;
-  if (f.protocols.length < presetAll.length) {
+  const protocols = f.protocols ?? [];
+  if (protocols.length === 0) return false;
+  if (protocols.length < presetAll.length) {
     const detected = tokenProtocolIdsForChain(bundle, chain);
-    if (detected.size > 0) {
-      const ok = [...detected].some((p) => f.protocols.includes(p));
-      if (!ok) return false;
-    }
+    if (detected.size === 0) return false;
+    const ok = [...detected].some((p) => protocols.includes(p));
+    if (!ok) return false;
   }
 
   if (!quoteFilterPasses(bundle, f, chain)) return false;

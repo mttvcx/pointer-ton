@@ -66,8 +66,8 @@ export function XMonitorRules() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('list_failed');
-      const j = (await res.json()) as { rules: RuleDto[] };
-      return j.rules;
+      const j = (await res.json()) as { rules?: RuleDto[] };
+      return Array.isArray(j.rules) ? j.rules : [];
     },
   });
 

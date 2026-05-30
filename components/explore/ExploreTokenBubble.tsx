@@ -158,11 +158,15 @@ export function ExploreTokenBubble({
     const el = outerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    const tipW = Math.min(320, window.innerWidth - 24);
+    const margin = 12;
     const ax = r.left + r.width / 2;
-    const placeAbove = r.bottom + 220 > window.innerHeight;
-    const ay = placeAbove ? r.top - 10 : r.bottom + 10;
-    setTipCoords({ ax, ay, placeAbove });
-  }, []);
+    const clampedX = Math.max(margin + tipW / 2, Math.min(window.innerWidth - margin - tipW / 2, ax));
+    const gap = Math.max(14, radius * 0.22);
+    const placeAbove = r.bottom + 240 > window.innerHeight - margin;
+    const ay = placeAbove ? r.top - gap : r.bottom + gap;
+    setTipCoords({ ax: clampedX, ay, placeAbove });
+  }, [radius]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- tooltip position is driven by external hover/drag state */
   useEffect(() => {
@@ -299,85 +303,102 @@ export function ExploreTokenBubble({
           role="tooltip"
           id={tipId}
           className={cn(
-            'pointer-events-auto z-[10060] w-[min(296px,calc(100vw-28px))] rounded-xl border border-white/[0.1]',
-            'bg-[rgba(10,15,26,0.96)] px-3.5 py-3 shadow-[0_20px_50px_-16px_rgba(0,0,0,0.85)] backdrop-blur-xl',
+            'pointer-events-auto z-[10060] w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-xl border border-white/[0.1]',
+            'bg-[rgba(10,15,26,0.97)] shadow-[0_20px_50px_-16px_rgba(0,0,0,0.85)] backdrop-blur-xl',
           )}
           style={{
             position: 'fixed',
-            left: Math.max(160, Math.min(window.innerWidth - 160, tipCoords!.ax)),
+            left: tipCoords!.ax,
             top: tipCoords!.ay,
             transform: tipCoords!.placeAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
           }}
           onMouseEnter={() => onHover(item.tokenAddress)}
         >
-          <div className="flex gap-2.5">
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-black/35 ring-1 ring-white/[0.1]">
-              {item.iconUrl && !iconBroken ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.iconUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  onError={() => setIconBroken(true)}
-                />
-              ) : (
-                <div
-                  className="flex h-full w-full items-center justify-center text-[11px] font-bold text-white/90"
-                  style={{
-                    background: `linear-gradient(145deg, hsla(${hue},70%,52%,0.95), hsla(${hue + 32},62%,26%,1))`,
-                  }}
-                >
-                  {item.ticker.slice(0, 2).toUpperCase()}
+          <div className="px-3.5 pt-3 pb-2">
+            <div className="flex gap-3">
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-black/35 ring-1 ring-white/[0.1]">
+                {item.iconUrl && !iconBroken ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.iconUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={() => setIconBroken(true)}
+                  />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center text-[11px] font-bold text-white/90"
+                    style={{
+                      background: `linear-gradient(145deg, hsla(${hue},70%,52%,0.95), hsla(${hue + 32},62%,26%,1))`,
+                    }}
+                  >
+                    {item.ticker.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="truncate text-[13px] font-semibold uppercase tracking-[0.04em] text-fg-primary">
+                    {item.ticker}
+                  </span>
+                  <span className="truncate text-[11px] text-fg-secondary">{item.name}</span>
                 </div>
-              )}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-fg-muted">
+                  <span>
+                    <span className="font-medium tabular-nums text-fg-secondary">
+                      {formatCompactUsd(item.marketCap)}
+                    </span>{' '}
+                    MC
+                  </span>
+                  <span className="text-white/20">·</span>
+                  <span>
+                    <span className="font-medium tabular-nums text-accent-primary/95">
+                      {item.mindshareScore.toFixed(1)}
+                    </span>{' '}
+                    mindshare
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    'mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em]',
+                    item.bubbleAccent === 'bull' && 'bg-teal-400/12 text-teal-300/90',
+                    item.bubbleAccent === 'social' && 'bg-violet-400/12 text-violet-300/90',
+                    item.bubbleAccent === 'event' && 'bg-amber-400/12 text-amber-300/90',
+                    item.bubbleAccent === 'risk' && 'bg-rose-400/12 text-rose-300/90',
+                    item.bubbleAccent === 'neutral' && 'bg-sky-400/10 text-sky-300/85',
+                  )}
+                >
+                  {accent.label}
+                </span>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-semibold uppercase tracking-[0.04em] text-fg-primary">
-                {item.ticker}
-              </div>
-              <div className="truncate text-[11px] text-fg-secondary">{item.name}</div>
-              <div className="mt-1 text-[11px] text-fg-muted">
-                <span className="font-medium text-fg-secondary">
-                  {formatCompactUsd(item.marketCap)}
-                </span>{' '}
-                <span className="opacity-75">MC</span>
-                {' · '}
-                <span className="font-medium tabular-nums text-accent-primary/95">
-                  {item.mindshareScore.toFixed(1)}
-                </span>{' '}
-                <span className="opacity-75">Mindshare</span>
-              </div>
-              <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-fg-muted/90">
-                {accent.label}
-              </div>
-              <p className="mt-1.5 line-clamp-3 text-[10.5px] leading-snug text-fg-muted">
-                {item.hoverOneLiner}
-              </p>
-            </div>
+            <p className="mt-2.5 line-clamp-2 text-[11px] leading-snug text-fg-muted">
+              {item.hoverOneLiner}
+            </p>
           </div>
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.05] pt-2">
-            <span className="text-[10px] text-fg-muted/85">
-              <span className="text-accent-primary/90">Click</span> for AI overview
-              {' · '}
-              <span className="opacity-80">drag to reorganize</span>
-            </span>
-            <div className="flex items-center gap-1.5">
+          <div className="space-y-2 border-t border-white/[0.06] bg-black/20 px-3.5 py-2.5">
+            <p className="text-center text-[10px] leading-snug text-fg-muted/80">
+              <span className="text-accent-primary/90">Click</span> for AI overview ·{' '}
+              <span className="text-fg-muted/70">drag to move</span>
+            </p>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className="rounded-md border border-white/[0.1] px-2 py-0.5 text-[10px] font-semibold text-fg-primary transition hover:bg-white/[0.05]"
+                className="btn-press flex h-8 min-w-0 items-center justify-center gap-1 rounded-lg border border-white/[0.12] bg-white/[0.04] px-2 text-[11px] font-semibold text-fg-primary transition hover:bg-white/[0.08]"
                 onClick={() => onOpenTokenPage(item.tokenAddress)}
               >
                 Full page
+                <ExternalLink className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
               </button>
               <button
                 type="button"
                 disabled={buyDisabled || busyMint === item.tokenAddress}
                 title={buyTitle}
-                className="rounded-md bg-accent-primary/92 px-2 py-0.5 text-[10px] font-semibold text-fg-inverse transition hover:bg-accent-primary disabled:opacity-35"
+                className="btn-press flex h-8 min-w-0 items-center justify-center rounded-lg bg-accent-primary px-2 text-[11px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-35"
                 onClick={() => void buyToken(item.tokenAddress, buyAmt)}
               >
-                Buy {buyAmt} SOL
+                {busyMint === item.tokenAddress ? 'Buying…' : `Buy ${buyAmt} SOL`}
               </button>
             </div>
           </div>

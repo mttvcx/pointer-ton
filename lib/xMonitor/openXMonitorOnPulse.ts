@@ -1,5 +1,6 @@
 'use client';
 
+import { goToPulse, isOnPulseRoute } from '@/lib/navigation/clientNavigate';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
@@ -31,8 +32,8 @@ export function openXMonitorOnPulse(side: 'left' | 'right' = 'left') {
 
   usePulseTwitterRailStore.getState().setSide(side);
 
-  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pulse')) {
-    window.location.assign('/pulse');
+  if (!isOnPulseRoute()) {
+    goToPulse();
   }
 }
 

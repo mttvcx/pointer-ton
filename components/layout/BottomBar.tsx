@@ -588,7 +588,7 @@ function DockTrackerSlot({
         type="button"
         className={cn(
           chip,
-          squadsActivePeek && 'ring-1 ring-violet-400/40 bg-violet-500/[0.12]',
+          squadsActivePeek && 'ring-1 ring-accent-primary/40 bg-accent-primary/[0.12]',
         )}
         title={dockTrackerLabel(id, 'full')}
         aria-label={squadsOpen ? 'Close squads panel' : 'Open squads panel on Pulse'}

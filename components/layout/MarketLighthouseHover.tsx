@@ -14,9 +14,8 @@ import Link from 'next/link';
 import {
   ArrowRightLeft,
   BarChart2,
+  Database,
   Flame,
-  TrendingDown,
-  TrendingUp,
   Users,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -28,27 +27,17 @@ import {
   getMarketLighthouseSnapshot,
   marketLighthouseHasData,
   type LighthouseTf,
-  type LighthouseVenueIcon,
   type LighthouseVenueRow,
 } from '@/lib/market/marketLighthouseSnapshot';
 
 const TF_ORDER: LighthouseTf[] = ['5m', '1h', '6h', '24h'];
 
-const PANEL_WIDTH_PX = 340;
-/** Above dock peek panels (z-220) and bottom chrome; below app modals (z-280). */
+const PANEL_WIDTH_PX = 328;
 const LIGHTHOUSE_Z = 230;
-
-/** Exit animation duration — keep in sync with panel transition classes below. */
 const PANEL_TRANSITION_MS = 220;
 
-const VENUE_TOOLTIP_CLASS = cn(
-  'z-[240] rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
-  'whitespace-nowrap text-[11.5px] font-normal text-white/80 shadow-lg shadow-black/50',
-);
-
-/** Virtual Curve pill — diagonal stripes (not a solid “error” red dot). */
-const METEORA_STRIPE_BG =
-  'bg-[repeating-linear-gradient(-45deg,rgba(255,255,255,0.12)_0,rgba(255,255,255,0.12)_2px,transparent_2px,transparent_5px)] bg-gradient-to-br from-orange-600/50 to-rose-900/40';
+const PANEL_SURFACE = 'border border-[#2a2a2a] bg-[#141414]';
+const CELL_SURFACE = 'border border-[#2a2a2a] bg-[#181818]';
 
 function formatPct(pct: number): string {
   const sign = pct >= 0 ? '+' : '';
@@ -82,7 +71,7 @@ export function MarketLighthouseHover({
   const [mounted, setMounted] = useState(false);
   const [panelRendered, setPanelRendered] = useState(false);
   const [panelEntered, setPanelEntered] = useState(false);
-  const [tf, setTf] = useState<LighthouseTf>('24h');
+  const [tf, setTf] = useState<LighthouseTf>('1h');
   const [pos, setPos] = useState<{
     left: number;
     top: number | null;
@@ -92,17 +81,7 @@ export function MarketLighthouseHover({
   const snap = useMemo(() => getMarketLighthouseSnapshot(activeChain, tf), [activeChain, tf]);
   const hasData = useMemo(() => marketLighthouseHasData(snap), [snap]);
 
-  const visibleLaunchpads = useMemo(
-    () =>
-      snap.launchpads.filter(
-        (row) =>
-          row.key !== 'moonshot' ||
-          (row.volumeUsd != null && row.volumeUsd > 0 && row.volumeLabel !== '—'),
-      ),
-    [snap.launchpads],
-  );
-
-  const hiddenSlideY = placement === 'below' ? -8 : 10;
+  const hiddenSlideY = placement === 'below' ? -6 : 8;
 
   useEffect(() => {
     panelRenderedRef.current = panelRendered;
@@ -125,17 +104,9 @@ export function MarketLighthouseHover({
       Math.min(window.innerWidth - half - edge, r.left + r.width / 2),
     );
     if (placement === 'below') {
-      setPos({
-        left: centerX,
-        top: r.bottom + gap,
-        bottom: null,
-      });
+      setPos({ left: centerX, top: r.bottom + gap, bottom: null });
     } else {
-      setPos({
-        left: centerX,
-        top: null,
-        bottom: window.innerHeight - r.top + gap,
-      });
+      setPos({ left: centerX, top: null, bottom: window.innerHeight - r.top + gap });
     }
   }, [placement]);
 
@@ -157,25 +128,15 @@ export function MarketLighthouseHover({
   }, [panelRendered, measure, placement]);
 
   const clearTimers = () => {
-    if (openT.current != null) {
-      window.clearTimeout(openT.current);
-      openT.current = null;
-    }
-    if (closeT.current != null) {
-      window.clearTimeout(closeT.current);
-      closeT.current = null;
-    }
-    if (exitAnimT.current != null) {
-      window.clearTimeout(exitAnimT.current);
-      exitAnimT.current = null;
-    }
+    if (openT.current != null) window.clearTimeout(openT.current);
+    if (closeT.current != null) window.clearTimeout(closeT.current);
+    if (exitAnimT.current != null) window.clearTimeout(exitAnimT.current);
+    openT.current = null;
+    closeT.current = null;
+    exitAnimT.current = null;
   };
 
   const armUnmountAfterTransition = () => {
-    if (exitAnimT.current != null) {
-      window.clearTimeout(exitAnimT.current);
-      exitAnimT.current = null;
-    }
     exitAnimT.current = window.setTimeout(() => {
       exitAnimT.current = null;
       setPanelRendered(false);
@@ -189,7 +150,6 @@ export function MarketLighthouseHover({
       requestAnimationFrame(measure);
       return;
     }
-
     openT.current = window.setTimeout(() => {
       openT.current = null;
       setPanelRendered(true);
@@ -210,25 +170,6 @@ export function MarketLighthouseHover({
     }, 240);
   };
 
-  const onEnterAnchor = () => {
-    clearTimers();
-    scheduleOpen();
-  };
-
-  const onLeaveAnchor = () => {
-    clearTimers();
-    scheduleClose();
-  };
-
-  const onEnterPanel = () => {
-    clearTimers();
-  };
-
-  const onLeavePanel = () => {
-    clearTimers();
-    scheduleClose();
-  };
-
   useEffect(() => () => clearTimers(), []);
 
   const panel =
@@ -237,9 +178,9 @@ export function MarketLighthouseHover({
         role="region"
         aria-label="Market Lighthouse"
         className={cn(
-          'fixed flex max-h-[520px] w-[340px] select-none flex-col gap-1.5 overflow-y-auto rounded-xl border border-white/[0.06]',
-          'z-[230] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
-          'bg-[#0a0a0a] p-3 text-[11px] font-medium tabular-nums text-white shadow-2xl shadow-black/60',
+          'fixed w-[328px] select-none overflow-hidden rounded-lg',
+          PANEL_SURFACE,
+          'z-[230] p-2.5 text-[11px] font-normal tabular-nums text-[#e8e8e8] shadow-[0_12px_40px_-8px_rgba(0,0,0,0.75)]',
           'ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform]',
           'transition-[opacity,transform] duration-[220ms]',
           panelEntered ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
@@ -251,16 +192,14 @@ export function MarketLighthouseHover({
           ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
           transform: `translateX(-50%) translateY(${panelEntered ? 0 : hiddenSlideY}px)`,
         }}
-        onMouseEnter={onEnterPanel}
-        onMouseLeave={onLeavePanel}
+        onMouseEnter={clearTimers}
+        onMouseLeave={scheduleClose}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span
-              aria-hidden
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/90 shadow-[0_0_8px_rgba(52,211,153,0.35)]"
-            />
-            <span className="truncate text-[12px] font-medium text-white/90">Market Lighthouse</span>
+        {/* Header */}
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#4ade80]" />
+            <span className="truncate text-[12px] font-medium text-[#f0f0f0]">Market Lighthouse</span>
           </div>
           <div className="flex shrink-0 gap-0.5">
             {TF_ORDER.map((tab) => (
@@ -269,10 +208,8 @@ export function MarketLighthouseHover({
                 type="button"
                 onClick={() => setTf(tab)}
                 className={cn(
-                  'rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums tracking-wide transition-colors',
-                  tf === tab
-                    ? 'bg-white/[0.08] text-white'
-                    : 'text-white/40 hover:text-white/60',
+                  'rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors',
+                  tf === tab ? 'bg-[#262626] text-[#f0f0f0]' : 'text-[#666] hover:text-[#999]',
                 )}
               >
                 {tab}
@@ -282,91 +219,87 @@ export function MarketLighthouseHover({
         </div>
 
         {!hasData ? (
-          <p className="text-center text-[11px] leading-snug text-white/40">
-            Hover a token row for market context.
-          </p>
-        ) : null}
-
-        {hasData ? (
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              <StatCard
-                label="Trades"
-                icon={<BarChart2 className="h-3.5 w-3.5 text-white/40" strokeWidth={1.5} />}
+          <p className="py-6 text-center text-[11px] text-[#666]">No market data for this chain.</p>
+        ) : (
+          <div className="space-y-2">
+            {/* Trades + Traders */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <StatCell
+                label="Total Trades"
+                icon={<BarChart2 className="h-3 w-3 text-[#666]" strokeWidth={1.75} />}
                 value={snap.trades.label}
                 pct={snap.trades.pct}
               />
-              <StatCard
+              <StatCell
                 label="Traders"
-                icon={<Users className="h-3.5 w-3.5 text-white/40" strokeWidth={1.5} />}
+                icon={<Users className="h-3 w-3 text-[#666]" strokeWidth={1.75} />}
                 value={snap.traders.label}
                 pct={snap.traders.pct}
               />
             </div>
 
-            <div className="rounded-lg bg-white/[0.04] p-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] uppercase tracking-wide text-white/40">
-                  {volLabelForTf(tf)}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="text-[12px] font-medium text-white">{snap.volume.headline}</span>
-                  <PctChange pct={snap.volume.pct} className="text-[11px]" />
+            {/* Volume */}
+            <div className={cn('rounded-md p-2', CELL_SURFACE)}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[10px] text-[#888]">{volLabelForTf(tf)}</span>
+                <span className="flex items-baseline gap-1.5">
+                  <span className="text-[12px] font-medium text-[#f0f0f0]">{snap.volume.headline}</span>
+                  <PctText pct={snap.volume.pct} />
                 </span>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                <div className="flex h-full w-full">
-                  <div
-                    className="h-full rounded-l-full bg-emerald-400"
-                    style={{ width: `${snap.volume.buyPct}%` }}
-                  />
-                  <div className="h-full flex-1 rounded-r-full bg-red-400" />
-                </div>
+              <div className="mt-1.5 flex h-1 overflow-hidden rounded-sm bg-[#262626]">
+                <div className="h-full bg-[#4ade80]" style={{ width: `${snap.volume.buyPct}%` }} />
+                <div className="h-full flex-1 bg-[#f87171]" />
               </div>
-              <div className="mt-1.5 flex items-center justify-between gap-2">
-                <span className="text-[10.5px] text-emerald-400">{snap.volume.buyDetail}</span>
-                <span className="text-[10.5px] text-red-400">{snap.volume.sellDetail}</span>
+              <div className="mt-1 flex justify-between gap-2 text-[10px]">
+                <span className="text-[#4ade80]">{snap.volume.buyDetail}</span>
+                <span className="text-[#f87171]">{snap.volume.sellDetail}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 border-t border-white/[0.04] pt-3">
-              <StatCard
-                label="Created"
-                icon={<Flame className="h-3.5 w-3.5 text-white/40" strokeWidth={1.5} />}
-                value={snap.tokens.created.label}
-                pct={snap.tokens.created.pct}
-              />
-              <StatCard
-                label="Migrated"
-                icon={<ArrowRightLeft className="h-3.5 w-3.5 text-white/40" strokeWidth={1.5} />}
-                value={snap.tokens.migrations.label}
-                pct={snap.tokens.migrations.pct}
-              />
+            {/* Token stats */}
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-[10px] text-[#888]">
+                <Database className="h-3 w-3" strokeWidth={1.75} aria-hidden />
+                Token Stats
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <StatCell
+                  label="Created"
+                  icon={<Flame className="h-3 w-3 text-[#666]" strokeWidth={1.75} />}
+                  value={snap.tokens.created.label}
+                  pct={snap.tokens.created.pct}
+                />
+                <StatCell
+                  label="Migrated"
+                  icon={<ArrowRightLeft className="h-3 w-3 text-[#666]" strokeWidth={1.75} />}
+                  value={snap.tokens.migrations.label}
+                  pct={snap.tokens.migrations.pct}
+                />
+              </div>
             </div>
 
-            <div className="border-t border-white/[0.04] pt-3">
-              <p className="mb-1.5 text-[10px] uppercase tracking-widest text-white/30">
-                Top Launchpads
-              </p>
-              <div className="-mx-0.5 flex gap-2 overflow-x-auto pb-0.5">
-                {visibleLaunchpads.map((row) => (
-                  <VenuePill key={row.key} row={row} />
+            {/* Top launchpads — fixed 3-col, no scroll */}
+            <div>
+              <p className="mb-1 text-[10px] text-[#666]">Top Launchpads</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {snap.launchpads.map((row) => (
+                  <VenueCell key={row.key} row={row} />
                 ))}
               </div>
             </div>
 
-            <div className="border-t border-white/[0.04] pt-3">
-              <p className="mb-1.5 text-[10px] uppercase tracking-widest text-white/30">
-                Top Protocols
-              </p>
-              <div className="-mx-0.5 flex gap-2 overflow-x-auto pb-0.5">
+            {/* Top protocols */}
+            <div>
+              <p className="mb-1 text-[10px] text-[#666]">Top Protocols</p>
+              <div className="grid grid-cols-3 gap-1.5">
                 {snap.protocols.map((row) => (
-                  <VenuePill key={row.key} row={row} />
+                  <VenueCell key={row.key} row={row} />
                 ))}
               </div>
             </div>
-          </>
-        ) : null}
+          </div>
+        )}
       </div>
     ) : null;
 
@@ -377,8 +310,11 @@ export function MarketLighthouseHover({
       <span
         ref={anchorRef}
         className="relative inline-flex shrink-0"
-        onMouseEnter={onEnterAnchor}
-        onMouseLeave={onLeaveAnchor}
+        onMouseEnter={() => {
+          clearTimers();
+          scheduleOpen();
+        }}
+        onMouseLeave={scheduleClose}
       >
         <Link
           href="/pulse"
@@ -393,7 +329,7 @@ export function MarketLighthouseHover({
         >
           {dualTapeGlyphs ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- pump.fun chip matches Pulse rows */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/icons/pumpfun.webp"
                 alt=""
@@ -413,17 +349,15 @@ export function MarketLighthouseHover({
               />
             </>
           ) : (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- chain selector artwork */}
-              <img
-                src={CHAIN_ICON_PNG[activeChain]}
-                alt=""
-                width={18}
-                height={18}
-                draggable={false}
-                className="h-[18px] w-[18px] shrink-0 bg-transparent object-contain opacity-95"
-              />
-            </>
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={CHAIN_ICON_PNG[activeChain]}
+              alt=""
+              width={18}
+              height={18}
+              draggable={false}
+              className="h-[18px] w-[18px] shrink-0 bg-transparent object-contain opacity-95"
+            />
           )}
         </Link>
       </span>
@@ -432,27 +366,22 @@ export function MarketLighthouseHover({
   );
 }
 
-function PctChange({ pct, className }: { pct: number; className?: string }) {
+function PctText({ pct, className }: { pct: number; className?: string }) {
   const pos = pct >= 0;
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-0.5 font-medium tabular-nums',
-        pos ? 'text-emerald-400' : 'text-red-400',
+        'text-[10px] font-normal tabular-nums',
+        pos ? 'text-[#4ade80]' : 'text-[#f87171]',
         className,
       )}
     >
-      {pos ? (
-        <TrendingUp className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-      ) : (
-        <TrendingDown className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-      )}
       {formatPct(pct)}
     </span>
   );
 }
 
-function StatCard({
+function StatCell({
   label,
   icon,
   value,
@@ -464,20 +393,19 @@ function StatCard({
   pct: number;
 }) {
   return (
-    <div className="rounded-lg bg-white/[0.04] p-2.5">
-      <div className="flex items-center gap-1.5">
+    <div className={cn('rounded-md p-2', CELL_SURFACE)}>
+      <div className="flex items-center gap-1">
         {icon}
-        <span className="text-[10px] uppercase tracking-wide text-white/40">{label}</span>
+        <span className="text-[10px] text-[#888]">{label}</span>
       </div>
-      <div className="mt-1 text-[15px] font-medium text-white">{value}</div>
-      <PctChange pct={pct} className="mt-0.5 text-[11px]" />
+      <div className="mt-1 text-[14px] font-medium leading-none text-[#f0f0f0]">{value}</div>
+      <PctText pct={pct} className="mt-0.5 block" />
     </div>
   );
 }
 
 function VenueIcon({ row }: { row: LighthouseVenueRow }) {
-  const cls = 'h-5 w-5 shrink-0';
-
+  const cls = 'h-[18px] w-[18px] shrink-0';
   switch (row.icon) {
     case 'pump-fun':
       return <ProtocolBrandIcon protocolId="pump.fun" dotClassName={cls} />;
@@ -489,9 +417,10 @@ function VenueIcon({ row }: { row: LighthouseVenueRow }) {
       return <ProtocolBrandIcon protocolId="raydium" dotClassName={cls} />;
     case 'virtual-curve':
     case 'meteora-stripe':
-      return <ProtocolBrandIcon protocolId="meteora" dotClassName={cls} className={METEORA_STRIPE_BG} />;
+      return <ProtocolBrandIcon protocolId="meteora" dotClassName={cls} />;
     case 'chain-logo':
       return (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={row.iconSrc ?? CHAIN_ICON_PNG.sol}
           alt=""
@@ -505,33 +434,29 @@ function VenueIcon({ row }: { row: LighthouseVenueRow }) {
   }
 }
 
-function VenuePill({ row }: { row: LighthouseVenueRow }) {
+function VenueCell({ row }: { row: LighthouseVenueRow }) {
   const pos = row.pct >= 0;
-
   return (
-    <Tooltip delayDuration={150}>
+    <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
-        <div
-          className={cn(
-            'flex min-w-[90px] shrink-0 cursor-default flex-col items-start gap-0.5 rounded-xl',
-            'bg-white/[0.04] p-2.5 transition-colors hover:bg-white/[0.06]',
-          )}
-        >
+        <div className={cn('flex min-w-0 cursor-default flex-col rounded-md p-1.5', CELL_SURFACE)}>
           <VenueIcon row={row} />
-          <span className="mt-1 text-[13px] font-medium tabular-nums text-white">
-            {row.volumeLabel}
-          </span>
+          <span className="mt-1 truncate text-[11px] font-medium text-[#f0f0f0]">{row.volumeLabel}</span>
           <span
             className={cn(
-              'text-[11px] font-medium tabular-nums',
-              pos ? 'text-emerald-400' : 'text-red-400',
+              'text-[10px] tabular-nums',
+              pos ? 'text-[#4ade80]' : 'text-[#f87171]',
             )}
           >
             {formatPct(row.pct)}
           </span>
         </div>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className={VENUE_TOOLTIP_CLASS}>
+      <TooltipContent
+        side="top"
+        sideOffset={4}
+        className="rounded border border-[#333] bg-[#1a1a1a] px-2 py-1 text-[11px] text-[#ccc]"
+      >
         {row.tooltip}
       </TooltipContent>
     </Tooltip>
