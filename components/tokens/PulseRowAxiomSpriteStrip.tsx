@@ -54,16 +54,12 @@ function metricChipTone(isBad: boolean): MetricChipTone {
   return isBad ? 'bear' : 'bull';
 }
 
-/** Axiom-style capsules: faint fill + pale hairline outline (readable on charcoal rows). */
+/** Axiom-style capsules: faint grey hairline, transparent fill — color only on glyph + %. */
 function metricChipShellClass() {
   return cn(
-    'inline-flex shrink-0 items-center gap-1 rounded-full',
-    'border border-white/[0.14]',
-    'bg-white/[0.035]',
+    'inline-flex shrink-0 items-center gap-1 rounded-full border border-white/[0.14] bg-transparent',
     'px-2 py-0.5 shadow-none outline-none ring-0',
-    'transition-[border-color,background-color] duration-150',
-    /** No dark ring — lift border slightly on hover for affordance without “black halo”. */
-    'hover:border-white/[0.22] hover:bg-white/[0.05]',
+    'transition-[border-color] duration-150 hover:border-white/[0.22]',
   );
 }
 
@@ -125,12 +121,6 @@ export function PulseRowAxiomSpriteStrip({
       iconIndex: 4,
       text: formatAxiomPctCell(m.bundlePct),
     },
-    {
-      key: 'cluster',
-      title: 'Cluster / linked-wallet signal',
-      iconIndex: 3,
-      text: formatAxiomPctCell(m.clusterPct),
-    },
   ];
 
   return (
@@ -141,7 +131,7 @@ export function PulseRowAxiomSpriteStrip({
        * renders below the strip. We render at most 4 chips so horizontal scroll isn't
        * needed; the row already prevents overflow via `min-w-0`.
        */
-      className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible pt-px"
+      className="inline-flex min-w-0 max-w-none flex-nowrap items-center gap-0.5 pt-px"
       aria-label="Launch metrics"
     >
       {cells.map((c) => {

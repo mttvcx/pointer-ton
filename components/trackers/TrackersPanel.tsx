@@ -48,7 +48,17 @@ type TrackerRow = {
   walletAddress: string;
   label: string | null;
   notify: boolean;
+  groupId: string | null;
   createdAt: string;
+};
+
+type TrackerGroupSummary = {
+  id: string;
+  label: string;
+  appChain: AppChainId;
+  isStarter: boolean;
+  sortOrder: number;
+  walletCount: number;
 };
 
 type EnrichmentEntry = {
@@ -76,11 +86,12 @@ function walletEmoji(addr: string): string {
   return emojis[h % emojis.length] ?? '💼';
 }
 
-type GroupId = 'all' | 'main' | 'test' | 'fast' | 'whales';
+type LegacyGroupId = 'main' | 'test' | 'fast' | 'whales';
+type SelectedFilter = 'all' | LegacyGroupId | `grp:${string}`;
 
-function filterTrackersByGroup(
+function filterTrackersByLegacyGroup(
   rows: TrackerRow[],
-  group: GroupId,
+  group: LegacyGroupId | 'all',
   enrichment: EnrichmentMap,
 ): TrackerRow[] {
   if (group === 'all') return rows;
@@ -109,7 +120,19 @@ function filterTrackersByGroup(
   return rows;
 }
 
-function groupLabel(g: GroupId): string {
+function filterTrackersBySelection(
+  rows: TrackerRow[],
+  selection: SelectedFilter,
+  enrichment: EnrichmentMap,
+): TrackerRow[] {
+  if (selection.startsWith('grp:')) {
+    const groupId = selection.slice(4);
+    return rows.filter((r) => r.groupId === groupId);
+  }
+  return filterTrackersByLegacyGroup(rows, selection as 'all' | LegacyGroupId, enrichment);
+}
+
+function legacyGroupLabel(g: LegacyGroupId | 'all'): string {
   switch (g) {
     case 'all':
       return 'All';
@@ -126,7 +149,7 @@ function groupLabel(g: GroupId): string {
   }
 }
 
-function groupIcon(g: GroupId): string {
+function legacyGroupIcon(g: LegacyGroupId | 'all'): string {
   switch (g) {
     case 'all':
       return '◆';
@@ -250,7 +273,7 @@ export function TrackersPanel({
   const [address, setAddress] = useState('');
   const [label, setLabel] = useState('');
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<GroupId>('main');
+  const [selectedGroup, setSelectedGroup] = useState<SelectedFilter>('all');
   const [kolRows, setKolRows] = useState<KolRow[]>(() => readStoredKolRows(useUIStore.getState().activeChain));
   const [socialsOpen, setSocialsOpen] = useState(surface === 'track_hub');
   const [removeAllConfirmOpen, setRemoveAllConfirmOpen] = useState(false);
@@ -313,9 +336,23 @@ export function TrackersPanel({
             : 'list failed',
         );
       }
-      return json as { trackers: TrackerRow[]; enrichment?: EnrichmentMap };
+      return json as {
+        trackers: TrackerRow[];
+        groups?: TrackerGroupSummary[];
+        enrichment?: EnrichmentMap;
+      };
     },
   });
+
+  const savedGroups = listQuery.data?.groups ?? [];
+
+  useEffect(() => {
+    if (!selectedGroup.startsWith('grp:')) return;
+    const groupId = selectedGroup.slice(4);
+    if (!savedGroups.some((g) => g.id === groupId)) {
+      setSelectedGroup('all');
+    }
+  }, [activeChain, savedGroups, selectedGroup]);
 
   const addMutation = useMutation({
     mutationFn: async () => {
@@ -431,16 +468,20 @@ export function TrackersPanel({
   const enrichment = useMemo(() => listQuery.data?.enrichment ?? {}, [listQuery.data?.enrichment]);
 
   const groupFiltered = useMemo(
-    () => filterTrackersByGroup(sorted, selectedGroup, enrichment),
+    () => filterTrackersBySelection(sorted, selectedGroup, enrichment),
     [sorted, selectedGroup, enrichment],
   );
 
   const groupCounts = useMemo(() => {
-    const ids: GroupId[] = ['all', 'main', 'test', 'fast', 'whales'];
-    return Object.fromEntries(
-      ids.map((g) => [g, filterTrackersByGroup(sorted, g, enrichment).length]),
-    ) as Record<GroupId, number>;
-  }, [sorted, enrichment]);
+    const legacyIds: Array<'all' | LegacyGroupId> = ['all', 'main', 'test', 'fast', 'whales'];
+    const legacy = Object.fromEntries(
+      legacyIds.map((g) => [g, filterTrackersByLegacyGroup(sorted, g, enrichment).length]),
+    ) as Record<'all' | LegacyGroupId, number>;
+    const saved = Object.fromEntries(
+      savedGroups.map((g) => [g.id, sorted.filter((t) => t.groupId === g.id).length]),
+    ) as Record<string, number>;
+    return { legacy, saved };
+  }, [sorted, enrichment, savedGroups]);
 
   const filtered = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
@@ -675,7 +716,7 @@ export function TrackersPanel({
               {sorted.length} tracked
             </span>
             <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
-              {groupCounts.all} active
+              {groupCounts.legacy.all} active
             </span>
             <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-0.5 text-[10px] text-[#9ca3af]">
               {kolRows.length} KOLs
@@ -767,9 +808,9 @@ export function TrackersPanel({
                 )}
               >
                 <span className="inline-flex items-center gap-1.5">
-                  <span>{groupIcon('all')}</span>All
+                  <span>{legacyGroupIcon('all')}</span>All
                 </span>
-                <span className="text-fg-muted">{groupCounts.all}</span>
+                <span className="text-fg-muted">{groupCounts.legacy.all}</span>
               </button>
             </div>
             <div className="px-2 py-2">
@@ -785,6 +826,35 @@ export function TrackersPanel({
                   +
                 </button>
               </div>
+              {savedGroups.map((g) => {
+                const filterId = `grp:${g.id}` as const;
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setSelectedGroup(filterId)}
+                    className={cn(
+                      'mb-1 flex w-full items-center justify-between rounded px-2 py-2 text-[11px] transition',
+                      selectedGroup === filterId
+                        ? 'border border-accent-primary bg-bg-hover text-fg-primary'
+                        : 'text-fg-secondary hover:bg-bg-hover',
+                    )}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <span>{g.isStarter ? '✦' : '📁'}</span>
+                      <span className="truncate">{g.label}</span>
+                    </span>
+                    <span className="shrink-0 text-fg-muted">
+                      {groupCounts.saved[g.id] ?? g.walletCount}
+                    </span>
+                  </button>
+                );
+              })}
+              {savedGroups.length > 0 ? (
+                <div className="mb-1 mt-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-fg-muted/80">
+                  Filters
+                </div>
+              ) : null}
               {(['main', 'test', 'fast', 'whales'] as const).map((g) => (
                 <button
                   key={g}
@@ -798,10 +868,10 @@ export function TrackersPanel({
                   )}
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    <span>{groupIcon(g)}</span>
-                    {groupLabel(g)}
+                    <span>{legacyGroupIcon(g)}</span>
+                    {legacyGroupLabel(g)}
                   </span>
-                  <span className="text-fg-muted">{groupCounts[g]}</span>
+                  <span className="text-fg-muted">{groupCounts.legacy[g]}</span>
                 </button>
               ))}
             </div>

@@ -1,9 +1,6 @@
 import { protocolLogoSrc } from '@/lib/tokens/protocolBrand';
 
-/**
- * Protocol logos safe to warm early (each under ~120KB).
- * Do NOT preload multi-MB PNGs — they were stalling first paint for 30–60s.
- */
+/** Warm on first Pulse paint — all logos are resized to ≤128px in public/logos/protocols. */
 export const PULSE_PROTOCOL_PRELOAD_CRITICAL = [
   'pump.fun',
   'bonk',
@@ -13,18 +10,16 @@ export const PULSE_PROTOCOL_PRELOAD_CRITICAL = [
   'liquid',
   'jupiter',
   'heaven',
-] as const;
-
-/** Warm after idle — still moderate size; never blocks shell. */
-export const PULSE_PROTOCOL_PRELOAD_SECONDARY = ['bags'] as const;
-
-/** Known multi-MB assets — on-demand only (row visible / hover). */
-const HEAVY_PROTOCOL_IDS = new Set([
   'surge',
   'mayhem',
+  'orca',
+  'bags',
+] as const;
+
+/** Warm after idle — remaining Sol launchpads from the filter registry. */
+export const PULSE_PROTOCOL_PRELOAD_SECONDARY = [
   'dynamic-bc',
   'jupiter-studio',
-  'orca',
   'daos.fun',
   'four.meme',
   'printr',
@@ -32,13 +27,11 @@ const HEAVY_PROTOCOL_IDS = new Set([
   'moonit',
   'soar',
   'pancakeswap',
-  'uniswap',
-]);
+] as const;
 
 let warmed = false;
 
 function warmOne(id: string) {
-  if (HEAVY_PROTOCOL_IDS.has(id)) return;
   const img = new window.Image();
   img.decoding = 'async';
   img.src = protocolLogoSrc(id);
@@ -52,7 +45,7 @@ function scheduleIdle(fn: () => void) {
   }
 }
 
-/** Idempotent — critical logos sync; secondary + rest deferred to idle. */
+/** Idempotent — critical logos sync; secondary deferred to idle. */
 export function warmPulseProtocolLogos() {
   if (typeof window === 'undefined' || warmed) return;
   warmed = true;

@@ -20,6 +20,10 @@
   :root {
     --app-topbar-h: calc(56px + env(safe-area-inset-top, 0px));
     --app-watchlist-bar-h: 32px;
+    /** Pulse | Stocks rail under topbar (`PulseModeRail` h-9). */
+    --pulse-mode-rail-h: 2.25rem;
+    /** Pulse hover brief — fixed chrome height so columns never shift. */
+    --pulse-answer-chrome-h: 5.625rem;
     --app-bottombar-h: calc(2.5rem + env(safe-area-inset-bottom, 0px));
   }
 
@@ -768,6 +772,10 @@
    The horizontal gap between the three grey column panels stays constant.
    Tabled mode forces a strong hairline between every row so the column
    reads as a true table — independent of the row-separators toggle. */
+:root[data-pulse-circle-avatars='true'] .pulse-column .pulse-row img[alt=''] {
+  border-radius: 9999px;
+}
+
 .pulse-columns {
   /* Black gutter between the three grey column panels (page bg stays raised). */
   background-color: rgb(var(--bg-base-rgb) / 1);
@@ -854,4 +862,1780 @@
 .pulse-avatar {
   width: var(--avatar-size);
   height: var(--avatar-size);
+}
+
+/* ── Pointer Packs — cinematic open ─────────────────────────────────────── */
+@keyframes packHeaderBeam {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.75; }
+}
+
+@keyframes packFoilShine {
+  0%, 100% { opacity: 0.35; transform: translate(-8%, -6%) scale(1.15); }
+  50% { opacity: 0.65; transform: translate(6%, 4%) scale(1.2); }
+}
+
+@keyframes packStageGlow {
+  0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.75; transform: translate(-50%, -50%) scale(1.06); }
+}
+
+@keyframes packFoilFloat {
+  0%, 100% { transform: translateY(0) rotateX(8deg) rotateY(-6deg); }
+  50% { transform: translateY(-14px) rotateX(10deg) rotateY(6deg); }
+}
+
+@keyframes packFoilFloatCalm {
+  0%, 100% { transform: translateY(0) rotateX(4deg); }
+  50% { transform: translateY(-8px) rotateX(5deg); }
+}
+
+@keyframes packFoilFadeOut {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.96); opacity: 0; }
+}
+
+@keyframes packFoilShake {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  20% { transform: translateY(-4px) rotate(-2deg) scale(1.02); }
+  40% { transform: translateY(2px) rotate(2deg) scale(0.98); }
+  60% { transform: translateY(-6px) rotate(-3deg) scale(1.03); }
+  80% { transform: translateY(0) rotate(1deg) scale(1); }
+}
+
+@keyframes packFoilBurst {
+  0% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(0.15); opacity: 0; }
+}
+
+@keyframes packFoilCardBurst {
+  0% { filter: brightness(1); }
+  40% { filter: brightness(1.25); }
+  100% { filter: brightness(1.1); opacity: 0; }
+}
+
+@keyframes packBurstGlow {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  35% { opacity: 0.55; transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
+}
+
+@keyframes packCardFlip {
+  0% { transform: perspective(900px) rotateY(88deg) translateY(20px) scale(0.88); opacity: 0; }
+  70% { transform: perspective(900px) rotateY(-6deg) translateY(-3px) scale(1.02); opacity: 1; }
+  100% { transform: perspective(900px) rotateY(0deg) translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes packCardFade {
+  0% { transform: translateY(14px) scale(0.94); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes packSpotlightPulse {
+  0%, 100% { filter: drop-shadow(0 0 24px rgb(var(--accent-primary-rgb) / 0.25)); }
+  50% { filter: drop-shadow(0 0 42px rgb(var(--accent-glow-rgb) / 0.55)); }
+}
+
+.pack-overlay-vignette {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 40%, rgb(var(--accent-primary-rgb) / 0.12), transparent 70%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgb(0 0 0 / 0.65) 100%);
+}
+
+.pack-overlay-vignette--open {
+  background:
+    radial-gradient(ellipse 50% 45% at 50% 48%, rgb(var(--accent-primary-rgb) / 0.1), transparent 72%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.82) 100%);
+}
+
+.pack-header-beam {
+  background: linear-gradient(180deg, rgb(var(--accent-primary-rgb) / 0.08), transparent 70%);
+  animation: packHeaderBeam 6s ease-in-out infinite;
+}
+
+.pack-card-shine {
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 20%, rgba(255, 255, 255, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 70% 80%, rgba(255, 255, 255, 0.05), transparent 50%);
+  mix-blend-mode: soft-light;
+  filter: blur(12px);
+  transform: none;
+  opacity: 0;
+}
+
+.group:hover .pack-card-shine {
+  animation: packCardShine 2.2s ease-in-out 1;
+}
+
+@keyframes packCardShine {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.7; }
+}
+
+.pack-foil-shine {
+  background:
+    radial-gradient(ellipse 90% 70% at 28% 18%, rgba(255, 255, 255, 0.14), transparent 58%),
+    radial-gradient(ellipse 60% 50% at 72% 78%, rgba(255, 255, 255, 0.06), transparent 55%);
+  mix-blend-mode: soft-light;
+  filter: blur(10px);
+}
+
+.pack-foil-shine--open {
+  animation: packFoilShine 4.5s ease-in-out infinite;
+}
+
+.pack-foil-shine--active {
+  animation: packFoilShine 4.5s ease-in-out infinite;
+}
+
+.pack-foil-shine--hover-only {
+  /* opacity toggled via Tailwind on group-hover */
+}
+
+.pack-scene {
+  perspective: 1200px;
+}
+
+.pack-stage-glow {
+  left: 50%;
+  top: 50%;
+  width: 280px;
+  height: 380px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgb(var(--accent-primary-rgb) / 0.2), transparent 68%);
+  filter: blur(28px);
+  animation: packStageGlow 3s ease-in-out infinite;
+}
+
+.pack-foil-box {
+  transform-style: preserve-3d;
+}
+
+.pack-foil-card--burst {
+  animation: packFoilCardBurst 0.55s ease-in forwards;
+}
+
+.pack-burst-glow {
+  width: 240px;
+  height: 320px;
+  border-radius: 6px;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.06) 45%, transparent 72%);
+  filter: blur(18px);
+  animation: packBurstGlow 0.55s ease-out forwards;
+}
+
+.pack-foil-box--float {
+  animation: packFoilFloat 2.2s ease-in-out infinite;
+}
+
+.pack-foil-box--float-calm {
+  animation: packFoilFloatCalm 2.8s ease-in-out infinite;
+}
+
+.pack-foil-box--fade-out {
+  animation: packFoilFadeOut 0.45s ease-out forwards;
+}
+
+.pack-foil-box--shake {
+  animation: packFoilShake 0.42s ease-in-out infinite;
+}
+
+.pack-foil-box--burst {
+  animation: packFoilBurst 0.55s ease-in forwards;
+}
+
+.pack-reward-flip {
+  opacity: 0;
+  transform: perspective(900px) rotateY(0deg) translateY(12px) scale(0.94);
+}
+
+.pack-reward-flip--revealed {
+  animation: packCardFlip 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.pack-reward-flip--calm.pack-reward-flip--revealed {
+  animation: packCardFade 0.55s ease-out forwards;
+}
+
+.pack-reward-flip--settled {
+  opacity: 1;
+  transform: perspective(900px) rotateY(0deg) translateY(0) scale(1);
+  animation: none;
+}
+
+.pack-reward-card-face {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.pack-reward-spotlight {
+  animation: packSpotlightPulse 2.4s ease-in-out infinite;
+}
+
+.pack-rarity-beam {
+  filter: blur(28px);
+}
+
+.pack-rarity-beam--insane {
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.55), rgba(232, 121, 249, 0.35), transparent 70%);
+  filter: blur(36px);
+  animation: packInsaneBeam 1.2s ease-in-out infinite;
+}
+
+/* ── TCG shelf lift ── */
+.pack-tcg-shelf {
+  transform-style: preserve-3d;
+}
+
+.pack-tcg-lift {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(0) rotateX(0deg) scale(1);
+}
+
+.group:hover .pack-tcg-lift {
+  transform: translateY(-16px) rotateX(8deg) rotateY(-4deg) scale(1.06);
+}
+
+.pack-tcg-reward-hover {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-style: preserve-3d;
+}
+
+.pack-tcg-reward-hover:hover {
+  transform: translateY(-14px) rotateX(6deg) scale(1.05);
+  z-index: 20;
+}
+
+/* ── Insane pull overlay ── */
+.pack-overlay--insane {
+  animation: packOverlayDarken 0.6s ease-out forwards;
+}
+
+.pack-overlay-vignette--insane {
+  background:
+    radial-gradient(ellipse 50% 45% at 50% 45%, rgba(251, 191, 36, 0.15), transparent 60%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 30%, rgb(0 0 0 / 0.92) 100%);
+}
+
+.pack-reveal-stage--insane {
+  animation: packStageShake 0.5s ease-in-out;
+}
+
+.pack-reward-insane-drift-inner {
+  animation: packInsaneDrift 2.8s ease-in-out infinite;
+}
+
+/* ── Post-helicopter PES-style mythic showcase ── */
+.pack-overlay--mythic-showcase {
+  background: #030308;
+}
+
+.pack-overlay-vignette--mythic-showcase {
+  background: radial-gradient(ellipse 120% 90% at 50% 45%, transparent 35%, rgb(0 0 0 / 0.55) 100%);
+}
+
+.pack-overlay--jackpot-sting {
+  background: #000;
+}
+
+.pack-overlay-vignette--jackpot-sting {
+  background: radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.12), transparent 42%);
+  animation: packJackpotStingPulse 2.4s ease-in-out infinite;
+}
+
+.pack-jackpot-sting-pulse {
+  width: min(280px, 50vw);
+  height: min(280px, 50vw);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.14), transparent 68%);
+  animation: packJackpotStingPulse 2.4s ease-in-out infinite;
+}
+
+.pack-mythic-showcase {
+  animation: packMythicShowcaseSceneIn 0.55s ease-out forwards;
+}
+
+.pack-mythic-showcase-void {
+  background: #000;
+}
+
+.pack-mythic-showcase-streaks {
+  background:
+    linear-gradient(105deg, transparent 42%, rgba(190, 242, 100, 0.14) 48%, transparent 54%),
+    linear-gradient(95deg, transparent 58%, rgba(250, 204, 21, 0.12) 62%, transparent 68%),
+    linear-gradient(88deg, transparent 72%, rgba(56, 189, 248, 0.1) 76%, transparent 82%);
+  filter: blur(1px);
+  animation: packMythicShowcaseStreaks 6s ease-in-out infinite alternate;
+  opacity: 0.75;
+}
+
+.pack-mythic-showcase-streaks--alt {
+  animation-delay: -3s;
+  opacity: 0.45;
+  transform: scale(1.05);
+}
+
+.pack-mythic-showcase-floor {
+  background:
+    radial-gradient(ellipse 70% 45% at 42% 0%, rgba(255, 255, 255, 0.14), transparent 62%),
+    linear-gradient(180deg, rgba(56, 189, 248, 0.08), transparent 45%);
+  animation: packMythicShowcaseFloorPulse 3.2s ease-in-out infinite;
+}
+
+.pack-mythic-showcase-energy {
+  background:
+    radial-gradient(ellipse 38% 55% at 78% 46%, rgba(251, 191, 36, 0.22), transparent 68%),
+    radial-gradient(ellipse 28% 40% at 82% 52%, rgba(232, 121, 249, 0.18), transparent 70%),
+    conic-gradient(from 210deg at 78% 48%, transparent 0deg, rgba(255, 255, 255, 0.12) 18deg, transparent 36deg);
+  animation: packMythicShowcaseEnergy 4.5s ease-in-out infinite alternate;
+}
+
+.pack-mythic-showcase-flare {
+  background: radial-gradient(circle at 38% 44%, rgba(255, 255, 255, 0.16) 0%, transparent 42%);
+  animation: packMythicShowcaseFlare 2.4s ease-in-out infinite;
+}
+
+.pack-mythic-showcase-layout {
+  width: 100%;
+  max-width: none;
+}
+
+.pack-mythic-showcase-stage {
+  position: relative;
+  flex: 0 0 auto;
+  height: min(72vh, 620px);
+  width: min(52vw, 420px);
+  perspective: 1400px;
+  perspective-origin: 50% 46%;
+}
+
+.pack-mythic-showcase-rig {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 280px;
+  height: 412px;
+  margin-left: -140px;
+  margin-top: -206px;
+  transform-style: preserve-3d;
+  animation:
+    packMythicShowcaseEnter 1.35s cubic-bezier(0.16, 1, 0.28, 1) forwards,
+    packMythicShowcasePan 9s ease-in-out 1.35s infinite alternate;
+}
+
+.pack-mythic-showcase-frame {
+  position: absolute;
+  inset: -14px;
+  border-radius: 8px;
+  border: 2px solid rgba(125, 211, 252, 0.55);
+  box-shadow:
+    0 0 40px rgba(56, 189, 248, 0.35),
+    0 0 80px rgba(251, 191, 36, 0.18),
+    inset 0 0 24px rgba(255, 255, 255, 0.08);
+  transform: translateZ(18px);
+  animation: packMythicShowcaseFramePulse 2.2s ease-in-out infinite;
+}
+
+.pack-mythic-showcase-card-wrap {
+  position: relative;
+  transform: translateZ(32px);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 48px 80px rgba(0, 0, 0, 0.85));
+}
+
+.pack-reward-card-face--showcase img {
+  image-rendering: auto;
+}
+
+.pack-mythic-showcase-side {
+  animation: packMythicShowcaseSideIn 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
+}
+
+.pack-mythic-showcase-tier {
+  animation: packMythicShowcaseSideIn 0.9s ease-out 0.55s both;
+}
+
+.pack-mythic-showcase-ticker {
+  text-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
+  animation: packMythicShowcaseSideIn 0.95s ease-out 0.65s both;
+}
+
+.pack-mythic-showcase-value {
+  animation: packMythicShowcaseSideIn 0.95s ease-out 0.78s both;
+}
+
+.pack-mythic-showcase-star {
+  display: block;
+  width: 22px;
+  height: 22px;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  background: linear-gradient(180deg, #fde68a, #f59e0b);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.65);
+  animation: packMythicShowcaseStarPop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pack-mythic-showcase-star:nth-child(1) { animation-delay: 0.85s; }
+.pack-mythic-showcase-star:nth-child(2) { animation-delay: 0.92s; }
+.pack-mythic-showcase-star:nth-child(3) { animation-delay: 0.99s; }
+.pack-mythic-showcase-star:nth-child(4) { animation-delay: 1.06s; }
+.pack-mythic-showcase-star:nth-child(5) { animation-delay: 1.13s; }
+
+.pack-mythic-showcase-hint {
+  animation: packMythicShowcaseHint 2.4s ease-in-out infinite;
+}
+
+@keyframes packMythicShowcaseSceneIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes packMythicShowcaseEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(55%, 8%, -520px) rotateY(52deg) rotateX(14deg) scale(0.72);
+  }
+  55% {
+    opacity: 1;
+    transform: translate3d(-6%, -4%, 60px) rotateY(-22deg) rotateX(6deg) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(-10%, -2%, 90px) rotateY(-18deg) rotateX(3deg) scale(1);
+  }
+}
+
+@keyframes packMythicShowcasePan {
+  0% {
+    transform: translate3d(-10%, -2%, 90px) rotateY(-20deg) rotateX(3deg) scale(1);
+  }
+  100% {
+    transform: translate3d(-4%, 1%, 110px) rotateY(6deg) rotateX(-2deg) scale(1.02);
+  }
+}
+
+@keyframes packMythicShowcaseStreaks {
+  0% { transform: translateX(-2%) skewX(-2deg); opacity: 0.55; }
+  100% { transform: translateX(3%) skewX(2deg); opacity: 0.85; }
+}
+
+@keyframes packMythicShowcaseFloorPulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+@keyframes packMythicShowcaseEnergy {
+  0% { opacity: 0.55; transform: scale(0.98); }
+  100% { opacity: 0.95; transform: scale(1.04); }
+}
+
+@keyframes packMythicShowcaseFlare {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+
+@keyframes packMythicShowcaseFramePulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(56, 189, 248, 0.35), 0 0 80px rgba(251, 191, 36, 0.18), inset 0 0 24px rgba(255, 255, 255, 0.08); }
+  50% { box-shadow: 0 0 56px rgba(56, 189, 248, 0.55), 0 0 100px rgba(251, 191, 36, 0.28), inset 0 0 32px rgba(255, 255, 255, 0.14); }
+}
+
+@keyframes packMythicShowcaseSideIn {
+  from { opacity: 0; transform: translateX(28px); filter: blur(6px); }
+  to { opacity: 1; transform: translateX(0); filter: blur(0); }
+}
+
+@keyframes packMythicShowcaseStarPop {
+  from { opacity: 0; transform: scale(0.2) rotate(-18deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes packMythicShowcaseHint {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}
+
+@media (max-width: 768px) {
+  .pack-mythic-showcase-layout {
+    flex-direction: column;
+    justify-content: center;
+    gap: 2rem;
+    padding-top: 2rem;
+  }
+
+  .pack-mythic-showcase-stage {
+    width: min(88vw, 320px);
+    height: min(52vh, 460px);
+  }
+
+  .pack-mythic-showcase-side {
+    align-items: center;
+    max-width: none;
+    padding-left: 0;
+    text-align: center;
+  }
+}
+
+@keyframes packOverlayDarken {
+  from { background-color: transparent; }
+  to { background-color: rgb(0 0 0 / 0.98); }
+}
+
+@keyframes packInsaneBeam {
+  0%, 100% { opacity: 0.65; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes packInsaneDrift {
+  0%, 100% { transform: perspective(900px) rotateY(0deg) rotateX(0deg) translateY(0) scale(1); }
+  25% { transform: perspective(900px) rotateY(-6deg) rotateX(4deg) translateY(-8px) scale(1.04); }
+  50% { transform: perspective(900px) rotateY(5deg) rotateX(-3deg) translateY(-4px) scale(1.02); }
+  75% { transform: perspective(900px) rotateY(-3deg) rotateX(2deg) translateY(-10px) scale(1.05); }
+}
+
+@keyframes packStageShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* ── Fireworks ── */
+@keyframes packFireworkBurst {
+  0% { transform: scale(0); opacity: 1; }
+  70% { opacity: 0.85; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+@keyframes packFireworkFlash {
+  0%, 100% { opacity: 0; }
+  15% { opacity: 0.35; }
+  40% { opacity: 0; }
+  55% { opacity: 0.25; }
+}
+
+.pack-firework-spark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: hsl(var(--spark-hue) 90% 65%);
+  box-shadow: 0 0 16px 4px hsl(var(--spark-hue) 90% 60% / 0.8);
+  animation: packFireworkBurst 1.4s ease-out infinite;
+}
+
+.pack-firework-flash {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.12), transparent 55%);
+  animation: packFireworkFlash 2s ease-in-out infinite;
+}
+
+@keyframes packFireworkTrail {
+  0% { transform: translateY(100vh) scaleY(0.3); opacity: 0; }
+  15% { opacity: 0.9; }
+  100% { transform: translateY(-20vh) scaleY(1); opacity: 0; }
+}
+
+.pack-firework-trail {
+  position: absolute;
+  bottom: -10%;
+  width: 3px;
+  height: 120px;
+  border-radius: 9999px;
+  background: linear-gradient(to top, transparent, hsl(var(--trail-hue) 90% 65% / 0.9));
+  box-shadow: 0 0 20px 2px hsl(var(--trail-hue) 90% 60% / 0.5);
+  animation: packFireworkTrail 1.8s ease-out infinite;
+}
+
+/* ── Share card holo ── */
+@keyframes packShareShine {
+  0% { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(220%) skewX(-18deg); }
+}
+
+.pack-share-shine {
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.06) 45%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 55%,
+    transparent 65%
+  );
+  animation: packShareShine 3.5s ease-in-out infinite;
+}
+
+.pack-share-holo {
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.2),
+    0 32px 80px -20px rgba(251, 191, 36, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── Confetti ── */
+@keyframes packConfettiFall {
+  0% { transform: translate3d(0, -12vh, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--confetti-drift), 105vh, 0) rotate(720deg); opacity: 0; }
+}
+
+@keyframes packConfettiRain {
+  0% { transform: translate3d(0, -8vh, 0) rotate(0deg); opacity: 0; }
+  4% { opacity: 1; }
+  96% { opacity: 1; }
+  100% { transform: translate3d(var(--confetti-drift), 108vh, 0) rotate(720deg); opacity: 0; }
+}
+
+.pack-confetti--mega-layer {
+  z-index: 620;
+}
+
+.pack-confetti-piece {
+  position: absolute;
+  top: -5%;
+  border-radius: 1px;
+  background: hsl(var(--confetti-hue) 85% 58%);
+  animation: packConfettiFall linear forwards;
+}
+
+.pack-confetti-piece--rain {
+  top: -2%;
+  animation: packConfettiRain linear infinite;
+}
+
+.pack-confetti-piece--intense {
+  box-shadow: 0 0 8px hsl(var(--confetti-hue) 90% 60% / 0.65);
+}
+
+.pack-confetti-piece--mega {
+  box-shadow: 0 0 14px hsl(var(--confetti-hue) 95% 65% / 0.85);
+}
+
+/* ── Mythic jackpot: arctic ice-hole helicopter rescue (14s) ── */
+.pack-overlay--jackpot-void {
+  background: #020408;
+}
+
+.pack-overlay-vignette--jackpot {
+  background:
+    radial-gradient(ellipse 55% 40% at 50% 72%, rgba(56, 189, 248, 0.07), transparent 68%),
+    radial-gradient(ellipse 40% 30% at 50% 90%, rgba(251, 191, 36, 0.06), transparent 70%),
+    #020408;
+}
+
+.pack-jackpot-scene {
+  --pack-jackpot-duration: 12s;
+  position: relative;
+}
+
+.pack-jackpot-night {
+  background: linear-gradient(180deg, #010103 0%, #0a1018 52%, #141c26 100%);
+}
+
+.pack-jackpot-city {
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.45) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 220' preserveAspectRatio='none'%3E%3Cpath fill='%23070b12' d='M0 220 L0 120 L60 90 L120 110 L200 70 L280 100 L360 55 L440 95 L520 40 L600 88 L700 35 L820 92 L920 48 L1020 98 L1120 60 L1200 105 L1200 220Z'/%3E%3Cpath fill='%23040508' opacity='.9' d='M0 220 L0 150 L100 120 L220 140 L340 95 L460 130 L580 85 L700 125 L860 80 L980 130 L1100 95 L1200 140 L1200 220Z'/%3E%3C/svg%3E")
+    center bottom / 100% 100% no-repeat;
+  opacity: 0.88;
+}
+
+.pack-jackpot-ground {
+  z-index: 12;
+  background: linear-gradient(180deg, #2a3442 0%, #151b24 38%, #080a0f 100%);
+  box-shadow: inset 0 10px 24px rgba(255, 255, 255, 0.07);
+}
+
+.pack-jackpot-spot {
+  z-index: 11;
+  background: radial-gradient(ellipse 46% 70% at 50% 92%, rgba(251, 191, 36, 0.2), transparent 68%);
+  animation: packJackpotSpotPulse var(--pack-jackpot-duration) ease-out forwards;
+}
+
+.pack-jackpot-beam {
+  z-index: 14;
+  background: conic-gradient(from 180deg at 50% 12%, rgba(255, 255, 255, 0.24) 40deg, transparent 58deg);
+  animation: packJackpotBeam var(--pack-jackpot-duration) ease-out forwards;
+  opacity: 0;
+}
+
+.pack-jackpot-winch-rig {
+  position: absolute;
+  left: 50%;
+  top: -6vh;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(94vw, 820px);
+  transform: translateX(-50%);
+  animation: packWinchRigMotion var(--pack-jackpot-duration) cubic-bezier(0.42, 0, 0.18, 1) forwards;
+  filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.65));
+  pointer-events: none;
+}
+
+.pack-jackpot-heli-head {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.pack-jackpot-tether {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  animation: packTetherStruggle var(--pack-jackpot-duration) ease-in-out forwards;
+}
+
+.pack-jackpot-cable {
+  width: 4px;
+  flex-shrink: 0;
+  transform-origin: top center;
+  background: linear-gradient(to bottom, rgba(240, 240, 240, 0.95), rgba(120, 130, 140, 0.55));
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+  animation: packJackpotCableLen var(--pack-jackpot-duration) ease-in-out forwards;
+  height: 0;
+}
+
+.pack-jackpot-hook {
+  width: 22px;
+  height: 18px;
+  margin-top: -2px;
+  flex-shrink: 0;
+  border: 3px solid rgba(251, 191, 36, 0.95);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.55);
+  opacity: 0;
+  animation: packHookAppear var(--pack-jackpot-duration) ease-out forwards;
+}
+
+.pack-jackpot-card-mount {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  margin-top: 2px;
+  filter: drop-shadow(0 32px 64px rgba(0, 0, 0, 0.95));
+  animation: packCardHeavyPull var(--pack-jackpot-duration) cubic-bezier(0.35, 0, 0.22, 1) forwards;
+  transform: translateY(75vh) scale(0.78);
+  opacity: 0;
+}
+
+.pack-jackpot-rise-dust {
+  z-index: 16;
+  background: radial-gradient(ellipse 38% 28% at 50% 80%, rgba(180, 170, 150, 0.35), transparent 72%);
+  opacity: 0;
+  animation: packJackpotRiseDust var(--pack-jackpot-duration) ease-out forwards;
+}
+
+.pack-jackpot-rise-dust--2 {
+  animation-delay: 0.08s;
+  background: radial-gradient(ellipse 52% 32% at 50% 85%, rgba(251, 191, 36, 0.12), transparent 70%);
+}
+
+.pack-jackpot-mega-fx {
+  z-index: 110;
+  animation: packJackpotMegaFxIn var(--pack-jackpot-duration) ease-out forwards;
+  opacity: 0;
+}
+
+.pack-jackpot-mega-flash {
+  background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.75), transparent 48%);
+  animation: packJackpotMegaFlash 14s ease-out infinite;
+}
+
+.pack-jackpot-mega-ray {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 4px;
+  height: 55vh;
+  margin-left: -2px;
+  transform-origin: center top;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), transparent);
+  animation: packJackpotMegaRay 2.2s ease-out infinite;
+}
+
+.pack-jackpot-mega-spark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff, rgba(251, 191, 36, 0.4));
+  animation: packJackpotMegaSpark 1.6s ease-out infinite;
+}
+
+.pack-jackpot-mega-confetti {
+  position: absolute;
+  top: -20px;
+  border-radius: 1px;
+  background: hsl(var(--confetti-hue) 90% 58%);
+  box-shadow: 0 0 14px hsl(var(--confetti-hue) 95% 65% / 0.85);
+  animation: packJackpotMegaConfettiFall linear infinite;
+  transform: rotate(var(--confetti-rotate));
+}
+
+.pack-jackpot-snowflake {
+  position: absolute;
+  top: -8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  animation: packJackpotSnowFall linear infinite;
+}
+
+.pack-helicopter-model {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.75));
+}
+
+.pack-helicopter-main-rotor {
+  animation: packHelicopterRotor 0.028s linear infinite;
+  transform-origin: 248px 42px;
+}
+
+.pack-helicopter-tail-rotor {
+  animation: packHelicopterRotor 0.022s linear infinite;
+  transform-origin: 868px 156px;
+}
+
+.pack-helicopter-searchlight {
+  animation: packJackpotSearchlightPulse 14s ease-out forwards;
+}
+
+.pack-helicopter-winch-pulse {
+  animation: packJackpotWinchPulse 0.8s ease-in-out infinite alternate;
+}
+
+.pack-jackpot-card-only-motion .pack-reward-insane-drift-inner {
+  animation: packInsaneDrift 2.8s ease-in-out infinite;
+}
+
+.pack-fifa-fx--mega .pack-fifa-flash {
+  animation-duration: 1.6s;
+  opacity: 0.95;
+}
+
+.pack-fifa-fx--mega .pack-fifa-ray {
+  width: 4px;
+  height: 52vh;
+}
+
+.pack-fireworks--mega .pack-firework-spark {
+  width: 6px;
+  height: 6px;
+}
+
+@keyframes packJackpotStingPulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.92); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+
+@keyframes packJackpotSpotPulse {
+  0%, 18% { opacity: 0.2; }
+  30%, 75% { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+
+@keyframes packJackpotBeam {
+  0%, 12% { opacity: 0; }
+  18% { opacity: 0.55; }
+  26%, 74% { opacity: 1; }
+  100% { opacity: 0.15; }
+}
+
+@keyframes packWinchRigMotion {
+  0%, 8% { transform: translate(-50%, -115vh); opacity: 0; }
+  14% { transform: translate(-50%, -2vh); opacity: 1; }
+  58%, 75% { transform: translate(-50%, -2vh); opacity: 1; }
+  92% { transform: translate(-50%, -120vh); opacity: 0.85; }
+  100% { transform: translate(-50%, -130vh); opacity: 0; }
+}
+
+@keyframes packTetherStruggle {
+  0%, 18% { transform: translateY(0); }
+  24% { transform: translateY(2vh); }
+  28% { transform: translateY(-3vh); }
+  32% { transform: translateY(2.5vh); }
+  36% { transform: translateY(-4vh); }
+  40% { transform: translateY(3vh); }
+  44% { transform: translateY(-5vh); }
+  48% { transform: translateY(2vh); }
+  52% { transform: translateY(-3vh); }
+  58%, 75% { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes packJackpotCableLen {
+  0%, 16% { height: 0; opacity: 0; }
+  20% { height: 10vh; opacity: 0.7; }
+  28% { height: 28vh; opacity: 1; }
+  36% { height: 22vh; }
+  42% { height: 30vh; }
+  48% { height: 18vh; }
+  54% { height: 26vh; }
+  58%, 75% { height: 24vh; opacity: 1; }
+  100% { height: 24vh; opacity: 0.4; }
+}
+
+@keyframes packHookAppear {
+  0%, 17% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes packCardHeavyPull {
+  0%, 18% { transform: translateY(75vh) scale(0.78); opacity: 0; filter: brightness(0.35); }
+  22% { transform: translateY(64vh) scale(0.8); opacity: 0.25; }
+  28% { transform: translateY(50vh) scale(0.84); opacity: 0.45; filter: brightness(0.55); }
+  34% { transform: translateY(38vh) scale(0.86); opacity: 0.65; }
+  38% { transform: translateY(42vh) scale(0.85); opacity: 0.7; }
+  42% { transform: translateY(28vh) scale(0.9); opacity: 0.82; }
+  46% { transform: translateY(32vh) scale(0.88); opacity: 0.78; }
+  50% { transform: translateY(16vh) scale(0.94); opacity: 0.92; filter: brightness(0.85); }
+  54% { transform: translateY(20vh) scale(0.92); opacity: 0.88; }
+  58% { transform: translateY(4vh) scale(1); opacity: 1; filter: brightness(1); }
+  58%, 75% { transform: translateY(4vh) scale(1); opacity: 1; }
+  100% { transform: translateY(4vh) scale(1); opacity: 1; }
+}
+
+@keyframes packJackpotRiseDust {
+  0%, 48% { opacity: 0; transform: scale(0.6); }
+  54% { opacity: 0.85; transform: scale(1); }
+  66% { opacity: 0; transform: scale(1.45); }
+  100% { opacity: 0; transform: scale(1.45); }
+}
+
+@keyframes packJackpotMegaFxIn {
+  0%, 54% { opacity: 0; }
+  60% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes packJackpotMegaFlash {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes packJackpotMegaRay {
+  0% { transform: rotate(var(--ray-angle)) scaleY(0.2); opacity: 0; }
+  30% { transform: rotate(var(--ray-angle)) scaleY(1); opacity: 0.85; }
+  100% { transform: rotate(var(--ray-angle)) scaleY(1.35); opacity: 0; }
+}
+
+@keyframes packJackpotMegaSpark {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+@keyframes packJackpotMegaConfettiFall {
+  0% { transform: translateY(-10vh) translateX(0) rotate(var(--confetti-rotate)); opacity: 1; }
+  100% { transform: translateY(110vh) translateX(var(--confetti-drift)) rotate(calc(var(--confetti-rotate) + 540deg)); opacity: 0.2; }
+}
+
+@keyframes packJackpotSnowFall {
+  0% { transform: translateY(-5vh); opacity: 0.9; }
+  100% { transform: translateY(105vh); opacity: 0.15; }
+}
+
+@keyframes packJackpotSearchlightPulse {
+  0%, 12% { opacity: 0.15; }
+  20%, 70% { opacity: 0.45; }
+  100% { opacity: 0.1; }
+}
+
+@keyframes packJackpotWinchPulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.45); }
+}
+
+@keyframes packHelicopterRotor {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Elite celebrations: vault open + candle surge ── */
+.pack-overlay-vignette--elite {
+  background:
+    radial-gradient(ellipse 50% 42% at 50% 50%, rgba(255, 255, 255, 0.06), transparent 70%),
+    #000;
+}
+
+/* Vault open — bank vault dial, doors, dolly in, pedestal reveal */
+.pack-vault-open-void,
+.pack-candle-void {
+  background: #030405;
+}
+
+.pack-vault-open-label {
+  animation: packFadeLabel 8.5s ease-out forwards;
+}
+
+.pack-candle-label {
+  animation: packFadeLabel 6.8s ease-out forwards;
+}
+
+.pack-vault-pedestal-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 36px;
+  width: 120px;
+  height: 80px;
+  margin-left: -60px;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(251, 191, 36, 0.35), transparent 70%);
+  animation: packVaultPedestalGlow 8.5s ease-out forwards;
+}
+
+.pack-vault-card-reveal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 45;
+  width: min(180px, 44vw);
+  transform: translate(-50%, -38%);
+  pointer-events: none;
+  animation: packVaultCardReveal 8.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.pack-vault-card-slot {
+  display: none;
+}
+
+.pack-vault-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1400px;
+}
+
+.pack-vault-corridor {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 42%, rgba(251, 191, 36, 0.06), transparent 65%),
+    linear-gradient(180deg, #0c0c10 0%, #050506 55%, #020203 100%);
+}
+
+.pack-vault-camera {
+  position: relative;
+  width: min(520px, 92vw);
+  height: min(620px, 78vh);
+  transform-style: preserve-3d;
+  animation: packVaultDolly 8.5s cubic-bezier(0.35, 0, 0.15, 1) forwards;
+}
+
+.pack-vault-door-assembly {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.pack-vault-steel-frame {
+  position: absolute;
+  inset: -14px;
+  border: 5px solid #3a3a42;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 2px #1a1a1f,
+    inset 0 2px 24px rgba(255, 255, 255, 0.04),
+    0 24px 80px rgba(0, 0, 0, 0.85);
+  background: linear-gradient(145deg, #2e2e36, #18181d);
+  z-index: 30;
+  pointer-events: none;
+}
+
+.pack-vault-door {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  transform-style: preserve-3d;
+  z-index: 25;
+}
+
+.pack-vault-door--left {
+  left: 0;
+  transform-origin: left center;
+  animation: packVaultDoorSwingLeft 8.5s cubic-bezier(0.45, 0, 0.15, 1) forwards;
+}
+
+.pack-vault-door--right {
+  right: 0;
+  transform-origin: right center;
+  animation: packVaultDoorSwingRight 8.5s cubic-bezier(0.45, 0, 0.15, 1) forwards;
+}
+
+.pack-vault-door-plate {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(168deg, rgba(255, 255, 255, 0.09) 0%, transparent 28%),
+    linear-gradient(145deg, #5a5a64 0%, #3a3a42 18%, #2a2a30 42%, #45454f 58%, #222228 78%, #383840 100%);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.55),
+    inset 4px 0 12px rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pack-vault-door--left .pack-vault-door-plate {
+  border-right: 2px solid rgba(0, 0, 0, 0.45);
+}
+
+.pack-vault-door--right .pack-vault-door-plate {
+  border-left: 2px solid rgba(255, 255, 255, 0.06);
+}
+
+.pack-vault-rivet {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #8a8a96, #3a3a42 55%, #1a1a1f);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), 0 1px 3px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+}
+
+.pack-vault-dial-housing {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 118px;
+  height: 118px;
+  margin: -59px 0 0 -59px;
+  z-index: 35;
+  animation: packVaultDialHide 8.5s ease-out forwards;
+}
+
+.pack-vault-dial-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 4px solid #4a4a54;
+  background: radial-gradient(circle at 40% 35%, #6a6a74, #2a2a32 70%, #1a1a20);
+  box-shadow:
+    inset 0 0 20px rgba(0, 0, 0, 0.6),
+    0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.pack-vault-dial-wheel {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #52525c, #3a3a42, #62626c, #3a3a42, #52525c);
+  animation: packVaultDialSpin 8.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.45);
+}
+
+.pack-vault-dial-notch {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 3px;
+  height: 14px;
+  margin-left: -1.5px;
+  background: #1a1a1f;
+  border-radius: 1px;
+  transform-origin: center 43px;
+}
+
+.pack-vault-dial-notch--2 { transform: rotate(90deg); }
+.pack-vault-dial-notch--3 { transform: rotate(180deg); }
+.pack-vault-dial-notch--4 { transform: rotate(270deg); }
+
+.pack-vault-dial-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #9a9aa4, #4a4a52);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.pack-vault-lock-bar {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 58%;
+  height: 14px;
+  background: linear-gradient(180deg, #6a6a74, #3a3a42 45%, #2a2a30);
+  border-radius: 2px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  z-index: 34;
+  animation: packVaultLockBarRetract 8.5s ease-in-out forwards;
+}
+
+.pack-vault-seam-glow {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  margin-left: -2px;
+  background: linear-gradient(180deg, transparent, rgba(251, 191, 36, 0.55), transparent);
+  opacity: 0;
+  z-index: 26;
+  animation: packVaultSeamGlow 8.5s ease-out forwards;
+}
+
+.pack-vault-interior-room {
+  position: absolute;
+  inset: 8px;
+  overflow: hidden;
+  background: radial-gradient(ellipse 70% 55% at 50% 40%, #1a1510, #030302);
+  z-index: 5;
+  opacity: 0;
+  animation: packVaultRoomReveal 8.5s ease-out forwards;
+}
+
+.pack-vault-deposit-wall {
+  position: absolute;
+  inset: 8% 10% 28% 10%;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  opacity: 0.55;
+  background:
+    repeating-linear-gradient(90deg, transparent, transparent 38px, rgba(251, 191, 36, 0.04) 38px, rgba(251, 191, 36, 0.04) 40px),
+    repeating-linear-gradient(0deg, transparent, transparent 22px, rgba(251, 191, 36, 0.03) 22px, rgba(251, 191, 36, 0.03) 24px);
+  border: 1px solid rgba(251, 191, 36, 0.12);
+  border-radius: 2px;
+}
+
+.pack-vault-room-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32%;
+  background: linear-gradient(180deg, transparent, rgba(251, 191, 36, 0.06));
+  transform: perspective(400px) rotateX(52deg);
+  transform-origin: center top;
+  opacity: 0.7;
+}
+
+.pack-vault-room-light {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 45% 40% at 50% 55%, rgba(251, 191, 36, 0.28), transparent 70%);
+  animation: packVaultRoomLightPulse 8.5s ease-out forwards;
+}
+
+.pack-vault-pedestal {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.pack-vault-pedestal-base {
+  width: 88px;
+  height: 52px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, #4a4030, #2a2418);
+  border-radius: 4px 4px 2px 2px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.pack-vault-pedestal-top {
+  width: 104px;
+  height: 12px;
+  margin: -2px auto 0;
+  background: linear-gradient(180deg, #d4af37, #8a7020);
+  border-radius: 2px;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.35);
+}
+
+.pack-vault-open-boom {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.7), transparent 42%),
+    radial-gradient(circle at 50% 48%, rgba(251, 191, 36, 0.4), transparent 55%);
+  animation: packVaultBoomFlash 8.5s ease-out forwards;
+  z-index: 50;
+}
+
+@keyframes packVaultDolly {
+  0%, 12% { transform: translateZ(0) scale(0.88); }
+  28%, 48% { transform: translateZ(0) scale(0.92); }
+  58% { transform: translateZ(80px) scale(1); }
+  72% { transform: translateZ(180px) scale(1.35); }
+  84%, 100% { transform: translateZ(220px) scale(1.55); }
+}
+
+@keyframes packVaultDialHide {
+  0%, 48% { opacity: 1; }
+  58%, 100% { opacity: 0; pointer-events: none; }
+}
+
+@keyframes packVaultDialSpin {
+  0%, 8% { transform: rotate(0deg); }
+  28% { transform: rotate(540deg); }
+  32%, 100% { transform: rotate(540deg); }
+}
+
+@keyframes packVaultLockBarRetract {
+  0%, 30% { opacity: 1; transform: scaleX(1); }
+  36% { opacity: 0.4; transform: scaleX(0.15); }
+  42%, 100% { opacity: 0; transform: scaleX(0); }
+}
+
+@keyframes packVaultSeamGlow {
+  0%, 32% { opacity: 0; }
+  38% { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
+
+@keyframes packVaultDoorSwingLeft {
+  0%, 38% { transform: rotateY(0deg); }
+  58% { transform: rotateY(-88deg); }
+  100% { transform: rotateY(-92deg); }
+}
+
+@keyframes packVaultDoorSwingRight {
+  0%, 38% { transform: rotateY(0deg); }
+  58% { transform: rotateY(88deg); }
+  100% { transform: rotateY(92deg); }
+}
+
+@keyframes packVaultRoomReveal {
+  0%, 48% { opacity: 0; }
+  58% { opacity: 0.35; }
+  72%, 100% { opacity: 1; }
+}
+
+@keyframes packVaultRoomLightPulse {
+  0%, 55% { opacity: 0.2; }
+  75% { opacity: 1; }
+  100% { opacity: 0.85; }
+}
+
+@keyframes packVaultCardReveal {
+  0%, 54% { opacity: 0; transform: translate(-50%, -30%) scale(0.55); filter: blur(8px); }
+  68% { opacity: 0.85; transform: translate(-50%, -38%) scale(0.92); filter: blur(2px); }
+  82%, 100% { opacity: 1; transform: translate(-50%, -38%) scale(1); filter: blur(0); }
+}
+
+@keyframes packVaultPedestalGlow {
+  0%, 52% { opacity: 0; }
+  65% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+@keyframes packVaultBoomFlash {
+  0%, 82% { opacity: 0; }
+  86% { opacity: 1; }
+  91% { opacity: 0.3; }
+  100% { opacity: 0; }
+}
+
+/* Candle surge — zoom into chart, green candle prints, camera tracks */
+.pack-candle-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.pack-candle-glitch-rgb {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  opacity: 0;
+  background: linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 128, 0.04), rgba(0, 128, 255, 0.04));
+  animation: packCandleGlitchRgb 6.8s steps(1) forwards;
+  pointer-events: none;
+}
+
+.pack-candle-glitch-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  opacity: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.06) 3px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  animation: packCandleGlitchScan 6.8s steps(1) forwards;
+  pointer-events: none;
+}
+
+.pack-candle-camera {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: packCandleCameraZoom 6.8s cubic-bezier(0.25, 0.85, 0.35, 1) forwards;
+  will-change: transform;
+}
+
+.pack-candle-world {
+  position: relative;
+  width: 960px;
+  height: 620px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #0a0e12 0%, #06080b 100%);
+  border: 1px solid rgba(52, 211, 153, 0.12);
+  border-radius: 4px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+}
+
+.pack-candle-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+}
+
+.pack-candle-pair {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pack-candle-tag {
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+}
+
+.pack-candle-price-live {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  color: #34d399;
+  font-weight: 700;
+  animation: packCandlePriceTick 6.8s ease-out forwards;
+}
+
+.pack-candle-chart-area {
+  position: relative;
+  height: 480px;
+  overflow: hidden;
+}
+
+.pack-candle-grid-h {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 47px,
+    rgba(52, 211, 153, 0.07) 47px,
+    rgba(52, 211, 153, 0.07) 48px
+  );
+}
+
+.pack-candle-grid-v {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 59px,
+    rgba(52, 211, 153, 0.05) 59px,
+    rgba(52, 211, 153, 0.05) 60px
+  );
+}
+
+.pack-candle-history {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 120px;
+}
+
+.pack-candle-candles-row {
+  position: absolute;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.pack-candle-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.pack-candle-bar-wick-top,
+.pack-candle-bar-wick-bottom {
+  width: 2px;
+  background: rgba(180, 190, 200, 0.55);
+  border-radius: 1px;
+}
+
+.pack-candle-bar-body {
+  width: 100%;
+  border-radius: 1px;
+}
+
+.pack-candle-bar-body--bull {
+  background: linear-gradient(to top, #059669, #34d399);
+}
+
+.pack-candle-bar-body--bear {
+  background: linear-gradient(to top, #b91c1c, #f87171);
+}
+
+.pack-candle-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 24px;
+  height: 120px;
+  flex-shrink: 0;
+}
+
+.pack-candle-hero-wick {
+  width: 2px;
+  height: 0;
+  background: rgba(167, 243, 208, 0.85);
+  border-radius: 1px;
+  animation: packCandleHeroWick 6.8s cubic-bezier(0.15, 0.9, 0.25, 1) forwards;
+}
+
+.pack-candle-hero-body {
+  width: 100%;
+  height: 0;
+  background: linear-gradient(to top, #047857, #10b981 40%, #6ee7b7);
+  border-radius: 2px;
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.45);
+  animation: packCandleHeroBody 6.8s cubic-bezier(0.12, 0.92, 0.2, 1) forwards;
+}
+
+.pack-candle-volume-strip {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  height: 40px;
+  opacity: 0.55;
+}
+
+.pack-candle-volume-history {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.pack-candle-vol {
+  width: 14px;
+  border-radius: 1px 1px 0 0;
+  flex-shrink: 0;
+}
+
+.pack-candle-vol--surge {
+  width: 24px;
+}
+
+.pack-candle-vol--bull {
+  background: rgba(52, 211, 153, 0.35);
+}
+
+.pack-candle-vol--bear {
+  background: rgba(248, 113, 113, 0.3);
+}
+
+.pack-candle-vol--surge {
+  height: 0;
+  animation: packCandleVolSurge 6.8s cubic-bezier(0.12, 0.92, 0.2, 1) forwards;
+}
+
+.pack-candle-card-hud {
+  position: absolute;
+  left: 50%;
+  bottom: max(24px, 6vh);
+  z-index: 30;
+  width: min(168px, 38vw);
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: packCandleCardHud 6.8s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes packCandleCameraZoom {
+  /* Wide chart establishing shot */
+  0%, 6% {
+    transform: scale(0.68) translate(0, 48px);
+  }
+  /* Five quick glitch punches into centered candle zone */
+  8% {
+    transform: scale(1.08) translate(0, 88px);
+  }
+  10% {
+    transform: scale(0.72) translate(0, 48px);
+  }
+  12% {
+    transform: scale(1.1) translate(-8px, 92px);
+  }
+  14% {
+    transform: scale(0.74) translate(0, 48px);
+  }
+  16% {
+    transform: scale(1.12) translate(6px, 94px);
+  }
+  18% {
+    transform: scale(0.76) translate(0, 48px);
+  }
+  20% {
+    transform: scale(1.14) translate(-4px, 96px);
+  }
+  22% {
+    transform: scale(0.78) translate(0, 48px);
+  }
+  24% {
+    transform: scale(1.16) translate(0, 98px);
+  }
+  /* Lock onto centered hero candle + track upward as it prints */
+  28% {
+    transform: scale(1.22) translate(0, 92px);
+  }
+  38% {
+    transform: scale(1.28) translate(0, 72px);
+  }
+  52% {
+    transform: scale(1.34) translate(0, 48px);
+  }
+  68% {
+    transform: scale(1.38) translate(0, 18px);
+  }
+  84% {
+    transform: scale(1.4) translate(0, -8px);
+  }
+  100% {
+    transform: scale(1.4) translate(0, -22px);
+  }
+}
+
+@keyframes packCandleHeroBody {
+  0%, 26% { height: 0; }
+  32% { height: 28px; }
+  42% { height: 64px; }
+  55% { height: 110px; }
+  72% { height: 168px; }
+  88%, 100% { height: 220px; }
+}
+
+@keyframes packCandleHeroWick {
+  0%, 26% { height: 0; }
+  32% { height: 10px; }
+  55% { height: 24px; }
+  72% { height: 36px; }
+  100% { height: 44px; }
+}
+
+@keyframes packCandleVolSurge {
+  0%, 30% { height: 0; }
+  100% { height: 34px; }
+}
+
+@keyframes packCandlePriceTick {
+  0%, 28% { opacity: 0.5; }
+  35%, 100% { opacity: 1; }
+}
+
+@keyframes packCandleCardHud {
+  0%, 68% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.94); }
+  78%, 100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes packCandleGlitchRgb {
+  0%, 100% { opacity: 0; transform: translateX(0); }
+  8% { opacity: 0.35; transform: translateX(-3px); }
+  9% { opacity: 0; transform: translateX(0); }
+  12% { opacity: 0.3; transform: translateX(4px); }
+  13% { opacity: 0; }
+  16% { opacity: 0.28; transform: translateX(-2px); }
+  17% { opacity: 0; }
+  20% { opacity: 0.32; transform: translateX(3px); }
+  21% { opacity: 0; }
+  24% { opacity: 0.25; transform: translateX(-4px); }
+  25%, 100% { opacity: 0; transform: translateX(0); }
+}
+
+@keyframes packCandleGlitchScan {
+  0%, 100% { opacity: 0; }
+  8%, 9% { opacity: 0.12; }
+  12%, 13% { opacity: 0.1; }
+  16%, 17% { opacity: 0.11; }
+  20%, 21% { opacity: 0.09; }
+  24%, 25% { opacity: 0.1; }
+}
+
+@keyframes packFadeLabel {
+  0%, 8% { opacity: 0; transform: translateY(6px); }
+  14%, 70% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; }
+}
+
+/* ── FIFA white fireworks ── */
+@keyframes packFifaFlash {
+  0%, 100% { opacity: 0; }
+  12% { opacity: 0.75; }
+  28% { opacity: 0; }
+  38% { opacity: 0.45; }
+  55% { opacity: 0; }
+}
+
+@keyframes packFifaRayBurst {
+  0% { transform: rotate(var(--ray-angle)) scaleY(0); opacity: 0; }
+  20% { transform: rotate(var(--ray-angle)) scaleY(1); opacity: 0.7; }
+  100% { transform: rotate(var(--ray-angle)) scaleY(1.4); opacity: 0; }
+}
+
+@keyframes packFifaSparkPop {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.pack-fifa-flash {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.55), transparent 52%);
+  animation: packFifaFlash 2.4s ease-out infinite;
+}
+
+.pack-fifa-ray {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 2px;
+  height: 42vh;
+  margin-left: -1px;
+  transform-origin: center top;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.65), transparent);
+  animation: packFifaRayBurst 1.8s ease-out infinite;
+}
+
+.pack-fifa-spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 14px 4px rgba(255, 255, 255, 0.75);
+  animation: packFifaSparkPop 1.2s ease-out infinite;
 }

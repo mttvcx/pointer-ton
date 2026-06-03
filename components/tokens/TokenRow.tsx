@@ -29,6 +29,7 @@ import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { cn } from '@/lib/utils/cn';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useUIStore } from '@/store/ui';
+import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseRowDensity } from '@/store/pulseColumns';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -143,7 +144,8 @@ export function TokenRow({
   const mcLayout = display?.mcLayout ?? 'strip';
   const showPumpFrame = display?.showPumpFrame ?? true;
   const showTraitIcons = display?.showTraitIcons ?? true;
-  const heroMc = mcLayout === 'hero' && showMc;
+  const showRowMc = usePulseDisplayPrefsStore((s) => s.rowFields.marketCap);
+  const heroMc = mcLayout === 'hero' && showMc && (slotHeight == null || showRowMc);
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
   const bond = useMemo(() => getPulseBondingRingState(bundle), [bundle]);
   const isMigratedVisual = columnId === 'migrated' || bond.migrated;
@@ -452,15 +454,17 @@ export function TokenRow({
         />
       </span>
     ) : null;
-  const ageMayhemCluster = (
-    <div className="flex shrink-0 items-center gap-1">
+  const ageCluster = (
+    <div className="inline-flex shrink-0 items-center gap-1">
       {ageBadge}
       {ageQuotePairBadge}
-      <PulseMayhemTimerBadge
-        bundle={bundle}
-        className={slotHeight != null ? 'text-[13px]' : 'text-xs'}
-      />
     </div>
+  );
+  const mayhemBadge = (
+    <PulseMayhemTimerBadge
+      bundle={bundle}
+      className={slotHeight != null ? 'text-[13px]' : 'text-xs'}
+    />
   );
 
   const volMcSize =
@@ -599,14 +603,53 @@ export function TokenRow({
                  * at the same vertical position whether or not the Twitter
                  * handle / follower row is rendered (Axiom-style consistency).
                  */
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-visible">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 overflow-visible">
                   {/**
-                   * `overflow-y-visible` keeps Pulse hover cards from being clipped above the strip.
-                   * Horizontal overflow is allowed so @handle + follower counts can slide under the
-                   * buy column (same as the metric pill row). Icon-row scroll stays inside the strip.
+                   * Age column + shared text column: metric pills align under @handle / icons
+                   * (never under the avatar). Horizontal scroll contains overflow in-column.
                    */}
-                  <div className="flex min-w-0 flex-nowrap items-start gap-2 overflow-visible">
-                    <div className="shrink-0 pt-px">{ageMayhemCluster}</div>
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-nowrap items-stretch gap-2 overflow-hidden">
+                    <div className="shrink-0 self-start pt-px">{ageCluster}</div>
+                    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
+                      <PulseRowSocialStrip
+                        bundle={bundle}
+                        traits={{
+                          cashback: showTraitIcons && traits.cashback,
+                          feeShare: showTraitIcons && traits.feeShare,
+                          agent: showTraitIcons && traits.agent,
+                        }}
+                        compact
+                        pulseBoard
+                        chain={activeChain}
+                        glyphSize={socialGlyphSize}
+                        showTxCount={showHolders}
+                        showDevWallet={showDev}
+                      />
+                      {mayhemBadge ? (
+                        <div className="min-w-0 shrink-0 pt-0.5">{mayhemBadge}</div>
+                      ) : null}
+                      <div
+                        className={cn(
+                          'relative mt-auto min-w-0 w-full max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain pt-1.5',
+                          '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+                        )}
+                      >
+                        <PulseRowBondingHoverTag
+                          fillPct={bond.fillPct}
+                          migrated={isMigratedVisual || bond.migrated}
+                        />
+                        <PulseRowAxiomSpriteStrip
+                          bundle={bundle}
+                          socialGlyphPx={socialGlyphSize}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={cn('min-w-0 space-y-0.5', 'mt-0.5 pt-1')}>
+                  <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
+                    {ageCluster}
                     <PulseRowSocialStrip
                       bundle={bundle}
                       traits={{
@@ -615,45 +658,13 @@ export function TokenRow({
                         agent: showTraitIcons && traits.agent,
                       }}
                       compact
-                      pulseBoard
                       chain={activeChain}
                       glyphSize={socialGlyphSize}
                       showTxCount={showHolders}
                       showDevWallet={showDev}
                     />
                   </div>
-                  <div className="relative mt-auto min-w-0 pt-2">
-                    <PulseRowBondingHoverTag
-                      fillPct={bond.fillPct}
-                      migrated={isMigratedVisual || bond.migrated}
-                    />
-                    <PulseRowAxiomSpriteStrip bundle={bundle} socialGlyphPx={socialGlyphSize} />
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={cn(
-                    'flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden',
-                    'mt-0.5 pt-1',
-                  )}
-                >
-                  {/* Age moves to the LEFT of the icon strip so it reads as
-                      a leading timestamp (Axiom-style) instead of trailing
-                      the symbol/name on the line above. */}
-                  {ageMayhemCluster}
-                  <PulseRowSocialStrip
-                    bundle={bundle}
-                    traits={{
-                      cashback: showTraitIcons && traits.cashback,
-                      feeShare: showTraitIcons && traits.feeShare,
-                      agent: showTraitIcons && traits.agent,
-                    }}
-                    compact
-                    chain={activeChain}
-                    glyphSize={socialGlyphSize}
-                    showTxCount={showHolders}
-                    showDevWallet={showDev}
-                  />
+                  {mayhemBadge ? <div className="min-w-0 pt-0.5">{mayhemBadge}</div> : null}
                 </div>
               )}
             </div>

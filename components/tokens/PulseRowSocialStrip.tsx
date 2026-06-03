@@ -41,6 +41,7 @@ import { PulseHeaderSocialIcon } from '@/components/tokens/PulseHeaderSocialIcon
 import { CoinCommunityHoverTrigger } from '@/components/tokens/CoinCommunityHover';
 import { coinCommunityWebUrl } from '@/lib/communities/coinCommunity';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
 
 type GlyphKey = keyof typeof PULSE_GLYPH;
 
@@ -597,6 +598,7 @@ export function PulseRowSocialStrip({
   );
   const headerLinkCls = inlineHeader ? 'h-7 min-w-[28px] justify-center px-1' : undefined;
   const followerGlyph = Math.max(14, Math.round(sx * 0.55));
+  const rowFields = usePulseDisplayPrefsStore((s) => s.rowFields);
   const model = useMemo(() => getPulseSocialModel(bundle), [bundle]);
   const twFollowers = useMemo(() => twitterFollowersFromBundle(bundle), [bundle]);
   const tokenPath = `/token/${encodeURIComponent(bundle.token.mint)}`;
@@ -752,7 +754,11 @@ export function PulseRowSocialStrip({
       className={cn(
         'min-w-0 font-sans',
         inlineHeader && 'inline-flex min-w-0 items-center',
-        pulseBoard ? 'flex min-w-0 flex-1 flex-col gap-1' : compact ? 'mt-0' : 'mt-1',
+        pulseBoard
+          ? 'flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden'
+          : compact
+            ? 'mt-0'
+            : 'mt-1',
       )}
     >
       <div
@@ -1036,11 +1042,16 @@ export function PulseRowSocialStrip({
         ) : null}
       </div>
 
-      {showTwitterFooter && showFollowerRow && twitterDisplayHandle ? (
+      {showTwitterFooter &&
+      (!pulseBoard || rowFields.twitterHandle) &&
+      showFollowerRow &&
+      (!pulseBoard || rowFields.twitterFollowers) &&
+      twitterDisplayHandle ? (
         <div
           className={cn(
-            /** Single line always — long handles/counts slide under the buy column (Axiom). */
-            'flex h-4 min-w-0 flex-nowrap items-center gap-x-2 overflow-visible whitespace-nowrap',
+            /** Single line — scroll inside the text column when handle + stats are wide. */
+            'flex h-4 min-w-0 max-w-full flex-nowrap items-center gap-x-2 overflow-x-auto overflow-y-hidden whitespace-nowrap',
+            '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
             pulseBoard ? 'relative z-0 mt-0' : 'mt-0.5',
           )}
         >
@@ -1064,7 +1075,10 @@ export function PulseRowSocialStrip({
             </span>
           </span>
         </div>
-      ) : showTwitterFooter && twitterDisplayHandle && twitterProfileUrl ? (
+      ) : showTwitterFooter &&
+        (!pulseBoard || rowFields.twitterHandle) &&
+        twitterDisplayHandle &&
+        twitterProfileUrl ? (
         <TwitterProfileHoverTrigger handle={twitterDisplayHandle}>
           <a
             href={twitterProfileUrl}

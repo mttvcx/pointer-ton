@@ -7,19 +7,7 @@ import { useCopilotMode } from './CopilotModeContext';
 import { useCopilotBriefSlotVisibility } from './useCopilotBriefVisibility';
 import { useUIStore } from '@/store/ui';
 
-/**
- * Strip under the topbar. Hover briefing hides while another co-pilot surface is open.
- * Pulse alerts open from the bell as a centered modal (see AlertRulesModal).
- *
- * Per-page expanded-brief layout policy:
- *   - `/pulse`               → in-flow: the answer card pushes the columns down
- *                              so it doesn't overlap row data. (User: "BRING
- *                              IT BACK UNDER HERE WHEN EXPANDED FOR PULSE OK?")
- *   - everything else        → floating overlay: the card portals into a
- *                              `fixed` layer below the topbar, page content
- *                              stays at its default position. Squads / Track /
- *                              Portfolio / Token detail all behave this way.
- */
+/** Hover briefing — `/pulse` uses `PulseChromeStack`; other routes float below topbar. */
 export function CopilotStripSlot() {
   const pathname = usePathname();
   const { mode } = useCopilotMode();
@@ -28,34 +16,23 @@ export function CopilotStripSlot() {
   const { showBriefSlot } = useCopilotBriefSlotVisibility();
 
   const showBrief = isEmbedded && showBriefSlot;
-  /** Pulse keeps the brief in-flow so the answer card never sits on top of token rows. */
-  const inFlowBrief = Boolean(pathname?.startsWith('/pulse')) && showBrief;
-  const floatingBrief = showBrief && !inFlowBrief;
+  const onPulse = Boolean(pathname?.startsWith('/pulse'));
 
   useEffect(() => {
+    if (onPulse) return;
     setTopStripActive(showBrief);
     return () => setTopStripActive(false);
-  }, [showBrief, setTopStripActive]);
+  }, [onPulse, showBrief, setTopStripActive]);
 
   useEffect(() => {
     const dm = useUIStore.getState().copilotDisplayMode;
     if (dm === 'pill') useUIStore.getState().setCopilotDisplayMode('panel');
   }, []);
 
-  if (inFlowBrief) {
-    return (
-      <div className="relative w-full shrink-0 bg-bg-base">
-        <div className="relative z-[1] flex flex-col">
-          <div className="mx-auto w-full max-w-[440px] px-3 pb-0 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.22)_transparent]">
-            <CopilotStripBody />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (onPulse || !showBrief) return null;
 
-  if (floatingBrief) {
-    return (
+  return (
+    <div className="relative h-0 w-full shrink-0 overflow-visible">
       <div
         className="pointer-events-none fixed inset-x-0 z-[55]"
         style={{ top: 'var(--app-topbar-h)' }}
@@ -64,9 +41,6 @@ export function CopilotStripSlot() {
           <CopilotStripBody />
         </div>
       </div>
-    );
-  }
-
-  /** Brief hidden / minimized — no in-flow spacer (avoids black bar under watchlist). */
-  return null;
+    </div>
+  );
 }

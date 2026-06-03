@@ -3,7 +3,8 @@ import { Suspense } from 'react';
 import { PointsDashboard } from '@/components/points/PointsDashboard';
 
 export const metadata: Metadata = {
-  description: 'Pointer points balance and leaderboard',
+  title: '$PTR Points',
+  description: 'Season 1 $PTR Points — accrual from trading, referrals, and verified Pointer usage',
 };
 
 function PointsFallback() {

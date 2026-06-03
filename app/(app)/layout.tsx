@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -9,12 +10,7 @@ import { RoutePrefetcher } from '@/components/layout/RoutePrefetcher';
 import { ProtocolLogoPreloader } from '@/components/tokens/ProtocolLogoPreloader';
 import { Topbar } from '@/components/layout/Topbar';
 import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
-import { GlobalSearchModal } from '@/components/layout/GlobalSearchModal';
-import { LabelWalletModal } from '@/components/wallets/LabelWalletModal';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
-import { LaunchModal } from '@/components/launch/LaunchModal';
-import { AlertRuleFlashLayer } from '@/components/alerts/AlertRuleFlashLayer';
-import { AICopilotPanel } from '@/components/layout/AICopilotPanel';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { DeferredAppShellGate } from '@/components/layout/DeferredAppShellHosts';
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
@@ -23,6 +19,40 @@ import { APP_NAME } from '@/lib/utils/constants';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { CopilotModeProvider } from '@/components/copilot/CopilotModeContext';
 import { CopilotStripSlot } from '@/components/copilot/CopilotStripSlot';
+import { PulseChromeStack } from '@/components/pulse/PulseChromeStack';
+
+const GlobalSearchModal = dynamic(
+  () =>
+    import('@/components/layout/GlobalSearchModal').then((m) => ({
+      default: m.GlobalSearchModal,
+    })),
+  { ssr: false },
+);
+const LabelWalletModal = dynamic(
+  () =>
+    import('@/components/wallets/LabelWalletModal').then((m) => ({
+      default: m.LabelWalletModal,
+    })),
+  { ssr: false },
+);
+const LaunchModal = dynamic(
+  () => import('@/components/launch/LaunchModal').then((m) => ({ default: m.LaunchModal })),
+  { ssr: false },
+);
+const AlertRuleFlashLayer = dynamic(
+  () =>
+    import('@/components/alerts/AlertRuleFlashLayer').then((m) => ({
+      default: m.AlertRuleFlashLayer,
+    })),
+  { ssr: false },
+);
+const AICopilotPanel = dynamic(
+  () =>
+    import('@/components/layout/AICopilotPanel').then((m) => ({
+      default: m.AICopilotPanel,
+    })),
+  { ssr: false },
+);
 
 function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
   const rail = useUIStore((s) => s.copilotRailSide);
@@ -41,8 +71,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const onSharePage = Boolean(pathname?.startsWith('/share/'));
   const guestBrowse =
     Boolean(pathname?.startsWith('/pulse')) ||
+    Boolean(pathname?.startsWith('/stock/')) ||
     Boolean(pathname?.startsWith('/explore')) ||
-    Boolean(pathname?.startsWith('/token/'));
+    Boolean(pathname?.startsWith('/token/')) ||
+    Boolean(pathname?.startsWith('/championship'));
 
   useEffect(() => {
     document.title = APP_NAME;
@@ -147,8 +179,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <ProtocolLogoPreloader />
       <Topbar />
       <WatchlistTickerBar />
-      {/* Task S: Level 2 co-pilot body — full-width strip under topbar; Mode
-          toggles height (embedded vs collapsed). */}
+      <PulseChromeStack />
       <CopilotStripSlot />
       <GlobalSearchModal />
       <WalletLabelsBootstrap />

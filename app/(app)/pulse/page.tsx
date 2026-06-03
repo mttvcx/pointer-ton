@@ -26,10 +26,12 @@ export default async function PulsePage({
   }
 
   return (
-    <PulsePageLayout
-      initialNew={initialNew}
-      initialStretch={initialStretch}
-      initialMigrated={initialMigrated}
-    />
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
+      <PulsePageLayout
+        initialNew={initialNew}
+        initialStretch={initialStretch}
+        initialMigrated={initialMigrated}
+      />
+    </div>
   );
 }

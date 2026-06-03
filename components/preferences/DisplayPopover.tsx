@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Monitor, RotateCcw } from 'lucide-react';
+import { ChevronDown, LayoutList, Monitor, RotateCcw } from 'lucide-react';
+import { pulsePillBtnCls } from '@/components/pulse/pulseToolbarStyles';
 import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import {
   PrefField,
@@ -10,6 +11,7 @@ import {
 } from '@/components/preferences/controls';
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
+import { PortalToBody } from '@/lib/ui/portalToBody';
 import { cn } from '@/lib/utils/cn';
 
 /**
@@ -18,7 +20,12 @@ import { cn } from '@/lib/utils/cn';
  * ESC. Changes propagate through `PreferencesProvider` so the modal version
  * and this popover stay in sync.
  */
-export function DisplayPopover() {
+type DisplayPopoverProps = {
+  variant?: 'topbar' | 'pulse';
+};
+
+export function DisplayPopover({ variant = 'topbar' }: DisplayPopoverProps) {
+  const isPulse = variant === 'pulse';
   const [open, setOpen] = useState(false);
   const { mounted, visible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
   const { prefs, setPref, resetPrefs } = usePreferences();
@@ -74,23 +81,35 @@ export function DisplayPopover() {
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Display preferences"
-        className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary lg:px-2.5"
+        className={
+          isPulse
+            ? pulsePillBtnCls
+            : 'flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary lg:px-2.5'
+        }
       >
-        <Monitor className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-        <span className="hidden lg:inline">Display</span>
+        {isPulse ? (
+          <LayoutList className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+        ) : (
+          <Monitor className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+        )}
+        <span className={isPulse ? 'inline' : 'hidden lg:inline'}>Display</span>
+        {isPulse ? (
+          <ChevronDown className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
+        ) : null}
       </button>
 
       {mounted ? (
-        <div
-          ref={popoverRef}
-          role="dialog"
-          aria-label="Display preferences"
-          className={cn(
-            'fixed z-[200] w-72 rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-2xl',
-            popoverPanelClasses(visible),
-          )}
-          style={{ top: coords.top, right: coords.right }}
-        >
+        <PortalToBody>
+          <div
+            ref={popoverRef}
+            role="dialog"
+            aria-label="Display preferences"
+            className={cn(
+              'fixed z-[200] w-72 rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-2xl',
+              popoverPanelClasses(visible),
+            )}
+            style={{ top: coords.top, right: coords.right }}
+          >
           <header className="mb-3 flex items-center justify-between border-b border-border-subtle pb-2">
             <h3 className="text-xs font-semibold tracking-tight text-fg-primary">Display</h3>
             <button
@@ -148,6 +167,7 @@ export function DisplayPopover() {
             />
           </div>
         </div>
+        </PortalToBody>
       ) : null}
     </div>
   );

@@ -21,6 +21,8 @@ export function LaunchpadBadge({ launchPad }: { launchPad: string | null }) {
           width={14}
           height={14}
           draggable={false}
+          loading="lazy"
+          decoding="async"
           className={cn(
             'h-3.5 w-3.5 shrink-0 rounded-full object-cover opacity-90',
             protocolId === 'bonk' && 'bg-[#f7931a] p-0.5',

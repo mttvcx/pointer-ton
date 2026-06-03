@@ -43,6 +43,7 @@ export interface Database {
           onboarding_completed_at: string | null;
           onboarding_step: number;
           beta_granted_at: string | null;
+          starter_trackers_seeded_at: string | null;
         };
         Insert: {
           id?: string;
@@ -57,6 +58,7 @@ export interface Database {
           onboarding_completed_at?: string | null;
           onboarding_step?: number;
           beta_granted_at?: string | null;
+          starter_trackers_seeded_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['users']['Insert']>;
         Relationships: [];
@@ -556,6 +558,7 @@ export interface Database {
           wallet_address: string;
           label: string | null;
           notify: boolean;
+          group_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -564,9 +567,35 @@ export interface Database {
           wallet_address: string;
           label?: string | null;
           notify?: boolean;
+          group_id?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['tracked_wallets']['Insert']>;
+        Relationships: [];
+      };
+
+      tracker_groups: {
+        Row: {
+          id: string;
+          user_id: string;
+          label: string;
+          app_chain: string;
+          is_starter: boolean;
+          slug: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          label: string;
+          app_chain: string;
+          is_starter?: boolean;
+          slug?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['tracker_groups']['Insert']>;
         Relationships: [];
       };
 

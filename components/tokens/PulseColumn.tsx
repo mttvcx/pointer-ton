@@ -51,6 +51,8 @@ import { useTradingStore } from '@/store/trading';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
 import { usePreferences } from '@/components/preferences/PreferencesProvider';
+import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
+import { mcMetricSizeToLayout, secondButtonToPreset } from '@/lib/preferences/pulseDisplay';
 import type { AppChainId } from '@/lib/chains/appChain';
 import type { PulseTokenBundle } from '@/types/tokens';
 
@@ -330,15 +332,22 @@ function PulseColumnBody({
     [displayFromServer, guestDisplayPatch],
   );
 
+  const mcMetricSize = usePulseDisplayPrefsStore((s) => s.mcMetricSize);
+  const showBondingProgress = usePulseDisplayPrefsStore((s) => s.showBondingProgress);
+  const hideColumnSearch = usePulseDisplayPrefsStore((s) => s.hideColumnSearch);
+  const secondButtonMode = usePulseDisplayPrefsStore((s) => s.secondButtonMode);
+
   const displayForRow = useMemo(
     (): ColumnDisplayOptions => ({
       ...displayCore,
       /** P1–P3 must not change Pulse row geometry — lock board layout to Axiom sizing. */
       density: 'normal',
-      mcLayout: 'hero',
+      mcLayout: mcMetricSizeToLayout(mcMetricSize),
       buyButtonStyle,
+      showBondingRing: showBondingProgress && displayCore.showBondingRing,
+      pulseSecondButton: secondButtonToPreset(secondButtonMode),
     }),
-    [displayCore, buyButtonStyle],
+    [displayCore, buyButtonStyle, mcMetricSize, showBondingProgress, secondButtonMode],
   );
 
   const displayOptionsSig =
@@ -362,13 +371,14 @@ function PulseColumnBody({
   const sortDir = activePresetRow?.sort_dir === 'asc' ? 'asc' : 'desc';
 
   const hiddenMints = usePulseHiddenMintsStore((s) => s.mints ?? []);
+  const showHiddenTokens = usePulseHiddenMintsStore((s) => s.showHiddenTokens);
   const blacklistedDevs = usePulseHiddenMintsStore((s) => s.blacklistedDevs ?? []);
   const blacklistedTwitter = usePulseHiddenMintsStore((s) => s.blacklistedTwitter ?? []);
 
   const searchFiltered = useMemo(() => {
     const list = feedItems.filter((b) => {
       const mint = b.token.mint;
-      if (hiddenMints.includes(mint)) return false;
+      if (!showHiddenTokens && hiddenMints.includes(mint)) return false;
       const creator = b.token.creator_wallet;
       if (creator && blacklistedDevs.includes(creator)) return false;
       const tw = normalizePulseTwitterHandle(b.token.twitter_handle);
@@ -382,7 +392,7 @@ function PulseColumnBody({
       const name = (b.token.name ?? '').toLowerCase();
       return sym.includes(qq) || name.includes(qq);
     });
-  }, [feedItems, search, hiddenMints, blacklistedDevs, blacklistedTwitter]);
+  }, [feedItems, search, hiddenMints, showHiddenTokens, blacklistedDevs, blacklistedTwitter]);
 
   const columnFiltered = useMemo(
     () => searchFiltered.filter((b) => pulseBundleMatchesFilters(b, normalizedFilters, activeChain)),
@@ -489,18 +499,20 @@ function PulseColumnBody({
            * chip below has room — Axiom parity (search + amount enterer + chips).
            * Pill-rounded (`rounded-full`) to match Axiom's softer header inputs.
            */}
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search symbol or name..."
-            className={cn(
-              'min-w-[100px] max-w-[14rem] flex-1 rounded-full border border-transparent px-3 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
-              'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
-              'hover:border-white/15',
-            )}
-            aria-label={`Search ${title}`}
-          />
+          {!hideColumnSearch ? (
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search symbol or name..."
+              className={cn(
+                'min-w-[100px] max-w-[14rem] flex-1 rounded-full border border-transparent px-3 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
+                'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
+                'hover:border-white/15',
+              )}
+              aria-label={`Search ${title}`}
+            />
+          ) : null}
 
           {/**
            * Quick-buy SOL amount enterer for this column. Bound to the

@@ -10,9 +10,20 @@ type PulseHiddenMintsState = {
   blacklistedDevs: string[];
   /** Normalized X handles without @ (Blacklist Twitter profile). */
   blacklistedTwitter: string[];
+  /** When true, hidden mints appear in Pulse columns. */
+  showHiddenTokens: boolean;
+  /** TODO Phase 2: unhide hidden tokens when a pair migrates. */
+  unhideOnMigration: boolean;
   hideToken: (mint: string) => void;
+  unhideToken: (mint: string) => void;
   blacklistDev: (wallet: string) => void;
+  unblacklistDev: (wallet: string) => void;
   blacklistTwitter: (handle: string) => void;
+  unblacklistTwitter: (handle: string) => void;
+  setShowHiddenTokens: (show: boolean) => void;
+  setUnhideOnMigration: (on: boolean) => void;
+  clearHiddenMints: () => void;
+  clearBlacklists: () => void;
 };
 
 function uniqPush(list: string[], value: string): string[] {
@@ -31,17 +42,35 @@ export const usePulseHiddenMintsStore = create<PulseHiddenMintsState>()(
       mints: [],
       blacklistedDevs: [],
       blacklistedTwitter: [],
+      showHiddenTokens: false,
+      unhideOnMigration: false,
       hideToken: (mint) => set((s) => ({ mints: uniqPush(s.mints ?? [], mint) })),
+      unhideToken: (mint) =>
+        set((s) => ({ mints: (s.mints ?? []).filter((m) => m !== mint.trim()) })),
       blacklistDev: (wallet) =>
         set((s) => ({ blacklistedDevs: uniqPush(s.blacklistedDevs ?? [], wallet.trim()) })),
+      unblacklistDev: (wallet) =>
+        set((s) => ({
+          blacklistedDevs: (s.blacklistedDevs ?? []).filter((w) => w !== wallet.trim()),
+        })),
       blacklistTwitter: (handle) =>
         set((s) => ({
           blacklistedTwitter: uniqPush(s.blacklistedTwitter ?? [], normTwitterHandle(handle)),
         })),
+      unblacklistTwitter: (handle) => {
+        const h = normTwitterHandle(handle);
+        set((s) => ({
+          blacklistedTwitter: (s.blacklistedTwitter ?? []).filter((x) => x !== h),
+        }));
+      },
+      setShowHiddenTokens: (show) => set({ showHiddenTokens: show }),
+      setUnhideOnMigration: (on) => set({ unhideOnMigration: on }),
+      clearHiddenMints: () => set({ mints: [] }),
+      clearBlacklists: () => set({ blacklistedDevs: [], blacklistedTwitter: [] }),
     }),
     {
       name: 'pointer-pulse-hidden-mints',
-      version: 2,
+      version: 3,
       merge: (persisted, current) => {
         const p = persisted as Partial<PulseHiddenMintsState> | undefined;
         return {
@@ -49,12 +78,14 @@ export const usePulseHiddenMintsStore = create<PulseHiddenMintsState>()(
           mints: Array.isArray(p?.mints) ? p.mints : [],
           blacklistedDevs: Array.isArray(p?.blacklistedDevs) ? p.blacklistedDevs : [],
           blacklistedTwitter: Array.isArray(p?.blacklistedTwitter) ? p.blacklistedTwitter : [],
+          showHiddenTokens: typeof p?.showHiddenTokens === 'boolean' ? p.showHiddenTokens : false,
+          unhideOnMigration: typeof p?.unhideOnMigration === 'boolean' ? p.unhideOnMigration : false,
         };
       },
-      migrate: (persisted: unknown) => {
+      migrate: (persisted: unknown, version) => {
         if (!persisted || typeof persisted !== 'object') return persisted;
         const p = persisted as Record<string, unknown>;
-        return {
+        const base = {
           mints: Array.isArray(p.mints) ? p.mints : [],
           blacklistedDevs: Array.isArray(p.blacklistedDevs)
             ? p.blacklistedDevs
@@ -63,6 +94,10 @@ export const usePulseHiddenMintsStore = create<PulseHiddenMintsState>()(
               : [],
           blacklistedTwitter: Array.isArray(p.blacklistedTwitter) ? p.blacklistedTwitter : [],
         };
+        if (version < 3) {
+          return { ...base, showHiddenTokens: false, unhideOnMigration: false };
+        }
+        return base;
       },
     },
   ),

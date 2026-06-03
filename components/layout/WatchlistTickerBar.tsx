@@ -14,6 +14,7 @@ import type { WatchlistItem } from '@/lib/watchlist/watchlistModel';
 import { useWatchlistStore } from '@/store/watchlist';
 import { useUIStore } from '@/store/ui';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
+import { useDeferredMount } from '@/lib/hooks/useDeferredMount';
 
 function sortWatchlistItems(
   items: WatchlistItem[],
@@ -148,12 +149,13 @@ export function WatchlistTickerBar() {
   );
 
   const mintsKey = useMemo(() => sorted.map((i) => i.mint).join(','), [sorted]);
+  const mcRefreshReady = useDeferredMount(2_500);
 
   useQuery({
     queryKey: ['watchlist-mc-refresh', mintsKey],
     queryFn: async () => {
       await Promise.all(
-        sorted.slice(0, 16).map(async (item) => {
+        sorted.slice(0, 8).map(async (item) => {
           try {
             const res = await fetch(`/api/tokens/${encodeURIComponent(item.mint)}`);
             if (!res.ok) return;
@@ -171,9 +173,9 @@ export function WatchlistTickerBar() {
       );
       return true;
     },
-    enabled: sorted.length > 0,
-    staleTime: 45_000,
-    refetchInterval: 60_000,
+    enabled: sorted.length > 0 && mcRefreshReady,
+    staleTime: 60_000,
+    refetchInterval: 90_000,
   });
 
   if (!settings.showTicker) return null;
@@ -184,7 +186,7 @@ export function WatchlistTickerBar() {
     <div
       className={cn(
         'flex h-[var(--app-watchlist-bar-h)] min-h-[var(--app-watchlist-bar-h)] shrink-0 items-center gap-2',
-        'border-b border-white/[0.06] bg-bg-raised px-2 sm:px-2.5',
+        'border-b border-white/[0.06] bg-bg-base px-2 sm:px-2.5',
       )}
     >
       <div className="flex shrink-0 items-center gap-0.5 border-r border-white/[0.06] pr-2">

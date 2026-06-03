@@ -18,6 +18,9 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "gen:types": "tsx scripts/generate-supabase-types.ts",
     "gen:favicon": "node scripts/generate-favicon.mjs",
+    "optimize:protocol-logos": "node scripts/optimize-protocol-logos.mjs",
+    "migrate:creator-portal": "node scripts/apply-creator-portal.mjs",
+    "migrate:creator-bucket": "node scripts/ensure-creator-bucket.mjs",
     "setup:webhooks": "node --use-system-ca --import tsx scripts/setup-helius-webhooks.ts",
     "update:webhook-url": "node --use-system-ca --import tsx scripts/update-webhook-url.ts",
     "test:webhook": "node --use-system-ca --import tsx scripts/test-webhook.ts"

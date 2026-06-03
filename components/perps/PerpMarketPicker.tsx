@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
-import { DEMO_PERP_MARKETS, fmtPerpUsdCompact, type PerpMarket } from '@/lib/perps/perpMarketsDemo';
+import { fmtPerpUsdCompact } from '@/lib/hyperliquid/markets';
+import type { PerpMarket } from '@/lib/perps/types';
 import { formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
@@ -22,7 +23,7 @@ function PerpIcon({ src, size = 24 }: { src: string; size?: number }) {
 }
 
 export function PerpMarketPicker({
-  markets = DEMO_PERP_MARKETS,
+  markets = [],
   selectedId,
   onSelect,
 }: {

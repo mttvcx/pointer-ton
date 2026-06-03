@@ -16,22 +16,36 @@ import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { Z_BOTTOM_BAR_POPOVER } from '@/lib/ui/zLayers';
 
+type WalletPickerPlacement = 'above' | 'below';
+
 interface WalletPickerPopoverProps {
   className?: string;
   children: React.ReactNode;
+  /** `above` — opens over trigger (bottom bar). `below` — opens under trigger (Pulse top strip). */
+  placement?: WalletPickerPlacement;
+  align?: 'left' | 'right';
+  title?: string;
 }
 
 const PANEL_W = 320;
 const PANEL_GAP = 8;
 
 /** Bottom-bar wallet multi-picker (reads `/api/wallets/my`, toggles trading-store shortlist). */
-export function WalletPickerPopover({ className, children }: WalletPickerPopoverProps) {
+export function WalletPickerPopover({
+  className,
+  children,
+  placement = 'above',
+  align = 'left',
+  title = 'Wallets',
+}: WalletPickerPopoverProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState<{ left: number; bottom: number } | null>(null);
+  const [coords, setCoords] = useState<
+    { left: number; top?: number; bottom?: number } | null
+  >(null);
 
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
@@ -92,9 +106,14 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
       const r = triggerRef.current?.getBoundingClientRect();
       if (!r) return;
       const vw = window.innerWidth;
-      const left = Math.min(Math.max(8, r.left), Math.max(8, vw - PANEL_W - 8));
-      const bottom = window.innerHeight - r.top + PANEL_GAP;
-      setCoords({ left, bottom });
+      const leftRaw =
+        align === 'right' ? r.right - PANEL_W : r.left;
+      const left = Math.min(Math.max(8, leftRaw), Math.max(8, vw - PANEL_W - 8));
+      if (placement === 'below') {
+        setCoords({ left, top: r.bottom + PANEL_GAP });
+      } else {
+        setCoords({ left, bottom: window.innerHeight - r.top + PANEL_GAP });
+      }
     };
     update();
     window.addEventListener('resize', update);
@@ -103,7 +122,7 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [open]);
+  }, [open, placement, align]);
 
   const selectAll = () => {
     clear();
@@ -126,7 +145,7 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="Select wallets"
-        title="Wallets"
+        title={title}
         onClick={() =>
           setOpen((v) => {
             const next = !v;
@@ -148,7 +167,9 @@ export function WalletPickerPopover({ className, children }: WalletPickerPopover
               style={{
                 position: 'fixed',
                 left: `${coords.left}px`,
-                bottom: `${coords.bottom}px`,
+                ...(coords.top != null
+                  ? { top: `${coords.top}px` }
+                  : { bottom: `${coords.bottom}px` }),
                 width: `${PANEL_W}px`,
               }}
               className={cn(

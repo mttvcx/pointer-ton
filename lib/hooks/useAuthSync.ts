@@ -169,8 +169,11 @@ export function useAuthSync() {
     if (!ready || !authenticated || !userId) return;
 
     if (readSyncedUserId() === userId) {
-      setBackendReady(true);
       lastSyncedUserRef.current = userId;
+      setBackendReady(true);
+      setSyncing(false);
+      setLastError(null);
+      return;
     }
 
     if (lastSyncedUserRef.current === userId || syncInFlightRef.current === userId) return;
@@ -228,7 +231,7 @@ export function useAuthSync() {
           if (!cancelled && syncRunRef.current === runId) setSyncing(false);
         }
       })();
-    }, 450);
+    }, 200);
 
     return () => {
       cancelled = true;

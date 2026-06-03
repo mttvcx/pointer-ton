@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils/cn';
 import type { PulseTokenBundle } from '@/types/tokens';
 
-/** Live 24h Mayhem countdown — Axiom-style red flame chip beside the age label. */
+/** Live 24h Mayhem countdown — sits under the social strip so it does not widen the age column. */
 export function PulseMayhemTimerBadge({
   bundle,
   className,

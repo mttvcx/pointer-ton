@@ -38,6 +38,14 @@ import {
   POINTS_LAST_UPDATED_LABEL,
   POINTS_RULES_VERSION,
   POINTS_SEASON_LABEL,
+  POINTS_SEASON_SHORT,
+  PTR_BENEFITS_INTRO,
+  PTR_CHECKPOINT_BLURB,
+  PTR_HERO_BODY,
+  PTR_HERO_TAGLINE,
+  PTR_POINTS_BRAND,
+  PTR_SIGNIN_BLURB,
+  PTR_TICKER,
   RANK_LADDER,
   SOCIAL_IDENTITY_COPY,
   TRANSPARENCY_BULLETS,
@@ -181,7 +189,7 @@ function AccrualSparkline() {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-glow/40 opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-primary shadow-[0_0_10px_rgba(0,163,224,0.7)]" />
         </span>
-        <p className="text-[10px] uppercase tracking-[0.14em] text-fg-muted">Points accrual index · live</p>
+        <p className="text-[10px] uppercase tracking-[0.14em] text-fg-muted">{POINTS_SEASON_LABEL} · accruing</p>
       </div>
     </div>
   );
@@ -377,13 +385,13 @@ export function PointsDashboard({ className }: { className?: string }) {
               className="mx-auto max-w-lg p-6 text-center shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.06)] sm:p-8"
             >
               <span className="inline-flex rounded-full border border-accent-primary/35 bg-accent-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-accent-glow">
-                Pointer Points
+                {PTR_POINTS_BRAND}
               </span>
               <h2 className="mt-4 text-[clamp(1.25rem,2.8vw,1.5rem)] font-semibold tracking-tight text-fg-primary">
-                Sign in to view rewards &amp; rank
+                Sign in to view Season 1 balance
               </h2>
               <p className="mt-2 text-[12px] leading-relaxed text-fg-secondary">
-                Connect your Pointer account — campaign scoring syncs once you authenticate.
+                {PTR_SIGNIN_BLURB}
               </p>
               <button
                 type="button"
@@ -483,23 +491,18 @@ export function PointsDashboard({ className }: { className?: string }) {
                     <span>
                       Rules v{POINTS_RULES_VERSION}
                     </span>
-                    <span className="rounded-md bg-accent-primary/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-accent-glow">
-                      Live
-                    </span>
                   </div>
                   <h1 className="font-semibold tracking-tight text-fg-primary text-[clamp(1.45rem,3.2vw,1.95rem)] leading-[1.15]">
-                    Pointer Points
+                    {PTR_POINTS_BRAND}
                   </h1>
+                  <p className="text-[12px] font-medium text-accent-glow/90">{PTR_HERO_TAGLINE}</p>
                   <p className="text-[12px] leading-relaxed text-fg-secondary">
-                    Transparent campaign scoring for real terminal usage — trading, referrals, retention, and verified
-                    identity. Social accounts unlock credibility and creator flows; they do not mint points for posts or
-                    replies.
+                    {PTR_HERO_BODY}
                   </p>
                   <div className="flex flex-col gap-3 pt-1">
                     <p className="max-w-xl rounded-xl border border-white/[0.08] bg-bg-sunken/50 px-4 py-3 text-[11px] leading-relaxed text-fg-secondary ring-1 ring-cyan-500/10">
-                      <span className="font-semibold text-accent-glow">Rewards checkpoint</span> lives in the center
-                      column — claim referral SOL, redeemable Points, and cashback inline with rank progress and live
-                      referral timing.
+                      <span className="font-semibold text-accent-glow">Rewards checkpoint</span> —{' '}
+                      {PTR_CHECKPOINT_BLURB}
                     </p>
                     <div className="flex flex-wrap gap-2.5">
                     <button
@@ -565,7 +568,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4">
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
-                              Total points
+                              Season 1 {PTR_TICKER}
                             </p>
                             <p className="mt-1 flex items-center gap-2 text-[22px] font-semibold tabular-nums tracking-tight text-fg-primary">
                               <PointerBirdMark
@@ -629,8 +632,8 @@ export function PointsDashboard({ className }: { className?: string }) {
                     </span>
                   </div>
                   <p className="max-w-xl text-[12px] leading-relaxed text-fg-secondary">
-                    Season rules, breakdowns, pool disclosures, and eligibility gates publish here as campaigns mature.
-                    Last reviewed{' '}
+                    Season 1 {PTR_TICKER} rules, allocation breakdowns, and eligibility gates publish here as the season
+                    progresses. Last reviewed{' '}
                     <span className="tabular-nums font-medium text-fg-primary">{POINTS_LAST_UPDATED_LABEL}</span>.
                   </p>
                 </div>
@@ -789,7 +792,7 @@ export function PointsDashboard({ className }: { className?: string }) {
             <div className="grid gap-4 lg:grid-cols-3">
               <GlassPanel variant="quiet" glow="cyan" className="p-4 lg:col-span-2">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.05] pb-3">
-                  <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Points breakdown</h3>
+                  <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">{PTR_TICKER} breakdown</h3>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/90 ring-1 ring-cyan-400/15">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-glow/35 opacity-60" />
@@ -803,7 +806,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                     <thead className="sticky top-0 z-[1] bg-bg-raised/95 backdrop-blur">
                       <tr className="border-b border-border-subtle">
                         <th className="px-3 py-2 font-medium text-fg-muted">Source</th>
-                        <th className="px-3 py-2 text-right font-medium text-fg-muted">Points</th>
+                        <th className="px-3 py-2 text-right font-medium text-fg-muted">{PTR_TICKER}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -860,7 +863,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                 <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/[0.07] px-3 py-2.5 text-center ring-1 ring-cyan-400/15">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Season</p>
                   <p className="text-[13px] font-semibold text-fg-primary">
-                    {POINTS_SEASON_LABEL.split('—')[0]?.trim() ?? 'S1'}
+                    {POINTS_SEASON_SHORT}
                   </p>
                 </div>
                 <div className="rounded-xl border border-white/[0.06] bg-bg-sunken/60 px-3 py-2.5 ring-1 ring-white/[0.04]">
@@ -918,6 +921,9 @@ export function PointsDashboard({ className }: { className?: string }) {
                 </div>
                 <p className="bg-gradient-to-br from-white via-fg-primary to-fg-secondary bg-clip-text text-[clamp(1.65rem,4.5vw,2.35rem)] font-bold tabular-nums tracking-tight text-transparent drop-shadow-[0_0_28px_rgba(167,139,250,0.25)]">
                   {formatNumber(points.totalPoints)}
+                </p>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+                  Season 1 {PTR_TICKER}
                 </p>
                 <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-bg-base/50 px-4 py-2 text-[12px] shadow-inner ring-1 ring-white/[0.06]">
                   <span className="text-fg-muted">Season rank</span>
@@ -999,7 +1005,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                       <tr className="border-b border-border-subtle">
                         <th className="px-3 py-2 font-medium text-fg-muted">Rank</th>
                         <th className="px-3 py-2 font-medium text-fg-muted">Operator</th>
-                        <th className="px-3 py-2 text-right font-medium text-fg-muted">Points</th>
+                        <th className="px-3 py-2 text-right font-medium text-fg-muted">{PTR_TICKER}</th>
                         <th className="px-3 py-2 text-right font-medium text-fg-muted">Active days</th>
                       </tr>
                     </thead>
@@ -1054,15 +1060,13 @@ export function PointsDashboard({ className }: { className?: string }) {
             <GlassPanel variant="primary" className="p-5 sm:p-6">
               <h2 className="text-[12px] font-bold uppercase tracking-[0.16em] text-violet-100/90">Benefits</h2>
               <p className="mt-3 max-w-3xl text-[12px] leading-relaxed text-fg-secondary">
-                Pointer Points tracks usage across connected ecosystems — Solana, TON, Base, BNB, Hyperliquid — as
-                campaigns go live. Perks follow integrations and seasonal disclosure; nothing here pays you for spamming
-                timelines.
+                {PTR_BENEFITS_INTRO}
               </p>
             </GlassPanel>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <BenefitCard
-              title="Pointer Points"
-              description="Earn from trading volume, retention, referrals, and verified identity — transparent seasonal rules."
+              title={PTR_POINTS_BRAND}
+              description="Earn Season 1 $PTR from trading volume, retention, referrals, and verified identity — transparent seasonal rules."
               accent="var(--accent-primary)"
               button="Open rewards"
               href="/points?tab=rewards"

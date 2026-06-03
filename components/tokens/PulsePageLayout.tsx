@@ -7,6 +7,10 @@ import { PulseColumn } from './PulseColumn';
 import { PulseAlertsAside } from './PulseAlertsAside';
 import { PulseSquadsAside } from './PulseSquadsAside';
 import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
+import { StocksPulseBoard } from '@/components/stocks/StocksPulseBoard';
+import { usePulseAssetModeStore } from '@/store/pulseAssetMode';
+import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
+import type { PulseColumnId } from '@/lib/utils/constants';
 
 export function PulsePageLayout({
   initialNew,
@@ -21,14 +25,27 @@ export function PulsePageLayout({
   const showRail = side !== 'hidden';
   const squadsSide = usePulseSquadsRailStore((s) => s.side);
   const showSquadsRail = squadsSide !== 'hidden';
+  const mode = usePulseAssetModeStore((s) => s.mode);
+  const visibleColumns = usePulseDisplayPrefsStore((s) => s.visibleColumns);
 
-  const columnStrip = (
-    <>
-      <PulseColumn column="new" initialShare={initialNew} />
-      <PulseColumn column="stretch" initialShare={initialStretch} />
-      <PulseColumn column="migrated" initialShare={initialMigrated} />
-    </>
-  );
+  const columnStrip =
+    mode === 'stocks' ? (
+      <StocksPulseBoard />
+    ) : (
+      <>
+        {(
+          [
+            ['new', initialNew],
+            ['stretch', initialStretch],
+            ['migrated', initialMigrated],
+          ] as const
+        ).map(([col, share]) =>
+          visibleColumns[col as PulseColumnId] ? (
+            <PulseColumn key={col} column={col} initialShare={share} />
+          ) : null,
+        )}
+      </>
+    );
 
   return (
     <div
@@ -45,7 +62,7 @@ export function PulsePageLayout({
       <div
         data-onboarding="pulse-feed"
         className={cn(
-          'pulse-columns flex h-full min-h-0 flex-1 min-w-0 flex-col px-2 sm:px-3 lg:px-4 xl:flex-row xl:flex-nowrap xl:items-stretch xl:px-2',
+          'pulse-columns -mt-0.5 flex h-full min-h-0 flex-1 min-w-0 flex-col px-2 sm:px-3 lg:px-4 xl:flex-row xl:flex-nowrap xl:items-stretch xl:px-2',
         )}
       >
         {columnStrip}

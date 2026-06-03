@@ -17,6 +17,12 @@ import { toast } from 'sonner';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { useUIStore } from '@/store/ui';
 import { useAuthSyncStore } from '@/store/authSync';
+import {
+  AUTH_TOAST_ID,
+  toastAuthenticated,
+  toastLoggedOut,
+  toastLoggingOut,
+} from '@/lib/auth/authToasts';
 
 function fallbackTonConnectManifestUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -29,8 +35,26 @@ const SESSION_KEY = 'pointer_ton_session';
 const SYNCED_USER_KEY = 'pointer_auth_synced_user';
 /** Set on sign-out so landing Start Trading never silently reuses a Privy cookie session. */
 const LANDING_REQUIRE_SIGN_IN_KEY = 'pointer_require_sign_in';
+/** Set when Start Trading opens Privy — survives Google OAuth redirects back to `/`. */
+const LANDING_ENTER_PENDING_KEY = 'pointer_landing_enter_pending';
+/** localStorage backup — OAuth return when sessionStorage is cleared mid-flow. */
+const LANDING_ENTER_PENDING_LS = 'pointer_landing_enter_pending_at';
+const LANDING_ENTER_PENDING_TTL_MS = 15 * 60 * 1000;
 
-function readLandingRequireSignIn(): boolean {
+export function clearLandingRequireSignIn() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(LANDING_REQUIRE_SIGN_IN_KEY);
+  } catch {
+    /* no-op */
+  }
+}
+
+export function readLandingRequireSignIn(): boolean {
+  return readLandingRequireSignInInternal();
+}
+
+function readLandingRequireSignInInternal(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     return sessionStorage.getItem(LANDING_REQUIRE_SIGN_IN_KEY) === '1';
@@ -48,10 +72,35 @@ function setLandingRequireSignIn() {
   }
 }
 
-function clearLandingRequireSignIn() {
+export function setLandingEnterPending() {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.removeItem(LANDING_REQUIRE_SIGN_IN_KEY);
+    sessionStorage.setItem(LANDING_ENTER_PENDING_KEY, '1');
+    localStorage.setItem(LANDING_ENTER_PENDING_LS, String(Date.now()));
+  } catch {
+    /* no-op */
+  }
+}
+
+export function readLandingEnterPending(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (sessionStorage.getItem(LANDING_ENTER_PENDING_KEY) === '1') return true;
+    const raw = localStorage.getItem(LANDING_ENTER_PENDING_LS);
+    if (!raw) return false;
+    const at = Number(raw);
+    if (!Number.isFinite(at)) return false;
+    return Date.now() - at < LANDING_ENTER_PENDING_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function clearLandingEnterPending() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(LANDING_ENTER_PENDING_KEY);
+    localStorage.removeItem(LANDING_ENTER_PENDING_LS);
   } catch {
     /* no-op */
   }
@@ -76,18 +125,10 @@ type Ctx = {
    */
   login: () => Promise<void>;
   /**
-   * Landing / marketing CTA. Always opens Privy's full sign-in modal
-   * (email · Google · X · wallet) regardless of active chain. Use this on
-   * unauthenticated pages so users actually see a sign-in prompt instead of
-   * a silent wallet auto-reconnect.
+   * Landing / marketing CTA. Opens the Pointer-branded sign-in overlay on the landing page
+   * (see `LandingSignInModal`) — not Privy's generic modal.
    */
   signIn: () => Promise<void>;
-  /**
-   * Landing "Start Trading" — opens Privy sign-in when needed; after an explicit
-   * sign-out, never silently reuses a lingering Privy session. Returns true when
-   * the user may enter the app (fresh Privy session or already signed in).
-   */
-  startTradingFromLanding: () => Promise<boolean>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   user: PointerAuthUser | null;
@@ -144,6 +185,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const payloadTokenRef = useRef<string | null>(null);
   const syncingRef = useRef(false);
+  const privyAuthBaselineRef = useRef<boolean | null>(null);
 
   const [privyReadyTimedOut, setPrivyReadyTimedOut] = useState(false);
 
@@ -154,6 +196,25 @@ function InnerAuth({ children }: { children: ReactNode }) {
     });
     return () => cancelAnimationFrame(raf);
   }, []);
+
+  useEffect(() => {
+    if (!privy.ready) return;
+
+    if (privyAuthBaselineRef.current === null) {
+      privyAuthBaselineRef.current = privy.authenticated;
+      return;
+    }
+
+    const was = privyAuthBaselineRef.current;
+    const now = privy.authenticated;
+    if (was === now) return;
+
+    privyAuthBaselineRef.current = now;
+    if (now) {
+      clearLandingRequireSignIn();
+      toastAuthenticated();
+    }
+  }, [privy.ready, privy.authenticated]);
 
   useEffect(() => {
     if (privy.ready) {
@@ -303,59 +364,16 @@ function InnerAuth({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      /** Always surface Privy's sign-in modal — never silently reuse a stale session. */
-      await privy.login();
+      privy.login();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not open sign-in';
       toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
     }
   }, [privy.ready, privy.login, privyReadyTimedOut]);
 
-  const startTradingFromLanding = useCallback(async (): Promise<boolean> => {
-    if (!privy.ready) {
-      if (!privyReadyTimedOut) {
-        toast.message('Loading sign-in…', { description: 'One moment, then try again.' });
-        return false;
-      }
-      toast.error('Sign-in provider blocked', {
-        description:
-          'Allow auth.privy.io in your ad blocker, then refresh. In dashboard.privy.io add this origin as allowed.',
-      });
-      return false;
-    }
-
-    const requireFresh = readLandingRequireSignIn();
-
-    /** After sign-out, purge any lingering Privy cookie before opening the modal. */
-    if (requireFresh && privy.authenticated) {
-      await privy.logout();
-      await new Promise((r) => window.setTimeout(r, 150));
-    }
-
-    /** Returning visitor with an active session (did not sign out this tab). */
-    if (privy.authenticated && !requireFresh) {
-      clearLandingRequireSignIn();
-      const token = await privy.getAccessToken();
-      return Boolean(token);
-    }
-
-    try {
-      await privy.login();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not open sign-in';
-      toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
-      return false;
-    }
-
-    const token = await privy.getAccessToken();
-    if (token) {
-      clearLandingRequireSignIn();
-      return true;
-    }
-    return false;
-  }, [privy.ready, privyReadyTimedOut, privy.authenticated, privy.logout, privy.login, privy.getAccessToken]);
-
   const logout = useCallback(async () => {
+    toastLoggingOut();
+    privyAuthBaselineRef.current = false;
     setLandingRequireSignIn();
     writeSession(null);
     setSessionToken(null);
@@ -367,7 +385,12 @@ function InnerAuth({ children }: { children: ReactNode }) {
     useAuthSyncStore.getState().reset();
     queryClient.clear();
     await tonConnectUI.disconnect();
-    await privy.logout();
+    try {
+      await privy.logout();
+      toastLoggedOut();
+    } catch {
+      toast.error('Could not log out', { id: AUTH_TOAST_ID });
+    }
   }, [privy, tonConnectUI, queryClient]);
 
   const getAccessToken = useCallback(async () => {
@@ -411,7 +434,6 @@ function InnerAuth({ children }: { children: ReactNode }) {
       privyAuthenticated,
       login,
       signIn,
-      startTradingFromLanding,
       logout,
       getAccessToken,
       user: authenticated ? user : null,
@@ -423,7 +445,6 @@ function InnerAuth({ children }: { children: ReactNode }) {
       privyAuthenticated,
       login,
       signIn,
-      startTradingFromLanding,
       logout,
       getAccessToken,
       user,

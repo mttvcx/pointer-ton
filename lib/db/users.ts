@@ -59,6 +59,13 @@ export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserR
     console.warn('[users] ensureDefaultColumnPresets:', e instanceof Error ? e.message : e);
   }
 
+  try {
+    const { ensureStarterTrackerGroups } = await import('@/lib/db/trackerGroups');
+    await ensureStarterTrackerGroups(data.id);
+  } catch (e) {
+    console.warn('[users] ensureStarterTrackerGroups:', e instanceof Error ? e.message : e);
+  }
+
   return data;
 }
 

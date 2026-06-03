@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -13,7 +13,11 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react';
-import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { usePointerAuth, readLandingEnterPending, clearLandingEnterPending, readLandingRequireSignIn, clearLandingRequireSignIn, setLandingEnterPending } from '@/lib/auth/pointerAuth';
+import { LandingSignInModal } from '@/components/auth/LandingSignInModal';
+import { LandingAmbientBackdrop } from '@/components/landing/LandingAmbientBackdrop';
+import { toastAuthenticating } from '@/lib/auth/authToasts';
+import { usePrivy } from '@privy-io/react-auth';
 import { cn } from '@/lib/utils/cn';
 import { APP_NAME } from '@/lib/utils/constants';
 
@@ -131,42 +135,59 @@ const FAQ_ITEMS = [
 
 export default function LandingPage() {
   const router = useRouter();
-  const { ready, startTradingFromLanding } = usePointerAuth();
-  const [loginBusy, setLoginBusy] = useState(false);
+  const { ready } = usePointerAuth();
+  const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
+  const [signInOpen, setSignInOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FeatureTabId>('pulse');
 
-  const handlePrimaryCta = useCallback(async () => {
-    setLoginBusy(true);
-    try {
-      const entered = await startTradingFromLanding();
-      if (entered) router.push('/pulse');
-    } finally {
-      setLoginBusy(false);
-    }
-  }, [startTradingFromLanding, router]);
+  /** OAuth return — show loading toast until Privy session restores. */
+  useEffect(() => {
+    if (!readLandingEnterPending()) return;
+    toastAuthenticating();
+  }, []);
 
-  const ctaLabel = loginBusy ? 'Opening sign-in…' : 'Start Trading';
+  /** Redirect once Privy auth completes (popup, OTP, or OAuth return to `/`). */
+  useEffect(() => {
+    if (!privyReady || !privyAuthenticated) return;
+
+    const pendingEnter = readLandingEnterPending();
+    const requireFreshSignIn = readLandingRequireSignIn();
+    if (requireFreshSignIn && !pendingEnter) return;
+
+    clearLandingEnterPending();
+    clearLandingRequireSignIn();
+    setSignInOpen(false);
+    router.push('/pulse');
+  }, [privyReady, privyAuthenticated, router]);
+
+  const handlePrimaryCta = useCallback(() => {
+    if (privyAuthenticated) {
+      clearLandingRequireSignIn();
+      router.push('/pulse');
+      return;
+    }
+    setLandingEnterPending();
+    setSignInOpen(true);
+  }, [privyAuthenticated, router]);
+
+  const ctaLabel = 'Start Trading';
 
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-bg-base text-fg-primary">
-      <FloatingGradientsKeyframes />
-      <PageBackdrop />
-      <PageFloatingBlocks />
+    <main className="relative isolate min-h-screen overflow-x-hidden bg-bg-base text-fg-primary">
+      <LandingAmbientBackdrop />
 
-      <TopNav onPrimary={() => void handlePrimaryCta()} ctaLabel={ctaLabel} ready={ready} busy={loginBusy} />
+      <TopNav onPrimary={handlePrimaryCta} ctaLabel={ctaLabel} ready={ready} />
 
-      <Hero
-        onPrimary={() => void handlePrimaryCta()}
-        ctaLabel={ctaLabel}
-        ready={ready}
-        busy={loginBusy}
-      />
+      <Hero onPrimary={handlePrimaryCta} ctaLabel={ctaLabel} ready={ready} />
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 sm:px-8 sm:pb-32">
-        <ProductVideoFrame />
+      <section className="relative z-10 flex min-h-[85vh] w-full items-center px-6 py-16 sm:px-10 sm:py-20">
+        <div className="mx-auto w-full max-w-[88rem]">
+          <ProductVideoFrame />
+        </div>
       </section>
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 text-center sm:px-8 sm:pb-32">
+      <section className="relative z-10 flex min-h-screen w-full flex-col justify-center px-6 py-20 text-center sm:px-10 sm:py-28">
+        <div className="mx-auto w-full max-w-[88rem]">
         <SectionHeading
           eyebrow="The terminal"
           title={
@@ -180,31 +201,42 @@ export default function LandingPage() {
           }
         />
         <FeatureTabSwitcher activeTab={activeTab} onChange={setActiveTab} />
-        <div className="mt-8 sm:mt-10">
+        <div className="mt-10 sm:mt-14">
           <FeatureTabPanel activeTab={activeTab} />
+        </div>
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 text-center sm:px-8 sm:pb-32">
+      <section className="relative z-10 flex min-h-[70vh] w-full flex-col justify-center px-6 py-20 text-center sm:px-10 sm:py-28">
+        <div className="mx-auto w-full max-w-[88rem]">
         <SectionHeading
           eyebrow="Integrations"
           title="Every launchpad, every router, one rail."
         />
         <IntegrationsStrip />
+        </div>
       </section>
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 sm:px-8 sm:pb-32">
+      <section className="relative z-10 w-full px-6 py-20 sm:px-10 sm:py-28">
+        <div className="mx-auto w-full max-w-[88rem]">
         <ArchitectureSection />
+        </div>
       </section>
 
-      <section className="relative z-10 mx-auto w-full max-w-3xl px-5 pb-24 sm:px-8 sm:pb-32">
+      <section className="relative z-10 w-full px-6 py-20 sm:px-10 sm:py-28">
+        <div className="mx-auto w-full max-w-3xl text-center">
         <SectionHeading eyebrow="FAQ" title="Quick answers." />
         <FaqAccordion />
+        </div>
       </section>
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-20 sm:px-8 sm:pb-28">
-        <FinalCta onPrimary={() => void handlePrimaryCta()} ctaLabel={ctaLabel} ready={ready} busy={loginBusy} />
+      <section className="relative z-10 w-full px-6 py-20 sm:px-10 sm:py-28">
+        <div className="mx-auto w-full max-w-[88rem]">
+        <FinalCta onPrimary={handlePrimaryCta} ctaLabel={ctaLabel} ready={ready} />
+        </div>
       </section>
+
+      <LandingSignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
 
       <LandingFooter />
     </main>
@@ -212,55 +244,49 @@ export default function LandingPage() {
 }
 
 /* ---------------------------------------------------------------------------
- * Top nav — minimal: wordmark left, secondary nav + Start Trading right
+ * Top nav — wordmark left; Join as creator + Start Trading right only
  * ------------------------------------------------------------------------- */
 function TopNav({
   onPrimary,
   ctaLabel,
   ready,
-  busy,
 }: {
   onPrimary: () => void;
   ctaLabel: string;
   ready: boolean;
-  busy: boolean;
 }) {
   return (
-    <header className="relative z-30 mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5 sm:px-8 sm:py-6">
-      <Link href="/" className="flex items-center gap-2.5 select-none">
+    <header className="relative z-30 mx-auto flex w-full max-w-[88rem] items-center justify-between px-6 py-6 sm:px-10 sm:py-7">
+      <Link href="/" className="inline-flex items-center gap-3.5 select-none">
         {/* eslint-disable-next-line @next/next/no-img-element -- brand mark */}
         <img
           src="/branding/pointer-bird.png"
           alt=""
-          width={28}
-          height={28}
-          className="h-7 w-auto object-contain"
+          width={48}
+          height={48}
+          className="h-10 w-auto object-contain sm:h-12"
           draggable={false}
         />
-        <span className="text-[18px] font-semibold leading-none tracking-tight">pointer.</span>
+        <span className="text-[22px] font-semibold leading-none tracking-tight sm:text-[26px]">pointer.</span>
       </Link>
-      <nav className="flex items-center gap-2 sm:gap-3">
-        <a
-          href="https://x.com"
-          target="_blank"
-          rel="noreferrer"
-          className="hidden h-9 items-center rounded-full px-3 text-[13px] font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary sm:inline-flex"
-        >
-          X
-        </a>
+      <nav className="flex items-center gap-3">
         <Link
-          href="/pulse"
-          prefetch
-          className="hidden h-9 items-center rounded-full px-3 text-[13px] font-medium text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary sm:inline-flex"
+          href="/portal"
+          className={cn(
+            'btn-press focus-ring inline-flex h-10 shrink-0 items-center rounded-full px-5 text-[14px] font-semibold sm:h-11 sm:px-6',
+            'bg-gradient-to-b from-[#6b77f7] to-[#5865F2] text-white',
+            'shadow-[0_4px_14px_-4px_rgba(88,101,242,0.55),inset_0_1px_0_rgb(255_255_255/0.16)]',
+            'transition-[transform,filter,box-shadow] hover:brightness-110',
+          )}
         >
-          Docs
+          Join as creator
         </Link>
         <button
           type="button"
           onClick={onPrimary}
-          disabled={!ready || busy}
+          disabled={!ready}
           className={cn(
-            'btn-press focus-ring inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-fg-inverse',
+            'btn-press focus-ring inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-5 text-[14px] font-semibold text-fg-inverse sm:h-11 sm:px-6',
             'bg-gradient-to-b from-accent-glow to-accent-primary',
             'shadow-[0_4px_14px_-4px_rgb(var(--accent-primary-rgb)/0.65),inset_0_1px_0_rgb(255_255_255/0.18)]',
             'transition-[transform,filter,box-shadow] hover:brightness-110 hover:shadow-glow-sm disabled:cursor-not-allowed disabled:opacity-60',
@@ -280,12 +306,10 @@ function Hero({
   onPrimary,
   ctaLabel,
   ready,
-  busy,
 }: {
   onPrimary: () => void;
   ctaLabel: string;
   ready: boolean;
-  busy: boolean;
 }) {
   return (
     <section className="relative z-10 mx-auto w-full max-w-6xl overflow-visible px-5 pt-10 pb-16 text-center sm:px-8 sm:pt-20 sm:pb-20">
@@ -294,17 +318,13 @@ function Hero({
       <div className="relative mx-auto flex max-w-3xl flex-col items-center">
         {/* Centered brand mark — Axiom-style large mark above the H1 */}
         <div className="relative flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24">
-          <span
-            aria-hidden
-            className="absolute inset-0 -z-10 rounded-full bg-[radial-gradient(closest-side,rgb(var(--accent-primary-rgb)/0.45),transparent_75%)] blur-2xl"
-          />
           {/* eslint-disable-next-line @next/next/no-img-element -- brand mark */}
           <img
             src="/branding/pointer-bird.png"
             alt=""
             width={96}
             height={96}
-            className="h-full w-auto object-contain drop-shadow-[0_8px_24px_rgb(var(--accent-primary-rgb)/0.35)]"
+            className="h-full w-auto object-contain drop-shadow-[0_6px_20px_rgb(0_0_0/0.45)]"
             draggable={false}
           />
         </div>
@@ -324,7 +344,7 @@ function Hero({
         <button
           type="button"
           onClick={onPrimary}
-          disabled={!ready || busy}
+          disabled={!ready}
           className={cn(
             'btn-press focus-ring group/cta mt-9 inline-flex h-12 items-center justify-center gap-2 rounded-full px-8 text-[15px] font-semibold text-fg-inverse',
             'bg-gradient-to-b from-accent-glow to-accent-primary',
@@ -397,7 +417,7 @@ function HeroFlankVideo({
         <LandingVideoFrame
           src={src}
           label={slot === 'left' ? 'Feature loop A' : 'Feature loop B'}
-          className="rounded-2xl shadow-[0_40px_90px_-30px_rgb(var(--accent-primary-rgb)/0.55)]"
+          className="rounded-xl opacity-[0.42] shadow-[0_24px_60px_-32px_rgba(0,0,0,0.85)]"
         />
       </div>
     </div>
@@ -427,11 +447,6 @@ function BackedByPlaceholder() {
 function ProductVideoFrame() {
   return (
     <div className="relative">
-      {/* Local glow halo to emphasize the frame — full-page floating blocks live in <main>. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -inset-x-12 -inset-y-16 -z-10 rounded-[48px] bg-[radial-gradient(ellipse_60%_70%_at_50%_50%,rgb(var(--accent-primary-rgb)/0.18),transparent_70%)] blur-2xl"
-      />
       <LandingVideoFrame
         src={HERO_VIDEO_SRC}
         label="Product loop"
@@ -460,7 +475,7 @@ function LandingVideoFrame({
         className,
       )}
     >
-      <div className={cn('relative aspect-video w-full', frameClassName)}>
+      <div className={cn('relative aspect-video min-h-[min(52vh,560px)] w-full', frameClassName)}>
         {src ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption -- decorative product loop
           <video
@@ -496,7 +511,7 @@ function VideoPlaceholderInner({ label }: { label: string }) {
         alt=""
         width={40}
         height={40}
-        className="h-10 w-auto opacity-55 drop-shadow-[0_4px_16px_rgb(var(--accent-primary-rgb)/0.4)]"
+        className="h-10 w-auto opacity-45"
         draggable={false}
       />
       <div className="flex flex-col items-center gap-1">
@@ -506,111 +521,6 @@ function VideoPlaceholderInner({ label }: { label: string }) {
         <span className="text-[10px] text-fg-muted/50">coming soon</span>
       </div>
     </div>
-  );
-}
-
-/* ---------------------------------------------------------------------------
- * Page-level floating gradient blocks — continuous, subtle parallax behind
- * every section. Each block is wrapped in a static rotation div + animates
- * its inner span, so rotation and translation don't fight (Tailwind 4 splits
- * transform utilities into composed custom properties).
- *
- * Three sway variants (lg/md/sm) so blocks don't move in lockstep. Movement
- * is intentionally tame (~40–60px over 24–32s, ease-in-out) so it reads as
- * ambient depth, not a distracting carousel.
- * ------------------------------------------------------------------------- */
-type FloatBlock = {
-  /** Container is `<main>` (~min 100vh, scales with content) — positions are %. */
-  left: string;
-  top: string;
-  w: number;
-  h: number;
-  rot: number;
-  dur: number;
-  delay: number;
-  sway: 'lg' | 'md' | 'sm';
-  intensity?: 'soft' | 'normal';
-};
-
-const PAGE_FLOAT_BLOCKS: FloatBlock[] = [
-  { left: '38%', top: '18%', w: 240, h: 180, rot: 20,  dur: 24, delay: -6,   sway: 'sm', intensity: 'soft' },
-  { left: '14%', top: '24%', w: 320, h: 220, rot: -10, dur: 28, delay: -10,  sway: 'md' },
-  { left: '64%', top: '28%', w: 380, h: 280, rot: 12,  dur: 32, delay: -14,  sway: 'lg' },
-  { left: '8%',  top: '42%', w: 280, h: 200, rot: -4,  dur: 27, delay: -18,  sway: 'md' },
-  { left: '74%', top: '48%', w: 360, h: 260, rot: 10,  dur: 29, delay: -2,   sway: 'lg' },
-  { left: '32%', top: '56%', w: 300, h: 220, rot: -16, dur: 25, delay: -12,  sway: 'md', intensity: 'soft' },
-  { left: '58%', top: '66%', w: 400, h: 280, rot: 6,   dur: 31, delay: -20,  sway: 'lg' },
-  { left: '12%', top: '74%', w: 260, h: 180, rot: 18,  dur: 26, delay: -8,   sway: 'sm' },
-  { left: '70%', top: '82%', w: 340, h: 240, rot: -8,  dur: 28, delay: -16,  sway: 'md' },
-  { left: '34%', top: '90%', w: 320, h: 220, rot: 14,  dur: 30, delay: -22,  sway: 'md' },
-];
-
-function PageFloatingBlocks() {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      {PAGE_FLOAT_BLOCKS.map((b, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            left: b.left,
-            top: b.top,
-            width: b.w,
-            height: b.h,
-            transform: `rotate(${b.rot}deg)`,
-          }}
-        >
-          <div
-            className={cn(
-              'h-full w-full rounded-3xl border border-accent-primary/15 will-change-transform',
-              b.intensity === 'soft'
-                ? 'bg-[linear-gradient(135deg,rgb(var(--accent-primary-rgb)/0.12)_0%,rgb(var(--accent-glow-rgb)/0.04)_55%,transparent_100%)] shadow-[0_30px_70px_-32px_rgb(var(--accent-primary-rgb)/0.35)]'
-                : 'bg-[linear-gradient(135deg,rgb(var(--accent-primary-rgb)/0.20)_0%,rgb(var(--accent-glow-rgb)/0.06)_55%,transparent_100%)] shadow-[0_40px_90px_-30px_rgb(var(--accent-primary-rgb)/0.55)]',
-            )}
-            style={{
-              animationName: `pointerFloat${b.sway.toUpperCase()}`,
-              animationDuration: `${b.dur}s`,
-              animationDelay: `${b.delay}s`,
-              animationTimingFunction: 'ease-in-out',
-              animationIterationCount: 'infinite',
-            }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------------
- * Inline keyframes for the floating blocks (avoids tailwind config edit)
- *
- * Three sway shapes: large diagonal drift, medium counter-drift, small bob.
- * Each keyframe only animates translation + opacity (no rotation) so the
- * outer wrapper's static rotation is preserved.
- * ------------------------------------------------------------------------- */
-function FloatingGradientsKeyframes() {
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: `
-@keyframes pointerFloatLG {
-  0%, 100% { transform: translate3d(0, 0, 0);     opacity: 0.55; }
-  50%      { transform: translate3d(34px, -52px, 0); opacity: 0.95; }
-}
-@keyframes pointerFloatMD {
-  0%, 100% { transform: translate3d(0, 0, 0);     opacity: 0.5; }
-  50%      { transform: translate3d(-26px, -34px, 0); opacity: 0.85; }
-}
-@keyframes pointerFloatSM {
-  0%, 100% { transform: translate3d(0, 0, 0);     opacity: 0.45; }
-  50%      { transform: translate3d(22px, 26px, 0);  opacity: 0.8; }
-}
-@media (prefers-reduced-motion: reduce) {
-  [style*="pointerFloat"] { animation: none !important; opacity: 0.55 !important; }
-}
-`,
-      }}
-    />
   );
 }
 
@@ -625,11 +535,11 @@ function SectionHeading({
   title: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto max-w-2xl">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-glow/85">
+    <div className="mx-auto max-w-4xl">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-glow/85 sm:text-xs">
         {eyebrow}
       </span>
-      <h2 className="mt-3 text-balance text-[28px] font-semibold leading-[1.1] tracking-tight sm:text-[36px]">
+      <h2 className="mt-4 text-balance text-[36px] font-semibold leading-[1.08] tracking-tight sm:text-[48px] md:text-[56px]">
         {title}
       </h2>
     </div>
@@ -647,7 +557,8 @@ function FeatureTabSwitcher({
   onChange: (id: FeatureTabId) => void;
 }) {
   return (
-    <div className="mx-auto mt-10 grid w-full max-w-4xl grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+    <div className="mt-12 border-t border-border-subtle pt-8 sm:mt-16 sm:pt-10">
+      <div className="grid w-full grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
       {FEATURE_TABS.map((tab) => {
         const active = tab.id === activeTab;
         return (
@@ -656,21 +567,22 @@ function FeatureTabSwitcher({
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              'group/tab relative flex flex-col items-center gap-1 px-2 pb-3 text-center transition-colors',
+              'group/tab relative flex flex-col items-center gap-2 px-2 pb-2 text-center transition-colors',
               active ? 'text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
             )}
           >
-            <span className="text-[13px] font-semibold tracking-tight">{tab.subtitle}</span>
-            <span className="text-[11px] leading-snug text-fg-muted">{tab.tagline}</span>
             <span
               className={cn(
-                'absolute -bottom-px left-0 right-0 h-0.5 rounded-full transition-colors',
-                active ? 'bg-accent-glow' : 'bg-transparent group-hover/tab:bg-border-default',
+                'absolute -top-8 left-0 right-0 h-0.5 rounded-full transition-colors sm:-top-10',
+                active ? 'bg-fg-primary' : 'bg-border-subtle/50 group-hover/tab:bg-border-default',
               )}
             />
+            <span className="text-[15px] font-semibold tracking-tight sm:text-[17px]">{tab.subtitle}</span>
+            <span className="max-w-[12rem] text-[12px] leading-snug text-fg-muted sm:text-[13px]">{tab.tagline}</span>
           </button>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -682,47 +594,46 @@ function FeatureTabPanel({ activeTab }: { activeTab: FeatureTabId }) {
   );
   return (
     <div className="relative">
-      <div className="pointer-events-none absolute -inset-x-4 -inset-y-8 -z-10 rounded-[32px] bg-[radial-gradient(ellipse_50%_60%_at_50%_50%,rgb(var(--accent-primary-rgb)/0.12),transparent_70%)] blur-2xl" />
-      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid min-h-[min(780px,72vh)] gap-6 lg:grid-cols-[1.12fr_0.88fr] lg:items-stretch">
         <article
           key={tab.id}
-          className="relative overflow-hidden rounded-2xl border border-border-strong bg-bg-raised/85 p-5 text-left shadow-[0_30px_60px_-32px_rgba(0,0,0,0.7)] backdrop-blur-sm animate-in fade-in slide-in-from-bottom-1 duration-500"
+          className="relative flex min-h-[520px] flex-col overflow-hidden rounded-3xl border border-border-strong bg-bg-raised/90 p-6 text-left shadow-[0_40px_80px_-40px_rgba(0,0,0,0.75)] backdrop-blur-sm animate-in fade-in slide-in-from-bottom-1 duration-500 sm:p-8 lg:min-h-full lg:p-10"
         >
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-primary/40 bg-accent-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-glow">
-              <Sparkles className="h-3 w-3" strokeWidth={2.25} aria-hidden />
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-primary/40 bg-accent-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-glow">
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
               {tab.subtitle}
             </span>
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-2.5 py-0.5 text-[10px] font-medium text-fg-muted">
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-3 py-1 text-[11px] font-medium text-fg-muted">
               Powered by {tab.poweredBy}
             </span>
           </div>
-          <h3 className="mt-4 text-balance text-[20px] font-semibold leading-tight tracking-tight sm:text-[24px]">
+          <h3 className="mt-6 text-balance text-[28px] font-semibold leading-tight tracking-tight sm:text-[34px] lg:text-[38px]">
             {tab.title}
           </h3>
-          <p className="mt-2 text-[13px] leading-relaxed text-fg-secondary">{tab.detail}</p>
-          <div className="mt-5">
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-fg-secondary sm:text-[17px] lg:text-[18px]">{tab.detail}</p>
+          <div className="mt-auto flex min-h-[280px] flex-1 flex-col pt-8 sm:min-h-[320px]">
             <FeatureMockSwitch active={tab.id} />
           </div>
         </article>
 
-        <aside className="flex flex-col gap-3">
+        <aside className="flex flex-col gap-4 lg:gap-5">
           {tab.sideCards.map((c) => (
             <div
               key={c.label}
-              className="group rounded-2xl border border-border-subtle bg-bg-raised/55 p-4 backdrop-blur-sm transition-colors hover:border-accent-primary/40"
+              className="group flex flex-1 flex-col justify-center rounded-3xl border border-border-subtle bg-bg-raised/55 p-6 backdrop-blur-sm transition-colors hover:border-accent-primary/40 sm:p-7"
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[15px] font-semibold tracking-tight text-fg-primary">
+                <span className="text-[18px] font-semibold tracking-tight text-fg-primary sm:text-[20px]">
                   {c.label}
                 </span>
                 <ArrowUpRight
-                  className="h-3.5 w-3.5 text-fg-muted transition-colors group-hover:text-accent-glow"
+                  className="h-4 w-4 text-fg-muted transition-colors group-hover:text-accent-glow"
                   strokeWidth={2}
                   aria-hidden
                 />
               </div>
-              <p className="mt-1 text-[12px] text-fg-secondary">{c.sub}</p>
+              <p className="mt-2 text-[14px] leading-relaxed text-fg-secondary sm:text-[15px]">{c.sub}</p>
             </div>
           ))}
         </aside>
@@ -752,35 +663,35 @@ function PulsePreviewMock() {
     { sym: 'FOMO', name: 'fear of missing out', age: '2m', mc: '$1.7K', pct: -4 },
   ];
   return (
-    <div className="overflow-hidden rounded-xl border border-border-subtle bg-bg-raised">
-      <div className="flex items-center justify-between border-b border-border-subtle/60 bg-bg-sunken/60 px-3 py-2">
-        <span className="inline-flex items-center gap-1.5 rounded-md border border-signal-bull/30 bg-signal-bull/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-signal-bull">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+    <div className="h-full min-h-[240px] overflow-hidden rounded-2xl border border-border-subtle bg-bg-raised">
+      <div className="flex items-center justify-between border-b border-border-subtle/60 bg-bg-sunken/60 px-4 py-3">
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-signal-bull/30 bg-signal-bull/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-signal-bull">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-current" />
           New
         </span>
-        <span className="text-[10px] font-mono text-fg-muted">live</span>
+        <span className="text-[12px] font-mono text-fg-muted">live</span>
       </div>
       <ul className="divide-y divide-border-subtle/40">
         {rows.map((r) => (
-          <li key={r.sym} className="flex items-center gap-2.5 px-3 py-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-sunken text-[10px] font-bold tracking-tight text-fg-secondary">
+          <li key={r.sym} className="flex items-center gap-3 px-4 py-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-bg-sunken text-[11px] font-bold tracking-tight text-fg-secondary">
               {r.sym.slice(0, 3)}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-[12px] font-semibold tracking-tight text-fg-primary">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[15px] font-semibold tracking-tight text-fg-primary">
                   {r.sym}
                 </span>
-                <span className="truncate text-[10px] text-fg-muted">{r.name}</span>
+                <span className="truncate text-[13px] text-fg-muted">{r.name}</span>
               </div>
-              <div className="mt-0.5 flex gap-2 text-[10px] tabular-nums text-fg-muted">
+              <div className="mt-1 flex gap-3 text-[12px] tabular-nums text-fg-muted">
                 <span>{r.age}</span>
                 <span>MC {r.mc}</span>
               </div>
             </div>
             <span
               className={cn(
-                'rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                'rounded-md px-2 py-1 text-[12px] font-semibold tabular-nums',
                 r.pct >= 0 ? 'bg-signal-bull/10 text-signal-bull' : 'bg-signal-bear/10 text-signal-bear',
               )}
             >
@@ -789,9 +700,9 @@ function PulsePreviewMock() {
             </span>
             <button
               type="button"
-              className="ml-1 inline-flex h-7 items-center gap-1 rounded-full border border-accent-primary/40 bg-accent-primary/10 px-2 text-[10px] font-semibold tracking-tight text-accent-glow transition-colors hover:bg-accent-primary/20"
+              className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-full border border-accent-primary/40 bg-accent-primary/10 px-3 text-[12px] font-semibold tracking-tight text-accent-glow transition-colors hover:bg-accent-primary/20"
             >
-              <Zap className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+              <Zap className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
               .01
             </button>
           </li>
@@ -974,19 +885,19 @@ function WalletIntelMock() {
  * ------------------------------------------------------------------------- */
 function IntegrationsStrip() {
   return (
-    <div className="mt-10 rounded-2xl border border-border-subtle bg-bg-raised/55 p-6 backdrop-blur-sm">
-      <div className="grid grid-cols-3 items-center gap-4 sm:grid-cols-4 md:grid-cols-6">
+    <div className="mt-12 rounded-3xl border border-border-subtle bg-bg-raised/55 p-8 backdrop-blur-sm sm:mt-14 sm:p-10">
+      <div className="grid grid-cols-3 items-center gap-6 sm:grid-cols-4 md:grid-cols-6">
         {INTEGRATIONS.map((logo) => (
           <div
             key={logo.alt}
-            className="flex h-12 items-center justify-center rounded-lg border border-transparent bg-bg-sunken/40 px-3 transition-colors hover:border-accent-primary/30"
+            className="flex h-16 items-center justify-center rounded-xl border border-transparent bg-bg-sunken/40 px-4 transition-colors hover:border-accent-primary/30 sm:h-[4.5rem]"
             title={logo.alt}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static protocol mark */}
             <img
               src={logo.src}
               alt={logo.alt}
-              className="max-h-7 max-w-[110px] object-contain opacity-70 transition-opacity hover:opacity-95"
+              className="max-h-9 max-w-[130px] object-contain opacity-70 transition-opacity hover:opacity-95 sm:max-h-10"
               draggable={false}
               loading="lazy"
               onError={(e) => {
@@ -1021,7 +932,7 @@ function ArchitectureSection() {
           </>
         }
       />
-      <div className="mt-10 grid gap-4 lg:grid-cols-2">
+      <div className="mt-12 grid gap-5 lg:grid-cols-2 lg:gap-6">
         <ArchitectureCard
           icon={ShieldCheck}
           title="Non-custodial wallet"
@@ -1051,11 +962,11 @@ function ArchitectureCard({
   callout: string[];
 }) {
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-border-subtle bg-bg-raised/65 p-6 backdrop-blur-sm">
-      <Icon className="h-5 w-5 text-accent-glow" strokeWidth={1.75} aria-hidden />
-      <h3 className="mt-3 text-[18px] font-semibold tracking-tight text-fg-primary">{title}</h3>
-      <p className="mt-2 text-[13px] leading-relaxed text-fg-secondary">{body}</p>
-      <ul className="mt-4 space-y-1.5 text-[12px] text-fg-muted">
+    <article className="relative overflow-hidden rounded-3xl border border-border-subtle bg-bg-raised/65 p-8 backdrop-blur-sm sm:p-10">
+      <Icon className="h-6 w-6 text-accent-glow" strokeWidth={1.75} aria-hidden />
+      <h3 className="mt-4 text-[22px] font-semibold tracking-tight text-fg-primary sm:text-[24px]">{title}</h3>
+      <p className="mt-3 text-[15px] leading-relaxed text-fg-secondary sm:text-[16px]">{body}</p>
+      <ul className="mt-5 space-y-2 text-[13px] text-fg-muted sm:text-[14px]">
         {callout.map((c) => (
           <li key={c} className="flex items-center gap-2">
             <span className="h-1 w-1 shrink-0 rounded-full bg-accent-glow" />
@@ -1116,18 +1027,16 @@ function FinalCta({
   onPrimary,
   ctaLabel,
   ready,
-  busy,
 }: {
   onPrimary: () => void;
   ctaLabel: string;
   ready: boolean;
-  busy: boolean;
 }) {
   return (
     <div className="relative overflow-hidden rounded-3xl border border-border-strong bg-bg-raised/85 px-6 py-14 text-center backdrop-blur-sm sm:px-12 sm:py-20">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_70%_at_50%_30%,rgb(var(--accent-primary-rgb)/0.28),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(var(--accent-primary-rgb)/0.06)_0%,transparent_55%)]" />
       <h2 className="text-balance text-[26px] font-semibold leading-tight tracking-tight sm:text-[36px]">
-        Open the terminal.{' '}
+        Open pointer.{' '}
         <span className="bg-gradient-to-b from-accent-glow to-accent-primary bg-clip-text text-transparent">
           Trade smarter.
         </span>
@@ -1136,7 +1045,7 @@ function FinalCta({
         <button
           type="button"
           onClick={onPrimary}
-          disabled={!ready || busy}
+          disabled={!ready}
           className={cn(
             'btn-press focus-ring group/cta inline-flex h-12 items-center justify-center gap-2 rounded-full px-8 text-[15px] font-semibold text-fg-inverse',
             'bg-gradient-to-b from-accent-glow to-accent-primary',
@@ -1161,49 +1070,49 @@ function FinalCta({
  * ------------------------------------------------------------------------- */
 function LandingFooter() {
   return (
-    <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 border-t border-border-subtle px-5 py-6 text-[11px] text-fg-muted sm:flex-row sm:px-8">
-      <span className="flex items-center gap-2">
-        {/* eslint-disable-next-line @next/next/no-img-element -- brand mark */}
-        <img
-          src="/branding/pointer-bird.png"
-          alt=""
-          width={18}
-          height={18}
-          className="h-4 w-auto opacity-75"
-          draggable={false}
-        />
-        {APP_NAME} · private beta
-      </span>
-      <div className="flex items-center gap-4">
-        <a href="https://x.com" target="_blank" rel="noreferrer" className="hover:text-fg-secondary">
-          X
-        </a>
-        <a href="https://discord.com" target="_blank" rel="noreferrer" className="hover:text-fg-secondary">
-          Discord
-        </a>
-        <Link href="/pulse" prefetch className="hover:text-fg-secondary">
-          App
-        </Link>
-        <span className="text-fg-muted/60">© 2026</span>
+    <footer className="relative z-10 mx-auto w-full max-w-[88rem] border-t border-border-subtle px-6 py-8 sm:px-10 sm:py-10">
+      <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+        <span className="flex items-center gap-2 text-[12px] text-fg-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element -- brand mark */}
+          <img
+            src="/branding/pointer-bird.png"
+            alt=""
+            width={18}
+            height={18}
+            className="h-4 w-auto opacity-80"
+            draggable={false}
+          />
+          <span className="font-semibold text-fg-secondary">pointer.</span>
+          <span className="text-fg-muted/70">© 2026 {APP_NAME}. All rights reserved.</span>
+        </span>
+        <div className="flex items-center gap-5 text-[13px] font-medium text-fg-secondary">
+          <Link href="/pulse" prefetch className="transition-colors hover:text-fg-primary">
+            Docs
+          </Link>
+          <a
+            href="https://x.com"
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-fg-primary"
+            aria-label="X (Twitter)"
+          >
+            X
+          </a>
+          <a
+            href="https://discord.com"
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-fg-primary"
+          >
+            Discord
+          </a>
+        </div>
+      </div>
+      <div className="mt-4 flex justify-center gap-3 text-[11px] text-fg-muted/70">
+        <span className="cursor-default">Privacy Policy</span>
+        <span aria-hidden>·</span>
+        <span className="cursor-default">Terms of Service</span>
       </div>
     </footer>
-  );
-}
-
-/* ---------------------------------------------------------------------------
- * Backdrop — single concentrated blue orbit at the top, dark grey everywhere else
- * ------------------------------------------------------------------------- */
-function PageBackdrop() {
-  return (
-    <>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[780px] bg-[radial-gradient(ellipse_55%_70%_at_50%_8%,rgb(var(--accent-primary-rgb)/0.22),transparent_72%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-32 left-1/2 -z-10 h-[520px] w-[1100px] -translate-x-1/2 rounded-[60%] bg-[radial-gradient(closest-side,rgb(var(--accent-glow-rgb)/0.14),transparent)] blur-3xl"
-      />
-    </>
   );
 }

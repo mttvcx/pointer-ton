@@ -325,6 +325,7 @@ export function TokenActivityTabs({
   onLiveTradesSnapshot,
   onOpenInstantTrade,
   instantTradeOpen = false,
+  forceDemoTables = false,
 }: {
   mint: string;
   symbol: string | null;
@@ -341,6 +342,8 @@ export function TokenActivityTabs({
   onLiveTradesSnapshot?: (s: { rows: TradeRow[]; isLoading: boolean }) => void;
   onOpenInstantTrade?: () => void;
   instantTradeOpen?: boolean;
+  /** Stock detail surfaces — populate desks with layout demo rows without global ui demo. */
+  forceDemoTables?: boolean;
 }) {
   const [tab, setTab] = useState<TabId>('trades');
   const [tradesFeedHoverPause, setTradesFeedHoverPause] = useState(false);
@@ -355,8 +358,8 @@ export function TokenActivityTabs({
   const nativeSym = nativeTicker(activeChain);
   const nativeUsdHint = NATIVE_USD_HINT[activeChain];
   const sym = symbol ?? 'TOK';
-  const tableDemoEnv = preferTokenTableDemoRows();
-  const demoTables = demoTablesEnabled(uiDemo);
+  const tableDemoEnv = preferTokenTableDemoRows() || forceDemoTables;
+  const demoTables = demoTablesEnabled(uiDemo) || forceDemoTables;
   const demoTrades = useMemo(() => syntheticTradesForMint(mint), [mint]);
   const demoTraders = useMemo(() => syntheticTopTradersForMint(mint), [mint]);
   const demoHolders = useMemo(() => syntheticHoldersResponse(mint, 9), [mint]);

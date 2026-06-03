@@ -9,6 +9,7 @@ export type TrackerListRow = {
   walletAddress: string;
   label: string | null;
   notify: boolean;
+  groupId: string | null;
   createdAt: string;
 };
 

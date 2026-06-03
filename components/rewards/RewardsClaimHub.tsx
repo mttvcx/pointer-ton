@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
 import { ChainGlyph } from '@/components/points/ChainGlyph';
+import { PTR_TICKER } from '@/components/points/pointsUiConfig';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { SOL_CLAIM_EPS } from '@/lib/rewards/constants';
 import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
@@ -156,13 +157,13 @@ export function RewardsClaimHub({
         </div>
         <div
           className="rounded-xl border border-accent-primary/35 bg-accent-primary/8 p-2 text-center shadow-inner ring-1 ring-accent-primary/15"
-          title="Pointer Points claimable"
+          title="Season 1 $PTR claimable"
         >
           <PointerBirdMark size={22} className="mx-auto opacity-95 drop-shadow-[0_0_10px_rgb(var(--accent-primary-rgb)/0.35)]" />
           <p className="mt-1 tabular-nums text-[13px] font-bold text-fg-primary">
             {fmtPtsChip(c?.pointerPointsClaimable ?? 0)}
           </p>
-          <p className="text-[9px] font-medium uppercase tracking-wide text-fg-muted">Points</p>
+          <p className="text-[9px] font-medium uppercase tracking-wide text-fg-muted">{PTR_TICKER}</p>
         </div>
         <div
           className="rounded-xl border border-signal-bull/35 bg-signal-bull/8 p-2 text-center shadow-inner ring-1 ring-signal-bull/15"
@@ -184,7 +185,7 @@ export function RewardsClaimHub({
       {/* Points + referral SOL snapshot */}
       <div className="relative grid grid-cols-2 gap-2 text-[11px]">
         <div className="rounded-lg border border-border-subtle bg-bg-base/50 px-3 py-2 ring-1 ring-border-subtle/80">
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-fg-muted">Lifetime points</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-fg-muted">Lifetime {PTR_TICKER}</p>
           <p className="mt-0.5 flex items-center gap-1.5 tabular-nums text-[15px] font-bold text-fg-primary">
             <PointerBirdMark size={18} />
             {formatNumber(lifetimePointsDisplay, { decimals: 0 })}

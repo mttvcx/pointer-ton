@@ -13,7 +13,7 @@ export type TerminalWalletChipProps = {
   nativeBalance: number | null;
   usdcBalance?: number | null;
   activeChain: AppChainId;
-  variant?: 'header' | 'dock';
+  variant?: 'header' | 'dock' | 'pulse';
   showChevron?: boolean;
   className?: string;
 };
@@ -71,8 +71,36 @@ export function TerminalWalletChip({
   className,
 }: TerminalWalletChipProps) {
   const isDock = variant === 'dock';
-  const showUsdc = activeChain === 'sol' && usdcBalance != null;
-  const showCount = isDock && walletCount != null && walletCount > 0;
+  const isPulse = variant === 'pulse';
+  const showUsdc = activeChain === 'sol' && usdcBalance != null && !isPulse;
+  const showCount =
+    walletCount != null && walletCount > 0 && (isDock || isPulse);
+
+  if (isPulse) {
+    return (
+      <span className={cn('inline-flex min-w-0 items-center gap-1', className)}>
+        <Wallet className="h-3 w-3 shrink-0 text-white/50" strokeWidth={2} aria-hidden />
+        {showCount ? (
+          <span className="shrink-0 tabular-nums text-[11px] font-semibold text-white/90">
+            {walletCount}
+          </span>
+        ) : null}
+        <AssetPair
+          iconSrc={CHAIN_ICON_PNG[activeChain]}
+          amount={nativeBalance}
+          isNative
+          size="dock"
+        />
+        {showChevron ? (
+          <ChevronDown
+            className="ml-0.5 h-3 w-3 shrink-0 text-white/35"
+            strokeWidth={2.25}
+            aria-hidden
+          />
+        ) : null}
+      </span>
+    );
+  }
 
   return (
     <span

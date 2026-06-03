@@ -1,8 +1,26 @@
-/** Static presentation config for Pointer Points / campaigns UI — not authoritative scoring logic. */
+/** Static presentation config for $PTR Points / campaigns UI — not authoritative scoring logic. */
 
-export const POINTS_SEASON_LABEL = 'Season 1 — Genesis';
+export const PTR_POINTS_BRAND = '$PTR Points';
+export const PTR_TICKER = '$PTR';
+export const POINTS_SEASON_LABEL = 'Season 1 PTR';
+export const POINTS_SEASON_SHORT = 'S1 PTR';
 export const POINTS_RULES_VERSION = '2026.02';
 export const POINTS_LAST_UPDATED_LABEL = 'Feb 2026';
+
+export const PTR_HERO_TAGLINE =
+  'Season 1 accrual for verified terminal usage — trading, referrals, retention, and identity.';
+
+export const PTR_HERO_BODY =
+  'Stack $PTR Points from real activity on Pointer. Season 1 is the primary accrual window; balances and rank follow disclosed seasonal rules. Social links unlock credibility — they do not mint points for posts or replies.';
+
+export const PTR_SIGNIN_BLURB =
+  'Connect to view your Season 1 $PTR balance, rank, and referral desk. Accrual syncs once you authenticate.';
+
+export const PTR_BENEFITS_INTRO =
+  '$PTR Points track verified usage across Solana, TON, Base, BNB, and Hyperliquid as integrations go live. Perks and allocation follow seasonal disclosure — no engagement farming.';
+
+export const PTR_CHECKPOINT_BLURB =
+  'Claim referral SOL and track your Season 1 $PTR balance alongside rank progress and referral timing.';
 
 export type RankTierId =
   | 'scout'
@@ -158,7 +176,7 @@ export const CREATOR_PROGRAM_COPY =
   'Creator & operator seats are application-only. Attribution uses referral links and on-chain volume — not automated “tweet = points”.';
 
 export const TRANSPARENCY_BULLETS = [
-  'Rules and pools publish per season; economics ship with disclosure.',
+  'Season 1 PTR rules and allocation pools publish with full disclosure as campaigns mature.',
   'Leaderboards separate traders, referrers, and creators where applicable.',
   'Anti-sybil uses wallet graph + linked identities — not reply counts.',
 ];

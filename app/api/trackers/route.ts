@@ -12,6 +12,11 @@ import {
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { enrichTrackedWalletAddresses } from '@/lib/trackers/enrichAddresses';
+import {
+  listTrackerGroupsForUser,
+  summarizeTrackerGroups,
+} from '@/lib/db/trackerGroups';
+import { trackedWalletMatchesAppChain } from '@/lib/trackers/chainFilter';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { APP_CHAIN_IDS, isAppChainId } from '@/lib/chains/appChain';
 import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
@@ -68,22 +73,41 @@ export async function GET(req: NextRequest) {
   }
 
   const rowsAll = await listTrackedWalletsForUser(user.id);
+  let groupsAll: Awaited<ReturnType<typeof listTrackerGroupsForUser>> = [];
+  try {
+    groupsAll = await listTrackerGroupsForUser(user.id);
+  } catch (e) {
+    console.warn('[/api/trackers] listTrackerGroupsForUser:', e instanceof Error ? e.message : e);
+  }
+  const groupChainById = new Map(
+    groupsAll.map((g) => [g.id, g.app_chain as AppChainId]),
+  );
+
   const chainParam = req.nextUrl.searchParams.get('app_chain');
   const rows =
     chainParam && isAppChainId(chainParam)
-      ? rowsAll.filter((r) => mintMatchesAppChain(r.wallet_address, chainParam))
+      ? rowsAll.filter((r) => trackedWalletMatchesAppChain(r, chainParam, groupChainById))
       : rowsAll;
+
+  const groups = summarizeTrackerGroups(
+    chainParam && isAppChainId(chainParam)
+      ? groupsAll.filter((g) => g.app_chain === chainParam)
+      : groupsAll,
+    rowsAll,
+  );
+
   const trackers = rows.map((r) => ({
     id: r.id,
     walletAddress: r.wallet_address,
     label: r.label,
     notify: r.notify,
+    groupId: r.group_id ?? null,
     createdAt: r.created_at,
   }));
 
   const enrich = req.nextUrl.searchParams.get('enrich') === '1';
   if (!enrich || rows.length === 0) {
-    return NextResponse.json({ trackers, enrichment: undefined });
+    return NextResponse.json({ trackers, groups, enrichment: undefined });
   }
 
   const tonOnly = rows.filter((r) => inferMintKind(r.wallet_address) === 'ton');
@@ -98,7 +122,7 @@ export async function GET(req: NextRequest) {
       enrichment[k] = { nanoTon: null, lastActiveUnix: null };
     }
   }
-  return NextResponse.json({ trackers, enrichment });
+  return NextResponse.json({ trackers, groups, enrichment });
 }
 
 export async function POST(req: NextRequest) {
@@ -164,6 +188,7 @@ export async function POST(req: NextRequest) {
         walletAddress: row.wallet_address,
         label: row.label,
         notify: row.notify,
+        groupId: row.group_id,
         createdAt: row.created_at,
       },
     });
@@ -223,6 +248,7 @@ export async function PATCH(req: NextRequest) {
         walletAddress: row.wallet_address,
         label: row.label,
         notify: row.notify,
+        groupId: row.group_id,
         createdAt: row.created_at,
       },
     });

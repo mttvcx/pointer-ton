@@ -34,6 +34,7 @@ import {
   type PrivateTransferProvider,
 } from '@/components/portfolio/PrivateTransferProviderModal';
 import { SplitNowTransferModal } from '@/components/portfolio/SplitNowTransferModal';
+import { PortfolioLoadingSkeleton } from '@/components/portfolio/PortfolioLoadingSkeleton';
 import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
@@ -376,6 +377,8 @@ export function PortfolioDashboard({
       }
       return json as PortfolioJson;
     },
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 
   const tickersQ = useQuery({
@@ -620,11 +623,7 @@ export function PortfolioDashboard({
   }
 
   if (awaitingWalletListForSelection) {
-    return (
-      <div className={cn('flex h-full min-h-[320px] items-center justify-center', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
-      </div>
-    );
+    return <PortfolioLoadingSkeleton className={className} />;
   }
 
   if (selectedWalletMissing) {
@@ -641,15 +640,11 @@ export function PortfolioDashboard({
     );
   }
 
-  const portfolioShowsLoadingSpinner =
+  const portfolioShowsLoadingSkeleton =
     (authenticated && authSyncing && !backendReady && !authSyncError) ||
     (portfolioEnabled && query.isPending && query.fetchStatus === 'fetching' && !query.data);
-  if (portfolioShowsLoadingSpinner) {
-    return (
-      <div className={cn('flex h-full min-h-[320px] items-center justify-center', className)}>
-        <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
-      </div>
-    );
+  if (portfolioShowsLoadingSkeleton) {
+    return <PortfolioLoadingSkeleton className={className} />;
   }
 
   if (authenticated && !backendReady && authSyncError) {

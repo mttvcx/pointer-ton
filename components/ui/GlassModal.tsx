@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
@@ -36,6 +37,12 @@ export function GlassModal({
   maxWidthClass = 'max-w-md',
   className,
 }: GlassModalProps) {
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -47,11 +54,11 @@ export function GlassModal({
 
   const { mounted, visible } = useOverlayPresence(open);
 
-  if (!mounted) return null;
+  if (!mounted || !portalReady) return null;
 
   const hasHeader = Boolean(title || chainTicker || description);
 
-  return (
+  return createPortal(
     <div className={cn('fixed inset-0 flex items-center justify-center p-4', zClass)}>
       <button
         type="button"
@@ -127,7 +134,8 @@ export function GlassModal({
           </div>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
