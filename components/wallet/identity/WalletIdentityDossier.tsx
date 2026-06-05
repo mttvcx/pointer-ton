@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Copy, ExternalLink, Pencil, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { WalletIdentityView, WalletTokenContextView, WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
@@ -10,19 +11,45 @@ import type { MockWideStatsShape } from '@/lib/walletIdentity/mockWalletWideStat
 import { WalletIdentityBadges } from '@/components/wallet/identity/WalletIdentityBadges';
 import { cn } from '@/lib/utils/cn';
 import { labelColorClass } from '@/lib/hooks/useWalletLabels';
-
-function SectionTitle({ children }: { children: string }) {
-  return <div className="text-[10px] font-semibold tracking-tight text-fg-muted">{children}</div>;
-}
+import {
+  modalBtnPrimaryClass,
+  modalBtnSecondaryClass,
+  modalSectionLabelClass,
+} from '@/lib/ui/modalChrome';
 
 function RowKV({ k, v, vCls }: { k: string; v: string; vCls?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 py-1 text-[10px]">
+    <div className="flex items-baseline justify-between gap-3 py-1 text-[11px]">
       <span className="shrink-0 text-fg-muted">{k}</span>
-      <span className={cn('min-w-0 truncate text-right tabular-nums font-medium', vCls ?? 'text-fg-primary')}>
+      <span className={cn('min-w-0 truncate text-right font-mono tabular-nums font-medium', vCls ?? 'text-fg-primary')}>
         {v}
       </span>
     </div>
+  );
+}
+
+function ChipBtn({
+  children,
+  onClick,
+  href,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  href?: string;
+}) {
+  const cls =
+    'inline-flex items-center gap-1 rounded-sm border border-border-subtle bg-bg-sunken px-2 py-1 text-[10px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary';
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      {children}
+    </button>
   );
 }
 
@@ -50,83 +77,66 @@ export function WalletIdentityDossier({
   }
 
   const profileHref = identity.knownIdentity?.profileUrl;
+  const identityIsDefault =
+    identity.identityHeadline === identity.shortAddress ||
+    identity.identityHeadline === 'Unlabeled wallet';
 
   return (
-    <div className="flex max-h-[min(560px,calc(100dvh-120px))] w-[min(22rem,calc(100vw-28px))] flex-col rounded-xl border border-white/[0.1] bg-[#070910]/[0.98] shadow-2xl backdrop-blur-md">
-      <div className="flex items-start gap-2 border-b border-white/[0.07] p-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] text-[12px] font-semibold tracking-tight text-fg-secondary">
+    <div className="flex max-h-[min(520px,calc(100dvh-120px))] w-[min(20rem,calc(100vw-28px))] flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised shadow-2xl">
+      <div className="flex items-start gap-2.5 border-b border-border-subtle px-3 py-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-sunken text-[11px] font-semibold text-fg-secondary">
           {identity.avatarUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={identity.avatarUrl} alt="" className="h-full w-full rounded-md object-cover" />
+            <img src={identity.avatarUrl} alt="" className="h-full w-full rounded-[5px] object-cover" />
           ) : (
             monogram
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h3 className="truncate text-[13px] font-semibold tracking-tight text-fg-primary">
-              {identity.displayName}
-            </h3>
-            <WalletIdentityBadges kinds={headerKinds.slice(0, 8)} max={8} variant="text" />
+            <h3 className="truncate text-[13px] font-semibold text-fg-primary">{identity.displayName}</h3>
+            <WalletIdentityBadges kinds={headerKinds.slice(0, 6)} max={6} variant="text" />
           </div>
           {identity.handle ? (
-            <p className="mt-0.5 truncate text-[11px] text-signal-info/90">{identity.handle}</p>
+            <p className="mt-0.5 truncate text-[11px] text-fg-muted">{identity.handle}</p>
           ) : null}
-          <p className="mt-0.5 truncate text-[10px] tabular-nums tracking-tight text-fg-muted" title={identity.address}>
+          <p className="mt-0.5 truncate font-mono text-[10px] tabular-nums text-fg-muted" title={identity.address}>
             {shortenAddress(identity.address, 8)}
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1">
-            <button
-              type="button"
+            <ChipBtn
               onClick={() => {
                 void navigator.clipboard?.writeText(identity.address);
                 toast.success('Address copied');
               }}
-              className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-[10px] font-semibold text-fg-secondary hover:bg-white/[0.04]"
             >
               <Copy className="h-3 w-3" strokeWidth={2} />
               Copy
-            </button>
-            <a
-              href={ex}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-[10px] font-semibold text-fg-secondary hover:bg-white/[0.04]"
-            >
+            </ChipBtn>
+            <ChipBtn href={ex}>
               <ExternalLink className="h-3 w-3" strokeWidth={2} />
               Explorer
-            </a>
-            {profileHref ? (
-              <a
-                href={profileHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-[10px] font-semibold text-fg-secondary hover:bg-white/[0.04]"
-              >
-                Profile
-              </a>
-            ) : null}
+            </ChipBtn>
+            {profileHref ? <ChipBtn href={profileHref}>Profile</ChipBtn> : null}
           </div>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
-        <div>
-          <SectionTitle>Identity</SectionTitle>
-          <div className="mt-1 divide-y divide-white/[0.05]">
-            <RowKV k="Signals" v={identity.identityHeadline !== identity.shortAddress ? identity.identityHeadline : 'Unlabeled wallet'} />
-            <RowKV k="Source line" v={identity.identitySourceLabel} />
-            {identity.confidenceLabel ? <RowKV k="Confidence" v={identity.confidenceLabel} /> : null}
+      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-2.5">
+        {!identityIsDefault ? (
+          <div>
+            <p className={modalSectionLabelClass}>Identity</p>
+            <p className="mt-1 text-[11px] text-fg-secondary">{identity.identityHeadline}</p>
           </div>
-        </div>
+        ) : null}
 
         <div>
-          <SectionTitle>Labels</SectionTitle>
-          <div className="mt-1 flex flex-wrap gap-1">
+          <p className={modalSectionLabelClass}>Label</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             {identity.systemLabels.map((t) => (
               <span
                 key={t}
-                className="rounded border border-white/[0.1] px-1.5 py-px text-[9px] font-medium text-fg-secondary"
+                className="rounded-sm border border-border-subtle bg-bg-sunken px-1.5 py-px text-[9px] font-medium text-fg-secondary"
               >
                 {t}
               </span>
@@ -134,96 +144,72 @@ export function WalletIdentityDossier({
             {identity.userLabelText ? (
               <span
                 className={cn(
-                  'rounded border border-white/[0.1] px-1.5 py-px text-[9px] font-semibold',
-                  identity.userLabelColor ? labelColorClass(String(identity.userLabelColor)) : 'text-accent-primary',
+                  'rounded-sm border border-border-subtle bg-bg-sunken px-1.5 py-px text-[9px] font-semibold',
+                  identity.userLabelColor ? labelColorClass(String(identity.userLabelColor)) : 'text-fg-primary',
                 )}
               >
                 {identity.userLabelText}
               </span>
             ) : (
-              <span className="text-[9px] text-fg-muted">No user label</span>
+              <span className="text-[10px] text-fg-muted">None</span>
             )}
+            <button
+              type="button"
+              onClick={onLabel}
+              className="ml-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-fg-secondary transition hover:text-fg-primary"
+            >
+              <Pencil className="h-3 w-3" strokeWidth={2} />
+              Edit
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onLabel}
-            className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-signal-info hover:underline"
-          >
-            <Pencil className="h-3 w-3" strokeWidth={2} />
-            Rename / label
-          </button>
-        </div>
-
-        <div>
-          <SectionTitle>Groups</SectionTitle>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {identity.groups.length ? (
-              identity.groups.map((g) => (
-                <span key={g} className="rounded-full border border-border-subtle px-2 py-px text-[9px] text-fg-secondary">
-                  {g}
-                </span>
-              ))
-            ) : (
-              <span className="text-[9px] text-fg-muted">No groups pinned</span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              toast.message('Groups', { description: 'Persisted cohorts arrive with account sync — UI hook only for now.' })
-            }
-            className="mt-1 text-[10px] font-semibold text-signal-info hover:underline"
-          >
-            + Add to group
-          </button>
         </div>
 
         {tokenCtx ? (
-          <div>
-            <SectionTitle>{`This mint (${tokenCtx.tokenSymbol})`}</SectionTitle>
-            <div className="mt-1 divide-y divide-white/[0.05]">
-              <RowKV k="Bought (notional)" v={formatCompactUsd(tokenCtx.boughtUsd)} vCls="text-signal-bull" />
+          <div className="rounded-md border border-border-subtle bg-bg-sunken px-2.5 py-2">
+            <p className={modalSectionLabelClass}>{`This mint · ${tokenCtx.tokenSymbol}`}</p>
+            <div className="mt-1 divide-y divide-border-subtle">
+              <RowKV k="Bought" v={formatCompactUsd(tokenCtx.boughtUsd)} vCls="text-signal-bull" />
               <RowKV k="Sold" v={formatCompactUsd(tokenCtx.soldUsd)} vCls="text-signal-bear" />
               <RowKV
                 k="Realized PnL"
                 v={`${tokenCtx.realizedPnlUsd >= 0 ? '+' : ''}${formatCompactUsd(tokenCtx.realizedPnlUsd)}`}
                 vCls={tokenCtx.realizedPnlUsd >= 0 ? 'text-signal-bull' : 'text-signal-bear'}
               />
-              {tokenCtx.remainingPct != null ? (
-                <RowKV k="Position (proxy %)" v={`${formatNumber(tokenCtx.remainingPct, { decimals: 1 })}%`} />
+              <RowKV
+                k="First fill"
+                v={tokenCtx.firstBuyAt ? formatRelativeTime(tokenCtx.firstBuyAt) : '—'}
+              />
+              {mintStats ? (
+                <RowKV k="Fills sampled" v={`${mintStats.buy_count + mintStats.sell_count}`} />
               ) : null}
-              {tokenCtx.rank != null ? <RowKV k="Desk rank" v={`#${tokenCtx.rank}`} /> : null}
-              {tokenCtx.topTraderNote ? <RowKV k="Highlight" v={tokenCtx.topTraderNote} vCls="text-fg-secondary" /> : null}
-              <RowKV k="First fill" v={tokenCtx.firstBuyAt ? formatRelativeTime(tokenCtx.firstBuyAt) : '—'} />
-              <RowKV k="Last action" v={tokenCtx.lastActionAt ? formatRelativeTime(tokenCtx.lastActionAt) : '—'} />
-              {mintStats ? <RowKV k="Pointer fills sampled" v={`${mintStats.buy_count + mintStats.sell_count}`} /> : null}
             </div>
           </div>
         ) : null}
 
         {wide ? (
-          <div>
-            <SectionTitle>Wallet rollup (preview)</SectionTitle>
-            <div className="mt-1 divide-y divide-white/[0.05]">
-              <RowKV k="7D PnL (est)" v={`${wide.pnl7dUsd >= 0 ? '+' : ''}$${formatNumber(wide.pnl7dUsd, { decimals: 0 })}`} />
+          <div className="rounded-md border border-border-subtle bg-bg-sunken px-2.5 py-2">
+            <p className={modalSectionLabelClass}>Wallet rollup</p>
+            <div className="mt-1 divide-y divide-border-subtle">
               <RowKV
-                k="30D PnL (est)"
-                v={`${(wide.pnl30dUsd ?? 0) >= 0 ? '+' : ''}$${formatNumber(wide.pnl30dUsd ?? 0, { decimals: 0 })}`}
+                k="7D PnL"
+                v={`${wide.pnl7dUsd >= 0 ? '+' : ''}$${formatNumber(wide.pnl7dUsd, { decimals: 0 })}`}
+                vCls={wide.pnl7dUsd >= 0 ? 'text-signal-bull' : 'text-signal-bear'}
               />
-              <RowKV k="7D tokens" v={`${wide.tokenCount7d}`} />
-              <RowKV k="Tracked by" v={`${wide.trackedByCount}`} />
-              <RowKV k="Renamed by" v={`${wide.renamedByCount}`} />
-              <RowKV k="Rolling volume est." v={formatCompactUsd(wide.totalVolumeUsd)} />
+              <RowKV
+                k="30D PnL"
+                v={`${(wide.pnl30dUsd ?? 0) >= 0 ? '+' : ''}$${formatNumber(wide.pnl30dUsd ?? 0, { decimals: 0 })}`}
+                vCls={(wide.pnl30dUsd ?? 0) >= 0 ? 'text-signal-bull' : 'text-signal-bear'}
+              />
             </div>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-1 border-t border-white/[0.07] bg-black/25 px-3 py-2">
+      <div className="flex gap-1.5 border-t border-border-subtle bg-bg-raised px-3 py-2">
         <button
           type="button"
           onClick={onTrack}
-          className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.1] px-2 py-1.5 text-[10px] font-semibold text-fg-secondary hover:bg-white/[0.05]"
+          className={cn(modalBtnPrimaryClass, 'flex-1 py-1.5 text-[11px]')}
         >
           <Star className="h-3 w-3" strokeWidth={2} />
           Open desk intel
@@ -231,14 +217,14 @@ export function WalletIdentityDossier({
         <button
           type="button"
           onClick={() =>
-            toast.message('Blacklist', {
-              description: 'Local mute lists ship with synced preferences — hook not wired.',
+            toast.message('Mute', {
+              description: 'Local mute lists ship with synced preferences.',
             })
           }
-          className="inline-flex items-center justify-center gap-1 rounded-md border border-white/[0.08] px-2 py-1.5 text-[10px] font-semibold text-fg-muted hover:bg-white/[0.04]"
+          className={cn(modalBtnSecondaryClass, 'px-2.5 py-1.5 text-[11px]')}
+          aria-label="Mute wallet"
         >
-          <Trash2 className="h-3 w-3 opacity-70" strokeWidth={2} />
-          Mute
+          <Trash2 className="h-3 w-3" strokeWidth={2} />
         </button>
       </div>
     </div>

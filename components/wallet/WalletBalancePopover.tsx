@@ -48,6 +48,7 @@ type Props = {
   onSpendAssetChange?: (asset: SolSpendAsset) => void;
   showSpendAssetTabs?: boolean;
   className?: string;
+  onOpenChange?: (open: boolean) => void;
 };
 
 const USDC_ICON = '/logos/protocols/usdc.png';
@@ -70,11 +71,17 @@ export function WalletBalancePopover({
   onSpendAssetChange,
   showSpendAssetTabs = false,
   className,
+  onOpenChange,
 }: Props) {
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
   const chainTicker = CHAIN_TICKER[activeChain];
   const [open, setOpen] = useState(false);
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    onOpenChange?.(next);
+  }
 
   const solRow = balances?.find((b) => b.symbol === chainTicker || b.symbol === 'SOL');
   const usdcRow = balances?.find((b) => b.symbol === 'USDC');
@@ -82,12 +89,12 @@ export function WalletBalancePopover({
   const usdcAmount = usdcRow?.amount ?? 0;
 
   function handleDeposit() {
-    setOpen(false);
+    handleOpenChange(false);
     onDeposit();
   }
 
   function handleWithdraw() {
-    setOpen(false);
+    handleOpenChange(false);
     onWithdraw();
   }
 
@@ -107,7 +114,7 @@ export function WalletBalancePopover({
     totalUsd != null && Number.isFinite(totalUsd) ? formatUsd(totalUsd, { decimals: 2 }) : '$0.00';
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={handleOpenChange}>
       <Popover.Trigger asChild>
         <button type="button" title="Wallet" className={cn(WALLET_TOPBAR_TRIGGER, className)}>
           <TerminalWalletChip

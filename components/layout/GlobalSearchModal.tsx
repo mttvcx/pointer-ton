@@ -1,25 +1,22 @@
 'use client';
 
-import { ProtocolBrandIcon } from '@/components/tokens/ProtocolBrandIcon';
+import { SearchProtocolFilterChip } from '@/components/layout/SearchProtocolFilterChip';
 import { SearchQuickBuySettingsPanel } from '@/components/layout/SearchQuickBuySettingsPanel';
 import { SearchTokenRow } from '@/components/layout/SearchTokenRow';
 import {
-  BadgeCheck,
   BarChart3,
   CheckCircle2,
   ChevronDown,
   Clock,
-  Coins,
+  Flame,
   GraduationCap,
   LayoutList,
   LineChart,
   Loader2,
   Droplets,
   Search,
-  Printer,
   Settings,
   Shield,
-  Crown,
   X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -52,29 +49,27 @@ import { useRecentTradeMintsStore } from '@/store/recentTradeMints';
 import { useSearchModalPrefsStore } from '@/store/searchModalPrefs';
 import { useUIStore } from '@/store/ui';
 
-const PROTOCOL_IDS = ['pump', 'bonk', 'printr', 'og_mode', 'graduated', 'dex_paid'] as const;
+const PROTOCOL_IDS = ['pump', 'bonk', 'bags', 'og_mode', 'graduated', 'dex_paid'] as const;
 type ProtocolId = (typeof PROTOCOL_IDS)[number];
 
-const PROTOCOL_CHIPS: {
+const PROTOCOL_FILTERS: {
   id: ProtocolId;
   label: string;
-  Icon: ComponentType<{ className?: string }>;
-  protocolLogo?: string;
-  activeClass: string;
-  idleClass: string;
+  protocolLogo?: ProtocolBrandId;
+  MetaIcon?: ComponentType<{ className?: string; strokeWidth?: number }>;
 }[] = [
-  { id: 'pump', label: 'Pump', Icon: Coins, activeClass: 'bg-emerald-500/14 text-emerald-300', idleClass: searchModalChipIdleClass },
-  { id: 'bonk', label: 'Bonk', Icon: Coins, protocolLogo: 'bonk', activeClass: 'bg-orange-500/14 text-orange-300', idleClass: searchModalChipIdleClass },
-  { id: 'printr', label: 'Printr', Icon: Printer, protocolLogo: 'printr', activeClass: 'bg-sky-500/14 text-sky-300', idleClass: searchModalChipIdleClass },
-  { id: 'og_mode', label: 'OG Mode', Icon: Crown, activeClass: 'bg-violet-500/14 text-violet-300', idleClass: searchModalChipIdleClass },
-  { id: 'graduated', label: 'Graduated', Icon: GraduationCap, activeClass: 'bg-amber-500/14 text-amber-200', idleClass: searchModalChipIdleClass },
-  { id: 'dex_paid', label: 'Dex Paid', Icon: BadgeCheck, activeClass: 'bg-cyan-500/14 text-cyan-300', idleClass: searchModalChipIdleClass },
+  { id: 'pump', label: 'Pump', protocolLogo: 'pump.fun' },
+  { id: 'bonk', label: 'Bonk', protocolLogo: 'bonk' },
+  { id: 'bags', label: 'Bags', protocolLogo: 'bags' },
+  { id: 'og_mode', label: 'OG Mode', MetaIcon: Flame },
+  { id: 'graduated', label: 'Graduated', MetaIcon: GraduationCap },
+  { id: 'dex_paid', label: 'Dex Paid', MetaIcon: Shield },
 ];
 
 const PROTOCOL_LAUNCHPAD_LABEL: Record<ProtocolId, string> = {
-  pump: 'TON launchpad',
+  pump: 'Pump.fun',
   bonk: 'Bonk Launch',
-  printr: 'Printr',
+  bags: 'Bags',
   og_mode: 'OG Mode',
   graduated: 'Graduated',
   dex_paid: 'Dex Paid',
@@ -444,7 +439,7 @@ export function GlobalSearchModal() {
 
   if (!overlayMounted) return null;
 
-  const rowPadding = compactRows ? 'py-1.5 min-h-[60px]' : 'py-2 min-h-[68px]';
+  const rowPadding = compactRows ? 'py-2 min-h-[64px]' : 'py-2.5 min-h-[76px]';
 
   return (
     <div className="fixed inset-0 z-[620] flex items-start justify-center px-3 pt-[min(8vh,72px)] sm:px-4" role="presentation">
@@ -460,7 +455,7 @@ export function GlobalSearchModal() {
       />
       <div
         className={cn(
-          'relative z-10 flex w-full max-h-[73vh] max-w-[min(640px,100%)] origin-top flex-col overflow-hidden fill-mode-forwards motion-reduce:transition-none',
+          'relative z-10 flex w-full max-h-[78vh] max-w-[min(1080px,calc(100vw-1.5rem))] origin-top flex-col overflow-hidden fill-mode-forwards motion-reduce:transition-none',
           searchModalPanelClass,
           overlayPanelFromTopClasses(visible),
         )}
@@ -474,34 +469,21 @@ export function GlobalSearchModal() {
         </h2>
 
         {/* Fixed header: chips + input + History / sort */}
-        <div className="shrink-0 border-b border-white/[0.06] px-3 pt-2.5 pb-2">
-          <div className="flex flex-wrap items-center gap-1">
-            <div className="-ml-0.5 flex min-w-0 flex-1 flex-wrap items-center gap-1">
-              {PROTOCOL_CHIPS.map(({ id, label, Icon, protocolLogo, activeClass, idleClass }) => {
-                const on = activeProtocols.has(id);
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => toggleProtocol(id)}
-                    aria-pressed={on}
-                    title="Filters search results only"
-                    className={cn(
-                      'focus-ring inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition',
-                      on ? activeClass : idleClass,
-                    )}
-                  >
-                    {protocolLogo ? (
-                      <ProtocolBrandIcon protocolId={protocolLogo} dotClassName="h-3 w-3" />
-                    ) : (
-                      <Icon className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
-                    )}
-                    {label}
-                  </button>
-                );
-              })}
+        <div className="shrink-0 border-b border-border-subtle px-4 pt-2.5 pb-2 sm:px-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {PROTOCOL_FILTERS.map(({ id, label, protocolLogo, MetaIcon }) => (
+                <SearchProtocolFilterChip
+                  key={id}
+                  label={label}
+                  active={activeProtocols.has(id)}
+                  onClick={() => toggleProtocol(id)}
+                  protocolLogo={protocolLogo}
+                  MetaIcon={MetaIcon}
+                />
+              ))}
               {filtersActive ? (
-                <span className="text-[9px] text-fg-muted">· results only</span>
+                <span className="text-[10px] text-fg-muted">· results only</span>
               ) : null}
             </div>
 
@@ -622,7 +604,7 @@ export function GlobalSearchModal() {
         </div>
 
         {/* Scroll body only */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-bg-raised px-3 py-2">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-bg-raised px-4 py-2 sm:px-5">
           {hasSearchSection ? (
             <section className="mb-3">
               <p className="mb-1 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
@@ -717,30 +699,24 @@ function SearchSkeletonRows({ rowPadding, muted = false }: { rowPadding: string;
     <>
       <ul className={cn('divide-y divide-white/[0.06]', muted && 'opacity-60')}>
         {Array.from({ length: 7 }).map((_, i) => (
-          <li key={`sk-${i}`} className={cn('flex items-center gap-2', rowPadding, 'animate-pulse')}>
-            <div className="h-11 w-11 shrink-0 rounded-sm bg-white/[0.06]" />
+          <li key={`sk-${i}`} className={cn('flex items-center gap-4', rowPadding, 'animate-pulse')}>
+            <div className="h-12 w-12 shrink-0 rounded-sm bg-bg-hover" />
             <div className="min-w-0 flex-1 space-y-2">
               <div
-                className="h-3.5 max-w-[200px] rounded-sm bg-white/[0.06]"
-                style={{ width: `${48 + ((i * 17) % 40)}%` }}
+                className="h-3.5 max-w-[280px] rounded-sm bg-bg-hover"
+                style={{ width: `${52 + ((i * 17) % 36)}%` }}
               />
-              <div className="h-3 w-24 rounded-sm bg-white/[0.04]" />
+              <div className="h-3 w-32 rounded-sm bg-bg-sunken" />
             </div>
-            <div className="hidden gap-4 sm:flex">
-              <div className="space-y-1">
-                <div className="ml-auto h-2 w-6 rounded-sm bg-white/[0.05]" />
-                <div className="h-3 w-12 rounded-sm bg-white/[0.06]" />
-              </div>
-              <div className="space-y-1">
-                <div className="ml-auto h-2 w-4 rounded-sm bg-white/[0.05]" />
-                <div className="h-3 w-10 rounded-sm bg-white/[0.06]" />
-              </div>
-              <div className="space-y-1">
-                <div className="ml-auto h-2 w-4 rounded-sm bg-white/[0.05]" />
-                <div className="h-3 w-11 rounded-sm bg-white/[0.06]" />
-              </div>
+            <div className="hidden shrink-0 gap-8 sm:flex lg:gap-10">
+              {Array.from({ length: 3 }).map((__, j) => (
+                <div key={j} className="w-[5.5rem] space-y-1.5 lg:w-[6.5rem]">
+                  <div className="ml-auto h-2 w-6 rounded-sm bg-bg-sunken" />
+                  <div className="ml-auto h-3.5 w-14 rounded-sm bg-bg-hover" />
+                </div>
+              ))}
             </div>
-            <div className="h-8 w-14 shrink-0 rounded-md bg-white/[0.08]" />
+            <div className="h-10 w-[5.5rem] shrink-0 rounded-md bg-bg-hover sm:h-11 sm:w-[6.5rem]" />
           </li>
         ))}
       </ul>

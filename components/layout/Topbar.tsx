@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -23,15 +24,41 @@ import {
 import { CopilotTopbarSlot } from '@/components/copilot/CopilotTopbarSlot';
 import { ChainSelectDropdown } from '@/components/layout/ChainSelectDropdown';
 import { WebPushControls } from '@/components/layout/WebPushControls';
-import { APP_NAV } from '@/components/layout/navConfig';
-import { DepositHistoryModal } from '@/components/wallet/DepositHistoryModal';
-import { ExchangeModal } from '@/components/wallet/ExchangeModal';
-import { AutoTranslateModal } from '@/components/settings/AutoTranslateModal';
-import { FeatureUpdatesModal } from '@/components/settings/FeatureUpdatesModal';
-import { SettingsModal } from '@/components/settings/SettingsModal';
+import { resolveTopbarNav } from '@/lib/layout/topbarNav';
+import { useTopbarNavStore } from '@/store/topbarNav';
 import { DisplayPopover } from '@/components/preferences/DisplayPopover';
 import { WalletBalancePopover } from '@/components/wallet/WalletBalancePopover';
 import type { ExchangeTab } from '@/components/wallet/ExchangeModal';
+
+const ExchangeModal = dynamic(
+  () => import('@/components/wallet/ExchangeModal').then((m) => ({ default: m.ExchangeModal })),
+  { ssr: false },
+);
+const DepositHistoryModal = dynamic(
+  () =>
+    import('@/components/wallet/DepositHistoryModal').then((m) => ({
+      default: m.DepositHistoryModal,
+    })),
+  { ssr: false },
+);
+const SettingsModal = dynamic(
+  () => import('@/components/settings/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+  { ssr: false },
+);
+const AutoTranslateModal = dynamic(
+  () =>
+    import('@/components/settings/AutoTranslateModal').then((m) => ({
+      default: m.AutoTranslateModal,
+    })),
+  { ssr: false },
+);
+const FeatureUpdatesModal = dynamic(
+  () =>
+    import('@/components/settings/FeatureUpdatesModal').then((m) => ({
+      default: m.FeatureUpdatesModal,
+    })),
+  { ssr: false },
+);
 import { USDC_MINT_MAINNET } from '@/components/wallet/walletFundingConstants';
 import { useUIStore } from '@/store/ui';
 import { useAuthSyncStore } from '@/store/authSync';
@@ -70,6 +97,7 @@ export function Topbar() {
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [exchangeTab, setExchangeTab] = useState<ExchangeTab>('deposit');
   const [depositHistoryOpen, setDepositHistoryOpen] = useState(false);
+  const [walletPopoverOpen, setWalletPopoverOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const openSettings = useUIStore((s) => s.openSettings);
   const [autoTranslateOpen, setAutoTranslateOpen] = useState(false);
@@ -77,6 +105,8 @@ export function Topbar() {
   const avatarMenuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const avatarMenuPresence = useOverlayPresence(avatarMenuOpen, POPOVER_ANIM_CLOSE_MS);
+  const topbarNavOrder = useTopbarNavStore((s) => s.order);
+  const navItems = useMemo(() => resolveTopbarNav(topbarNavOrder), [topbarNavOrder]);
   const squadsRailSide = usePulseSquadsRailStore((s) => s.side);
   const squadsFloatOpen = useTokenDockPeekStore((s) => s.squadsPeekOpen);
   const squadsOpen = squadsRailSide !== 'hidden' || squadsFloatOpen;
@@ -111,6 +141,12 @@ export function Topbar() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [avatarMenuOpen]);
 
+  const needsFullPortfolio =
+    Boolean(pathname?.startsWith('/portfolio')) ||
+    exchangeOpen ||
+    depositHistoryOpen ||
+    walletPopoverOpen;
+
   const portfolioQ = useQuery({
     queryKey: portfolioQueryKey(walletAddress),
     queryFn: () =>
@@ -130,10 +166,29 @@ export function Topbar() {
         walletsReady &&
         walletAddress &&
         activeChain === 'sol' &&
-        mintMatchesAppChain(walletAddress, 'sol'),
+        mintMatchesAppChain(walletAddress, 'sol') &&
+        needsFullPortfolio,
     ),
     staleTime: 60_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
+  });
+
+  const tickersQ = useQuery({
+    queryKey: ['jupiter-tickers'],
+    queryFn: async (): Promise<
+      Array<{ symbol: string; usdPrice: number | null; priceChange24h: number | null }>
+    > => {
+      const res = await fetch('/api/prices/tickers');
+      const json: unknown = await res.json();
+      const arr =
+        json && typeof json === 'object' && 'tickers' in json
+          ? (json as { tickers: Array<{ symbol: string; usdPrice: number | null }> }).tickers
+          : [];
+      return Array.isArray(arr) ? arr : [];
+    },
+    enabled: authenticated && activeChain === 'sol',
+    staleTime: 25_000,
+    refetchInterval: 30_000,
   });
 
   const refreshPortfolio = useCallback(() => {
@@ -151,7 +206,15 @@ export function Topbar() {
     ),
   );
 
-  const solUi = parseLamportsStringToSol(portfolioQ.data?.solLamports);
+  const walletRowSolUi = useMemo(() => {
+    const row = myWalletsQ.data?.wallets?.find((w) => w.wallet_address === walletAddress);
+    return parseLamportsStringToSol(row?.balance_lamports ?? null);
+  }, [myWalletsQ.data?.wallets, walletAddress]);
+
+  const solUi =
+    portfolioQ.data?.solLamports != null
+      ? parseLamportsStringToSol(portfolioQ.data.solLamports)
+      : walletRowSolUi;
 
   const tonBalanceUi = useMemo(() => {
     if (activeChain !== 'ton' || !walletAddress) return null;
@@ -167,13 +230,22 @@ export function Topbar() {
     return rawToUi(h.rawAmount, h.decimals);
   }, [portfolioQ.data?.holdings]);
 
+  const solUsdEstimate = useMemo(() => {
+    if (portfolioQ.data?.solUsd != null && Number.isFinite(portfolioQ.data.solUsd)) {
+      return portfolioQ.data.solUsd;
+    }
+    const solTicker = tickersQ.data?.find((t) => t.symbol === 'SOL');
+    const px = solTicker?.usdPrice;
+    return px != null && Number.isFinite(px) ? px : null;
+  }, [portfolioQ.data?.solUsd, tickersQ.data]);
+
   const totalUsd = useMemo(() => {
     if (activeChain !== 'sol') return null;
-    const px = portfolioQ.data?.solUsd;
     const sol = solUi ?? 0;
-    const solPart = px != null && Number.isFinite(px) ? sol * px : 0;
+    const solPart =
+      solUsdEstimate != null && Number.isFinite(solUsdEstimate) ? sol * solUsdEstimate : 0;
     return solPart + usdcUi;
-  }, [activeChain, portfolioQ.data?.solUsd, solUi, usdcUi]);
+  }, [activeChain, solUsdEstimate, solUi, usdcUi]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -234,7 +306,7 @@ export function Topbar() {
         className="flex max-w-[38%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[32%] sm:gap-1 md:max-w-[30%] lg:max-w-none [&::-webkit-scrollbar]:hidden"
         aria-label="Primary"
       >
-        {APP_NAV.map((item) => {
+        {navItems.map((item) => {
           const active =
             pathname === item.href || pathname?.startsWith(item.href + '/');
           const cls = cn(
@@ -371,6 +443,7 @@ export function Topbar() {
         {authenticated ? (
           <div className="ml-0.5 flex items-center gap-1.5 sm:ml-1 sm:gap-2">
             <WalletBalancePopover
+              onOpenChange={setWalletPopoverOpen}
               totalUsd={totalUsd}
               nativeBalance={headerNativeUi}
               walletAddress={walletAddress}
@@ -508,20 +581,28 @@ export function Topbar() {
       </div>
     </header>
 
-    <ExchangeModal
-      open={exchangeOpen}
-      onOpenChange={setExchangeOpen}
-      initialTab={exchangeTab}
-      walletAddress={walletAddress}
-      nativeBalance={headerNativeUi}
-      usdcBalance={usdcUi}
-      solUsd={portfolioQ.data?.solUsd ?? null}
-      onOpenDepositHistory={() => setDepositHistoryOpen(true)}
-    />
-    <DepositHistoryModal open={depositHistoryOpen} onOpenChange={setDepositHistoryOpen} />
+    {exchangeOpen ? (
+      <ExchangeModal
+        open={exchangeOpen}
+        onOpenChange={setExchangeOpen}
+        initialTab={exchangeTab}
+        walletAddress={walletAddress}
+        nativeBalance={headerNativeUi}
+        usdcBalance={usdcUi}
+        solUsd={portfolioQ.data?.solUsd ?? solUsdEstimate}
+        onOpenDepositHistory={() => setDepositHistoryOpen(true)}
+      />
+    ) : null}
+    {depositHistoryOpen ? (
+      <DepositHistoryModal open={depositHistoryOpen} onOpenChange={setDepositHistoryOpen} />
+    ) : null}
     <SettingsModal />
-    <AutoTranslateModal open={autoTranslateOpen} onClose={() => setAutoTranslateOpen(false)} />
-    <FeatureUpdatesModal open={featureUpdatesOpen} onClose={() => setFeatureUpdatesOpen(false)} />
+    {autoTranslateOpen ? (
+      <AutoTranslateModal open={autoTranslateOpen} onClose={() => setAutoTranslateOpen(false)} />
+    ) : null}
+    {featureUpdatesOpen ? (
+      <FeatureUpdatesModal open={featureUpdatesOpen} onClose={() => setFeatureUpdatesOpen(false)} />
+    ) : null}
     </>
   );
 }

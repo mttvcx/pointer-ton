@@ -93,6 +93,8 @@ type Props = {
   presetSlot: ColumnPulsePresetSlot;
   row: ColumnPresetRowDto | null;
   onSaved: () => void;
+  /** Live row preview while the modal is open (before Apply). */
+  onDisplayPreview?: (patch: Partial<ColumnDisplayOptions>) => void;
 };
 
 function toggleProtocol(
@@ -262,6 +264,7 @@ export function ColumnFilterModal({
   presetSlot,
   row,
   onSaved,
+  onDisplayPreview,
 }: Props) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
@@ -417,40 +420,49 @@ export function ColumnFilterModal({
   }, [open, onKey]);
 
   const saveOne = useMutation({
-    mutationFn: async (opts: { applyAll?: boolean }) => {
+    mutationFn: async (opts: { allColumns?: boolean }) => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const res = await fetch('/api/pulse/column-presets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          column_id: scopeColumn,
-          preset_slot: scopePresetSlot,
-          name: name.trim() || `P${scopePresetSlot}`,
-          filters,
-          display_options: { ...display, density: 'normal' },
-          sort_by: sortBy,
-          sort_dir: sortDir,
-          apply_all_slots: opts.applyAll === true,
-        }),
-      });
-      const json: unknown = await res.json();
-      if (!res.ok) {
-        const o = typeof json === 'object' && json ? (json as Record<string, unknown>) : {};
-        const msg =
-          (typeof o.message === 'string' && o.message) ||
-          (typeof o.error === 'string' && o.error) ||
-          'Save failed';
-        throw new Error(msg);
+      const body = {
+        preset_slot: scopePresetSlot,
+        name: name.trim() || `P${scopePresetSlot}`,
+        filters,
+        display_options: { ...display, density: 'normal' },
+        sort_by: sortBy,
+        sort_dir: sortDir,
+      };
+
+      const columns = opts.allColumns === true ? [...PULSE_COLUMNS] : [scopeColumn];
+
+      for (const col of columns) {
+        const res = await fetch('/api/pulse/column-presets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...body,
+            column_id: col,
+            apply_all_slots: opts.allColumns === true,
+          }),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) {
+          const o = typeof json === 'object' && json ? (json as Record<string, unknown>) : {};
+          const msg =
+            (typeof o.message === 'string' && o.message) ||
+            (typeof o.error === 'string' && o.error) ||
+            'Save failed';
+          throw new Error(msg);
+        }
       }
-      return json;
+
+      return { allColumns: opts.allColumns === true };
     },
     onSuccess: (_, vars) => {
       void qc.invalidateQueries({ queryKey: ['pulse-column-presets'] });
-      toast.success(vars.applyAll ? 'Applied to all presets' : 'Column preset saved');
+      toast.success(vars.allColumns ? 'Applied to all columns' : 'Applied to this column');
       onSaved();
       onClose();
     },
@@ -970,6 +982,7 @@ export function ColumnFilterModal({
                   onChange={(e) => {
                     const v = e.target.value as PulseSecondButtonMode;
                     setDisplay((d) => ({ ...d, pulseSecondButton: v }));
+                    onDisplayPreview?.({ pulseSecondButton: v });
                   }}
                   className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
                 >
@@ -1024,16 +1037,35 @@ export function ColumnFilterModal({
             <button
               type="button"
               disabled={saveOne.isPending}
+              className={modalBtnSecondaryClass}
+              onClick={() => {
+                if (authenticated) {
+                  saveOne.mutate({ allColumns: false });
+                  return;
+                }
+                setLocalColumnFilters(scopeColumn, scopePresetSlot, filters);
+                toast.success('Applied to this column');
+                onSaved();
+                onClose();
+              }}
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              disabled={saveOne.isPending}
               className={modalBtnPrimaryClass}
               onClick={() => {
                 if (authenticated) {
-                  saveOne.mutate({ applyAll: true });
+                  saveOne.mutate({ allColumns: true });
                   return;
                 }
-                for (const slot of [1, 2, 3] as const) {
-                  setLocalColumnFilters(scopeColumn, slot, filters);
+                for (const col of PULSE_COLUMNS) {
+                  for (const slot of [1, 2, 3] as const) {
+                    setLocalColumnFilters(col, slot, filters);
+                  }
                 }
-                toast.success('Filters applied to all presets');
+                toast.success('Applied to all columns');
                 onSaved();
                 onClose();
               }}

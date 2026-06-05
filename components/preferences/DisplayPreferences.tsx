@@ -1,6 +1,7 @@
 'use client';
 
 import { usePreferences } from '@/components/preferences/PreferencesProvider';
+import { TopbarNavReorderRow } from '@/components/preferences/TopbarNavReorderRow';
 import {
   PrefField,
   PrefToggle,
@@ -18,6 +19,10 @@ export function DisplayPreferences() {
 
   return (
     <div className="space-y-5">
+      <TopbarNavReorderRow variant="modal" />
+
+      <div className="border-t border-border-subtle" />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <PrefField label="Row layout">
           <SegmentedControl

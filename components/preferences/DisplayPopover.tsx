@@ -9,6 +9,7 @@ import {
   PrefToggle,
   SegmentedControl,
 } from '@/components/preferences/controls';
+import { TopbarNavReorderRow } from '@/components/preferences/TopbarNavReorderRow';
 import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
 import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { cn } from '@/lib/utils/cn';
@@ -120,6 +121,10 @@ export function DisplayPopover({ variant = 'topbar' }: DisplayPopoverProps) {
           </header>
 
           <div className="space-y-4">
+            <TopbarNavReorderRow variant="popover" />
+
+            <div className="border-t border-border-subtle pt-3" />
+
             <PrefField label="Row layout">
               <SegmentedControl
                 value={prefs.rowDensity}

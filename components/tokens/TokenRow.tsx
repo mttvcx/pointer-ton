@@ -227,13 +227,14 @@ function TokenRowInner({
     !!devWallet && showDev && isTracked(devWallet);
   const trackedDevLabel = trackedDev ? labelFor(devWallet) : null;
   /**
-   * Pulse virtual rows (slotHeight != null) always render Ultra chrome — the
-   * outline emerald square + stacked V/MC column. The store-level `buyButtonStyle`
-   * still controls non-Pulse renderings.
+   * Ultra dock = outline tiles + V/MC in the right column (Axiom Ultra preset only).
+   * Pulse virtual rows with small/medium/large use filled pills at the bottom —
+   * do not treat every Pulse row as Ultra or the full-height dock blocks token clicks.
    */
-  const ultraChrome = buyButtonStyle === 'ultra' || slotHeight != null;
-  /** Pulse virtual rows: Ultra squares must not stretch to full row height (Axiom uses small tiles). */
-  const pulseUltraCompact = slotHeight != null && ultraChrome;
+  const ultraChrome = buyButtonStyle === 'ultra';
+  const pulseRow = slotHeight != null;
+  /** Pulse + Ultra: compact square tiles must not stretch to full row height. */
+  const pulseUltraCompact = pulseRow && ultraChrome;
   const secondMode = display?.pulseSecondButton ?? 'none';
   const secondBuySol = display?.secondQuickBuySol ?? 2;
   const secondSellPct = display?.secondSellPct ?? 25;
@@ -251,11 +252,6 @@ function TokenRowInner({
   const filledBuyStyle: Exclude<BuyButtonStyle, 'ultra'> =
     buyButtonStyle === 'ultra' ? 'medium' : buyButtonStyle;
   const [activeUltraAction, setActiveUltraAction] = useState<UltraActionKey | null>(null);
-
-  useEffect(() => {
-    if (!pulseBuyBusy) setActiveUltraAction(null);
-  }, [pulseBuyBusy]);
-
 
   /** Truncated mint under avatar — Axiom-style hover + custom copy chip (no browser title). */
   const mintCaption = (
@@ -290,7 +286,7 @@ function TokenRowInner({
   };
 
   function triggerQuickBuy() {
-    if (pulseBuyDisabled || pulseBuyBusy) return;
+    if (pulseBuyDisabled) return;
     if (quickBuySol == null || !Number.isFinite(quickBuySol) || quickBuySol <= 0) return;
     setActiveUltraAction('primaryBuy');
     onPulseQuickBuy?.(token.mint);
@@ -506,14 +502,18 @@ function TokenRowInner({
       mcColor: metricBandColorForValue(mcUsd, metricBands.marketCap),
     };
   }, [colorRowByProtocol, vol, mcUsd, metricBands, mcTone]);
-  /**
-   * Pulse dock always uses Ultra outline geometry (full-height emerald border).
-   * Filled bottom-bar chrome only applies off the Pulse virtualized board.
-   */
-  const filledDockButton = slotHeight == null && buyButtonStyle !== 'ultra';
+  /** Ultra dock: outline when `ultra`, solid fill for small/medium/large on Pulse + elsewhere. */
+  const filledDockButton = buyButtonStyle !== 'ultra';
+
+  const hasRightActions = hasPrimaryBuy || showSecondBuy || showSecondSell;
+  /** Pulse + Ultra: right dock with V/MC header + buy tiles (outline or filled). */
+  const useActionDock = hasRightActions && (pulseRow || ultraChrome);
+  const reserveRightActionCol = useActionDock;
+  const dockWidthClass = pulseDockWidthClass(ultraChrome, pulseUltraCompact, filledBuyStyle);
+  const dockReservePadding = pulseDockReservePadding(ultraChrome, pulseUltraCompact, filledBuyStyle);
 
   const heroMcBlock =
-    heroMc && (showVol || showMc) && !ultraChrome ? (
+    heroMc && (showVol || showMc) && !useActionDock ? (
       <PulseRowVolMc
         vol={vol}
         mcUsd={mcUsd}
@@ -525,10 +525,6 @@ function TokenRowInner({
         {...volMcBandProps}
       />
     ) : null;
-
-  /** Reserve horizontal space so token info never sits under the fixed right-side action column (Ultra / quick-buy). */
-  const reserveRightActionCol =
-    ultraChrome && (hasPrimaryBuy || showSecondBuy || showSecondSell);
 
   return (
     <div
@@ -588,10 +584,7 @@ function TokenRowInner({
             'hover:bg-white/[0.04]',
             'focus-visible:bg-bg-hover/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/45',
             slotHeight != null ? 'px-3 pt-4 pb-2' : 'p-3',
-            reserveRightActionCol &&
-              (pulseUltraCompact
-                ? 'pr-[calc(clamp(11rem,35%,16rem)+0.5rem)]'
-                : 'pr-[calc(clamp(7.5rem,32%,14rem)+0.5rem)]'),
+            reserveRightActionCol && dockReservePadding,
           )}
           {...hoverProps}
         >
@@ -616,7 +609,7 @@ function TokenRowInner({
                     {heroMcBlock}
                   </div>
                 </div>
-                {!ultraChrome && !heroMc && (showVol || showMc) ? (
+                {!useActionDock && !heroMc && (showVol || showMc) ? (
                   <div className="pointer-events-none shrink-0 tabular-nums">
                     <PulseRowVolMc
                       vol={vol}
@@ -710,7 +703,7 @@ function TokenRowInner({
         {(canQuickBuy && quickBuySol != null) ||
         showSecondBuy ||
         showSecondSell ? (
-          ultraChrome && (hasPrimaryBuy || showSecondBuy || showSecondSell) ? (
+          useActionDock ? (
             <div
               className={cn(
                 // `pulse-row-action` provides the optional vertical divider via
@@ -730,10 +723,8 @@ function TokenRowInner({
                    * gracefully when the Pulse column is narrow so the dock never forces
                    * column overflow at 100% Chrome zoom.
                    */
-                  'pointer-events-auto relative z-[21] flex h-full min-h-0 min-w-0 shrink-0 flex-col gap-0.5',
-                  pulseUltraCompact
-                    ? 'w-[clamp(11rem,35%,16rem)]'
-                    : 'w-[clamp(7.5rem,32%,14rem)]',
+                  'pointer-events-none relative z-[21] flex h-full min-h-0 min-w-0 shrink-0 flex-col gap-0.5',
+                  dockWidthClass,
                 )}
               >
                 {(showVol || showMc) && !splitPairStrip ? (
@@ -759,35 +750,94 @@ function TokenRowInner({
                 ) : null}
                 <div
                   className={cn(
-                    'relative z-[21] flex min-h-0 flex-1 gap-1.5 items-stretch',
+                    'relative z-[21] flex min-h-0 flex-1 gap-1.5 items-stretch pointer-events-none',
                   )}
                 >
-                {splitPairStrip ? (
-                  <>
-                    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
-                      {showVol ? (
-                        <div
-                          className={cn(
-                            'pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5',
-                          )}
-                        >
-                          <PulseRowVolMc
-                            vol={vol}
-                            mcUsd={mcUsd}
-                            showVol
-                            showMc={false}
-                            size="prominent"
-                            justify="end"
-                            layout="inline"
-                            {...volMcBandProps}
-                          />
+                {ultraChrome ? (
+                  splitPairStrip ? (
+                    <>
+                      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
+                        {showVol ? (
+                          <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                            <PulseRowVolMc
+                              vol={vol}
+                              mcUsd={mcUsd}
+                              showVol
+                              showMc={false}
+                              size="prominent"
+                              justify="end"
+                              layout="inline"
+                              {...volMcBandProps}
+                            />
+                          </div>
+                        ) : null}
+                        <div className="relative z-[21] flex min-h-0 flex-1 justify-end items-stretch">
+                          {showSecondSell ? (
+                            <UltraSellZone
+                              pct={secondSellPct}
+                              pulseGrid={pulseUltraCompact}
+                              filled={filledDockButton}
+                              onSell={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (pulseBuyDisabled) return;
+                                setActiveUltraAction('secondSell');
+                                onPulseQuickSell?.(token.mint);
+                              }}
+                              loading={false}
+                              disabled={pulseBuyDisabled}
+                            />
+                          ) : showSecondBuy && secondBuySol > 0 ? (
+                            <UltraQuickBuyZone
+                              quickBuySol={secondBuySol}
+                              quoteSymbol={quoteSymbol}
+                              pulseGrid={pulseUltraCompact}
+                              filled={filledDockButton}
+                              onBuy={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (pulseBuyDisabled) return;
+                                setActiveUltraAction('secondBuy');
+                                onPulseSecondBuy?.(token.mint);
+                              }}
+                              loading={false}
+                              disabled={pulseBuyDisabled}
+                            />
+                          ) : null}
                         </div>
-                      ) : null}
-                      <div
-                        className={cn(
-                          'relative z-[21] flex min-h-0 flex-1 justify-end items-stretch',
-                        )}
-                      >
+                      </div>
+                      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
+                        {showMc ? (
+                          <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                            <PulseRowVolMc
+                              vol={vol}
+                              mcUsd={mcUsd}
+                              showVol={false}
+                              showMc
+                              size="prominent"
+                              justify="end"
+                              layout="inline"
+                              {...volMcBandProps}
+                            />
+                          </div>
+                        ) : null}
+                        <div className="relative z-[21] flex min-h-0 flex-1 justify-end items-stretch">
+                          {hasPrimaryBuy ? (
+                            <UltraQuickBuyZone
+                              quickBuySol={quickBuySol}
+                              quoteSymbol={quoteSymbol}
+                              pulseGrid={pulseUltraCompact}
+                              filled={filledDockButton}
+                              onBuy={onQuickBuy}
+                              loading={false}
+                              disabled={pulseBuyDisabled}
+                            />
+                          ) : null}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex min-h-0 min-w-0 flex-1 justify-end gap-1.5 items-stretch">
                       {showSecondSell ? (
                         <UltraSellZone
                           pct={secondSellPct}
@@ -796,14 +846,15 @@ function TokenRowInner({
                           onSell={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (pulseBuyDisabled || pulseBuyBusy) return;
+                            if (pulseBuyDisabled) return;
                             setActiveUltraAction('secondSell');
                             onPulseQuickSell?.(token.mint);
                           }}
-                          loading={pulseBuyBusy && activeUltraAction === 'secondSell'}
+                          loading={false}
                           disabled={pulseBuyDisabled}
                         />
-                      ) : showSecondBuy && secondBuySol > 0 ? (
+                      ) : null}
+                      {showSecondBuy && secondBuySol > 0 ? (
                         <UltraQuickBuyZone
                           quickBuySol={secondBuySol}
                           quoteSymbol={quoteSymbol}
@@ -812,40 +863,14 @@ function TokenRowInner({
                           onBuy={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (pulseBuyDisabled || pulseBuyBusy) return;
+                            if (pulseBuyDisabled) return;
                             setActiveUltraAction('secondBuy');
                             onPulseSecondBuy?.(token.mint);
                           }}
-                          loading={pulseBuyBusy && activeUltraAction === 'secondBuy'}
+                          loading={false}
                           disabled={pulseBuyDisabled}
                         />
                       ) : null}
-                      </div>
-                    </div>
-                    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
-                      {showMc ? (
-                        <div
-                          className={cn(
-                            'pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5',
-                          )}
-                        >
-                          <PulseRowVolMc
-                            vol={vol}
-                            mcUsd={mcUsd}
-                            showVol={false}
-                            showMc
-                            size="prominent"
-                            justify="end"
-                            layout="inline"
-                            {...volMcBandProps}
-                          />
-                        </div>
-                      ) : null}
-                      <div
-                        className={cn(
-                          'relative z-[21] flex min-h-0 flex-1 justify-end items-stretch',
-                        )}
-                      >
                       {hasPrimaryBuy ? (
                         <UltraQuickBuyZone
                           quickBuySol={quickBuySol}
@@ -853,69 +878,165 @@ function TokenRowInner({
                           pulseGrid={pulseUltraCompact}
                           filled={filledDockButton}
                           onBuy={onQuickBuy}
-                          loading={pulseBuyBusy && activeUltraAction === 'primaryBuy'}
+                          loading={false}
                           disabled={pulseBuyDisabled}
                         />
                       ) : null}
-                      </div>
                     </div>
-                  </>
+                  )
                 ) : (
                   <div
                     className={cn(
-                      'flex min-h-0 min-w-0 flex-1 justify-end gap-1.5 items-stretch',
+                      'min-h-0 w-full flex-1 pb-2 pr-2.5',
+                      splitPairStrip
+                        ? 'grid grid-cols-2 gap-1 px-0.5'
+                        : 'flex flex-col justify-end',
                     )}
                   >
-                    {showSecondSell ? (
-                      <UltraSellZone
-                        pct={secondSellPct}
-                        pulseGrid={pulseUltraCompact}
-                        filled={filledDockButton}
-                        onSell={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (pulseBuyDisabled || pulseBuyBusy) return;
-                          setActiveUltraAction('secondSell');
-                          onPulseQuickSell?.(token.mint);
-                        }}
-                        loading={pulseBuyBusy && activeUltraAction === 'secondSell'}
-                        disabled={pulseBuyDisabled}
-                      />
-                    ) : null}
-                    {showSecondBuy && secondBuySol > 0 ? (
-                      <UltraQuickBuyZone
-                        quickBuySol={secondBuySol}
-                        quoteSymbol={quoteSymbol}
-                        pulseGrid={pulseUltraCompact}
-                        filled={filledDockButton}
-                        onBuy={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (pulseBuyDisabled || pulseBuyBusy) return;
-                          setActiveUltraAction('secondBuy');
-                          onPulseSecondBuy?.(token.mint);
-                        }}
-                        loading={pulseBuyBusy && activeUltraAction === 'secondBuy'}
-                        disabled={pulseBuyDisabled}
-                      />
-                    ) : null}
-                    {hasPrimaryBuy ? (
-                      <UltraQuickBuyZone
-                        quickBuySol={quickBuySol}
-                        quoteSymbol={quoteSymbol}
-                        pulseGrid={pulseUltraCompact}
-                        filled={filledDockButton}
-                        onBuy={onQuickBuy}
-                        loading={pulseBuyBusy && activeUltraAction === 'primaryBuy'}
-                        disabled={pulseBuyDisabled}
-                      />
-                    ) : null}
+                    {splitPairStrip ? (
+                      <>
+                        <div className="relative flex min-h-0 min-w-0 flex-col">
+                          {showVol ? (
+                            <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                              <PulseRowVolMc
+                                vol={vol}
+                                mcUsd={mcUsd}
+                                showVol
+                                showMc={false}
+                                size="prominent"
+                                justify="end"
+                                layout="inline"
+                                {...volMcBandProps}
+                              />
+                            </div>
+                          ) : null}
+                          <div className="mt-auto flex min-w-0 items-end justify-end">
+                            {showSecondSell ? (
+                              <SellPctPill
+                                pct={secondSellPct}
+                                onSell={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (pulseBuyDisabled) return;
+                                  onPulseQuickSell?.(token.mint);
+                                }}
+                                loading={false}
+                                disabled={pulseBuyDisabled}
+                                pulseFit={pulseRow}
+                                className="pointer-events-auto w-full min-w-0 max-w-none"
+                              />
+                            ) : showSecondBuy && secondBuySol > 0 ? (
+                              <QuickBuyPill
+                                quickBuySol={secondBuySol}
+                                style={filledBuyStyle}
+                                onBuy={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (pulseBuyDisabled) return;
+                                  onPulseSecondBuy?.(token.mint);
+                                }}
+                                loading={false}
+                                disabled={pulseBuyDisabled}
+                                pulseFit={pulseRow}
+                                quoteSymbol={quoteSymbol}
+                                className="pointer-events-auto w-full min-w-0 max-w-none"
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="relative flex min-h-0 min-w-0 flex-col">
+                          {showMc ? (
+                            <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                              <PulseRowVolMc
+                                vol={vol}
+                                mcUsd={mcUsd}
+                                showVol={false}
+                                showMc
+                                size="prominent"
+                                justify="end"
+                                layout="inline"
+                                {...volMcBandProps}
+                              />
+                            </div>
+                          ) : null}
+                          <div className="mt-auto flex min-w-0 items-end justify-end">
+                            {hasPrimaryBuy ? (
+                              <QuickBuyPill
+                                quickBuySol={quickBuySol}
+                                style={filledBuyStyle}
+                                onBuy={onQuickBuy}
+                                loading={false}
+                                disabled={pulseBuyDisabled}
+                                pulseFit={pulseRow}
+                                quoteSymbol={quoteSymbol}
+                                className="pointer-events-auto w-full min-w-0 max-w-none"
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div
+                        className={cn(
+                          'flex w-full items-end justify-end gap-1.5',
+                          filledBuyStyle === 'large' && pulseRow && 'min-h-0 flex-1 flex-col',
+                        )}
+                      >
+                        {showSecondSell ? (
+                          <SellPctPill
+                            pct={secondSellPct}
+                            onSell={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (pulseBuyDisabled) return;
+                              onPulseQuickSell?.(token.mint);
+                            }}
+                            loading={false}
+                            disabled={pulseBuyDisabled}
+                            pulseFit={pulseRow}
+                            className="pointer-events-auto"
+                          />
+                        ) : null}
+                        {showSecondBuy && secondBuySol > 0 ? (
+                          <QuickBuyPill
+                            quickBuySol={secondBuySol}
+                            style={filledBuyStyle}
+                            onBuy={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (pulseBuyDisabled) return;
+                              onPulseSecondBuy?.(token.mint);
+                            }}
+                            loading={false}
+                            disabled={pulseBuyDisabled}
+                            pulseFit={pulseRow}
+                            quoteSymbol={quoteSymbol}
+                            className="pointer-events-auto"
+                          />
+                        ) : null}
+                        {hasPrimaryBuy ? (
+                          <QuickBuyPill
+                            quickBuySol={quickBuySol}
+                            style={filledBuyStyle}
+                            onBuy={onQuickBuy}
+                            loading={false}
+                            disabled={pulseBuyDisabled}
+                            pulseFit={pulseRow}
+                            quoteSymbol={quoteSymbol}
+                            className={cn(
+                              'pointer-events-auto',
+                              filledBuyStyle === 'large' && pulseRow && 'mt-auto w-[calc(100%-0.5rem)]',
+                            )}
+                          />
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 )}
                 </div>
               </div>
             </div>
-          ) : !ultraChrome ? (
+          ) : hasRightActions ? (
             <div
               className={cn(
                 // Mirrors the Ultra branch — same preference hook so the divider
@@ -941,10 +1062,10 @@ function TokenRowInner({
                             onSell={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              if (pulseBuyDisabled || pulseBuyBusy) return;
+                              if (pulseBuyDisabled) return;
                               onPulseQuickSell?.(token.mint);
                             }}
-                            loading={pulseBuyBusy}
+                            loading={false}
                             disabled={pulseBuyDisabled}
                             pulseFit={slotHeight != null}
                             className="w-full min-w-0 max-w-none"
@@ -956,10 +1077,10 @@ function TokenRowInner({
                             onBuy={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              if (pulseBuyDisabled || pulseBuyBusy) return;
+                              if (pulseBuyDisabled) return;
                               onPulseSecondBuy?.(token.mint);
                             }}
-                            loading={pulseBuyBusy}
+                            loading={false}
                             disabled={pulseBuyDisabled}
                             pulseFit={slotHeight != null}
                             quoteSymbol={quoteSymbol}
@@ -973,7 +1094,7 @@ function TokenRowInner({
                             quickBuySol={quickBuySol}
                             style={filledBuyStyle}
                             onBuy={onQuickBuy}
-                            loading={pulseBuyBusy}
+                            loading={false}
                             disabled={pulseBuyDisabled}
                             pulseFit={slotHeight != null}
                             quoteSymbol={quoteSymbol}
@@ -990,10 +1111,10 @@ function TokenRowInner({
                           onSell={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (pulseBuyDisabled || pulseBuyBusy) return;
+                            if (pulseBuyDisabled) return;
                             onPulseQuickSell?.(token.mint);
                           }}
-                          loading={pulseBuyBusy}
+                          loading={false}
                           disabled={pulseBuyDisabled}
                           pulseFit={slotHeight != null}
                         />
@@ -1005,10 +1126,10 @@ function TokenRowInner({
                           onBuy={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (pulseBuyDisabled || pulseBuyBusy) return;
+                            if (pulseBuyDisabled) return;
                             onPulseSecondBuy?.(token.mint);
                           }}
-                          loading={pulseBuyBusy}
+                          loading={false}
                           disabled={pulseBuyDisabled}
                           pulseFit={slotHeight != null}
                           quoteSymbol={quoteSymbol}
@@ -1019,7 +1140,7 @@ function TokenRowInner({
                           quickBuySol={quickBuySol}
                           style={filledBuyStyle}
                           onBuy={onQuickBuy}
-                          loading={pulseBuyBusy}
+                          loading={false}
                           disabled={pulseBuyDisabled}
                           pulseFit={slotHeight != null}
                           quoteSymbol={quoteSymbol}
@@ -1037,13 +1158,88 @@ function TokenRowInner({
   );
 }
 
+function pulseDockWidthClass(
+  ultra: boolean,
+  ultraCompact: boolean,
+  filledStyle: Exclude<BuyButtonStyle, 'ultra'>,
+): string {
+  if (ultra) {
+    return ultraCompact
+      ? 'w-[clamp(11rem,35%,16rem)]'
+      : 'w-[clamp(7.5rem,32%,14rem)]';
+  }
+  if (filledStyle === 'small') return 'w-[clamp(6.25rem,28%,9.5rem)]';
+  if (filledStyle === 'large') return 'w-[clamp(9.5rem,38%,16.5rem)]';
+  return 'w-[clamp(7.25rem,32%,13.5rem)]';
+}
+
+function pulseDockReservePadding(
+  ultra: boolean,
+  ultraCompact: boolean,
+  filledStyle: Exclude<BuyButtonStyle, 'ultra'>,
+): string {
+  if (ultra) {
+    return ultraCompact
+      ? 'pr-[calc(clamp(11rem,35%,16rem)+0.5rem)]'
+      : 'pr-[calc(clamp(7.5rem,32%,14rem)+0.5rem)]';
+  }
+  if (filledStyle === 'small') return 'pr-[calc(clamp(6.25rem,28%,9.5rem)+0.5rem)]';
+  if (filledStyle === 'large') return 'pr-[calc(clamp(9.5rem,38%,16.5rem)+0.5rem)]';
+  return 'pr-[calc(clamp(7.25rem,32%,13.5rem)+0.5rem)]';
+}
+
+function quickBuyPillSizeClasses(
+  style: Exclude<BuyButtonStyle, 'ultra'>,
+  pulseFit?: boolean,
+): string {
+  const base =
+    'btn-press focus-ring inline-flex min-w-0 max-w-full items-center justify-center font-sans tabular-nums leading-none transition-colors';
+
+  switch (style) {
+    case 'small':
+      return cn(
+        base,
+        pulseFit
+          ? 'h-6 max-h-6 gap-0.5 rounded px-1.5 text-[10px] font-medium'
+          : 'h-7 gap-1 rounded-md px-2 text-[10px] font-medium',
+        'border-0 bg-signal-bull/10 text-signal-bull hover:bg-signal-bull/16 active:bg-signal-bull/22',
+      );
+    case 'large':
+      return cn(
+        base,
+        pulseFit
+          ? 'h-11 min-h-[2.75rem] max-h-12 gap-1.5 rounded-[6px] px-3 text-xs font-semibold'
+          : 'h-10 min-h-10 gap-1.5 rounded-md px-4 text-xs font-semibold',
+        'border border-signal-bull bg-signal-bull text-[#030806]',
+        'shadow-[0_4px_22px_-10px_rgba(52,211,153,0.55)]',
+        'hover:border-signal-bull hover:bg-signal-bull/95 active:bg-signal-bull/85',
+      );
+    case 'medium':
+    default:
+      return cn(
+        base,
+        pulseFit
+          ? 'h-8 max-h-8 min-h-8 gap-1 rounded-md px-2.5 text-[11px] font-medium'
+          : 'h-8 gap-1 rounded-md px-2.5 text-[11px] font-medium',
+        'border border-signal-bull/45 bg-signal-bull/25 text-signal-bull',
+        'hover:border-signal-bull/60 hover:bg-signal-bull/32 active:bg-signal-bull/40',
+      );
+  }
+}
+
+function quickBuyPillIconClass(style: Exclude<BuyButtonStyle, 'ultra'>): string {
+  if (style === 'small') return 'h-2.5 w-2.5 shrink-0';
+  if (style === 'large') return 'h-3.5 w-3.5 shrink-0 fill-[#030806] text-[#030806]';
+  return 'h-3 w-3 shrink-0';
+}
+
 function QuickBuyPill({
   quickBuySol,
-  style: _style,
+  style,
   onBuy,
   loading,
   disabled,
-  pulseFit: _pulseFit,
+  pulseFit,
   quoteSymbol = 'TON',
   className,
 }: {
@@ -1059,13 +1255,9 @@ function QuickBuyPill({
 }) {
   const labelAmount = formatSolDraft(quickBuySol) || String(quickBuySol);
 
-  /**
-   * Axiom/Trojan-style subtle tinted pill. `style` / `pulseFit` still accepted (signature stable)
-   * but no longer drive chrome variants — visual treatment is uniform per the polish spec.
-   */
   const btn = cn(
-    'btn-press focus-ring inline-flex h-5 min-w-0 max-w-full items-center justify-center gap-1 rounded border-0 bg-signal-bull/10 px-2 font-sans text-xs font-medium leading-none text-signal-bull transition-colors hover:bg-signal-bull/15 active:bg-signal-bull/20',
-    (disabled || loading) && 'pointer-events-none opacity-55',
+    quickBuyPillSizeClasses(style, pulseFit),
+    disabled && 'pointer-events-none opacity-55',
     className,
   );
 
@@ -1073,14 +1265,14 @@ function QuickBuyPill({
     <button
       type="button"
       onClick={onBuy}
-      disabled={disabled || loading}
+      disabled={disabled}
       className={btn}
       aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
     >
       {loading ? (
-        <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+        <Loader2 className={cn(quickBuyPillIconClass(style), 'animate-spin')} aria-hidden />
       ) : (
-        <Zap className="h-3 w-3 inline shrink-0" aria-hidden />
+        <Zap className={cn(quickBuyPillIconClass(style), 'inline')} aria-hidden />
       )}
       <span className="min-w-0 truncate">{`${labelAmount} ${quoteSymbol}`}</span>
     </button>
@@ -1110,21 +1302,17 @@ function SellPctPill({
     <button
       type="button"
       onClick={onSell}
-      disabled={disabled || loading}
+      disabled={disabled}
       className={cn(
         'btn-press focus-ring pointer-events-auto inline-flex min-w-0 max-w-full items-center justify-center rounded-md border border-red-400/45 bg-bg-base/95 font-sans font-semibold tabular-nums tracking-normal text-red-300/95 transition hover:border-red-400/70 hover:bg-red-500/10',
         sizeCls,
-        (disabled || loading) && 'pointer-events-none opacity-55',
+        disabled && 'pointer-events-none opacity-55',
         className,
       )}
       title={`Sell ${pct}% of your balance for this token`}
       aria-label={`Sell ${pct} percent`}
     >
-      {loading ? (
-        <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
-      ) : (
-        <span>{`Sell ${pct}%`}</span>
-      )}
+      <span>{`Sell ${pct}%`}</span>
     </button>
   );
 }
@@ -1161,7 +1349,7 @@ function UltraQuickBuyZone({
     <button
       type="button"
       onClick={onBuy}
-      disabled={disabled || loading}
+      disabled={disabled}
       className={cn(
         /**
          * Shared chrome — transition, focus ring, rounded corners.
@@ -1171,7 +1359,7 @@ function UltraQuickBuyZone({
          *     the right edge + lifted off the bottom edge so it reads as a button,
          *     not a flush slab. Chip centered, V/MC stays visible above.
          */
-        'focus-ring relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-sans font-semibold tabular-nums tracking-normal transition-all duration-200',
+        'focus-ring pointer-events-auto relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-sans font-semibold tabular-nums tracking-normal transition-all duration-200',
         filled
           ? 'h-1/3 w-[calc(100%-0.625rem)] self-end mr-2.5 mb-2 items-center justify-center px-2 py-1'
           : 'h-full w-full flex-col items-end justify-end p-2 pb-2.5 pr-2.5',
@@ -1191,28 +1379,29 @@ function UltraQuickBuyZone({
         'disabled:pointer-events-none disabled:opacity-55',
       )}
       aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
-      aria-busy={loading}
     >
-      {loading ? (
-        <Loader2
+      <span
+        className={cn(
+          'flex shrink-0 items-center gap-1 text-[10px] leading-none sm:text-[11px]',
+          loading && 'opacity-0',
+        )}
+      >
+        <Zap
           className={cn(
-            'absolute left-1/2 top-1/2 h-4 w-4 shrink-0 -translate-x-1/2 -translate-y-1/2 animate-spin',
-            filled ? 'text-[#030806]' : 'text-emerald-400',
+            'h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5',
+            filled ? 'fill-[#030806] text-[#030806]' : 'fill-emerald-400/35 text-emerald-400',
           )}
           aria-hidden
         />
-      ) : (
-        <span className="flex shrink-0 items-center gap-1 text-[10px] leading-none sm:text-[11px]">
-          <Zap
-            className={cn(
-              'h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5',
-              filled ? 'fill-[#030806] text-[#030806]' : 'fill-emerald-400/35 text-emerald-400',
-            )}
-            aria-hidden
+        <span className="min-w-0 text-right">{`${labelAmount} ${quoteSymbol}`}</span>
+      </span>
+      {loading ? (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+          <Loader2
+            className={cn('h-4 w-4 shrink-0 animate-spin', filled ? 'text-[#030806]' : 'text-emerald-400')}
           />
-          <span className="min-w-0 text-right">{`${labelAmount} ${quoteSymbol}`}</span>
         </span>
-      )}
+      ) : null}
     </button>
   );
 }
@@ -1240,9 +1429,9 @@ function UltraSellZone({
     <button
       type="button"
       onClick={onSell}
-      disabled={disabled || loading}
+      disabled={disabled}
       className={cn(
-        'focus-ring relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-semibold tabular-nums transition-all duration-200',
+        'focus-ring pointer-events-auto relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-semibold tabular-nums transition-all duration-200',
         filled
           ? 'h-1/3 w-[calc(100%-0.625rem)] self-end mr-2.5 mb-2 items-center justify-center px-2 py-1'
           : 'h-full w-full flex-col items-end justify-end p-2 pb-2.5 pr-2.5',
@@ -1264,17 +1453,21 @@ function UltraSellZone({
       title={`Sell ${pct}% of your balance for this token`}
       aria-label={`Sell ${pct} percent`}
     >
+      <span
+        className={cn(
+          'shrink-0 text-right text-[10px] leading-none sm:text-[11px]',
+          loading && 'opacity-0',
+        )}
+      >
+        {`Sell ${pct}%`}
+      </span>
       {loading ? (
-        <Loader2
-          className={cn(
-            'absolute left-1/2 top-1/2 h-3.5 w-3.5 shrink-0 -translate-x-1/2 -translate-y-1/2 animate-spin',
-            filled ? 'text-[#1a0407]' : 'text-rose-300',
-          )}
-          aria-hidden
-        />
-      ) : (
-        <span className="shrink-0 text-right text-[10px] leading-none sm:text-[11px]">{`Sell ${pct}%`}</span>
-      )}
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+          <Loader2
+            className={cn('h-3.5 w-3.5 shrink-0 animate-spin', filled ? 'text-[#1a0407]' : 'text-rose-300')}
+          />
+        </span>
+      ) : null}
     </button>
   );
 }

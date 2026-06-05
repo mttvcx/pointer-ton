@@ -57,16 +57,21 @@ export default async function TokenDetailPage({
     notFound();
   }
 
-  const token = await ensureTokenRowFromDas(mint);
+  const [token, snapshotInitial] = await Promise.all([
+    ensureTokenRowFromDas(mint),
+    getLatestSnapshotForMint(mint),
+  ]);
   if (!token) {
     notFound();
   }
 
-  let snapshot = await getLatestSnapshotForMint(mint);
+  let snapshot = snapshotInitial;
   if (mint === PULSE_X_HOVER_QA_MINT && demoFixturesEnabledServer()) {
     snapshot = pulseTwitterProfileHoverTestBundle('sol')?.snapshot ?? snapshot;
   }
-  const dev = token.creator_wallet ? await getDevWalletStats(token.creator_wallet) : null;
+  const dev = token.creator_wallet
+    ? await getDevWalletStats(token.creator_wallet)
+    : null;
   const supplyTokens = extractSupplyTokens(token.raw_metadata);
 
   return (

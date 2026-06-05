@@ -45,25 +45,43 @@ export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserR
 
   if (error) throw new Error(`upsertUserFromPrivy failed: ${error.message}`);
 
-  try {
-    const { ensureDefaultTradingPresets } = await import('@/lib/db/presets');
-    await ensureDefaultTradingPresets(data.id);
-  } catch (e) {
-    console.warn('[users] ensureDefaultTradingPresets:', e instanceof Error ? e.message : e);
-  }
+  const [
+    presetsResult,
+    columnPresetsResult,
+    trackerGroupsResult,
+  ] = await Promise.allSettled([
+    import('@/lib/db/presets').then(({ ensureDefaultTradingPresets }) =>
+      ensureDefaultTradingPresets(data.id),
+    ),
+    import('@/lib/db/columnPresets').then(({ ensureDefaultColumnPresets }) =>
+      ensureDefaultColumnPresets(data.id),
+    ),
+    import('@/lib/db/trackerGroups').then(({ ensureStarterTrackerGroups }) =>
+      ensureStarterTrackerGroups(data.id),
+    ),
+  ]);
 
-  try {
-    const { ensureDefaultColumnPresets } = await import('@/lib/db/columnPresets');
-    await ensureDefaultColumnPresets(data.id);
-  } catch (e) {
-    console.warn('[users] ensureDefaultColumnPresets:', e instanceof Error ? e.message : e);
+  if (presetsResult.status === 'rejected') {
+    console.warn(
+      '[users] ensureDefaultTradingPresets:',
+      presetsResult.reason instanceof Error ? presetsResult.reason.message : presetsResult.reason,
+    );
   }
-
-  try {
-    const { ensureStarterTrackerGroups } = await import('@/lib/db/trackerGroups');
-    await ensureStarterTrackerGroups(data.id);
-  } catch (e) {
-    console.warn('[users] ensureStarterTrackerGroups:', e instanceof Error ? e.message : e);
+  if (columnPresetsResult.status === 'rejected') {
+    console.warn(
+      '[users] ensureDefaultColumnPresets:',
+      columnPresetsResult.reason instanceof Error
+        ? columnPresetsResult.reason.message
+        : columnPresetsResult.reason,
+    );
+  }
+  if (trackerGroupsResult.status === 'rejected') {
+    console.warn(
+      '[users] ensureStarterTrackerGroups:',
+      trackerGroupsResult.reason instanceof Error
+        ? trackerGroupsResult.reason.message
+        : trackerGroupsResult.reason,
+    );
   }
 
   return data;

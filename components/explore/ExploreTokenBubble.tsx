@@ -109,7 +109,7 @@ export function ExploreTokenBubble({
   endDrag,
 }: Props) {
   const { authenticated } = usePointerAuth();
-  const { buyToken, busyMint } = usePulseQuickBuy();
+  const { buyToken } = usePulseQuickBuy();
   const quickSol = usePulseColumnStore((s) => s.byColumn.new.quickBuySol);
   const buyAmt =
     typeof quickSol === 'number' && Number.isFinite(quickSol) && quickSol > 0
@@ -290,12 +290,8 @@ export function ExploreTokenBubble({
         : 'ring-1 ring-white/[0.08]';
   const hue = monogramHue(item.tokenAddress);
 
-  const buyDisabled = !authenticated || busyMint !== null;
-  const buyTitle = !authenticated
-    ? 'Sign in to trade'
-    : busyMint
-      ? 'Executing…'
-      : `Quick buy ${buyAmt} SOL`;
+  const buyDisabled = !authenticated;
+  const buyTitle = !authenticated ? 'Sign in to trade' : `Quick buy ${buyAmt} SOL`;
 
   const tooltip = showTooltip
     ? createPortal(
@@ -393,12 +389,12 @@ export function ExploreTokenBubble({
               </button>
               <button
                 type="button"
-                disabled={buyDisabled || busyMint === item.tokenAddress}
+                disabled={buyDisabled}
                 title={buyTitle}
                 className="btn-press flex h-8 min-w-0 items-center justify-center rounded-lg bg-accent-primary px-2 text-[11px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-35"
                 onClick={() => void buyToken(item.tokenAddress, buyAmt)}
               >
-                {busyMint === item.tokenAddress ? 'Buying…' : `Buy ${buyAmt} SOL`}
+                {`Buy ${buyAmt} SOL`}
               </button>
             </div>
           </div>
@@ -605,7 +601,7 @@ export function ExploreTokenBubble({
             </Link>
             <button
               type="button"
-              disabled={busyMint !== null || !authenticated}
+              disabled={!authenticated}
               className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-bg-hover disabled:opacity-35"
               onClick={() => {
                 setCtxMenu(null);

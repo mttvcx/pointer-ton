@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils/cn';
 import { useWatchlistStore } from '@/store/watchlist';
 
 function RailDivider() {
-  return <span className="mx-0.5 hidden h-3.5 w-px bg-white/[0.1] sm:block" aria-hidden />;
+  return <span className="mx-0.5 hidden h-3.5 w-px bg-border-subtle sm:block" aria-hidden />;
 }
 
 function RailIconButton({
@@ -35,10 +35,10 @@ function RailIconButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'rounded-md p-1.5 transition',
+        'rounded-md p-1.5 transition-colors',
         active
-          ? 'bg-white/[0.08] text-fg-primary'
-          : 'text-fg-muted hover:bg-white/[0.06] hover:text-fg-primary',
+          ? 'bg-bg-hover text-fg-primary'
+          : 'text-fg-muted hover:bg-bg-hover hover:text-fg-primary',
       )}
     >
       {children}
@@ -69,19 +69,19 @@ export function BottomBarStatusRail({
     status === 'stable' ? 'Stable' : status === 'degraded' ? 'Slow' : 'Offline';
   const statusColor =
     status === 'stable'
-      ? 'text-[#3ddc97]'
+      ? 'text-signal-bull'
       : status === 'degraded'
         ? 'text-signal-warn'
         : 'text-signal-bear';
   const dotColor =
-    status === 'stable' ? 'bg-[#3ddc97]' : status === 'degraded' ? 'bg-signal-warn' : 'bg-signal-bear';
+    status === 'stable' ? 'bg-signal-bull' : status === 'degraded' ? 'bg-signal-warn' : 'bg-signal-bear';
 
   return (
     <>
-      <div className="flex h-[2.5rem] shrink-0 items-center gap-0.5 sm:gap-1">
+      <div className="flex h-full shrink-0 items-center gap-0.5 overflow-visible sm:gap-1">
         <span
           className={cn(
-            'hidden h-full items-center gap-1.5 px-1 text-[11px] font-medium leading-none md:inline-flex',
+            'hidden items-center gap-1.5 px-1 text-[11px] font-medium leading-none md:inline-flex',
             statusColor,
           )}
           title={`Connection ${statusLabel.toLowerCase()}`}
@@ -113,7 +113,7 @@ export function BottomBarStatusRail({
         <DiagnosticsTriggerButton
           compactMobile
           onClick={onOpenDiagnostics}
-          className="!rounded-md !px-1.5 !py-1.5 !text-[11px] !font-medium !text-fg-muted hover:!bg-white/[0.06] hover:!text-fg-primary"
+          className="!rounded-md !px-1.5 !py-1.5 !text-[11px] !font-medium !text-fg-muted hover:!bg-bg-hover hover:!text-fg-primary"
         />
 
         <RailDivider />
@@ -123,7 +123,7 @@ export function BottomBarStatusRail({
           target="_blank"
           rel="noreferrer"
           title="Discord"
-          className="rounded-md p-1.5 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+          className="rounded-md p-1.5 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
         >
           <DiscordLogo className="h-3.5 w-[18px] shrink-0" />
         </a>
@@ -132,14 +132,14 @@ export function BottomBarStatusRail({
           target="_blank"
           rel="noreferrer"
           title="X"
-          className="rounded-md p-1.5 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+          className="rounded-md p-1.5 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
         >
           <XIcon className="h-3.5 w-3.5" />
         </a>
         <a
           href="/pulse"
           title="Docs"
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] font-medium text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] font-medium text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
         >
           <BookOpen className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span className="hidden lg:inline">Docs</span>

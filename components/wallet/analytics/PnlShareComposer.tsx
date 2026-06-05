@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownUp,
+  ChevronDown,
   Copy,
   Download,
   Image as ImageIcon,
@@ -11,12 +12,11 @@ import {
   Paintbrush,
   Pause,
   Play,
-  Settings2,
   Trash2,
   Video as VideoIcon,
   Volume2,
   VolumeX,
-  Share2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PnlShareCard } from '@/components/wallet/analytics/PnlShareCard';
@@ -31,6 +31,7 @@ import {
   SHARE_VIDEO_MAX_DURATION_SEC,
   SHARE_IMAGE_MAX_BYTES,
 } from '@/lib/share/types';
+import { shareCardTheme } from '@/lib/share/shareCardTheme';
 import { accentHex as pickAccentHex } from '@/lib/share/videoCanvasFrame';
 import { formatCompactUsd } from '@/lib/utils/formatters';
 import { idbDeleteBlob, idbGetBlob, idbPutBlob } from '@/lib/share/localMediaDb';
@@ -39,8 +40,19 @@ import { useShareComposerState } from '@/hooks/useShareComposerState';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import {
+  modalBackdropClass,
+  modalBtnPrimaryClass,
+  modalBtnSecondaryClass,
+  modalCloseBtnClass,
+  modalPanelClass,
+  modalSectionLabelClass,
+} from '@/lib/ui/modalChrome';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
+
+const TOOL_BTN =
+  'inline-flex h-8 items-center gap-1.5 rounded-sm border border-border-subtle bg-bg-sunken px-2.5 text-[11px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary disabled:opacity-45';
 
 function filenameBase(token: string, wallet: string) {
   const ts = Date.now();
@@ -83,7 +95,6 @@ export function PnlShareComposer() {
   const [busy, setBusy] = useState<'png' | 'copy' | 'video' | null>(null);
   const [showCustomize, setShowCustomize] = useState(false);
   const [videoProg, setVideoProg] = useState(0);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [videoMuted, setVideoMuted] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
 
@@ -256,6 +267,11 @@ export function PnlShareComposer() {
       : `${displayPayloadStable.walletAddress}|${displayPayloadStable.tokenTicker}|${composer.chainTicker}|${displayPayloadStable.pnlUsd ?? ''}`
     : '';
 
+  const pngExportBg =
+    (composer.mode === 'video' && customVideoUrl) || (composer.mode === 'image' && customImageUrl)
+      ? null
+      : '#05000a';
+
   const onDownloadPng = async () => {
     const p = displayPayloadStable;
     if (!cardRef.current || !p) return;
@@ -266,6 +282,7 @@ export function PnlShareComposer() {
         shareKind === 'monthly' && shareHeader
           ? `pointer-monthly-pnl-${shareHeader.replace(/\s+/g, '-').toLowerCase()}.png`
           : `${filenameBase(p.tokenTicker, p.walletAddress)}.png`,
+        { backgroundColor: pngExportBg },
       );
       toast.success('PNG downloaded');
     } catch {
@@ -279,7 +296,7 @@ export function PnlShareComposer() {
     if (!cardRef.current) return;
     setBusy('copy');
     try {
-      const ok = await copyShareImagePng(cardRef.current);
+      const ok = await copyShareImagePng(cardRef.current, { backgroundColor: pngExportBg });
       if (ok) toast.success('Image copied');
       else {
         toast.error('Clipboard not supported — use Download');
@@ -310,8 +327,8 @@ export function PnlShareComposer() {
       });
       const blob = await exportShareVideoWebm({
         videoEl: vid,
-        width: 1280,
-        height: 720,
+        width: 1536,
+        height: 1024,
         overlay: composer.overlay,
         cardArgs: {
           ticker: p.tokenTicker,
@@ -364,49 +381,43 @@ export function PnlShareComposer() {
   const referralCode = referralQ.data?.code ?? 'POINTER';
 
   return (
-    <div className="fixed inset-0 z-[570] flex items-center justify-center p-3 sm:p-6">
+    <div className="fixed inset-0 z-[570] flex items-center justify-center p-3 sm:p-5">
       <button
         type="button"
-        className={cn(
-          'absolute inset-0 bg-black/78 backdrop-blur-lg',
-          overlayBackdropClasses(overlayVisible),
-          'fill-mode-forwards',
-        )}
+        className={cn(modalBackdropClass, overlayBackdropClasses(overlayVisible), 'fill-mode-forwards')}
         onClick={() => close()}
+        aria-label="Close share composer"
       />
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="pnl-share-title"
         className={cn(
-          'relative flex max-h-[94vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#05080d]/[0.98] shadow-[0_36px_130px_-48px_rgba(0,0,0,1)] fill-mode-forwards',
+          modalPanelClass,
+          'relative z-10 max-h-[92vh] w-full max-w-[720px] fill-mode-forwards',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-white/[0.065] px-5 py-3.5">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-fg-muted">
-              {shareKind === 'monthly' ? 'Share Monthly PNL' : 'PNL Share Composer'}
-            </p>
-            <p className="mt-1 text-[12px] text-fg-secondary">
+        <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-5">
+          <div className="min-w-0">
+            <h2 id="pnl-share-title" className="text-[15px] font-semibold text-fg-primary">
+              {shareKind === 'monthly' ? 'Share monthly PNL' : 'Share PNL'}
+            </h2>
+            <p className="mt-0.5 truncate text-[12px] text-fg-muted">
               {shareKind === 'monthly' && shareHeader
                 ? shareHeader
                 : `${d.tokenTicker} · ${shortenAddress(d.walletAddress, 5)}`}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => close()}
-            className="rounded-md px-2.5 py-1.5 text-[11px] font-medium text-fg-muted transition hover:bg-white/[0.04] hover:text-fg-primary"
-          >
-            Close
+          <button type="button" onClick={() => close()} className={modalCloseBtnClass} aria-label="Close">
+            <X className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-5 py-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="min-w-0 space-y-3">
-            <div className="mx-auto w-full">
-              <PnlShareCard
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+          <div className="overflow-hidden rounded-md border border-border-subtle bg-bg-sunken p-1.5">
+            <PnlShareCard
                 ref={cardRef}
                 payload={d}
                 overlay={composer.overlay}
@@ -429,137 +440,107 @@ export function PnlShareComposer() {
                 amountMotionFrozen={busy === 'png' || busy === 'copy'}
                 amountRevealKey={shareAmountRevealKey}
               />
-              <video
-                ref={videoExportRef}
-                className="pointer-events-none fixed left-[-10000px] top-0 h-[720px] w-[1280px] max-w-none opacity-0"
-                width={1280}
-                height={720}
-                playsInline
-                preload="auto"
-              />
+          </div>
+          <video
+            ref={videoExportRef}
+            className="pointer-events-none fixed left-[-10000px] top-0 h-[1024px] w-[1536px] max-w-none opacity-0"
+            width={1536}
+            height={1024}
+            playsInline
+            preload="auto"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex rounded-sm border border-border-subtle bg-bg-sunken p-0.5">
+              <button
+                type="button"
+                onClick={() => composer.setMode('image')}
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-sm px-2.5 text-[11px] font-medium transition',
+                  composer.mode === 'image'
+                    ? 'bg-bg-hover text-fg-primary'
+                    : 'text-fg-muted hover:text-fg-secondary',
+                )}
+              >
+                <ImageIcon className="h-3.5 w-3.5" strokeWidth={2} />
+                Image
+              </button>
+              <button
+                type="button"
+                onClick={() => composer.setMode('video')}
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-sm px-2.5 text-[11px] font-medium transition',
+                  composer.mode === 'video'
+                    ? 'bg-bg-hover text-fg-primary'
+                    : 'text-fg-muted hover:text-fg-secondary',
+                )}
+              >
+                <VideoIcon className="h-3.5 w-3.5" strokeWidth={2} />
+                Video
+              </button>
             </div>
+            <button type="button" onClick={toggleChain} className={TOOL_BTN}>
+              <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2} />
+              {composer.chainTicker}
+            </button>
+          </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="inline-flex items-center gap-0.5 rounded-lg border border-white/[0.075] bg-black/35 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => composer.setMode('image')}
-                  className={cn(
-                    'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[11px] font-semibold transition',
-                    composer.mode === 'image'
-                      ? 'bg-white/[0.07] text-fg-primary'
-                      : 'text-fg-muted hover:bg-white/[0.03] hover:text-fg-secondary',
-                  )}
-                >
-                  <ImageIcon className="h-3.5 w-3.5" strokeWidth={2} />
-                  Image
-                </button>
-                <button
-                  type="button"
-                  onClick={() => composer.setMode('video')}
-                  className={cn(
-                    'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[11px] font-semibold transition',
-                    composer.mode === 'video'
-                      ? 'bg-white/[0.07] text-accent-primary'
-                      : 'text-fg-muted hover:bg-white/[0.03] hover:text-fg-secondary',
-                  )}
-                >
-                  <VideoIcon className="h-3.5 w-3.5" strokeWidth={2} />
-                  Video
-                </button>
-              </div>
-
-              {composer.mode === 'video' && customVideoUrl ? (
-                <span className="rounded-full border border-emerald-400/15 bg-emerald-400/[0.06] px-2.5 py-1 text-[10px] font-semibold text-emerald-200/80">
-                  Saved video
-                </span>
-              ) : null}
-            </div>
-
-            {composer.mode === 'image' ? (
-              <ShareBackgroundPicker
-                selectedId={composer.backgroundId}
-                onSelect={composer.setBackgroundId}
-                onPickImageFile={(f) => void onPickImage(f)}
-                disabled={Boolean(busy)}
-              />
-            ) : (
-              <div className="space-y-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer rounded-xl border border-dashed border-white/[0.1] bg-white/[0.025] px-4 py-3 text-[11px] text-fg-muted transition hover:border-accent-primary/35 hover:bg-white/[0.035]">
-                    <span className="font-semibold text-fg-secondary">Upload video</span>
-                    <span className="mt-1 block text-[10px] leading-snug">
-                      MP4 / WebM · max {(SHARE_VIDEO_MAX_BYTES / (1024 * 1024)).toFixed(0)}MB · max{' '}
-                      {SHARE_VIDEO_MAX_DURATION_SEC}s
-                    </span>
-                    <input
-                      type="file"
-                      accept="video/mp4,video/webm,video/quicktime"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        e.target.value = '';
-                        if (f) void onPickVideo(f);
-                      }}
-                    />
-                  </label>
-                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[10px] font-semibold text-fg-muted">
-                    Slots 1 / 3
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void clearVideo()}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 text-[11px] font-medium text-fg-muted transition hover:border-rose-400/35 hover:text-rose-300"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdvancedOpen((v) => !v)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 text-[11px] font-medium text-fg-muted transition hover:border-white/[0.14] hover:text-fg-secondary"
-                  >
-                    <Settings2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    Advanced
-                  </button>
-                </div>
-
+          {composer.mode === 'image' ? (
+            <ShareBackgroundPicker
+              selectedId={composer.backgroundId}
+              onSelect={composer.setBackgroundId}
+              onPickImageFile={(f) => void onPickImage(f)}
+              disabled={Boolean(busy)}
+            />
+          ) : (
+            <div className="space-y-2 rounded-md border border-border-subtle bg-bg-sunken p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className={cn(TOOL_BTN, 'cursor-pointer')}>
+                  Upload video
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (f) void onPickVideo(f);
+                    }}
+                  />
+                </label>
                 {customVideoUrl ? (
-                  <div className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.025] p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
-                        Video controls
-                      </p>
-                      <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={toggleVideoPlay}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-black/20 px-3 text-[11px] font-semibold text-fg-secondary transition hover:border-accent-primary/35 hover:text-accent-primary"
-                      >
-                        {videoPlaying ? (
-                          <Pause className="h-3.5 w-3.5" strokeWidth={2} />
-                        ) : (
-                          <Play className="h-3.5 w-3.5" strokeWidth={2} />
-                        )}
-                        {videoPlaying ? 'Pause card video' : 'Play card video'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={toggleVideoMuted}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-black/20 px-3 text-[11px] font-semibold text-fg-secondary transition hover:border-white/[0.14] hover:text-fg-primary"
-                      >
-                        {videoMuted ? (
-                          <VolumeX className="h-3.5 w-3.5" strokeWidth={2} />
-                        ) : (
-                          <Volume2 className="h-3.5 w-3.5" strokeWidth={2} />
-                        )}
-                        {videoMuted ? 'Muted' : 'Sound on'}
-                      </button>
-                      </div>
-                    </div>
-                    <VideoScrubber video={videoPreviewRef} onSeek={seekPreviewVideo} />
-                    <p className="text-[10px] text-fg-muted">Preview only. Export keeps audio/frame settings.</p>
-                    {advancedOpen ? (
+                  <button type="button" onClick={() => void clearVideo()} className={TOOL_BTN}>
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+              {customVideoUrl ? (
+                <div className="space-y-2 border-t border-border-subtle pt-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={toggleVideoPlay} className={TOOL_BTN}>
+                      {videoPlaying ? (
+                        <Pause className="h-3.5 w-3.5" strokeWidth={2} />
+                      ) : (
+                        <Play className="h-3.5 w-3.5" strokeWidth={2} />
+                      )}
+                      {videoPlaying ? 'Pause' : 'Play'}
+                    </button>
+                    <button type="button" onClick={toggleVideoMuted} className={TOOL_BTN}>
+                      {videoMuted ? (
+                        <VolumeX className="h-3.5 w-3.5" strokeWidth={2} />
+                      ) : (
+                        <Volume2 className="h-3.5 w-3.5" strokeWidth={2} />
+                      )}
+                      {videoMuted ? 'Muted' : 'Sound'}
+                    </button>
+                  </div>
+                  <VideoScrubber video={videoPreviewRef} onSeek={seekPreviewVideo} />
+                  <details className="group text-[11px] text-fg-muted">
+                    <summary className="cursor-pointer list-none text-fg-secondary hover:text-fg-primary [&::-webkit-details-marker]:hidden">
+                      Frame position
+                    </summary>
+                    <div className="mt-2">
                       <VideoFrameControls
                         pan={composer.videoPan}
                         zoom={composer.videoZoom}
@@ -570,240 +551,132 @@ export function PnlShareComposer() {
                           composer.setVideoZoom(1);
                         }}
                       />
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="text-[12px] text-fg-muted">
-                    Upload a clip once — we keep it locally and autoplay it whenever you return to Video mode.
-                  </p>
-                )}
-              </div>
-            )}
+                    </div>
+                  </details>
+                </div>
+              ) : (
+                <p className="text-[11px] text-fg-muted">
+                  MP4 or WebM, up to {(SHARE_VIDEO_MAX_BYTES / (1024 * 1024)).toFixed(0)}MB ·{' '}
+                  {SHARE_VIDEO_MAX_DURATION_SEC}s max. Saved on this device.
+                </p>
+              )}
+            </div>
+          )}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/[0.07] bg-white/[0.018] p-2">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomize((s) => !s)}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] bg-black/20 px-3 text-[11px] font-semibold text-fg-secondary transition hover:border-accent-primary/35 hover:text-accent-primary"
-                >
-                  <Paintbrush className="h-3.5 w-3.5" strokeWidth={2} />
-                  Customize
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleChain}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] bg-black/20 px-3 text-[11px] font-semibold text-fg-secondary transition hover:border-white/[0.14] hover:text-fg-primary"
-                >
-                  <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2} />
-                  {composer.chainTicker}
-                </button>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    composer.mode === 'video' ? void onExportVideo() : void onDownloadPng()
+          {composer.mode === 'image' && customImageUrl ? (
+            <div className="rounded-md border border-border-subtle bg-bg-sunken p-3">
+              <p className={modalSectionLabelClass}>Image position</p>
+              <div
+                className="relative mt-2 aspect-video cursor-grab overflow-hidden rounded-sm border border-border-subtle active:cursor-grabbing"
+                onMouseDown={(down) => {
+                  const startX = down.clientX;
+                  const startY = down.clientY;
+                  const ox = composer.imagePan.x;
+                  const oy = composer.imagePan.y;
+                  function move(ev: MouseEvent) {
+                    composer.setImagePan({
+                      x: ox + (ev.clientX - startX),
+                      y: oy + (ev.clientY - startY),
+                    });
                   }
-                  disabled={busy !== null || (composer.mode === 'video' && !customVideoUrl)}
-                  className={cn(
-                    'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-bold transition disabled:opacity-45',
-                    composer.mode === 'video'
-                      ? 'border-accent-primary/45 bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/25'
-                      : 'border-accent-primary/45 bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/25',
-                  )}
-                >
-                  {busy === 'png' || busy === 'video' ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Download className="h-3.5 w-3.5" strokeWidth={2} />
-                  )}
-                  {busy === 'video'
-                    ? `${videoProg}%`
-                    : composer.mode === 'video'
-                      ? 'Download Video'
-                      : 'Download PNG'}
-                </button>
+                  function up() {
+                    window.removeEventListener('mousemove', move);
+                    window.removeEventListener('mouseup', up);
+                  }
+                  window.addEventListener('mousemove', move);
+                  window.addEventListener('mouseup', up);
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={customImageUrl} alt="" className="h-full w-full object-cover opacity-80" />
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <label className="flex flex-1 items-center gap-2 text-[11px] text-fg-muted">
+                  Zoom
+                  <input
+                    type="range"
+                    min={1}
+                    max={2}
+                    step={0.02}
+                    value={composer.imageZoom}
+                    onChange={(e) => composer.setImageZoom(Number(e.target.value))}
+                    className="flex-1 accent-emerald-400"
+                  />
+                </label>
                 <button
                   type="button"
-                  onClick={() => void onCopyPng()}
-                  disabled={busy !== null}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] bg-black/20 px-3 text-[11px] font-semibold text-fg-secondary transition hover:border-white/[0.14] hover:text-fg-primary disabled:opacity-45"
-                >
-                  {busy === 'copy' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" strokeWidth={2} />}
-                  Copy
-                </button>
-                {composer.mode === 'video' ? (
-                  <button
-                    type="button"
-                    onClick={() => void onExportVideo()}
-                    disabled={busy !== null || !customVideoUrl}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.1] bg-white/[0.045] px-3 text-[11px] font-semibold text-fg-primary transition hover:bg-white/[0.075] disabled:opacity-40"
-                  >
-                    {busy === 'video' ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <VideoIcon className="h-3.5 w-3.5" strokeWidth={2} />
-                    )}
-                    Export Video
-                  </button>
-                ) : null}
-                {'share' in navigator && composer.mode !== 'video' ? (
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] bg-black/20 px-3 text-[11px] font-semibold text-fg-muted transition hover:border-white/[0.14] hover:text-fg-secondary"
-                  onClick={async () => {
-                    if (!cardRef.current) return;
-                    try {
-                      await exportShareImagePng(
-                        cardRef.current,
-                        `${filenameBase(d.tokenTicker, d.walletAddress)}.png`,
-                      );
-                      toast.success('Prepared download for sharing');
-                    } catch {
-                      toast.error('Share failed');
-                    }
+                  className="text-[11px] font-medium text-fg-secondary hover:text-fg-primary"
+                  onClick={() => {
+                    composer.setImagePan({ x: 0, y: 0 });
+                    composer.setImageZoom(1);
                   }}
                 >
-                  Native share (download)
+                  Reset
                 </button>
-                ) : null}
               </div>
             </div>
+          ) : null}
 
-            {composer.mode === 'image' && customImageUrl ? (
-              <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-                  Image position
-                </p>
-                <div
-                  className="relative mt-2 aspect-video cursor-grab overflow-hidden rounded-lg border border-white/[0.08] active:cursor-grabbing"
-                  onMouseDown={(down) => {
-                    const startX = down.clientX;
-                    const startY = down.clientY;
-                    const ox = composer.imagePan.x;
-                    const oy = composer.imagePan.y;
-                    function move(ev: MouseEvent) {
-                      composer.setImagePan({
-                        x: ox + (ev.clientX - startX),
-                        y: oy + (ev.clientY - startY),
-                      });
-                    }
-                    function up() {
-                      window.removeEventListener('mousemove', move);
-                      window.removeEventListener('mouseup', up);
-                    }
-                    window.addEventListener('mousemove', move);
-                    window.addEventListener('mouseup', up);
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={customImageUrl} alt="" className="h-full w-full object-cover opacity-70" />
-                </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <label className="flex flex-1 items-center gap-2 text-[11px] text-fg-muted">
-                    Zoom
-                    <input
-                      type="range"
-                      min={1}
-                      max={2}
-                      step={0.02}
-                      value={composer.imageZoom}
-                      onChange={(e) => composer.setImageZoom(Number(e.target.value))}
-                      className="flex-1 accent-accent-primary"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="text-[11px] font-medium text-accent-primary hover:underline"
-                    onClick={() => {
-                      composer.setImagePan({ x: 0, y: 0 });
-                      composer.setImageZoom(1);
-                    }}
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {showCustomize ? (
-              <ShareCustomizePanel
-                overlay={composer.overlay}
-                onChange={composer.patchOverlay}
-                onReset={composer.resetDefaults}
+          <div className="rounded-md border border-border-subtle bg-bg-sunken">
+            <button
+              type="button"
+              onClick={() => setShowCustomize((s) => !s)}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-[12px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Paintbrush className="h-3.5 w-3.5" strokeWidth={2} />
+                Customize card
+              </span>
+              <ChevronDown
+                className={cn('h-4 w-4 text-fg-muted transition', showCustomize && 'rotate-180')}
+                strokeWidth={2}
               />
+            </button>
+            {showCustomize ? (
+              <div className="border-t border-border-subtle px-3 pb-3 pt-1">
+                <ShareCustomizePanel
+                  overlay={composer.overlay}
+                  onChange={composer.patchOverlay}
+                  onReset={composer.resetDefaults}
+                />
+              </div>
             ) : null}
           </div>
+        </div>
 
-          <aside className="hidden space-y-3 lg:block">
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 text-[12px] text-fg-secondary">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-semibold text-fg-primary">Receipt mode</p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">
-                    Optimized for X and Telegram flex posts.
-                  </p>
-                </div>
-                <span className="rounded-full border border-white/[0.08] bg-black/20 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-fg-muted">
-                  16:9
-                </span>
-              </div>
-
-              <div className="mt-4 space-y-2.5">
-                <ReceiptRow label="Mode" value={composer.mode === 'video' ? 'Video' : 'Image'} />
-                <ReceiptRow
-                  label="Background"
-                  value={
-                    composer.mode === 'video'
-                      ? customVideoUrl
-                        ? 'Video selected'
-                        : 'No video'
-                      : customImageUrl
-                        ? 'Image selected'
-                        : composer.backgroundId
-                  }
-                />
-                <ReceiptRow
-                  label="Output"
-                  value={composer.mode === 'video' ? 'MP4 / WebM' : 'PNG'}
-                />
-                <ReceiptRow label="Referral" value={referralCode} strong />
-              </div>
-
-              <div className="mt-4 border-t border-white/[0.07] pt-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
-                  Card checks
-                </p>
-                <div className="mt-2 space-y-1.5">
-                  <CheckLine label="Background saved locally" on={Boolean(customVideoUrl || customImageUrl)} />
-                  <CheckLine label="Pointer branding visible" on={composer.overlay.showBranding} />
-                  <CheckLine label="Text overlay editable" on />
-                  <CheckLine label="PNL readable" on />
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomize((s) => !s)}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-black/20 px-3 text-[11px] font-semibold text-fg-secondary transition hover:border-accent-primary/35 hover:text-accent-primary"
-                >
-                  <Paintbrush className="h-3.5 w-3.5" strokeWidth={2} />
-                  Customize overlay
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-white/[0.06] bg-black/10 px-3 text-[11px] font-semibold text-fg-muted opacity-70"
-                  title="Share to lobby will be enabled when lobby publishing is connected."
-                  disabled
-                >
-                  <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
-                  Share to lobby
-                </button>
-              </div>
-            </div>
-          </aside>
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle bg-bg-raised px-4 py-3 sm:px-5">
+          <button
+            type="button"
+            onClick={() => void onCopyPng()}
+            disabled={busy !== null || composer.mode === 'video'}
+            className={cn(modalBtnSecondaryClass, 'h-8 px-3 text-[11px]')}
+          >
+            {busy === 'copy' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+            )}
+            Copy image
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              composer.mode === 'video' ? void onExportVideo() : void onDownloadPng()
+            }
+            disabled={busy !== null || (composer.mode === 'video' && !customVideoUrl)}
+            className={cn(modalBtnPrimaryClass, 'h-8 px-3 text-[11px]')}
+          >
+            {busy === 'png' || busy === 'video' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" strokeWidth={2} />
+            )}
+            {busy === 'video'
+              ? `Exporting ${videoProg}%`
+              : composer.mode === 'video'
+                ? 'Download video'
+                : 'Download PNG'}
+          </button>
         </div>
       </div>
     </div>
@@ -853,7 +726,7 @@ function VideoScrubber({
         onChange={(e) => {
           onSeek(Number(e.target.value));
         }}
-        className="h-1 flex-1 accent-accent-primary"
+        className="h-1 flex-1 accent-emerald-400"
       />
     </div>
   );
@@ -873,15 +746,13 @@ function VideoFrameControls({
   onReset: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-white/[0.07] bg-black/20 p-3">
+    <div className="rounded-sm border border-border-subtle bg-bg-base p-2.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
-          Frame
-        </p>
+        <p className={modalSectionLabelClass}>Frame</p>
         <button
           type="button"
           onClick={onReset}
-          className="text-[11px] font-medium text-accent-primary/90 hover:text-accent-primary"
+          className="text-[11px] font-medium text-fg-secondary hover:text-fg-primary"
         >
           Reset
         </button>
@@ -947,47 +818,8 @@ function FrameSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1 w-full accent-accent-primary"
+        className="mt-1 w-full accent-emerald-400"
       />
     </label>
-  );
-}
-
-function ReceiptRow({
-  label,
-  value,
-  strong,
-}: {
-  label: string;
-  value: string;
-  strong?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-[11px]">
-      <span className="text-fg-muted">{label}</span>
-      <span
-        className={cn(
-          'truncate text-right font-semibold',
-          strong ? 'text-fg-primary' : 'text-fg-secondary',
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function CheckLine({ label, on }: { label: string; on: boolean }) {
-  return (
-    <div className="flex items-center gap-2 text-[11px] text-fg-secondary">
-      <span
-        className={cn(
-          'h-1.5 w-1.5 rounded-full',
-          on ? 'bg-accent-primary/80' : 'bg-white/20',
-        )}
-        aria-hidden
-      />
-      <span>{label}</span>
-    </div>
   );
 }

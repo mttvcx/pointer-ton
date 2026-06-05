@@ -13,17 +13,15 @@ export function ShareCustomizePanel({
   onReset: () => void;
 }) {
   return (
-    <div className="space-y-4 rounded-xl border border-border-subtle/70 bg-black/30 p-4">
+    <div className="space-y-4 pt-2">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
-          Customize
-        </h4>
+        <h4 className="text-[11px] font-medium text-fg-muted">Overlay options</h4>
         <button
           type="button"
           onClick={onReset}
-          className="text-[11px] font-medium text-accent-primary hover:underline"
+          className="text-[11px] font-medium text-fg-secondary hover:text-fg-primary"
         >
-          Reset to default
+          Reset
         </button>
       </div>
 
@@ -69,10 +67,10 @@ export function ShareCustomizePanel({
               type="button"
               onClick={() => onChange({ pnlFormat: m })}
               className={cn(
-                'rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition',
+                'rounded-sm border px-3 py-1.5 text-[11px] font-medium transition',
                 overlay.pnlFormat === m
-                  ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
-                  : 'border-border-subtle text-fg-muted hover:border-border-default',
+                  ? 'border-border-default bg-bg-hover text-fg-primary'
+                  : 'border-border-subtle text-fg-muted hover:border-border-default hover:text-fg-secondary',
               )}
             >
               {m === 'both' ? 'Amount + %' : m === 'pct' ? '% only' : 'Amount'}
@@ -93,7 +91,7 @@ export function ShareCustomizePanel({
           step={0.01}
           value={overlay.overlayOpacity}
           onChange={(e) => onChange({ overlayOpacity: Number(e.target.value) })}
-          className="mt-1 w-full accent-accent-primary"
+          className="mt-1 w-full accent-emerald-400"
         />
       </div>
 
@@ -109,7 +107,7 @@ export function ShareCustomizePanel({
           step={0.01}
           value={overlay.textScale}
           onChange={(e) => onChange({ textScale: Number(e.target.value) })}
-          className="mt-1 w-full accent-accent-primary"
+          className="mt-1 w-full accent-emerald-400"
         />
       </div>
 
@@ -122,7 +120,7 @@ export function ShareCustomizePanel({
               type="button"
               onClick={() => onChange({ accent: a })}
               className={cn(
-                'h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-[#05070c]',
+                'h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-bg-sunken',
                 overlay.accent === a ? 'ring-white' : 'ring-transparent',
                 a === 'teal' && 'bg-teal-400',
                 a === 'purple' && 'bg-violet-400',
@@ -143,9 +141,9 @@ export function ShareCustomizePanel({
               type="button"
               onClick={() => onChange({ overlayAlign: a })}
               className={cn(
-                'rounded-lg border px-3 py-1.5 text-[11px] font-semibold capitalize',
+                'rounded-sm border px-3 py-1.5 text-[11px] font-medium capitalize',
                 overlay.overlayAlign === a
-                  ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
+                  ? 'border-border-default bg-bg-hover text-fg-primary'
                   : 'border-border-subtle text-fg-muted',
               )}
             >
@@ -171,13 +169,13 @@ function ToggleRow({
     <button
       type="button"
       onClick={onToggle}
-      className="flex items-center justify-between rounded-lg border border-border-subtle/60 bg-black/20 px-3 py-2 text-left text-[12px] text-fg-secondary transition hover:border-border-default"
+      className="flex items-center justify-between rounded-sm border border-border-subtle bg-bg-base px-3 py-2 text-left text-[12px] text-fg-secondary transition hover:bg-bg-hover"
     >
       {label}
       <span
         className={cn(
           'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-          on ? 'bg-accent-primary/20 text-accent-primary' : 'bg-white/[0.06] text-fg-muted',
+          on ? 'bg-bg-hover text-fg-primary' : 'bg-bg-sunken text-fg-muted',
         )}
       >
         {on ? 'On' : 'Off'}

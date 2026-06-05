@@ -4,7 +4,7 @@ import type { ShareOverlaySettings } from '@/lib/share/types';
 import {
   drawPnlCardFrame,
   type CardFrameArgs,
-  preloadPointerLogoForExport,
+  preloadPnlShareReference,
 } from '@/lib/share/videoCanvasFrame';
 
 export type VideoExportProgress = (pct: number, label: string) => void;
@@ -152,7 +152,9 @@ export async function exportShareVideoWebm(params: {
 
   const drawFrame = (momentT: number) => {
     drawVideoCover(ctx, videoEl, width, height, videoPan, videoZoom);
-    drawPnlCardFrame(ctx, width, height, cardArgs, overlay, logoBird, { tSec: momentT });
+    drawPnlCardFrame(ctx, width, height, cardArgs, overlay, refCard, { tSec: momentT }, {
+      overlayOnly: true,
+    });
   };
 
   const canvasStream = canvas.captureStream(fps);

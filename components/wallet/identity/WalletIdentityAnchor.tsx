@@ -110,7 +110,10 @@ export function WalletIdentityAnchor({
   const { isTracked } = useTrackedWalletsLookup();
   const openIntel = useWalletIntelStore((s) => s.openWallet);
 
-  const labelDisp = resolveLabel(address, truncate);
+  const labelDisp = useMemo(
+    () => resolveLabel(address, truncate),
+    [resolveLabel, address, truncate],
+  );
   const tracked = isTracked(address);
 
   const extras = useMemo(() => {
@@ -158,10 +161,13 @@ export function WalletIdentityAnchor({
   const mintStatsNeeded = dossier || compact;
   const { stats } = useTraderMintHoverStats(mint, address, Boolean(mint && mintStatsNeeded));
 
-  const hoverTokenCtx =
-    mint != null && tokenSymbol != null && stats
-      ? tokenContextFromHoverStats(mint, tokenSymbol ?? 'TOKEN', stats)
-      : null;
+  const hoverTokenCtx = useMemo(
+    () =>
+      mint != null && tokenSymbol != null && stats
+        ? tokenContextFromHoverStats(mint, tokenSymbol ?? 'TOKEN', stats)
+        : null,
+    [mint, tokenSymbol, stats],
+  );
 
   const tokenSurface = tokenCtxFromRow ?? hoverTokenCtx ?? null;
 
@@ -224,7 +230,7 @@ export function WalletIdentityAnchor({
   useLayoutEffect(() => {
     if (!compactOpen) return;
     setXyCompact(positionPanel(COMPACT_PANEL_W, COMPACT_PANEL_H));
-  }, [compactOpen, stats, positionPanel]);
+  }, [compactOpen, positionPanel]);
 
   useEffect(() => {
     if (!compactMounted) setXyCompact(null);
@@ -325,8 +331,6 @@ export function WalletIdentityAnchor({
           textClsBase,
           className,
         )}
-        onMouseEnter={scheduleCompact}
-        onMouseLeave={hideCompactSoon}
         onClick={openClickSurface}
       >
         {displayText}

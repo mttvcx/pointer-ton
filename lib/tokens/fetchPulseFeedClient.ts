@@ -17,7 +17,6 @@ export async function fetchPulseFeedBundles(
   let lastMessage = 'feed 404';
   for (const path of paths) {
     const r = await fetch(`${path}?${qs}`, {
-      cache: 'no-store',
       credentials: 'same-origin',
     });
     if (r.ok) {

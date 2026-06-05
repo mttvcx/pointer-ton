@@ -52,8 +52,11 @@ function demoPayload(side: TradeSide): WalletTrackerTradeToastPayload {
   };
 }
 
-export function showWalletTrackerTradeToast(payload: WalletTrackerTradeToastPayload) {
-  if (useWalletTrackerMuteStore.getState().isMuted(payload.walletKey)) return;
+export function showWalletTrackerTradeToast(
+  payload: WalletTrackerTradeToastPayload,
+  opts?: { bypassMute?: boolean },
+) {
+  if (!opts?.bypassMute && useWalletTrackerMuteStore.getState().isMuted(payload.walletKey)) return;
 
   toast.custom(
     (id) => <WalletTrackerTradeToast toastId={id} payload={payload} />,
@@ -67,5 +70,5 @@ export function showWalletTrackerTradeToast(payload: WalletTrackerTradeToastPayl
 
 /** Routed to the dedicated top-center toaster (see `app/providers.tsx`). */
 export function toastWalletTrackedTradeDemo(side: TradeSide = 'buy') {
-  showWalletTrackerTradeToast(demoPayload(side));
+  showWalletTrackerTradeToast(demoPayload(side), { bypassMute: true });
 }

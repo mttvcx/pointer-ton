@@ -10,6 +10,13 @@ export const searchModalIconBtnClass =
 export const searchModalChipIdleClass =
   'border-0 bg-transparent text-fg-muted hover:bg-white/[0.07] hover:text-fg-secondary hover:backdrop-blur-sm';
 
+/** Axiom-style protocol filter pills — neutral chrome, real logos at ~18px. */
+export const searchModalFilterChipIdleClass =
+  'border-border-subtle bg-bg-sunken/50 text-fg-secondary hover:border-border-default hover:bg-bg-hover hover:text-fg-primary';
+
+export const searchModalFilterChipActiveClass =
+  'border-border-default bg-bg-hover text-fg-primary shadow-[inset_0_0_0_1px_rgb(var(--border-subtle-rgb)/0.35)]';
+
 export const searchModalInputShellClass =
   'flex h-10 items-center rounded-lg border-0 bg-white/[0.04] px-2.5 transition-[background-color,box-shadow] duration-150 focus-within:bg-white/[0.06] focus-within:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]';
 

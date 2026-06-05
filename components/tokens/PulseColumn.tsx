@@ -158,7 +158,7 @@ function PulseColumnBody({
         return { items: [], fetchError: message };
       }
     },
-    staleTime: 8_000,
+    staleTime: 30_000,
     refetchInterval: pulseRefetchMs,
     retry: 2,
   });
@@ -243,7 +243,7 @@ function PulseColumnBody({
 
   const fetchError = query.data?.fetchError ?? null;
 
-  const { buyToken, sellTokenPct, busyMint } = usePulseQuickBuy();
+  const { buyToken, sellTokenPct, canTrade } = usePulseQuickBuy();
 
   useEffect(() => {
     if (authenticated) setGuestDisplayPatch({});
@@ -345,7 +345,11 @@ function PulseColumnBody({
         column === 'migrated'
           ? showBondingProgress
           : showBondingProgress && displayCore.showBondingRing,
-      pulseSecondButton: secondButtonToPreset(secondButtonMode),
+      /** Column preset wins; Display popover second-button is the fallback when preset is `none`. */
+      pulseSecondButton:
+        displayCore.pulseSecondButton !== 'none'
+          ? displayCore.pulseSecondButton
+          : secondButtonToPreset(secondButtonMode),
     }),
     [column, displayCore, buyButtonStyle, mcMetricSize, showBondingProgress, secondButtonMode],
   );
@@ -605,11 +609,16 @@ function PulseColumnBody({
 
       <ColumnFilterModal
         open={filterOpen}
-        onClose={() => setFilterOpen(false)}
+        onClose={() => {
+          setFilterOpen(false);
+          setGuestDisplayPatch({});
+        }}
         columnId={column}
         presetSlot={presetSlot}
         row={activePresetRow}
+        onDisplayPreview={(patch) => setGuestDisplayPatch((prev) => ({ ...prev, ...patch }))}
         onSaved={() => {
+          setGuestDisplayPatch({});
           void presetsQuery.refetch();
         }}
       />
@@ -725,8 +734,7 @@ function PulseColumnBody({
                     onPulseQuickBuy={handlePulseQuickBuy}
                     onPulseSecondBuy={handlePulseSecondBuy}
                     onPulseQuickSell={handlePulseQuickSell}
-                    pulseBuyBusy={busyMint === bundle.token.mint}
-                    pulseBuyDisabled={busyMint !== null && busyMint !== bundle.token.mint}
+                    pulseBuyDisabled={!canTrade}
                   />
                 </div>
               );

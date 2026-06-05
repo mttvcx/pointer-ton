@@ -128,8 +128,8 @@ export function WalletCompactTooltipPanel({
   const explorerHref = explorerAddressUrl(address);
 
   return (
-    <div className="wallet-compact-hover-panel z-50 w-[300px] overflow-hidden rounded-lg border border-white/[0.09] bg-bg-hover/95 p-0 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.62),inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-md">
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-3 pb-2 pt-2.5">
+    <div className="wallet-compact-hover-panel z-50 w-[280px] overflow-hidden rounded-lg border border-border-subtle bg-bg-raised p-0 shadow-2xl">
+      <div className="flex items-center justify-between border-b border-border-subtle px-3 pb-2 pt-2.5">
         <div className="flex min-w-0 items-center gap-1">
           <span className="truncate text-[11px] font-mono text-fg-secondary">
             {formatWalletHeader(address)}
@@ -141,7 +141,9 @@ export function WalletCompactTooltipPanel({
           />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="rounded bg-bg-hover px-1.5 py-0.5 text-[10px] text-fg-muted">USD</span>
+          <span className="rounded-sm border border-border-subtle bg-bg-sunken px-1.5 py-0.5 text-[10px] text-fg-muted">
+            USD
+          </span>
           {onOpenSettings ? (
             <button
               type="button"
@@ -155,7 +157,7 @@ export function WalletCompactTooltipPanel({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-b border-white/[0.06] px-3 py-2.5">
+      <div className="grid grid-cols-3 gap-2 border-b border-border-subtle px-3 py-2.5">
         <HeroStat
           icon={<ArrowDown className="h-3.5 w-3.5 shrink-0 text-signal-bull" strokeWidth={2.5} />}
           value={buyUsd != null ? formatCompactUsd(buyUsd) : '\u2014'}
@@ -182,7 +184,7 @@ export function WalletCompactTooltipPanel({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 border-b border-white/[0.06] px-3 py-2">
+      <div className="grid grid-cols-2 gap-2 border-b border-border-subtle px-3 py-2">
         <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex items-center gap-1">
             <Monitor className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2} />

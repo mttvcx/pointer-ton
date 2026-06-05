@@ -54,18 +54,18 @@ function ShellModal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-10 flex max-h-[min(88dvh,720px)] w-full flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-bg-raised shadow-[0_32px_90px_-40px_rgba(0,0,0,0.9)]',
+          'relative z-10 flex max-h-[min(88dvh,720px)] w-full flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised shadow-2xl',
           wide ? 'max-w-[520px]' : 'max-w-[400px]',
           overlayPanelClasses(visible),
         )}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3">
+        <header className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-bg-sunken/35 px-4 py-3">
           <h2 className="text-[13px] font-semibold text-fg-primary">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+            className="rounded-md p-1 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -73,7 +73,7 @@ function ShellModal({
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">{children}</div>
         {footer ? (
-          <footer className="shrink-0 border-t border-white/[0.06] px-4 py-3">{footer}</footer>
+          <footer className="shrink-0 border-t border-border-subtle bg-bg-sunken/25 px-4 py-3">{footer}</footer>
         ) : null}
       </div>
     </div>

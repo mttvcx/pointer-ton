@@ -11,14 +11,20 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([u], { type: mime });
 }
 
+type PngExportOptions = {
+  /** Omit or pass `transparent` when compositing over a custom image background. */
+  backgroundColor?: string | null;
+};
+
 export async function exportShareImagePng(
   node: HTMLElement,
   filename: string,
+  options?: PngExportOptions,
 ): Promise<void> {
   const dataUrl = await toPng(node, {
     cacheBust: true,
     pixelRatio: 2,
-    backgroundColor: '#05070c',
+    ...(options?.backgroundColor != null ? { backgroundColor: options.backgroundColor } : {}),
   });
   const blob = dataUrlToBlob(dataUrl);
 
@@ -30,11 +36,14 @@ export async function exportShareImagePng(
   URL.revokeObjectURL(url);
 }
 
-export async function copyShareImagePng(node: HTMLElement): Promise<boolean> {
+export async function copyShareImagePng(
+  node: HTMLElement,
+  options?: PngExportOptions,
+): Promise<boolean> {
   const dataUrl = await toPng(node, {
     cacheBust: true,
     pixelRatio: 2,
-    backgroundColor: '#05070c',
+    ...(options?.backgroundColor != null ? { backgroundColor: options.backgroundColor } : {}),
   });
   const blob = dataUrlToBlob(dataUrl);
 

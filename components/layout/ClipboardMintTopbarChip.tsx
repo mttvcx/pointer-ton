@@ -38,7 +38,7 @@ export function ClipboardMintTopbarChip() {
   const quickBuySol = usePulseColumnStore((s) => s.byColumn.new.quickBuySol);
   const quickBuyUsdc = usePulseColumnStore((s) => s.byColumn.new.quickBuyUsdc);
   const { peekMint, dismissedRef, setPeekMint } = useClipboardMintPeek();
-  const { buyToken, busyMint, canTrade } = usePulseQuickBuy();
+  const { buyToken, canTrade } = usePulseQuickBuy();
   const [copyFlash, setCopyFlash] = useState(false);
 
   const summaryQ = useQuery({
@@ -113,7 +113,6 @@ export function ClipboardMintTopbarChip() {
     }
   }
 
-  const buying = busyMint === peekMint;
   const loadingMeta = summaryQ.isLoading && !summaryQ.data;
 
   return (
@@ -170,7 +169,7 @@ export function ClipboardMintTopbarChip() {
       {activeChain === 'sol' ? (
         <button
           type="button"
-          disabled={buying || !canTrade}
+          disabled={!canTrade}
           title={canTrade ? `Quick buy ${quickBuyLabel}` : 'Connect wallet to quick buy'}
           aria-label={`Quick buy ${quickBuyLabel}`}
           onClick={onQuickBuy}
@@ -180,14 +179,8 @@ export function ClipboardMintTopbarChip() {
             'disabled:cursor-not-allowed disabled:opacity-45',
           )}
         >
-          {buying ? (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-          ) : (
-            <>
-              <Zap className="h-3 w-3 fill-emerald-400/30" strokeWidth={2.5} aria-hidden />
-              <span className="text-[10px] font-semibold tabular-nums leading-none">{quickBuyLabel}</span>
-            </>
-          )}
+          <Zap className="h-3 w-3 fill-emerald-400/30" strokeWidth={2.5} aria-hidden />
+          <span className="text-[10px] font-semibold tabular-nums leading-none">{quickBuyLabel}</span>
         </button>
       ) : null}
     </div>

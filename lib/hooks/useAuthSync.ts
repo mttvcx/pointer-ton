@@ -202,7 +202,6 @@ export function useAuthSync() {
           setBackendReady(true);
           setLastError(null);
           void queryClient.invalidateQueries({ queryKey: ['wallets-my'] });
-          void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
           void queryClient.invalidateQueries({ queryKey: ['me'] });
           console.debug('[auth] synced user', synced.id);
 

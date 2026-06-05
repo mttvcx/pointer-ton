@@ -12,12 +12,23 @@ type PackCardProps = {
   onDetails: () => void;
 };
 
-/** Subtle inset tint on hover — no large outer glow (avoids white/purple bleed in grid gutters). */
+/** Per-tier outer hue on the shelf card rectangle (border + colored glow). */
 const SHELF_HOVER: Record<PackType, string> = {
-  bronze: 'hover:border-amber-700/25',
-  silver: 'hover:border-sky-400/25',
-  gold: 'hover:border-amber-300/30',
-  legendary: 'hover:border-violet-400/35',
+  bronze:
+    'hover:border-amber-600/45 hover:shadow-[0_0_0_1px_rgba(212,165,116,0.38),0_0_40px_-6px_rgba(180,120,60,0.48),0_24px_80px_-24px_rgba(120,80,40,0.42)]',
+  silver:
+    'hover:border-sky-400/40 hover:shadow-[0_0_0_1px_rgba(147,197,253,0.35),0_0_40px_-6px_rgba(56,189,248,0.42),0_24px_80px_-24px_rgba(56,189,248,0.38)]',
+  gold:
+    'hover:border-amber-400/45 hover:shadow-[0_0_0_1px_rgba(253,224,71,0.42),0_0_44px_-6px_rgba(251,191,36,0.52),0_28px_90px_-20px_rgba(251,191,36,0.48)]',
+  legendary:
+    'hover:border-violet-400/55 hover:shadow-[0_0_0_1px_rgba(216,180,254,0.48),0_0_48px_-6px_rgba(147,51,234,0.58),0_32px_100px_-16px_rgba(147,51,234,0.52)]',
+};
+
+const SHELF_BORDER: Record<PackType, string> = {
+  bronze: 'border-amber-900/25',
+  silver: 'border-sky-900/30',
+  gold: 'border-amber-500/20',
+  legendary: 'border-violet-400/25',
 };
 
 export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
@@ -26,13 +37,14 @@ export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
   return (
     <article
       className={cn(
-        'pack-tcg-shelf group relative isolate overflow-hidden rounded-md border border-white/[0.06] bg-[#040508] transition-[border-color,transform] duration-400',
+        'pack-tcg-shelf group relative isolate overflow-visible rounded-md border bg-[#040508] transition-[border-color,box-shadow] duration-400',
+        SHELF_BORDER[config.type],
         SHELF_HOVER[config.type],
-        config.type === 'legendary' && 'border-violet-400/20',
+        `pack-tcg-shelf--${config.type}`,
       )}
     >
       <div className="relative flex min-h-[400px] flex-col p-4 sm:p-5">
-        <header className="text-center">
+        <header className="relative z-10 shrink-0 text-center">
           <h2
             className={cn(
               'text-2xl font-bold uppercase tracking-[0.16em] sm:text-[28px]',
@@ -43,7 +55,7 @@ export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
           </h2>
         </header>
 
-        <div className="my-5 flex flex-1 items-center justify-center overflow-hidden [perspective:1200px]">
+        <div className="pack-tcg-stage relative z-0 my-4 flex flex-1 items-end justify-center overflow-visible px-2 pb-1 pt-2 [perspective:1200px]">
           <div className="pack-tcg-lift relative h-[13.5rem] w-[9.25rem] overflow-hidden rounded-[12px]">
             <div className={cn('pack-shelf-shell h-full w-full overflow-hidden', `pack-shelf-shell--${config.type}`)}>
               <div className="relative h-full w-full overflow-hidden rounded-[10px]">

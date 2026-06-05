@@ -35,7 +35,6 @@ import { ChainIcon } from '@/components/squads/ChainIcon';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { explorerAddressUrl } from '@/lib/utils/addresses';
@@ -295,25 +294,23 @@ export function MintTradesTable({
                         </span>
                       ) : null}
                       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <a
-                                href={explorerAddressUrl(wallet)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
-                                aria-label="Open in explorer"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink className="h-3 w-3" strokeWidth={2} />
-                              </a>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[10px]">
-                              Open TX in Solscan
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={explorerAddressUrl(wallet)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+                              aria-label="Open in explorer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3 w-3" strokeWidth={2} />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[10px]">
+                            Open TX in Solscan
+                          </TooltipContent>
+                        </Tooltip>
                         {onFilterMintTrades ? (
                           <WalletMintTradesFilterButton
                             icon="filter"

@@ -27,15 +27,23 @@ export function ShareBackgroundPicker({
           title={p.label}
           onClick={() => onSelect(p.id)}
           className={cn(
-            'relative h-14 w-24 shrink-0 overflow-hidden rounded-lg ring-2 ring-offset-2 ring-offset-[#05070c] transition',
-            p.className,
-            selectedId === p.id ? 'ring-accent-primary' : 'ring-transparent hover:ring-white/20',
+            'relative h-14 w-[4.5rem] shrink-0 overflow-hidden rounded-sm ring-2 ring-offset-2 ring-offset-bg-sunken transition',
+            selectedId === p.id ? 'ring-border-default' : 'ring-transparent hover:ring-border-subtle',
           )}
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={p.previewImage}
+            alt=""
+            className="h-full w-full object-cover"
+            style={p.imageFilter ? { filter: p.imageFilter } : undefined}
+            draggable={false}
+          />
+        </button>
       ))}
       <label
         className={cn(
-          'flex h-14 w-24 shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border-subtle bg-black/30 text-[9px] text-fg-muted transition hover:border-accent-primary/40 hover:text-fg-secondary',
+          'flex h-14 w-[4.5rem] shrink-0 cursor-pointer flex-col items-center justify-center rounded-sm border border-dashed border-border-subtle bg-bg-base text-[9px] text-fg-muted transition hover:border-border-default hover:text-fg-secondary',
           disabled && 'pointer-events-none opacity-50',
         )}
       >

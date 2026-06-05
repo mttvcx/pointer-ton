@@ -302,7 +302,7 @@ export function ExchangeModal({
                         className="inline-flex items-center gap-1.5 rounded-sm border border-[#2e2e32] bg-[#12141b] px-2 py-0.5 text-[10px] font-semibold text-white"
                       >
                         {iconSrc ? (
-                          <DepositAssetIcon src={iconSrc} label={sym} size="sm" />
+                          <DepositAssetIcon src={iconSrc} label={sym} size="md" className="h-4 w-4" />
                         ) : (
                           <span className="h-3.5 w-3.5 rounded-full bg-[#2d3343]" aria-hidden />
                         )}

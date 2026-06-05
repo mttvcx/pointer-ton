@@ -2,12 +2,7 @@
 
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 import { walletIntelBadgeDisplay } from '@/lib/walletIdentity/walletIntelBadgeDisplay';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils/cn';
 
 const BADGE_STYLES: Record<WalletIntelBadgeKind, string> = {
@@ -63,24 +58,22 @@ export function WalletIdentityBadges({
   }
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <span className={cn('inline-flex shrink-0 items-center gap-0.5 overflow-hidden', className)}>
-        {show.map((k) => {
-          const { Icon, iconClass, tooltip } = walletIntelBadgeDisplay(k);
-          return (
-            <Tooltip key={k}>
-              <TooltipTrigger asChild>
-                <span className="inline-flex shrink-0 items-center justify-center">
-                  <Icon className={cn('h-3 w-3 shrink-0', iconClass)} strokeWidth={2.25} aria-hidden />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-[10px]">
-                {tooltip}
-              </TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </span>
-    </TooltipProvider>
+    <span className={cn('inline-flex shrink-0 items-center gap-0.5 overflow-hidden', className)}>
+      {show.map((k) => {
+        const { Icon, iconClass, tooltip } = walletIntelBadgeDisplay(k);
+        return (
+          <Tooltip key={k}>
+            <TooltipTrigger asChild>
+              <span className="inline-flex shrink-0 items-center justify-center">
+                <Icon className={cn('h-3 w-3 shrink-0', iconClass)} strokeWidth={2.25} aria-hidden />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-[10px]">
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </span>
   );
 }

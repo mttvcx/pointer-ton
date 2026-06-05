@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { TraderMintHoverStats } from '@/lib/trading/mintTopTraders';
 import { syntheticTraderMintStats } from '@/lib/dev/demoTokenFixtures';
@@ -25,8 +26,10 @@ export function useTraderMintHoverStats(
     staleTime: 20_000,
   });
 
-  const stats =
-    uiDemo && wallet ? syntheticTraderMintStats(wallet) : q.data?.stats;
+  const stats = useMemo(() => {
+    if (uiDemo && wallet) return syntheticTraderMintStats(wallet);
+    return q.data?.stats;
+  }, [uiDemo, wallet, q.data?.stats]);
 
   return { stats, isLoading: q.isLoading };
 }

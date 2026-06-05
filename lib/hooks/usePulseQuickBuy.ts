@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import { tokenRawForSellPct } from '@/lib/hooks/useSpotTradeExecution';
@@ -49,8 +49,25 @@ type TradingPresetApi = {
   max_fee_sol: number;
 };
 
+type QueueJob =
+  | {
+      kind: 'buy';
+      mint: string;
+      amount: number;
+      opts?: BuyTokenOptions;
+      resolve: (r: QuickBuyResult | void) => void;
+    }
+  | {
+      kind: 'sell';
+      mint: string;
+      sellPct: number;
+      opts?: SellTokenOptions;
+      resolve: (r: QuickBuyResult | void) => void;
+    };
+
 /**
- * Quote ? sign ? execute for Pulse row quick-buy (buy only).
+ * Quote → sign → execute for Pulse row quick-buy.
+ * Clicks enqueue instantly; trades drain FIFO one at a time (spam-friendly).
  */
 export function usePulseQuickBuy() {
   const { getAccessToken, authenticated } = usePointerAuth();
@@ -58,7 +75,11 @@ export function usePulseQuickBuy() {
   const activeChain = useUIStore((s) => s.activeChain);
   const { submitFromQuote } = usePointerTradeSubmit();
   const { activePresetSlot, spendAsset } = useTradingStore();
-  const [busyMint, setBusyMint] = useState<string | null>(null);
+  const [activeMint, setActiveMint] = useState<string | null>(null);
+  const [queueSize, setQueueSize] = useState(0);
+
+  const queueRef = useRef<QueueJob[]>([]);
+  const drainingRef = useRef(false);
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -100,7 +121,7 @@ export function usePulseQuickBuy() {
     return list.find((p) => p.slot === activePresetSlot) ?? null;
   }, [presetsPayload?.presets, activePresetSlot]);
 
-  const buyToken = useCallback(
+  const executeBuy = useCallback(
     async (
       mint: string,
       amount: number,
@@ -145,7 +166,6 @@ export function usePulseQuickBuy() {
       const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
       const landing = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
 
-      setBusyMint(mint);
       const toastId = silent ? undefined : toast.loading('Getting quote...');
       try {
         const body = {
@@ -224,8 +244,6 @@ export function usePulseQuickBuy() {
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
         toast.error('Quick buy failed', { description: msg.slice(0, 200) });
-      } finally {
-        setBusyMint(null);
       }
     },
     [
@@ -241,7 +259,7 @@ export function usePulseQuickBuy() {
     ],
   );
 
-  const sellTokenPct = useCallback(
+  const executeSell = useCallback(
     async (
       mint: string,
       sellPct: number,
@@ -278,7 +296,6 @@ export function usePulseQuickBuy() {
         return silent ? fail('Sign in required') : undefined;
       }
 
-      setBusyMint(mint);
       const toastId = silent ? undefined : toast.loading('Sell: quote...');
       try {
         const balRes = await fetch(
@@ -352,7 +369,7 @@ export function usePulseQuickBuy() {
           throw new Error('No swap transaction from quote');
         }
 
-        toast.loading('Sell: sign in wallet...', { id: toastId });
+        if (!silent && toastId) toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
           walletAddress: wallet.address,
@@ -400,8 +417,6 @@ export function usePulseQuickBuy() {
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
         toast.error('Quick sell failed', { description: msg.slice(0, 200) });
-      } finally {
-        setBusyMint(null);
       }
     },
     [
@@ -416,10 +431,64 @@ export function usePulseQuickBuy() {
     ],
   );
 
+  const drainQueue = useCallback(async () => {
+    if (drainingRef.current) return;
+    drainingRef.current = true;
+    try {
+      while (queueRef.current.length > 0) {
+        const job = queueRef.current.shift()!;
+        setQueueSize(queueRef.current.length);
+        setActiveMint(job.mint);
+        try {
+          const result =
+            job.kind === 'buy'
+              ? await executeBuy(job.mint, job.amount, job.opts)
+              : await executeSell(job.mint, job.sellPct, job.opts);
+          job.resolve(result);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Trade failed';
+          job.resolve({ ok: false, error: msg });
+        } finally {
+          setActiveMint(null);
+        }
+      }
+      setQueueSize(0);
+    } finally {
+      drainingRef.current = false;
+    }
+  }, [executeBuy, executeSell]);
+
+  const enqueue = useCallback(
+    (job: QueueJob) => {
+      queueRef.current.push(job);
+      setQueueSize(queueRef.current.length);
+      void drainQueue();
+    },
+    [drainQueue],
+  );
+
+  const buyToken = useCallback(
+    (mint: string, amount: number, opts?: BuyTokenOptions): Promise<QuickBuyResult | void> =>
+      new Promise((resolve) => {
+        enqueue({ kind: 'buy', mint, amount, opts, resolve });
+      }),
+    [enqueue],
+  );
+
+  const sellTokenPct = useCallback(
+    (mint: string, sellPct: number, options?: SellTokenOptions): Promise<QuickBuyResult | void> =>
+      new Promise((resolve) => {
+        enqueue({ kind: 'sell', mint, sellPct, opts: options, resolve });
+      }),
+    [enqueue],
+  );
+
   return {
     buyToken,
     sellTokenPct,
-    busyMint,
+    /** Mint currently executing (not queued) — informational only. */
+    busyMint: activeMint,
+    queueSize,
     walletReady: walletsReady && !!wallet,
     canTrade: Boolean(wallet && !activeWalletRow?.is_imported),
   };

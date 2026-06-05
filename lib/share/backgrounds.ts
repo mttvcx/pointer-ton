@@ -1,54 +1,51 @@
 import type { ShareBackgroundPresetId } from '@/lib/share/types';
+import { PNL_SHARE_REFERENCE_IMG } from '@/lib/share/pnlShareLayout';
+import {
+  DEFAULT_SHARE_CARD_THEME_ID,
+  SHARE_CARD_THEMES,
+  shareCardTheme,
+} from '@/lib/share/shareCardTheme';
 
-/**
- * Restrained Pointer share backgrounds. Each preset is intentionally bland —
- * the hero PNL number and neon Pointer bird carry the visual weight.
- */
-export const PRESET_BACKGROUNDS: {
-  id: ShareBackgroundPresetId;
-  label: string;
-  className: string;
-  /** Tint for the bird halo + faded POINTER wordmark per preset */
-  birdGlow: 'violet' | 'cyan' | 'mono';
-  /** Tone of the faded POINTER backdrop wordmark */
-  wordmarkTone: 'violet' | 'cyan' | 'slate';
-}[] = [
-  {
-    id: 'midnight',
-    label: 'Midnight',
-    className:
-      'bg-[#030208] ' +
-      '[background-image:radial-gradient(920px_560px_at_80%_38%,rgba(124,58,237,0.32),transparent_62%),radial-gradient(680px_400px_at_12%_88%,rgba(76,29,149,0.22),transparent_58%),linear-gradient(180deg,#030208,#020106)]',
-    birdGlow: 'violet',
-    wordmarkTone: 'violet',
-  },
-  {
-    id: 'onyx',
-    label: 'Onyx',
-    className:
-      'bg-[#04060a] ' +
-      '[background-image:radial-gradient(820px_460px_at_78%_50%,rgba(255,255,255,0.06),transparent_60%),linear-gradient(180deg,#04060a,#020306)]',
-    birdGlow: 'mono',
-    wordmarkTone: 'slate',
-  },
-  {
-    id: 'glacier',
-    label: 'Glacier',
-    className:
-      'bg-[#04080d] ' +
-      '[background-image:radial-gradient(880px_500px_at_78%_45%,rgba(34,211,238,0.22),transparent_60%),radial-gradient(640px_360px_at_18%_82%,rgba(14,116,144,0.16),transparent_60%),linear-gradient(180deg,#04080d,#03060a)]',
-    birdGlow: 'cyan',
-    wordmarkTone: 'cyan',
-  },
-];
+const BIRD_GLOW: Record<ShareBackgroundPresetId, 'violet' | 'cyan' | 'mono'> = {
+  midnight: 'violet',
+  onyx: 'mono',
+  glacier: 'cyan',
+};
 
-export const DEFAULT_BACKGROUND_ID: ShareBackgroundPresetId = 'midnight';
+const WORDMARK_TONE: Record<ShareBackgroundPresetId, 'violet' | 'cyan' | 'slate'> = {
+  midnight: 'violet',
+  onyx: 'slate',
+  glacier: 'cyan',
+};
 
+export const PRESET_BACKGROUNDS = SHARE_CARD_THEMES.map((t) => ({
+  id: t.id,
+  label: t.label,
+  previewImage: PNL_SHARE_REFERENCE_IMG,
+  imageFilter: t.imageFilter,
+  birdGlow: BIRD_GLOW[t.id],
+  wordmarkTone: WORDMARK_TONE[t.id],
+}));
+
+export const DEFAULT_BACKGROUND_ID: ShareBackgroundPresetId = DEFAULT_SHARE_CARD_THEME_ID;
+
+/** PNL tracker widgets — reference card as cover background. */
 export function presetClass(id: ShareBackgroundPresetId): string {
-  const fallback = PRESET_BACKGROUNDS[0]?.className ?? '';
-  return PRESET_BACKGROUNDS.find((p) => p.id === id)?.className ?? fallback;
+  return 'bg-[#05000a] bg-cover bg-center';
+}
+
+export function presetBackgroundImage(id: ShareBackgroundPresetId): string {
+  return PNL_SHARE_REFERENCE_IMG;
 }
 
 export function presetMeta(id: ShareBackgroundPresetId) {
-  return PRESET_BACKGROUNDS.find((p) => p.id === id) ?? PRESET_BACKGROUNDS[0]!;
+  const t = shareCardTheme(id);
+  return {
+    id: t.id,
+    label: t.label,
+    previewImage: t.referenceImage,
+    imageFilter: t.imageFilter,
+    birdGlow: BIRD_GLOW[t.id],
+    wordmarkTone: WORDMARK_TONE[t.id],
+  };
 }

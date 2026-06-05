@@ -2,7 +2,6 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
 import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
@@ -23,7 +22,7 @@ type Props = {
 
 export function ExploreTableMode(props: Props) {
   const { authenticated } = usePointerAuth();
-  const { buyToken, busyMint } = usePulseQuickBuy();
+  const { buyToken } = usePulseQuickBuy();
   const quickSol = usePulseColumnStore((s) => s.byColumn.new.quickBuySol);
   const buyAmt =
     typeof quickSol === 'number' && Number.isFinite(quickSol) && quickSol > 0 ? quickSol : BUY_PRESETS_SOL[1]!;
@@ -113,7 +112,7 @@ export function ExploreTableMode(props: Props) {
                   <div onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      disabled={busyMint !== null || !authenticated}
+                      disabled={!authenticated}
                       title={!authenticated ? 'Sign in to trade' : undefined}
                       onClick={() => void buyToken(it.tokenAddress, buyAmt)}
                       className={cn(
@@ -121,7 +120,7 @@ export function ExploreTableMode(props: Props) {
                         'disabled:opacity-35',
                       )}
                     >
-                      {busyMint === it.tokenAddress ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" /> : buyAmt}
+                      {buyAmt}
                     </button>
                   </div>
                 </Td>

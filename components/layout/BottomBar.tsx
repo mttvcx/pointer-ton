@@ -287,14 +287,14 @@ export function BottomBar() {
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex min-h-[2.5rem] shrink-0 border-t border-white/[0.06] bg-bg-base pb-[env(safe-area-inset-bottom,0px)] text-[11px] font-medium tabular-nums text-fg-secondary">
-        <div className="flex min-h-[2.5rem] w-full min-w-0 items-center gap-1.5 overflow-x-auto px-2 sm:gap-2 sm:px-3">
+      <div className="fixed bottom-0 left-0 right-0 z-[100] isolate shrink-0 border-t border-border-subtle bg-bg-base pb-[env(safe-area-inset-bottom,0px)] text-[11px] font-medium tabular-nums text-fg-secondary">
+        <div className="flex h-[2.5rem] w-full min-w-0 items-center justify-between gap-2 overflow-visible px-2 sm:gap-3 sm:px-3">
           <div
             className={cn(
-              'hidden min-w-0 shrink-0 items-center gap-1 overflow-x-auto sm:flex sm:flex-nowrap sm:pr-2',
-              'max-w-[min(72vw,52rem)] xl:max-w-none',
+              'hidden min-w-0 items-center gap-1 overflow-x-auto sm:flex sm:flex-nowrap sm:pr-2',
+              'max-w-[min(72vw,52rem)] xl:max-w-none xl:flex-1',
               '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-              'border-r border-white/[0.06]',
+              'border-r border-border-subtle',
             )}
           >
             <TradingSettingsPopover className="shrink-0 cursor-pointer rounded-md border border-accent-primary/35 bg-accent-primary/[0.08] px-2 py-[3px] text-[11px] font-semibold tabular-nums leading-none text-accent-primary transition-colors hover:bg-accent-primary/15">
@@ -327,24 +327,21 @@ export function BottomBar() {
             ))}
           </div>
 
-          <div className="hidden min-w-0 flex-1 items-center justify-center px-2 sm:flex">
-            <MarketLighthouseHover
-              activeChain={activeChain}
-              placement="above"
-              triggerClassName="h-[26px] border-white/[0.08] bg-bg-sunken/35"
-            />
-          </div>
-
-          {spotTickerChains.length > 0 ? (
-            <div className="hidden shrink-0 items-center gap-3 sm:flex">
-              <span className="h-3.5 w-px shrink-0 bg-white/[0.08]" aria-hidden />
-              <BottomBarVerticalTicker rows={rows} chain={activeChain} symbols={spotTickerChains} />
+          <div className="ml-auto flex h-full shrink-0 items-center gap-2 overflow-visible sm:gap-3">
+            <div className="hidden items-center gap-3 lg:flex">
+              <MarketLighthouseHover
+                activeChain={activeChain}
+                placement="above"
+                triggerClassName="h-[26px] border-border-subtle bg-bg-sunken/60"
+              />
+              {spotTickerChains.length > 0 ? (
+                <>
+                  <span className="h-3.5 w-px shrink-0 bg-border-subtle" aria-hidden />
+                  <BottomBarVerticalTicker rows={rows} chain={activeChain} symbols={spotTickerChains} />
+                </>
+              ) : null}
             </div>
-          ) : null}
 
-          <div className="min-w-0 flex-1" aria-hidden />
-
-          <div className="flex shrink-0 items-center gap-1.5 border-l border-white/[0.06] pl-2 sm:gap-2 sm:pl-3">
             <IssuesIndicator onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
             <BottomBarStatusRail onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
           </div>

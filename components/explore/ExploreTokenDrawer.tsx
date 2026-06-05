@@ -8,7 +8,6 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
-  Loader2,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -57,7 +56,7 @@ export function ExploreTokenDrawer({
 }) {
   const { authenticated } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
-  const { buyToken, busyMint } = usePulseQuickBuy();
+  const { buyToken } = usePulseQuickBuy();
   const quickSol = usePulseColumnStore((s) => s.byColumn.new.quickBuySol);
   const buyAmt =
     typeof quickSol === 'number' && Number.isFinite(quickSol) && quickSol > 0
@@ -181,18 +180,12 @@ export function ExploreTokenDrawer({
           </button>
           <button
             type="button"
-            disabled={busyMint !== null || !authenticated}
+            disabled={!authenticated}
             title={!authenticated ? 'Sign in to trade' : undefined}
             onClick={() => void buyToken(item.tokenAddress, buyAmt)}
             className="rounded-lg border border-white/[0.12] bg-white/[0.03] px-3 py-1.5 text-[12px] font-semibold text-fg-primary hover:bg-white/[0.06] disabled:opacity-35"
           >
-            {busyMint === item.tokenAddress ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buying…
-              </span>
-            ) : (
-              `Buy (${buyAmt} SOL)`
-            )}
+            {`Buy (${buyAmt} SOL)`}
           </button>
           <button
             type="button"

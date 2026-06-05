@@ -731,10 +731,11 @@
   box-shadow: none !important;
 }
 
-.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-icon],
-.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-title],
-.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-description],
-.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+/* Custom wallet-tracker cards use `toast.custom` → `data-styled=false`; only hide Sonner's default chrome. */
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-icon],
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-title],
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-description],
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-button] {
   display: none !important;
 }
 
@@ -1166,13 +1167,50 @@
   transform-style: preserve-3d;
 }
 
+/* Outer shelf rectangle hue — sits outside the card border on hover */
+.pack-tcg-shelf::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: -1;
+}
+
+.pack-tcg-shelf--bronze::after {
+  box-shadow: 0 0 48px -8px rgba(180, 120, 60, 0.55);
+}
+
+.pack-tcg-shelf--silver::after {
+  box-shadow: 0 0 48px -8px rgba(56, 189, 248, 0.5);
+}
+
+.pack-tcg-shelf--gold::after {
+  box-shadow: 0 0 52px -8px rgba(251, 191, 36, 0.58);
+}
+
+.pack-tcg-shelf--legendary::after {
+  box-shadow: 0 0 56px -6px rgba(147, 51, 234, 0.62);
+}
+
+.pack-tcg-shelf:hover::after {
+  opacity: 1;
+}
+
 .pack-tcg-lift {
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-  transform: translateY(0) rotateX(0deg) scale(1);
+  transform-origin: center bottom;
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(0) rotateX(0deg) rotateY(0deg) scale(1);
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.45));
 }
 
 .group:hover .pack-tcg-lift {
-  transform: translateY(-10px) rotateX(5deg) rotateY(-2deg) scale(1.03);
+  transform: translateY(-6px) rotateX(9deg) rotateY(-4deg) scale(1.04);
+  filter: drop-shadow(0 20px 32px rgba(0, 0, 0, 0.62));
 }
 
 .pack-tcg-reward-hover {
@@ -1566,8 +1604,13 @@
   animation: none;
 }
 
+.pack-tcg-stage {
+  min-height: 15.5rem;
+}
+
 .pack-tcg-shelf .pack-tcg-lift {
-  contain: paint;
+  transform-origin: center bottom;
+  will-change: transform;
 }
 
 @keyframes packHoloSweep {

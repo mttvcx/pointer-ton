@@ -6,7 +6,10 @@ export function depositChainIconSrc(chain: AppChainId): string {
   return CHAIN_ICON_PNG[chain];
 }
 
-/** Stable / jetton marks shown under "Accepting". */
+/**
+ * Stable / jetton marks shown under "Accepting".
+ * PYUSD = PayPal USD (Paxos); logo from PayPal brand assets / on-chain registry.
+ */
 export const DEPOSIT_TOKEN_ICON_SRC: Record<string, string> = {
   EURC: '/logos/protocols/eurc.png',
   PYUSD: '/logos/protocols/pyusd.png',
