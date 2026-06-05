@@ -1,6 +1,7 @@
 'use client';
 
 import { SpotTickerIcon } from '@/components/chains/SpotTickerIcon';
+import { formatPackSolPrice } from '@/lib/packs/formatDisplay';
 import { cn } from '@/lib/utils/cn';
 
 /** SOL-denominated price with chain mark — no "SOL" text. */
@@ -18,7 +19,7 @@ export function PackSolAmount({
 
   return (
     <span className={cn('inline-flex items-center gap-1.5 font-mono font-semibold tabular-nums', text, className)}>
-      <span>{amount}</span>
+      <span>{formatPackSolPrice(amount)}</span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/chains/sol.png"

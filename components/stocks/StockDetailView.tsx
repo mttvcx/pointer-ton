@@ -5,8 +5,7 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/shared/Skeleton';
 import { TokenActivityTabs } from '@/components/tokens/TokenActivityTabs';
 import { StockOrderPanel } from '@/components/stocks/StockOrderPanel';
-import { getSyntheticStockProvider } from '@/lib/stocks/providers';
-import type { SyntheticStockCandle, SyntheticStockMarket } from '@/lib/stocks/types';
+import type { SyntheticStockMarket } from '@/lib/stocks/types';
 import type { TradesDeskFilter } from '@/lib/tokens/tradeFormatting';
 import { cn } from '@/lib/utils/cn';
 
@@ -103,18 +102,12 @@ function stockDeskMint(symbol: string): string {
 }
 
 export function StockDetailView({ market }: { market: SyntheticStockMarket }) {
-  const [candles, setCandles] = useState<SyntheticStockCandle[]>([]);
   const mint = stockDeskMint(market.symbol);
-
-  useEffect(() => {
-    const provider = getSyntheticStockProvider();
-    void provider.getCandles(market.symbol, '15m').then(setCandles);
-  }, [market.symbol]);
 
   const [rightStackW, setRightStackW] = useState(340);
   const [chartH, setChartH] = useState<number | null>(null);
   const [lg, setLg] = useState(false);
-  const [tradesPanel, setTradesPanel] = useState(false);
+  const [tradesPanel, setTradesPanel] = useState(true);
   const [tradesDeskFilter, setTradesDeskFilter] = useState<TradesDeskFilter>('all');
   const [tradesAgeSortDir, setTradesAgeSortDir] = useState<'asc' | 'desc'>('desc');
   const [tradesAgeDisplay, setTradesAgeDisplay] = useState<'age' | 'time'>('age');
@@ -253,7 +246,7 @@ export function StockDetailView({ market }: { market: SyntheticStockMarket }) {
             }
           >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0.5 pt-0.5">
-              <StockChart candles={candles} symbol={market.symbol} edgeToEdge />
+              <StockChart symbol={market.symbol} market={market} edgeToEdge />
             </div>
           </div>
 

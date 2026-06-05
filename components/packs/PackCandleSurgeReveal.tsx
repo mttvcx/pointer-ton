@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import type { PackReward } from '@/types/pack';
+import { usePackCelebrationSound } from '@/components/packs/usePackCelebrationSound';
 import { PackRewardCard } from '@/components/packs/PackRewardCard';
 import { PACK_POINTER_LOGO } from '@/lib/packs/constants';
 
@@ -24,6 +25,8 @@ type PackCandleSurgeRevealProps = {
 
 /** Epic surge — zoom into Pointer chart, centered green candle prints, camera tracks up. */
 export function PackCandleSurgeReveal({ reward, onComplete }: PackCandleSurgeRevealProps) {
+  usePackCelebrationSound('candle_surge');
+
   useEffect(() => {
     const t = setTimeout(onComplete, CANDLE_SURGE_MS);
     return () => clearTimeout(t);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { GlassModal } from '@/components/ui/GlassModal';
+import { modalBtnPrimaryClass } from '@/lib/ui/modalChrome';
 import { FundingCell } from '@/components/tokens/cells/FundingCell';
 import { PnlCell } from '@/components/tokens/cells/PnlCell';
 import { RemainingBarCell } from '@/components/tokens/cells/RemainingBarCell';
@@ -300,7 +301,7 @@ export function HoldersTableSettingsModal({
           <button
             type="button"
             onClick={handleDone}
-            className="btn-press focus-ring h-10 flex-1 rounded-lg bg-accent-primary text-[13px] font-semibold text-fg-inverse transition hover:brightness-110"
+            className={cn(modalBtnPrimaryClass, 'h-10 flex-1')}
           >
             Done
           </button>

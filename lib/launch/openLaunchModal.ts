@@ -97,6 +97,7 @@ export async function openDeployForTweetAsync(
     openLaunchFromTweet(tweetSubject, tweet);
     return;
   }
+  openLaunchFromTweet(tweetSubject, tweet);
   try {
     const res = await fetch('/api/ai/launch-package', {
       method: 'POST',
@@ -111,7 +112,6 @@ export async function openDeployForTweetAsync(
       }
     }
   } catch {
-    /* fall through to manual */
+    /* modal already open with manual draft */
   }
-  openLaunchFromTweet(tweetSubject, tweet);
 }

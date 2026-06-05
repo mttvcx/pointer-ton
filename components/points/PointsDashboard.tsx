@@ -40,8 +40,6 @@ import {
   POINTS_SEASON_LABEL,
   POINTS_SEASON_SHORT,
   PTR_BENEFITS_INTRO,
-  PTR_CHECKPOINT_BLURB,
-  PTR_HERO_BODY,
   PTR_HERO_TAGLINE,
   PTR_POINTS_BRAND,
   PTR_SIGNIN_BLURB,
@@ -87,14 +85,14 @@ function displayNameFromUser(user: {
   google?: { name?: string };
   email?: { address?: string };
 } | null): string {
-  if (!user) return 'Operator';
+  if (!user) return 'You';
   const tw = user.twitter?.username?.trim();
   if (tw) return `@${tw}`;
   const g = user.google?.name?.trim();
   if (g) return g;
   const em = user.email?.address?.trim();
   if (em) return em.includes('@') ? em.split('@')[0] ?? em : em;
-  return 'Operator';
+  return 'You';
 }
 
 async function authFetch<T>(url: string, token: string): Promise<T> {
@@ -129,7 +127,7 @@ function RankMiniLadder({ currentId }: { currentId: RankTierId }) {
   const idx = rankTierIndex(currentId);
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-fg-muted">Prestige ladder</p>
+      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-fg-muted">Ranks</p>
       <div className="flex gap-0.5 sm:gap-1">
         {RANK_LADDER.map((t, i) => {
           const reached = i <= idx;
@@ -433,7 +431,7 @@ export function PointsDashboard({ className }: { className?: string }) {
       (tab === 'rewards' ? earningsQ.error : undefined);
     let detail =
       backendErr instanceof Error ? backendErr.message : 'Campaign services did not respond. Try again shortly.';
-    if (/^no_token$/i.test(detail)) detail = 'Session expired — sign out and reconnect.';
+    if (/^no_token$/i.test(detail)) detail = 'Session expired. Sign in again.';
     return (
       <div className={shellClass}>
         {tabNav}
@@ -495,16 +493,8 @@ export function PointsDashboard({ className }: { className?: string }) {
                   <h1 className="font-semibold tracking-tight text-fg-primary text-[clamp(1.45rem,3.2vw,1.95rem)] leading-[1.15]">
                     {PTR_POINTS_BRAND}
                   </h1>
-                  <p className="text-[12px] font-medium text-accent-glow/90">{PTR_HERO_TAGLINE}</p>
-                  <p className="text-[12px] leading-relaxed text-fg-secondary">
-                    {PTR_HERO_BODY}
-                  </p>
-                  <div className="flex flex-col gap-3 pt-1">
-                    <p className="max-w-xl rounded-xl border border-white/[0.08] bg-bg-sunken/50 px-4 py-3 text-[11px] leading-relaxed text-fg-secondary ring-1 ring-cyan-500/10">
-                      <span className="font-semibold text-accent-glow">Rewards checkpoint</span> —{' '}
-                      {PTR_CHECKPOINT_BLURB}
-                    </p>
-                    <div className="flex flex-wrap gap-2.5">
+                  <p className="text-[12px] text-fg-secondary">{PTR_HERO_TAGLINE}</p>
+                  <div className="flex flex-wrap gap-2.5 pt-1">
                     <button
                       type="button"
                       onClick={() => setTab('referral')}
@@ -525,15 +515,11 @@ export function PointsDashboard({ className }: { className?: string }) {
                       <Share2 className="h-3.5 w-3.5" />
                       Copy invite link
                     </button>
-                    </div>
                   </div>
                 </div>
 
                 <div className="min-w-0 lg:min-h-[320px]">
                   <RewardsClaimHub
-                    rankTierLabel={rankState.tier.label}
-                    nextTierLabel={rankState.next?.label ?? null}
-                    rankProgress01={rankState.progressToNext}
                     lifetimePointsDisplay={points.totalPoints}
                     referralRecent={earnings.recent.slice(0, 12)}
                     referralPendingSol={earnings.sums.pendingSol}
@@ -547,24 +533,12 @@ export function PointsDashboard({ className }: { className?: string }) {
                     <div className="flex items-start gap-4">
                       <RankSeal label={rankState.tier.label} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-muted">
-                              Operator status
-                            </p>
-                            <p className="truncate text-[16px] font-semibold tracking-tight text-fg-primary">
-                              {displayName}
-                            </p>
-                          </div>
-                          <div className="rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-1.5 text-right shadow-[0_0_24px_-12px_rgba(167,139,250,0.55)] ring-1 ring-violet-400/20">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-200/90">
-                              Rank
-                            </p>
-                            <p className="text-[18px] font-bold leading-none tracking-tight text-fg-primary">
-                              {rankState.tier.label}
-                            </p>
-                          </div>
-                        </div>
+                        <p className="truncate text-[16px] font-semibold tracking-tight text-fg-primary">
+                          {displayName}
+                        </p>
+                        <p className="mt-0.5 text-[13px] font-semibold text-violet-200/95">
+                          {rankState.tier.label}
+                        </p>
                         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4">
                           <div>
                             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
@@ -596,7 +570,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                       <div className="border-t border-white/[0.06] pt-4">
                         <div className="mb-2 flex justify-between text-[11px] text-fg-muted">
                           <span className="font-medium text-fg-secondary">
-                            Ascension to <span className="text-fg-primary">{rankState.next.label}</span>
+                            Next: <span className="text-fg-primary">{rankState.next.label}</span>
                           </span>
                           <span className="tabular-nums font-semibold text-accent-glow">
                             {Math.round(rankState.progressToNext * 100)}%
@@ -611,7 +585,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                       </div>
                     ) : (
                       <p className="border-t border-white/[0.06] pt-4 text-[11px] text-fg-muted">
-                        Apex tier displayed for this ladder preview — disclosure continues with seasonal rules.
+                        Max rank reached.
                       </p>
                     )}
                   </div>
@@ -625,15 +599,14 @@ export function PointsDashboard({ className }: { className?: string }) {
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-violet-200/90">
-                      Eligibility · Transparency
+                      Rules
                     </h2>
                     <span className="rounded-full border border-white/10 bg-bg-base/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted ring-1 ring-violet-400/15">
                       Rules log · v{POINTS_RULES_VERSION}
                     </span>
                   </div>
-                  <p className="max-w-xl text-[12px] leading-relaxed text-fg-secondary">
-                    Season 1 {PTR_TICKER} rules, allocation breakdowns, and eligibility gates publish here as the season
-                    progresses. Last reviewed{' '}
+                  <p className="text-[12px] text-fg-secondary">
+                    Season 1 rules. Updated{' '}
                     <span className="tabular-nums font-medium text-fg-primary">{POINTS_LAST_UPDATED_LABEL}</span>.
                   </p>
                 </div>
@@ -651,14 +624,9 @@ export function PointsDashboard({ className }: { className?: string }) {
             {/* Ecosystem campaigns */}
             <div className="space-y-3">
               <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-muted">
-                    Active ecosystem nodes
-                  </h2>
-                  <p className="mt-1 text-[11px] text-fg-muted">
-                    Select a surface to filter campaign context — scoring stays on-terminal.
-                  </p>
-                </div>
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-muted">
+                  Campaigns
+                </h2>
                 {campaignHighlight ? (
                   <button
                     type="button"
@@ -730,8 +698,7 @@ export function PointsDashboard({ className }: { className?: string }) {
               </div>
               {campaignHighlight ? (
                 <p className="text-[11px] text-fg-muted">
-                  Filtering <span className="font-semibold text-accent-glow">{campaignHighlight}</span> — scoring stays
-                  tied to on-terminal behaviour and disclosed partner routes, not social posting.
+                  Filter: <span className="font-semibold text-accent-glow">{campaignHighlight}</span>
                 </p>
               ) : null}
             </div>
@@ -748,10 +715,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                   <Zap className="h-4 w-4 text-accent-primary" aria-hidden />
                 </div>
                 <h3 className="text-[13px] font-semibold">Trading points</h3>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-fg-secondary">
-                  Volume, trade count, streaks, multi-chain routes, trackers, alerts, co-pilot and portfolio usage —
-                  scored as product-native activity.
-                </p>
+                <p className="mt-1.5 text-[11px] text-fg-secondary">From trades and terminal usage.</p>
               </GlassPanel>
               <GlassPanel
                 variant="secondary"
@@ -761,10 +725,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                   <Users className="h-4 w-4 text-signal-bull" aria-hidden />
                 </div>
                 <h3 className="text-[13px] font-semibold">Referral points</h3>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-fg-secondary">
-                  Invites that convert to active traders, retained usage, and referred volume — partner codes supported
-                  where configured.
-                </p>
+                <p className="mt-1.5 text-[11px] text-fg-secondary">From referred traders and volume.</p>
               </GlassPanel>
               <GlassPanel
                 variant="secondary"
@@ -783,7 +744,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                 <div className="mb-2 inline-flex rounded-lg border border-border-subtle bg-bg-sunken/60 p-2 ring-1 ring-white/[0.03] transition group-hover:border-violet-400/25">
                   <Compass className="h-4 w-4 text-[#a78bfa]" aria-hidden />
                 </div>
-                <h3 className="text-[13px] font-semibold">Creator / operator</h3>
+                <h3 className="text-[13px] font-semibold">Creators</h3>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-fg-secondary">{CREATOR_PROGRAM_COPY}</p>
               </GlassPanel>
             </div>
@@ -813,7 +774,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                       {points.breakdown.length === 0 ? (
                         <tr>
                           <td colSpan={2} className="px-3 py-8 text-center text-fg-muted">
-                            No scored events yet — trade and use the terminal to accrue.
+                            No points yet. Start trading.
                           </td>
                         </tr>
                       ) : (
@@ -835,18 +796,11 @@ export function PointsDashboard({ className }: { className?: string }) {
                   <span className="text-[10px] font-medium uppercase tracking-wide text-violet-200/70">Synthetic</span>
                 </div>
                 <AccrualSparkline />
-                <p className="mt-3 text-[11px] leading-relaxed text-fg-muted">
-                  Illustrative series — full historical curves ship with analytics rollout.
-                </p>
               </GlassPanel>
             </div>
 
             <GlassPanel variant="quiet" className="p-4 lg:col-span-3">
-              <h3 className="mb-1 text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Settlement</h3>
-              <p className="mb-4 text-[11px] leading-relaxed text-fg-secondary">
-                Claims and reward pools follow seasonal disclosure. Live referral timing streams in the Rewards
-                checkpoint card above — no duplicate ledger table here.
-              </p>
+              <h3 className="mb-4 text-[12px] font-bold uppercase tracking-[0.12em] text-fg-muted">Settlement</h3>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-xl border border-white/[0.06] bg-bg-base/50 px-3 py-2.5 text-center ring-1 ring-white/[0.03]">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Pending SOL</p>
@@ -879,7 +833,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                 href="#rewards-claim-hub"
                 className="focus-ring btn-press mt-4 flex w-full items-center justify-center rounded-xl border border-cyan-400/35 bg-cyan-500/10 py-2.5 text-[12px] font-semibold text-cyan-50 ring-1 ring-cyan-400/22 transition hover:bg-cyan-500/15"
               >
-                Jump to Rewards checkpoint
+                Claim rewards
               </Link>
             </GlassPanel>
           </div>
@@ -915,8 +869,8 @@ export function PointsDashboard({ className }: { className?: string }) {
                 <div className="mb-3 flex items-center justify-center gap-3">
                   <RankSeal label={rankState.tier.label} />
                   <div className="text-left">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted">Operator</p>
                     <p className="text-[13px] font-semibold text-fg-primary">{displayName}</p>
+                    <p className="text-[11px] text-fg-muted">{rankState.tier.label}</p>
                   </div>
                 </div>
                 <p className="bg-gradient-to-br from-white via-fg-primary to-fg-secondary bg-clip-text text-[clamp(1.65rem,4.5vw,2.35rem)] font-bold tabular-nums tracking-tight text-transparent drop-shadow-[0_0_28px_rgba(167,139,250,0.25)]">
@@ -1004,7 +958,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                     <thead className="sticky top-0 z-[1] bg-bg-raised/95 backdrop-blur">
                       <tr className="border-b border-border-subtle">
                         <th className="px-3 py-2 font-medium text-fg-muted">Rank</th>
-                        <th className="px-3 py-2 font-medium text-fg-muted">Operator</th>
+                        <th className="px-3 py-2 font-medium text-fg-muted">User</th>
                         <th className="px-3 py-2 text-right font-medium text-fg-muted">{PTR_TICKER}</th>
                         <th className="px-3 py-2 text-right font-medium text-fg-muted">Active days</th>
                       </tr>
@@ -1034,7 +988,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                   </table>
                 </div>
                 <div className="border-t border-white/[0.06] bg-bg-base/25 px-4 py-2.5 text-[11px] text-fg-muted">
-                  Showing {lb.rows.length} of {lb.tableTotal} · anti-sybil weighting applies off-chain
+                  {lb.rows.length} of {lb.tableTotal}
                 </div>
               </GlassPanel>
             ) : (
@@ -1042,10 +996,8 @@ export function PointsDashboard({ className }: { className?: string }) {
                 <p className="text-[15px] font-semibold tracking-tight text-fg-primary">
                   {leaderboardBoard === 'referrers' ? 'Referrer standings' : 'Creator standings'}
                 </p>
-                <p className="mx-auto mt-3 max-w-md text-[12px] leading-relaxed text-fg-secondary">
-                  {leaderboardBoard === 'referrers'
-                    ? 'A dedicated referrer ladder with acquisition quality metrics is shipping — volume-weighted invites and retention, not vanity followers.'
-                    : 'Creator and operator boards are curated — application-only, attribution via referral links and disclosed volume impact.'}
+                <p className="mx-auto mt-3 text-[12px] text-fg-secondary">
+                  {leaderboardBoard === 'referrers' ? 'Coming soon.' : 'Application only.'}
                 </p>
               </GlassPanel>
             )}
@@ -1066,28 +1018,28 @@ export function PointsDashboard({ className }: { className?: string }) {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <BenefitCard
               title={PTR_POINTS_BRAND}
-              description="Earn Season 1 $PTR from trading volume, retention, referrals, and verified identity — transparent seasonal rules."
+              description="Earn from trading, referrals, and usage."
               accent="var(--accent-primary)"
               button="Open rewards"
               href="/points?tab=rewards"
             />
             <BenefitCard
               title="Leaderboards"
-              description="Separate prestige rails for traders, referrers, and creators — credibility without engagement farming."
+              description="Trader, referrer, and creator boards."
               accent="#a78bfa"
               button="View leaderboard"
               href="/points?tab=leaderboard"
             />
             <BenefitCard
               title="Referrals"
-              description="Share your code and earn when invited operators trade — quality-weighted where configured."
+              description="Share your code and earn on referred volume."
               accent="var(--signal-bull)"
               button="Referral desk"
               href="/points?tab=referral"
             />
             <BenefitCard
-              title="DEX & routing activity"
-              description="Volume through Pulse and routed venues counts toward trading signals. Third-party protocol claims appear when integrations ship."
+              title="DEX & routing"
+              description="Pulse and routed venue volume counts."
               accent="var(--signal-info)"
               button="Trade"
               href="/"

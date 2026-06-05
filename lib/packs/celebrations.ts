@@ -59,6 +59,8 @@ export function celebrationBlocksSkip(celebration: PackCelebration): boolean {
 /** Map dev test mode → celebration stage (does not affect live rolls). */
 export function celebrationFromTestMode(mode: PackTestCelebration): PackCelebration | null {
   if (mode === 'jackpot') return 'helicopter_jackpot';
+  if (mode === 'legendary_elite') return 'vault_open';
+  if (mode === 'epic_surge') return 'candle_surge';
   return null;
 }
 

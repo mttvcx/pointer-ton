@@ -59,6 +59,21 @@ export const CHAIN_FUNDING: Record<AppChainId, ChainFundingConfig> = {
       networkWalletsPrefix: 'solana',
     },
   },
+  eth: {
+    pickerLabel: 'Ethereum',
+    chips: [
+      { symbol: 'ETH', swatchClass: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] bg-gradient-to-br from-[#627eea] to-[#3c4a9e]' },
+      { symbol: 'WETH', swatchClass: 'shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] bg-gradient-to-br from-[#8b9de8] to-[#627eea]' },
+      { symbol: 'USDC', swatchClass: 'bg-[#2775ca]' },
+      { symbol: 'USDT', swatchClass: 'bg-emerald-500/95' },
+    ],
+    onramper: {
+      defaultCryptoId: 'eth',
+      popularCryptos: 'eth,usdc,usdt',
+      onlyCryptoNetworks: 'ethereum',
+      networkWalletsPrefix: 'ethereum',
+    },
+  },
   base: {
     pickerLabel: 'Base',
     chips: [

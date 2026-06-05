@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireSyncedUser } from '@/lib/ai/auth';
 import { aiErrorResponse } from '@/lib/ai/http';
 import { explainToken } from '@/lib/ai/pipelines/explainToken';
+import { APP_CHAIN_IDS, isAppChainId } from '@/lib/chains/appChain';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 
 export const runtime = 'nodejs';
@@ -13,6 +14,7 @@ const Body = z
     mint: z.string().refine((m) => isValidTokenMintParam(m), 'invalid mint'),
     mode: z.enum(['fast', 'deep']).default('fast'),
     surface: z.enum(['hover', 'copilot']).optional(),
+    chain: z.enum(APP_CHAIN_IDS as unknown as [typeof APP_CHAIN_IDS[number], ...typeof APP_CHAIN_IDS[number][]]).optional(),
   })
   .strict();
 
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
       mint: body.mint,
       mode: body.mode,
       surface: body.surface,
+      chain: body.chain && isAppChainId(body.chain) ? body.chain : undefined,
       userId: auth.user.id,
     });
     return NextResponse.json({

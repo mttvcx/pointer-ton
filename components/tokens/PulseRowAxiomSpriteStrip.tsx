@@ -42,7 +42,7 @@ function AxiomMetricIcon({
     <span
       className={cn(
         'inline-flex shrink-0',
-        tone === 'bear' ? 'text-signal-bear drop-shadow-[0_0_8px_rgba(251,113,133,0.28)]' : 'text-signal-bull opacity-95',
+        tone === 'bear' ? 'text-signal-bear' : 'text-signal-bull opacity-95',
       )}
     >
       <PulseLuminanceGlyph src={sheetSrc} size={px} />

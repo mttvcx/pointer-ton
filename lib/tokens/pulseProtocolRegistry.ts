@@ -29,6 +29,7 @@ export const PULSE_FILTER_PROTOCOL_IDS: Record<AppChainId, readonly string[]> = 
     'meteora',
     'raydium',
   ],
+  eth: ['uniswap-v2', 'uniswap-v3', 'uniswap-v4', 'clanker', 'virtuals', 'eth'],
   bnb: ['four.meme', 'flap', 'pancakeswap', 'uniswap', 'bsc'],
   base: ['clanker', 'bankr', 'flaunch', 'zora-content', 'zora-creator', 'baseapp', 'basememe', 'virtuals', 'klik'],
 } as const;
@@ -37,6 +38,7 @@ export const PULSE_FILTER_PROTOCOL_IDS: Record<AppChainId, readonly string[]> = 
 export const ALL_PULSE_PROTOCOL_FILTER_IDS = [
   ...PULSE_FILTER_PROTOCOL_IDS.ton,
   ...PULSE_FILTER_PROTOCOL_IDS.sol,
+  ...PULSE_FILTER_PROTOCOL_IDS.eth,
   ...PULSE_FILTER_PROTOCOL_IDS.bnb,
   ...PULSE_FILTER_PROTOCOL_IDS.base,
 ] as const;
@@ -79,6 +81,10 @@ export const PULSE_COLUMN_PROTOCOL_LABEL: Record<string, string> = {
   flap: 'Flap',
   pancakeswap: 'Pancakeswap',
   uniswap: 'Uniswap',
+  'uniswap-v2': 'Uniswap V2',
+  'uniswap-v3': 'Uniswap V3',
+  'uniswap-v4': 'Uniswap V4',
+  eth: 'Ethereum (new pools)',
   clanker: 'Clanker',
   bankr: 'Bankr',
   flaunch: 'Flaunch',

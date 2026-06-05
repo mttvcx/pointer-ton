@@ -1,11 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Share2, X } from 'lucide-react';
+import { Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PackOpenResult, PackPublicConfig, PackType } from '@/types/pack';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { PACK_POINTER_LOGO } from '@/lib/packs/constants';
 import {
   celebrationFromTestMode,
   JACKPOT_STING_MS,
@@ -25,6 +24,7 @@ import { formatPackVal } from '@/lib/packs/formatDisplay';
 import { PackConfetti } from '@/components/packs/PackConfetti';
 import { PackFifaFireworks } from '@/components/packs/PackFifaFireworks';
 import { PackFoilBox } from '@/components/packs/PackFoilBox';
+import { PackFoilDesign } from '@/components/packs/PackFoilDesign';
 import { PackFireworks } from '@/components/packs/PackFireworks';
 import { PackCandleSurgeReveal } from '@/components/packs/PackCandleSurgeReveal';
 import { PackHelicopterReveal } from '@/components/packs/PackHelicopterReveal';
@@ -34,6 +34,8 @@ import { PackRewardCard } from '@/components/packs/PackRewardCard';
 import { PackShareCard } from '@/components/packs/PackShareCard';
 import { PackSolAmount } from '@/components/packs/PackSolAmount';
 import { exportShareImagePng } from '@/lib/share/exportShareImage';
+import { usePackCelebrationSound } from '@/components/packs/usePackCelebrationSound';
+import { playPackOpenBurst } from '@/lib/packs/packSounds';
 import { cn } from '@/lib/utils/cn';
 
 type FlowStage =
@@ -92,6 +94,8 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
   const [opening, setOpening] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
 
+  usePackCelebrationSound(stage === 'jackpot_sting' ? 'jackpot_sting' : null);
+
   useEffect(() => {
     if (!config) return;
     setStage('confirm');
@@ -109,7 +113,10 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
 
     const { shakeAt, burstAt, revealAt } = openTimings(config.type as PackType);
     const shakeTimer = shakeAt != null ? setTimeout(() => setOpenPhase('shake'), shakeAt) : null;
-    const burstTimer = setTimeout(() => setOpenPhase('burst'), burstAt);
+    const burstTimer = setTimeout(() => {
+      setOpenPhase('burst');
+      if (!isCalmPackType(config.type as PackType)) void playPackOpenBurst();
+    }, burstAt);
 
     try {
       const token = await getAccessToken();
@@ -308,17 +315,6 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
       />
 
       <div className="relative z-10 flex h-full flex-col">
-        <div className="flex items-center justify-end px-4 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press focus-ring rounded-sm p-2 text-fg-muted hover:bg-white/[0.06] hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </div>
-
         <div
           className={cn(
             'relative flex min-h-0 flex-1 flex-col',
@@ -347,25 +343,31 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
 
           {stage === 'confirm' ? (
             <div className="flex w-full flex-1 flex-col items-center justify-center px-4 pb-8">
-              <div className="w-full max-w-lg rounded-sm border border-white/10 bg-[#06080d]/95 p-6 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)]">
+              <div className="w-full max-w-xl rounded-md border border-white/10 bg-[#06080d]/95 p-6 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.9)]">
                 {testCelebration ? (
                   <p className="mb-4 rounded-sm border border-violet-400/30 bg-violet-950/30 px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-widest text-violet-200">
                     Dev · {testCelebration.replace(/_/g, ' ')} test
                   </p>
                 ) : null}
-                <div className="flex gap-5">
-                  <div className={cn('h-28 w-20 shrink-0 overflow-hidden rounded-sm border', vis.border)}>
-                    <div className={cn('flex h-full flex-col bg-gradient-to-b', vis.gradient)}>
-                      <div className="flex flex-1 items-center justify-center p-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={PACK_POINTER_LOGO} alt="" className="h-10 w-10 object-contain" draggable={false} />
+                <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+                  <div className="group flex shrink-0 justify-center [perspective:1200px]">
+                    <div
+                      className={cn(
+                        'pack-tcg-lift pack-shelf-shell h-[12.75rem] w-[8.75rem]',
+                        `pack-shelf-shell--${packType}`,
+                      )}
+                    >
+                      <div className="relative h-full w-full overflow-hidden rounded-[10px]">
+                        <PackFoilDesign
+                          type={packType}
+                          label={config.label}
+                          variant="shelf"
+                          className="pack-collectible--confirm"
+                        />
                       </div>
-                      <p className="border-t border-white/10 py-1 text-center text-[9px] font-bold uppercase tracking-widest text-white/70">
-                        {config.label}
-                      </p>
                     </div>
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 text-center sm:text-left">
                     <p className={cn('text-[11px] font-bold uppercase tracking-[0.18em]', vis.accent)}>
                       {config.label} pack
                     </p>
@@ -373,8 +375,8 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
                     <p className="mt-2 text-[13px] leading-snug text-fg-secondary">
                       Variable token clips, boosts, and rare passes. Odds disclosed on each pack.
                     </p>
-                    <p className="mt-4">
-                      <PackSolAmount amount={config.packPriceSol} size="lg" className="justify-center" />
+                    <p className="mt-4 flex justify-center sm:justify-start">
+                      <PackSolAmount amount={config.packPriceSol} size="lg" />
                     </p>
                   </div>
                 </div>

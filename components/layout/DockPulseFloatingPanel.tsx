@@ -406,7 +406,7 @@ export function DockPulseFloatingPanel() {
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
   const dockedChromeTop = `${topbar + DOCK_TOP_GAP_PX}px`;
-  const dockedChromeBot = `${botbar + 8}px`;
+  const dockedChromeBot = `${botbar}px`;
 
   const floatW = transientSizeRef.current?.w ?? cw;
   const floatH = transientSizeRef.current?.h ?? Math.min(ch, maxFloatH);
@@ -438,8 +438,8 @@ export function DockPulseFloatingPanel() {
         }}
         className={cn(
           'fixed z-[220] flex flex-col overflow-hidden border border-border-subtle bg-bg-raised shadow-[0_20px_60px_-20px_rgba(0,0,0,0.85)] transition-[opacity,outline] duration-200 ease-out motion-reduce:transition-none',
-          dockSnap === 'left' ? 'rounded-tl-md rounded-tr-xl rounded-b-none' : '',
-          dockSnap === 'right' ? 'rounded-tr-md rounded-tl-xl rounded-b-none' : '',
+          dockSnap === 'left' ? 'rounded-tl-md rounded-tr-xl rounded-b-none border-b-0' : '',
+          dockSnap === 'right' ? 'rounded-tr-md rounded-tl-xl rounded-b-none border-b-0' : '',
           dockSnap === null ? 'rounded-xl' : '',
           draggingUi ? 'cursor-grabbing select-none' : '',
           draggingUi && !dockSnap ? 'opacity-[0.86]' : 'opacity-100',

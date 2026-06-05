@@ -42,6 +42,7 @@ import { kolStorageKey, readStoredKolRows, type KolHandleRow as KolRow } from '@
 import { xProfileUrl } from '@/lib/utils/xSearch';
 import Link from 'next/link';
 import { ConfirmModal, GlassModal } from '@/components/ui/GlassModal';
+import { modalBtnPrimaryClass, modalBtnSecondaryClass } from '@/lib/ui/modalChrome';
 
 type TrackerRow = {
   id: string;
@@ -199,18 +200,14 @@ function AddWalletDialog({
       maxWidthClass="max-w-md"
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-[13px] font-semibold text-fg-secondary transition hover:bg-white/[0.08] hover:text-fg-primary"
-          >
+          <button type="button" onClick={onClose} className={modalBtnSecondaryClass}>
             Cancel
           </button>
           <button
             type="button"
             disabled={pending}
             onClick={onSubmit}
-            className="rounded-xl bg-accent-primary px-4 py-2 text-[13px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
+            className={modalBtnPrimaryClass}
           >
             {pending ? 'Adding…' : 'Add wallet'}
           </button>
@@ -1028,7 +1025,7 @@ export function TrackersPanel({
           <button
             type="button"
             onClick={() => void onImportWallets()}
-            className="w-full rounded-xl bg-accent-primary py-2.5 text-[13px] font-semibold text-fg-inverse transition hover:brightness-110"
+            className={cn(modalBtnPrimaryClass, 'w-full py-2.5')}
           >
             Import
           </button>

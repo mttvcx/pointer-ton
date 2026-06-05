@@ -1,3 +1,5 @@
+import { initialsFromHandle } from '@/lib/squads/avatarTint';
+
 /**
  * Sample / stub data for the Squads discovery rehaul.
  *
@@ -352,8 +354,13 @@ export const SAMPLE_SQUADS: SquadSample[] = [
 
 export interface RailEntry {
   handle: string;
+  initials: string;
   value: string;
   delta: string;
+}
+
+function rail(handle: string, value: string, delta: string): RailEntry {
+  return { handle, initials: initialsFromHandle(handle), value, delta };
 }
 
 export const SAMPLE_RIGHT_RAIL: {
@@ -367,54 +374,54 @@ export const SAMPLE_RIGHT_RAIL: {
   mostFollowedSquads: RailEntry[];
 } = {
   topPnl7d: [
-    { handle: '@helix.hl', value: '$642K', delta: '+18%' },
-    { handle: '@cryon', value: '$418K', delta: '+12%' },
-    { handle: '@orbit.sol', value: '$294K', delta: '+8%' },
-    { handle: '@ton_void', value: '$220K', delta: '+5%' },
-    { handle: '@yuki.base', value: '$148K', delta: '+3%' },
+    rail('@helix.hl', '$642K', '+18%'),
+    rail('@cryon', '$418K', '+12%'),
+    rail('@orbit.sol', '$294K', '+8%'),
+    rail('@ton_void', '$220K', '+5%'),
+    rail('@yuki.base', '$148K', '+3%'),
   ],
   topWinRate: [
-    { handle: '@cryon', value: '73%', delta: '90d' },
-    { handle: '@helix.hl', value: '70%', delta: '90d' },
-    { handle: '@base-pulse', value: '69%', delta: '90d' },
-    { handle: '@ton_void', value: '68%', delta: '90d' },
-    { handle: '@kai.dev', value: '67%', delta: '90d' },
+    rail('@cryon', '73%', '90d'),
+    rail('@helix.hl', '70%', '90d'),
+    rail('@base-pulse', '69%', '90d'),
+    rail('@ton_void', '68%', '90d'),
+    rail('@kai.dev', '67%', '90d'),
   ],
   risingThisWeek: [
-    { handle: '@yuki.base', value: '+42 ranks', delta: '7d' },
-    { handle: '@kai.dev', value: '+28 ranks', delta: '7d' },
-    { handle: '@nox.bnb', value: '+21 ranks', delta: '7d' },
-    { handle: '@axiom.ws', value: '+14 ranks', delta: '7d' },
-    { handle: '@orbit.sol', value: '+9 ranks', delta: '7d' },
+    rail('@yuki.base', '+42', '7d'),
+    rail('@kai.dev', '+28', '7d'),
+    rail('@nox.bnb', '+21', '7d'),
+    rail('@axiom.ws', '+14', '7d'),
+    rail('@orbit.sol', '+9', '7d'),
   ],
   mostFollowed: [
-    { handle: '@helix.hl', value: '4.7K', delta: 'followers' },
-    { handle: '@cryon', value: '3.1K', delta: 'followers' },
-    { handle: '@ton_void', value: '2.7K', delta: 'followers' },
-    { handle: '@axiom.ws', value: '2.2K', delta: 'followers' },
-    { handle: '@orbit.sol', value: '1.8K', delta: 'followers' },
+    rail('@helix.hl', '4.7K', 'fol'),
+    rail('@cryon', '3.1K', 'fol'),
+    rail('@ton_void', '2.7K', 'fol'),
+    rail('@axiom.ws', '2.2K', 'fol'),
+    rail('@orbit.sol', '1.8K', 'fol'),
   ],
   topSquadsPnl7d: [
-    { handle: '@phoenix-squad', value: '$1.4M', delta: '+22%' },
-    { handle: '@ton-collective', value: '$720K', delta: '+14%' },
-    { handle: '@base-pulse', value: '$440K', delta: '+9%' },
-    { handle: '@solana-alpha', value: '$310K', delta: '+6%' },
+    rail('@phoenix-squad', '$1.4M', '+22%'),
+    rail('@ton-collective', '$720K', '+14%'),
+    rail('@base-pulse', '$440K', '+9%'),
+    rail('@solana-alpha', '$310K', '+6%'),
   ],
   topSquadsWinRate: [
-    { handle: '@phoenix-squad', value: '71%', delta: '90d' },
-    { handle: '@base-pulse', value: '69%', delta: '90d' },
-    { handle: '@ton-collective', value: '66%', delta: '90d' },
-    { handle: '@solana-alpha', value: '64%', delta: '90d' },
+    rail('@phoenix-squad', '71%', '90d'),
+    rail('@base-pulse', '69%', '90d'),
+    rail('@ton-collective', '66%', '90d'),
+    rail('@solana-alpha', '64%', '90d'),
   ],
   risingSquadsThisWeek: [
-    { handle: '@base-pulse', value: '+18 ranks', delta: '7d' },
-    { handle: '@solana-alpha', value: '+11 ranks', delta: '7d' },
-    { handle: '@ton-collective', value: '+7 ranks', delta: '7d' },
+    rail('@base-pulse', '+18', '7d'),
+    rail('@solana-alpha', '+11', '7d'),
+    rail('@ton-collective', '+7', '7d'),
   ],
   mostFollowedSquads: [
-    { handle: '@phoenix-squad', value: '8.9K', delta: 'followers' },
-    { handle: '@ton-collective', value: '4.6K', delta: 'followers' },
-    { handle: '@base-pulse', value: '2.1K', delta: 'followers' },
-    { handle: '@solana-alpha', value: '1.9K', delta: 'followers' },
+    rail('@phoenix-squad', '8.9K', 'fol'),
+    rail('@ton-collective', '4.6K', 'fol'),
+    rail('@base-pulse', '2.1K', 'fol'),
+    rail('@solana-alpha', '1.9K', 'fol'),
   ],
 };

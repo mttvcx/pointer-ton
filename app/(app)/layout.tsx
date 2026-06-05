@@ -171,7 +171,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider delayDuration={120}>
       <CopilotModeProvider>
       <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
       <RoutePrefetcher />

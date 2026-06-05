@@ -9,7 +9,12 @@ import {
   openPackServer,
 } from '@/lib/packs/openPack';
 import { enrichPackRewards } from '@/lib/packs/enrichRewards';
-import { getPackConfig } from '@/lib/packs/packConfig';
+import {
+  computePackEconomics,
+  resolvePackConfig,
+  resolvePackConfigAtMarket,
+} from '@/lib/packs/packConfig';
+import { approximateUsdFromSol } from '@/lib/packs/pricing';
 import { PACKS_LIVE_COMMERCE_ENABLED, PACKS_OPEN_USES_SIMULATED_LEDGER } from '@/lib/packs/mode';
 import type { PackType } from '@/types/pack';
 
@@ -79,11 +84,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_body', message }, { status: 400 });
   }
 
+  let resolved: Awaited<ReturnType<typeof resolvePackConfigAtMarket>>;
   try {
-    getPackConfig(body.packType as PackType);
-  } catch {
-    return NextResponse.json({ error: 'pack_disabled' }, { status: 400 });
+    resolved = await resolvePackConfigAtMarket(body.packType as PackType);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'pack_invalid';
+    return NextResponse.json({ error: 'pack_invalid', message }, { status: 400 });
   }
+
+  const { config, quote, snapshot } = resolved;
+  const economics = computePackEconomics(config);
+  if (!economics.valid) {
+    return NextResponse.json(
+      { error: 'pack_economics_invalid', errors: economics.errors },
+      { status: 500 },
+    );
+  }
+
+  const openMeta = {
+    solUsd: quote.solUsd,
+    solUsdSource: quote.source,
+    approximateUsd: approximateUsdFromSol(config.packPriceSol, quote.solUsd),
+    modeledHouseEdgeBps: economics.houseEdgeBps,
+    fullOpenEvSol: economics.fullOpenEvSol,
+  };
 
   // TODO(fairness): commit-reveal seed + audit log row in Supabase.
   // TODO(commerce): charge primary wallet when PACKS_LIVE_COMMERCE_ENABLED.
@@ -96,28 +120,50 @@ export async function POST(req: NextRequest) {
         ? ('jackpot' as const)
         : null;
 
+  let epicSurgeConfig = config;
+  if (
+    testMode === 'epic_surge' &&
+    (body.packType === 'bronze' || body.packType === 'silver')
+  ) {
+    epicSurgeConfig = resolvePackConfig('gold', quote.solUsd);
+  }
+
   const result =
     testMode === 'jackpot'
-      ? openPackJackpotTest(body.packType)
+      ? openPackJackpotTest(config)
       : testMode === 'legendary_elite'
-        ? openPackLegendaryEliteTest(body.packType)
+        ? openPackLegendaryEliteTest(config)
         : testMode === 'epic_surge'
-          ? openPackEpicSurgeTest(body.packType === 'bronze' || body.packType === 'silver' ? 'gold' : body.packType)
-          : openPackServer(body.packType);
-  const enriched = await enrichPackRewards(result.rewards);
-  const finalResult = { ...result, rewards: enriched };
+          ? openPackEpicSurgeTest(epicSurgeConfig)
+          : openPackServer(config, Math.random, openMeta);
+
+  const withPricing = {
+    ...result,
+    ...openMeta,
+    priceSol: config.packPriceSol,
+  };
+
+  const enriched = await enrichPackRewards(withPricing.rewards, quote.solUsd);
+  const finalResult = { ...withPricing, rewards: enriched };
 
   console.info('[packs/open]', {
     userId,
     simulated: PACKS_OPEN_USES_SIMULATED_LEDGER,
     openId: finalResult.openId,
     packType: finalResult.packType,
+    packPriceSol: config.packPriceSol,
+    solUsd: quote.solUsd,
     highlight: finalResult.highlightRarity,
+    houseEdgeBps: economics.houseEdgeBps,
     totalTokenValueSol: finalResult.totalTokenValueSol,
   });
 
   return NextResponse.json({
     result: finalResult,
+    priceSnapshot: snapshot.packs[body.packType],
+    solUsd: quote.solUsd,
+    solUsdSource: quote.source,
+    economics,
     ledger: PACKS_OPEN_USES_SIMULATED_LEDGER ? 'simulated' : 'live',
   });
 }

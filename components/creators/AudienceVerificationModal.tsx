@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Smartphone, Upload, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { GlassModal } from '@/components/ui/GlassModal';
+import { modalBtnPrimaryClass, modalBtnSecondaryClass } from '@/lib/ui/modalChrome';
 import type { CreatorPlatform } from '@/lib/creators/config';
 import {
   VERIFICATION_REJECT_RULES,
@@ -151,7 +152,7 @@ export function AudienceVerificationModal({
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="rounded-xl border border-white/10 px-4 py-2 text-[13px] font-semibold text-fg-secondary hover:bg-white/[0.06]"
+              className={modalBtnSecondaryClass}
             >
               Cancel
             </button>
@@ -159,7 +160,7 @@ export function AudienceVerificationModal({
               type="button"
               disabled={!file || busy}
               onClick={() => void submit()}
-              className="rounded-xl bg-accent-primary px-4 py-2 text-[13px] font-semibold text-fg-inverse disabled:opacity-50"
+              className={modalBtnPrimaryClass}
             >
               {busy ? 'Uploading…' : 'Submit verification'}
             </button>
@@ -168,7 +169,7 @@ export function AudienceVerificationModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-4 py-2 text-[13px] font-semibold text-fg-secondary hover:bg-white/[0.06]"
+            className={modalBtnSecondaryClass}
           >
             Close
           </button>

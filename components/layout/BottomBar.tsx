@@ -5,17 +5,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Activity,
-  AlertCircle,
-  ChevronDown,
-  Globe,
-  Headphones,
-  Settings,
-  Wallet,
-  X,
-} from 'lucide-react';
-import { DiagnosticsTriggerButton, BugReportDrawer } from '@/components/reports/BugReportDrawer';
+import { AlertCircle, ChevronDown, Settings, Wallet, X } from 'lucide-react';
+import { BugReportDrawer } from '@/components/reports/BugReportDrawer';
+import { BottomBarStatusRail } from '@/components/layout/bottomBar/BottomBarStatusRail';
 import { snapshotRecentClientErrors } from '@/lib/reports/clientErrorRing';
 import { cn } from '@/lib/utils/cn';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
@@ -26,6 +18,7 @@ import { parseLamportsStringToSol } from '@/lib/utils/formatters';
 import {
   DEFAULT_SPOT_TICKER_CHAINS,
   normalizeSpotTickerChains,
+  spotTickerChainsForActiveChain,
   type SpotTickerSymbol,
 } from '@/lib/chains/chainAssets';
 import type { DockTrackerId, DockTrackerMode } from '@/lib/dock/dockTrackerConfig';
@@ -49,6 +42,9 @@ import { openXMonitorOnPulse, toggleXMonitorOnPulse } from '@/lib/xMonitor/openX
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { toggleSquadsOnPulse, isSquadsRailOpen } from '@/lib/squads/openSquadsOnPulse';
 import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
+import { useShellPrefsStore } from '@/store/shellPrefs';
+import { bottomBarRegionById } from '@/lib/layout/bottomBarRegions';
+import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus';
 
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
@@ -95,7 +91,7 @@ function BottomBarVerticalTicker({
   chain: AppChainId;
   symbols: SpotTickerSymbol[];
 }) {
-  const order = symbols;
+  const order = spotTickerChainsForActiveChain(symbols, chain);
   const map = new Map(rows.map((r) => [r.symbol, r] as const));
   const resolved: TickerRow[] = order.map((sym) => {
     const hit = map.get(sym);
@@ -160,7 +156,7 @@ function BottomBarVerticalTicker({
         {slides.map((row, slideIdx) => (
           <div
             key={`${row.symbol}-${slideIdx}`}
-            className="flex shrink-0 items-center gap-2.5 whitespace-nowrap text-[12px] font-medium tabular-nums leading-none pointer-events-none"
+            className="flex shrink-0 items-center gap-3 whitespace-nowrap text-[12px] font-medium tabular-nums leading-none pointer-events-none"
             style={{ height: TICKER_LINE_PX, minHeight: TICKER_LINE_PX }}
           >
             <TickerLine row={row} />
@@ -283,84 +279,83 @@ export function BottomBar() {
   const spotTickerChains = normalizeSpotTickerChains(
     useDockTrackersStore((s) => s.spotTickerChains),
   );
+  const regionId = useShellPrefsStore((s) => s.regionId);
+  const regionLabel = bottomBarRegionById(regionId).label;
+  const connectionStatus = useConnectionStatus();
+  const connectionLabel =
+    connectionStatus === 'stable' ? 'Stable' : connectionStatus === 'degraded' ? 'Slow' : 'Offline';
 
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 z-50 flex min-h-[2.5rem] shrink-0 border-t border-white/[0.06] bg-bg-base pb-[env(safe-area-inset-bottom,0px)] text-[11px] font-medium tabular-nums text-fg-secondary">
-      <div className="flex min-h-[2.5rem] w-full min-w-0 items-center gap-1.5 overflow-x-auto px-2 sm:gap-2 sm:px-2.5">
-        <div className="hidden min-w-0 flex-wrap items-center gap-x-1 gap-y-1 border-r border-white/[0.06] pr-1.5 sm:flex sm:pr-2">
-          <TradingSettingsPopover className="cursor-pointer rounded-md border border-accent-primary/35 bg-accent-primary/[0.08] px-2 py-[3px] text-[11px] font-semibold tabular-nums leading-none text-accent-primary transition-colors hover:bg-accent-primary/15">
-            PRESET {activePresetSlot}
-          </TradingSettingsPopover>
-          <button
-            type="button"
-            onClick={() => setDockSettingsOpen(true)}
+        <div className="flex min-h-[2.5rem] w-full min-w-0 items-center gap-1.5 overflow-x-auto px-2 sm:gap-2 sm:px-3">
+          <div
             className={cn(
-              'btn-press focus-ring relative flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-transparent',
-              'text-fg-primary transition-colors hover:bg-bg-hover/80',
+              'hidden min-w-0 shrink-0 items-center gap-1 overflow-x-auto sm:flex sm:flex-nowrap sm:pr-2',
+              'max-w-[min(72vw,52rem)] xl:max-w-none',
+              '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+              'border-r border-white/[0.06]',
             )}
-            title="Dock & tracker shortcuts"
-            aria-label="Open trackers settings"
           >
-            <Settings className="h-4 w-4 shrink-0" strokeWidth={2} />
-          </button>
-          {dockOrder.map((id) => (
-            <DockTrackerSlot
-              key={id}
-              id={id}
-              mode={dockModes[id] ?? 'compact'}
-              badge={Boolean(dockBadges[id])}
-              activeChain={activeChain}
-              barBal={barBal}
-              authenticated={authenticated}
-              shortlistLen={shortlistLen}
-              walletTotalCount={walletTotalCount}
-            />
-          ))}
-        </div>
-
-        <div className="hidden min-w-0 flex-1 items-center justify-center px-2 sm:flex">
-          <MarketLighthouseHover
-            activeChain={activeChain}
-            placement="above"
-            triggerClassName="h-[26px] border-white/[0.08] bg-bg-sunken/35"
-          />
-        </div>
-
-        {spotTickerChains.length > 0 ? (
-          <div className="hidden shrink-0 items-center gap-2 sm:flex">
-            <BottomBarVerticalTicker rows={rows} chain={activeChain} symbols={spotTickerChains} />
+            <TradingSettingsPopover className="shrink-0 cursor-pointer rounded-md border border-accent-primary/35 bg-accent-primary/[0.08] px-2 py-[3px] text-[11px] font-semibold tabular-nums leading-none text-accent-primary transition-colors hover:bg-accent-primary/15">
+              PRESET {activePresetSlot}
+            </TradingSettingsPopover>
+            <button
+              type="button"
+              onClick={() => setDockSettingsOpen(true)}
+              className={cn(
+                'btn-press focus-ring relative flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-transparent',
+                'text-fg-primary transition-colors hover:bg-bg-hover/80',
+              )}
+              title="Dock & tracker shortcuts"
+              aria-label="Open trackers settings"
+            >
+              <Settings className="h-4 w-4 shrink-0" strokeWidth={2} />
+            </button>
+            {dockOrder.map((id) => (
+              <DockTrackerSlot
+                key={id}
+                id={id}
+                mode={dockModes[id] ?? 'compact'}
+                badge={Boolean(dockBadges[id])}
+                activeChain={activeChain}
+                barBal={barBal}
+                authenticated={authenticated}
+                shortlistLen={shortlistLen}
+                walletTotalCount={walletTotalCount}
+              />
+            ))}
           </div>
-        ) : null}
 
-        <div className="min-w-0 flex-1" aria-hidden />
+          <div className="hidden min-w-0 flex-1 items-center justify-center px-2 sm:flex">
+            <MarketLighthouseHover
+              activeChain={activeChain}
+              placement="above"
+              triggerClassName="h-[26px] border-white/[0.08] bg-bg-sunken/35"
+            />
+          </div>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <IssuesIndicator onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
-          <span className="hidden items-center gap-1 rounded-full border border-signal-bull/35 bg-signal-bull/10 px-2 py-0.5 text-[10px] font-semibold tracking-tight text-signal-bull md:inline-flex">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-signal-bull" />
-            Stable
-          </span>
-          <span className="hidden text-[10px] font-semibold tracking-wide text-fg-secondary lg:inline">US-E</span>
-          <DiagnosticsTriggerButton compactMobile onClick={() => setDiagnosticsOpen(true)} />
-          <button type="button" className="rounded p-1.5 text-fg-secondary transition-colors hover:bg-bg-hover/80 hover:text-fg-primary" title="Help">
-            <Globe className="h-4 w-4" strokeWidth={2} />
-          </button>
-          <button type="button" className="rounded p-1.5 text-fg-secondary transition-colors hover:bg-bg-hover/80 hover:text-fg-primary" title="Support">
-            <Headphones className="h-4 w-4" strokeWidth={2} />
-          </button>
-          <button type="button" className="rounded p-1.5 text-fg-secondary transition-colors hover:bg-bg-hover/80 hover:text-fg-primary" title="Activity">
-            <Activity className="h-4 w-4" strokeWidth={2} />
-          </button>
+          {spotTickerChains.length > 0 ? (
+            <div className="hidden shrink-0 items-center gap-3 sm:flex">
+              <span className="h-3.5 w-px shrink-0 bg-white/[0.08]" aria-hidden />
+              <BottomBarVerticalTicker rows={rows} chain={activeChain} symbols={spotTickerChains} />
+            </div>
+          ) : null}
+
+          <div className="min-w-0 flex-1" aria-hidden />
+
+          <div className="flex shrink-0 items-center gap-1.5 border-l border-white/[0.06] pl-2 sm:gap-2 sm:pl-3">
+            <IssuesIndicator onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
+            <BottomBarStatusRail onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
+          </div>
         </div>
       </div>
-    </div>
       <DockTrackersSettingsModal />
       <BugReportDrawer
         open={diagnosticsOpen}
         onClose={() => setDiagnosticsOpen(false)}
-        connectionStatusLabel="Stable"
-        regionLabel="US-E"
+        connectionStatusLabel={connectionLabel}
+        regionLabel={regionLabel}
       />
     </>
   );

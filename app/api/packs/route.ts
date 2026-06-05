@@ -1,10 +1,15 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { z } from 'zod';
+import { NextResponse } from 'next/server';
 import { listPublicPackConfigs } from '@/lib/packs/packConfig';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json({ packs: listPublicPackConfigs() });
+  const { packs, snapshot, quote } = await listPublicPackConfigs();
+  return NextResponse.json({
+    packs,
+    priceSnapshot: snapshot,
+    solUsd: quote.solUsd,
+    solUsdSource: quote.source,
+  });
 }

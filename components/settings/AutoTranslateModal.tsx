@@ -12,6 +12,7 @@ import {
   useAutoTranslateStore,
   type AutoTranslateSettings,
 } from '@/store/autoTranslate';
+import { modalBtnPrimaryClass } from '@/lib/ui/modalChrome';
 import { cn } from '@/lib/utils/cn';
 
 interface AutoTranslateModalProps {
@@ -294,7 +295,7 @@ export function AutoTranslateModal({ open, onClose }: AutoTranslateModalProps) {
           <button
             type="button"
             onClick={handleContinue}
-            className="btn-press focus-ring h-10 w-full rounded-full bg-accent-primary text-[13px] font-semibold text-fg-inverse transition hover:brightness-110"
+            className={cn(modalBtnPrimaryClass, 'h-10 w-full')}
           >
             Continue
           </button>

@@ -15,6 +15,7 @@ import { AutoBuyToastHost } from '@/components/auto-buy/AutoBuyToastHost';
 import { AutoSellToastHost } from '@/components/auto-sell/AutoSellToastHost';
 import { AlertRuleAudioPlayer } from '@/components/alerts/AlertRuleAudioPlayer';
 import { ClientBugDiagnosticsBootstrap } from '@/components/reports/ClientBugDiagnosticsBootstrap';
+import { CustomFontBootstrap } from '@/components/layout/bottomBar/CustomFontBootstrap';
 import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeSpotlightOnboarding';
 import { FeatureAnnouncementGate } from '@/components/onboarding/FeatureAnnouncementGate';
 
@@ -37,6 +38,7 @@ export function DeferredAppShellHosts() {
       <PnlTrackerFloatingWidget />
       <PnlCalendarHost />
       <ClientBugDiagnosticsBootstrap />
+      <CustomFontBootstrap />
       <FirstTimeSpotlightOnboarding />
       <FeatureAnnouncementGate />
     </>

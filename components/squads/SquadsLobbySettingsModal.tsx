@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Copy, FolderOpen, GripVertical } from 'lucide-react';
 import { GlassModal } from '@/components/ui/GlassModal';
+import { modalBtnPrimaryClass } from '@/lib/ui/modalChrome';
 import { SolGlyph } from '@/components/chains/SolGlyph';
 import { DEMO_SQUADS } from '@/lib/squads/demo';
 import { cn } from '@/lib/utils/cn';
@@ -80,7 +81,7 @@ export function SquadsLobbySettingsModal({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl bg-accent-primary px-5 py-2 text-[13px] font-semibold text-fg-inverse transition hover:brightness-110"
+          className={modalBtnPrimaryClass}
         >
           Done
         </button>

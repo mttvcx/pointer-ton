@@ -1,0 +1,31 @@
+[
+  {
+    "chain": "bsc",
+    "address": "0x6666666666666666666666666666666666666666",
+    "displayName": "BSC Runner",
+    "twitterHandle": "bscrunner",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/trade?chain=bsc&tab=renowned",
+    "confidence": 0.75,
+    "rank": 1,
+    "pnlUsd": 240000,
+    "winRate": 0.57,
+    "txCount": 55
+  },
+  {
+    "chain": "bsc",
+    "address": "0x7777777777777777777777777777777777777777",
+    "displayName": "Four Meme Sniper",
+    "category": "sniper",
+    "badges": ["Sniper", "Fresh Wallet"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/trade?chain=bsc&tab=renowned",
+    "confidence": 0.7,
+    "rank": 3,
+    "pnlUsd": 88000,
+    "winRate": 0.41,
+    "txCount": 120
+  }
+]

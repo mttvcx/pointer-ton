@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState } from 'react';
 
-const DEFAULT_EXIT_MS = 220;
+const DEFAULT_EXIT_MS = 90;
 
 /**
  * Keeps overlay DOM mounted after `open` becomes false so Tailwind exit animations
@@ -32,4 +32,4 @@ export function useOverlayPresence(open: boolean, exitMs: number = DEFAULT_EXIT_
 }
 
 export const OVERLAY_ANIM_CLOSE_MS = DEFAULT_EXIT_MS;
-export const POPOVER_ANIM_CLOSE_MS = 220;
+export const POPOVER_ANIM_CLOSE_MS = 90;

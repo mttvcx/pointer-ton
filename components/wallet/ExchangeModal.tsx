@@ -15,7 +15,11 @@ import {
   DEPOSIT_ACCEPTING_SYMBOLS,
   ONRAMPER_HREF,
 } from '@/components/wallet/walletFundingConstants';
+import { BuyPanel } from '@/components/wallet/BuyPanel';
+import { ConvertPanel } from '@/components/wallet/ConvertPanel';
+import { DepositAssetIcon } from '@/components/wallet/DepositAssetIcon';
 import { WithdrawSendPanel } from '@/components/wallet/WithdrawSendPanel';
+import { depositChainIconSrc, depositTokenIconSrc } from '@/lib/wallet/depositAssetIcons';
 
 const QRCodeSVG = dynamic(() => import('react-qr-code').then((m) => m.default), { ssr: false });
 
@@ -26,20 +30,6 @@ const DEPOSIT_NETWORK_ROWS: { chain: AppChainId; label: string }[] = [
   { chain: 'base', label: 'Base' },
 ];
 
-function depositQrAccentClass(chain: AppChainId): string {
-  switch (chain) {
-    case 'sol':
-      return 'bg-[#14f195]/90';
-    case 'bnb':
-      return 'bg-[#f0b90b]/90 text-black';
-    case 'base':
-      return 'bg-[#0052ff]/90';
-    case 'ton':
-    default:
-      return 'bg-[#9945FF]';
-  }
-}
-
 export type ExchangeTab = 'convert' | 'deposit' | 'withdraw' | 'buy';
 
 type Props = {
@@ -48,6 +38,8 @@ type Props = {
   initialTab?: ExchangeTab;
   walletAddress: string | null;
   nativeBalance?: number | null;
+  usdcBalance?: number | null;
+  solUsd?: number | null;
   onOpenDepositHistory: () => void;
 };
 
@@ -57,6 +49,8 @@ export function ExchangeModal({
   initialTab = 'deposit',
   walletAddress,
   nativeBalance = null,
+  usdcBalance = null,
+  solUsd = null,
   onOpenDepositHistory,
 }: Props) {
   const [tab, setTab] = useState<ExchangeTab>(initialTab);
@@ -103,7 +97,7 @@ export function ExchangeModal({
       <div
         data-modal-panel
         className={cn(
-          'relative z-10 flex max-h-[min(92dvh,720px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[#1b1f2a] bg-[#0b0d12]',
+          'relative z-10 flex max-h-[min(92dvh,720px)] w-full max-w-md flex-col overflow-hidden rounded-sm border border-[#2e2e32] bg-[#141414]',
           'font-sans shadow-2xl',
         )}
         role="dialog"
@@ -111,7 +105,7 @@ export function ExchangeModal({
         aria-labelledby="exchange-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-[#1b1f2a] px-3 py-2.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#2e2e32] px-3 py-2.5">
           <h2 id="exchange-title" className="text-[15px] font-semibold text-white">
             Exchange
           </h2>
@@ -153,12 +147,13 @@ export function ExchangeModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           {tab === 'convert' ? (
-            <div className="space-y-3 py-2">
-              <p className="text-[12px] leading-relaxed text-[#9ca3af]">
-                Cross-chain conversion (bridge) is not available in Pointer yet. Deposit {nativeSym} from an
-                external wallet, or move funds on another venue and send to your Pointer address.
-              </p>
-            </div>
+            <ConvertPanel
+              walletAddress={walletAddress}
+              nativeBalance={nativeBalance}
+              usdcBalance={usdcBalance}
+              solUsd={solUsd}
+              onClose={() => onOpenChange(false)}
+            />
           ) : null}
           {tab === 'withdraw' ? (
             <WithdrawSendPanel
@@ -169,34 +164,11 @@ export function ExchangeModal({
             />
           ) : null}
           {tab === 'buy' ? (
-            <div className="space-y-4 py-2">
-              <p className="text-[12px] leading-relaxed text-[#9ca3af]">
-                Buy crypto with a card or bank transfer, then send {nativeSym} to your Pointer wallet
-                address.
-              </p>
-              <a
-                href={ONRAMPER_HREF}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex w-full items-center justify-center rounded-full bg-[#5865F2] py-2.5 text-[13px] font-semibold text-[#0a0a0f] transition hover:brightness-105"
-              >
-                Open Onramper
-              </a>
-              {walletAddress ? (
-                <div className="rounded-lg border border-[#1b1f2a] bg-[#12141b] p-2 text-[11px] text-[#6b7280]">
-                  Your deposit address (
-                  <CopyButton
-                    value={walletAddress}
-                    toastLabel="Address copied"
-                    label="Copy full address"
-                    className="inline text-[#5865F2]"
-                  >
-                    copy
-                  </CopyButton>
-                  )
-                </div>
-              ) : null}
-            </div>
+            <BuyPanel
+              walletAddress={walletAddress}
+              nativeBalance={nativeBalance}
+              solUsd={solUsd}
+            />
           ) : null}
           {tab === 'deposit' && walletAddress ? (
             <div className="space-y-3">
@@ -208,14 +180,12 @@ export function ExchangeModal({
                     className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#1b1f2a] bg-[#12141b] px-2.5 text-left text-[12px] text-white transition hover:border-[#2d3548]"
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <span
-                        className={cn(
-                          'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-inner',
-                          depositQrAccentClass(activeChain),
-                        )}
-                      >
-                        {nativeSym.slice(0, 1)}
-                      </span>
+                      <DepositAssetIcon
+                        src={depositChainIconSrc(activeChain)}
+                        label={nativeSym}
+                        size="lg"
+                        className="h-6 w-6"
+                      />
                       <span className="truncate font-semibold">{depositNetworkLabel}</span>
                     </span>
                     <ChevronDown
@@ -241,15 +211,20 @@ export function ExchangeModal({
                               setAssetOpen(false);
                             }}
                             className={cn(
-                              'flex w-full items-center px-2.5 py-1.5 text-left text-[11px] transition',
+                              'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] transition',
                               selected
                                 ? 'bg-white/[0.06] text-white'
                                 : 'text-[#d1d5db] hover:bg-white/5 hover:text-white',
                             )}
                           >
-                            {row.label}
+                            <DepositAssetIcon
+                              src={depositChainIconSrc(row.chain)}
+                              label={row.label}
+                              size="md"
+                            />
+                            <span className="min-w-0 flex-1 truncate">{row.label}</span>
                             {selected ? (
-                              <span className="ml-auto text-[9px] font-semibold text-[#5865F2]">Selected</span>
+                              <span className="shrink-0 text-[9px] font-semibold text-[#5865F2]">Selected</span>
                             ) : null}
                           </button>
                         );
@@ -284,13 +259,13 @@ export function ExchangeModal({
                       style={{ height: '100%', width: '100%' }}
                     />
                   </div>
-                  <span
-                    className={cn(
-                      'absolute flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow',
-                      depositQrAccentClass(activeChain),
-                    )}
-                  >
-                    {nativeSym.slice(0, 1)}
+                  <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-[#141414] shadow ring-1 ring-black/20">
+                    <DepositAssetIcon
+                      src={depositChainIconSrc(activeChain)}
+                      label={nativeSym}
+                      size="lg"
+                      className="h-5 w-5"
+                    />
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
@@ -319,15 +294,22 @@ export function ExchangeModal({
                   Accepting
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
-                  {DEPOSIT_ACCEPTING_SYMBOLS.map((sym) => (
-                    <span
-                      key={sym}
-                      className="inline-flex items-center gap-1 rounded-full border border-[#1b1f2a] bg-[#12141b] px-2 py-0.5 text-[10px] font-semibold text-white"
-                    >
-                      <span className="h-3.5 w-3.5 rounded-full bg-[#2d3343]" aria-hidden />
-                      {sym}
-                    </span>
-                  ))}
+                  {DEPOSIT_ACCEPTING_SYMBOLS.map((sym) => {
+                    const iconSrc = depositTokenIconSrc(sym);
+                    return (
+                      <span
+                        key={sym}
+                        className="inline-flex items-center gap-1.5 rounded-sm border border-[#2e2e32] bg-[#12141b] px-2 py-0.5 text-[10px] font-semibold text-white"
+                      >
+                        {iconSrc ? (
+                          <DepositAssetIcon src={iconSrc} label={sym} size="sm" />
+                        ) : (
+                          <span className="h-3.5 w-3.5 rounded-full bg-[#2d3343]" aria-hidden />
+                        )}
+                        {sym}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -17,7 +17,8 @@ import {
 } from '@/lib/server/cachedPulseTokens';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
-import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { inferMintKind } from '@/lib/chains/mintKind';
+import { tokenMatchesAppChain } from '@/lib/chains/evmTokenChain';
 import { ensureTokenRowFromGeckoEvm } from '@/lib/evm/geckoTerminalPulse';
 import {
   pulseTwitterProfileHoverTestTokenRow,
@@ -34,7 +35,8 @@ import { tonCenterAddressIsActive } from '@/lib/ton/tonCenter';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import type { PulseTokenBundle } from '@/types/tokens';
-import { pollGeckoNewPools } from '@/lib/evm/geckoTerminalPulse';
+import { pollGeckoNewPools, type GeckoPulseNetwork } from '@/lib/evm/geckoTerminalPulse';
+import { geckoNetworkForAppChain } from '@/lib/chains/evmTokenChain';
 import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
 import { launchpadEventFromDasAsset } from '@/lib/helius/parsers';
 import { heliusDasRpc, pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
@@ -176,7 +178,7 @@ async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): 
 
 async function widenChainBackfill(column: PulseColumnId, chain: AppChainId): Promise<TokenRow[]> {
   const recent = await cachedListRecentTokens(1500);
-  let pool = recent.filter((t) => mintMatchesAppChain(t.mint, chain));
+  let pool = recent.filter((t) => tokenMatchesAppChain(t, chain));
   if (column === 'new') {
     const since = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
     pool = pool.filter((t) => t.created_at >= since);
@@ -248,6 +250,25 @@ async function pollPulseColumn(): Promise<{ inserted: number; via: 'tonapi' }> {
 let _lastSolInlinePoll = 0;
 const SOL_INLINE_POLL_MIN_INTERVAL_MS = 30_000;
 
+const _lastGeckoInlinePoll: Partial<Record<GeckoPulseNetwork, number>> = {};
+const GECKO_INLINE_POLL_MIN_INTERVAL_MS = 45_000;
+
+function maybeKickGeckoPollAsync(network: GeckoPulseNetwork): void {
+  const now = Date.now();
+  const last = _lastGeckoInlinePoll[network] ?? 0;
+  if (now - last < GECKO_INLINE_POLL_MIN_INTERVAL_MS) return;
+  _lastGeckoInlinePoll[network] = now;
+  void (async () => {
+    try {
+      const n = await pollGeckoNewPools(network);
+      debugTon('inline gecko poll done', { network, insertedNewMints: n });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[pointer][pulse Gecko] inline ${network} poll failed:`, msg);
+    }
+  })();
+}
+
 function maybeKickSolDasPollAsync(): void {
   const now = Date.now();
   if (now - _lastSolInlinePoll < SOL_INLINE_POLL_MIN_INTERVAL_MS) return;
@@ -266,11 +287,13 @@ function maybeKickSolDasPollAsync(): void {
 export async function runScheduledPulsePoll(): Promise<{
   tonapi: number;
   solDas: number;
+  geckoEth: number;
   geckoBsc: number;
   geckoBase: number;
 }> {
   const ton = await pollPulseColumn();
   let solDas = 0;
+  let geckoEth = 0;
   let geckoBsc = 0;
   let geckoBase = 0;
   try {
@@ -278,6 +301,12 @@ export async function runScheduledPulsePoll(): Promise<{
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn('[pointer][pulse DAS] scheduled Sol poll failed:', msg);
+  }
+  try {
+    geckoEth = await pollGeckoNewPools('eth');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[pointer][pulse Gecko] ETH poll failed:', msg);
   }
   try {
     geckoBsc = await pollGeckoNewPools('bsc');
@@ -291,7 +320,7 @@ export async function runScheduledPulsePoll(): Promise<{
     const msg = err instanceof Error ? err.message : String(err);
     console.warn('[pointer][pulse Gecko] Base poll failed:', msg);
   }
-  return { tonapi: ton.inserted, solDas, geckoBsc, geckoBase };
+  return { tonapi: ton.inserted, solDas, geckoEth, geckoBsc, geckoBase };
 }
 
 export async function getPulseFeed(
@@ -318,7 +347,12 @@ export async function getPulseFeed(
     // DAS / Gecko backfill runs on cron — not on every 2s Pulse refetch (was blocking 20s+).
     // For Sol we additionally fire-and-forget the DAS poll so the NEW column
     // fills in local dev (no cron) without blocking the current request.
-    if (chain === 'sol') maybeKickSolDasPollAsync();
+    if (chain === 'sol') {
+      maybeKickSolDasPollAsync();
+    } else {
+      const geckoNet = geckoNetworkForAppChain(chain);
+      if (geckoNet) maybeKickGeckoPollAsync(geckoNet);
+    }
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
     if (tokens.length < MIN_ROWS_BEFORE_POLL) {
       tokens = await widenChainBackfill(column, chain);
@@ -419,7 +453,8 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
     await ingestLaunchpadDiscovery(ev, { alertSource: 'das_hydrate' });
     return getTokenByMint(canonical);
   } catch {
-    return null;
+    const { ensureTokenRowFromDexScreener } = await import('@/lib/market/dexscreenerTokenHydrate');
+    return ensureTokenRowFromDexScreener(canonical, 'sol');
   }
 }
 

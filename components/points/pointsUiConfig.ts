@@ -7,20 +7,15 @@ export const POINTS_SEASON_SHORT = 'S1 PTR';
 export const POINTS_RULES_VERSION = '2026.02';
 export const POINTS_LAST_UPDATED_LABEL = 'Feb 2026';
 
-export const PTR_HERO_TAGLINE =
-  'Season 1 accrual for verified terminal usage — trading, referrals, retention, and identity.';
+export const PTR_HERO_TAGLINE = 'Earn from trading, referrals, and terminal usage.';
 
-export const PTR_HERO_BODY =
-  'Stack $PTR Points from real activity on Pointer. Season 1 is the primary accrual window; balances and rank follow disclosed seasonal rules. Social links unlock credibility — they do not mint points for posts or replies.';
+export const PTR_HERO_BODY = '';
 
-export const PTR_SIGNIN_BLURB =
-  'Connect to view your Season 1 $PTR balance, rank, and referral desk. Accrual syncs once you authenticate.';
+export const PTR_SIGNIN_BLURB = 'Sign in to see your balance and rank.';
 
-export const PTR_BENEFITS_INTRO =
-  '$PTR Points track verified usage across Solana, TON, Base, BNB, and Hyperliquid as integrations go live. Perks and allocation follow seasonal disclosure — no engagement farming.';
+export const PTR_BENEFITS_INTRO = 'Perks unlock as you earn Season 1 $PTR.';
 
-export const PTR_CHECKPOINT_BLURB =
-  'Claim referral SOL and track your Season 1 $PTR balance alongside rank progress and referral timing.';
+export const PTR_CHECKPOINT_BLURB = '';
 
 export type RankTierId =
   | 'scout'
@@ -34,11 +29,9 @@ export type RankTierId =
 export type RankTierMeta = {
   id: RankTierId;
   label: string;
-  /** Minimum cumulative points to reach this tier (display heuristic). */
   minPoints: number;
 };
 
-/** Prestige ladder — thresholds are UI staging until product locks economics. */
 export const RANK_LADDER: RankTierMeta[] = [
   { id: 'scout', label: 'Scout', minPoints: 0 },
   { id: 'operator', label: 'Operator', minPoints: 25_000 },
@@ -52,7 +45,6 @@ export const RANK_LADDER: RankTierMeta[] = [
 export function rankTierFromPoints(totalPoints: number): {
   tier: RankTierMeta;
   next: RankTierMeta | null;
-  /** Progress toward next tier, 0–1 (1 = at or past next threshold). */
   progressToNext: number;
 } {
   let idx = 0;
@@ -80,61 +72,53 @@ export type EcosystemCampaignId = 'sol' | 'ton' | 'base' | 'bnb' | 'hyperliquid'
 export type EcosystemCampaignCard = {
   id: EcosystemCampaignId;
   label: string;
-  /** Short tagline — product-native behaviour only. */
   tagline: string;
 };
 
-/** Visual identity per ecosystem node — UI-only; not on-chain status. */
 export type EcosystemNodeVisual = {
-  /** Top-right status chip */
   status: string;
-  /** Optional emphasis tag */
   boost?: string;
-  /** Bottom-right meta chip */
   meta: string;
-  /** Radial tint for card atmosphere (CSS color stops). */
   radial: string;
-  /** Border / ring when selected */
   accent: string;
-  /** Pulsing live indicator hue */
   liveHue: string;
 };
 
 export const ECOSYSTEM_NODE_VISUAL: Record<EcosystemCampaignId, EcosystemNodeVisual> = {
   sol: {
-    status: 'Routing live',
-    boost: 'Vol-weighted',
-    meta: 'Season sync',
+    status: 'Live',
+    boost: 'Vol',
+    meta: 'S1',
     radial: 'rgba(167,139,250,0.14)',
     accent: 'rgba(167,139,250,0.55)',
     liveHue: '#a78bfa',
   },
   ton: {
-    status: 'Pulse active',
+    status: 'Live',
     boost: 'Native',
-    meta: 'Wallet-linked',
+    meta: 'S1',
     radial: 'rgba(0,163,224,0.16)',
     accent: 'rgba(0,163,224,0.55)',
     liveHue: '#00a3e0',
   },
   base: {
-    status: 'Deployed',
-    meta: 'Cross-chain',
+    status: 'Live',
+    meta: 'S1',
     radial: 'rgba(94,187,255,0.12)',
     accent: 'rgba(94,187,255,0.5)',
     liveHue: '#5ebbff',
   },
   bnb: {
-    status: 'Monitoring',
-    meta: 'Partner routes',
+    status: 'Soon',
+    meta: 'S1',
     radial: 'rgba(255,181,71,0.1)',
     accent: 'rgba(255,181,71,0.45)',
     liveHue: '#ffb547',
   },
   hyperliquid: {
-    status: 'Integration',
-    boost: 'Perp surface',
-    meta: 'High retention',
+    status: 'Soon',
+    boost: 'Perps',
+    meta: 'S1',
     radial: 'rgba(61,220,151,0.11)',
     accent: 'rgba(61,220,151,0.48)',
     liveHue: '#3ddc97',
@@ -142,41 +126,19 @@ export const ECOSYSTEM_NODE_VISUAL: Record<EcosystemCampaignId, EcosystemNodeVis
 };
 
 export const ECOSYSTEM_CAMPAIGNS: EcosystemCampaignCard[] = [
-  {
-    id: 'sol',
-    label: 'Solana',
-    tagline: 'Trade & route volume on Solana through Pointer; referrals must trade on-chain.',
-  },
-  {
-    id: 'ton',
-    label: 'TON',
-    tagline: 'Pulse & terminal usage on TON — native routing and wallet-linked activity.',
-  },
-  {
-    id: 'base',
-    label: 'Base',
-    tagline: 'Cross-chain exploration — ecosystem quests reward terminal usage, not noise.',
-  },
-  {
-    id: 'bnb',
-    label: 'BNB Chain',
-    tagline: 'Aligned incentives with discovery and execution — no engagement farming.',
-  },
-  {
-    id: 'hyperliquid',
-    label: 'Hyperliquid',
-    tagline: 'Where integrations land — volume and retention tracked with disclosure.',
-  },
+  { id: 'sol', label: 'Solana', tagline: 'Trade volume on Solana.' },
+  { id: 'ton', label: 'TON', tagline: 'Pulse and routing on TON.' },
+  { id: 'base', label: 'Base', tagline: 'Base chain activity.' },
+  { id: 'bnb', label: 'BNB Chain', tagline: 'BNB chain activity.' },
+  { id: 'hyperliquid', label: 'Hyperliquid', tagline: 'Perp integrations.' },
 ];
 
-export const SOCIAL_IDENTITY_COPY =
-  'Link X / Discord / Telegram for verification, badges, and curated programs. Pointer does not award points for posting or replies — we avoid InfoFi spam incentives.';
+export const SOCIAL_IDENTITY_COPY = 'Link socials for verification. No points for posts.';
 
-export const CREATOR_PROGRAM_COPY =
-  'Creator & operator seats are application-only. Attribution uses referral links and on-chain volume — not automated “tweet = points”.';
+export const CREATOR_PROGRAM_COPY = 'Creator seats are application-only.';
 
 export const TRANSPARENCY_BULLETS = [
-  'Season 1 PTR rules and allocation pools publish with full disclosure as campaigns mature.',
-  'Leaderboards separate traders, referrers, and creators where applicable.',
-  'Anti-sybil uses wallet graph + linked identities — not reply counts.',
+  'Season 1 rules publish here.',
+  'Separate trader, referrer, and creator boards.',
+  'Anti-sybil uses wallets and linked accounts.',
 ];

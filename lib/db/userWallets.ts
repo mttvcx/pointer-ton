@@ -181,7 +181,6 @@ export async function userCanViewWalletPortfolio(
     (await getUserWalletByAddress(user.id, walletAddress)) ??
     (await getUserWalletByAddress(user.id, normalized));
   if (!row) return false;
-  if (row.is_archived) return false;
   if (!row.is_active) return false;
   return true;
 }

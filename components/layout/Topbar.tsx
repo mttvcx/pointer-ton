@@ -13,12 +13,14 @@ import {
   Shield,
   UserRound,
   Users,
-  Wallet,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardMintTopbarChip } from '@/components/layout/ClipboardMintTopbarChip';
+import {
+  CLIPBOARD_TOPBAR_SLOT_PX,
+  ClipboardMintTopbarChip,
+  ClipboardMintTopbarSlot,
+} from '@/components/layout/ClipboardMintTopbarChip';
 import { CopilotTopbarSlot } from '@/components/copilot/CopilotTopbarSlot';
-import { CopilotToggleButton } from '@/components/layout/AICopilotPanel';
 import { ChainSelectDropdown } from '@/components/layout/ChainSelectDropdown';
 import { WebPushControls } from '@/components/layout/WebPushControls';
 import { APP_NAV } from '@/components/layout/navConfig';
@@ -49,7 +51,7 @@ import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 
 /**
- * App topbar: brand, primary nav, search, chain pill, deposit, co-pilot, wallet.
+ * App topbar: brand, primary nav, search, chain pill, deposit, wallet.
  * Height matches --app-topbar-h; full-width layout (no left sidebar).
  */
 export function Topbar() {
@@ -205,9 +207,9 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-50 box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1">
-      {/* Left — logo + primary nav */}
-      <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
+    <header className="sticky top-0 isolate z-[100] box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1">
+      {/* Left — logo + primary nav (above center chrome so Championship / $PTR stay clickable) */}
+      <div className="relative z-20 flex min-w-0 items-center gap-1 sm:gap-1.5">
       <Link
         href="/pulse"
         prefetch={true}
@@ -270,14 +272,27 @@ export function Topbar() {
       </nav>
       </div>
 
-      {/* Center — co-pilot pill + clipboard chip (true header center, not viewport hack) */}
-      <div className="z-[65] flex min-w-0 items-center justify-center gap-2 px-0.5">
-        <CopilotTopbarSlot />
-        <ClipboardMintTopbarChip />
+      {/* Center — layout spacers are non-interactive; only pill/chip capture clicks */}
+      <div className="pointer-events-none flex min-w-0 items-center justify-center px-0.5">
+        <div className="hidden items-center sm:flex">
+          <div
+            className="pointer-events-none shrink-0"
+            style={{ width: CLIPBOARD_TOPBAR_SLOT_PX }}
+            aria-hidden
+          />
+          <div className="pointer-events-auto">
+            <CopilotTopbarSlot />
+          </div>
+          <ClipboardMintTopbarSlot />
+        </div>
+        <div className="pointer-events-auto flex min-w-0 items-center gap-1.5 sm:hidden">
+          <CopilotTopbarSlot />
+          <ClipboardMintTopbarChip />
+        </div>
       </div>
 
       {/* Right — search, chain, squads, wallet */}
-      <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
+      <div className="relative z-20 flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
           <DisplayPopover />
           <button
             type="button"
@@ -322,8 +337,6 @@ export function Topbar() {
 
         <ChainSelectDropdown />
 
-        <CopilotToggleButton />
-
         {!authenticated ? (
           <button
             type="button"
@@ -340,36 +353,27 @@ export function Topbar() {
           aria-label={squadsOpen ? 'Hide squads panel' : 'Open squads panel'}
           title={squadsOpen ? 'Hide squads' : 'Open squads'}
           className={cn(
-            'group/squads relative ml-0.5 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/45 sm:ml-1',
-            squadsOpen && 'ring-2 ring-accent-primary/35',
+            'group/squads relative ml-0.5 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/20 sm:ml-1',
+            squadsOpen && 'ring-2 ring-white/25',
           )}
         >
           <span
             className={cn(
-              'relative flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-fg-inverse',
-              'bg-gradient-to-br from-accent-primary to-accent-glow shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.18)]',
-              'transition-[filter,transform] group-hover/squads:brightness-110',
+              'relative flex h-8 w-8 items-center justify-center rounded-full bg-[#2a2a2d] text-white/85',
+              'transition-colors group-hover/squads:bg-[#333338] group-hover/squads:text-white',
+              squadsOpen && 'bg-[#333338] text-white',
             )}
           >
-            <Users className="h-[17px] w-[17px]" strokeWidth={2.15} aria-hidden />
+            <Users className="h-[16px] w-[16px]" strokeWidth={2.1} aria-hidden />
             <span
-              className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full border border-bg-base bg-signal-bull"
+              className="absolute -bottom-px -right-px h-2 w-2 rounded-full border border-[#1a1a1e] bg-signal-bull"
               aria-hidden
             />
           </span>
         </button>
 
         {authenticated ? (
-          <div className="ml-0.5 flex items-center gap-1 border-l border-border-subtle pl-1.5 sm:ml-1 sm:gap-2 sm:pl-2">
-            <Link
-              href="/wallets"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-sunken/50 text-fg-muted transition-colors hover:border-border-default hover:bg-bg-hover hover:text-fg-primary sm:hidden"
-              title="Manage wallets"
-              prefetch={true}
-            >
-              <Wallet className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-            </Link>
-
+          <div className="ml-0.5 flex items-center gap-1.5 sm:ml-1 sm:gap-2">
             <WalletBalancePopover
               totalUsd={totalUsd}
               nativeBalance={headerNativeUi}
@@ -393,7 +397,6 @@ export function Topbar() {
               onDeposit={openDepositFlow}
               onWithdraw={openWithdrawFlow}
               hasActiveWallet={Boolean(walletAddress)}
-              className="hidden sm:flex"
             />
 
             <div className="relative shrink-0" ref={avatarMenuRef}>
@@ -403,26 +406,25 @@ export function Topbar() {
                 onClick={() => setAvatarMenuOpen((o) => !o)}
                 aria-haspopup="menu"
                 aria-expanded={avatarMenuOpen}
-                aria-label="Account menu — settings, wallets, sign out"
-                title="Account · Sign out"
-                className="group/avatar rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40"
+                aria-label="Account menu"
+                title="Account"
+                className="group/avatar rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/20"
               >
                 <span
                   className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-accent-primary',
-                    'border border-accent-primary/35 bg-accent-primary/[0.07] shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.08)]',
-                    'transition-colors group-hover/avatar:border-accent-primary/55 group-hover/avatar:bg-accent-primary/[0.13]',
-                    avatarMenuOpen && 'border-accent-primary/65 bg-accent-primary/[0.15]',
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a2a2d] text-[#b0b0b4]',
+                    'transition-colors group-hover/avatar:bg-[#333338] group-hover/avatar:text-white',
+                    avatarMenuOpen && 'bg-[#333338] text-white',
                   )}
                 >
-                  <UserRound className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
+                  <UserRound className="h-[17px] w-[17px]" strokeWidth={2} aria-hidden />
                 </span>
               </button>
               {avatarMenuPresence.mounted ? (
                 <div
                   role="menu"
                   className={cn(
-                    'absolute right-0 top-[calc(100%+6px)] z-[200] w-52 overflow-hidden rounded-xl border border-border-subtle bg-bg-raised py-1.5 text-fg-secondary shadow-[0_16px_40px_-12px_rgba(0,0,0,0.75)]',
+                    'absolute right-0 top-[calc(100%+8px)] z-[200] w-52 overflow-hidden rounded-xl border border-[#2e2e32] bg-[#1a1a1e] py-1.5 text-[#c4c4c8] shadow-[0_12px_40px_rgba(0,0,0,0.55)]',
                     popoverPanelClasses(avatarMenuPresence.visible),
                   )}
                 >
@@ -516,6 +518,8 @@ export function Topbar() {
       initialTab={exchangeTab}
       walletAddress={walletAddress}
       nativeBalance={headerNativeUi}
+      usdcBalance={usdcUi}
+      solUsd={portfolioQ.data?.solUsd ?? null}
       onOpenDepositHistory={() => setDepositHistoryOpen(true)}
     />
     <DepositHistoryModal open={depositHistoryOpen} onOpenChange={setDepositHistoryOpen} />

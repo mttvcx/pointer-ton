@@ -321,7 +321,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
     if (!privy.authenticated) {
       try {
         const chain = useUIStore.getState().activeChain;
-        if (chain === 'sol' || chain === 'bnb' || chain === 'base') {
+        if (chain === 'sol' || chain === 'eth' || chain === 'bnb' || chain === 'base') {
           await connectWallet();
           return;
         }

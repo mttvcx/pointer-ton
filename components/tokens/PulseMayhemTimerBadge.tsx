@@ -17,6 +17,18 @@ export function PulseMayhemTimerBadge({
   bundle: PulseTokenBundle;
   className?: string;
 }) {
+  if (mayhemCountdownMs(bundle, Date.now()) == null) return null;
+
+  return <PulseMayhemTimerBadgeLive bundle={bundle} className={className} />;
+}
+
+function PulseMayhemTimerBadgeLive({
+  bundle,
+  className,
+}: {
+  bundle: PulseTokenBundle;
+  className?: string;
+}) {
   const now = useLiveClock();
   const remainingMs = mayhemCountdownMs(bundle, now);
 

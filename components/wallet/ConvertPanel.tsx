@@ -1,0 +1,337 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import bs58 from 'bs58';
+import { useSignAndSendTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowDownUp, ChevronDown, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  CONVERT_ASSETS,
+  convertAssetById,
+  defaultConvertFromAsset,
+  defaultConvertToAsset,
+  type ConvertAssetId,
+} from '@/lib/exchange/convertAssets';
+import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
+import { useUIStore } from '@/store/ui';
+import { cn } from '@/lib/utils/cn';
+import { formatUsd } from '@/lib/utils/formatters';
+import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
+
+type QuotePayload = {
+  provider: 'jupiter' | 'lifi';
+  fromAsset: ConvertAssetId;
+  toAsset: ConvertAssetId;
+  fromAmountUi: number;
+  toAmountUi: number;
+  toAmountMinUi: number | null;
+  rateLabel: string;
+  transaction: string | null;
+  tool: string | null;
+};
+
+function filterDecimalTyped(raw: string, maxFractionDigits: number): string {
+  const cleaned = raw.replace(/,/g, '').replace(/[^\d.]/g, '');
+  const parts = cleaned.split('.');
+  if (parts.length <= 1) return cleaned;
+  return `${parts[0]}.${parts.slice(1).join('').slice(0, maxFractionDigits)}`;
+}
+
+function txBytesFromBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function AssetSelect({
+  value,
+  onChange,
+  exclude,
+}: {
+  value: ConvertAssetId;
+  onChange: (id: ConvertAssetId) => void;
+  exclude?: ConvertAssetId;
+}) {
+  const [open, setOpen] = useState(false);
+  const asset = convertAssetById(value);
+  const options = CONVERT_ASSETS.filter((a) => a.id !== exclude);
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 rounded-sm border border-[#2e2e32] bg-[#1e1e22] px-2 py-1 text-[11px] font-semibold text-white transition hover:border-[#3d3d42]"
+      >
+        <img src={asset.iconSrc} alt="" className="h-4 w-4 rounded-full object-contain" draggable={false} />
+        {asset.label}
+        <ChevronDown className={cn('h-3 w-3 text-[#888892]', open && 'rotate-180')} strokeWidth={2.25} />
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-[calc(100%+4px)] z-20 min-w-[7rem] overflow-hidden rounded-sm border border-[#2e2e32] bg-[#141414] py-1 shadow-xl">
+          {options.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => {
+                onChange(opt.id);
+                setOpen(false);
+              }}
+              className={cn(
+                'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-semibold transition',
+                opt.id === value ? 'bg-white/[0.08] text-white' : 'text-[#c4c4c8] hover:bg-white/[0.05]',
+              )}
+            >
+              <img src={opt.iconSrc} alt="" className="h-3.5 w-3.5 rounded-full object-contain" draggable={false} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function ConvertPanel({
+  walletAddress,
+  nativeBalance,
+  usdcBalance = 0,
+  solUsd,
+  onClose,
+}: {
+  walletAddress: string | null;
+  nativeBalance: number | null;
+  usdcBalance?: number | null;
+  solUsd?: number | null;
+  onClose?: () => void;
+}) {
+  const activeChain = useUIStore((s) => s.activeChain);
+  const { getAccessToken } = usePointerAuth();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { wallets } = useWallets();
+
+  const [fromAsset, setFromAsset] = useState<ConvertAssetId>(() => defaultConvertFromAsset(activeChain));
+  const [toAsset, setToAsset] = useState<ConvertAssetId>(() => defaultConvertToAsset(defaultConvertFromAsset(activeChain)));
+  const [amountIn, setAmountIn] = useState('');
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    const from = defaultConvertFromAsset(activeChain);
+    setFromAsset(from);
+    setToAsset(defaultConvertToAsset(from));
+  }, [activeChain]);
+
+  const amountUi = Number(amountIn);
+  const amountValid = Number.isFinite(amountUi) && amountUi > 0;
+
+  const balanceFor = (asset: ConvertAssetId): number => {
+    if (asset === 'SOL') return nativeBalance ?? 0;
+    if (asset === 'USDC') return usdcBalance ?? 0;
+    return 0;
+  };
+
+  const fromBalance = balanceFor(fromAsset);
+  const toBalance = balanceFor(toAsset);
+
+  const quoteQ = useQuery({
+    queryKey: ['convert-quote', walletAddress, fromAsset, toAsset, amountIn],
+    enabled: Boolean(walletAddress && amountValid),
+    staleTime: 12_000,
+    queryFn: async (): Promise<QuotePayload> => {
+      const token = await getAccessToken();
+      if (!token) throw new Error('Sign in required');
+      const res = await fetch('/api/exchange/convert/quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fromAsset,
+          toAsset,
+          amountUi,
+          fromAddress: walletAddress,
+        }),
+      });
+      const json: unknown = await res.json();
+      if (!res.ok) {
+        const msg =
+          json && typeof json === 'object' && 'message' in json
+            ? String((json as { message: unknown }).message)
+            : json && typeof json === 'object' && 'error' in json
+              ? String((json as { error: unknown }).error)
+              : 'Quote failed';
+        throw new Error(msg);
+      }
+      const q =
+        json && typeof json === 'object' && 'quote' in json
+          ? (json as { quote: QuotePayload }).quote
+          : null;
+      if (!q) throw new Error('Invalid quote response');
+      return q;
+    },
+  });
+
+  const quote = quoteQ.data;
+  const toDisplay = useMemo(() => {
+    if (quote && amountValid) return quote.toAmountUi;
+    return 0;
+  }, [quote, amountValid]);
+
+  const usdHint = useMemo(() => {
+    if (!amountValid || solUsd == null || fromAsset !== 'SOL') return null;
+    return formatUsd(amountUi * solUsd, { decimals: 2 });
+  }, [amountUi, amountValid, fromAsset, solUsd]);
+
+  function swapDirection() {
+    const prevFrom = fromAsset;
+    setFromAsset(toAsset);
+    setToAsset(prevFrom);
+    setAmountIn('');
+  }
+
+  async function handleConfirm() {
+    if (!walletAddress) {
+      toast.error('No active wallet');
+      return;
+    }
+    if (!amountValid) {
+      toast.error('Enter an amount');
+      return;
+    }
+    if (amountUi > fromBalance && fromAsset !== 'BNB' && fromAsset !== 'ETH') {
+      toast.error('Insufficient balance');
+      return;
+    }
+    if (!quote?.transaction) {
+      toast.error('No transaction ready', {
+        description:
+          quote?.provider === 'lifi' && !quote.transaction
+            ? 'Add a Privy EVM wallet for cross-chain delivery, or try SOL ↔ USDC on Solana.'
+            : 'Wait for the quote to finish loading.',
+      });
+      return;
+    }
+
+    const wallet = wallets.find((w) => w.address === walletAddress);
+    if (!wallet) {
+      toast.error('Signing wallet not found');
+      return;
+    }
+
+    setConfirming(true);
+    try {
+      const { signature } = await signAndSendTransaction({
+        transaction: txBytesFromBase64(quote.transaction),
+        wallet,
+        chain: 'solana:mainnet',
+      });
+      toast.success('Convert submitted', {
+        description: `${quote.rateLabel} · ${bs58.encode(signature).slice(0, 12)}…`,
+      });
+      dispatchSolanaAccountRefresh('convert_swap');
+      onClose?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Convert failed');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  if (!walletAddress) {
+    return (
+      <p className="py-2 text-[12px] leading-relaxed text-[#9ca3af]">
+        Connect a Solana wallet to convert. Cross-chain routes use LI.FI; Solana swaps use Jupiter.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3 py-1">
+      <p className="text-[11px] text-[#6b7280]">
+        Swap {convertAssetById(fromAsset).label} for {convertAssetById(toAsset).label}
+        {quote?.provider === 'lifi' ? ' via bridge' : ' on Solana'}
+      </p>
+
+      <div className="rounded-sm border border-[#2e2e32] bg-[#12141b] p-3">
+        <div className="flex items-center justify-between text-[10px] text-[#888892]">
+          <span>Converting</span>
+          <span className="tabular-nums">
+            Balance:{' '}
+            {fromAsset === 'SOL' ? (
+              <TerminalNativeBalance amount={fromBalance} className="inline tabular-nums" />
+            ) : (
+              fromBalance
+            )}
+          </span>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            value={amountIn}
+            onChange={(e) =>
+              setAmountIn(filterDecimalTyped(e.target.value, convertAssetById(fromAsset).decimals))
+            }
+            placeholder="0.0"
+            className="min-w-0 flex-1 bg-transparent text-lg font-semibold tabular-nums text-white outline-none placeholder:text-[#4b5563]"
+          />
+          <AssetSelect value={fromAsset} onChange={setFromAsset} exclude={toAsset} />
+        </div>
+        {usdHint ? (
+          <p className="mt-1 text-right text-[10px] tabular-nums text-[#6b7280]">({usdHint})</p>
+        ) : null}
+      </div>
+
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={swapDirection}
+          className="rounded-sm border border-[#2e2e32] bg-[#1e1e22] p-1.5 text-[#9ca3af] transition hover:border-[#3d3d42] hover:text-white"
+          aria-label="Swap direction"
+        >
+          <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </button>
+      </div>
+
+      <div className="rounded-sm border border-[#2e2e32] bg-[#12141b] p-3">
+        <div className="flex items-center justify-between text-[10px] text-[#888892]">
+          <span>Gaining</span>
+          <span className="tabular-nums">
+            Balance:{' '}
+            {toAsset === 'SOL' ? (
+              <TerminalNativeBalance amount={toBalance} className="inline tabular-nums" />
+            ) : (
+              toBalance
+            )}
+          </span>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="min-w-0 flex-1 text-lg font-semibold tabular-nums text-white">
+            {quoteQ.isFetching ? '…' : toDisplay > 0 ? toDisplay : '0.0'}
+          </span>
+          <AssetSelect value={toAsset} onChange={setToAsset} exclude={fromAsset} />
+        </div>
+      </div>
+
+      <p className="text-center text-[10px] tabular-nums text-[#6b7280]">
+        {quoteQ.isError
+          ? quoteQ.error instanceof Error
+            ? quoteQ.error.message
+            : 'Quote unavailable'
+          : quote?.rateLabel ?? 'Enter an amount for a live rate'}
+      </p>
+
+      <button
+        type="button"
+        disabled={confirming || !amountValid || quoteQ.isFetching || !quote?.transaction}
+        onClick={() => void handleConfirm()}
+        className="btn-press focus-ring flex w-full items-center justify-center gap-2 rounded-sm bg-[#5865F2] py-2.5 text-[13px] font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {confirming || quoteQ.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        Confirm
+      </button>
+    </div>
+  );
+}

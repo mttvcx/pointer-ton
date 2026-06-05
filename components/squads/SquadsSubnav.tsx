@@ -19,7 +19,7 @@ export function SquadsSubnav({ className }: { className?: string }) {
   return (
     <nav
       className={cn(
-        'sticky top-0 z-30 flex items-center gap-1 overflow-x-auto border-b border-border-subtle bg-bg-base px-2 sm:px-3',
+        'sticky top-0 z-30 flex items-center gap-1 overflow-x-auto border-b border-border-subtle bg-bg-hover/95 px-2 backdrop-blur-sm sm:px-3',
         className,
       )}
       aria-label="Squads sections"

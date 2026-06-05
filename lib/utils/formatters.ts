@@ -7,7 +7,7 @@ const EMPTY = '\u2014';
 
 /* ----------------------------- numeric formatters ----------------------------- */
 
-/** Compact "$1.2M / $4.7K" used everywhere market caps and liquidity render. */
+/** Compact terminal MC / liquidity — "$15.4K", "$1.2M" (Axiom-style, not full dollars). */
 export function formatCompactUsd(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return EMPTY;
   if (value === 0) return '$0';
@@ -17,12 +17,9 @@ export function formatCompactUsd(value: number | null | undefined): string {
 
   if (abs < 1) return `${sign}$${abs.toFixed(4)}`;
   if (abs < 1_000) return `${sign}$${abs.toFixed(2)}`;
-
-  const formatter = new Intl.NumberFormat(DEFAULT_LOCALE, {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  });
-  return `${sign}$${formatter.format(abs)}`;
+  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  return `${sign}$${(abs / 1_000).toFixed(1)}K`;
 }
 
 export function formatUsd(

@@ -70,8 +70,7 @@ export function PulseRichHover({
       setEntered(false);
       return;
     }
-    const id = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(id);
+    setEntered(true);
   }, [open]);
 
   return (
@@ -89,11 +88,11 @@ export function PulseRichHover({
         className="inline-flex"
         onMouseEnter={() => {
           clear();
-          t.current = setTimeout(() => setOpen(true), 100);
+          t.current = setTimeout(() => setOpen(true), 40);
         }}
         onMouseLeave={() => {
           clear();
-          t.current = setTimeout(() => setOpen(false), 200);
+          t.current = setTimeout(() => setOpen(false), 80);
         }}
       >
         {children}
@@ -102,7 +101,7 @@ export function PulseRichHover({
         <div
           className={cn(
             'pointer-events-auto absolute left-1/2 top-[calc(100%+10px)] z-[260] max-h-[min(72vh,30rem)] max-w-[calc(100vw-1.25rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden',
-            'transition-opacity duration-150 ease-out motion-reduce:transition-none motion-reduce:opacity-100',
+            'transition-opacity duration-75 ease-out motion-reduce:transition-none motion-reduce:opacity-100',
             entered ? 'opacity-100' : 'opacity-0',
             bare
               ? null
@@ -115,7 +114,7 @@ export function PulseRichHover({
           }}
           onMouseLeave={() => {
             clear();
-            t.current = setTimeout(() => setOpen(false), 200);
+            t.current = setTimeout(() => setOpen(false), 80);
           }}
           role="dialog"
           aria-label="Details"

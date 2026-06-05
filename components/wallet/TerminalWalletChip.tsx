@@ -36,21 +36,21 @@ function AssetPair({
   isNative?: boolean;
   size: 'header' | 'dock';
 }) {
-  const iconCls = size === 'dock' ? 'h-3 w-3' : 'h-3 w-3';
-  const textCls = size === 'dock' ? 'text-[11px]' : 'text-[11px]';
+  const iconCls = size === 'dock' ? 'h-3 w-3' : 'h-3.5 w-3.5';
+  const textCls = size === 'dock' ? 'text-[11px]' : 'text-[12px]';
   return (
     <span className="inline-flex shrink-0 items-center gap-1">
       <img
         src={iconSrc}
         alt=""
         draggable={false}
-        className={cn('shrink-0 object-contain object-center', iconCls)}
+        className={cn('shrink-0 rounded-full object-contain', iconCls)}
         aria-hidden
       />
       {isNative ? (
-        <TerminalNativeBalance amount={amount} className={cn('font-medium text-white/90', textCls)} />
+        <TerminalNativeBalance amount={amount} className={cn('font-medium text-white/92', textCls)} />
       ) : (
-        <span className={cn('tabular-nums font-medium text-white/75', textCls)}>
+        <span className={cn('tabular-nums font-medium text-white/80', textCls)}>
           {formatUsdcChip(amount)}
         </span>
       )}
@@ -58,9 +58,7 @@ function AssetPair({
   );
 }
 
-/**
- * Axiom / MEVX compact wallet strip — icon+balance pairs, fully rounded pill.
- */
+/** Axiom compact wallet strip — grey pill, $ total + token pairs. */
 export function TerminalWalletChip({
   walletCount,
   nativeBalance,
@@ -72,10 +70,9 @@ export function TerminalWalletChip({
 }: TerminalWalletChipProps) {
   const isDock = variant === 'dock';
   const isPulse = variant === 'pulse';
+  const isHeader = variant === 'header';
   const showUsdc = activeChain === 'sol' && usdcBalance != null && !isPulse;
-  const showCount =
-    walletCount != null && walletCount > 0 && (isDock || isPulse);
-
+  const showCount = walletCount != null && walletCount > 0 && (isDock || isPulse);
   if (isPulse) {
     return (
       <span className={cn('inline-flex min-w-0 items-center gap-1', className)}>
@@ -92,26 +89,16 @@ export function TerminalWalletChip({
           size="dock"
         />
         {showChevron ? (
-          <ChevronDown
-            className="ml-0.5 h-3 w-3 shrink-0 text-white/35"
-            strokeWidth={2.25}
-            aria-hidden
-          />
+          <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 text-white/40" strokeWidth={2.25} aria-hidden />
         ) : null}
       </span>
     );
   }
 
   return (
-    <span
-      className={cn(
-        'inline-flex min-w-0 items-center',
-        isDock ? 'gap-1' : 'gap-1.5',
-        className,
-      )}
-    >
+    <span className={cn('inline-flex min-w-0 items-center', isDock ? 'gap-1' : 'gap-2', className)}>
       <Wallet
-        className={cn('shrink-0 text-white/50', isDock ? 'h-3 w-3' : 'h-3.5 w-3.5')}
+        className={cn('shrink-0 text-white/55', isDock ? 'h-3 w-3' : 'h-3.5 w-3.5')}
         strokeWidth={isDock ? 2 : 1.75}
         aria-hidden
       />
@@ -140,7 +127,7 @@ export function TerminalWalletChip({
 
       {showChevron ? (
         <ChevronDown
-          className={cn('ml-0.5 shrink-0 text-white/35', isDock ? 'h-3 w-3' : 'h-3.5 w-3.5')}
+          className={cn('ml-0.5 shrink-0 text-white/40', isDock ? 'h-3 w-3' : 'h-3.5 w-3.5')}
           strokeWidth={2.25}
           aria-hidden
         />

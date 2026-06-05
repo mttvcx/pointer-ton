@@ -1,0 +1,53 @@
+[
+  {
+    "chain": "ethereum",
+    "address": "0x1111111111111111111111111111111111114101",
+    "displayName": "SmokEy",
+    "avatarUrl": null,
+    "twitterHandle": "smokey_eth",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/trade?chain=eth&tab=renowned",
+    "confidence": 0.78,
+    "rank": 4,
+    "pnlUsd": 112700,
+    "pnlPct": 89.5,
+    "winRate": 0.62,
+    "txCount": 45,
+    "trackedCount": 12422,
+    "renamedCount": 8356
+  },
+  {
+    "chain": "ethereum",
+    "address": "0x2222222222222222222222222222222222222222",
+    "displayName": "Jump Crypt",
+    "category": "smart_money",
+    "badges": ["Smart Money", "Fund"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/trade?chain=eth&tab=renowned",
+    "confidence": 0.81,
+    "rank": 5,
+    "pnlUsd": 665700,
+    "pnlPct": 0.3,
+    "winRate": 0.448,
+    "txCount": 30,
+    "trackedCount": 8200,
+    "renamedCount": 4100
+  },
+  {
+    "chain": "ethereum",
+    "address": "0x3333333333333333333333333333333333333333",
+    "displayName": "Kagami",
+    "twitterHandle": "kagami_wallet",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/trade?chain=eth&tab=renowned",
+    "confidence": 0.74,
+    "rank": 6,
+    "pnlUsd": 420000,
+    "winRate": 0.55,
+    "txCount": 88
+  }
+]

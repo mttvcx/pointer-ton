@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import type { PackReward } from '@/types/pack';
+import { usePackCelebrationSound } from '@/components/packs/usePackCelebrationSound';
 import { PackRewardCard } from '@/components/packs/PackRewardCard';
 
 const VAULT_OPEN_MS = 8_500;
@@ -26,6 +27,8 @@ const RIVET_POSITIONS = [
 
 /** Legendary elite — bank vault dial, doors swing, dolly into room, card on pedestal. */
 export function PackVaultOpenReveal({ reward, onComplete }: PackVaultOpenRevealProps) {
+  usePackCelebrationSound('vault');
+
   useEffect(() => {
     const t = setTimeout(onComplete, VAULT_OPEN_MS);
     return () => clearTimeout(t);

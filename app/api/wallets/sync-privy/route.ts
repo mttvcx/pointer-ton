@@ -1,32 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import type { User } from '@privy-io/node';
 import { getUserByPrivyId } from '@/lib/db/users';
 import {
   countUserWallets,
   getUserWalletByAddress,
   insertUserWallet,
 } from '@/lib/db/userWallets';
+import { listPrivyEmbeddedWalletsFromUser } from '@/lib/privy/embeddedWallets';
 import { getPrivyServerClient, verifyPrivyAccessToken } from '@/lib/privy/config';
 import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function embeddedWalletAddresses(user: User): Array<{ address: string; chain: 'solana' | 'ethereum' }> {
-  const out: Array<{ address: string; chain: 'solana' | 'ethereum' }> = [];
-  for (const acct of user.linked_accounts) {
-    if (acct.type !== 'wallet') continue;
-    if (!('address' in acct) || typeof acct.address !== 'string') continue;
-    if (!('chain_type' in acct)) continue;
-    if (acct.chain_type === 'solana' || acct.chain_type === 'ethereum') {
-      const wa = acct as { address: string; chain_type: 'solana' | 'ethereum'; connector_type?: string };
-      if (wa.connector_type === 'embedded') {
-        out.push({ address: wa.address, chain: wa.chain_type });
-      }
-    }
-  }
-  return out;
-}
 
 /**
  * Upserts `user_wallets` rows for Privy embedded Solana + Ethereum wallets so every chain has a deposit address.
@@ -55,7 +39,7 @@ export async function POST(req: NextRequest) {
   try {
     const usersApi = getPrivyServerClient().users();
     let pu = await usersApi._get(verified.privyId);
-    let embedded = embeddedWalletAddresses(pu);
+    let embedded = listPrivyEmbeddedWalletsFromUser(pu);
 
     if (embedded.length === 0) {
       try {
@@ -63,7 +47,7 @@ export async function POST(req: NextRequest) {
           wallets: [{ chain_type: 'solana' }, { chain_type: 'ethereum' }],
         });
         pu = await usersApi._get(verified.privyId);
-        embedded = embeddedWalletAddresses(pu);
+        embedded = listPrivyEmbeddedWalletsFromUser(pu);
       } catch {
         /* Privy may already have provisioned wallets via dashboard / login */
       }

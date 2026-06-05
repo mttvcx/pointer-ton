@@ -11,6 +11,8 @@ export function explorerAccountUrlForChain(address: string, chain: AppChainId): 
   switch (chain) {
     case 'sol':
       return `https://solscan.io/account/${encodeURIComponent(a)}`;
+    case 'eth':
+      return `https://etherscan.io/address/${encodeURIComponent(a)}`;
     case 'bnb':
       return `https://bscscan.com/address/${encodeURIComponent(a)}`;
     case 'base':

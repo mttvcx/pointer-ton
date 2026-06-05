@@ -1,11 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { squadsAvatarTint } from '@/lib/squads/avatarTint';
 import { cn } from '@/lib/utils/cn';
 
-/** Shared elevated surface — restrained gradient + edge light (Squads flagship polish). */
+/** Shared elevated surface — theme grey, not nested black. */
 export const squadElevatedClass =
-  'border-[#283440] bg-gradient-to-b from-[#151c28]/98 via-[#0d1219] to-[#080b10] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_8px_32px_-28px_rgba(0,0,0,0.9)]';
+  'border-border-subtle bg-bg-hover shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.04)]';
 
 export const squadCardHoverInteractiveClass =
   'transition-colors duration-150 hover:border-border';
@@ -58,15 +59,47 @@ export function SquadMonogram({
     <div className={cn('relative shrink-0', sz)}>
       <div
         className={cn(
-          'relative flex h-full w-full items-center justify-center rounded-md font-bold tracking-tight text-fg-primary ring-2 ring-black/55',
+          'relative flex h-full w-full items-center justify-center rounded-md font-bold tracking-tight text-fg-primary ring-1 ring-border-subtle',
           className,
         )}
       >
         {children}
       </div>
       {live ? (
-        <span className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full border border-[#0d1117] bg-[#4ade80]" />
+        <span className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full border border-bg-raised bg-signal-bull" />
       ) : null}
+    </div>
+  );
+}
+
+/** Circular profile tile — initials + deterministic tint. */
+export function SquadAvatar({
+  seed,
+  initials,
+  size = 'md',
+  className,
+}: {
+  seed: string;
+  initials: string;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}) {
+  const sz =
+    size === 'lg'
+      ? 'h-12 w-12 text-[13px]'
+      : size === 'sm'
+        ? 'h-7 w-7 text-[9px]'
+        : 'h-9 w-9 text-[10px]';
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-center rounded-full font-bold text-fg-primary',
+        squadsAvatarTint(seed),
+        sz,
+        className,
+      )}
+    >
+      {initials}
     </div>
   );
 }
@@ -115,7 +148,7 @@ export function SquadSortShell({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="cursor-pointer rounded-md border border-[#283240] bg-[#090d14] px-2 py-1.5 text-[11px] font-semibold text-fg-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] outline-none focus:border-[#2a9bc8]/55"
+        className="cursor-pointer rounded-md border border-border-subtle bg-bg-sunken px-2 py-1.5 text-[11px] font-semibold text-fg-primary outline-none focus:border-accent-primary/50"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

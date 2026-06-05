@@ -3,7 +3,7 @@
 import { X } from 'lucide-react';
 import type { PackPublicConfig } from '@/types/pack';
 import { listPackShowcaseItems } from '@/lib/packs/packShowcase';
-import { formatPackMc, formatPackVal } from '@/lib/packs/formatDisplay';
+import { formatApproxUsd, formatPackMc, formatPackVal } from '@/lib/packs/formatDisplay';
 import { PACK_VISUAL, RARITY_THEME } from '@/lib/packs/rarityTheme';
 import { PackSolAmount } from '@/components/packs/PackSolAmount';
 import { cn } from '@/lib/utils/cn';
@@ -15,7 +15,8 @@ type PackDetailsModalProps = {
 
 export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
   const vis = PACK_VISUAL[config.type];
-  const hits = listPackShowcaseItems(config.type);
+  const isDev = process.env.NODE_ENV === 'development';
+  const hits = listPackShowcaseItems(config.type, config.solUsd);
 
   return (
     <div
@@ -65,6 +66,20 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+          <div className="mb-4 rounded-sm border border-white/[0.06] bg-black/25 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Per-card odds</p>
+            <div className="mt-2 grid gap-1 sm:grid-cols-2">
+              {config.odds.map((row) => (
+                <div
+                  key={row.rarity}
+                  className="flex items-center justify-between text-[11px]"
+                >
+                  <span className="capitalize text-fg-secondary">{row.rarity}</span>
+                  <span className="font-mono tabular-nums text-fg-muted">{row.probabilityPct}</span>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="space-y-3">
             {hits.map((hit, index) => {
               const theme = RARITY_THEME[hit.rarity];

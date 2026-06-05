@@ -23,17 +23,16 @@ export function PulseRowBondingHoverTag({
   return (
     <div
       className={cn(
-        'pointer-events-none absolute inset-x-0 bottom-full z-[12] mb-1.5 h-0',
-        'opacity-0 transition-opacity duration-150 group-hover/pulseRow:opacity-100',
+        'pointer-events-none absolute inset-x-0 bottom-full z-[12] mb-0.5 hidden h-0 group-hover/pulseRow:block',
         className,
       )}
       aria-hidden
     >
       <span
         className={cn(
-          'absolute bottom-0 whitespace-nowrap rounded-md border border-white/[0.08]',
-          'bg-[#1a1a1a]/95 px-2.5 py-1 text-[11px] font-medium leading-none text-signal-bull shadow-lg shadow-black/50',
-          'transition-[left] duration-200 ease-linear will-change-[left]',
+          'absolute bottom-0 whitespace-nowrap rounded-md border border-white/[0.1]',
+          'bg-bg-raised px-2 py-0.5 text-[10px] font-medium leading-none text-signal-bull',
+          'transition-[left] duration-200 ease-linear',
         )}
         style={{ left: `${pct}%`, transform: 'translateX(-50%)' }}
       >

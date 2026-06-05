@@ -88,7 +88,10 @@ export default function RootLayout({
         <link rel="preload" href="/chains/base.png" as="image" type="image/png" />
         <link rel="preload" href="/chains/ton.png" as="image" type="image/png" />
       </head>
-      <body className="min-h-screen bg-bg-base text-fg-primary antialiased">
+      <body
+        className="min-h-screen bg-bg-base text-fg-primary antialiased"
+        suppressHydrationWarning
+      >
         <PreferencesProvider>
           <ThemeProvider>
             <Providers>{children}</Providers>

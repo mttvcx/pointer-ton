@@ -381,6 +381,16 @@ export function PortfolioDashboard({
     placeholderData: (prev) => prev,
   });
 
+  useEffect(() => {
+    if (!query.isError) return;
+    const msg = query.error instanceof Error ? query.error.message : '';
+    if (!/wallet_not_allowed/i.test(msg)) return;
+    toast.error('That wallet cannot load portfolio data', {
+      description: 'Showing all wallets instead.',
+    });
+    queueMicrotask(() => setSelectedPortfolioWalletId('all'));
+  }, [query.isError, query.error]);
+
   const tickersQ = useQuery({
     queryKey: ['portfolio-page-tickers'],
     queryFn: async (): Promise<TickerRow[]> => {
@@ -522,26 +532,29 @@ export function PortfolioDashboard({
     setCreating(true);
     setCreateMenuOpen(false);
     try {
-      let address: string;
-      let isImported = false;
-      if (activeChain === 'sol') {
-        const { wallet: w } = await createWallet({ createAdditional: true });
-        address = w.address;
-      } else {
-        const generated = await generateEmbeddedWalletForChain(activeChain);
-        address = generated.address;
-        isImported = true;
-      }
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
-      const res = await authJson<{ wallet: MyWalletRow }>(token, '/api/wallets/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          wallet_address: address,
-          ...(isImported ? { is_imported: true } : {}),
-        }),
-      });
-      if (!res.ok && res.status !== 409) throw new Error(res.message);
+
+      if (activeChain === 'sol') {
+        await createWallet({ createAdditional: true });
+        const syncRes = await authJson<{ ok: boolean; created: number }>(
+          token,
+          '/api/wallets/sync-privy',
+          { method: 'POST' },
+        );
+        if (!syncRes.ok) throw new Error(syncRes.message);
+      } else {
+        const generated = await generateEmbeddedWalletForChain(activeChain);
+        const res = await authJson<{ wallet: MyWalletRow }>(token, '/api/wallets/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            wallet_address: generated.address,
+            is_imported: true,
+          }),
+        });
+        if (!res.ok && res.status !== 409) throw new Error(res.message);
+      }
+
       toast.success('Wallet created');
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       void qc.invalidateQueries({ queryKey: ['portfolio'] });
@@ -668,28 +681,12 @@ export function PortfolioDashboard({
     );
   }
 
-  if (portfolioEnabled && query.isError) {
-    return (
-      <div
-        className={cn(
-          'rounded border border-border-subtle bg-bg-raised p-3 text-[12px] text-signal-bear',
-          className,
-        )}
-      >
-        Could not load portfolio.
-        {query.error instanceof Error && query.error.message ? (
-          <p className="mt-1 text-[11px] text-fg-muted">{query.error.message}</p>
-        ) : null}
-        <button
-          type="button"
-          className="mt-2 text-[11px] font-semibold text-accent-primary hover:underline"
-          onClick={() => void query.refetch()}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  const portfolioLoadError =
+    portfolioEnabled && query.isError && !query.isFetching
+      ? query.error instanceof Error
+        ? query.error.message
+        : 'portfolio failed'
+      : null;
 
   return (
     <div className={cn('flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden text-[12px] text-fg-primary', className)}>
@@ -715,6 +712,22 @@ export function PortfolioDashboard({
           </button>
         ))}
       </div>
+
+      {portfolioLoadError ? (
+        <div className="mx-2 mt-2 flex shrink-0 items-center justify-between gap-3 rounded-md border border-signal-bear/30 bg-signal-bear/10 px-3 py-2 text-[12px] text-signal-bear">
+          <span>
+            Could not load portfolio
+            <span className="ml-1.5 text-[11px] text-fg-muted">{portfolioLoadError}</span>
+          </span>
+          <button
+            type="button"
+            className="shrink-0 text-[11px] font-semibold text-accent-primary hover:underline"
+            onClick={() => void query.refetch()}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-2 py-2">
         <PortfolioWalletSelector

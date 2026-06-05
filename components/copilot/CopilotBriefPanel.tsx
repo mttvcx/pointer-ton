@@ -19,7 +19,7 @@ type CommonResult = {
 type TokenResult = CommonResult & { data: ExplainTokenOutput };
 type WalletResult = CommonResult & { data: ExplainWalletOutput };
 
-const DEBOUNCE_MS = 350;
+const DEBOUNCE_MS = 150;
 
 const IDLE_COPY = 'Hover a token row — holder, curve, and flow notes show here.';
 
@@ -48,6 +48,7 @@ export function CopilotBriefPanel({
   const debounced = useDebouncedEntity(entity);
   const surfaceOpen = useUIStore(selectCopilotSurfaceOpen);
   const { authenticated, getAccessToken } = usePointerAuth();
+  const activeChain = useUIStore((s) => s.activeChain);
 
   const queryKey = useMemo(
     () => ['ai-explain', debounced?.type, debounced?.id, 'fast'] as const,
@@ -67,7 +68,12 @@ export function CopilotBriefPanel({
         debounced.type === 'token' ? '/api/ai/explain-token' : '/api/ai/explain-wallet';
       const body =
         debounced.type === 'token'
-          ? { mint: debounced.id, mode: 'fast' as const, surface: 'copilot' as const }
+          ? {
+              mint: debounced.id,
+              mode: 'fast' as const,
+              surface: 'copilot' as const,
+              chain: activeChain,
+            }
           : { address: debounced.id, mode: 'fast' as const };
       const key = aiScanClientKey(url, body);
       return fetchAiScan(key, async () => {
@@ -172,7 +178,7 @@ export function CopilotBriefPanel({
           <div
             className={cn(
               scrollH,
-              'overflow-y-auto overflow-x-hidden rounded-lg px-2.5 py-2 text-left',
+              'overflow-y-auto overflow-x-hidden rounded-lg px-2.5 py-2 text-center',
               'bg-bg-base/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.28)]',
               'ring-1 ring-white/[0.05]',
               textCls,
@@ -184,7 +190,7 @@ export function CopilotBriefPanel({
             <div
               key={contentKey}
               className={cn(
-                'break-words whitespace-pre-wrap',
+                'break-words whitespace-pre-wrap text-center',
                 'motion-safe:animate-[fade-in_115ms_ease-out_both] motion-reduce:animate-none',
               )}
             >
@@ -216,7 +222,7 @@ export function CopilotBriefPanel({
         <div
           className={cn(
             scrollH,
-            'overflow-y-auto overflow-x-hidden rounded-lg px-2.5 py-2 text-left',
+            'overflow-y-auto overflow-x-hidden rounded-lg px-2.5 py-2 text-center',
             pulseCard
               ? 'bg-bg-base/40'
               : cn(
@@ -232,7 +238,7 @@ export function CopilotBriefPanel({
           <div
             key={contentKey}
             className={cn(
-              'break-words whitespace-pre-wrap',
+              'break-words whitespace-pre-wrap text-center',
               'motion-safe:animate-[fade-in_115ms_ease-out_both] motion-reduce:animate-none',
             )}
           >

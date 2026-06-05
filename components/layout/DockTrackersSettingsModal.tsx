@@ -12,6 +12,7 @@ import {
   normalizeDockOrder,
   useDockTrackersStore,
 } from '@/store/dockTrackers';
+import { modalBtnPrimaryClass } from '@/lib/ui/modalChrome';
 import { cn } from '@/lib/utils/cn';
 
 /** Preview sample inside the Full / Compact / Icon tiles (appearance is global — not tied to any one tracker name). */
@@ -360,7 +361,7 @@ function DockTrackersSettingsModalContent() {
               setOrder(normalizeDockOrder(useDockTrackersStore.getState().order));
               onClose();
             }}
-            className="btn-press h-8 flex-1 rounded-full bg-accent-primary text-[12px] font-semibold text-fg-inverse hover:brightness-110"
+            className={cn(modalBtnPrimaryClass, 'h-8 flex-1 text-[12px]')}
           >
             Done
           </button>

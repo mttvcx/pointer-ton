@@ -2,6 +2,7 @@ import 'server-only';
 import { subHours, subMinutes } from 'date-fns';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { tokenMatchesAppChain } from '@/lib/chains/evmTokenChain';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { withSupabaseRetry } from '@/lib/db/supabaseRetry';
 import { PULSE_THRESHOLDS, type PulseColumnId, type MigrationDestination } from '@/lib/utils/constants';
@@ -179,7 +180,7 @@ async function listPulseStretchBySnapshotHeuristic(
   const recent = await listRecentTokens(PULSE_FEED_SCAN_DEPTH);
   let candidates = recent.filter((t) => t.migrated_at == null && t.created_at >= since);
   if (chain) {
-    candidates = candidates.filter((t) => mintMatchesAppChain(t.mint, chain));
+    candidates = candidates.filter((t) => tokenMatchesAppChain(t, chain));
   }
   if (candidates.length === 0) return [];
 
@@ -225,7 +226,7 @@ async function resolvePulseStretchTokens(limit: number, chain?: AppChainId): Pro
     const scanLimit = chain ? Math.max(limit, 1200) : limit;
     const bondingRows = await listPulseStretchByBondingProgress(scanLimit);
     const filtered = chain
-      ? bondingRows.filter((t) => mintMatchesAppChain(t.mint, chain))
+      ? bondingRows.filter((t) => tokenMatchesAppChain(t, chain))
       : bondingRows;
     if (filtered.length > 0) return filtered.slice(0, limit);
   } catch (err) {
@@ -250,7 +251,7 @@ export async function listPulseFeedTokens(
     const recent = await listRecentTokens(PULSE_FEED_SCAN_DEPTH);
     return dedupeTokenRowsByMint(
       recent
-        .filter((t) => t.created_at >= since && mintMatchesAppChain(t.mint, chain))
+        .filter((t) => t.created_at >= since && tokenMatchesAppChain(t, chain))
         .sort((a, b) => b.created_at.localeCompare(a.created_at)),
     ).slice(0, limit);
   }
@@ -265,7 +266,7 @@ export async function listPulseFeedTokens(
         .limit(1200);
       if (error) throw new Error(`listPulseFeedTokens(migrated) failed: ${error.message}`);
       return dedupeTokenRowsByMint(
-        (data ?? []).filter((t) => mintMatchesAppChain(t.mint, chain)),
+        (data ?? []).filter((t) => tokenMatchesAppChain(t, chain)),
       ).slice(0, limit);
     });
   }
@@ -348,20 +349,22 @@ export async function listExploreTopBundlesForChain(
     return mb - ma;
   });
 
-  const mintsOrdered = ranked.map((s) => s.mint).filter((m) => mintMatchesAppChain(m, chain));
+  const mintCandidates = ranked.map((s) => s.mint);
+  if (mintCandidates.length === 0) return [];
 
-  const limitedMints = mintsOrdered.slice(0, cap);
-  if (limitedMints.length === 0) return [];
-
-  const { data: tokens, error: tErr } = await supabase.from('tokens').select('*').in('mint', limitedMints);
+  const { data: tokens, error: tErr } = await supabase
+    .from('tokens')
+    .select('*')
+    .in('mint', mintCandidates.slice(0, cap * 4));
   if (tErr) throw new Error(`listExploreTopBundlesForChain(tokens) failed: ${tErr.message}`);
 
   const byMint = new Map((tokens ?? []).map((t) => [t.mint, t]));
   const bundles: PulseTokenBundle[] = [];
-  for (const m of limitedMints) {
-    const token = byMint.get(m);
-    const snapshot = latestByMint.get(m);
-    if (token && snapshot) bundles.push({ token, snapshot });
+  for (const s of ranked) {
+    const token = byMint.get(s.mint);
+    if (!token || !tokenMatchesAppChain(token, chain)) continue;
+    bundles.push({ token, snapshot: s });
+    if (bundles.length >= cap) break;
   }
   return bundles;
 }

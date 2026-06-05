@@ -1,8 +1,8 @@
 'use client';
 
-import type { PackPublicConfig } from '@/types/pack';
-import { PACK_POINTER_LOGO } from '@/lib/packs/constants';
+import type { PackPublicConfig, PackType } from '@/types/pack';
 import { PACK_VISUAL } from '@/lib/packs/rarityTheme';
+import { PackFoilDesign } from '@/components/packs/PackFoilDesign';
 import { PackSolAmount } from '@/components/packs/PackSolAmount';
 import { cn } from '@/lib/utils/cn';
 
@@ -12,54 +12,42 @@ type PackCardProps = {
   onDetails: () => void;
 };
 
+/** Subtle inset tint on hover — no large outer glow (avoids white/purple bleed in grid gutters). */
+const SHELF_HOVER: Record<PackType, string> = {
+  bronze: 'hover:border-amber-700/25',
+  silver: 'hover:border-sky-400/25',
+  gold: 'hover:border-amber-300/30',
+  legendary: 'hover:border-violet-400/35',
+};
+
 export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
   const vis = PACK_VISUAL[config.type];
 
   return (
     <article
       className={cn(
-        'pack-tcg-shelf group relative overflow-hidden rounded-sm border bg-[#06080d] transition-[border-color,box-shadow] duration-300',
-        vis.border,
-        'hover:border-white/25 hover:shadow-[0_32px_90px_-28px_rgba(88,101,242,0.45)]',
+        'pack-tcg-shelf group relative isolate overflow-hidden rounded-md border border-white/[0.06] bg-[#040508] transition-[border-color,transform] duration-400',
+        SHELF_HOVER[config.type],
+        config.type === 'legendary' && 'border-violet-400/20',
       )}
     >
-      <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br opacity-90', vis.gradient)} />
-      <div className="pack-card-shine pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="relative flex min-h-[400px] flex-col p-4 sm:p-5">
+        <header className="text-center">
+          <h2
+            className={cn(
+              'text-2xl font-bold uppercase tracking-[0.16em] sm:text-[28px]',
+              vis.accent,
+            )}
+          >
+            {config.label}
+          </h2>
+        </header>
 
-      <div className="relative flex min-h-[360px] flex-col p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className={cn('text-[10px] font-bold uppercase tracking-[0.2em]', vis.accent)}>
-              {config.label}
-            </p>
-            <p className="mt-1 max-w-[14rem] text-[13px] leading-snug text-fg-secondary">{config.tagline}</p>
-          </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-white/15 bg-black/30 shadow-lg transition duration-300 group-hover:-translate-y-1 group-hover:scale-105">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={PACK_POINTER_LOGO} alt="" className="h-8 w-8 object-contain" draggable={false} />
-          </div>
-        </div>
-
-        <div className="my-5 flex flex-1 items-center justify-center pt-2 [perspective:900px]">
-          <div className="pack-tcg-lift relative h-44 w-32">
-            <div
-              className={cn(
-                'relative h-full w-full overflow-hidden rounded-sm border-2 shadow-2xl',
-                vis.border,
-                vis.glow,
-              )}
-            >
-              <div className={cn('absolute inset-0 bg-gradient-to-br', vis.gradient)} />
-              <div className="pack-foil-shine pack-foil-shine--hover-only pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" />
-              <div className="relative flex h-full flex-col">
-                <div className="flex flex-1 items-center justify-center p-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={PACK_POINTER_LOGO} alt="" className="h-16 w-16 object-contain" draggable={false} />
-                </div>
-                <div className="border-t border-white/10 bg-black/35 py-2 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/55">Pointer</p>
-                  <p className="text-sm font-semibold text-white">{config.label}</p>
-                </div>
+        <div className="my-5 flex flex-1 items-center justify-center overflow-hidden [perspective:1200px]">
+          <div className="pack-tcg-lift relative h-[13.5rem] w-[9.25rem] overflow-hidden rounded-[12px]">
+            <div className={cn('pack-shelf-shell h-full w-full overflow-hidden', `pack-shelf-shell--${config.type}`)}>
+              <div className="relative h-full w-full overflow-hidden rounded-[10px]">
+                <PackFoilDesign type={config.type} label={config.label} variant="shelf" />
               </div>
             </div>
           </div>

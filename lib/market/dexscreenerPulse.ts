@@ -6,10 +6,12 @@ import type { PulseTokenBundle } from '@/types/tokens';
 import type { TablesInsert } from '@/lib/supabase/types';
 
 /** One DexScreener pair row — `/tokens/v1/{chain}/{addrs}` returns a flat array of these. */
-type DexPairRow = {
+export type DexPairRow = {
   chainId?: string;
   dexId?: string;
-  baseToken?: { address?: string };
+  baseToken?: { address?: string; name?: string; symbol?: string };
+  pairAddress?: string;
+  info?: { imageUrl?: string };
   quoteToken?: { address?: string };
   priceUsd?: string | number | null;
   volume?: { h24?: number; h1?: number; m5?: number } | null;
@@ -25,6 +27,7 @@ type DexPairRow = {
 
 const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   sol: 'solana',
+  eth: 'ethereum',
   bnb: 'bsc',
   base: 'base',
 };
@@ -99,7 +102,7 @@ function groupPairsByMint(rows: DexPairRow[], mintSet: Set<string>): Map<string,
   return grouped;
 }
 
-async function fetchDexMetricsForMints(
+export async function fetchDexMetricsForMints(
   chainPath: string,
   mints: string[],
 ): Promise<Map<string, TablesInsert<'token_market_snapshots'>>> {

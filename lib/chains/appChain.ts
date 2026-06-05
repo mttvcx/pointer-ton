@@ -3,7 +3,7 @@
  * Bitcoin L1 is intentionally excluded — spot/perps settle on Solana (and EVM/TON rails),
  * not on a native BTC chain in this product.
  */
-export const APP_CHAIN_IDS = ['sol', 'bnb', 'base', 'ton'] as const;
+export const APP_CHAIN_IDS = ['sol', 'eth', 'bnb', 'base', 'ton'] as const;
 export type AppChainId = (typeof APP_CHAIN_IDS)[number];
 
 export const DEFAULT_APP_CHAIN: AppChainId = 'ton';

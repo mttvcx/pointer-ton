@@ -40,17 +40,20 @@ export function PulseChainSelector({ className }: { className?: string }) {
               router.push('/pulse');
             }}
             className={cn(
-              'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors duration-150',
-              on ? 'bg-white/[0.1]' : 'hover:bg-white/[0.06]',
+              'flex shrink-0 items-center justify-center rounded-full transition-all duration-200',
+              on ? 'h-7 w-7 bg-white/[0.1]' : 'h-6 w-6 hover:bg-white/[0.05]',
             )}
           >
             <img
               src={CHAIN_ICON_PNG[id]}
               alt=""
-              width={18}
-              height={18}
+              width={on ? 18 : 14}
+              height={on ? 18 : 14}
               decoding="async"
-              className="h-[18px] w-[18px] object-contain"
+              className={cn(
+                'object-contain transition-all duration-200',
+                on ? 'h-[18px] w-[18px] opacity-100' : 'h-[14px] w-[14px] opacity-40 hover:opacity-65',
+              )}
               draggable={false}
             />
           </button>

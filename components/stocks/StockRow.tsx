@@ -1,40 +1,42 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { KeyboardEvent, MouseEvent } from 'react';
-import { Zap } from 'lucide-react';
+import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { StockAvatar } from '@/components/stocks/StockAvatar';
-import { PulseRowVolMc } from '@/components/tokens/PulseRowVolMc';
+import {
+  StockRowLeverageCenter,
+  StockRowTradeDock,
+} from '@/components/stocks/StockRowTradeDock';
 import type { SyntheticStockMarket } from '@/lib/stocks/types';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
-import { formatPercent, formatSol } from '@/lib/utils/formatters';
+import { formatPercent } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
+/** Match Pulse virtualizer tabled row height. */
 const ROW_SLOT_PX = 116;
-const EXEC_TOOLTIP = 'Stock execution coming soon';
-
-function formatSolDraft(n: number): string {
-  return formatSol(n);
-}
 
 export function StockRow({
   market,
-  quickBuySol = 0.5,
-  quoteSymbol = 'SOL',
+  defaultLeverage = 5,
 }: {
   market: SyntheticStockMarket;
-  quickBuySol?: number;
-  quoteSymbol?: string;
+  defaultLeverage?: number;
 }) {
   const router = useRouter();
   const slotHeight = ROW_SLOT_PX;
   const mcTone = market.category === 'top' ? 'gold' : 'cyan';
   const changeTone = market.change24hPct >= 0 ? 'bull' : 'bear';
+  const [leverage, setLeverage] = useState(defaultLeverage);
+
+  useEffect(() => {
+    setLeverage(defaultLeverage);
+  }, [defaultLeverage]);
+
+  const avatarSize = useMemo(() => {
+    const verticalPad = 24;
+    const raw = slotHeight - verticalPad;
+    return Math.min(78, Math.max(52, Math.round(raw)));
+  }, [slotHeight]);
 
   const hoverProps = useEntityHover({
     type: 'token',
@@ -47,7 +49,7 @@ export function StockRow({
 
   const isInteractiveClickTarget = (target: EventTarget | null) =>
     target instanceof HTMLElement &&
-    Boolean(target.closest('button,[role="button"],[data-row-click-skip="true"]'));
+    Boolean(target.closest('button,[role="button"],[data-row-click-skip="true"],input'));
 
   const openStock = () => router.push(stockPath);
 
@@ -63,13 +65,10 @@ export function StockRow({
     openStock();
   };
 
-  const avatarSize = 58;
-  const labelAmount = formatSolDraft(quickBuySol) || String(quickBuySol);
-
   return (
     <div
       className={cn(
-        'pulse-row group/pulseRow relative flex items-stretch rounded-lg outline-none transition-colors duration-150 ease-out',
+        'stock-row group/stockRow relative flex items-stretch rounded-lg outline-none transition-colors duration-150 ease-out',
         'h-full min-h-0 max-h-full overflow-visible',
       )}
       style={{ height: slotHeight }}
@@ -82,7 +81,6 @@ export function StockRow({
         onKeyDown={onRowKeyDown}
         className={cn(
           'relative z-[1] flex min-h-0 min-w-0 flex-1 cursor-pointer items-start outline-none transition-[background-color] duration-150',
-          'hover:bg-white/[0.04]',
           'focus-visible:bg-bg-hover/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/45',
           'px-3 pt-4 pb-2 pr-[calc(clamp(7.5rem,32%,14rem)+0.5rem)]',
         )}
@@ -95,8 +93,11 @@ export function StockRow({
 
           <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-start gap-2 overflow-visible">
             <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
-              <div className="group/mintTitle flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden rounded-sm px-0.5 -mx-0.5 transition-colors hover:bg-white/[0.05]">
-                <p className="min-w-0 truncate font-sans leading-[1.12]" title={nameTitle}>
+              <div className="group/mintTitle flex min-w-0 max-w-full w-max flex-col gap-0.5 overflow-hidden">
+                <p
+                  className="inline-block w-fit max-w-full truncate rounded-sm px-0.5 -mx-0.5 font-sans leading-[1.12] transition-colors hover:bg-white/[0.05]"
+                  title={nameTitle}
+                >
                   <span className="text-[16px] font-semibold tracking-tight text-fg-primary">
                     {market.symbol}
                   </span>
@@ -108,59 +109,32 @@ export function StockRow({
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-visible">
-              <div className="flex min-w-0 flex-nowrap items-start gap-2 overflow-visible">
-                <span
-                  className={cn(
-                    'shrink-0 whitespace-nowrap text-[13px] leading-none',
-                    changeTone === 'bull' ? 'font-medium text-signal-bull' : 'text-signal-bear',
-                  )}
-                >
-                  {formatPercent(market.change24hPct, { sign: true })}
-                </span>
-              </div>
+              <span
+                className={cn(
+                  'shrink-0 whitespace-nowrap text-[13px] leading-none',
+                  changeTone === 'bull' ? 'font-medium text-signal-bull' : 'text-signal-bear',
+                )}
+              >
+                {formatPercent(market.change24hPct, { sign: true })}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="pulse-row-action pointer-events-none absolute inset-y-0 right-0 z-20 flex items-stretch justify-end pl-3 pr-0">
-        <div className="pointer-events-auto relative z-[21] flex h-full min-h-0 w-[clamp(7.5rem,32%,14rem)] min-w-0 shrink-0 flex-col gap-0.5">
-          <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-end pl-0.5 pr-3">
-            <PulseRowVolMc
-              vol={market.volume24hUsd}
-              mcUsd={market.marketCapUsd}
-              showVol
-              showMc
-              size="prominent"
-              justify="end"
-              layout="inline"
-              mcTone={mcTone}
-            />
-          </div>
-          <div className="relative z-[21] flex min-h-0 flex-1 items-stretch justify-end gap-1.5">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled
-                  data-row-click-skip="true"
-                  className={cn(
-                    'focus-ring relative z-[21] flex h-full w-full min-h-0 max-h-full max-w-full flex-col items-end justify-end rounded-[5px] border p-2 pb-2.5 pr-2.5 font-sans font-semibold tabular-nums tracking-normal transition-all duration-200',
-                    'border-emerald-400/90 bg-transparent text-emerald-400 opacity-55',
-                  )}
-                  aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
-                >
-                  <span className="flex shrink-0 items-center gap-1 text-[10px] leading-none sm:text-[11px]">
-                    <Zap className="h-3 w-3 shrink-0 fill-emerald-400/35 text-emerald-400 sm:h-3.5 sm:w-3.5" aria-hidden />
-                    <span className="min-w-0 text-right">{`${labelAmount} ${quoteSymbol}`}</span>
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{EXEC_TOOLTIP}</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      </div>
+      <StockRowLeverageCenter
+        leverage={leverage}
+        onLeverageChange={setLeverage}
+        symbol={market.symbol}
+      />
+
+      <StockRowTradeDock
+        volume24hUsd={market.volume24hUsd}
+        marketCapUsd={market.marketCapUsd}
+        mcTone={mcTone}
+        leverage={leverage}
+        symbol={market.symbol}
+      />
     </div>
   );
 }

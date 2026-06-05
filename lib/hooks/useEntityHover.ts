@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useUIStore, type EntityRef } from '@/store/ui';
 
-const LEAVE_GRACE_MS = 120;
+const LEAVE_GRACE_MS = 60;
 
 /**
  * Shared hover handlers that drive `useUIStore.hoveredEntity` for any entity

@@ -160,6 +160,67 @@ function solLaunchpads(chain: AppChainId, tf: LighthouseTf): LighthouseVenueRow[
   return rows;
 }
 
+function ethLaunchpads(chain: AppChainId, tf: LighthouseTf): LighthouseVenueRow[] {
+  const uniV2 = 520_000 * (0.82 + u(chain, tf, 'ev2') * 0.38);
+  const uniV3 = 480_000 * (0.78 + u(chain, tf, 'ev3') * 0.42);
+  const uniV4 = 310_000 * (0.75 + u(chain, tf, 'ev4') * 0.48);
+  const clanker = 240_000 * (0.7 + u(chain, tf, 'ecl') * 0.5);
+  const virtuals = 180_000 * (0.68 + u(chain, tf, 'evi') * 0.52);
+
+  return [
+    {
+      key: 'uni-v2',
+      name: 'Uniswap V2',
+      tooltip: 'Uniswap V2 Volume',
+      icon: 'chain-logo',
+      iconSrc: '/logos/protocols/uniswap.png',
+      volumeLabel: fmtUsdCompact(uniV2),
+      volumeUsd: uniV2,
+      pct: pctAround(chain, tf, 'ev2p', 38),
+    },
+    {
+      key: 'uni-v3',
+      name: 'Uniswap V3',
+      tooltip: 'Uniswap V3 Volume',
+      icon: 'chain-logo',
+      iconSrc: '/logos/protocols/uniswap.png',
+      volumeLabel: fmtUsdCompact(uniV3),
+      volumeUsd: uniV3,
+      pct: pctAround(chain, tf, 'ev3p', 42),
+    },
+    {
+      key: 'uni-v4',
+      name: 'Uniswap V4',
+      tooltip: 'Uniswap V4 Volume',
+      icon: 'chain-logo',
+      iconSrc: '/logos/protocols/uniswap.png',
+      volumeLabel: fmtUsdCompact(uniV4),
+      volumeUsd: uniV4,
+      pct: pctAround(chain, tf, 'ev4p', 36),
+    },
+    {
+      key: 'clanker',
+      name: 'Clanker',
+      tooltip: 'Clanker Volume',
+      icon: 'chain-logo',
+      iconSrc: '/logos/protocols/clanker.png',
+      volumeLabel: fmtUsdCompact(clanker),
+      volumeUsd: clanker,
+      pct: pctAround(chain, tf, 'eclp', 44),
+    },
+    {
+      key: 'virtuals',
+      name: 'Virtuals',
+      tooltip: 'Virtuals Volume',
+      icon: 'chain-logo',
+      iconSrc: '/logos/protocols/virtuals.png',
+      volumeLabel: fmtUsdCompact(virtuals),
+      volumeUsd: virtuals,
+      pct: pctAround(chain, tf, 'evip', 40),
+    },
+  ];
+}
+
 function solProtocols(chain: AppChainId, tf: LighthouseTf): LighthouseVenueRow[] {
   const meteoraAmm = 9.68e6 * (0.78 + u(chain, tf, 'pr1') * 0.5);
   const rayClmm = 894_000 * (0.72 + u(chain, tf, 'pr2') * 0.55);
@@ -210,33 +271,39 @@ export function getMarketLighthouseSnapshot(chain: AppChainId, tf: LighthouseTf)
   const tradesN =
     (chain === 'sol'
       ? 2_080_000
-      : chain === 'bnb'
-        ? 890_000
-        : chain === 'base'
-          ? 412_000
-          : 226_000) *
+      : chain === 'eth'
+        ? 1_120_000
+        : chain === 'bnb'
+          ? 890_000
+          : chain === 'base'
+            ? 412_000
+            : 226_000) *
     (0.72 + u(chain, tf, 'tr') * 0.55) *
     scale;
 
   const tradersN =
     (chain === 'sol'
       ? 90_400
-      : chain === 'bnb'
-        ? 48_200
-        : chain === 'base'
-          ? 31_500
-          : 18_900) *
+      : chain === 'eth'
+        ? 62_800
+        : chain === 'bnb'
+          ? 48_200
+          : chain === 'base'
+            ? 31_500
+            : 18_900) *
     (0.78 + u(chain, tf, 'td') * 0.44) *
     scale;
 
   const volUsd =
     (chain === 'sol'
       ? 596e6
-      : chain === 'bnb'
-        ? 214e6
-        : chain === 'base'
-          ? 178e6
-          : 92e6) *
+      : chain === 'eth'
+        ? 388e6
+        : chain === 'bnb'
+          ? 214e6
+          : chain === 'base'
+            ? 178e6
+            : 92e6) *
     (0.65 + u(chain, tf, 'vl') * 0.7) *
     scale;
 
@@ -247,25 +314,33 @@ export function getMarketLighthouseSnapshot(chain: AppChainId, tf: LighthouseTf)
   const createdN =
     (chain === 'sol'
       ? 23_600
-      : chain === 'bnb'
-        ? 14_200
-        : chain === 'base'
-          ? 9_800
-          : 6_400) *
+      : chain === 'eth'
+        ? 18_400
+        : chain === 'bnb'
+          ? 14_200
+          : chain === 'base'
+            ? 9_800
+            : 6_400) *
     (0.8 + u(chain, tf, 'cr') * 0.35) *
     Math.max(0.35, scale);
 
   const migN =
     (chain === 'sol'
       ? 50
-      : chain === 'bnb'
-        ? 128
-        : chain === 'base'
-          ? 86
-          : 34) + Math.round(u(chain, tf, 'mg') * 40);
+      : chain === 'eth'
+        ? 94
+        : chain === 'bnb'
+          ? 128
+          : chain === 'base'
+            ? 86
+            : 34) + Math.round(u(chain, tf, 'mg') * 40);
 
   const launchpads = topVenuesByVolume(
-    chain === 'sol' ? solLaunchpads(chain, tf) : genericVenueRows(chain, tf, 'launchpad'),
+    chain === 'sol'
+      ? solLaunchpads(chain, tf)
+      : chain === 'eth'
+        ? ethLaunchpads(chain, tf)
+        : genericVenueRows(chain, tf, 'launchpad'),
   );
   const protocols = topVenuesByVolume(
     chain === 'sol' ? solProtocols(chain, tf) : genericVenueRows(chain, tf, 'protocol'),

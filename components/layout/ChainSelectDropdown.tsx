@@ -59,11 +59,11 @@ export function ChainSelectDropdown({
         className={cn(
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35',
           variant === 'default' &&
-            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border-subtle bg-transparent px-2.5 pr-1.5 text-[11px] font-semibold tracking-wide text-fg-secondary transition hover:border-border-default hover:bg-bg-hover hover:text-fg-primary',
+            'inline-flex h-8 shrink-0 items-center gap-1 rounded-[10px] bg-[#2a2a2d] px-2.5 text-[12px] font-semibold text-white/90 transition-colors hover:bg-[#333338]',
           variant === 'topbarIntegrated' &&
             cn(
               'inline-flex h-full min-h-0 shrink-0 items-center gap-1 border-0 bg-transparent text-fg-secondary shadow-none ring-0 transition hover:bg-white/[0.04] hover:text-fg-primary',
-              showTicker ? 'px-2.5 text-[11px] font-semibold tracking-wide' : 'pl-1 pr-1.5',
+              showTicker ? 'px-2 text-[11px] font-semibold tracking-wide' : 'pl-1 pr-1.5',
             ),
           triggerClassName,
         )}
@@ -79,16 +79,25 @@ export function ChainSelectDropdown({
           draggable={false}
         />
         {showTicker ? (
-          <span className="tabular-nums">{CHAIN_TICKER[activeChain]}</span>
-        ) : null}
-        <ChevronDown
-          className={cn(
-            'shrink-0 opacity-65 transition-transform duration-200 ease-out will-change-transform',
-            showTicker ? 'h-3.5 w-3.5' : 'h-3 w-3',
-            open && 'rotate-180',
-          )}
-          aria-hidden
-        />
+          <span className="inline-flex items-center gap-0.5 tabular-nums">
+            {CHAIN_TICKER[activeChain]}
+            <ChevronDown
+              className={cn(
+                'h-3 w-3 shrink-0 text-fg-muted transition-transform duration-200 ease-out',
+                open && 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </span>
+        ) : (
+          <ChevronDown
+            className={cn(
+              'h-3 w-3 shrink-0 text-fg-muted transition-transform duration-200 ease-out',
+              open && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        )}
       </button>
 
       {menuMounted ? (

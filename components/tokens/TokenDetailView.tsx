@@ -29,6 +29,8 @@ import {
 import { formatRelativeShort } from '@/lib/format';
 import { SortIndicator } from '@/components/tokens/cells/SortableTh';
 import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
+import { KnownWalletActivityStrip } from '@/components/identity/KnownWalletActivityStrip';
+import { useUIStore } from '@/store/ui';
 import { ChainIcon } from '@/components/squads/ChainIcon';
 import { TerminalUsdPrice } from '@/lib/utils/terminalBalanceFormat';
 
@@ -306,7 +308,10 @@ function TokenLiveTradesSidePanel({
                     formatCompactUsd(usdValue)
                   )}
                 </span>
-                <span className="w-[58px] shrink-0 font-sans tabular-nums text-fg-secondary">
+                <span
+                  className="w-[58px] shrink-0 truncate font-sans tabular-nums text-fg-secondary"
+                  title={valueColumn === 'mc' ? mc : undefined}
+                >
                   {valueColumn === 'mc' ? (
                     mc
                   ) : (
@@ -413,6 +418,7 @@ export function TokenDetailView({
     noteRecentTradeMint(mint);
   }, [mint]);
   const { getAccessToken, authenticated } = usePointerAuth();
+  const activeChain = useUIStore((s) => s.activeChain);
 
   const [rightStackW, setRightStackW] = useState(340);
   const [chartH, setChartH] = useState<number | null>(null);
@@ -605,6 +611,7 @@ export function TokenDetailView({
             >
               <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0.5 pt-0.5">
                 <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
+                <KnownWalletActivityStrip chain={activeChain} mint={mint} className="mx-2 mb-2" />
               </div>
               {tradesPanel ? (
                 <TokenLiveTradesSidePanel
@@ -638,6 +645,8 @@ export function TokenDetailView({
                   symbol={symbol}
                   creatorWallet={creatorWallet}
                   dev={dev}
+                  supplyTokens={supplyTokens}
+                  marketCapUsd={marketSnapshot?.market_cap_usd}
                   tradesPanel={tradesPanel}
                   onTradesPanelChange={setTradesPanel}
                   tradesDeskFilter={tradesDeskFilter}

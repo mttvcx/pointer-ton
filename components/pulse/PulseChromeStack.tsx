@@ -15,8 +15,9 @@ import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
 /**
- * Pulse workspace chrome: Pulse | Stocks + chain icons (left) + hover brief
- * (top-aligned, same row). Answer slot height is fixed so columns never bob.
+ * Pulse workspace chrome: fixed answer slot height so columns never shift.
+ * Center brief uses the full band; Pulse | Stocks + chains (left) and toolbar
+ * (right) are absolutely positioned — they do not shrink or compete with the brief.
  */
 export function PulseChromeStack() {
   const pathname = usePathname();
@@ -48,46 +49,46 @@ export function PulseChromeStack() {
 
   return (
     <>
-    <PulseDisplayPrefsSync />
-    <div
-      className={cn(
-        'flex w-full shrink-0 flex-col border-b border-white/[0.06] bg-bg-base',
-        'pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))]',
-        'pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))]',
-        watchlistTickerOn ? 'py-1.5' : 'py-1 sm:py-1.5',
-      )}
-    >
-      <div className="relative flex w-full min-h-[var(--pulse-answer-chrome-h)] items-center px-2 sm:px-3 lg:px-4">
-        <div className="pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2 sm:left-3 lg:left-4">
-          <div className="pointer-events-auto flex items-center gap-2.5 sm:gap-3">
-            {hydrated ? (
-              <>
-                <PulseModeSelector mode={assetMode} onChange={setAssetMode} variant="label" />
-                <span className="h-4 w-px shrink-0 bg-white/[0.08]" aria-hidden />
-                <PulseChainSelector />
-              </>
-            ) : (
-              <span className="h-5 w-40 animate-pulse rounded bg-bg-hover" aria-hidden />
-            )}
+      <PulseDisplayPrefsSync />
+      <div
+        className={cn(
+          'flex w-full shrink-0 flex-col border-b border-white/[0.06] bg-bg-base',
+          'pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))]',
+          'pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))]',
+          watchlistTickerOn ? 'py-1.5' : 'py-1 sm:py-1.5',
+        )}
+      >
+        <div className="relative flex w-full min-h-[var(--pulse-answer-chrome-h)] px-2 sm:px-3 lg:px-4">
+          <div className="pointer-events-none absolute bottom-2.5 left-2 z-10 sm:left-3 lg:left-4">
+            <div className="pointer-events-auto flex items-center gap-2.5 sm:gap-3">
+              {hydrated ? (
+                <>
+                  <PulseModeSelector mode={assetMode} onChange={setAssetMode} variant="label" />
+                  <span className="h-4 w-px shrink-0 bg-white/[0.08]" aria-hidden />
+                  <PulseChainSelector />
+                </>
+              ) : (
+                <span className="h-5 w-40 animate-pulse rounded bg-bg-hover" aria-hidden />
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="pointer-events-none absolute right-2 top-1/2 z-10 -translate-y-1/2 sm:right-3 lg:right-4">
-          <div className="pointer-events-auto">
-            <PulseWorkspaceToolbar />
+          <div className="pointer-events-none absolute bottom-2.5 right-2 z-10 sm:right-3 lg:right-4">
+            <div className="pointer-events-auto">
+              <PulseWorkspaceToolbar />
+            </div>
           </div>
-        </div>
 
-        <div className="flex w-full justify-center">
-          <div
-            className="h-[var(--pulse-answer-chrome-h)] w-full max-w-[440px] shrink-0"
-            aria-hidden={!showBrief}
-          >
-            {showBrief ? <CopilotStripBody variant="pulse" className="h-full min-h-0" /> : null}
+          <div className="flex w-full justify-center">
+            <div
+              className="h-[var(--pulse-answer-chrome-h)] w-full max-w-[440px] shrink-0"
+              aria-hidden={!showBrief}
+            >
+              {showBrief ? <CopilotStripBody variant="pulse" className="h-full" /> : null}
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </>
   );
 }

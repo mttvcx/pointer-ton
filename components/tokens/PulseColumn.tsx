@@ -4,8 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -162,7 +161,7 @@ function PulseColumnBody({
         return { items: [], fetchError: message };
       }
     },
-    staleTime: 1_000,
+    staleTime: 8_000,
     refetchInterval: pulseRefetchMs,
     retry: 2,
   });
@@ -198,7 +197,7 @@ function PulseColumnBody({
       refetchTimer = setTimeout(() => {
         refetchTimer = null;
         void qc.invalidateQueries({ queryKey: ['pulse', column, activeChain] });
-      }, 800);
+      }, 2_000);
     };
 
     const channel = supabase
@@ -344,10 +343,42 @@ function PulseColumnBody({
       density: 'normal',
       mcLayout: mcMetricSizeToLayout(mcMetricSize),
       buyButtonStyle,
-      showBondingRing: showBondingProgress && displayCore.showBondingRing,
+      /** Migrated lane always gets the gold progress ring when the global toggle is on. */
+      showBondingRing:
+        column === 'migrated'
+          ? showBondingProgress
+          : showBondingProgress && displayCore.showBondingRing,
       pulseSecondButton: secondButtonToPreset(secondButtonMode),
     }),
-    [displayCore, buyButtonStyle, mcMetricSize, showBondingProgress, secondButtonMode],
+    [column, displayCore, buyButtonStyle, mcMetricSize, showBondingProgress, secondButtonMode],
+  );
+
+  const secondQuickBuySol = displayForRow.secondQuickBuySol;
+  const secondSellPct = displayForRow.secondSellPct;
+
+  const handlePulseQuickBuy = useCallback(
+    (mint: string) => {
+      void buyToken(mint, quickBuyAmount, {
+        spendAsset: isUsdcQuickBuy ? 'usdc' : 'sol',
+      });
+    },
+    [buyToken, quickBuyAmount, isUsdcQuickBuy],
+  );
+
+  const handlePulseSecondBuy = useCallback(
+    (mint: string) => {
+      void buyToken(mint, secondQuickBuySol, {
+        spendAsset: isUsdcQuickBuy ? 'usdc' : 'sol',
+      });
+    },
+    [buyToken, secondQuickBuySol, isUsdcQuickBuy],
+  );
+
+  const handlePulseQuickSell = useCallback(
+    (mint: string) => {
+      void sellTokenPct(mint, secondSellPct);
+    },
+    [sellTokenPct, secondSellPct],
   );
 
   const displayOptionsSig =
@@ -414,7 +445,7 @@ function PulseColumnBody({
     count: visibleRows.length,
     getScrollElement: () => scrollMainRef.current as HTMLElement | null,
     estimateSize: () => rowSize,
-    overscan: 10,
+    overscan: 4,
     /** Demo decks reuse mints across rows — index keeps keys unique for React + the virtualizer. */
     getItemKey: (index) => {
       const row = visibleRows[index];
@@ -548,13 +579,14 @@ function PulseColumnBody({
             {isUsdcQuickBuy ? (
               <QuoteTokenIcon kind="usdc" className="h-3.5 w-3.5 opacity-95" />
             ) : (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element -- chain pill matches PulseChainSelector
+              <img
                 src={CHAIN_ICON_PNG[activeChain]}
                 alt=""
                 width={14}
                 height={14}
+                draggable={false}
                 className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                unoptimized
               />
             )}
           </label>
@@ -668,6 +700,8 @@ function PulseColumnBody({
               const bundle = visibleRows[vi.index];
               if (!bundle) return null;
               const rowKey = `${activeChain}:${bundle.token.mint}`;
+              /** Higher rows paint above the next row's solid bg so avatar rings aren't clipped. */
+              const rowStackZ = visibleRows.length - vi.index;
               return (
                 <div
                   key={rowKey}
@@ -687,10 +721,11 @@ function PulseColumnBody({
                    * Solid `bg-bg-raised` + `isolate` on the slot stops semi-transparent row cards
                    * from compositing through the row below when z-index shifts (ghost/double text).
                    */
-                  className="absolute left-0 top-0 z-0 isolate w-full overflow-visible bg-bg-raised hover:z-30 has-[[data-popover-open=true]]:z-30"
+                  className="absolute left-0 top-0 isolate w-full overflow-visible bg-bg-raised hover:!z-[90] has-[[data-popover-open=true]]:!z-[90]"
                   style={{
                     transform: `translate3d(0, ${vi.start}px, 0)`,
                     height: rowSize,
+                    zIndex: rowStackZ,
                   }}
                 >
                   <TokenRow
@@ -704,19 +739,9 @@ function PulseColumnBody({
                     slotHeight={rowSize}
                     quoteSymbol={quoteSymbol}
                     avatarImagePriority={vi.index < 8}
-                    onPulseQuickBuy={() =>
-                      void buyToken(bundle.token.mint, quickBuyAmount, {
-                        spendAsset: isUsdcQuickBuy ? 'usdc' : 'sol',
-                      })
-                    }
-                    onPulseSecondBuy={() =>
-                      void buyToken(bundle.token.mint, displayForRow.secondQuickBuySol, {
-                        spendAsset: isUsdcQuickBuy ? 'usdc' : 'sol',
-                      })
-                    }
-                    onPulseQuickSell={() =>
-                      void sellTokenPct(bundle.token.mint, displayForRow.secondSellPct)
-                    }
+                    onPulseQuickBuy={handlePulseQuickBuy}
+                    onPulseSecondBuy={handlePulseSecondBuy}
+                    onPulseQuickSell={handlePulseQuickSell}
                     pulseBuyBusy={busyMint === bundle.token.mint}
                     pulseBuyDisabled={busyMint !== null && busyMint !== bundle.token.mint}
                   />

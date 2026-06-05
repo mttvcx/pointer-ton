@@ -56,6 +56,8 @@ export type BugReportContext = {
   activeWalletLabel?: string | null;
   walletPageMasked?: string | null;
   includeScreenshotRequested: boolean;
+  /** PNG data URL when user opted in and capture succeeded (may be omitted server-side if too large). */
+  screenshotDataUrl?: string | null;
   recentClientErrors?: ClientErrorBrief[];
 };
 

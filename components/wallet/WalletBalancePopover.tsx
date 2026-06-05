@@ -2,19 +2,29 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowDownToLine, ArrowUpToLine, Settings } from 'lucide-react';
-import { CopyButton } from '@/components/shared/CopyButton';
+import { ArrowDownToLine, ArrowUpToLine, Copy, Settings } from 'lucide-react';
 import { Popover } from '@/components/ui/popover';
 import { TerminalWalletChip } from '@/components/wallet/TerminalWalletChip';
 import { useUIStore } from '@/store/ui';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { CHAIN_ICON_PNG, CHAIN_TICKER } from '@/lib/chains/chainAssets';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import {
+  AXIOM_DEPOSIT_BTN,
+  AXIOM_WALLET_PANEL,
+  AXIOM_WALLET_TAB_ACTIVE,
+  AXIOM_WALLET_TAB_BTN,
+  AXIOM_WALLET_TAB_IDLE,
+  AXIOM_WALLET_TAB_TRACK,
+  AXIOM_WALLET_TRIGGER,
+  AXIOM_WITHDRAW_BTN,
+} from '@/lib/ui/axiomWalletChrome';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { formatUsd } from '@/lib/utils/formatters';
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
 import type { SolSpendAsset } from '@/lib/trading/spendAsset';
+import { toast } from 'sonner';
 
 export type WalletSpendAssetTab = SolSpendAsset | 'usol';
 
@@ -81,23 +91,25 @@ export function WalletBalancePopover({
     onWithdraw();
   }
 
+  function copyAddress() {
+    if (!walletAddress) return;
+    void navigator.clipboard.writeText(walletAddress);
+    toast.success('Address copied');
+  }
+
   const assetTabs = [
-    ['sol', chainTicker],
-    ['usdc', 'USDC'],
-    ['usol', 'uSOL'],
-  ] as const;
+    { id: 'sol' as const, label: chainTicker, icon: CHAIN_ICON_PNG[activeChain] },
+    { id: 'usdc' as const, label: 'USDC', icon: USDC_ICON },
+    { id: 'usol' as const, label: 'uSOL', icon: CHAIN_ICON_PNG.sol },
+  ];
+
+  const totalDisplay =
+    totalUsd != null && Number.isFinite(totalUsd) ? formatUsd(totalUsd, { decimals: 2 }) : '$0.00';
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button
-          type="button"
-          title="Wallet"
-          className={cn(
-            'focus-ring flex h-7 items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-raised px-2 transition-colors hover:bg-bg-hover hover:border-border-default',
-            className,
-          )}
-        >
+        <button type="button" title="Wallet" className={cn(AXIOM_WALLET_TRIGGER, className)}>
           <TerminalWalletChip
             nativeBalance={solAmount}
             usdcBalance={showSpendAssetTabs ? usdcAmount : null}
@@ -107,17 +119,13 @@ export function WalletBalancePopover({
         </button>
       </Popover.Trigger>
 
-      <Popover.Content
-        align="end"
-        sideOffset={6}
-        className="flex w-[240px] flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised p-0 shadow-panel"
-      >
+      <Popover.Content align="end" sideOffset={8} className={AXIOM_WALLET_PANEL}>
         {!hasActiveWallet ? (
-          <div className="mx-3 mt-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.06] px-2 py-1.5 text-[10px] leading-snug text-amber-200/80">
+          <div className="mx-3 mt-3 rounded-sm border border-amber-400/20 bg-amber-400/[0.08] px-2.5 py-2 text-[11px] text-amber-100/90">
             No {nativeSym} wallet.{' '}
             <Link
               href="/wallets"
-              className="font-semibold text-[#4f8ff7] hover:underline"
+              className="font-semibold text-white hover:underline"
               onClick={() => setOpen(false)}
             >
               Add one
@@ -125,78 +133,71 @@ export function WalletBalancePopover({
           </div>
         ) : null}
 
-        {/* Header */}
-        <div className="px-3 pb-2.5 pt-3">
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-widest text-fg-muted">
+        <div className="px-3 pb-3 pt-3">
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#888892]">
             Total Value
-          </div>
-          <div className="text-[26px] font-semibold tabular-nums leading-none text-fg-primary">
-            {totalUsd != null && totalUsd > 0 ? formatUsd(totalUsd, { decimals: 2 }) : '$0.00'}
-          </div>
+          </p>
+          <p className="mt-1 text-[28px] font-semibold leading-none tabular-nums text-white">
+            {totalDisplay}
+          </p>
           {walletAddress ? (
-            <div className="mt-1.5 flex items-center gap-1">
-              <span className="font-mono text-[10px] text-fg-muted">
-                {shortenAddress(walletAddress)}
-              </span>
-              <CopyButton
-                value={walletAddress}
-                toastLabel="Address copied"
-                iconOnly
-                iconClassName="h-2.5 w-2.5 text-fg-muted hover:text-fg-secondary"
-                label="Copy"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={copyAddress}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-sm py-0.5 text-[11px] text-[#888892] transition-colors hover:text-[#c4c4c8]"
+            >
+              <span className="font-mono">{shortenAddress(walletAddress, 4)}</span>
+              <Copy className="h-3 w-3 shrink-0 opacity-80" strokeWidth={2} aria-hidden />
+            </button>
           ) : null}
         </div>
 
-        <div className="border-t border-border-subtle/40" />
-
-        {/* Asset tabs */}
         {showSpendAssetTabs ? (
-          <>
-            <div className="flex items-center gap-1.5 px-3 py-2">
-              <div className="flex flex-1 items-center gap-0.5 rounded-lg bg-bg-sunken p-0.5">
-                {assetTabs.map(([id, label]) => {
-                  const disabled = id === 'usol';
-                  const active = spendAsset === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      disabled={disabled}
-                      title={disabled ? 'Coming soon' : undefined}
-                      onClick={() => {
-                        if (disabled || !onSpendAssetChange) return;
-                        onSpendAssetChange(id);
-                      }}
-                      className={cn(
-                        'flex-1 rounded-md py-1 text-[11px] font-semibold transition-colors',
-                        active
-                          ? 'bg-bg-raised text-fg-primary shadow-sm'
-                          : 'text-fg-muted hover:text-fg-secondary',
-                        disabled && 'cursor-not-allowed opacity-30',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              <Link
-                href="/wallets"
-                title="Manage wallets"
-                onClick={() => setOpen(false)}
-                className="flex h-6 w-6 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-              >
-                <Settings className="h-3 w-3" strokeWidth={2} aria-hidden />
-              </Link>
+          <div className="flex items-center gap-2 px-3 pb-3">
+            <div className={AXIOM_WALLET_TAB_TRACK}>
+              {assetTabs.map((tab) => {
+                const disabled = tab.id === 'usol';
+                const active = spendAsset === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    disabled={disabled}
+                    title={disabled ? 'Coming soon' : undefined}
+                    onClick={() => {
+                      if (disabled || !onSpendAssetChange) return;
+                      onSpendAssetChange(tab.id);
+                    }}
+                    className={cn(
+                      AXIOM_WALLET_TAB_BTN,
+                      active ? AXIOM_WALLET_TAB_ACTIVE : AXIOM_WALLET_TAB_IDLE,
+                      disabled && 'cursor-not-allowed opacity-35',
+                    )}
+                  >
+                    <img
+                      src={tab.icon}
+                      alt=""
+                      className="h-3.5 w-3.5 shrink-0 rounded-full object-contain"
+                      draggable={false}
+                      aria-hidden
+                    />
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
-            <div className="border-t border-border-subtle/40" />
-          </>
+            <Link
+              href="/wallets"
+              title="Manage wallets"
+              onClick={() => setOpen(false)}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-[#2e2e32] text-[#888892] transition-colors hover:bg-[#252528] hover:text-white"
+            >
+              <Settings className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            </Link>
+          </div>
         ) : null}
 
-        {/* Balance rows */}
-        <div className="flex flex-col gap-2 px-3 py-2.5">
+        <div className="flex flex-col gap-2.5 px-3 pb-3">
           <div className="flex items-center gap-2">
             <img
               src={CHAIN_ICON_PNG[activeChain]}
@@ -207,7 +208,7 @@ export function WalletBalancePopover({
             />
             <TerminalNativeBalance
               amount={solAmount}
-              className="text-[13px] font-medium tabular-nums text-fg-primary"
+              className="text-[14px] font-medium tabular-nums text-white"
             />
           </div>
           {showSpendAssetTabs ? (
@@ -219,31 +220,20 @@ export function WalletBalancePopover({
                 draggable={false}
                 aria-hidden
               />
-              <span className="text-[13px] font-medium tabular-nums text-fg-primary">
+              <span className="text-[14px] font-medium tabular-nums text-white">
                 {formatUsdcAmount(usdcAmount)}
               </span>
             </div>
           ) : null}
         </div>
 
-        <div className="border-t border-border-subtle/40" />
-
-        {/* Buttons */}
-        <div className="flex gap-2 px-3 py-2.5">
-          <button
-            type="button"
-            onClick={handleDeposit}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-primary py-1.5 text-[12px] font-semibold text-white transition-colors hover:brightness-110"
-          >
-            <ArrowDownToLine className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+        <div className="flex gap-2 px-3 pb-3">
+          <button type="button" onClick={handleDeposit} className={AXIOM_DEPOSIT_BTN}>
+            <ArrowDownToLine className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
             Deposit
           </button>
-          <button
-            type="button"
-            onClick={handleWithdraw}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border-subtle bg-bg-hover py-1.5 text-[12px] font-semibold text-fg-primary transition-colors hover:bg-bg-raised"
-          >
-            <ArrowUpToLine className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+          <button type="button" onClick={handleWithdraw} className={AXIOM_WITHDRAW_BTN}>
+            <ArrowUpToLine className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
             Withdraw
           </button>
         </div>

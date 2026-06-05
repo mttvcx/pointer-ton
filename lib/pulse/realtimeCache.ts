@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { AppChainId } from '@/lib/chains/appChain';
-import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { tokenMatchesAppChain } from '@/lib/chains/evmTokenChain';
 import { PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
 import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import type { Tables } from '@/lib/supabase/types';
@@ -24,7 +24,7 @@ export function tokenMatchesPulseColumn(
   column: PulseColumnId,
   chain: AppChainId,
 ): boolean {
-  if (!mintMatchesAppChain(token.mint, chain)) return false;
+  if (!tokenMatchesAppChain(token, chain)) return false;
   const now = Date.now();
   const createdMs = new Date(token.created_at).getTime();
 

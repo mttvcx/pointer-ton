@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import type { PackReward } from '@/types/pack';
+import { usePackCelebrationSound } from '@/components/packs/usePackCelebrationSound';
 import { JACKPOT_HELI_SEQUENCE_MS } from '@/lib/packs/celebrations';
 import { HelicopterBlackhawkSvg } from '@/components/packs/HelicopterBlackhawkSvg';
 import { PackJackpotMegaFx } from '@/components/packs/PackJackpotMegaFx';
@@ -14,6 +15,8 @@ type PackHelicopterRevealProps = {
 
 /** Mythic 0.01% — heli winches the card up from below the floor (heavy pull). */
 export function PackHelicopterReveal({ reward, onComplete }: PackHelicopterRevealProps) {
+  usePackCelebrationSound('helicopter');
+
   useEffect(() => {
     const t = setTimeout(onComplete, JACKPOT_HELI_SEQUENCE_MS);
     return () => clearTimeout(t);

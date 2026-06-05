@@ -2,25 +2,8 @@ import 'server-only';
 
 import type { PackReward } from '@/types/pack';
 import { getLatestSnapshotForMint } from '@/lib/db/tokens';
+import { getSolUsdPrice } from '@/lib/packs/pricing';
 import { getPackTokenById } from '@/lib/packs/packTokens';
-
-const DEFAULT_SOL_USD = 165;
-
-async function fetchSolUsd(): Promise<number> {
-  try {
-    const res = await fetch('https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112', {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return DEFAULT_SOL_USD;
-    const json = (await res.json()) as {
-      data?: Record<string, { price?: string }>;
-    };
-    const p = Number(json.data?.So11111111111111111111111111111111111111112?.price);
-    return Number.isFinite(p) && p > 0 ? p : DEFAULT_SOL_USD;
-  } catch {
-    return DEFAULT_SOL_USD;
-  }
-}
 
 async function liveTokenQuote(mint: string, fallback: { priceUsd: number; mcUsd: number }) {
   try {
@@ -37,8 +20,14 @@ async function liveTokenQuote(mint: string, fallback: { priceUsd: number; mcUsd:
   }
 }
 
-export async function enrichPackRewards(rewards: PackReward[]): Promise<PackReward[]> {
-  const solUsd = await fetchSolUsd();
+export async function enrichPackRewards(
+  rewards: PackReward[],
+  solUsdOverride?: number,
+): Promise<PackReward[]> {
+  const solUsd =
+    solUsdOverride != null && solUsdOverride > 0
+      ? solUsdOverride
+      : (await getSolUsdPrice()).solUsd;
   const out: PackReward[] = [];
 
   for (const r of rewards) {

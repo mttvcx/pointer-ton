@@ -27,7 +27,7 @@ export function mintMatchesAppChain(mint: string, chain: AppChainId): boolean {
   const k = inferMintKind(mint);
   if (chain === 'ton') return k === 'ton';
   if (chain === 'sol') return k === 'sol';
-  if (chain === 'bnb' || chain === 'base') return k === 'evm';
+  if (chain === 'eth' || chain === 'bnb' || chain === 'base') return k === 'evm';
   return false;
 }
 
@@ -46,8 +46,8 @@ export function appChainForMintNavigation(mint: string, activeChain: AppChainId)
   if (k === 'ton') return 'ton';
   if (k === 'sol') return 'sol';
   if (k === 'evm') {
-    if (activeChain === 'bnb' || activeChain === 'base') return activeChain;
-    return 'bnb';
+    if (activeChain === 'eth' || activeChain === 'bnb' || activeChain === 'base') return activeChain;
+    return 'eth';
   }
   return activeChain;
 }
@@ -79,6 +79,7 @@ export function explorerTokenHrefFromMint(mint: string, evmPrefer: AppChainId): 
 export function explorerTokenAriaLabel(chain: AppChainId): string {
   if (chain === 'sol') return 'Solscan token explorer';
   if (chain === 'ton') return 'TON explorer';
+  if (chain === 'eth') return 'Etherscan token explorer';
   if (chain === 'bnb') return 'BscScan token explorer';
   if (chain === 'base') return 'Basescan token explorer';
   return 'Token explorer';

@@ -10,7 +10,7 @@ import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import { selectCopilotSurfaceOpen, useUIStore, type EntityRef } from '@/store/ui';
 import { shortenAddress } from '@/lib/utils/addresses';
 
-const HOVER_DEBOUNCE_MS = 350;
+const HOVER_DEBOUNCE_MS = 150;
 const MIN_ROTATE_MS = 4000;
 const MAX_LINE = 130;
 

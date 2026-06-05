@@ -77,6 +77,7 @@ export function collectBugReportContext(params: {
   connectionStatus?: string | null;
   region?: string | null;
   includeScreenshotRequested: boolean;
+  screenshotDataUrl?: string | null;
   recentErrorsOverride?: BugReportContext['recentClientErrors'];
 }): BugReportContext {
   const { tokenMint, walletFocusMasked } = deriveRouteHints(params.pathname);
@@ -111,6 +112,7 @@ export function collectBugReportContext(params: {
     activeWalletLabel: params.activeWalletLabel ?? undefined,
     walletPageMasked: walletFocusMasked,
     includeScreenshotRequested: params.includeScreenshotRequested,
+    screenshotDataUrl: params.screenshotDataUrl ?? undefined,
     recentClientErrors:
       params.recentErrorsOverride ?? (typeof window !== 'undefined' ? snapshotRecentClientErrors() : undefined),
   };
@@ -121,6 +123,7 @@ export type ReportFormState = {
   severity: BugSeverityId;
   description: string;
   includeScreenshotRequested: boolean;
+  screenshotDataUrl?: string | null;
 };
 
 export function useBugReportWarmData(): {
@@ -182,6 +185,7 @@ export function buildBugReportPayload(
     context: collectBugReportContext({
       ...runtime,
       includeScreenshotRequested: form.includeScreenshotRequested,
+      screenshotDataUrl: form.screenshotDataUrl,
     }),
   };
 }

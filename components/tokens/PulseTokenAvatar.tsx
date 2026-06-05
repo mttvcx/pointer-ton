@@ -255,13 +255,7 @@ export function PulseTokenAvatar({
   const pathRef = useRef<SVGPathElement | null>(null);
   const rx = cornerRadiusForBox(size);
   const innerRx = Math.max(3, rx - 1);
-  const contentInset = IMAGE_INSET + STROKE / 2;
-  const innerSize = size - contentInset * 2;
-  const { d, lengthApprox } = useMemo(
-    () => buildRoundedRectRingPath(size, STROKE, rx),
-    [size, rx],
-  );
-  const [pathLen, setPathLen] = useState(lengthApprox);
+  const [pathLen, setPathLen] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
   const activeChain = useUIStore((s) => s.activeChain);
   const { token } = bundle;
@@ -275,14 +269,25 @@ export function PulseTokenAvatar({
   const fallbackFontPx = Math.max(9, Math.min(14, Math.round(size * 0.22)));
 
   const { fillPct, migrated } = getPulseBondingRingState(bundle);
-  const displayMigrated = migrated || columnId === 'migrated';
+  const migratedColumnLock = columnId === 'migrated' && showRing;
+  const displayMigrated = migrated || migratedColumnLock;
+  const migratedEmphasis = displayMigrated && showRing;
+  const effectiveStroke = migratedEmphasis ? 2.25 : STROKE;
+  const contentInset = IMAGE_INSET + effectiveStroke / 2;
+  const innerSize = size - contentInset * 2;
+  const { d, lengthApprox } = useMemo(
+    () => buildRoundedRectRingPath(size, effectiveStroke, rx),
+    [size, rx, effectiveStroke],
+  );
   const brandFullRing = ringPresentation === 'brand-full' && Boolean(launchpadChrome);
   const ringFillPct =
     fillPct != null
       ? fillPct
-      : columnId === 'stretch' && !displayMigrated
-        ? 88
-        : null;
+      : migratedColumnLock
+        ? 100
+        : columnId === 'stretch' && !displayMigrated
+          ? 88
+          : null;
   const hasData = ringFillPct != null;
   const rawPct = hasData ? Math.min(100, Math.max(0, ringFillPct)) : 0;
   const pct = brandFullRing ? 100 : displayMigrated ? 100 : rawPct;
@@ -312,18 +317,27 @@ export function PulseTokenAvatar({
       ringStyle === 'meteora-gradient');
   const showArc = (arcColor != null || useBrandGradient) && pct > 0;
   const arcStroke =
-    useBrandGradient && showArc ? `url(#${gradientId})` : arcColor ?? undefined;
-  const showTrack = showRing && (useLaunchpadProgress || useGenericProgress);
+    migratedColumnLock && showRing
+      ? MIGRATED_GOLD
+      : useBrandGradient && showArc
+        ? `url(#${gradientId})`
+        : arcColor ?? undefined;
+  const showTrack =
+    showRing && (migratedColumnLock || useLaunchpadProgress || useGenericProgress);
   const trackColor = useLaunchpadProgress
     ? protocolTrackColor(launchpadChrome!.protocolId, displayMigrated)
     : displayMigrated
       ? MIGRATED_GOLD_TRACK
       : 'rgba(255, 255, 255, 0.07)';
   const fullRing = displayMigrated || pct >= 99.95;
-  const arcLen = fullRing ? pathLen + STROKE * 2 : pathLen * (pct / 100);
+  const arcLen = fullRing ? pathLen + effectiveStroke * 2 : pathLen * (pct / 100);
   const offset = 0;
   /** Complete rings use one stroke — track + arc stacked reads as a thick/double gold border. */
   const showDimTrack = showTrack && !fullRing;
+
+  useLayoutEffect(() => {
+    setPathLen(lengthApprox);
+  }, [lengthApprox]);
 
   const imageClipStyle = {
     top: contentInset,
@@ -340,11 +354,11 @@ export function PulseTokenAvatar({
       const L = el.getTotalLength();
       if (L > 0) setPathLen(L);
     }
-  }, [d, showTrack]);
+  }, [d, showTrack, effectiveStroke]);
 
   return (
     <div
-      className={cn('pulse-avatar relative shrink-0')}
+      className={cn('pulse-avatar relative shrink-0', migratedColumnLock && 'z-[5]')}
       style={{ width: size, height: size }}
     >
       {showImage ? (
@@ -421,7 +435,7 @@ export function PulseTokenAvatar({
               d={d}
               fill="none"
               stroke={trackColor}
-              strokeWidth={STROKE}
+              strokeWidth={effectiveStroke}
               strokeLinejoin="miter"
               strokeLinecap="butt"
             />
@@ -432,9 +446,10 @@ export function PulseTokenAvatar({
               d={d}
               fill="none"
               stroke={arcStroke}
-              strokeWidth={STROKE}
+              strokeWidth={effectiveStroke}
               strokeLinejoin="miter"
               strokeLinecap="butt"
+              style={migratedEmphasis ? { transition: 'none' } : undefined}
             />
           ) : showArc && arcStroke ? (
             <path
@@ -442,10 +457,10 @@ export function PulseTokenAvatar({
               d={d}
               fill="none"
               stroke={arcStroke}
-              strokeWidth={STROKE}
+              strokeWidth={effectiveStroke}
               strokeLinejoin="miter"
               strokeLinecap="butt"
-              strokeDasharray={`${arcLen} ${pathLen + STROKE * 2}`}
+              strokeDasharray={`${arcLen} ${pathLen + effectiveStroke * 2}`}
               strokeDashoffset={offset}
               style={{
                 transition: 'stroke-dashoffset 0.35s ease, stroke 0.2s ease',

@@ -1,13 +1,22 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import {
+  memo,
+  startTransition,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react';
 import { Eye, Loader2, Zap } from 'lucide-react';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
 import { PulseRowVolMc } from '@/components/tokens/PulseRowVolMc';
 import { PulseRowAxiomSpriteStrip } from '@/components/tokens/PulseRowAxiomSpriteStrip';
 import { PulseRowBondingHoverTag } from '@/components/tokens/PulseRowBondingHoverTag';
 import { PulseMayhemTimerBadge } from '@/components/tokens/PulseMayhemTimerBadge';
+import { PulseRowAgeLabel } from '@/components/tokens/PulseRowAgeLabel';
 import { PulseTokenAvatarHover } from '@/components/tokens/PulseTokenAvatarHover';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
@@ -19,13 +28,14 @@ import { syntheticPulseVolMc } from '@/lib/dev/demoTokenFixtures';
 import type { BuyButtonStyle, ColumnDisplayOptions } from '@/lib/tokens/columnPresetModel';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
-import { resolveLaunchpadAvatarChrome } from '@/lib/tokens/launchpadAvatarChrome';
+import {
+  resolveLaunchpadAvatarChrome,
+  resolveLaunchpadAvatarChromeWithFallback,
+} from '@/lib/tokens/launchpadAvatarChrome';
 import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
 import { resolvePulseTranslationGloss } from '@/lib/translate/pulseTranslationGloss';
 import { useAutoTranslateStore } from '@/store/autoTranslate';
 import { PulseMintCopyCaption } from '@/components/tokens/PulseMintCopyCaption';
-import { formatAgeShort } from '@/lib/utils/formatters';
-import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { cn } from '@/lib/utils/cn';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useUIStore } from '@/store/ui';
@@ -36,7 +46,7 @@ import type { PulseTokenBundle } from '@/types/tokens';
 
 type UltraActionKey = 'primaryBuy' | 'secondBuy' | 'secondSell';
 
-export function TokenRow({
+function TokenRowInner({
   bundle,
   density = 'normal',
   display,
@@ -60,11 +70,11 @@ export function TokenRow({
   quickBuySol?: number;
   buyButtonStyle?: BuyButtonStyle;
   /** Execute swap for this row's mint using column header amount (labelled by `quoteSymbol`). */
-  onPulseQuickBuy?: () => void;
+  onPulseQuickBuy?: (mint: string) => void;
   /** Second quick-buy (left of primary). Uses `display.secondQuickBuySol`. */
-  onPulseSecondBuy?: () => void;
+  onPulseSecondBuy?: (mint: string) => void;
   /** Percent sell when `display.pulseSecondButton === 'sell_pct'`. */
-  onPulseQuickSell?: () => void;
+  onPulseQuickSell?: (mint: string) => void;
   pulseBuyBusy?: boolean;
   pulseBuyDisabled?: boolean;
   /** Pulse board column (bonding ring semantics / gold on migrated lane). */
@@ -149,16 +159,17 @@ export function TokenRow({
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
   const bond = useMemo(() => getPulseBondingRingState(bundle), [bundle]);
   const isMigratedVisual = columnId === 'migrated' || bond.migrated;
-  const launchpadChrome = useMemo(
-    () =>
-      resolveLaunchpadAvatarChrome(bundle, {
-        showFrame: showPumpFrame,
-        isMigrated: isMigratedVisual,
-        pumpFunOnBondingCurve: traits.pumpFunBonding,
-        chain: activeChain,
-      }),
-    [bundle, showPumpFrame, isMigratedVisual, traits.pumpFunBonding, activeChain],
-  );
+  const launchpadChrome = useMemo(() => {
+    const opts = {
+      showFrame: showPumpFrame,
+      isMigrated: isMigratedVisual,
+      pumpFunOnBondingCurve: traits.pumpFunBonding,
+      chain: activeChain,
+    };
+    return isMigratedVisual
+      ? resolveLaunchpadAvatarChromeWithFallback(bundle, opts)
+      : resolveLaunchpadAvatarChrome(bundle, opts);
+  }, [bundle, showPumpFrame, isMigratedVisual, traits.pumpFunBonding, activeChain]);
 
   /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
   const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
@@ -259,6 +270,7 @@ export function TokenRow({
         launchpadChrome={launchpadChrome}
         columnId={columnId}
         avatarImagePriority={avatarImagePriority}
+        className="relative z-[4]"
       />
       {mintCaption}
     </div>
@@ -274,7 +286,7 @@ export function TokenRow({
     if (pulseBuyDisabled || pulseBuyBusy) return;
     if (quickBuySol == null || !Number.isFinite(quickBuySol) || quickBuySol <= 0) return;
     setActiveUltraAction('primaryBuy');
-    onPulseQuickBuy?.();
+    onPulseQuickBuy?.(token.mint);
   }
 
   const tokenPath = `/token/${token.mint}`;
@@ -289,7 +301,9 @@ export function TokenRow({
     );
 
   const openToken = () => {
-    router.push(tokenPath);
+    startTransition(() => {
+      router.push(tokenPath);
+    });
   };
 
   const onTokenAreaClick = (e: MouseEvent<HTMLDivElement>) => {
@@ -308,8 +322,13 @@ export function TokenRow({
   const nameCluster = (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
       {slotHeight != null ? (
-        <div className="group/mintTitle flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden rounded-sm px-0.5 -mx-0.5 transition-colors hover:bg-white/[0.05]">
-          <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
+        <div className="group/mintTitle flex min-w-0 max-w-full w-max flex-col gap-0.5 overflow-hidden">
+          <div
+            className={cn(
+              'inline-flex w-fit max-w-full items-center gap-0.5 overflow-hidden rounded-sm px-0.5 -mx-0.5',
+              'transition-colors hover:bg-white/[0.05]',
+            )}
+          >
             <p className="min-w-0 truncate font-sans leading-[1.12]" title={nameTitle}>
               <span className={cn('font-semibold text-fg-primary text-[16px] tracking-tight')}>
                 {ticker}
@@ -330,7 +349,7 @@ export function TokenRow({
           {translationGloss ? (
             <p
               className={cn(
-                'min-w-0 truncate font-sans text-[12px] font-normal leading-snug tracking-tight transition-opacity duration-150',
+                'min-w-0 max-w-full truncate font-sans text-[12px] font-normal leading-snug tracking-tight transition-opacity duration-150',
                 translationGlossHoverOnly &&
                   'max-h-0 overflow-hidden opacity-0 group-hover/pulseRow:max-h-8 group-hover/pulseRow:opacity-100',
                 !translationGlossVisible && translationGlossHoverOnly && 'pointer-events-none',
@@ -416,28 +435,13 @@ export function TokenRow({
    * Terminal-style age chip. Lives on the LEFT of the icon strip (was top-right of name row).
    * Recent (<60s) gets the green seconds tint Terminal uses to flag fresh listings.
    */
-  const now = useLiveClock();
-  const ageLabel = formatAgeShort(token.created_at, now);
-  const isFreshListing = (() => {
-    const ms = new Date(token.created_at).getTime();
-    if (!Number.isFinite(ms)) return false;
-    return now - ms < 60_000;
-  })();
   const alternateQuote = useMemo(
     () => alternateQuotePairKind(bundle, activeChain),
     [bundle, activeChain],
   );
   const quoteIconPx = slotHeight != null ? 14 : 13;
   const ageBadge = (
-    <span
-      className={cn(
-        'shrink-0 whitespace-nowrap leading-none',
-        slotHeight != null ? 'text-[13px]' : 'text-xs',
-        isFreshListing ? 'font-medium text-signal-bull' : 'text-fg-muted',
-      )}
-    >
-      {ageLabel}
-    </span>
+    <PulseRowAgeLabel createdAt={token.created_at} compact={slotHeight != null} />
   );
   const ageQuotePairBadge =
     alternateQuote != null ? (
@@ -762,7 +766,7 @@ export function TokenRow({
                             e.stopPropagation();
                             if (pulseBuyDisabled || pulseBuyBusy) return;
                             setActiveUltraAction('secondSell');
-                            onPulseQuickSell?.();
+                            onPulseQuickSell?.(token.mint);
                           }}
                           loading={pulseBuyBusy && activeUltraAction === 'secondSell'}
                           disabled={pulseBuyDisabled}
@@ -778,7 +782,7 @@ export function TokenRow({
                             e.stopPropagation();
                             if (pulseBuyDisabled || pulseBuyBusy) return;
                             setActiveUltraAction('secondBuy');
-                            onPulseSecondBuy?.();
+                            onPulseSecondBuy?.(token.mint);
                           }}
                           loading={pulseBuyBusy && activeUltraAction === 'secondBuy'}
                           disabled={pulseBuyDisabled}
@@ -840,7 +844,7 @@ export function TokenRow({
                           e.stopPropagation();
                           if (pulseBuyDisabled || pulseBuyBusy) return;
                           setActiveUltraAction('secondSell');
-                          onPulseQuickSell?.();
+                          onPulseQuickSell?.(token.mint);
                         }}
                         loading={pulseBuyBusy && activeUltraAction === 'secondSell'}
                         disabled={pulseBuyDisabled}
@@ -857,7 +861,7 @@ export function TokenRow({
                           e.stopPropagation();
                           if (pulseBuyDisabled || pulseBuyBusy) return;
                           setActiveUltraAction('secondBuy');
-                          onPulseSecondBuy?.();
+                          onPulseSecondBuy?.(token.mint);
                         }}
                         loading={pulseBuyBusy && activeUltraAction === 'secondBuy'}
                         disabled={pulseBuyDisabled}
@@ -906,7 +910,7 @@ export function TokenRow({
                               e.preventDefault();
                               e.stopPropagation();
                               if (pulseBuyDisabled || pulseBuyBusy) return;
-                              onPulseQuickSell?.();
+                              onPulseQuickSell?.(token.mint);
                             }}
                             loading={pulseBuyBusy}
                             disabled={pulseBuyDisabled}
@@ -921,7 +925,7 @@ export function TokenRow({
                               e.preventDefault();
                               e.stopPropagation();
                               if (pulseBuyDisabled || pulseBuyBusy) return;
-                              onPulseSecondBuy?.();
+                              onPulseSecondBuy?.(token.mint);
                             }}
                             loading={pulseBuyBusy}
                             disabled={pulseBuyDisabled}
@@ -955,7 +959,7 @@ export function TokenRow({
                             e.preventDefault();
                             e.stopPropagation();
                             if (pulseBuyDisabled || pulseBuyBusy) return;
-                            onPulseQuickSell?.();
+                            onPulseQuickSell?.(token.mint);
                           }}
                           loading={pulseBuyBusy}
                           disabled={pulseBuyDisabled}
@@ -970,7 +974,7 @@ export function TokenRow({
                             e.preventDefault();
                             e.stopPropagation();
                             if (pulseBuyDisabled || pulseBuyBusy) return;
-                            onPulseSecondBuy?.();
+                            onPulseSecondBuy?.(token.mint);
                           }}
                           loading={pulseBuyBusy}
                           disabled={pulseBuyDisabled}
@@ -1250,3 +1254,30 @@ function formatSolDraft(sol: number): string {
   const t = sol.toFixed(8).replace(/\.?0+$/, '');
   return t || String(sol);
 }
+
+type TokenRowProps = Parameters<typeof TokenRowInner>[0];
+
+function tokenRowPropsEqual(prev: TokenRowProps, next: TokenRowProps): boolean {
+  if (prev.bundle.token.mint !== next.bundle.token.mint) return false;
+  if (prev.bundle.token.last_seen_at !== next.bundle.token.last_seen_at) return false;
+  if (prev.bundle.token.migrated_at !== next.bundle.token.migrated_at) return false;
+  if (prev.bundle.token.launch_pad !== next.bundle.token.launch_pad) return false;
+  if (prev.bundle.token.bonding_progress !== next.bundle.token.bonding_progress) return false;
+  if (prev.bundle.token.image_url !== next.bundle.token.image_url) return false;
+  if (prev.bundle.snapshot !== next.bundle.snapshot) return false;
+  if (prev.display !== next.display) return false;
+  if (prev.quickBuySol !== next.quickBuySol) return false;
+  if (prev.buyButtonStyle !== next.buyButtonStyle) return false;
+  if (prev.pulseBuyBusy !== next.pulseBuyBusy) return false;
+  if (prev.pulseBuyDisabled !== next.pulseBuyDisabled) return false;
+  if (prev.slotHeight !== next.slotHeight) return false;
+  if (prev.columnId !== next.columnId) return false;
+  if (prev.quoteSymbol !== next.quoteSymbol) return false;
+  if (prev.avatarImagePriority !== next.avatarImagePriority) return false;
+  if (prev.onPulseQuickBuy !== next.onPulseQuickBuy) return false;
+  if (prev.onPulseSecondBuy !== next.onPulseSecondBuy) return false;
+  if (prev.onPulseQuickSell !== next.onPulseQuickSell) return false;
+  return true;
+}
+
+export const TokenRow = memo(TokenRowInner, tokenRowPropsEqual);

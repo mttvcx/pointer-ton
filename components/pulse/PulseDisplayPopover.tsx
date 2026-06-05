@@ -44,6 +44,13 @@ const QUICK_BUY_LABELS: Record<BuyButtonStyle, string> = {
   ultra: 'Ultra',
 };
 
+const PANEL_SURFACE =
+  'border border-white/[0.08] bg-bg-raised shadow-[0_32px_90px_-40px_rgba(0,0,0,0.9)]';
+const PANEL_DIVIDER = 'border-border-subtle/80';
+const CHIP_IDLE =
+  'border-border-subtle bg-bg-sunken/40 text-fg-muted hover:border-border-default hover:bg-bg-hover/50 hover:text-fg-secondary';
+const CHIP_ACTIVE = 'border-accent-primary/45 bg-accent-primary/10 text-fg-primary';
+
 function TopChip({
   active,
   onClick,
@@ -61,9 +68,7 @@ function TopChip({
       onClick={onClick}
       className={cn(
         'btn-press flex min-h-[2.25rem] flex-1 items-center justify-center gap-1 rounded-md border px-2 text-[11px] font-semibold transition',
-        active
-          ? 'border-white/[0.18] bg-white/[0.1] text-fg-primary'
-          : 'border-white/[0.08] bg-transparent text-fg-muted hover:border-white/[0.12] hover:text-fg-secondary',
+        active ? CHIP_ACTIVE : CHIP_IDLE,
         className,
       )}
     >
@@ -90,8 +95,8 @@ function LayoutToggleRow({
       className={cn(
         'flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-[12px] transition',
         value
-          ? 'border-accent-primary/35 bg-accent-primary/[0.08] text-fg-primary'
-          : 'border-white/[0.08] bg-transparent text-fg-secondary hover:border-white/[0.12]',
+          ? CHIP_ACTIVE
+          : cn(CHIP_IDLE, 'bg-transparent text-fg-secondary'),
       )}
     >
       <span className="flex h-5 w-5 shrink-0 items-center justify-center text-fg-muted">{icon}</span>
@@ -133,7 +138,7 @@ function MetricBandEditor({
                 const n = parseFloat(e.target.value);
                 if (Number.isFinite(n) && n >= 0) onChange({ ...band, [key]: n });
               }}
-              className="w-full rounded-md border border-white/[0.08] bg-bg-sunken py-1.5 pl-2 pr-6 font-mono text-[11px] text-fg-primary"
+              className="w-full rounded-md border border-border-subtle bg-bg-sunken py-1.5 pl-2 pr-6 font-mono text-[11px] text-fg-primary"
             />
             <span
               className={cn('pointer-events-none absolute bottom-1.5 right-1.5 h-2 w-2 rounded-sm', swatches[i])}
@@ -149,7 +154,7 @@ function MetricBandEditor({
               highMode: band.highMode === 'above' ? 'below' : 'above',
             })
           }
-          className="flex items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-bg-sunken py-1.5 text-[10px] font-medium text-fg-secondary"
+          className="flex items-center justify-center gap-1 rounded-md border border-border-subtle bg-bg-sunken py-1.5 text-[10px] font-medium text-fg-secondary"
         >
           <span className={cn('h-2 w-2 rounded-sm', swatches[2])} aria-hidden />
           {band.highMode === 'above' ? 'Above' : 'Below'}
@@ -241,12 +246,13 @@ export function PulseDisplayPopover() {
             role="dialog"
             aria-label="Pulse display"
             className={cn(
-              'fixed z-[200] flex w-[min(26rem,calc(100vw-1rem))] max-h-[min(85vh,40rem)] flex-col overflow-hidden rounded-lg border border-white/[0.1] bg-[#141414] shadow-2xl',
+              'fixed z-[200] flex w-[min(26rem,calc(100vw-1rem))] max-h-[min(85vh,40rem)] flex-col overflow-hidden rounded-xl',
+              PANEL_SURFACE,
               popoverPanelClasses(visible),
             )}
             style={{ top: coords.top, right: coords.right }}
           >
-            <div className="shrink-0 space-y-2 border-b border-white/[0.06] p-3">
+            <div className={cn('shrink-0 space-y-2 border-b p-3', PANEL_DIVIDER)}>
               <div className="flex gap-1.5">
                 <TopChip
                   active={prefs.mcMetricSize === 'small'}
@@ -275,8 +281,8 @@ export function PulseDisplayPopover() {
                       className={cn(
                         'flex flex-col items-center gap-0.5 rounded-md border py-1.5 text-[10px] font-semibold transition',
                         prefs.quickBuyButtonSize === size
-                          ? 'border-accent-primary bg-accent-primary/15 text-accent-primary'
-                          : 'border-white/[0.08] text-fg-muted hover:border-white/[0.12]',
+                          ? CHIP_ACTIVE
+                          : CHIP_IDLE,
                       )}
                     >
                       <span className="inline-flex items-center gap-0.5">
@@ -298,7 +304,7 @@ export function PulseDisplayPopover() {
                       const n = parseFloat(e.target.value);
                       if (Number.isFinite(n) && n > 0) setPrefs({ displayQuickBuySol: n });
                     }}
-                    className="w-20 rounded-md border border-white/[0.08] bg-bg-sunken px-2 py-0.5 font-mono text-xs text-fg-primary"
+                    className="w-20 rounded-md border border-border-subtle bg-bg-sunken px-2 py-0.5 font-mono text-xs text-fg-primary"
                   />
                   <span>SOL</span>
                 </label>
@@ -306,7 +312,10 @@ export function PulseDisplayPopover() {
 
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-md border border-white/[0.08] px-2.5 py-1.5 text-[12px] text-fg-muted"
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-[12px] text-fg-muted',
+                  CHIP_IDLE,
+                )}
                 title="Theme presets live in Settings"
               >
                 <Sun className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
@@ -314,7 +323,7 @@ export function PulseDisplayPopover() {
               </button>
             </div>
 
-            <div className="flex shrink-0 gap-0.5 border-b border-white/[0.06] px-2 py-1.5">
+            <div className={cn('flex shrink-0 gap-0.5 border-b bg-bg-base/30 px-2 py-1.5', PANEL_DIVIDER)}>
               {TABS.map((t) => (
                 <button
                   key={t.id}
@@ -323,8 +332,8 @@ export function PulseDisplayPopover() {
                   className={cn(
                     'rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
                     prefs.activeTab === t.id
-                      ? 'bg-white/[0.1] text-fg-primary'
-                      : 'text-fg-muted hover:text-fg-secondary',
+                      ? 'bg-bg-hover text-fg-primary'
+                      : 'text-fg-muted hover:bg-bg-hover/40 hover:text-fg-secondary',
                   )}
                 >
                   {t.label}
@@ -402,7 +411,7 @@ export function PulseDisplayPopover() {
                           'rounded-full border px-2 py-0.5 text-[10px] font-medium transition',
                           prefs.rowFields[key]
                             ? 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary'
-                            : 'border-white/[0.08] text-fg-muted',
+                            : cn(CHIP_IDLE, 'rounded-full'),
                         )}
                       >
                         {label}
@@ -469,7 +478,7 @@ export function PulseDisplayPopover() {
                           }
                           className={cn(
                             'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition',
-                            on ? 'border-white/20' : 'border-white/[0.06] opacity-50',
+                            on ? 'border-border-default bg-bg-hover/40' : cn(CHIP_IDLE, 'opacity-50'),
                           )}
                           style={on ? { borderColor: `${color}66`, color } : undefined}
                         >
@@ -509,7 +518,7 @@ export function PulseDisplayPopover() {
                           'rounded-md border px-2 py-1 text-[10px] font-medium transition',
                           prefs.visibleColumns[key]
                             ? 'border-accent-primary/50 text-accent-primary'
-                            : 'border-white/[0.08] text-fg-muted',
+                            : cn(CHIP_IDLE, 'rounded-full'),
                         )}
                       >
                         {label}
@@ -536,7 +545,7 @@ export function PulseDisplayPopover() {
                           'flex flex-col items-center gap-1 rounded-md border py-2 text-[10px] font-medium transition',
                           prefs.quickBuyClickBehavior === val
                             ? 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary'
-                            : 'border-white/[0.08] text-fg-muted',
+                            : cn(CHIP_IDLE, 'rounded-full'),
                         )}
                       >
                         <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
@@ -565,7 +574,7 @@ export function PulseDisplayPopover() {
                           'rounded-md border py-1.5 text-[10px] font-semibold capitalize transition',
                           prefs.secondButtonMode === mode
                             ? 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary'
-                            : 'border-white/[0.08] text-fg-muted',
+                            : cn(CHIP_IDLE, 'rounded-full'),
                         )}
                       >
                         {mode}
@@ -579,7 +588,7 @@ export function PulseDisplayPopover() {
                       type="color"
                       value={prefs.accentHex}
                       onChange={(e) => setPrefs({ accentHex: e.target.value })}
-                      className="h-7 w-10 cursor-pointer rounded border border-white/[0.08] bg-transparent"
+                      className="h-7 w-10 cursor-pointer rounded border border-border-subtle bg-bg-sunken"
                     />
                     <span className="font-mono text-fg-secondary">{prefs.accentHex}</span>
                   </label>
@@ -587,7 +596,7 @@ export function PulseDisplayPopover() {
               ) : null}
             </div>
 
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/[0.06] px-3 py-2">
+            <div className={cn('flex shrink-0 items-center justify-end gap-2 border-t bg-bg-base/30 px-3 py-2', PANEL_DIVIDER)}>
               <button
                 type="button"
                 onClick={resetPrefs}

@@ -5,8 +5,8 @@ import {
   countUserWallets,
   getUserWalletByAddress,
   insertUserWallet,
-  privyUserOwnsSolanaAddress,
 } from '@/lib/db/userWallets';
+import { privyUserOwnsEmbeddedAddress } from '@/lib/privy/embeddedWallets';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 
@@ -58,7 +58,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.is_imported !== true) {
-    const owned = await privyUserOwnsSolanaAddress(verified.walletAddress, normalized);
+    const owned = await privyUserOwnsEmbeddedAddress(
+      verified.privyId,
+      normalized,
+      verified.walletAddress,
+    );
     if (!owned) {
       return NextResponse.json(
         {

@@ -10,7 +10,7 @@ import {
   formatCompactNumber,
 } from '@/lib/format';
 import {
-  tradeFillMcUsdLabel,
+  tradeFillMarketCapUsdLabel,
   tradeTraderHint,
   tradeWalletDeskExtras,
   tradeRowDemoIndex,
@@ -48,6 +48,8 @@ type Props = {
   mint: string;
   tokenSymbol?: string | null;
   creatorWallet?: string | null;
+  supplyTokens?: number | null;
+  marketCapUsd?: number | null;
   displayMode: 'USD' | 'SOL';
   nativeSym?: string;
   onFilterMintTrades?: (address: string) => void;
@@ -64,6 +66,8 @@ export function MintTradesTable({
   mint,
   tokenSymbol,
   creatorWallet = null,
+  supplyTokens = null,
+  marketCapUsd = null,
   displayMode,
   nativeSym = 'SOL',
   onFilterMintTrades,
@@ -232,7 +236,7 @@ export function MintTradesTable({
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
                 <span className="text-[12px] font-medium font-sans tabular-nums text-fg-primary">
-                  {tradeFillMcUsdLabel(row)}
+                  {tradeFillMarketCapUsdLabel(row, supplyTokens, marketCapUsd)}
                 </span>
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>

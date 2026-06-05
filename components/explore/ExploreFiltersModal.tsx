@@ -1,6 +1,7 @@
 'use client';
 
 import { GlassModal } from '@/components/ui/GlassModal';
+import { modalBtnPrimaryClass, modalBtnSecondaryClass } from '@/lib/ui/modalChrome';
 import type { ExploreFilterState } from '@/types/explore';
 import { EMPTY_EXPLORE_FILTERS } from '@/types/explore';
 import { useEffect, useState } from 'react';
@@ -37,7 +38,7 @@ export function ExploreFiltersModal({ open, onClose, value, onApply }: Props) {
               onApply({ ...EMPTY_EXPLORE_FILTERS });
               onClose();
             }}
-            className="rounded-lg border border-white/14 px-3 py-2 text-[12px] font-semibold text-fg-secondary"
+            className={modalBtnSecondaryClass}
           >
             Clear all
           </button>
@@ -47,7 +48,7 @@ export function ExploreFiltersModal({ open, onClose, value, onApply }: Props) {
               onApply(local);
               onClose();
             }}
-            className="rounded-lg bg-accent-primary px-3 py-2 text-[12px] font-semibold text-fg-inverse"
+            className={modalBtnPrimaryClass}
           >
             Apply filters
           </button>

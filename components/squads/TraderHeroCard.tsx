@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import type { TraderSample } from '@/lib/squads/sampleData';
+import { SquadAvatar } from '@/components/squads/squadsPrimitives';
 import { HeroSparkline, HeroStat, formatCurrency } from '@/components/squads/squadsCardShared';
 
 interface Props {
@@ -29,9 +30,7 @@ export function TraderHeroCard({ trader, rank }: Props) {
       </div>
 
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-sunken text-[13px] font-bold text-fg-primary sm:h-12 sm:w-12">
-          {trader.initials}
-        </div>
+        <SquadAvatar seed={trader.id} initials={trader.initials} size="lg" />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -86,7 +85,7 @@ export function TraderHeroCard({ trader, rank }: Props) {
           )}
           aria-expanded={moreOpen}
         >
-          {moreOpen ? 'Less' : 'Charts & detail'}
+          {moreOpen ? 'Less' : 'More'}
           <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', moreOpen && 'rotate-180')} />
         </button>
       </div>

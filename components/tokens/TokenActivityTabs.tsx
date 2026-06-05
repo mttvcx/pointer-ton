@@ -54,6 +54,7 @@ import { useActiveWalletStore } from '@/store/activeWallet';
 /** Rough native/USD for converting USD notionals in the “native units” column toggle (UI preview). */
 const NATIVE_USD_HINT: Record<AppChainId, number> = {
   sol: 210,
+  eth: 3200,
   ton: 5.5,
   bnb: 650,
   base: 3200,
@@ -77,6 +78,8 @@ function MintTradesScroll({
   mint,
   tokenSymbol,
   creatorWallet,
+  supplyTokens,
+  marketCapUsd,
   nativeSym,
   displayMode,
   onHoverChange,
@@ -92,6 +95,8 @@ function MintTradesScroll({
   mint: string;
   tokenSymbol: string;
   creatorWallet: string | null;
+  supplyTokens?: number | null;
+  marketCapUsd?: number | null;
   nativeSym: string;
   displayMode: 'USD' | 'SOL';
   onHoverChange: (paused: boolean) => void;
@@ -128,6 +133,8 @@ function MintTradesScroll({
           mint={mint}
           tokenSymbol={tokenSymbol}
           creatorWallet={creatorWallet}
+          supplyTokens={supplyTokens}
+          marketCapUsd={marketCapUsd}
           displayMode={displayMode}
           nativeSym={nativeSym}
           onFilterMintTrades={onFilterMintTrades}
@@ -326,6 +333,8 @@ export function TokenActivityTabs({
   onOpenInstantTrade,
   instantTradeOpen = false,
   forceDemoTables = false,
+  supplyTokens = null,
+  marketCapUsd = null,
 }: {
   mint: string;
   symbol: string | null;
@@ -344,6 +353,8 @@ export function TokenActivityTabs({
   instantTradeOpen?: boolean;
   /** Stock detail surfaces — populate desks with layout demo rows without global ui demo. */
   forceDemoTables?: boolean;
+  supplyTokens?: number | null;
+  marketCapUsd?: number | null;
 }) {
   const [tab, setTab] = useState<TabId>('trades');
   const [tradesFeedHoverPause, setTradesFeedHoverPause] = useState(false);
@@ -824,6 +835,8 @@ export function TokenActivityTabs({
               mint={mint}
               tokenSymbol={sym}
               creatorWallet={creatorWallet}
+              supplyTokens={supplyTokens}
+              marketCapUsd={marketCapUsd}
               nativeSym={nativeSym}
               displayMode={displayMode}
               onHoverChange={setTradesFeedHoverPause}

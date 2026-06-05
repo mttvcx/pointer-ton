@@ -67,6 +67,10 @@ export const ColumnFiltersSchema = z
     quoteSol: z.boolean(),
     quoteUsdc: z.boolean(),
     quoteUsd1: z.boolean(),
+    quoteWeth: z.boolean(),
+    quoteUsdt: z.boolean(),
+    quoteVirtual: z.boolean(),
+    quoteOther: z.boolean(),
     mcMin: z.number().nullable(),
     mcMax: z.number().nullable(),
     liqMin: z.number().nullable(),
@@ -137,6 +141,10 @@ export const DEFAULT_COLUMN_FILTERS: ColumnFilters = {
   quoteSol: true,
   quoteUsdc: true,
   quoteUsd1: true,
+  quoteWeth: true,
+  quoteUsdt: true,
+  quoteVirtual: true,
+  quoteOther: true,
   mcMin: null,
   mcMax: null,
   liqMin: null,
@@ -218,10 +226,21 @@ export function sanitizePresetProtocols(raw: unknown, chain?: AppChainId): strin
 }
 
 export function defaultColumnFiltersForChain(chain: AppChainId): ColumnFilters {
-  return {
+  const base = {
     ...DEFAULT_COLUMN_FILTERS,
     protocols: defaultProtocolsForChain(chain),
   };
+  if (chain === 'eth') {
+    return {
+      ...base,
+      quoteUsd1: false,
+      quoteWeth: true,
+      quoteUsdt: true,
+      quoteVirtual: true,
+      quoteOther: true,
+    };
+  }
+  return base;
 }
 
 export function normalizeColumnFilters(raw: unknown, chain?: AppChainId): ColumnFilters {
@@ -351,7 +370,7 @@ export function tokenProtocolIdsForChain(bundle: PulseTokenBundle, chain: AppCha
     return set;
   }
 
-  if (chain === 'bnb' || chain === 'base') {
+  if (chain === 'eth' || chain === 'bnb' || chain === 'base') {
     for (const x of protocolsFromIngestHints(bundle, chain)) set.add(x);
     return set;
   }
@@ -369,13 +388,38 @@ import { quoteSymbolFromBundle } from '@/lib/tokens/quoteToken';
 
 export { quoteSymbolFromBundle };
 
+function ethQuoteKind(sym: string): 'eth' | 'weth' | 'usdc' | 'usdt' | 'virtual' | 'other' {
+  const upper = sym.toUpperCase();
+  if (upper === 'ETH') return 'eth';
+  if (upper.includes('WETH')) return 'weth';
+  if (upper.includes('USDC') || upper === 'USD') return 'usdc';
+  if (upper.includes('USDT')) return 'usdt';
+  if (upper.includes('VIRTUAL')) return 'virtual';
+  return 'other';
+}
+
 export function quoteFilterPasses(bundle: PulseTokenBundle, f: ColumnFilters, chain?: AppChainId): boolean {
+  const sym = quoteSymbolFromBundle(bundle, chain ?? 'sol');
+  if (!sym) return true;
+  const upper = sym.toUpperCase();
+
+  if (chain === 'eth') {
+    const flags = [f.quoteSol, f.quoteWeth, f.quoteUsdc, f.quoteUsdt, f.quoteVirtual, f.quoteOther];
+    if (flags.every((x) => !x)) return false;
+    if (flags.every(Boolean)) return true;
+    const kind = ethQuoteKind(sym);
+    if (kind === 'eth' && !f.quoteSol) return false;
+    if (kind === 'weth' && !f.quoteWeth) return false;
+    if (kind === 'usdc' && !f.quoteUsdc) return false;
+    if (kind === 'usdt' && !f.quoteUsdt) return false;
+    if (kind === 'virtual' && !f.quoteVirtual) return false;
+    if (kind === 'other' && !f.quoteOther) return false;
+    return true;
+  }
+
   const active = [f.quoteSol, f.quoteUsdc, f.quoteUsd1].filter(Boolean).length;
   if (active === 0) return false;
   if (active === 3) return true;
-  const sym = quoteSymbolFromBundle(bundle);
-  if (!sym) return true;
-  const upper = sym.toUpperCase();
 
   /** `quoteSol` flag = “native / chain gas token pair” in the UI (historical Solana naming). */
   if (!chain) {
@@ -394,7 +438,7 @@ export function quoteFilterPasses(bundle: PulseTokenBundle, f: ColumnFilters, ch
         : nt === 'BNB'
           ? upper.includes('BNB') || upper.includes('WBNB')
           : nt === 'ETH'
-            ? upper.includes('ETH') || upper.includes('WETH')
+            ? upper === 'ETH'
             : upper.includes(nt);
 
   if (looksNative && !f.quoteSol) return false;
@@ -589,7 +633,13 @@ export function countActiveColumnFilters(f: ColumnFilters, chain: AppChainId): n
   const defaults = defaultColumnFiltersForChain(chain);
   let n = 0;
   if (f.protocols.length < defaults.protocols.length) n += 1;
-  if (!f.quoteSol || !f.quoteUsdc || !f.quoteUsd1) n += 1;
+  if (chain === 'eth') {
+    if (!f.quoteSol || !f.quoteWeth || !f.quoteUsdc || !f.quoteUsdt || !f.quoteVirtual || !f.quoteOther) {
+      n += 1;
+    }
+  } else if (!f.quoteSol || !f.quoteUsdc || !f.quoteUsd1) {
+    n += 1;
+  }
 
   const nullableKeys = [
     'mcMin',

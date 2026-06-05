@@ -1,13 +1,53 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { CircleDollarSign, Wallet } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
 import type { SyntheticStockMarket } from '@/lib/stocks/types';
+import { pickTokenTradePerfChanges } from '@/lib/tokens/tokenTradePerfTfs';
+import type { TokenTradePerfTf } from '@/lib/tokens/tokenTradePerfTfs';
+import { TokenTradeDeskStrip } from '@/components/tokens/TokenTradeDeskStrip';
 import { PerpsExchangeModal } from '@/components/perps/PerpsExchangeModal';
 import { cn } from '@/lib/utils/cn';
+import { formatNumber } from '@/lib/utils/formatters';
 import { toast } from 'sonner';
 
 const EXEC_MSG = 'Stock execution coming soon';
+
+function stockDeskMint(symbol: string): string {
+  return `stock-desk-${symbol}`;
+}
+
+function TradeAmountInput({
+  value,
+  onChange,
+  placeholder,
+  suffix,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  suffix: string;
+}) {
+  return (
+    <div className="relative flex min-h-[2.35rem] items-center gap-2 rounded-md border border-border-subtle bg-bg-hover/40 px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors focus-within:border-accent-primary/55 focus-within:ring-accent-primary/20">
+      <CircleDollarSign className="h-3.5 w-3.5 shrink-0 text-fg-muted" aria-hidden />
+      <input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        placeholder={placeholder}
+        aria-label="Trade size"
+        onChange={(e) => onChange(e.target.value)}
+        className="focus-ring min-w-0 flex-1 border-0 bg-transparent py-0.5 text-right font-sans text-sm font-medium tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/80 placeholder:italic"
+      />
+      <span className="pointer-events-none shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+        {suffix}
+      </span>
+    </div>
+  );
+}
 
 export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
   const { authenticated, login } = usePointerAuth();
@@ -18,6 +58,11 @@ export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
   const [tpSl, setTpSl] = useState(false);
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [amountUsdc, setAmountUsdc] = useState('');
+  const [perfTf, setPerfTf] = useState<TokenTradePerfTf>('24h');
+
+  const mint = stockDeskMint(market.symbol);
+  const deskMetrics = useMemo(() => syntheticTokenExtendedMetrics(mint), [mint]);
+  const perfChanges = useMemo(() => pickTokenTradePerfChanges(null, mint), [mint]);
 
   const isLong = side === 'long';
   const availableMargin = 0;
@@ -33,102 +78,115 @@ export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
 
   return (
     <>
-      <div className="flex min-h-0 flex-col overflow-y-auto bg-bg-raised xl:overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border-subtle px-2.5 py-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Trade</span>
-          <button
-            type="button"
-            onClick={() => setExchangeOpen(true)}
-            className="rounded-md bg-accent-primary px-3 py-1 text-[11px] font-semibold text-fg-inverse hover:brightness-110"
-          >
-            Deposit
-          </button>
-        </div>
+      <div className="relative flex w-full min-w-0 flex-col bg-bg-raised text-[12px] text-fg-primary">
+        <div className="space-y-3 px-3 pb-5 pt-2 lg:px-3 lg:pb-4">
+          <TokenTradeDeskStrip
+            metrics={deskMetrics}
+            mint={mint}
+            changes={perfChanges}
+            selected={perfTf}
+            onSelect={setPerfTf}
+          />
 
-        <div className="grid grid-cols-2 gap-1 p-1.5">
-          <button
-            type="button"
-            onClick={() => setSide('long')}
-            className={cn(
-              'rounded-md py-2.5 text-[13px] font-semibold transition-colors',
-              isLong ? 'bg-signal-bull text-[#03100b]' : 'bg-bg-sunken text-fg-muted hover:text-fg-secondary',
-            )}
-          >
-            Long
-          </button>
-          <button
-            type="button"
-            onClick={() => setSide('short')}
-            className={cn(
-              'rounded-md py-2.5 text-[13px] font-semibold transition-colors',
-              !isLong ? 'bg-signal-bear text-white' : 'bg-bg-sunken text-fg-muted hover:text-fg-secondary',
-            )}
-          >
-            Short
-          </button>
-        </div>
-
-        <div className="flex items-center gap-1 border-b border-border-subtle px-2 pb-2">
-          {(['market', 'limit'] as const).map((m) => (
+          <div className="flex w-full rounded-lg bg-bg-hover/50 p-1">
             <button
-              key={m}
               type="button"
-              onClick={() => setMode(m)}
+              aria-pressed={isLong}
+              onClick={() => setSide('long')}
               className={cn(
-                'rounded px-2.5 py-1 text-[11px] font-semibold capitalize transition-colors',
-                mode === m ? 'bg-bg-hover text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
+                'btn-press focus-ring flex h-9 flex-1 items-center justify-center rounded-md text-[13px] font-semibold',
+                'transition-[background-color,color,box-shadow,filter] duration-200 ease-out',
+                isLong
+                  ? 'cta-bull'
+                  : 'bg-transparent text-fg-muted hover:bg-signal-bull/10 hover:text-signal-bull',
               )}
             >
-              {m}
+              Long
             </button>
-          ))}
-          <span className="ml-auto text-[11px] font-semibold tabular-nums text-fg-secondary">
-            Leverage: {leverage}x
-          </span>
-        </div>
+            <button
+              type="button"
+              aria-pressed={!isLong}
+              onClick={() => setSide('short')}
+              className={cn(
+                'btn-press focus-ring flex h-9 flex-1 items-center justify-center rounded-md text-[13px] font-semibold',
+                'transition-[background-color,color,box-shadow,filter] duration-200 ease-out',
+                !isLong
+                  ? 'cta-bear'
+                  : 'bg-transparent text-fg-muted hover:bg-signal-bear/10 hover:text-signal-bear',
+              )}
+            >
+              Short
+            </button>
+          </div>
 
-        <div className="space-y-3 p-2.5">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-fg-muted">Size</span>
-              <span className="text-[10px] tabular-nums text-fg-muted">
-                {market.symbol} <span className="text-fg-secondary">0</span>
+          <div className="flex min-w-0 items-center gap-1 border-b border-border-subtle/40 pb-0 pt-0.5">
+            {(['market', 'limit'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => setMode(m)}
+                className={cn(
+                  'px-2.5 pb-2 pt-1 text-[12px] font-semibold capitalize transition-colors duration-150',
+                  'border-b-2',
+                  mode === m
+                    ? 'border-fg-primary text-fg-primary'
+                    : 'border-transparent text-fg-muted hover:text-fg-secondary',
+                )}
+              >
+                {m}
+              </button>
+            ))}
+            <div className="relative ml-auto">
+              <button
+                type="button"
+                onClick={() => setExchangeOpen(true)}
+                className="flex items-center gap-1 rounded-full border border-border-subtle bg-bg-raised px-2 py-1 text-[10px] text-fg-secondary hover:bg-white/[0.04] hover:text-fg-primary"
+                aria-label="Deposit margin"
+              >
+                <Wallet className="h-3 w-3" />
+                <span className="tabular-nums">{formatNumber(availableMargin, { decimals: 2 })}</span>
+                <span className="text-fg-muted">USDC</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-border-subtle bg-bg-raised p-2">
+            <div className="mb-1 flex items-center justify-between text-[10px] text-fg-secondary">
+              <span>Size</span>
+              <span className="tabular-nums">
+                {market.symbol} <span className="text-fg-primary">0</span>
               </span>
             </div>
-            <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-sunken/60 px-3 py-2">
-              <input
-                value={amountUsdc}
-                onChange={(e) => setAmountUsdc(e.target.value)}
-                placeholder="0.0"
-                inputMode="decimal"
-                className="min-w-0 flex-1 bg-transparent text-[18px] font-semibold tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/50"
-              />
-              <span className="text-[12px] font-semibold text-fg-secondary">USDC</span>
-            </div>
-          </div>
-
-          <div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={sizePct}
-              onChange={(e) => setSizePct(Number.parseInt(e.target.value, 10))}
-              className="h-1.5 w-full cursor-pointer accent-accent-primary"
-              aria-label="Size percentage"
+            <TradeAmountInput
+              value={amountUsdc}
+              onChange={setAmountUsdc}
+              placeholder="0.0"
+              suffix="USDC"
             />
-            <div className="mt-1 flex justify-between text-[9px] tabular-nums text-fg-muted">
-              <span>0%</span>
-              <span>25%</span>
-              <span>50%</span>
-              <span>75%</span>
-              <span>100%</span>
+            <div className="mt-2">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={sizePct}
+                onChange={(e) => setSizePct(Number.parseInt(e.target.value, 10))}
+                className="h-1.5 w-full cursor-pointer accent-accent-primary"
+                aria-label="Size percentage"
+              />
+              <div className="mt-1 flex justify-between text-[9px] tabular-nums text-fg-muted">
+                <span>0%</span>
+                <span>25%</span>
+                <span>50%</span>
+                <span>75%</span>
+                <span>100%</span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
+          <div className="rounded-md border border-border-subtle bg-bg-raised p-2">
+            <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[10px] font-medium text-fg-muted">Leverage</span>
               <span className="text-[11px] font-semibold tabular-nums text-fg-secondary">{leverage}x</span>
             </div>
@@ -159,20 +217,22 @@ export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={onPrimaryAction}
-            className={cn(
-              'w-full rounded-lg py-3 text-[14px] font-semibold transition active:scale-[0.99]',
-              isLong ? 'bg-signal-bull text-[#03100b] hover:brightness-105' : 'bg-signal-bear text-white hover:brightness-105',
-            )}
-          >
-            {!authenticated
-              ? 'Connect wallet to trade'
-              : needsFunds
-                ? 'Add More Funds'
-                : `${isLong ? 'Long' : 'Short'} ${market.symbol}`}
-          </button>
+          <div className="pt-0.5">
+            <button
+              type="button"
+              onClick={onPrimaryAction}
+              className={cn(
+                'btn-press focus-ring flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50',
+                isLong ? 'cta-bull' : 'cta-bear',
+              )}
+            >
+              {!authenticated
+                ? 'Connect wallet to trade'
+                : needsFunds
+                  ? 'Add More Funds'
+                  : `${isLong ? 'Long' : 'Short'} ${market.symbol}`}
+            </button>
+          </div>
 
           <div className="space-y-1.5 border-t border-border-subtle/80 pt-2.5 text-[11px]">
             <div className="flex items-center justify-between">
@@ -182,7 +242,7 @@ export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
                 onClick={() => setExchangeOpen(true)}
                 className="font-semibold tabular-nums text-accent-glow hover:underline"
               >
-                {availableMargin.toFixed(2)} USDC
+                {formatNumber(availableMargin, { decimals: 2 })} USDC
               </button>
             </div>
             <div className="flex items-center justify-between">

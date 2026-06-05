@@ -96,7 +96,7 @@ function OpportunityCard({ row }: { row: DemoOpportunity }) {
           <button
             type="button"
             className="focus-ring btn-press inline-flex flex-1 items-center justify-center rounded-lg border border-border-subtle px-3 py-2 text-[11px] font-medium text-fg-secondary transition hover:border-border-default hover:text-fg-primary min-[420px]:flex-none"
-            onClick={() => toast.message('Connect flows tie to terminal wallets — coming soon.')}
+            onClick={() => toast.message('Coming soon.')}
           >
             Connect
           </button>
@@ -120,19 +120,12 @@ export function CampaignRadarSection({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-muted">Campaign radar</h2>
-          <p className="mt-1 max-w-xl text-[11px] text-fg-muted">
-            Surface-level preview — final eligibility and economics publish per season with disclosure.
-          </p>
         </div>
       </div>
 
       {!selected ? (
         <GlassPanel variant="quiet" glow="cyan" className="p-8 text-center">
-          <p className="text-[13px] font-semibold text-fg-primary">Select an ecosystem node above</p>
-          <p className="mx-auto mt-2 max-w-md text-[12px] leading-relaxed text-fg-secondary">
-            Choose Solana, TON, Base, BNB Chain, or Hyperliquid to open chain-specific boosts, stats, and opportunity
-            cards.
-          </p>
+          <p className="text-[13px] font-semibold text-fg-primary">Pick a campaign above</p>
         </GlassPanel>
       ) : (
         <>
@@ -146,11 +139,8 @@ export function CampaignRadarSection({
                   </span>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/85">
-                    Selected ecosystem
-                  </p>
-                  <p className="mt-1 text-[18px] font-semibold tracking-tight text-fg-primary">{chainMeta?.label}</p>
-                  <p className="mt-1 max-w-xl text-[12px] leading-relaxed text-fg-secondary">{chainMeta?.tagline}</p>
+                  <p className="text-[18px] font-semibold tracking-tight text-fg-primary">{chainMeta?.label}</p>
+                  <p className="mt-1 text-[12px] text-fg-secondary">{chainMeta?.tagline}</p>
                 </div>
               </div>
               <div className="grid w-full gap-2 sm:grid-cols-3 lg:w-auto lg:min-w-[340px]">

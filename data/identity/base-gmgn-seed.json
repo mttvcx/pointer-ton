@@ -1,0 +1,31 @@
+[
+  {
+    "chain": "base",
+    "address": "0x4444444444444444444444444444444444444444",
+    "displayName": "Base KOL Alpha",
+    "twitterHandle": "basealpha",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/trade?chain=base&tab=renowned",
+    "confidence": 0.76,
+    "rank": 2,
+    "pnlUsd": 185000,
+    "winRate": 0.51,
+    "txCount": 62
+  },
+  {
+    "chain": "base",
+    "address": "0x5555555555555555555555555555555555555555",
+    "displayName": "Clanker Desk",
+    "category": "smart_money",
+    "badges": ["Smart Money", "Builder"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/trade?chain=base&tab=renowned",
+    "confidence": 0.72,
+    "rank": 5,
+    "pnlUsd": 92000,
+    "winRate": 0.48,
+    "txCount": 40
+  }
+]

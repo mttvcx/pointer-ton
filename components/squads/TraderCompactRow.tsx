@@ -3,6 +3,7 @@
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import type { TraderSample } from '@/lib/squads/sampleData';
+import { SquadAvatar } from '@/components/squads/squadsPrimitives';
 import { formatCurrency } from '@/components/squads/squadsCardShared';
 
 interface Props {
@@ -20,9 +21,7 @@ export function TraderCompactRow({ trader, rank }: Props) {
     <article className="flex items-center gap-3 rounded border border-border-subtle/40 bg-bg-raised px-3 py-2.5 transition-colors hover:bg-bg-hover">
       <span className="w-6 shrink-0 text-xs font-bold tabular-nums text-fg-muted">#{rank}</span>
 
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border-subtle bg-bg-sunken">
-        <span className="text-[10px] font-bold text-fg-primary">{trader.initials}</span>
-      </div>
+      <SquadAvatar seed={trader.id} initials={trader.initials} size="md" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">

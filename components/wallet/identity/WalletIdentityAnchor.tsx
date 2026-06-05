@@ -15,6 +15,7 @@ import {
 import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
+import { useUIStore } from '@/store/ui';
 
 import { WalletIdentityBadges } from '@/components/wallet/identity/WalletIdentityBadges';
 import { WalletCompactTooltipPanel } from '@/components/wallet/identity/WalletCompactTooltipPanel';
@@ -99,6 +100,8 @@ export function WalletIdentityAnchor({
 
   const { resolveLabel, openLabelModal } = useWalletLabels();
   const uiDemo = useUiDemoMode();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const walletChain = appChainForWalletAddress(address, activeChain);
   const { isTracked } = useTrackedWalletsLookup();
   const openIntel = useWalletIntelStore((s) => s.openWallet);
 
@@ -118,14 +121,14 @@ export function WalletIdentityAnchor({
     () =>
       resolveWalletIdentityCore({
         address,
-        chain: appChainForWalletAddress(address),
+        chain: walletChain,
         labelDisplay: labelDisp ?? null,
         isTracked: tracked,
         extras,
         creatorWallet: creatorWallet ?? null,
         allowDemoDirectory: uiDemo,
       }),
-    [address, labelDisp, tracked, extras, creatorWallet, uiDemo],
+    [address, walletChain, labelDisp, tracked, extras, creatorWallet, uiDemo],
   );
 
   const wideDemo = useMemo(
@@ -240,7 +243,7 @@ export function WalletIdentityAnchor({
   }, [dossier]);
 
   const onIntel = () => {
-    openIntel({ address, chain: appChainForWalletAddress(address), rowDemo: true });
+    openIntel({ address, chain: walletChain, rowDemo: true });
     setDossier(false);
     setXyDossier(null);
   };

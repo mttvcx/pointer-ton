@@ -5,6 +5,8 @@ export function nativeTicker(chain: AppChainId): string {
   switch (chain) {
     case 'sol':
       return 'SOL';
+    case 'eth':
+      return 'ETH';
     case 'bnb':
       return 'BNB';
     case 'base':
@@ -22,6 +24,8 @@ export function nativeUsdTickerSymbol(chain: AppChainId): 'SOL' | 'TON' | 'BNB' 
   switch (chain) {
     case 'sol':
       return 'SOL';
+    case 'eth':
+      return 'ETH';
     case 'bnb':
       return 'BNB';
     case 'base':

@@ -18,10 +18,10 @@ export function DeferredAppShellGate() {
   useEffect(() => {
     const run = () => setReady(true);
     if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(run, { timeout: 4_000 });
+      const id = window.requestIdleCallback(run, { timeout: 1_200 });
       return () => window.cancelIdleCallback(id);
     }
-    const t = window.setTimeout(run, 800);
+    const t = window.setTimeout(run, 300);
     return () => window.clearTimeout(t);
   }, []);
 

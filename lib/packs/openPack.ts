@@ -1,12 +1,11 @@
 import { randomUUID } from 'crypto';
 import type {
+  PackConfig,
   PackOpenResult,
   PackOutcomeSlot,
   PackReward,
-  PackType,
   RewardRarity,
 } from '@/types/pack';
-import { getPackConfig } from '@/lib/packs/packConfig';
 import { isJackpotPull } from '@/lib/packs/pullIntensity';
 import { pickPackToken } from '@/lib/packs/packTokens';
 
@@ -36,8 +35,7 @@ function pickOutcome(outcomes: PackOutcomeSlot[], roll: number): PackOutcomeSlot
   return outcomes[outcomes.length - 1]!;
 }
 
-function findJackpotSlot(packType: PackType): PackOutcomeSlot | null {
-  const config = getPackConfig(packType);
+function findJackpotSlot(config: PackConfig): PackOutcomeSlot | null {
   return (
     config.outcomes.find((o) => o.kind === 'legendary_reward' && o.rarity === 'mythic') ?? null
   );
@@ -103,39 +101,51 @@ function buildReward(slot: PackOutcomeSlot, rng: () => number): PackReward {
   };
 }
 
-function finalizeOpen(packType: PackType, rewards: PackReward[]): PackOpenResult {
+function finalizeOpen(
+  config: PackConfig,
+  rewards: PackReward[],
+  meta?: {
+    solUsd?: number;
+    approximateUsd?: number;
+    solUsdSource?: 'live' | 'fallback';
+    modeledHouseEdgeBps?: number;
+    fullOpenEvSol?: number;
+  },
+): PackOpenResult {
   rewards.sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity]);
-  const config = getPackConfig(packType);
   const totalTokenValueSol = rewards.reduce((s, r) => s + (r.valueSol ?? 0), 0);
   const highlightRarity = rewards[0]?.rarity ?? 'common';
   const base = {
     openId: randomUUID(),
-    packType,
+    packType: config.type,
     packLabel: config.label,
     priceSol: config.packPriceSol,
     openedAt: new Date().toISOString(),
     rewards,
     totalTokenValueSol,
     highlightRarity,
+    solUsd: meta?.solUsd,
+    approximateUsd: meta?.approximateUsd,
+    solUsdSource: meta?.solUsdSource,
+    modeledHouseEdgeBps: meta?.modeledHouseEdgeBps,
+    fullOpenEvSol: meta?.fullOpenEvSol,
   };
   return { ...base, isJackpotPull: isJackpotPull(base) };
 }
 
 /** Force the legendary 0.01% mythic jackpot for UI testing. */
-export function openPackJackpotTest(packType: PackType = 'legendary'): PackOpenResult {
-  const config = getPackConfig(packType);
-  const slot = findJackpotSlot(packType);
+export function openPackJackpotTest(config: PackConfig): PackOpenResult {
+  const slot = findJackpotSlot(config);
   if (!slot) {
     throw new Error('jackpot_slot_missing');
   }
-  return buildCelebrationTestPack(packType, slot);
+  return buildCelebrationTestPack(config, slot);
 }
 
 function findSlotForCelebrationTest(
-  packType: PackType,
+  config: PackConfig,
   mode: 'legendary_elite' | 'epic_surge',
 ): PackOutcomeSlot {
-  const config = getPackConfig(packType);
   if (mode === 'legendary_elite') {
     const slot =
       config.outcomes.find((o) => o.rarity === 'legendary' && o.kind === 'legendary_reward') ??
@@ -149,8 +159,7 @@ function findSlotForCelebrationTest(
   return slot;
 }
 
-function buildCelebrationTestPack(packType: PackType, heroSlot: PackOutcomeSlot): PackOpenResult {
-  const config = getPackConfig(packType);
+function buildCelebrationTestPack(config: PackConfig, heroSlot: PackOutcomeSlot): PackOpenResult {
   const hero = buildReward(heroSlot, () => 0.92);
   const fillerSlots = config.outcomes.filter(
     (o) => !(o.rarity === heroSlot.rarity && o.kind === heroSlot.kind && o.title === heroSlot.title),
@@ -160,25 +169,25 @@ function buildCelebrationTestPack(packType: PackType, heroSlot: PackOutcomeSlot)
     const roll = rollBps(Math.random);
     rewards.push(buildReward(pickOutcome(fillerSlots, roll), Math.random));
   }
-  return finalizeOpen(packType, rewards);
+  return finalizeOpen(config, rewards);
 }
 
 /** Dev — legendary vault-open celebration. */
-export function openPackLegendaryEliteTest(packType: PackType = 'legendary'): PackOpenResult {
-  return buildCelebrationTestPack(packType, findSlotForCelebrationTest(packType, 'legendary_elite'));
+export function openPackLegendaryEliteTest(config: PackConfig): PackOpenResult {
+  return buildCelebrationTestPack(config, findSlotForCelebrationTest(config, 'legendary_elite'));
 }
 
 /** Dev — epic candle-surge celebration. */
-export function openPackEpicSurgeTest(packType: PackType = 'gold'): PackOpenResult {
-  return buildCelebrationTestPack(packType, findSlotForCelebrationTest(packType, 'epic_surge'));
+export function openPackEpicSurgeTest(config: PackConfig): PackOpenResult {
+  return buildCelebrationTestPack(config, findSlotForCelebrationTest(config, 'epic_surge'));
 }
 
 /** Server-side pack roll. TODO(fairness): commit-reveal / VRF. */
 export function openPackServer(
-  packType: PackType,
+  config: PackConfig,
   rng: () => number = Math.random,
+  openMeta?: Parameters<typeof finalizeOpen>[2],
 ): PackOpenResult {
-  const config = getPackConfig(packType);
   const rewards: PackReward[] = [];
 
   for (let i = 0; i < config.cardsPerOpen; i++) {
@@ -187,5 +196,5 @@ export function openPackServer(
     rewards.push(buildReward(slot, rng));
   }
 
-  return finalizeOpen(packType, rewards);
+  return finalizeOpen(config, rewards, openMeta);
 }

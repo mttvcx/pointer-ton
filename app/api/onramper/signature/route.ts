@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import type { AppChainId } from '@/lib/chains/appChain';
-import { isAppChainId } from '@/lib/chains/appChain';
 import { buildOnramperWidgetUrl } from '@/lib/onramper/buildOnramperWidgetUrl';
+import { onramperSignatureRequestSchema } from '@/lib/onramper/schemas';
 
 /**
  * POST `/api/onramper/signature`
@@ -17,46 +16,29 @@ import { buildOnramperWidgetUrl } from '@/lib/onramper/buildOnramperWidgetUrl';
  * TODO: Rotate keys via secrets manager — never embed live secrets in the repo.
  */
 
-type Body = {
-  activeChain?: string;
-  walletAddress?: string | null;
-  defaultFiat?: string;
-  fiatAmount?: number;
-  partnerContext?: string;
-};
-
 export async function POST(req: Request) {
-  let body: Body;
+  let raw: unknown;
   try {
-    body = (await req.json()) as Body;
+    raw = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const activeChainRaw = typeof body.activeChain === 'string' ? body.activeChain.trim() : '';
-  if (!isAppChainId(activeChainRaw)) {
-    return NextResponse.json({ error: 'Unsupported or missing activeChain' }, { status: 400 });
-  }
-  const activeChain = activeChainRaw as AppChainId;
-
-  const walletAddress =
-    typeof body.walletAddress === 'string' ? body.walletAddress.trim() : '';
-  if (!walletAddress) {
-    return NextResponse.json({ error: 'walletAddress required' }, { status: 400 });
+  const parsed = onramperSignatureRequestSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const fiatRaw = typeof body.fiatAmount === 'number' ? body.fiatAmount : NaN;
+  const { activeChain, walletAddress, defaultFiat, fiatAmount, partnerContext } = parsed.data;
 
   try {
     const result = buildOnramperWidgetUrl(
       {
         activeChain,
         walletAddress,
-        defaultFiat: typeof body.defaultFiat === 'string' ? body.defaultFiat : 'USD',
-        fiatAmount:
-          Number.isFinite(fiatRaw) && fiatRaw > 0 && fiatRaw < 500_000 ? fiatRaw : undefined,
-        partnerContext:
-          typeof body.partnerContext === 'string' ? body.partnerContext : undefined,
+        defaultFiat: defaultFiat ?? 'USD',
+        fiatAmount,
+        partnerContext,
       },
       {},
     );

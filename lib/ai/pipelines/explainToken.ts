@@ -1,5 +1,8 @@
 import 'server-only';
 
+import type { AppChainId } from '@/lib/chains/appChain';
+import { appChainFromGeckoNetwork, geckoNetworkFromRawMetadata } from '@/lib/chains/evmTokenChain';
+import { inferMintKind } from '@/lib/chains/mintKind';
 import { runCascade, type CascadeMode } from '@/lib/ai/cascade';
 import { ExplainTokenOutputSchema, type ExplainTokenOutput } from '@/lib/ai/schemas';
 import {
@@ -21,8 +24,32 @@ export interface ExplainTokenInput {
   mint: string;
   userId: string;
   mode?: CascadeMode;
+  /** Active header chain — biases analyst framing when mint is ambiguous. */
+  chain?: AppChainId;
   /** Hover card vs co-pilot strip — different shared cache keys / TTLs. */
   surface?: 'hover' | 'copilot';
+}
+
+function analystChainLabel(mint: string, rawMetadata: unknown, prefer?: AppChainId): string {
+  if (prefer === 'eth') return 'Ethereum';
+  if (prefer === 'bnb') return 'BNB Chain';
+  if (prefer === 'base') return 'Base';
+  if (prefer === 'sol') return 'Solana';
+  if (prefer === 'ton') return 'TON';
+  const k = inferMintKind(mint);
+  if (k === 'ton') return 'TON';
+  if (k === 'sol') return 'Solana';
+  if (k === 'evm') {
+    const gn = geckoNetworkFromRawMetadata(rawMetadata);
+    if (gn) {
+      const c = appChainFromGeckoNetwork(gn);
+      if (c === 'eth') return 'Ethereum';
+      if (c === 'bnb') return 'BNB Chain';
+      if (c === 'base') return 'Base';
+    }
+    return 'EVM';
+  }
+  return 'crypto';
 }
 
 /**
@@ -48,9 +75,9 @@ function buildPrompt(facts: {
   freezeAuthority: string | null;
   recentSocial: number;
   recentTrades24h: number;
-}): { system: string; user: string } {
+}, chainLabel: string): { system: string; user: string } {
   const system = [
-    'You are Pointer, an experienced TON / memecoin analyst.',
+    `You are Pointer, an experienced ${chainLabel} memecoin analyst.`,
     'Be terse, specific, and skeptical. Prefer numbers over adjectives.',
     'Never recommend buying or selling. Treat every token as risky by default.',
   ].join(' ');
@@ -132,6 +159,8 @@ export async function explainToken(input: ExplainTokenInput): Promise<{
       ? holders.slice(0, 10).reduce((s, h) => s + (h.pct_of_supply ?? 0), 0)
       : (snapshot?.top10_holder_pct ?? null);
 
+  const chainLabel = analystChainLabel(input.mint, token.raw_metadata, input.chain);
+
   const { system, user } = buildPrompt({
     symbol: token.symbol,
     name: token.name,
@@ -151,7 +180,7 @@ export async function explainToken(input: ExplainTokenInput): Promise<{
     freezeAuthority: token.freeze_authority,
     recentSocial,
     recentTrades24h,
-  });
+  }, chainLabel);
 
   const result = await runCascade({
     pipeline: 'explainToken',

@@ -33,6 +33,18 @@ import { protocolBrand } from '@/lib/tokens/protocolBrand';
 import type { ColumnPulsePresetSlot } from '@/store/pulseColumns';
 import { usePulseColumnStore } from '@/store/pulseColumns';
 import { useUIStore } from '@/store/ui';
+import {
+  modalBackdropClass,
+  modalBtnPrimaryClass,
+  modalBtnSecondaryClass,
+  modalCloseBtnClass,
+  modalInputClass,
+  modalPanelClass,
+  modalScopeTabClass,
+  modalSectionLabelClass,
+} from '@/lib/ui/modalChrome';
+import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
+import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -108,7 +120,7 @@ function NumField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] uppercase tracking-wide text-white/40">{label}</span>
+      <span className={modalSectionLabelClass}>{label}</span>
       <input
         type="text"
         inputMode="decimal"
@@ -122,10 +134,10 @@ function NumField({
           const n = Number(t);
           onChange(Number.isFinite(n) ? n : null);
         }}
-        className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none transition placeholder:text-white/30 focus:border-white/[0.12]"
+        className={modalInputClass}
         placeholder="Any"
       />
-      {suffix ? <span className="text-[9px] text-white/30">{suffix}</span> : null}
+      {suffix ? <span className="text-[9px] text-fg-muted">{suffix}</span> : null}
     </label>
   );
 }
@@ -148,12 +160,12 @@ function AuditToggle({
       className={cn(
         'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-[12px] transition',
         checked
-          ? 'border-[#7c5cff]/40 bg-[#7c5cff]/10 text-white'
-          : 'border-white/[0.06] bg-white/[0.03] text-white/60 hover:border-white/[0.1] hover:text-white/80',
+          ? 'border-accent-primary/40 bg-accent-primary/10 text-fg-primary'
+          : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-border-default hover:text-fg-primary',
       )}
     >
       <span>{label}</span>
-      <span className="text-[11px] text-white/40">{checked ? 'On' : 'Off'}</span>
+      <span className="text-[11px] text-fg-muted">{checked ? 'On' : 'Off'}</span>
     </button>
   );
 }
@@ -176,7 +188,7 @@ function ProtocolPill({
       onClick={onToggle}
       className={cn(
         'flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] transition-all',
-        selected ? 'text-white' : 'border-white/[0.08] bg-white/[0.03] text-white/50',
+        selected ? 'text-fg-primary' : 'border-border-subtle bg-bg-sunken text-fg-muted',
       )}
       style={
         selected
@@ -504,45 +516,49 @@ export function ColumnFilterModal({
   }, [sharePayload, scopeColumn, copyShareUrl]);
 
   const protocolIds = pulseProtocolPresetIdsForChain(activeChain);
+  const { mounted, visible } = useOverlayPresence(open);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="column-filter-title"
-      className={cn(
-        'fixed inset-0 flex animate-in fade-in items-center justify-center bg-black/60 p-4 backdrop-blur-[4px] duration-200',
-        Z_APP_MODAL_OVERLAY,
-      )}
+      className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}
       onMouseDown={(e) => {
         const t = e.target as HTMLElement | null;
         if (!t || t.closest('[data-modal-panel]')) return;
         onClose();
       }}
     >
+      <button
+        type="button"
+        aria-label="Close filters"
+        className={cn(modalBackdropClass, overlayBackdropClasses(visible))}
+        onClick={onClose}
+      />
       <div
         data-modal-panel
-        className="relative flex max-h-[90vh] w-[480px] origin-center animate-in zoom-in-95 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0e0e10] shadow-2xl shadow-black/70 duration-200"
+        className={cn(
+          modalPanelClass,
+          'max-h-[90vh] w-full max-w-[480px]',
+          overlayPanelClasses(visible),
+        )}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-4">
-          <h2 id="column-filter-title" className="text-[15px] font-medium text-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3">
+          <h2 id="column-filter-title" className="text-sm font-semibold text-fg-primary">
             Filters
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-white/40 transition hover:text-white/80"
-            aria-label="Close filters"
-          >
+          <button type="button" onClick={onClose} className={modalCloseBtnClass} aria-label="Close filters">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Column scope tabs */}
-        <div className="flex shrink-0 gap-1 border-b border-white/[0.06] px-5 pb-3">
+        <div className="flex shrink-0 gap-3 border-b border-border-subtle px-4 pb-0 pt-2">
           {PULSE_COLUMNS.map((col) => {
             const active = scopeColumn === col;
             const count = scopeFilterCounts[col];
@@ -551,14 +567,11 @@ export function ColumnFilterModal({
                 key={col}
                 type="button"
                 onClick={() => setScopeColumn(col)}
-                className={cn(
-                  'flex items-center gap-1.5 border-b-2 pb-2 text-[12px] font-medium transition-colors',
-                  active ? 'border-white text-white' : 'border-transparent text-white/40 hover:text-white/60',
-                )}
+                className={modalScopeTabClass(active)}
               >
                 {SCOPE_LABELS[col]}
                 {count > 0 ? (
-                  <span className="rounded-full bg-white/[0.08] px-1.5 text-[10px] tabular-nums text-white/70">
+                  <span className="rounded-sm border border-border-subtle bg-bg-sunken px-1.5 text-[10px] tabular-nums text-fg-muted">
                     {count}
                   </span>
                 ) : null}
@@ -568,40 +581,35 @@ export function ColumnFilterModal({
         </div>
 
         {/* Keyword row (UI-only until backend supports keywords) */}
-        <div className="grid shrink-0 grid-cols-2 gap-3 px-5 py-3">
+        <div className="grid shrink-0 grid-cols-2 gap-3 px-4 py-3">
           <label className="flex flex-col">
-            <span className="mb-1 text-[10px] uppercase tracking-wide text-white/40">Search Keywords</span>
+            <span className={cn('mb-1', modalSectionLabelClass)}>Search Keywords</span>
             <input
               value={searchKeywords}
               onChange={(e) => setSearchKeywords(e.target.value)}
               placeholder="keyword1, keyword2..."
-              className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none placeholder:text-white/30 focus:border-white/[0.12]"
+              className={modalInputClass}
             />
           </label>
           <label className="flex flex-col">
-            <span className="mb-1 text-[10px] uppercase tracking-wide text-white/40">Exclude Keywords</span>
+            <span className={cn('mb-1', modalSectionLabelClass)}>Exclude Keywords</span>
             <input
               value={excludeKeywords}
               onChange={(e) => setExcludeKeywords(e.target.value)}
               placeholder="keyword1, keyword2..."
-              className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none placeholder:text-white/30 focus:border-white/[0.12]"
+              className={modalInputClass}
             />
           </label>
         </div>
 
         {/* Section tabs */}
-        <div className="flex shrink-0 gap-4 border-b border-white/[0.04] px-5 pt-2">
+        <div className="flex shrink-0 gap-4 border-b border-border-subtle px-4 pt-2">
           {SECTION_TABS.map(({ id, label }) => (
             <button
               key={id}
               type="button"
               onClick={() => setSectionTab(id)}
-              className={cn(
-                'pb-2 text-[12.5px] font-medium transition-colors',
-                sectionTab === id
-                  ? 'border-b-2 border-white text-white'
-                  : 'text-white/40 hover:text-white/60',
-              )}
+              className={modalScopeTabClass(sectionTab === id)}
             >
               {label}
             </button>
@@ -662,27 +670,76 @@ export function ColumnFilterModal({
 
               <p className="mt-4 mb-2 text-[10px] uppercase tracking-widest text-white/30">Quote Tokens</p>
               <div className="flex flex-wrap gap-2">
-                <QuotePill
-                  kind="native"
-                  label={quoteNativeSymbol}
-                  chain={activeChain}
-                  selected={filters.quoteSol}
-                  onToggle={() => setFilters((f) => ({ ...f, quoteSol: !f.quoteSol }))}
-                />
-                <QuotePill
-                  kind="usdc"
-                  label="USDC"
-                  chain={activeChain}
-                  selected={filters.quoteUsdc}
-                  onToggle={() => setFilters((f) => ({ ...f, quoteUsdc: !f.quoteUsdc }))}
-                />
-                <QuotePill
-                  kind="usd1"
-                  label="USD1"
-                  chain={activeChain}
-                  selected={filters.quoteUsd1}
-                  onToggle={() => setFilters((f) => ({ ...f, quoteUsd1: !f.quoteUsd1 }))}
-                />
+                {activeChain === 'eth' ? (
+                  <>
+                    <QuotePill
+                      kind="native"
+                      label="ETH"
+                      chain={activeChain}
+                      selected={filters.quoteSol}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteSol: !f.quoteSol }))}
+                    />
+                    <QuotePill
+                      kind="native"
+                      label="WETH"
+                      chain={activeChain}
+                      selected={filters.quoteWeth}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteWeth: !f.quoteWeth }))}
+                    />
+                    <QuotePill
+                      kind="usdc"
+                      label="USDC"
+                      chain={activeChain}
+                      selected={filters.quoteUsdc}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteUsdc: !f.quoteUsdc }))}
+                    />
+                    <QuotePill
+                      kind="usdc"
+                      label="USDT"
+                      chain={activeChain}
+                      selected={filters.quoteUsdt}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteUsdt: !f.quoteUsdt }))}
+                    />
+                    <QuotePill
+                      kind="usd1"
+                      label="VIRTUAL"
+                      chain={activeChain}
+                      selected={filters.quoteVirtual}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteVirtual: !f.quoteVirtual }))}
+                    />
+                    <QuotePill
+                      kind="usd1"
+                      label="OTHER"
+                      chain={activeChain}
+                      selected={filters.quoteOther}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteOther: !f.quoteOther }))}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <QuotePill
+                      kind="native"
+                      label={quoteNativeSymbol}
+                      chain={activeChain}
+                      selected={filters.quoteSol}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteSol: !f.quoteSol }))}
+                    />
+                    <QuotePill
+                      kind="usdc"
+                      label="USDC"
+                      chain={activeChain}
+                      selected={filters.quoteUsdc}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteUsdc: !f.quoteUsdc }))}
+                    />
+                    <QuotePill
+                      kind="usd1"
+                      label="USD1"
+                      chain={activeChain}
+                      selected={filters.quoteUsd1}
+                      onToggle={() => setFilters((f) => ({ ...f, quoteUsd1: !f.quoteUsd1 }))}
+                    />
+                  </>
+                )}
               </div>
             </div>
           ) : null}
@@ -928,18 +985,18 @@ export function ColumnFilterModal({
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-between border-t border-white/[0.06] px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between border-t border-border-subtle px-4 py-3">
           <div className="flex items-center gap-1">
             <button
               type="button"
-              className="rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
+              className="rounded-sm px-2 py-1 text-[12px] text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary"
               onClick={onImport}
             >
               Import
             </button>
             <button
               type="button"
-              className="rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
+              className="rounded-sm px-2 py-1 text-[12px] text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary"
               onClick={() => {
                 void navigator.clipboard.writeText(exportJson()).catch(() => toast.error('Copy failed'));
                 toast.success('Exported JSON copied');
@@ -949,7 +1006,7 @@ export function ColumnFilterModal({
             </button>
             <button
               type="button"
-              className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
+              className="flex items-center gap-1 rounded-sm px-2 py-1 text-[12px] text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary"
               onClick={() => void onShare()}
             >
               <Share2 className="h-3 w-3" />
@@ -959,7 +1016,7 @@ export function ColumnFilterModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded-lg px-3 py-1.5 text-[12px] text-white/50 transition hover:bg-white/[0.04] hover:text-white/80"
+              className={modalBtnSecondaryClass}
               onClick={resetDraft}
             >
               Reset
@@ -967,7 +1024,7 @@ export function ColumnFilterModal({
             <button
               type="button"
               disabled={saveOne.isPending}
-              className="rounded-full bg-[#7c5cff] px-5 py-2 text-[13px] font-medium text-white transition hover:bg-[#8a6dff] disabled:opacity-50"
+              className={modalBtnPrimaryClass}
               onClick={() => {
                 if (authenticated) {
                   saveOne.mutate({ applyAll: true });

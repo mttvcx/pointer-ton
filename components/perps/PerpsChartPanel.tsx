@@ -42,6 +42,24 @@ function priceDecimals(mark: number): number {
   return 2;
 }
 
+function safeRemoveTradingViewWidget(
+  widget: { remove?: () => void } | null,
+  containerId: string,
+): void {
+  if (!widget) return;
+  const host = document.getElementById(containerId);
+  try {
+    if (host?.isConnected) {
+      widget.remove?.();
+    }
+  } catch {
+    /* TV teardown can race React unmount when navigating quickly */
+  }
+  if (host) {
+    host.replaceChildren();
+  }
+}
+
 export function PerpsChartPanel({
   pair,
   tf,
@@ -62,7 +80,8 @@ export function PerpsChartPanel({
 
     const createWidget = () => {
       if (cancelled || !window.TradingView) return;
-      widgetRef.current?.remove?.();
+      if (!document.getElementById(containerId)) return;
+      safeRemoveTradingViewWidget(widgetRef.current, containerId);
       widgetRef.current = new window.TradingView.widget({
         autosize: true,
         symbol: pair.tvSymbol,
@@ -103,7 +122,7 @@ export function PerpsChartPanel({
 
     return () => {
       cancelled = true;
-      widgetRef.current?.remove?.();
+      safeRemoveTradingViewWidget(widgetRef.current, containerId);
       widgetRef.current = null;
     };
   }, [containerId, interval, pair.tvSymbol]);

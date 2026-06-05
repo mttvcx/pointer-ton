@@ -2,7 +2,8 @@
 
 import { useSyncExternalStore } from 'react';
 
-const TICK_MS = 1000;
+/** Age labels don't need 1s precision — slower tick = fewer Pulse row re-renders. */
+const TICK_MS = 5_000;
 
 let nowMs = Date.now();
 let intervalId: ReturnType<typeof setInterval> | null = null;

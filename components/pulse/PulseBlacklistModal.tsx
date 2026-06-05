@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { GlassModal } from '@/components/ui/GlassModal';
+import { modalBtnPrimaryClass, modalInputClass } from '@/lib/ui/modalChrome';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { cn } from '@/lib/utils/cn';
 import { usePulseHiddenMintsStore } from '@/store/pulseHiddenMints';
 
 type Tab = 'all' | 'dev' | 'twitter' | 'hidden';
@@ -123,18 +125,14 @@ export function PulseBlacklistModal({ open, onClose }: PulseBlacklistModalProps)
             if (e.key === 'Enter') handleAdd();
           }}
           placeholder="Dev address, mint, or @handle"
-          className="min-w-0 flex-1 rounded-md border border-white/[0.08] bg-bg-sunken px-2.5 py-1.5 text-sm text-fg-primary placeholder:text-fg-muted"
+          className={cn(modalInputClass, 'min-w-0 flex-1 py-1.5 text-sm')}
         />
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="shrink-0 rounded-md bg-accent-primary px-3 py-1.5 text-xs font-semibold text-fg-inverse"
-        >
+        <button type="button" onClick={handleAdd} className={cn(modalBtnPrimaryClass, 'shrink-0 px-3 py-1.5 text-xs')}>
           Add
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1 border-b border-white/[0.06] pb-2">
+      <div className="mt-3 flex flex-wrap gap-1 border-b border-border-subtle pb-2">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -142,7 +140,7 @@ export function PulseBlacklistModal({ open, onClose }: PulseBlacklistModalProps)
             onClick={() => setTab(t.id)}
             className={
               tab === t.id
-                ? 'rounded-sm bg-white/[0.08] px-2 py-0.5 text-[11px] font-medium text-fg-primary'
+                ? 'rounded-sm border border-accent-primary/35 bg-accent-primary/10 px-2 py-0.5 text-[11px] font-medium text-accent-primary'
                 : 'rounded-sm px-2 py-0.5 text-[11px] text-fg-muted hover:text-fg-secondary'
             }
           >

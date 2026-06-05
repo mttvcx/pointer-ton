@@ -8,6 +8,7 @@ import { APP_CHAIN_IDS } from '@/lib/chains/appChain';
  */
 export const CHAIN_ICON_PNG: Record<AppChainId, string> = {
   sol: '/chains/sol.png',
+  eth: '/chains/eth.png',
   bnb: '/chains/bnb.png',
   base: '/chains/base.png',
   ton: '/chains/ton.png',
@@ -47,6 +48,24 @@ export function normalizeSpotTickerChains(
   return SPOT_TICKER_ROTATION.filter((sym) => pick.has(sym));
 }
 
+/** Put the active header chain's native spot symbol first in the bottom-bar carousel. */
+export function spotTickerChainsForActiveChain(
+  symbols: readonly SpotTickerSymbol[],
+  activeChain: AppChainId,
+): SpotTickerSymbol[] {
+  if (symbols.length === 0) return [];
+  const lead: SpotTickerSymbol =
+    activeChain === 'sol'
+      ? 'SOL'
+      : activeChain === 'ton'
+        ? 'TON'
+        : activeChain === 'bnb'
+          ? 'BNB'
+          : 'ETH';
+  const rest = symbols.filter((s) => s !== lead);
+  return [lead, ...rest];
+}
+
 /**
  * Squads + coarse chain slug → raster/SVG logo under `/public/chains`.
  * Keys are lowercase. Missing slugs omit an entry ({@link ChainIcon} returns null).
@@ -64,6 +83,7 @@ export const chainLogoSrc: Record<string, string> = {
 
 export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {
   sol: 'Solana',
+  eth: 'Ethereum',
   bnb: 'BNB',
   base: 'Base',
   ton: 'The Open Network',
@@ -71,6 +91,7 @@ export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {
 
 export const CHAIN_TICKER: Record<AppChainId, string> = {
   sol: 'SOL',
+  eth: 'ETH',
   bnb: 'BNB',
   base: 'BASE',
   ton: 'TON',
@@ -84,6 +105,7 @@ export const ORDERED_CHAINS: AppChainId[] = [...APP_CHAIN_IDS];
  */
 export const POINTS_ECOSYSTEM_CHAIN_ICON = {
   sol: CHAIN_ICON_PNG.sol,
+  eth: CHAIN_ICON_PNG.eth,
   ton: CHAIN_ICON_PNG.ton,
   base: CHAIN_ICON_PNG.base,
   bnb: CHAIN_ICON_PNG.bnb,

@@ -176,6 +176,8 @@ export const LAUNCHPAD_LABELS = {
   moonshot: 'Moonshot',
   heaven: 'Heaven',
   'dynamic-bc': 'Dynamic BC',
+  /** Ethereum mainnet new-pool discovery (Gecko Terminal ingest). */
+  eth: 'Ethereum',
   /** BNB Chain meme / new-pool discovery (Gecko Terminal ingest). */
   bsc: 'BNB Chain',
   /** Base chain meme / new-pool discovery (Gecko Terminal ingest). */
@@ -204,6 +206,7 @@ export const LAUNCHPAD_AUTHORITIES: Record<LaunchpadId, string | null> = {
   printr: null,
   heaven: null,
   'dynamic-bc': null,
+  eth: null,
   bsc: null,
   base: null,
   unknown: null,

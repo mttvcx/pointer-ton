@@ -1,6 +1,6 @@
 import type { PackType, RewardKind, RewardRarity } from '@/types/pack';
 import { getPackConfig } from '@/lib/packs/packConfig';
-import { PACK_SHOWCASE_SOL_USD } from '@/lib/packs/constants';
+import { getFallbackSolUsd } from '@/lib/packs/pricing';
 import { formatProbabilityBps } from '@/lib/packs/formatOdds';
 import { PACK_TOKEN_POOL } from '@/lib/packs/packTokens';
 import { rewardKindLabel } from '@/lib/packs/rarityTheme';
@@ -62,8 +62,9 @@ function slotShowcaseValueSol(
 }
 
 /** Top hits you can pull — sorted insane → less insane per pack tier. */
-export function listPackShowcaseItems(packType: PackType): PackShowcaseItem[] {
-  const config = getPackConfig(packType);
+export function listPackShowcaseItems(packType: PackType, solUsd?: number): PackShowcaseItem[] {
+  const config = getPackConfig(packType, solUsd);
+  const showcaseSolUsd = solUsd != null && solUsd > 0 ? solUsd : getFallbackSolUsd();
   const minRank = MIN_SHOWCASE_RANK[packType];
   const seen = new Set<string>();
 
@@ -88,7 +89,7 @@ export function listPackShowcaseItems(packType: PackType): PackShowcaseItem[] {
         ? pickTokenForRarity(slot.rarity)
         : null;
     const valueSol = slotShowcaseValueSol(slot.kind, slot.maxValueSol, slot.multiplier);
-    const valueUsd = valueSol != null ? valueSol * PACK_SHOWCASE_SOL_USD : null;
+    const valueUsd = valueSol != null ? valueSol * showcaseSolUsd : null;
 
     let title = slot.title ?? rewardKindLabel(slot.kind);
     let subtitle = token?.name ?? rewardKindLabel(slot.kind);

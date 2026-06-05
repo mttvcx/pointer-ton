@@ -29,11 +29,18 @@ export function redactSnippet(s: string, maxLen = 800): string {
 
 /** Final pass before persistence / transport — strip obvious secrets from user-entered + stack text. */
 export function sanitizeSubmittedPayload(payload: BugReportPayload): BugReportPayload {
+  const screenshot = payload.context.screenshotDataUrl;
+  const trimmedScreenshot =
+    typeof screenshot === 'string' && screenshot.length > 0 && screenshot.length <= 280_000
+      ? screenshot
+      : undefined;
+
   return {
     ...payload,
     description: redactSnippet(payload.description, 12_000),
     context: {
       ...payload.context,
+      screenshotDataUrl: trimmedScreenshot,
       recentClientErrors:
         payload.context.recentClientErrors?.map((e) => ({
           ...e,

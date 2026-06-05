@@ -435,13 +435,13 @@
   /* Buttons get a small "press" feedback so trades / actions feel tactile. */
   .btn-press {
     transition:
-      transform 80ms ease,
-      filter 150ms ease,
-      background-color 150ms ease,
-      border-color 150ms ease,
-      color 150ms ease,
-      box-shadow 150ms ease,
-      opacity 150ms ease;
+      transform 60ms ease,
+      filter 60ms ease,
+      background-color 60ms ease,
+      border-color 60ms ease,
+      color 60ms ease,
+      box-shadow 60ms ease,
+      opacity 60ms ease;
   }
   .btn-press:active:not(:disabled) {
     transform: translateY(1px) scale(0.99);
@@ -853,6 +853,31 @@
   border-left: 1px solid transparent;
 }
 
+/*
+ * Stocks rows (Pulse → Stocks tab) — flat list items, no Pulse quick-buy chrome.
+ * Token rows keep `.pulse-row` borders/elevation; stocks use `.stock-row` only.
+ */
+.pulse-column .stock-row {
+  border: none;
+  background-color: transparent;
+  box-shadow: none;
+}
+.pulse-column .stock-row::before {
+  display: none;
+}
+.pulse-column .stock-row:hover {
+  border: none;
+  box-shadow: none;
+  background-color: rgb(var(--bg-hover-rgb) / 0.18);
+}
+.pulse-column .stock-row .stock-row-action {
+  border-left: none;
+}
+:root[data-row-separators='true'] .pulse-column .stock-row,
+:root[data-row-density='tabled'] .pulse-column .stock-row {
+  border-bottom: 1px solid rgb(var(--border-subtle-rgb) / 0.35);
+}
+
 /* Avatar size — applied via --avatar-size on .pulse-avatar. */
 :root[data-avatar-size='small'] .pulse-avatar { --avatar-size: 2.5rem; }
 :root[data-avatar-size='default'] .pulse-avatar,
@@ -1095,7 +1120,7 @@
 }
 
 .group:hover .pack-tcg-lift {
-  transform: translateY(-16px) rotateX(8deg) rotateY(-4deg) scale(1.06);
+  transform: translateY(-10px) rotateX(5deg) rotateY(-2deg) scale(1.03);
 }
 
 .pack-tcg-reward-hover {
@@ -1106,6 +1131,442 @@
 .pack-tcg-reward-hover:hover {
   transform: translateY(-14px) rotateX(6deg) scale(1.05);
   z-index: 20;
+}
+
+/* ── Luxury pack collectibles (Pointer — not FIFA-style) ── */
+.pack-collectible {
+  border-radius: 10px;
+  transform-style: preserve-3d;
+  isolation: isolate;
+}
+
+.pack-art-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.pack-collectible__mesh {
+  z-index: 2;
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  background: linear-gradient(
+    125deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 35%,
+    rgba(255, 255, 255, 0.14) 48%,
+    transparent 62%
+  );
+  animation: packHoloSweep 5.5s ease-in-out infinite;
+}
+
+.pack-collectible__vignette {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 28%, transparent 0%, rgba(0, 0, 0, 0.45) 72%),
+    linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.75) 100%);
+}
+
+.pack-collectible__specular {
+  background: radial-gradient(ellipse 55% 35% at 72% 12%, rgba(255, 255, 255, 0.14), transparent 65%);
+}
+
+.pack-collectible__edge {
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.pack-collectible__bevel {
+  border-radius: inherit;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.04) 0%, transparent 42%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.pack-collectible__sheen {
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.2) 48%,
+    transparent 58%
+  );
+  mix-blend-mode: soft-light;
+}
+
+.pack-collectible__sheen--active {
+  opacity: 0.65;
+  animation: packHoloSweep 4s ease-in-out infinite;
+}
+
+/* Open-flow / burst only — shelf hover sheen bleeds white into grid gutters */
+.group:hover .pack-collectible__sheen {
+  opacity: 0.85;
+}
+.pack-collectible--shelf .pack-collectible__sheen,
+.pack-tcg-shelf.group:hover .pack-collectible--shelf .pack-collectible__sheen {
+  opacity: 0 !important;
+}
+
+.pack-collectible__crest-ring {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 12px 32px -10px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.pack-collectible__footer-inner {
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72) 35%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+.pack-collectible__title {
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.8);
+}
+
+/* Chip positions */
+.pack-chip--pos-tl { left: 8px; top: 10px; }
+.pack-chip--pos-tr { right: 8px; top: 12px; }
+.pack-chip--pos-bl { left: 8px; bottom: 52px; }
+.pack-chip--pos-br { right: 8px; bottom: 54px; }
+.pack-chip--pos-mr { right: 6px; top: 38%; transform: translateY(-50%); }
+
+.pack-chip {
+  font-size: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(4px);
+}
+
+.pack-chip--bronze {
+  color: rgba(250, 220, 180, 0.9);
+  background: rgba(42, 28, 12, 0.65);
+  border: 1px solid rgba(180, 130, 70, 0.35);
+}
+
+.pack-chip--silver {
+  color: rgba(186, 230, 253, 0.95);
+  background: rgba(12, 24, 48, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.pack-chip--gold {
+  color: rgba(254, 243, 199, 0.95);
+  background: rgba(42, 32, 8, 0.72);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.pack-chip--legendary {
+  color: rgba(233, 213, 255, 0.95);
+  background: rgba(30, 12, 48, 0.75);
+  border: 1px solid rgba(192, 132, 252, 0.45);
+}
+
+.pack-hero-callout {
+  left: 50%;
+  transform: translateX(-50%);
+  top: 14%;
+}
+
+.pack-hero-callout__text {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: block;
+  white-space: nowrap;
+}
+
+.pack-hero-callout--silver .pack-hero-callout__text {
+  font-size: 8px;
+  color: rgba(186, 230, 253, 0.85);
+  background: rgba(15, 30, 55, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.pack-hero-callout--gold .pack-hero-callout__text {
+  color: #fef3c7;
+  background: linear-gradient(135deg, rgba(66, 48, 10, 0.9), rgba(28, 20, 4, 0.95));
+  border: 1px solid rgba(253, 224, 71, 0.5);
+  box-shadow: 0 4px 20px -4px rgba(251, 191, 36, 0.45);
+}
+
+.pack-hero-callout--legendary .pack-hero-callout__text {
+  font-size: 12px;
+  color: #faf5ff;
+  background: linear-gradient(135deg, rgba(76, 29, 149, 0.85), rgba(24, 8, 40, 0.95));
+  border: 1px solid rgba(216, 180, 254, 0.55);
+  box-shadow:
+    0 0 28px -4px rgba(192, 132, 252, 0.55),
+    0 4px 16px -6px rgba(0, 0, 0, 0.8);
+}
+
+.pack-micro-label {
+  font-size: 6px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.pack-micro-label--bronze { left: 10px; top: 28%; color: #d4a574; }
+.pack-micro-label--silver { right: 10px; top: 22%; color: #7dd3fc; }
+.pack-micro-label--gold { left: 10px; bottom: 38%; color: #fcd34d; }
+.pack-micro-label--legendary { right: 10px; top: 26%; color: #e9d5ff; }
+
+/* Tier shells — shelf recognition at a distance */
+.pack-collectible--bronze {
+  box-shadow:
+    0 20px 48px -20px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(120, 80, 40, 0.25),
+    0 0 24px -12px rgba(180, 120, 60, 0.2);
+}
+
+.pack-collectible--bronze .pack-collectible__mesh {
+  background: linear-gradient(
+    130deg,
+    transparent,
+    rgba(212, 165, 116, 0.08) 45%,
+    transparent 60%
+  );
+}
+
+.pack-collectible--silver {
+  box-shadow:
+    0 22px 52px -18px rgba(0, 0, 0, 0.92),
+    0 0 0 1px rgba(56, 120, 200, 0.28),
+    0 0 32px -10px rgba(56, 189, 248, 0.22);
+}
+
+.pack-collectible--silver .pack-collectible__mesh {
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(96, 165, 250, 0.12) 46%,
+    rgba(56, 189, 248, 0.08) 52%,
+    transparent 68%
+  );
+}
+
+.pack-collectible--gold {
+  box-shadow:
+    0 24px 56px -16px rgba(0, 0, 0, 0.92),
+    0 0 0 1px rgba(251, 191, 36, 0.35),
+    0 0 40px -8px rgba(251, 191, 36, 0.28);
+}
+
+.pack-collectible--gold .pack-collectible__mesh {
+  opacity: 0.7;
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(253, 224, 71, 0.15) 42%,
+    rgba(251, 191, 36, 0.1) 50%,
+    transparent 65%
+  );
+  animation-duration: 4s;
+}
+
+.pack-collectible--legendary {
+  box-shadow:
+    0 28px 64px -14px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(192, 132, 252, 0.4),
+    0 0 56px -6px rgba(147, 51, 234, 0.35),
+    0 0 80px -20px rgba(251, 191, 36, 0.12);
+  animation: packLegendaryAura 4.5s ease-in-out infinite;
+}
+
+.pack-collectible--legendary .pack-collectible__mesh {
+  opacity: 0.75;
+  background: linear-gradient(
+    100deg,
+    rgba(167, 139, 250, 0.05) 20%,
+    rgba(255, 255, 255, 0.16) 44%,
+    rgba(192, 132, 252, 0.1) 52%,
+    transparent 70%
+  );
+  animation-duration: 3.2s;
+}
+
+.pack-collectible--legendary .pack-collectible__crest-ring {
+  border-color: rgba(216, 180, 254, 0.45);
+  box-shadow:
+    0 0 24px -4px rgba(192, 132, 252, 0.5),
+    0 12px 32px -10px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.pack-collectible--open.pack-collectible--legendary,
+.pack-collectible--open.pack-collectible--gold {
+  box-shadow:
+    0 32px 72px -12px rgba(0, 0, 0, 0.95),
+    0 0 64px -4px rgba(192, 132, 252, 0.4);
+}
+
+/* Confirm modal — same collectible art, readable at modal scale */
+.pack-collectible--confirm .pack-chip {
+  font-size: 7px;
+  padding: 3px 7px;
+}
+
+.pack-collectible--confirm .pack-hero-callout__text {
+  font-size: 10px;
+}
+
+.pack-collectible--confirm.pack-collectible--legendary .pack-hero-callout__text {
+  font-size: 11px;
+}
+
+.pack-collectible--confirm .pack-collectible__sheen {
+  opacity: 0.55;
+}
+
+.pack-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(216, 180, 254, 0.9);
+  box-shadow: 0 0 6px rgba(192, 132, 252, 0.8);
+  animation: packParticleFloat ease-in-out infinite;
+}
+
+.pack-shelf-shell {
+  border-radius: 12px;
+  padding: 2px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+}
+
+.pack-shelf-shell--bronze {
+  background: linear-gradient(145deg, rgba(212, 165, 116, 0.35), rgba(60, 40, 20, 0.15));
+}
+
+.pack-shelf-shell--silver {
+  background: linear-gradient(145deg, rgba(125, 211, 252, 0.35), rgba(30, 58, 95, 0.2));
+}
+
+.pack-shelf-shell--gold {
+  background: linear-gradient(145deg, rgba(253, 224, 71, 0.45), rgba(80, 60, 10, 0.2));
+}
+
+.pack-shelf-shell--legendary {
+  background: linear-gradient(
+    145deg,
+    rgba(216, 180, 254, 0.35),
+    rgba(88, 28, 135, 0.28),
+    rgba(60, 20, 90, 0.35)
+  );
+}
+
+/* ── Shelf grid: foil stays inside card — no holo bleed / white gutter casts ── */
+.pack-collectible--shelf {
+  box-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.85) !important;
+  animation: none !important;
+}
+
+.pack-collectible--shelf.pack-collectible--legendary {
+  box-shadow:
+    0 14px 36px -14px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 1px rgba(192, 132, 252, 0.22) !important;
+}
+
+.pack-collectible--shelf .pack-collectible__mesh {
+  animation: none;
+  opacity: 0.22;
+  mix-blend-mode: normal;
+  background: linear-gradient(
+    125deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 42%,
+    transparent 58%
+  );
+}
+
+.pack-collectible--shelf.pack-collectible--legendary .pack-collectible__mesh {
+  opacity: 0.28;
+  background: linear-gradient(
+    100deg,
+    rgba(167, 139, 250, 0.04) 25%,
+    rgba(255, 255, 255, 0.05) 48%,
+    transparent 68%
+  );
+}
+
+.pack-collectible--shelf .pack-collectible__specular {
+  opacity: 0.35;
+  background: radial-gradient(ellipse 50% 30% at 72% 12%, rgba(255, 255, 255, 0.06), transparent 65%);
+}
+
+.pack-collectible--shelf .pack-collectible__edge {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.pack-collectible--shelf .pack-collectible__crest-ring {
+  box-shadow:
+    0 10px 24px -12px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.pack-shelf-shell--legendary {
+  animation: none;
+}
+
+.pack-tcg-shelf .pack-tcg-lift {
+  contain: paint;
+}
+
+@keyframes packHoloSweep {
+  0%,
+  100% { transform: translateX(-8%) skewX(-6deg); opacity: 0.4; }
+  50% { transform: translateX(12%) skewX(-6deg); opacity: 0.75; }
+}
+
+@keyframes packLegendaryAura {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes packParticleFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-6px) scale(1.4);
+    opacity: 0.95;
+  }
+}
+
+.pack-collectible__canvas::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-collectible__mesh,
+  .pack-collectible__sheen--active,
+  .pack-collectible--legendary,
+  .pack-shelf-shell--legendary {
+    animation: none;
+  }
+  .pack-particle {
+    display: none;
+  }
 }
 
 /* ── Insane pull overlay ── */

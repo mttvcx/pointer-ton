@@ -22,6 +22,13 @@ export type PackOutcomeSlot = {
   /** Token pulls — SOL notional range (variable, not guaranteed). */
   minValueSol?: number;
   maxValueSol?: number;
+  /** Token pulls — % of pack price (0.08 = 8% of pack). Preferred in templates. */
+  minReturnPctOfPack?: number;
+  maxReturnPctOfPack?: number;
+  /** Modeled cost for non-token outcomes (% of pack price, e.g. 0.012 = 1.2%). */
+  estimatedCostPctOfPack?: number;
+  /** Explicit modeled SOL cost override (post-materialization). */
+  estimatedCostSol?: number;
   /** Multiplier rewards (e.g. 1.25 = +25% for duration). */
   multiplier?: number;
   /** Badge / access label. */
@@ -35,6 +42,7 @@ export type PackConfig = {
   label: string;
   tagline: string;
   packPriceSol: number;
+  /** @deprecated Use MODELED_HOUSE_EDGE_MIN_BPS validation; kept for display. */
   targetHouseMarginBps: number;
   minReturnSol: number;
   maxNormalReturnSol: number;
@@ -43,6 +51,8 @@ export type PackConfig = {
   jackpotChanceBps: number;
   maxPayoutSol: number;
   rewardPoolBudgetSol: number;
+  /** Max modeled mythic jackpot EV as bps of pack price. */
+  jackpotBudgetBps: number;
   enabled: boolean;
   /** Weighted outcome table — probabilities must sum to 10_000 bps. */
   outcomes: PackOutcomeSlot[];
@@ -84,9 +94,20 @@ export type PackOpenResult = {
   highlightRarity: RewardRarity;
   /** Legendary pack mythic token hit — triggers helicopter sequence. */
   isJackpotPull: boolean;
+  /** SOL/USD at open time. */
+  solUsd?: number;
+  approximateUsd?: number;
+  solUsdSource?: 'live' | 'fallback';
+  modeledHouseEdgeBps?: number;
+  fullOpenEvSol?: number;
 };
 
 export type PackEconomicsReport = {
+  /** EV of one card roll. */
+  perCardEvSol: number;
+  /** Modeled EV for all cards in one open. */
+  fullOpenEvSol: number;
+  /** @deprecated Alias for fullOpenEvSol. */
   expectedValueSol: number;
   houseEdgeSol: number;
   houseEdgeBps: number;
@@ -119,4 +140,8 @@ export type PackPublicConfig = Pick<
   odds: PackOddsRow[];
   rewardKinds: RewardKind[];
   economics: PackEconomicsReport;
+  /** Muted approximate USD (display/debug only). */
+  approximateUsd?: number;
+  solUsd?: number;
+  solUsdSource?: 'live' | 'fallback';
 };

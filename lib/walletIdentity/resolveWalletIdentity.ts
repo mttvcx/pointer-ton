@@ -4,6 +4,7 @@ import {
   type WalletIdentityView,
   type RecognizedWalletRecord,
 } from '@/lib/walletIdentity/types';
+import { recognizedWalletFromRegistry } from '@/lib/identity/bridgeWalletIntel';
 import { getRecognizedWallet } from '@/lib/walletIdentity/mockRecognizedWallets';
 import { shortenAddress } from '@/lib/utils/addresses';
 import type { ResolvedWalletDisplay } from '@/lib/hooks/useWalletLabels';
@@ -49,7 +50,9 @@ export function resolveWalletIdentityCore(params: {
 }): WalletIdentityView {
   const { address, chain, labelDisplay, isTracked, extras = [], creatorWallet, allowDemoDirectory = false } =
     params;
-  const recognized = getRecognizedWallet(address, { demo: allowDemoDirectory });
+  const recognized =
+    recognizedWalletFromRegistry(chain, address) ??
+    getRecognizedWallet(address, { demo: allowDemoDirectory });
   const renamed = Boolean(labelDisplay?.labeled);
   const userLabelText = labelDisplay?.labeled ? labelDisplay.label.trim() || null : null;
 

@@ -8,6 +8,7 @@ import { FEATURE_UPDATE_SLIDES } from '@/lib/featureUpdates/releases';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
+import { modalBtnPrimaryClass } from '@/lib/ui/modalChrome';
 import { cn } from '@/lib/utils/cn';
 
 interface FeatureUpdatesModalProps {
@@ -152,7 +153,7 @@ export function FeatureUpdatesModal({ open, onClose }: FeatureUpdatesModalProps)
           <button
             type="button"
             onClick={goNext}
-            className="btn-press focus-ring shrink-0 rounded-full bg-accent-primary px-5 py-2 text-[13px] font-semibold text-fg-inverse transition hover:brightness-110"
+            className={cn(modalBtnPrimaryClass, 'shrink-0')}
           >
             {isLast ? 'Done' : 'Next'}
           </button>

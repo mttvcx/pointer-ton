@@ -36,6 +36,10 @@ export type ProtocolBrandId =
   | 'flap'
   | 'pancakeswap'
   | 'uniswap'
+  | 'uniswap-v2'
+  | 'uniswap-v3'
+  | 'uniswap-v4'
+  | 'eth'
   | 'clanker'
   | 'bankr'
   | 'flaunch'
@@ -233,6 +237,30 @@ const BRANDS: Record<ProtocolBrandId, ProtocolBrand> = {
     logoFile: 'uniswap.png',
     tooltip: 'Uniswap V4',
   },
+  'uniswap-v2': {
+    id: 'uniswap-v2',
+    label: 'Uniswap V2',
+    color: '#ff4d6d',
+    logoFile: 'uniswap.png',
+  },
+  'uniswap-v3': {
+    id: 'uniswap-v3',
+    label: 'Uniswap V3',
+    color: '#ff49c8',
+    logoFile: 'uniswap.png',
+  },
+  'uniswap-v4': {
+    id: 'uniswap-v4',
+    label: 'Uniswap V4',
+    color: '#498cff',
+    logoFile: 'uniswap.png',
+  },
+  eth: {
+    id: 'eth',
+    label: 'Ethereum',
+    color: '#627eea',
+    logoFile: 'eth.png',
+  },
   clanker: {
     id: 'clanker',
     label: 'Clanker',
@@ -328,9 +356,10 @@ export function protocolBrand(id: string): ProtocolBrand | null {
   if (id === 'pancake' || id === 'pancake_swap' || id === 'pancakeswap-v3') {
     return BRANDS.pancakeswap;
   }
-  if (id === 'uniswap-v4' || id === 'uniswap_v4') {
-    return BRANDS.uniswap;
-  }
+  if (id === 'uniswap-v2' || id === 'uniswap_v2') return BRANDS['uniswap-v2'];
+  if (id === 'uniswap-v3' || id === 'uniswap_v3') return BRANDS['uniswap-v3'];
+  if (id === 'uniswap-v4' || id === 'uniswap_v4') return BRANDS['uniswap-v4'];
+  if (id === 'ethereum') return BRANDS.eth;
   if (id === 'zora_content' || id === 'zora-content') return BRANDS['zora-content'];
   if (id === 'zora_creator' || id === 'zora-creator') return BRANDS['zora-creator'];
   if (id === 'virtuals-uni' || id === 'virtuals_uni') return BRANDS.virtuals;
@@ -403,6 +432,17 @@ export function launchPadToProtocolId(pad: string | null | undefined, chain: App
     if (p === 'orca') return 'orca';
     if (p.includes('bonkers')) return 'bonkers';
     if (p.includes('raydium') || p.includes('clmm')) return 'raydium';
+    return null;
+  }
+  if (chain === 'eth') {
+    const ethIds = ['uniswap-v2', 'uniswap-v3', 'uniswap-v4', 'clanker', 'virtuals', 'eth'] as const;
+    if ((ethIds as readonly string[]).includes(p)) return p;
+    if (p.includes('uniswap') && p.includes('v4')) return 'uniswap-v4';
+    if (p.includes('uniswap') && p.includes('v3')) return 'uniswap-v3';
+    if (p.includes('uniswap')) return 'uniswap-v2';
+    if (p.includes('clanker')) return 'clanker';
+    if (p.includes('virtual')) return 'virtuals';
+    if (p === 'ethereum' || p === 'eth') return 'eth';
     return null;
   }
   if (chain === 'bnb') {
