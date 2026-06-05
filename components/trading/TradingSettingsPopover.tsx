@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
+import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { cn } from '@/lib/utils/cn';
 import { Z_BOTTOM_BAR_POPOVER } from '@/lib/ui/zLayers';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
@@ -22,7 +23,7 @@ const PANEL_GAP = 8;
  */
 export function TradingSettingsPopover({ className, children }: TradingSettingsPopoverProps) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const { mounted, visible } = useOverlayPresence(open, SETTINGS_POPOVER_ANIM_CLOSE_MS);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -39,30 +40,16 @@ export function TradingSettingsPopover({ className, children }: TradingSettingsP
   const [rpc, setRpc] = useState('');
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (wrapRef.current?.contains(t)) return;
-      if (panelRef.current?.contains(t)) return;
-      setOpen(false);
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('mousedown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!mounted || !visible) return;
     const update = () => {
       const r = triggerRef.current?.getBoundingClientRect();
       if (!r) return;
@@ -78,7 +65,7 @@ export function TradingSettingsPopover({ className, children }: TradingSettingsP
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [open]);
+  }, [mounted, visible]);
 
   return (
     <div ref={wrapRef} className="relative inline-flex">
@@ -93,23 +80,21 @@ export function TradingSettingsPopover({ className, children }: TradingSettingsP
         {children}
       </button>
 
-      {mounted && open && coords
-        ? createPortal(
-            <div
-              ref={panelRef}
-              role="dialog"
-              aria-label="Trading Settings"
-              style={{
-                position: 'fixed',
-                left: `${coords.left}px`,
-                bottom: `${coords.bottom}px`,
-                width: `${PANEL_W}px`,
-              }}
-              className={cn(
-                Z_BOTTOM_BAR_POPOVER,
-                'rounded-lg border border-border-subtle bg-bg-raised p-4 shadow-2xl',
-              )}
-            >
+      {coords ? (
+        <SettingsPopoverPortal
+          mounted={mounted}
+          visible={visible}
+          onClose={() => setOpen(false)}
+          popoverRef={panelRef}
+          zIndexClass={Z_BOTTOM_BAR_POPOVER}
+          aria-label="Trading Settings"
+          panelClassName="rounded-lg border border-border-subtle bg-bg-raised p-4 shadow-2xl"
+          style={{
+            left: coords.left,
+            bottom: coords.bottom,
+            width: PANEL_W,
+          }}
+        >
               <header className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-fg-primary">Trading Settings</h3>
                 <button
@@ -231,10 +216,8 @@ export function TradingSettingsPopover({ className, children }: TradingSettingsP
               >
                 Continue
               </button>
-            </div>,
-            document.body,
-          )
-        : null}
+        </SettingsPopoverPortal>
+      ) : null}
     </div>
   );
 }

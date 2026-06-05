@@ -72,22 +72,12 @@ function StripTip({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * Row icon hit targets — Axiom-style tight cluster.
- *
- * Removed the inner `px-1 py-0.5` padding so adjacent glyphs sit closer
- * together (was visually drifting apart at ~16-20px gaps). Hover/active fills
- * still read clearly because the round bg covers the icon's natural box.
+ * Row icon hit targets — Axiom-style tight cluster (no per-icon hover fill).
  */
 const iconHit = cn(
-  // Axiom-style cluster — slightly more breathing room than `gap-px` so the icons
-  // don't smear into a single grey blob, but still tight enough that the strip
-  // stays single-line under the name.
   'group inline-flex shrink-0 items-center justify-center gap-1',
   'border-0 bg-transparent px-0.5 py-px shadow-none outline-none ring-0',
-  // Bumped from `/85` → `/95` so glyphs read closer to pure white (Axiom-clear) but
-  // still slightly cooler than the stat numbers next to them.
-  'rounded-md text-fg-primary/95 hover:bg-white/[0.1] hover:text-fg-primary active:bg-white/[0.12]',
-  'transition-colors duration-100 ease-out',
+  'rounded-md text-fg-primary/95',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40 focus-visible:ring-offset-0',
 );
 
@@ -453,7 +443,14 @@ function PulseGlyphStatHoverCard({
         </>
       }
     >
-      <Link href={href} aria-label={ariaLabel} className={cn(iconHit, 'pl-0 pr-0')}>
+      <Link
+        href={href}
+        aria-label={ariaLabel}
+        data-row-click-skip="true"
+        className={cn(iconHit, 'pl-0 pr-0')}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
         <PulseGlyphMask name={glyph} size={glyphPx} />
         <span className={statNumberClsFor(glyphPx)}>{stat}</span>
       </Link>
@@ -780,9 +777,9 @@ export function PulseRowSocialStrip({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Creator profile on X (@${twitterDisplayHandle})`}
-              className={cn(hit, '!text-[#7dd3fc] hover:!text-[#9be2ff]')}
+              className={hit}
             >
-              <PulseGlyphMask name="profile" size={sx} />
+              <PulseHeaderSocialIcon kind="profile" size={sx} />
             </a>
           </TwitterProfileHoverTrigger>
         ) : null}
@@ -957,66 +954,48 @@ export function PulseRowSocialStrip({
         ) : null}
 
         {showProTradersStat ? (
-          <Tooltip delayDuration={150}>
-            <TooltipTrigger asChild>
-              <Link
-                href={tokenPath}
-                aria-label="Pro traders — open token page"
-                className={cn(hit, 'pl-0 pr-0')}
-              >
-                <PulseGlyphMask name="trophy" size={sx} />
-                <span className={statNumberClsFor(sx)}>{proTradersLabel}</span>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              sideOffset={6}
-              className={cn(
-                'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
-                'text-[11.5px] font-normal text-white/80 shadow-lg shadow-black/50',
-              )}
-            >
-              Pro Traders
-            </TooltipContent>
-          </Tooltip>
+          <PulseGlyphStatHoverCard
+            href={tokenPath}
+            ariaLabel="Pro traders — hover for details, click for token page"
+            hoverTitle="Pro Traders"
+            hoverAccent={proTradersLabel}
+            hoverMuted="Wallets matching pro-trader heuristics in the holder set."
+            glyph="trophy"
+            stat={proTradersLabel}
+            glyphPx={sx}
+          />
         ) : null}
 
         {showDevCrownStat ? (
-          <Tooltip delayDuration={150}>
-            <TooltipTrigger asChild>
-              <a
-                href={solscanDevWalletUrl ?? '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Dev migrations / created — open on Solscan"
-                data-row-click-skip="true"
-                className={cn(hit, 'relative z-[2] pl-0 pr-0')}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!solscanDevWalletUrl) e.preventDefault();
-                }}
-              >
-                <PulseGlyphMask name="crown" size={sx} />
-                <span className={statNumberClsFor(sx)}>{crownSlashDisplay}</span>
-              </a>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              sideOffset={6}
-              className={cn(
-                'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
-                'shadow-lg shadow-black/50',
-              )}
+          <PulseCompactHoverAbove
+            content={
+              <>
+                <p className="text-[12px] font-medium leading-tight text-white/90">
+                  Dev Migrations/Created
+                </p>
+                <p className="mt-0.5 text-[10.5px] leading-tight text-white/40">
+                  click to open in Solscan
+                </p>
+              </>
+            }
+          >
+            <a
+              href={solscanDevWalletUrl ?? '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Dev migrations / created — open on Solscan"
+              data-row-click-skip="true"
+              className={cn(hit, 'relative z-[2] pl-0 pr-0')}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!solscanDevWalletUrl) e.preventDefault();
+              }}
             >
-              <p className="text-[12px] font-medium leading-tight text-white/90">
-                Dev Migrations/Created
-              </p>
-              <p className="mt-0.5 text-[10.5px] leading-tight text-white/40">
-                click to open in Solscan
-              </p>
-            </TooltipContent>
-          </Tooltip>
+              <PulseGlyphMask name="crown" size={sx} />
+              <span className={statNumberClsFor(sx)}>{crownSlashDisplay}</span>
+            </a>
+          </PulseCompactHoverAbove>
         ) : null}
 
         {showDevWallet && devWalletAddr && !pulseBoard ? (
@@ -1067,8 +1046,8 @@ export function PulseRowSocialStrip({
             </a>
           </TwitterProfileHoverTrigger>
           <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-fg-primary/75">
-            <span className="inline-flex shrink-0 text-[#5ebbff]">
-              <PulseGlyphMask name="profile" size={followerGlyph} />
+            <span className="inline-flex shrink-0">
+              <PulseHeaderSocialIcon kind="profile" size={followerGlyph} />
             </span>
             <span className="shrink-0 tabular-nums text-[#5ebbff]">
               {formatNumber(twFollowers, { compact: true })}
@@ -1089,8 +1068,8 @@ export function PulseRowSocialStrip({
               pulseBoard ? 'mt-0' : 'mt-0.5',
             )}
           >
-            <span className="inline-flex shrink-0 text-[#70C0E8] opacity-95 hover:opacity-100">
-              <PulseGlyphMask name="profile" size={16} />
+            <span className="inline-flex shrink-0">
+              <PulseHeaderSocialIcon kind="profile" size={16} />
             </span>
             @{twitterDisplayHandle}
           </a>

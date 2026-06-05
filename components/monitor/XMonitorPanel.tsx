@@ -129,6 +129,11 @@ function GripDots() {
   );
 }
 
+function headerDragAllowed(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return true;
+  return !target.closest('button, a, input, textarea, [data-x-monitor-no-drag]');
+}
+
 function handleInitial(handle: string): string {
   const h = handle.replace(/^@/, '').trim();
   return (h[0] ?? '?').toUpperCase();
@@ -251,62 +256,54 @@ export function XMonitorPanel({
       data-dock={dock}
     >
       <header className="sticky top-0 z-[2] shrink-0 border-b border-white/[0.1] bg-bg-hover shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05)]">
-        <div className="flex items-stretch gap-0">
-          {draggable ? (
-            <div
-              role="presentation"
-              title="Drag to move · snap to screen edge"
-              aria-label="Drag X monitor"
-              className={cn(
-                'flex w-8 shrink-0 cursor-grab items-center justify-center border-r border-white/[0.06] active:cursor-grabbing',
-                'hover:bg-white/[0.03]',
-              )}
-              onPointerDown={(e) => {
-                if (e.button !== 0) return;
-                onDragHandlePointerDown?.(e);
+        <div
+          className={cn(
+            'flex min-w-0 items-center justify-between gap-2 px-3 py-2',
+            draggable && 'cursor-grab active:cursor-grabbing',
+          )}
+          title={draggable ? 'Drag to move · snap to screen edge' : undefined}
+          aria-label={draggable ? 'Drag X monitor' : undefined}
+          onPointerDown={(e) => {
+            if (!draggable || e.button !== 0 || !headerDragAllowed(e.target)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            onDragHandlePointerDown?.(e);
+          }}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2 select-none">
+            {draggable ? <GripDots /> : null}
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary" aria-hidden />
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
+              X monitor
+            </h2>
+            {mock && tab === 'feed' ? (
+              <span className="rounded-sm bg-white/[0.06] px-1.5 py-px text-[9px] font-semibold uppercase text-fg-muted">
+                Preview
+              </span>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5" data-x-monitor-no-drag>
+            {tab === 'feed' && packagesLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" aria-hidden />
+            ) : null}
+            {tab === 'feed' ? (
+              <span className="text-[10px] tabular-nums text-fg-muted">{rows.length}</span>
+            ) : null}
+            <button
+              type="button"
+              title="Hide X monitor"
+              aria-label="Hide X monitor"
+              onClick={() => {
+                if (floating && onClose) {
+                  onClose();
+                  return;
+                }
+                closeXMonitor();
               }}
-              onPointerMove={(e) => onDragHandlePointerMove?.(e)}
-              onPointerUp={(e) => onDragHandlePointerUp?.(e)}
-              onPointerCancel={(e) => onDragHandlePointerUp?.(e)}
+              className="btn-press flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
             >
-              <GripDots />
-            </div>
-          ) : null}
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary" aria-hidden />
-              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
-                X monitor
-              </h2>
-              {mock && tab === 'feed' ? (
-                <span className="rounded-sm bg-white/[0.06] px-1.5 py-px text-[9px] font-semibold uppercase text-fg-muted">
-                  Preview
-                </span>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-1.5">
-              {tab === 'feed' && packagesLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" aria-hidden />
-              ) : null}
-              {tab === 'feed' ? (
-                <span className="text-[10px] tabular-nums text-fg-muted">{rows.length}</span>
-              ) : null}
-              <button
-                type="button"
-                title="Hide X monitor"
-                aria-label="Hide X monitor"
-                onClick={() => {
-                  if (floating && onClose) {
-                    onClose();
-                    return;
-                  }
-                  closeXMonitor();
-                }}
-                className="btn-press flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              </button>
-            </div>
+              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            </button>
           </div>
         </div>
         <nav className="flex border-t border-white/[0.06]">

@@ -34,6 +34,7 @@ import { WalletBalancePopover } from '@/components/wallet/WalletBalancePopover';
 import type { ExchangeTab } from '@/components/wallet/ExchangeModal';
 import { USDC_MINT_MAINNET } from '@/components/wallet/walletFundingConstants';
 import { useUIStore } from '@/store/ui';
+import { useAuthSyncStore } from '@/store/authSync';
 import { useTradingStore } from '@/store/trading';
 import { shortenAddress } from '@/lib/utils/addresses';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
@@ -46,6 +47,7 @@ import { formatNumber, parseLamportsStringToSol, rawToUi } from '@/lib/utils/for
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshListener';
+import { fetchPortfolioJson, portfolioQueryKey } from '@/lib/portfolio/portfolioQuery';
 import { toggleSquadsOnPulse, closeSquadsRail } from '@/lib/squads/openSquadsOnPulse';
 import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
@@ -78,6 +80,7 @@ export function Topbar() {
   const squadsRailSide = usePulseSquadsRailStore((s) => s.side);
   const squadsFloatOpen = useTokenDockPeekStore((s) => s.squadsPeekOpen);
   const squadsOpen = squadsRailSide !== 'hidden' || squadsFloatOpen;
+  const backendReady = useAuthSyncStore((s) => s.backendReady);
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -109,16 +112,9 @@ export function Topbar() {
   }, [avatarMenuOpen]);
 
   const portfolioQ = useQuery({
-    queryKey: ['portfolio', walletAddress],
-    queryFn: async () => {
-      const token = await getAccessToken();
-      if (!token) throw new Error('no_token');
-      const q = walletAddress ? `?wallet=${encodeURIComponent(walletAddress)}` : '';
-      const res = await fetch(`/api/portfolio${q}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('portfolio');
-      return res.json() as Promise<{
+    queryKey: portfolioQueryKey(walletAddress),
+    queryFn: () =>
+      fetchPortfolioJson<{
         solLamports: string | null;
         solUsd: number | null;
         holdings: Array<{
@@ -127,10 +123,10 @@ export function Topbar() {
           decimals: number;
           symbol: string | null;
         }>;
-      }>;
-    },
+      }>(getAccessToken, walletAddress),
     enabled: Boolean(
       authenticated &&
+        backendReady &&
         walletsReady &&
         walletAddress &&
         activeChain === 'sol' &&

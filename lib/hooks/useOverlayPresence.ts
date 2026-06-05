@@ -33,3 +33,7 @@ export function useOverlayPresence(open: boolean, exitMs: number = DEFAULT_EXIT_
 
 export const OVERLAY_ANIM_CLOSE_MS = DEFAULT_EXIT_MS;
 export const POPOVER_ANIM_CLOSE_MS = 90;
+/** Display / settings anchored popovers — matches `settingsPopoverPanelClasses` exit. */
+export const SETTINGS_POPOVER_ANIM_CLOSE_MS = 120;
+/** Wallet identity compact hover — matches `walletHoverPanelClasses` exit. */
+export const WALLET_HOVER_ANIM_CLOSE_MS = 130;

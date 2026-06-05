@@ -74,13 +74,21 @@ export async function GET(req: NextRequest) {
     imageUrl: string | null;
   }> = [];
 
+  let holdingsMeta = new Map<
+    string,
+    { symbol: string | null; decimals: number; image_url: string | null }
+  >();
+
   if (wallet) {
     try {
-      solLamports = (await getSolBalanceLamports(wallet)).toString();
-      const spl = await listNonZeroSplBalances(wallet);
-      const meta = await getTokensByMints(spl.map((s) => s.mint));
+      const [lamports, spl] = await Promise.all([
+        getSolBalanceLamports(wallet),
+        listNonZeroSplBalances(wallet),
+      ]);
+      solLamports = lamports.toString();
+      holdingsMeta = await getTokensByMints(spl.map((s) => s.mint));
       holdings = spl.map((s) => {
-        const t = meta.get(s.mint);
+        const t = holdingsMeta.get(s.mint);
         return {
           mint: s.mint,
           rawAmount: s.rawAmount,
@@ -92,6 +100,7 @@ export async function GET(req: NextRequest) {
     } catch {
       solLamports = null;
       holdings = [];
+      holdingsMeta = new Map();
     }
   }
 
@@ -104,7 +113,9 @@ export async function GET(req: NextRequest) {
       fifoTradeLimit: fifoLimit,
     });
 
-    const sellMints = [...new Set(snapshot.closedSells.map((c) => c.mint))];
+    const sellMints = [...new Set(snapshot.closedSells.map((c) => c.mint))].filter(
+      (m) => !holdingsMeta.has(m),
+    );
     const sellMeta =
       sellMints.length > 0 ? await getTokensByMints(sellMints) : new Map();
 
@@ -127,7 +138,7 @@ export async function GET(req: NextRequest) {
         avgEntrySolPerUiToken: p.avgEntrySolPerUiToken,
       })),
       closedSells: snapshot.closedSells.map((c) => {
-        const t = sellMeta.get(c.mint);
+        const t = holdingsMeta.get(c.mint) ?? sellMeta.get(c.mint);
         return {
           ...c,
           symbol: t?.symbol ?? null,

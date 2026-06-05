@@ -1,8 +1,8 @@
-/** Axiom-style wallet chrome — sharp rectangular trigger + dropdown (not pill-rounded). */
+/** Topbar wallet chip — rounded pill; sharp chrome is for the dropdown panel only. */
+export const WALLET_TOPBAR_TRIGGER =
+  'focus-ring flex h-8 shrink-0 items-center gap-2 rounded-lg border border-[#2e2e32] bg-[#2a2a2d] px-2.5 text-white hover:bg-[#333338]';
 
-export const AXIOM_WALLET_TRIGGER =
-  'focus-ring flex h-8 shrink-0 items-center gap-2 rounded-sm border border-[#2e2e32] bg-[#2a2a2d] px-2.5 text-white transition-colors hover:bg-[#333338]';
-
+/** Axiom-style wallet dropdown — sharp rectangular popup. */
 export const AXIOM_WALLET_PANEL =
   'flex w-[280px] flex-col overflow-hidden rounded-sm border border-[#2e2e32] bg-[#141414] p-0 shadow-[0_8px_28px_rgba(0,0,0,0.72)]';
 

@@ -103,13 +103,24 @@ function Trigger({ asChild, children }: TriggerProps) {
 type ContentProps = {
   align?: 'start' | 'center' | 'end';
   sideOffset?: number;
+  /** Skip fade in/out — avoids double-animation feel on fast toggle (e.g. wallet chip). */
+  disableAnimation?: boolean;
   className?: string;
   children: ReactNode;
 };
 
-function Content({ align = 'end', sideOffset = 8, className, children }: ContentProps) {
+function Content({
+  align = 'end',
+  sideOffset = 8,
+  disableAnimation = false,
+  className,
+  children,
+}: ContentProps) {
   const { open, setOpen, triggerRef } = usePopoverContext();
-  const { mounted, visible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
+  const { mounted, visible } = useOverlayPresence(
+    open,
+    disableAnimation ? 0 : POPOVER_ANIM_CLOSE_MS,
+  );
   const contentRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, right: 0 });
 
@@ -165,7 +176,12 @@ function Content({ align = 'end', sideOffset = 8, className, children }: Content
     <div
       ref={contentRef}
       role="dialog"
-      className={cn('fixed z-[200]', popoverPanelClasses(visible), className)}
+      className={cn(
+        'fixed z-[200]',
+        !disableAnimation && popoverPanelClasses(visible),
+        disableAnimation && 'opacity-100',
+        className,
+      )}
       style={{ top: pos.top, right: pos.right }}
     >
       {children}

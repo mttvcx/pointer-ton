@@ -21,12 +21,12 @@ import {
   pulseDisplayProtocolLabel,
 } from '@/components/pulse/pulseDisplayProtocols';
 import { PrefToggle } from '@/components/preferences/controls';
-import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
+import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
+import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import type { BuyButtonStyle } from '@/lib/tokens/columnPresetModel';
 import { BUY_BUTTON_STYLES } from '@/lib/tokens/columnPresetModel';
-import type { PulseDisplayTab, MetricBand } from '@/lib/preferences/pulseDisplay';
-import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
-import { PortalToBody } from '@/lib/ui/portalToBody';
+import { MetricBandEditor } from '@/components/pulse/MetricBandEditor';
+import { DEFAULT_METRIC_BAND_COLORS, type PulseDisplayTab } from '@/lib/preferences/pulseDisplay';
 import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
 import { usePulseHiddenMintsStore } from '@/store/pulseHiddenMints';
 import { cn } from '@/lib/utils/cn';
@@ -112,63 +112,10 @@ function LayoutToggleRow({
   );
 }
 
-function MetricBandEditor({
-  title,
-  band,
-  onChange,
-  units,
-}: {
-  title: string;
-  band: MetricBand;
-  onChange: (b: MetricBand) => void;
-  units?: string;
-}) {
-  const swatches = ['bg-blue-500', 'bg-amber-400', 'bg-emerald-500'] as const;
-  return (
-    <div className="space-y-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">{title}</p>
-      <div className="grid grid-cols-3 gap-1.5">
-        {(['low', 'mid'] as const).map((key, i) => (
-          <label key={key} className="relative block">
-            <input
-              type="number"
-              min={0}
-              value={band[key]}
-              onChange={(e) => {
-                const n = parseFloat(e.target.value);
-                if (Number.isFinite(n) && n >= 0) onChange({ ...band, [key]: n });
-              }}
-              className="w-full rounded-md border border-border-subtle bg-bg-sunken py-1.5 pl-2 pr-6 font-mono text-[11px] text-fg-primary"
-            />
-            <span
-              className={cn('pointer-events-none absolute bottom-1.5 right-1.5 h-2 w-2 rounded-sm', swatches[i])}
-              aria-hidden
-            />
-          </label>
-        ))}
-        <button
-          type="button"
-          onClick={() =>
-            onChange({
-              ...band,
-              highMode: band.highMode === 'above' ? 'below' : 'above',
-            })
-          }
-          className="flex items-center justify-center gap-1 rounded-md border border-border-subtle bg-bg-sunken py-1.5 text-[10px] font-medium text-fg-secondary"
-        >
-          <span className={cn('h-2 w-2 rounded-sm', swatches[2])} aria-hidden />
-          {band.highMode === 'above' ? 'Above' : 'Below'}
-          {units ? <span className="text-fg-muted">{units}</span> : null}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /** Axiom-style Pulse Display panel (tabs: Layout / Metrics / Row / Extras). */
 export function PulseDisplayPopover() {
   const [open, setOpen] = useState(false);
-  const { mounted, visible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
+  const { mounted, visible } = useOverlayPresence(open, SETTINGS_POPOVER_ANIM_CLOSE_MS);
   const prefs = usePulseDisplayPrefsStore();
   const setPrefs = usePulseDisplayPrefsStore((s) => s.setPrefs);
   const resetPrefs = usePulseDisplayPrefsStore((s) => s.resetPrefs);
@@ -202,18 +149,6 @@ export function PulseDisplayPopover() {
 
   useEffect(() => {
     if (!open) return;
-    function onMouse(e: MouseEvent) {
-      const target = e.target as Node;
-      if (popoverRef.current?.contains(target)) return;
-      if (buttonRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    window.addEventListener('mousedown', onMouse);
-    return () => window.removeEventListener('mousedown', onMouse);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false);
     }
@@ -239,19 +174,18 @@ export function PulseDisplayPopover() {
         <ChevronDown className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2.25} aria-hidden />
       </button>
 
-      {mounted ? (
-        <PortalToBody>
-          <div
-            ref={popoverRef}
-            role="dialog"
-            aria-label="Pulse display"
-            className={cn(
-              'fixed z-[200] flex w-[min(26rem,calc(100vw-1rem))] max-h-[min(85vh,40rem)] flex-col overflow-hidden rounded-xl',
-              PANEL_SURFACE,
-              popoverPanelClasses(visible),
-            )}
-            style={{ top: coords.top, right: coords.right }}
-          >
+      <SettingsPopoverPortal
+        mounted={mounted}
+        visible={visible}
+        onClose={() => setOpen(false)}
+        popoverRef={popoverRef}
+        aria-label="Pulse display"
+        panelClassName={cn(
+          'flex w-[min(26rem,calc(100vw-1rem))] max-h-[min(85vh,40rem)] flex-col overflow-hidden rounded-xl',
+          PANEL_SURFACE,
+        )}
+        style={{ top: coords.top, right: coords.right }}
+      >
             <div className={cn('shrink-0 space-y-2 border-b p-3', PANEL_DIVIDER)}>
               <div className="flex gap-1.5">
                 <TopChip
@@ -426,64 +360,113 @@ export function PulseDisplayPopover() {
                   <MetricBandEditor
                     title="Market cap"
                     band={prefs.metricBands.marketCap}
+                    defaultColors={DEFAULT_METRIC_BAND_COLORS.marketCap}
+                    valueMode="usd"
                     onChange={(marketCap) => setPrefs({ metricBands: { ...prefs.metricBands, marketCap } })}
                   />
                   <MetricBandEditor
                     title="Volume"
                     band={prefs.metricBands.volume}
+                    defaultColors={DEFAULT_METRIC_BAND_COLORS.volume}
+                    valueMode="usd"
                     onChange={(volume) => setPrefs({ metricBands: { ...prefs.metricBands, volume } })}
                   />
                   <MetricBandEditor
                     title="Holders"
                     band={prefs.metricBands.holders}
+                    defaultColors={DEFAULT_METRIC_BAND_COLORS.holders}
+                    valueMode="plain"
                     onChange={(holders) => setPrefs({ metricBands: { ...prefs.metricBands, holders } })}
                   />
                   <MetricBandEditor
                     title="Tweet age"
                     band={prefs.metricBands.tweetAgeMinutes}
-                    units="m"
+                    defaultColors={DEFAULT_METRIC_BAND_COLORS.tweetAgeMinutes}
+                    valueMode="minutes"
+                    unitSuffix="m"
                     onChange={(tweetAgeMinutes) =>
                       setPrefs({ metricBands: { ...prefs.metricBands, tweetAgeMinutes } })
                     }
                   />
                   <p className="text-[10px] text-fg-muted">
-                    Threshold colors apply to metric highlights. {/* TODO Phase 2: row metric coloring */}
+                    Threshold colors apply to V / MC highlights when Color row is on.
                   </p>
                 </div>
               ) : null}
 
               {prefs.activeTab === 'row' ? (
                 <div className="space-y-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                    Normal row
+                  </p>
+                  <p className="text-[11px] leading-snug text-fg-muted">
+                    Default card surface when protocol tinting is off or the launchpad is disabled below.
+                  </p>
                   <PrefToggle
                     label="Color row"
-                    description="Tint rows by launchpad protocol."
+                    description="Tint rows by launchpad protocol instead of the normal row."
                     value={prefs.colorRowByProtocol}
                     onChange={(v) => setPrefs({ colorRowByProtocol: v })}
                   />
-                  <div className="flex flex-wrap gap-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                    Protocol row colors
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
                     {PULSE_DISPLAY_PROTOCOL_IDS.map((id) => {
                       const on = prefs.protocolRowColors[id] ?? false;
-                      const color = pulseDisplayProtocolColor(id);
+                      const brandColor = pulseDisplayProtocolColor(id);
+                      const swatchColor = prefs.protocolColorHex[id] ?? brandColor;
                       return (
-                        <button
+                        <div
                           key={id}
-                          type="button"
-                          onClick={() =>
-                            setPrefs({
-                              protocolRowColors: {
-                                ...prefs.protocolRowColors,
-                                [id]: !on,
-                              },
-                            })
-                          }
                           className={cn(
-                            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition',
+                            'inline-flex items-center gap-1 rounded-full border pl-1.5 pr-2 py-0.5 text-[10px] font-semibold transition',
                             on ? 'border-border-default bg-bg-hover/40' : cn(CHIP_IDLE, 'opacity-50'),
                           )}
-                          style={on ? { borderColor: `${color}66`, color } : undefined}
+                          style={on ? { borderColor: `${swatchColor}55`, color: swatchColor } : undefined}
                         >
-                          {pulseDisplayProtocolLabel(id)}
-                        </button>
+                          <label
+                            className={cn(
+                              'relative block h-3.5 w-3.5 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-white/10',
+                              !on && 'pointer-events-none opacity-40',
+                            )}
+                            title={`${pulseDisplayProtocolLabel(id)} color`}
+                          >
+                            <span
+                              className="absolute inset-0"
+                              style={{ backgroundColor: swatchColor }}
+                              aria-hidden
+                            />
+                            <input
+                              type="color"
+                              value={swatchColor}
+                              disabled={!on}
+                              onChange={(e) =>
+                                setPrefs({
+                                  protocolColorHex: {
+                                    ...prefs.protocolColorHex,
+                                    [id]: e.target.value,
+                                  },
+                                })
+                              }
+                              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPrefs({
+                                protocolRowColors: {
+                                  ...prefs.protocolRowColors,
+                                  [id]: !on,
+                                },
+                              })
+                            }
+                            className="min-w-0 truncate"
+                          >
+                            {pulseDisplayProtocolLabel(id)}
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -605,9 +588,7 @@ export function PulseDisplayPopover() {
                 Reset
               </button>
             </div>
-          </div>
-        </PortalToBody>
-      ) : null}
+      </SettingsPopoverPortal>
     </div>
   );
 }

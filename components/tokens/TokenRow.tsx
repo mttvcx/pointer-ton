@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
 } from 'react';
@@ -32,12 +33,14 @@ import {
   resolveLaunchpadAvatarChrome,
   resolveLaunchpadAvatarChromeWithFallback,
 } from '@/lib/tokens/launchpadAvatarChrome';
+import { launchPadToProtocolId } from '@/lib/tokens/protocolBrand';
 import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
+import { metricBandColorForValue } from '@/lib/pulse/metricBandColor';
+import { resolveProtocolRowTint } from '@/lib/pulse/protocolRowTint';
 import { resolvePulseTranslationGloss } from '@/lib/translate/pulseTranslationGloss';
 import { useAutoTranslateStore } from '@/store/autoTranslate';
 import { PulseMintCopyCaption } from '@/components/tokens/PulseMintCopyCaption';
 import { cn } from '@/lib/utils/cn';
-import { CopyButton } from '@/components/shared/CopyButton';
 import { useUIStore } from '@/store/ui';
 import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
 import type { PulseColumnId } from '@/lib/utils/constants';
@@ -155,6 +158,10 @@ function TokenRowInner({
   const showPumpFrame = display?.showPumpFrame ?? true;
   const showTraitIcons = display?.showTraitIcons ?? true;
   const showRowMc = usePulseDisplayPrefsStore((s) => s.rowFields.marketCap);
+  const colorRowByProtocol = usePulseDisplayPrefsStore((s) => s.colorRowByProtocol);
+  const metricBands = usePulseDisplayPrefsStore((s) => s.metricBands);
+  const protocolRowColors = usePulseDisplayPrefsStore((s) => s.protocolRowColors);
+  const protocolColorHex = usePulseDisplayPrefsStore((s) => s.protocolColorHex);
   const heroMc = mcLayout === 'hero' && showMc && (slotHeight == null || showRowMc);
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
   const bond = useMemo(() => getPulseBondingRingState(bundle), [bundle]);
@@ -320,16 +327,21 @@ function TokenRowInner({
 
   /** Primary title + optional BNB English gloss (metadata-driven, Axiom-style). */
   const nameCluster = (
-    <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
+    <div
+      className={cn(
+        'flex min-w-0 flex-1 flex-nowrap items-center gap-2',
+        slotHeight == null && 'overflow-hidden',
+      )}
+    >
       {slotHeight != null ? (
-        <div className="group/mintTitle flex min-w-0 max-w-full w-max flex-col gap-0.5 overflow-hidden">
+        <div className="group/mintTitle flex min-w-0 flex-1 flex-col gap-0.5">
           <div
             className={cn(
-              'inline-flex w-fit max-w-full items-center gap-0.5 overflow-hidden rounded-sm px-0.5 -mx-0.5',
+              'inline-flex min-w-0 max-w-full items-center rounded-sm px-0.5 -mx-0.5',
               'transition-colors hover:bg-white/[0.05]',
             )}
           >
-            <p className="min-w-0 truncate font-sans leading-[1.12]" title={nameTitle}>
+            <p className="min-w-0 font-sans leading-[1.12] whitespace-nowrap" title={nameTitle}>
               <span className={cn('font-semibold text-fg-primary text-[16px] tracking-tight')}>
                 {ticker}
               </span>
@@ -337,14 +349,6 @@ function TokenRowInner({
                 {name}
               </span>
             </p>
-            <CopyButton
-              value={token.mint}
-              iconOnly
-              label="Copy mint address"
-              toastLabel="Mint address copied"
-              className="shrink-0 opacity-80 transition group-hover/mintTitle:opacity-100"
-              iconClassName="text-fg-muted/90 transition-colors group-hover/mintTitle:text-fg-secondary hover:!text-fg-primary"
-            />
           </div>
           {translationGloss ? (
             <p
@@ -403,7 +407,7 @@ function TokenRowInner({
           ) : null}
         </div>
       )}
-      {showBadge ? (
+      {slotHeight == null && showBadge ? (
         <span className="inline-flex max-w-[min(11rem,42%)] shrink-0 flex-nowrap items-center gap-1 overflow-hidden">
           {launchpadChrome || token.launch_pad === 'pump.fun' ? null : (
             <LaunchpadBadge launchPad={token.launch_pad} />
@@ -414,7 +418,7 @@ function TokenRowInner({
           />
         </span>
       ) : null}
-      {trackedDev ? (
+      {slotHeight == null && trackedDev ? (
         <span
           className="inline-flex max-w-[6.5rem] shrink-0 items-center gap-0.5 truncate rounded border border-accent-primary/35 bg-accent-primary/12 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-accent-primary"
           title={
@@ -479,13 +483,34 @@ function TokenRowInner({
         : 'normal';
   /** Axiom rule: MC value is cyan pre-migration, gold once migrated. */
   const mcTone: 'cyan' | 'gold' = isMigratedVisual ? 'gold' : 'cyan';
+
+  const protocolTint = useMemo(() => {
+    if (trackedDev) return null;
+    return resolveProtocolRowTint(
+      { colorRowByProtocol, protocolRowColors, protocolColorHex },
+      launchPadToProtocolId(token.launch_pad, activeChain),
+    );
+  }, [
+    trackedDev,
+    colorRowByProtocol,
+    protocolRowColors,
+    protocolColorHex,
+    token.launch_pad,
+    activeChain,
+  ]);
+
+  const volMcBandProps = useMemo(() => {
+    if (!colorRowByProtocol) return { mcTone };
+    return {
+      volColor: metricBandColorForValue(vol, metricBands.volume),
+      mcColor: metricBandColorForValue(mcUsd, metricBands.marketCap),
+    };
+  }, [colorRowByProtocol, vol, mcUsd, metricBands, mcTone]);
   /**
-   * Pulse dock always uses Ultra geometry (full-bleed rectangle in the right column).
-   * The user-toggled `buyButtonStyle` chooses the surface treatment:
-   *   - 'ultra' → outline (transparent fill, emerald border)
-   *   - 'small' / 'medium' / 'large' → filled (emerald solid background)
+   * Pulse dock always uses Ultra outline geometry (full-height emerald border).
+   * Filled bottom-bar chrome only applies off the Pulse virtualized board.
    */
-  const filledDockButton = buyButtonStyle !== 'ultra';
+  const filledDockButton = slotHeight == null && buyButtonStyle !== 'ultra';
 
   const heroMcBlock =
     heroMc && (showVol || showMc) && !ultraChrome ? (
@@ -497,7 +522,7 @@ function TokenRowInner({
         size={slotHeight != null ? 'normal' : volMcSize}
         justify="end"
         layout="stack"
-        mcTone={mcTone}
+        {...volMcBandProps}
       />
     ) : null;
 
@@ -528,8 +553,15 @@ function TokenRowInner({
         // !important so the elevation CSS rule (same specificity) can't out-win the tracked-dev tint.
         trackedDev && '!bg-accent-primary/[0.08]',
         pulseFlashHighlight && 'row-active z-[25]',
+        protocolTint && 'pulse-row-protocol-tint',
       )}
-      style={slotHeight != null ? { height: slotHeight } : undefined}
+      data-protocol-tint={protocolTint ? '' : undefined}
+      style={{
+        ...(slotHeight != null ? { height: slotHeight } : {}),
+        ...(protocolTint
+          ? ({ '--pulse-protocol-tint': protocolTint.color } as CSSProperties)
+          : {}),
+      }}
     >
       <span
         aria-hidden
@@ -556,11 +588,6 @@ function TokenRowInner({
             'hover:bg-white/[0.04]',
             'focus-visible:bg-bg-hover/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/45',
             slotHeight != null ? 'px-3 pt-4 pb-2' : 'p-3',
-            /**
-             * Reservation MUST match the Ultra dock width formula below or token info
-             * bleeds under the action column when the Pulse column is narrow.
-             * `clamp()` lets the dock shrink with the column instead of pinning at min-w.
-             */
             reserveRightActionCol &&
               (pulseUltraCompact
                 ? 'pr-[calc(clamp(11rem,35%,16rem)+0.5rem)]'
@@ -577,9 +604,14 @@ function TokenRowInner({
                 slotHeight != null ? 'overflow-visible gap-2' : 'overflow-hidden space-y-2',
               )}
             >
-              <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
-                <div className="block min-w-0 flex-1 overflow-hidden">
-                  <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
+              <div
+                className={cn(
+                  'flex min-w-0 flex-nowrap items-center gap-2',
+                  slotHeight == null && 'overflow-hidden',
+                )}
+              >
+                <div className="block min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-nowrap items-center gap-2">
                     {identityCluster}
                     {heroMcBlock}
                   </div>
@@ -594,7 +626,7 @@ function TokenRowInner({
                       size={volMcSize}
                       justify="end"
                       layout="inline"
-                      mcTone={mcTone}
+                      {...volMcBandProps}
                     />
                   </div>
                 ) : null}
@@ -721,7 +753,7 @@ function TokenRowInner({
                       size="prominent"
                       justify="end"
                       layout={volMcLayout}
-                      mcTone={mcTone}
+                      {...volMcBandProps}
                     />
                   </div>
                 ) : null}
@@ -747,7 +779,7 @@ function TokenRowInner({
                             size="prominent"
                             justify="end"
                             layout="inline"
-                            mcTone={mcTone}
+                            {...volMcBandProps}
                           />
                         </div>
                       ) : null}
@@ -805,7 +837,7 @@ function TokenRowInner({
                             size="prominent"
                             justify="end"
                             layout="inline"
-                            mcTone={mcTone}
+                            {...volMcBandProps}
                           />
                         </div>
                       ) : null}
@@ -1043,7 +1075,6 @@ function QuickBuyPill({
       onClick={onBuy}
       disabled={disabled || loading}
       className={btn}
-      title={`Quick trade: ${labelAmount} ${quoteSymbol} on this mint`}
       aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
     >
       {loading ? (
@@ -1159,7 +1190,6 @@ function UltraQuickBuyZone({
             ),
         'disabled:pointer-events-none disabled:opacity-55',
       )}
-      title={`Quick trade: ${labelAmount} ${quoteSymbol} on this mint`}
       aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
       aria-busy={loading}
     >

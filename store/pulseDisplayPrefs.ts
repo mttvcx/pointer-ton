@@ -52,8 +52,14 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
     }),
     {
       name: 'pointer.pulse-display',
-      version: 1,
+      version: 2,
       partialize: (s) => pickPulseDisplayPrefs(s),
+      migrate: (persisted, fromVersion) => {
+        if (fromVersion < 2) {
+          return withPulseDisplayDefaults(persisted as Partial<PulseDisplayPrefs> | undefined);
+        }
+        return persisted as PulseDisplayPrefs;
+      },
       merge: (persisted, current) => ({
         ...current,
         ...withPulseDisplayDefaults(persisted as Partial<PulseDisplayPrefs> | undefined),

@@ -34,7 +34,11 @@ import {
   type PrivateTransferProvider,
 } from '@/components/portfolio/PrivateTransferProviderModal';
 import { SplitNowTransferModal } from '@/components/portfolio/SplitNowTransferModal';
-import { PortfolioLoadingSkeleton } from '@/components/portfolio/PortfolioLoadingSkeleton';
+import {
+  PortfolioBodySkeleton,
+  PortfolioLoadingSkeleton,
+} from '@/components/portfolio/PortfolioLoadingSkeleton';
+import { fetchPortfolioJson, portfolioQueryKey } from '@/lib/portfolio/portfolioQuery';
 import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
@@ -214,7 +218,6 @@ export function PortfolioDashboard({
 }) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const backendReady = useAuthSyncStore((s) => s.backendReady);
-  const authSyncing = useAuthSyncStore((s) => s.syncing);
   const authSyncError = useAuthSyncStore((s) => s.lastError);
   const activeChain = useUIStore((s) => s.activeChain);
   const openWalletIntel = useWalletIntelStore((s) => s.openWallet);
@@ -344,42 +347,24 @@ export function PortfolioDashboard({
 
   const portfolioEnabled =
     authenticated &&
+    backendReady &&
     walletsReady &&
     activeChain === 'sol' &&
     (selectedPortfolioWalletId === 'all' ||
       Boolean(selectedWalletAddress && mintMatchesAppChain(selectedWalletAddress, 'sol')));
 
   const query = useQuery({
-    queryKey: ['portfolio', activeChain, selectedPortfolioWalletId, selectedWalletAddress, timeFilter],
+    queryKey: portfolioQueryKey(selectedWalletAddress),
     enabled: portfolioEnabled,
     retry: (count, err) => count < 2 && err instanceof Error && /sync/i.test(err.message),
-    queryFn: async () => {
-      const token = await getAccessToken();
-      if (!token) throw new Error('no_token');
-      const base = '/api/portfolio?tradesLimit=80&fifoLimit=400';
-      const url = selectedWalletAddress
-        ? `${base}&wallet=${encodeURIComponent(selectedWalletAddress)}`
-        : base;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json: unknown = await res.json();
-      if (!res.ok) {
-        const msg =
-          typeof json === 'object' && json
-            ? 'message' in json
-              ? String((json as { message: unknown }).message)
-              : 'error' in json
-                ? String((json as { error: unknown }).error)
-                : 'portfolio failed'
-            : 'portfolio failed';
-        throw new Error(msg);
-      }
-      return json as PortfolioJson;
-    },
+    queryFn: () => fetchPortfolioJson<PortfolioJson>(getAccessToken, selectedWalletAddress),
     staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
+
+  const portfolioDataLoading =
+    (authenticated && !backendReady && !authSyncError) ||
+    (portfolioEnabled && !query.data && (query.isPending || query.isFetching));
 
   useEffect(() => {
     if (!query.isError) return;
@@ -442,9 +427,17 @@ export function PortfolioDashboard({
   /** Keep floating PNL in sync when Portfolio wallet selector changes while tracker is open. */
   useEffect(() => {
     if (!pnlTrackerOpen || pnlPortfolioScope === null) return;
+    const nextWallet = selectedWalletAddress;
+    const nextLabel = selectedDisplayName;
+    if (
+      pnlPortfolioScope.walletAddress === nextWallet &&
+      pnlPortfolioScope.label === nextLabel
+    ) {
+      return;
+    }
     setPnlPortfolioScope({
-      walletAddress: selectedWalletAddress,
-      label: selectedDisplayName,
+      walletAddress: nextWallet,
+      label: nextLabel,
     });
   }, [
     pnlTrackerOpen,
@@ -653,13 +646,6 @@ export function PortfolioDashboard({
     );
   }
 
-  const portfolioShowsLoadingSkeleton =
-    (authenticated && authSyncing && !backendReady && !authSyncError) ||
-    (portfolioEnabled && query.isPending && query.fetchStatus === 'fetching' && !query.data);
-  if (portfolioShowsLoadingSkeleton) {
-    return <PortfolioLoadingSkeleton className={className} />;
-  }
-
   if (authenticated && !backendReady && authSyncError) {
     return (
       <div
@@ -845,6 +831,9 @@ export function PortfolioDashboard({
           )}
         >
           {tab === 'spot' ? (
+        portfolioDataLoading ? (
+          <PortfolioBodySkeleton />
+        ) : (
         <div className="flex flex-col gap-4 p-2 sm:p-3">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2.5fr_1fr]">
             <div className="min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
@@ -1368,6 +1357,7 @@ export function PortfolioDashboard({
             </section>
           </div>
         </div>
+        )
       ) : null}
 
       {tab === 'wallets' ? (

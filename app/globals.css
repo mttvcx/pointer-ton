@@ -719,6 +719,25 @@
   --info-text: var(--signal-info);
 }
 
+/* Wallet-tracker trade pings — custom card (no Sonner title/icon column). */
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast].wallet-tracker-trade-toast-host,
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast]:has(.wallet-tracker-trade-toast-host) {
+  width: auto !important;
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-icon],
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-title],
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-description],
+.toaster-wallet-tracker[data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+  display: none !important;
+}
+
 /* Wallet-tracker pings (top-center toaster): lightning exit (~80ms-style cut) */
 .toaster-wallet-tracker[data-sonner-toaster] ol li[data-sonner-toast][data-removed='true'] {
   opacity: 0 !important;
@@ -822,6 +841,39 @@
 :root[data-row-elevation='false'] .pulse-column .pulse-row {
   background-color: rgb(var(--bg-base-rgb) / 0.22);
   border-color: rgb(var(--border-subtle-rgb) / 0.4);
+}
+
+/* Protocol row tint — Display → Row → Color row (enabled launchpads only). */
+:root[data-pulse-color-row='true'] .pulse-column .pulse-row[data-protocol-tint] {
+  --pulse-protocol-tint: transparent;
+  background-color: color-mix(
+    in srgb,
+    var(--pulse-protocol-tint) 14%,
+    rgb(var(--bg-hover-rgb) / 0.26)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--pulse-protocol-tint) 36%,
+    rgb(var(--border-subtle-rgb) / 0.55)
+  );
+}
+:root[data-pulse-color-row='true'][data-row-elevation='true']
+  .pulse-column
+  .pulse-row[data-protocol-tint] {
+  background-color: color-mix(
+    in srgb,
+    var(--pulse-protocol-tint) 16%,
+    rgb(var(--bg-hover-rgb) / 0.38)
+  );
+}
+:root[data-pulse-color-row='true'][data-row-elevation='false']
+  .pulse-column
+  .pulse-row[data-protocol-tint] {
+  background-color: color-mix(
+    in srgb,
+    var(--pulse-protocol-tint) 12%,
+    rgb(var(--bg-base-rgb) / 0.22)
+  );
 }
 
 /* Hover lift — white overlay on ::before so it wins over theme bg tokens + tracked-dev tints. */

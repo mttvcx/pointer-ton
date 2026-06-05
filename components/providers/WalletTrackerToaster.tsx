@@ -30,7 +30,7 @@ export function WalletTrackerToaster() {
       toastOptions={{
         duration: 5000,
         classNames: {
-          toast: '!bg-bg-base',
+          toast: '!bg-transparent !border-0 !p-0 !shadow-none',
         },
       }}
     />

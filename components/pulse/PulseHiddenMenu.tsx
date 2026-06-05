@@ -3,9 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Check, EyeOff } from 'lucide-react';
 import { pulseIconBtnCls } from '@/components/pulse/pulseToolbarStyles';
-import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
-import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
-import { PortalToBody } from '@/lib/ui/portalToBody';
+import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
+import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { usePulseHiddenMintsStore } from '@/store/pulseHiddenMints';
 import { cn } from '@/lib/utils/cn';
 
@@ -53,7 +52,7 @@ function MenuRow({
 /** Axiom-style hidden-token visibility menu. */
 export function PulseHiddenMenu() {
   const [open, setOpen] = useState(false);
-  const { mounted, visible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
+  const { mounted, visible } = useOverlayPresence(open, SETTINGS_POPOVER_ANIM_CLOSE_MS);
   const showHidden = usePulseHiddenMintsStore((s) => s.showHiddenTokens);
   const unhideOnMigration = usePulseHiddenMintsStore((s) => s.unhideOnMigration);
   const setShowHidden = usePulseHiddenMintsStore((s) => s.setShowHiddenTokens);
@@ -116,18 +115,16 @@ export function PulseHiddenMenu() {
         <EyeOff className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
       </button>
 
-      {mounted ? (
-        <PortalToBody>
-        <div
-          ref={popoverRef}
-          role="menu"
-          aria-label="Hidden tokens"
-          className={cn(
-            'fixed z-[200] w-56 rounded-lg border border-white/[0.08] bg-bg-raised p-1 shadow-2xl',
-            popoverPanelClasses(visible),
-          )}
-          style={{ top: coords.top, right: coords.right }}
-        >
+      <SettingsPopoverPortal
+        mounted={mounted}
+        visible={visible}
+        onClose={() => setOpen(false)}
+        popoverRef={popoverRef}
+        role="menu"
+        aria-label="Hidden tokens"
+        panelClassName="w-56 rounded-lg border border-white/[0.08] bg-bg-raised p-1 shadow-2xl"
+        style={{ top: coords.top, right: coords.right }}
+      >
           <p className="px-2 pb-1 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted">
             Show hidden tokens
           </p>
@@ -156,9 +153,7 @@ export function PulseHiddenMenu() {
             kind="radio"
             onSelect={() => setUnhideOnMigration(false)}
           />
-        </div>
-        </PortalToBody>
-      ) : null}
+      </SettingsPopoverPortal>
     </div>
   );
 }

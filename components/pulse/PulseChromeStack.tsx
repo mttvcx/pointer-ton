@@ -52,14 +52,17 @@ export function PulseChromeStack() {
       <PulseDisplayPrefsSync />
       <div
         className={cn(
-          'flex w-full shrink-0 flex-col border-b border-white/[0.06] bg-bg-base',
-          'pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))]',
-          'pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))]',
+          'relative flex w-full shrink-0 flex-col border-b border-white/[0.06] bg-bg-base',
           watchlistTickerOn ? 'py-1.5' : 'py-1 sm:py-1.5',
         )}
       >
-        <div className="relative flex w-full min-h-[var(--pulse-answer-chrome-h)] px-2 sm:px-3 lg:px-4">
-          <div className="pointer-events-none absolute bottom-2.5 left-2 z-10 sm:left-3 lg:left-4">
+        <div className="relative w-full min-h-[var(--pulse-answer-chrome-h)]">
+          <div
+            className={cn(
+              'pointer-events-none absolute bottom-2.5 z-10',
+              'left-[max(0.5rem,var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))]',
+            )}
+          >
             <div className="pointer-events-auto flex items-center gap-2.5 sm:gap-3">
               {hydrated ? (
                 <>
@@ -73,15 +76,21 @@ export function PulseChromeStack() {
             </div>
           </div>
 
-          <div className="pointer-events-none absolute bottom-2.5 right-2 z-10 sm:right-3 lg:right-4">
-            <div className="pointer-events-auto">
+          <div
+            className={cn(
+              'pointer-events-none absolute bottom-2.5 z-10',
+              'right-[max(0.5rem,var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))]',
+            )}
+          >
+            <div className="pointer-events-auto pr-2 sm:pr-3 lg:pr-4">
               <PulseWorkspaceToolbar />
             </div>
           </div>
 
-          <div className="flex w-full justify-center">
+          {/* Viewport-centered brief — dock body pad must not shift the hover answer slot. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-2.5 z-[5] flex justify-center px-2 sm:px-3 lg:px-4">
             <div
-              className="h-[var(--pulse-answer-chrome-h)] w-full max-w-[440px] shrink-0"
+              className="pointer-events-auto h-[var(--pulse-answer-chrome-h)] w-full max-w-[440px] shrink-0"
               aria-hidden={!showBrief}
             >
               {showBrief ? <CopilotStripBody variant="pulse" className="h-full" /> : null}

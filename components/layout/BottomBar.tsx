@@ -104,10 +104,8 @@ function BottomBarVerticalTicker({
     );
   });
 
-  if (resolved.length === 0) return null;
-
-  const dupFirst = resolved[0]!;
-  const slides: TickerRow[] = [...resolved, dupFirst];
+  const dupFirst = resolved[0];
+  const slides: TickerRow[] = dupFirst ? [...resolved, dupFirst] : [];
 
   const [ix, setIx] = useState(0);
   const [instant, setInstant] = useState(false);
@@ -138,6 +136,8 @@ function BottomBarVerticalTicker({
     }
     prevIxRef.current = ix;
   }, [ix, slides.length]);
+
+  if (resolved.length === 0) return null;
 
   return (
     <div

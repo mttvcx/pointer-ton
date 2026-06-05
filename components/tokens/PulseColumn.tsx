@@ -8,7 +8,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   Activity,
   AlertTriangle,
-  PanelsLeftRight,
   SlidersHorizontal,
   Zap,
 } from 'lucide-react';
@@ -102,8 +101,6 @@ function PulseColumnBody({
   const listMountRef = useRef<HTMLDivElement>(null);
   const scrollMainRef = useRef<Element | null>(null);
   const activeChain = useUIStore((s) => s.activeChain);
-  const twitterRailSide = usePulseTwitterRailStore((s) => s.side);
-  const cycleTwitterRail = usePulseTwitterRailStore((s) => s.cycleSide);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [displayPopoverOpen, setDisplayPopoverOpen] = useState(false);
@@ -509,20 +506,6 @@ function PulseColumnBody({
             {column === 'new' ? (
               <span className="text-[9px] tabular-nums text-fg-muted/80">&lt; 30m</span>
             ) : null}
-            <button
-              type="button"
-              title={
-                twitterRailSide === 'hidden'
-                  ? 'Show X monitor'
-                  : twitterRailSide === 'left'
-                    ? 'Move X monitor right'
-                    : 'Hide X monitor'
-              }
-              onClick={() => cycleTwitterRail()}
-              className="btn-press focus-ring flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-hover hover:text-accent-primary"
-            >
-              <PanelsLeftRight className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-            </button>
           </div>
 
           {/**

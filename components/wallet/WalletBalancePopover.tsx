@@ -16,7 +16,7 @@ import {
   AXIOM_WALLET_TAB_BTN,
   AXIOM_WALLET_TAB_IDLE,
   AXIOM_WALLET_TAB_TRACK,
-  AXIOM_WALLET_TRIGGER,
+  WALLET_TOPBAR_TRIGGER,
   AXIOM_WITHDRAW_BTN,
 } from '@/lib/ui/axiomWalletChrome';
 import { shortenAddress } from '@/lib/utils/addresses';
@@ -109,7 +109,7 @@ export function WalletBalancePopover({
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button type="button" title="Wallet" className={cn(AXIOM_WALLET_TRIGGER, className)}>
+        <button type="button" title="Wallet" className={cn(WALLET_TOPBAR_TRIGGER, className)}>
           <TerminalWalletChip
             nativeBalance={solAmount}
             usdcBalance={showSpendAssetTabs ? usdcAmount : null}
@@ -119,7 +119,7 @@ export function WalletBalancePopover({
         </button>
       </Popover.Trigger>
 
-      <Popover.Content align="end" sideOffset={8} className={AXIOM_WALLET_PANEL}>
+      <Popover.Content align="end" sideOffset={8} disableAnimation className={AXIOM_WALLET_PANEL}>
         {!hasActiveWallet ? (
           <div className="mx-3 mt-3 rounded-sm border border-amber-400/20 bg-amber-400/[0.08] px-2.5 py-2 text-[11px] text-amber-100/90">
             No {nativeSym} wallet.{' '}

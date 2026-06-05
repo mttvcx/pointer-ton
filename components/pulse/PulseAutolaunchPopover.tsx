@@ -4,16 +4,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Rocket } from 'lucide-react';
 import { pulseIconBtnCls } from '@/components/pulse/pulseToolbarStyles';
 import { PrefToggle } from '@/components/preferences/controls';
-import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
-import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
-import { PortalToBody } from '@/lib/ui/portalToBody';
+import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
+import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { cn } from '@/lib/utils/cn';
 
 /** Pulse toolbar autolaunch control (Pointer-specific). */
 export function PulseAutolaunchPopover() {
   const [open, setOpen] = useState(false);
-  const { mounted, visible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
+  const { mounted, visible } = useOverlayPresence(open, SETTINGS_POPOVER_ANIM_CLOSE_MS);
   const enabled = useAutoLaunchStore((s) => s.autoLaunchEnabled);
   const launchMode = useAutoLaunchStore((s) => s.launchMode);
   const launchBuySol = useAutoLaunchStore((s) => s.launchBuySol);
@@ -43,18 +42,6 @@ export function PulseAutolaunchPopover() {
 
   useEffect(() => {
     if (!open) return;
-    function onMouse(e: MouseEvent) {
-      const target = e.target as Node;
-      if (popoverRef.current?.contains(target)) return;
-      if (buttonRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    window.addEventListener('mousedown', onMouse);
-    return () => window.removeEventListener('mousedown', onMouse);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false);
     }
@@ -79,18 +66,15 @@ export function PulseAutolaunchPopover() {
         <Rocket className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
       </button>
 
-      {mounted ? (
-        <PortalToBody>
-          <div
-            ref={popoverRef}
-            role="dialog"
-            aria-label="Autolaunch"
-            className={cn(
-              'fixed z-[200] w-64 rounded-lg border border-white/[0.08] bg-bg-raised p-3 shadow-2xl',
-              popoverPanelClasses(visible),
-            )}
-            style={{ top: coords.top, right: coords.right }}
-          >
+      <SettingsPopoverPortal
+        mounted={mounted}
+        visible={visible}
+        onClose={() => setOpen(false)}
+        popoverRef={popoverRef}
+        aria-label="Autolaunch"
+        panelClassName="w-64 rounded-lg border border-white/[0.08] bg-bg-raised p-3 shadow-2xl"
+        style={{ top: coords.top, right: coords.right }}
+      >
           <h3 className="mb-2 text-xs font-semibold text-fg-primary">Autolaunch</h3>
           <p className="mb-3 text-[11px] leading-snug text-fg-muted">
             Deploy and buy on new token signals from X Monitor rules.
@@ -134,9 +118,7 @@ export function PulseAutolaunchPopover() {
               />
             </label>
           </div>
-        </div>
-        </PortalToBody>
-      ) : null}
+      </SettingsPopoverPortal>
     </div>
   );
 }

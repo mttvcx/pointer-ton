@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useWalletLabels, labelColorClass } from '@/lib/hooks/useWalletLabels';
@@ -24,11 +24,16 @@ import { WalletMintTradesFilterButton } from '@/components/tokens/cells/WalletMi
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { mockWalletWideStats } from '@/lib/walletIdentity/mockWalletWideStats';
 import { cn } from '@/lib/utils/cn';
+import {
+  useOverlayPresence,
+  WALLET_HOVER_ANIM_CLOSE_MS,
+} from '@/lib/hooks/useOverlayPresence';
+import { walletHoverPanelClasses } from '@/lib/ui/overlayMotion';
 
-const COMPACT_MS = 150;
+const COMPACT_MS = 100;
 const COMPACT_PANEL_W = 300;
 const COMPACT_PANEL_H = 210;
-const LEAVE_MS = 280;
+const LEAVE_MS = 160;
 
 export function WalletIdentityAnchor({
   address,
@@ -206,10 +211,24 @@ export function WalletIdentityAnchor({
     clearT();
     tLeave.current = window.setTimeout(() => {
       setCompact(false);
-      setXyCompact(null);
       tLeave.current = null;
     }, LEAVE_MS);
   };
+
+  const compactOpen = compact && !dossier;
+  const { mounted: compactMounted, visible: compactVisible } = useOverlayPresence(
+    compactOpen,
+    WALLET_HOVER_ANIM_CLOSE_MS,
+  );
+
+  useLayoutEffect(() => {
+    if (!compactOpen) return;
+    setXyCompact(positionPanel(COMPACT_PANEL_W, COMPACT_PANEL_H));
+  }, [compactOpen, stats, positionPanel]);
+
+  useEffect(() => {
+    if (!compactMounted) setXyCompact(null);
+  }, [compactMounted]);
 
   const openDossier = () => {
     clearT();
@@ -357,10 +376,13 @@ export function WalletIdentityAnchor({
         {!badgeBeforeAddress ? badgeRow : null}
       </span>
 
-      {compact && xyCompact && !dossier
+      {compactMounted && xyCompact
         ? createPortal(
             <div
-              className="fixed z-[500]"
+              className={cn(
+                'fixed z-[500] origin-top-left',
+                walletHoverPanelClasses(compactVisible),
+              )}
               style={{ left: xyCompact.x, top: xyCompact.y }}
               onMouseEnter={() => {
                 clearT();

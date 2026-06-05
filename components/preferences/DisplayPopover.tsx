@@ -9,9 +9,8 @@ import {
   PrefToggle,
   SegmentedControl,
 } from '@/components/preferences/controls';
-import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
-import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
-import { PortalToBody } from '@/lib/ui/portalToBody';
+import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
+import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { cn } from '@/lib/utils/cn';
 
 /**
@@ -27,7 +26,7 @@ type DisplayPopoverProps = {
 export function DisplayPopover({ variant = 'topbar' }: DisplayPopoverProps) {
   const isPulse = variant === 'pulse';
   const [open, setOpen] = useState(false);
-  const { mounted, visible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
+  const { mounted, visible } = useOverlayPresence(open, SETTINGS_POPOVER_ANIM_CLOSE_MS);
   const { prefs, setPref, resetPrefs } = usePreferences();
   const popoverRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -98,18 +97,15 @@ export function DisplayPopover({ variant = 'topbar' }: DisplayPopoverProps) {
         ) : null}
       </button>
 
-      {mounted ? (
-        <PortalToBody>
-          <div
-            ref={popoverRef}
-            role="dialog"
-            aria-label="Display preferences"
-            className={cn(
-              'fixed z-[200] w-72 rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-2xl',
-              popoverPanelClasses(visible),
-            )}
-            style={{ top: coords.top, right: coords.right }}
-          >
+      <SettingsPopoverPortal
+        mounted={mounted}
+        visible={visible}
+        onClose={() => setOpen(false)}
+        popoverRef={popoverRef}
+        aria-label="Display preferences"
+        panelClassName="w-72 rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-2xl"
+        style={{ top: coords.top, right: coords.right }}
+      >
           <header className="mb-3 flex items-center justify-between border-b border-border-subtle pb-2">
             <h3 className="text-xs font-semibold tracking-tight text-fg-primary">Display</h3>
             <button
@@ -166,9 +162,7 @@ export function DisplayPopover({ variant = 'topbar' }: DisplayPopoverProps) {
               onChange={(v) => setPref('actionZoneDivider', v)}
             />
           </div>
-        </div>
-        </PortalToBody>
-      ) : null}
+      </SettingsPopoverPortal>
     </div>
   );
 }

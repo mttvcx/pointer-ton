@@ -14,6 +14,8 @@ export function PulseRowVolMc({
   justify = 'end',
   layout = 'inline',
   mcTone = 'cyan',
+  volColor,
+  mcColor,
 }: {
   vol: number | null | undefined;
   mcUsd: number | null | undefined;
@@ -26,6 +28,9 @@ export function PulseRowVolMc({
   layout?: 'inline' | 'stack';
   /** MC value tint: cyan for pre-migration (new/stretch), gold for migrated tokens. */
   mcTone?: 'cyan' | 'gold';
+  /** Metric-band override (Display → Metrics, when Color row is on). */
+  volColor?: string;
+  mcColor?: string;
 }) {
   if (!showVol && !showMc) return null;
 
@@ -36,20 +41,32 @@ export function PulseRowVolMc({
    */
   const labelCls = 'text-[11px] font-medium uppercase tracking-wider text-fg-muted';
   const valueBase = 'text-[15px] font-semibold tabular-nums leading-none';
-  const volValueCls = `${valueBase} text-fg-primary`;
-  const mcValueCls = `${valueBase} ${mcTone === 'gold' ? 'text-amber-400' : 'text-cyan-400'}`;
+  const volValueCls = `${valueBase} ${volColor ? '' : 'text-fg-primary'}`;
+  const mcValueCls = `${valueBase} ${
+    mcColor ? '' : mcTone === 'gold' ? 'text-amber-400' : 'text-cyan-400'
+  }`;
 
   const volBlock = showVol ? (
     <span className="inline-flex shrink-0 items-baseline gap-1">
       <span className={labelCls}>V</span>
-      <NumberDisplay value={vol} compact className={volValueCls} />
+      <NumberDisplay
+        value={vol}
+        compact
+        className={volValueCls}
+        style={volColor ? { color: volColor } : undefined}
+      />
     </span>
   ) : null;
 
   const mcBlock = showMc ? (
     <span className="inline-flex shrink-0 items-baseline gap-1">
       <span className={labelCls}>MC</span>
-      <NumberDisplay value={mcUsd} compact className={mcValueCls} />
+      <NumberDisplay
+        value={mcUsd}
+        compact
+        className={mcValueCls}
+        style={mcColor ? { color: mcColor } : undefined}
+      />
     </span>
   ) : null;
 

@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   clampPeekTopLeftWithinViewport,
+  DOCK_PEEK_BOTTOM_CSS,
+  readDockPeekTopPx,
   readLayoutChromePx,
   snapDockPeekCoords,
 } from '@/lib/layout/dockPeekSnap';
 import { stickyDockSideFromFloatingRect } from '@/lib/layout/floatingPeekSticky';
 import { embedXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorFloat';
+import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import {
   clampDockPeekWidth,
   DEFAULT_X_MONITOR_PEEK_SIZE,
@@ -70,6 +73,7 @@ export function DockXMonitorFloatingPanel() {
   dockGlowRef.current = dockGlow;
   const lastFloatingLayoutRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const [, bumpResizeUi] = useState(0);
+  const [layoutEpoch, bumpLayoutEpoch] = useState(0);
 
   useEffect(() => {
     if (activeChain !== 'sol' && open) setOpen(false);
@@ -79,10 +83,25 @@ export function DockXMonitorFloatingPanel() {
     const { topbar, botbar } = readLayoutChromePx();
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
-    const maxFloatH = Math.max(MIN_PANEL_H, vh - topbar - botbar - 12);
+    const dockTopPx = readDockPeekTopPx(onPulse);
+    const maxFloatH = Math.max(MIN_PANEL_H, vh - dockTopPx - botbar - 12);
     const maxFloatW = Math.max(MIN_PANEL_W, vw - 24);
-    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW };
+    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx };
   };
+
+  useEffect(() => {
+    if (!open || !onPulse || typeof document === 'undefined') return;
+    const main = document.querySelector('main');
+    if (!main) return;
+    const bump = () => bumpLayoutEpoch((n) => n + 1);
+    const ro = new ResizeObserver(bump);
+    ro.observe(main);
+    window.addEventListener('resize', bump);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', bump);
+    };
+  }, [open, onPulse]);
 
   const clampPanelSize = useCallback((w: number, h: number) => {
     const { maxFloatH } = readMetrics();
@@ -357,12 +376,12 @@ export function DockXMonitorFloatingPanel() {
 
   if (!open || activeChain !== 'sol') return null;
 
-  const DOCK_TOP_GAP_PX = 4;
-  const { topbar, botbar, maxFloatH } = readMetrics();
+  void layoutEpoch;
+  const { topbar, botbar, maxFloatH, dockTopPx } = readMetrics();
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
-  const dockedChromeTop = `${topbar + DOCK_TOP_GAP_PX}px`;
-  const dockedChromeBot = `${botbar}px`;
+  const dockedChromeTop = `${dockTopPx}px`;
+  const dockedChromeBot = DOCK_PEEK_BOTTOM_CSS;
   const floatW = transientSizeRef.current?.w ?? cw;
   const floatH = transientSizeRef.current?.h ?? Math.min(ch, maxFloatH);
 
@@ -371,7 +390,7 @@ export function DockXMonitorFloatingPanel() {
       {draggingUi && dockGlow === 'left' ? (
         <div
           className="pointer-events-none fixed left-0 z-[217]"
-          style={{ top: topbar + DOCK_TOP_GAP_PX - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-r-3xl bg-gradient-to-r from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />
@@ -380,7 +399,7 @@ export function DockXMonitorFloatingPanel() {
       {draggingUi && dockGlow === 'right' ? (
         <div
           className="pointer-events-none fixed right-0 z-[217]"
-          style={{ top: topbar + DOCK_TOP_GAP_PX - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-l-3xl bg-gradient-to-l from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />
@@ -430,7 +449,7 @@ export function DockXMonitorFloatingPanel() {
             draggable
             floating
             onDragHandlePointerDown={beginDragFromHeader}
-            onClose={() => setOpen(false)}
+            onClose={() => closeXMonitor()}
           />
         </div>
 

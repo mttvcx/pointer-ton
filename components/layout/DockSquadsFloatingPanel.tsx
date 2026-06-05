@@ -1,14 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { usePathname } from 'next/navigation';
 import {
   clampPeekTopLeftWithinViewport,
+  DOCK_PEEK_BOTTOM_CSS,
+  readDockPeekTopPx,
   readLayoutChromePx,
   snapDockPeekCoords,
 } from '@/lib/layout/dockPeekSnap';
 import { stickyDockSideFromFloatingRect } from '@/lib/layout/floatingPeekSticky';
-import { embedSquadsOnPulse } from '@/lib/squads/openSquadsFloat';
+import { consumeSquadsPeelDrag, embedSquadsOnPulse } from '@/lib/squads/openSquadsFloat';
 import {
   clampDockPeekWidth,
   DEFAULT_SQUADS_PEEK_SIZE,
@@ -62,15 +71,33 @@ export function DockSquadsFloatingPanel() {
   const dockGlowRef = useRef(dockGlow);
   dockGlowRef.current = dockGlow;
   const lastFloatingLayoutRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const skipNextFloatingSnapRef = useRef(false);
   const [, bumpResizeUi] = useState(0);
+  const [layoutEpoch, bumpLayoutEpoch] = useState(0);
 
   const readMetrics = () => {
     const { topbar, botbar } = readLayoutChromePx();
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
-    const maxFloatH = Math.max(MIN_PANEL_H, vh - topbar - botbar - 12);
-    return { topbar, botbar, vw, vh, maxFloatH };
+    const dockTopPx = readDockPeekTopPx(onPulse);
+    const maxFloatH = Math.max(MIN_PANEL_H, vh - dockTopPx - botbar - 12);
+    return { topbar, botbar, vw, vh, maxFloatH, dockTopPx };
   };
+
+  /** Re-measure when Pulse chrome / watchlist shifts `<main>` without a squads state change. */
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return;
+    const main = document.querySelector('main');
+    if (!main) return;
+    const bump = () => bumpLayoutEpoch((n) => n + 1);
+    const ro = new ResizeObserver(bump);
+    ro.observe(main);
+    window.addEventListener('resize', bump);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', bump);
+    };
+  }, [open, onPulse]);
 
   const clampPanelSize = useCallback((w: number, h: number) => {
     const { maxFloatH } = readMetrics();
@@ -123,6 +150,10 @@ export function DockSquadsFloatingPanel() {
   }, [open, dockSnap, panelSize.width, applyBodyPadForDock]);
 
   const floatingSnapOnce = useCallback(() => {
+    if (skipNextFloatingSnapRef.current) {
+      skipNextFloatingSnapRef.current = false;
+      return;
+    }
     const st = useTokenDockPeekStore.getState();
     if (st.dockSquadsDockSnap) return;
     const el = shellRef.current;
@@ -152,7 +183,7 @@ export function DockSquadsFloatingPanel() {
 
   /** One-time clamp if a prior session stored rail-height dimensions. */
   useEffect(() => {
-    if (!open || dockSnap) return;
+    if (!open) return;
     const sz = useTokenDockPeekStore.getState().dockSquadsPanelSize ?? DEFAULT_SQUADS_PEEK_SIZE;
     const { w, h } = clampPanelSize(sz.width, sz.height);
     if (Math.abs(w - sz.width) > 2 || Math.abs(h - sz.height) > 2) {
@@ -160,41 +191,74 @@ export function DockSquadsFloatingPanel() {
     }
   }, [open, dockSnap, clampPanelSize, setPanelSize]);
 
+  const startFloatingDrag = useCallback(
+    (
+      pointerId: number,
+      clientX: number,
+      clientY: number,
+      origX: number,
+      origY: number,
+    ) => {
+      const el = shellRef.current;
+      if (!el) return false;
+
+      transientSizeRef.current = null;
+      lastFloatingLayoutRef.current = null;
+      setDockSnap(null);
+      setPosition({ x: origX, y: origY });
+      movePhaseRef.current = {
+        pointerId,
+        origX,
+        origY,
+        startX: clientX,
+        startY: clientY,
+      };
+      draggingRef.current = true;
+      setDraggingUi(true);
+      document.body.style.setProperty('user-select', 'none');
+      try {
+        el.setPointerCapture(pointerId);
+      } catch {
+        /* pointer may already be captured during peel handoff */
+      }
+      setDockGlow(null);
+      return true;
+    },
+    [setDockSnap, setPosition],
+  );
+
   function beginDragFromHeader(e: ReactPointerEvent<HTMLElement>) {
+    e.preventDefault();
+
     const el = shellRef.current;
     if (!el) return;
-    e.preventDefault();
-    transientSizeRef.current = null;
-    lastFloatingLayoutRef.current = null;
 
     const currentSnap = useTokenDockPeekStore.getState().dockSquadsDockSnap;
     if (currentSnap) {
       const r = el.getBoundingClientRect();
-      setDockSnap(null);
-      setPosition({ x: r.left, y: r.top });
-      movePhaseRef.current = {
-        pointerId: e.pointerId,
-        origX: r.left,
-        origY: r.top,
-        startX: e.clientX,
-        startY: e.clientY,
-      };
-    } else {
-      const cur = useTokenDockPeekStore.getState().dockSquadsPosition;
-      movePhaseRef.current = {
-        pointerId: e.pointerId,
-        origX: cur.x,
-        origY: cur.y,
-        startX: e.clientX,
-        startY: e.clientY,
-      };
+      startFloatingDrag(e.pointerId, e.clientX, e.clientY, r.left, r.top);
+      return;
     }
-    draggingRef.current = true;
-    setDraggingUi(true);
-    document.body.style.setProperty('user-select', 'none');
-    el.setPointerCapture(e.pointerId);
-    setDockGlow(null);
+
+    const cur = useTokenDockPeekStore.getState().dockSquadsPosition;
+    startFloatingDrag(e.pointerId, e.clientX, e.clientY, cur.x, cur.y);
   }
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const handoff = consumeSquadsPeelDrag();
+    if (!handoff) return;
+    skipNextFloatingSnapRef.current = true;
+    const apply = () =>
+      startFloatingDrag(
+        handoff.pointerId,
+        handoff.clientX,
+        handoff.clientY,
+        handoff.origX,
+        handoff.origY,
+      );
+    if (!apply()) requestAnimationFrame(apply);
+  }, [open, startFloatingDrag]);
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -362,12 +426,12 @@ export function DockSquadsFloatingPanel() {
 
   if (!open) return null;
 
-  const DOCK_TOP_GAP_PX = 4;
-  const { topbar, botbar, maxFloatH } = readMetrics();
+  void layoutEpoch;
+  const { topbar, botbar, maxFloatH, dockTopPx } = readMetrics();
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
-  const dockedChromeTop = `${topbar + DOCK_TOP_GAP_PX}px`;
-  const dockedChromeBot = `${botbar}px`;
+  const dockedChromeTop = `${dockTopPx}px`;
+  const dockedChromeBot = DOCK_PEEK_BOTTOM_CSS;
   const floatW = transientSizeRef.current?.w ?? cw;
   const floatH = transientSizeRef.current?.h ?? Math.min(ch, maxFloatH);
 
@@ -376,7 +440,7 @@ export function DockSquadsFloatingPanel() {
       {draggingUi && dockGlow === 'left' ? (
         <div
           className="pointer-events-none fixed left-0 z-[217]"
-          style={{ top: topbar + DOCK_TOP_GAP_PX - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-r-3xl bg-gradient-to-r from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />
@@ -385,7 +449,7 @@ export function DockSquadsFloatingPanel() {
       {draggingUi && dockGlow === 'right' ? (
         <div
           className="pointer-events-none fixed right-0 z-[217]"
-          style={{ top: topbar + DOCK_TOP_GAP_PX - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-l-3xl bg-gradient-to-l from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />

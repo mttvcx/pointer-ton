@@ -14,9 +14,9 @@ export function PulseSquadsAside({ dock }: { dock: 'left' | 'right' }) {
         embedded
         dock={dock}
         draggable
-        onDragHandlePointerDown={() => {
+        onDragHandlePointerDown={(e) => {
           const r = rootRef.current?.getBoundingClientRect();
-          detachSquadsToFloat(r ?? null);
+          detachSquadsToFloat(r ?? null, e);
         }}
       />
     </div>

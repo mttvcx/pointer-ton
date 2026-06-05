@@ -50,7 +50,8 @@ export function PulsePageLayout({
   return (
     <div
       className={cn(
-        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-0 px-0 pb-0 pt-0 sm:px-0 xl:flex-row xl:flex-nowrap xl:items-stretch xl:gap-2',
+        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-0 px-0 pb-0 pt-0 sm:px-0',
+        'xl:flex-row xl:flex-nowrap xl:items-stretch xl:gap-2 xl:min-h-full',
       )}
     >
       {showRail && side === 'left' ? (
@@ -62,7 +63,8 @@ export function PulsePageLayout({
       <div
         data-onboarding="pulse-feed"
         className={cn(
-          'pulse-columns -mt-0.5 flex h-full min-h-0 flex-1 min-w-0 flex-col px-2 sm:px-3 lg:px-4 xl:flex-row xl:flex-nowrap xl:items-stretch xl:px-2',
+          'pulse-columns -mt-0.5 flex h-full min-h-0 flex-1 min-w-0 flex-col px-2 sm:px-3 lg:px-4',
+          'xl:flex-row xl:flex-nowrap xl:items-stretch xl:self-stretch xl:px-2',
         )}
       >
         {columnStrip}

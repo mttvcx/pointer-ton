@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { BellRing, ChevronRight, X } from 'lucide-react';
 import {
   clampPeekTopLeftWithinViewport,
+  DOCK_PEEK_BOTTOM_CSS,
+  readDockPeekTopPx,
   readLayoutChromePx,
   snapDockPeekCoords,
 } from '@/lib/layout/dockPeekSnap';
@@ -129,6 +131,8 @@ export function DockWalletTrackerFloatingPanel() {
   const lastFloatingLayoutRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const [, bumpResizeUi] = useState(0);
+  const [layoutEpoch, bumpLayoutEpoch] = useState(0);
+  const onPulse = pathname?.startsWith('/pulse') ?? false;
 
   useEffect(() => {
     if (onWalletMgmtPage && open) setOpen(false);
@@ -142,10 +146,25 @@ export function DockWalletTrackerFloatingPanel() {
     const { topbar, botbar } = readLayoutChromePx();
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
-    const maxFloatH = Math.max(MIN_PANEL_H, vh - topbar - botbar - 20);
+    const dockTopPx = readDockPeekTopPx(onPulse);
+    const maxFloatH = Math.max(MIN_PANEL_H, vh - dockTopPx - botbar - 12);
     const maxFloatW = Math.max(MIN_PANEL_W, vw - 24);
-    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW };
+    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx };
   };
+
+  useEffect(() => {
+    if (!open || !onPulse || typeof document === 'undefined') return;
+    const main = document.querySelector('main');
+    if (!main) return;
+    const bump = () => bumpLayoutEpoch((n) => n + 1);
+    const ro = new ResizeObserver(bump);
+    ro.observe(main);
+    window.addEventListener('resize', bump);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', bump);
+    };
+  }, [open, onPulse]);
 
   const clampPanelSize = useCallback((w: number, h: number) => {
     const { maxFloatH } = readMetrics();
@@ -428,12 +447,12 @@ export function DockWalletTrackerFloatingPanel() {
 
   if (!open || activeChain !== 'sol' || onWalletMgmtPage) return null;
 
-  const DOCK_TOP_GAP_PX = 9;
-  const { topbar, botbar, maxFloatH } = readMetrics();
+  void layoutEpoch;
+  const { topbar, botbar, maxFloatH, dockTopPx } = readMetrics();
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
-  const dockedChromeTop = `${topbar + DOCK_TOP_GAP_PX}px`;
-  const dockedChromeBot = `${botbar}px`;
+  const dockedChromeTop = `${dockTopPx}px`;
+  const dockedChromeBot = DOCK_PEEK_BOTTOM_CSS;
   const floatW = transientSizeRef.current?.w ?? cw;
   const floatH = transientSizeRef.current?.h ?? Math.min(ch, maxFloatH);
 
@@ -442,7 +461,7 @@ export function DockWalletTrackerFloatingPanel() {
       {draggingUi && dockGlow === 'left' ? (
         <div
           className="pointer-events-none fixed left-0 z-[217]"
-          style={{ top: topbar + DOCK_TOP_GAP_PX - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-r-3xl bg-gradient-to-r from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />
@@ -451,7 +470,7 @@ export function DockWalletTrackerFloatingPanel() {
       {draggingUi && dockGlow === 'right' ? (
         <div
           className="pointer-events-none fixed right-0 z-[217]"
-          style={{ top: topbar + DOCK_TOP_GAP_PX - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-l-3xl bg-gradient-to-l from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />

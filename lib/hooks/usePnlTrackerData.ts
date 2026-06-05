@@ -9,6 +9,8 @@ import { parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { useUIStore } from '@/store/ui';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { usePnlTrackerStore } from '@/store/pnlTracker';
+import { fetchPortfolioJson, portfolioQueryKey } from '@/lib/portfolio/portfolioQuery';
+import { useAuthSyncStore } from '@/store/authSync';
 
 type PortfolioSummary = {
   solLamports: string | null;
@@ -25,6 +27,8 @@ export function usePnlTrackerData() {
   const { authenticated, getAccessToken } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
   const portfolioScope = usePnlTrackerStore((s) => s.portfolioScope);
+  const pnlOpen = usePnlTrackerStore((s) => s.open);
+  const backendReady = useAuthSyncStore((s) => s.backendReady);
 
   const walletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -47,6 +51,7 @@ export function usePnlTrackerData() {
 
   const portfolioEnabled = Boolean(
     authenticated &&
+      backendReady &&
       walletsReady &&
       activeChain === 'sol' &&
       (portfolioScope !== null ||
@@ -54,26 +59,15 @@ export function usePnlTrackerData() {
   );
 
   const portfolioQ = useQuery({
-    queryKey: ['pnl-tracker', portfolioScope?.label ?? 'active', scopedWallet ?? 'all'],
-    queryFn: async (): Promise<PortfolioSummary> => {
-      const token = await getAccessToken();
-      if (!token) throw new Error('no_token');
-      const q = scopedWallet
-        ? `?wallet=${encodeURIComponent(scopedWallet)}&tradesLimit=20&fifoLimit=500`
-        : '?tradesLimit=20&fifoLimit=500';
-      const res = await fetch(`/api/portfolio${q}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('portfolio');
-      return res.json() as Promise<PortfolioSummary>;
-    },
-    enabled: portfolioEnabled,
+    queryKey: portfolioQueryKey(scopedWallet),
+    queryFn: () => fetchPortfolioJson<PortfolioSummary>(getAccessToken, scopedWallet),
+    enabled: portfolioEnabled && pnlOpen,
     staleTime: 60_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: pnlOpen,
   });
 
   const refreshPortfolio = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ['pnl-tracker'] });
+    void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
   }, [queryClient]);
 
   usePortfolioRefreshListener(refreshPortfolio, portfolioEnabled);

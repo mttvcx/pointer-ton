@@ -61,6 +61,29 @@ export function readLayoutChromePx(): { topbar: number; botbar: number } {
   return { topbar: top, botbar: bot };
 }
 
+/** Top edge of routed page content (`<main>`) — includes watchlist + Pulse chrome when present. */
+export function readMainContentTopPx(): number {
+  if (typeof document === 'undefined') return readLayoutChromePx().topbar;
+  const main = document.querySelector('main');
+  if (main) {
+    const top = main.getBoundingClientRect().top;
+    if (Number.isFinite(top) && top > 0) return top;
+  }
+  return readLayoutChromePx().topbar;
+}
+
+/** Gap between dock band top and panel edge (matches floating peek panels). */
+export const DOCK_PEEK_TOP_GAP_PX = 9;
+
+/** Docked panel bottom inset — use CSS var so `calc()` + safe-area stay accurate. */
+export const DOCK_PEEK_BOTTOM_CSS = 'var(--app-bottombar-h)';
+
+/** Top offset for edge-docked peek panels (Pulse uses `<main>` top). */
+export function readDockPeekTopPx(onPulse: boolean): number {
+  const band = onPulse ? readMainContentTopPx() : readLayoutChromePx().topbar;
+  return band + DOCK_PEEK_TOP_GAP_PX;
+}
+
 /** Keep top-left anchored float panel fully inside the viewport during drag / resize. */
 export function clampPeekTopLeftWithinViewport(
   topLeft: { x: number; y: number },
