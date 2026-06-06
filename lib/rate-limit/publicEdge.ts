@@ -13,6 +13,9 @@ export function isPublicApiRateLimitPath(pathname: string): boolean {
   if (pathname === '/api/push/vapid-public-key') return true;
   if (pathname.startsWith('/api/resolve-address')) return true;
   if (pathname.startsWith('/api/tokens/')) return true;
+  // Unauthenticated write: diagnostics intake. Caps per-IP spam of the
+  // configured Discord/Slack webhook. Fails open when Redis is unconfigured.
+  if (pathname === '/api/reports/bug') return true;
   return false;
 }
 
