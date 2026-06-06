@@ -130,7 +130,7 @@ function GripDots() {
 }
 
 function headerDragAllowed(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return true;
+  if (!(target instanceof Element)) return false;
   return !target.closest('button, a, input, textarea, [data-x-monitor-no-drag]');
 }
 
@@ -293,16 +293,15 @@ export function XMonitorPanel({
               type="button"
               title="Hide X monitor"
               aria-label="Hide X monitor"
+              data-x-monitor-no-drag
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => {
-                if (floating && onClose) {
-                  onClose();
-                  return;
-                }
+                onClose?.();
                 closeXMonitor();
               }}
-              className="btn-press flex h-6 w-6 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
+              className="btn-press relative z-10 flex h-7 w-7 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
             >
-              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              <X className="h-3.5 w-3.5 pointer-events-none" strokeWidth={2} aria-hidden />
             </button>
           </div>
         </div>

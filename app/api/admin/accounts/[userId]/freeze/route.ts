@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import {
+  ACCOUNT_CONTROL_PERMISSION,
+  ACCOUNT_FREEZE_AUDIT_ACTION,
+} from '@/lib/admin/accountControlPolicy';
 import { requireAdmin } from '@/lib/api/adminAuth';
 import { logAdminAction } from '@/lib/db/admin';
 import { freezeAccount } from '@/lib/db/accountControls';
@@ -17,7 +21,7 @@ const Body = z
 
 /** Emergency FREEZE a user's trading/automation. Superadmin-only, reason required, audited. */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ userId: string }> }) {
-  const auth = await requireAdmin(req, 'account.control');
+  const auth = await requireAdmin(req, ACCOUNT_CONTROL_PERMISSION);
   if (!auth.ok) return auth.response;
 
   const { userId } = await ctx.params;
@@ -38,7 +42,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ userId: st
     });
     await logAdminAction({
       ctx: auth.ctx,
-      action: 'account.freeze',
+      action: ACCOUNT_FREEZE_AUDIT_ACTION,
       targetType: 'user',
       targetId: userId,
       reason: body.reason,

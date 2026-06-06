@@ -519,9 +519,13 @@ export function DockWalletTrackerFloatingPanel() {
         }
         aria-label="Tracker popup"
       >
-        <header className={cn('flex shrink-0 items-stretch gap-1 border-b border-border-subtle bg-bg-hover/40')}>
+        <header
+          className={cn(
+            'relative flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-hover/40 pr-9',
+          )}
+        >
           <nav
-            className="flex min-w-0 shrink-0 items-center gap-0.5 overflow-x-auto px-1 py-1"
+            className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             data-no-drag
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -545,7 +549,7 @@ export function DockWalletTrackerFloatingPanel() {
           <div
             role="presentation"
             className={cn(
-              'relative flex min-h-[34px] min-w-[3rem] flex-1 cursor-grab items-center justify-center active:cursor-grabbing',
+              'relative flex h-[34px] w-9 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing',
               draggingUi ? 'bg-white/[0.02]' : '',
             )}
             onPointerDown={(e) => {
@@ -555,17 +559,15 @@ export function DockWalletTrackerFloatingPanel() {
           >
             <GripDots />
           </div>
-          <div className="flex shrink-0 items-center px-1" data-no-drag onPointerDown={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              data-no-drag
-              aria-label="Close Wallet Tracker"
-              className="rounded-md p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
-              onClick={() => setOpen(false)}
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
-          </div>
+          <button
+            type="button"
+            data-no-drag
+            aria-label="Close Wallet Tracker"
+            className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-md border border-white/[0.08] bg-bg-base/80 p-1.5 text-fg-secondary hover:border-white/[0.14] hover:bg-bg-hover hover:text-fg-primary"
+            onClick={() => setOpen(false)}
+          >
+            <X className="h-4 w-4" strokeWidth={2} />
+          </button>
         </header>
 
         <div

@@ -1,4 +1,5 @@
 import 'server-only';
+import { blocksActivityForKind } from '@/lib/account/tradingFreezeGate';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import type { Tables } from '@/lib/supabase/types';
 
@@ -42,7 +43,7 @@ export async function isActivityFrozen(
 ): Promise<{ frozen: boolean; control: AccountControlRow | null }> {
   const control = await getActiveControl(userId);
   if (!control) return { frozen: false, control: null };
-  const blocks = control.scope === 'all' || control.scope === kind;
+  const blocks = blocksActivityForKind(control, kind);
   return { frozen: blocks, control: blocks ? control : null };
 }
 
