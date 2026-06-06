@@ -339,6 +339,7 @@ export function TrackersPanel({
         enrichment?: EnrichmentMap;
       };
     },
+    staleTime: 60_000,
   });
 
   const savedGroups = listQuery.data?.groups ?? [];

@@ -18,6 +18,7 @@ import { ClientBugDiagnosticsBootstrap } from '@/components/reports/ClientBugDia
 import { CustomFontBootstrap } from '@/components/layout/bottomBar/CustomFontBootstrap';
 import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeSpotlightOnboarding';
 import { FeatureAnnouncementGate } from '@/components/onboarding/FeatureAnnouncementGate';
+import { TokenInstantTradeHost } from '@/components/trading/TokenInstantTradeHost';
 
 /** Heavy hosts — separate chunk from app layout so route transitions stay fast. */
 export function DeferredAppShellHosts() {
@@ -35,6 +36,7 @@ export function DeferredAppShellHosts() {
       <DockWalletTrackerFloatingPanel />
       <DockXMonitorFloatingPanel />
       <DockSquadsFloatingPanel />
+      <TokenInstantTradeHost />
       <PnlTrackerFloatingWidget />
       <PnlCalendarHost />
       <ClientBugDiagnosticsBootstrap />

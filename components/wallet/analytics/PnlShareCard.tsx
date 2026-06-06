@@ -246,8 +246,12 @@ export const PnlShareCard = forwardRef<
         ) : (
           <PnlShareCardChrome backgroundId={backgroundId} className="z-[2]" />
         )}
+      </div>
 
-        <div className="relative z-[3] h-full w-full">
+      {/* Live overlay — real-pixel space sibling of the scaled art so `abs()` (× fitScale)
+          maps 1:1 onto the design-space cover patches. Nesting it inside the scaled
+          container double-scaled every label (tiny text drifting to the corner). */}
+      <div className="absolute inset-0 z-[3]">
           {overlay.showCashbackFooter && displayHeadline ? (
             <div
               style={{
@@ -318,9 +322,9 @@ export const PnlShareCard = forwardRef<
               className="grid tabular-nums"
               style={{
                 gridTemplateColumns: 'auto auto',
-                columnGap: PNL_SHARE_POS.stats.labelGap,
+                columnGap: PNL_SHARE_POS.stats.labelGap * s,
                 fontSize: PNL_SHARE_POS.stats.fontSize * s,
-                rowGap: 4,
+                rowGap: 10 * s,
               }}
             >
               <span className="font-bold uppercase tracking-[0.18em] text-white/50">PNL</span>
@@ -377,7 +381,6 @@ export const PnlShareCard = forwardRef<
             </span>
           ) : null}
         </div>
-      </div>
     </div>
   );
 });

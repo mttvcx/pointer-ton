@@ -148,7 +148,7 @@ export async function exportShareVideoWebm(params: {
   const fps = 30;
   const frameMs = 1000 / fps;
 
-  const logoBird = await preloadPointerLogoForExport();
+  const refCard = await preloadPnlShareReference();
 
   const drawFrame = (momentT: number) => {
     drawVideoCover(ctx, videoEl, width, height, videoPan, videoZoom);

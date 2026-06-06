@@ -11,10 +11,10 @@ import {
 import { usePnlTrackerData } from '@/lib/hooks/usePnlTrackerData';
 import { formatPnlTerminal, formatSolTerminal } from '@/lib/pnl/formatSolDisplay';
 import { readLayoutChromePx } from '@/lib/layout/dockPeekSnap';
-import { presetClass, presetMeta } from '@/lib/share/backgrounds';
+import { presetClass } from '@/lib/share/backgrounds';
 import { backgroundImageStyle } from '@/lib/pnl/backgroundTransform';
 import { PnlTrackerSceneChrome } from '@/components/pnl/PnlTrackerSceneChrome';
-import { PointerNeonBird } from '@/components/wallet/analytics/PointerNeonBird';
+import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
 import { spotTickerIconSrc } from '@/lib/chains/chainAssets';
 import { cn } from '@/lib/utils/cn';
 import { formatCompactUsd } from '@/lib/utils/formatters';
@@ -70,7 +70,6 @@ export function PnlTrackerFloatingWidget() {
   const labelFontPx = Math.max(8, Math.round(10 * scale));
   const logoH = Math.max(20, Math.round(28 * scale));
   const brandFontPx = Math.max(8, Math.round(9 * scale));
-  const meta = presetMeta(prefs.backgroundId);
 
   useLayoutEffect(() => {
     void hydrateCustomBackground();
@@ -201,7 +200,7 @@ export function PnlTrackerFloatingWidget() {
         role="complementary"
         aria-label="PnL tracker"
         className={cn(
-          'fixed z-[225] select-none overflow-hidden rounded-md border border-white/[0.1] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.85)] transition-opacity duration-150',
+          'fixed z-[150] select-none overflow-hidden rounded-md border border-white/[0.1] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.85)] transition-opacity duration-150',
           draggingUi ? 'cursor-grabbing opacity-90' : resizingUi ? 'opacity-95' : 'cursor-grab',
         )}
         style={{
@@ -369,7 +368,7 @@ export function PnlTrackerFloatingWidget() {
 
             <div className="flex flex-col items-center pb-0.5">
               <div className="shrink-0" style={{ width: logoH, height: logoH }}>
-                <PointerNeonBird className="h-full w-full" glow={meta.birdGlow} />
+                <PointerBirdMark size={logoH} className="h-full w-full" />
               </div>
               <span
                 className="mt-0.5 font-bold uppercase tracking-[0.18em] text-white/80"

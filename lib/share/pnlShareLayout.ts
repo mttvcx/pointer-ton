@@ -8,23 +8,23 @@ export const PNL_SHARE_CARD_REF = { w: 1536, h: 1024 } as const;
 
 /** Erase only baked sample text — keep pill borders, hero box, bird, grid from the PNG. */
 export const PNL_SHARE_COVER = {
-  headline: { x: 92, y: 90, w: 580, h: 26, color: 'rgba(4,2,8,0.88)' },
-  ticker: { x: 54, y: 252, w: 280, h: 88, color: 'rgba(5,0,10,0.9)' },
-  tokenName: { x: 54, y: 338, w: 240, h: 28, color: 'rgba(5,0,10,0.88)' },
-  heroAmount: { x: 88, y: 418, w: 520, h: 72, color: 'rgba(3,2,6,0.92)' },
-  stats: { x: 54, y: 536, w: 500, h: 108, color: 'rgba(5,0,10,0.9)' },
-  footerUrl: { x: 78, y: 944, w: 260, h: 28, color: 'rgba(5,0,10,0.88)' },
-  footerHandle: { x: 1260, y: 932, w: 220, h: 40, color: 'rgba(5,0,10,0.88)' },
+  headline: { x: 96, y: 244, w: 440, h: 44, color: 'rgba(5,2,10,0.92)' },
+  ticker: { x: 66, y: 326, w: 340, h: 128, color: 'rgba(5,0,10,0.92)' },
+  tokenName: { x: 70, y: 460, w: 300, h: 42, color: 'rgba(5,0,10,0.9)' },
+  heroAmount: { x: 96, y: 545, w: 600, h: 112, color: 'rgba(3,2,6,0.92)' },
+  stats: { x: 64, y: 716, w: 480, h: 172, color: 'rgba(5,0,10,0.9)' },
+  footerUrl: { x: 64, y: 926, w: 360, h: 38, color: 'rgba(5,0,10,0.9)' },
+  footerHandle: { x: 1276, y: 924, w: 214, h: 52, color: 'rgba(5,0,10,0.9)' },
 } as const;
 
 export const PNL_SHARE_POS = {
-  headline: { x: 96, y: 108, maxW: 560 },
-  ticker: { x: 58, y: 328, fontSize: 96 },
-  tokenName: { x: 58, y: 358, fontSize: 16 },
-  heroAmount: { x: 96, y: 472, fontSize: 64 },
-  stats: { x: 58, y: 548, fontSize: 15, rowH: 30, labelGap: 48 },
-  footerUrl: { x: 82, y: 962, fontSize: 11 },
-  footerHandle: { x: 1478, y: 958, fontSize: 28, align: 'right' as const },
+  headline: { x: 108, y: 250, maxW: 540 },
+  ticker: { x: 76, y: 330, fontSize: 110 },
+  tokenName: { x: 80, y: 462, fontSize: 22 },
+  heroAmount: { x: 108, y: 556, fontSize: 92 },
+  stats: { x: 76, y: 724, fontSize: 22, rowH: 30, labelGap: 120 },
+  footerUrl: { x: 104, y: 932, fontSize: 15 },
+  footerHandle: { x: 1478, y: 930, fontSize: 30, align: 'right' as const },
 } as const;
 
 /** CSS filter applied to the reference PNG for alternate presets. */

@@ -75,7 +75,8 @@ export function ExploreTokensPanel() {
   const searchParams = useSearchParams();
   const activeChain = useUIStore((s) => s.activeChain);
   const native = nativeTicker(activeChain);
-  const { activePresetSlot, setActivePresetSlot } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
+  const setActivePresetSlot = useTradingStore((s) => s.setActivePresetSlot);
   const uiDemoMode = useUiDemoMode();
 
   const exploreDemoForcedOff = searchParams.get('explore_demo') === '0';

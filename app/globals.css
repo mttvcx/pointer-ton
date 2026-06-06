@@ -877,6 +877,105 @@
   );
 }
 
+/*
+ * Pulse quick-buy accent — Display panel color picker drives `--pulse-accent-rgb`
+ * (ultra outline, zap chip, small / large / mega filled buttons).
+ */
+:root {
+  --pulse-accent-rgb: 52 211 153;
+  --pulse-accent-on-rgb: 3 8 6;
+}
+
+.pulse-qb-pill--small {
+  border: 0;
+  background-color: rgb(var(--pulse-accent-rgb) / 0.1);
+  color: rgb(var(--pulse-accent-rgb) / 1);
+}
+.pulse-qb-pill--small:hover {
+  background-color: rgb(var(--pulse-accent-rgb) / 0.16);
+}
+.pulse-qb-pill--small:active {
+  background-color: rgb(var(--pulse-accent-rgb) / 0.22);
+}
+
+.pulse-qb-pill--medium {
+  border: 1px solid rgb(var(--pulse-accent-rgb) / 0.45);
+  background-color: rgb(var(--pulse-accent-rgb) / 0.25);
+  color: rgb(var(--pulse-accent-rgb) / 1);
+}
+.pulse-qb-pill--medium:hover {
+  border-color: rgb(var(--pulse-accent-rgb) / 0.6);
+  background-color: rgb(var(--pulse-accent-rgb) / 0.32);
+}
+.pulse-qb-pill--medium:active {
+  border-color: rgb(var(--pulse-accent-rgb) / 0.7);
+  background-color: rgb(var(--pulse-accent-rgb) / 0.4);
+}
+
+.pulse-qb-pill--large {
+  border: 1px solid rgb(var(--pulse-accent-rgb) / 1);
+  background-color: rgb(var(--pulse-accent-rgb) / 1);
+  color: rgb(var(--pulse-accent-on-rgb) / 1);
+  box-shadow: 0 4px 22px -10px rgb(var(--pulse-accent-rgb) / 0.55);
+}
+.pulse-qb-pill--large:hover {
+  border-color: rgb(var(--pulse-accent-rgb) / 1);
+  background-color: rgb(var(--pulse-accent-rgb) / 0.95);
+}
+.pulse-qb-pill--large:active {
+  background-color: rgb(var(--pulse-accent-rgb) / 0.85);
+}
+
+.pulse-qb-ultra--outline {
+  border-color: rgb(var(--pulse-accent-rgb) / 0.9);
+  background-color: transparent;
+  color: rgb(var(--pulse-accent-rgb) / 1);
+  box-shadow: 0 0 12px -14px rgb(var(--pulse-accent-rgb) / 0.32);
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    backdrop-filter 0.2s ease,
+    -webkit-backdrop-filter 0.2s ease;
+}
+.pulse-qb-ultra--outline:hover {
+  border-color: rgb(var(--pulse-accent-rgb) / 0.95);
+  background-color: rgb(var(--pulse-accent-rgb) / 0.1);
+  box-shadow: 0 0 16px -12px rgb(var(--pulse-accent-rgb) / 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.pulse-qb-ultra--outline:active {
+  border-color: rgb(var(--pulse-accent-rgb) / 1);
+  background-color: rgb(var(--pulse-accent-rgb) / 0.14);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.pulse-qb-ultra--filled {
+  border-color: rgb(var(--pulse-accent-rgb) / 0.9);
+  background-color: rgb(var(--pulse-accent-rgb) / 1);
+  color: rgb(var(--pulse-accent-on-rgb) / 1);
+  box-shadow: 0 4px 22px -10px rgb(var(--pulse-accent-rgb) / 0.65);
+}
+.pulse-qb-ultra--filled:hover {
+  filter: brightness(1.06);
+}
+.pulse-qb-ultra--filled:active {
+  filter: brightness(0.94);
+}
+
+.pulse-qb-icon {
+  color: rgb(var(--pulse-accent-rgb) / 1);
+  fill: rgb(var(--pulse-accent-rgb) / 0.35);
+}
+.pulse-qb-icon--on {
+  color: rgb(var(--pulse-accent-on-rgb) / 1);
+  fill: rgb(var(--pulse-accent-on-rgb) / 1);
+}
+
 /* Hover lift — white overlay on ::before so it wins over theme bg tokens + tracked-dev tints. */
 .pulse-column .pulse-row::before {
   content: '';
@@ -886,7 +985,6 @@
   border-radius: inherit;
   pointer-events: none;
   background-color: transparent;
-  transition: background-color 150ms ease;
 }
 .pulse-column .pulse-row:hover {
   border-color: rgb(255 255 255 / 0.18);

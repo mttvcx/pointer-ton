@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ExternalLink,
@@ -11,24 +11,32 @@ import {
   LoaderCircle,
   MousePointerClick,
   Search,
-  Sun,
   Zap,
 } from 'lucide-react';
+import { PulseAccentColorPicker } from '@/components/pulse/PulseAccentColorPicker';
 import { pulsePillBtnCls } from '@/components/pulse/pulseToolbarStyles';
 import {
-  PULSE_DISPLAY_PROTOCOL_IDS,
   pulseDisplayProtocolColor,
+  pulseDisplayProtocolIdsForChain,
   pulseDisplayProtocolLabel,
 } from '@/components/pulse/pulseDisplayProtocols';
 import { PrefToggle } from '@/components/preferences/controls';
 import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
 import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import type { BuyButtonStyle } from '@/lib/tokens/columnPresetModel';
+import type { ProtocolBrandId } from '@/lib/tokens/protocolBrand';
 import { BUY_BUTTON_STYLES } from '@/lib/tokens/columnPresetModel';
 import { MetricBandEditor } from '@/components/pulse/MetricBandEditor';
+import { ProtocolColorPicker } from '@/components/pulse/ProtocolColorPicker';
+import { ProtocolBrandIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { DEFAULT_METRIC_BAND_COLORS, type PulseDisplayTab } from '@/lib/preferences/pulseDisplay';
-import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
+import {
+  getConsensusQuickBuyFromColumns,
+  usePulseDisplayPrefsStore,
+} from '@/store/pulseDisplayPrefs';
+import { usePulseColumnStore } from '@/store/pulseColumns';
 import { usePulseHiddenMintsStore } from '@/store/pulseHiddenMints';
+import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 const TABS: { id: PulseDisplayTab; label: string }[] = [
   { id: 'layout', label: 'Layout' },
@@ -119,6 +127,12 @@ export function PulseDisplayPopover() {
   const prefs = usePulseDisplayPrefsStore();
   const setPrefs = usePulseDisplayPrefsStore((s) => s.setPrefs);
   const resetPrefs = usePulseDisplayPrefsStore((s) => s.resetPrefs);
+  const hydrateQuickBuyFromColumns = usePulseDisplayPrefsStore((s) => s.hydrateQuickBuyFromColumns);
+  const byColumn = usePulseColumnStore((s) => s.byColumn);
+  const { displayQuickBuySol, quickBuyButtonSize } = useMemo(
+    () => getConsensusQuickBuyFromColumns(byColumn),
+    [byColumn],
+  );
 
   const showHidden = usePulseHiddenMintsStore((s) => s.showHiddenTokens);
   const unhideOnMigration = usePulseHiddenMintsStore((s) => s.unhideOnMigration);
@@ -128,6 +142,12 @@ export function PulseDisplayPopover() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ top: 0, right: 0 });
+  const [selectedProtocolId, setSelectedProtocolId] = useState<ProtocolBrandId | null>(null);
+  const activeChain = useUIStore((s) => s.activeChain);
+  const displayProtocolIds = useMemo(
+    () => pulseDisplayProtocolIdsForChain(activeChain),
+    [activeChain],
+  );
 
   function updatePosition() {
     const el = buttonRef.current;
@@ -155,6 +175,17 @@ export function PulseDisplayPopover() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    hydrateQuickBuyFromColumns();
+  }, [open, displayQuickBuySol, quickBuyButtonSize, hydrateQuickBuyFromColumns]);
+
+  useEffect(() => {
+    setSelectedProtocolId((prev) =>
+      prev && displayProtocolIds.includes(prev) ? prev : null,
+    );
+  }, [activeChain, displayProtocolIds]);
 
   const mcPreview = prefs.mcMetricSize === 'large' ? '77K' : '77K';
 
@@ -214,47 +245,28 @@ export function PulseDisplayPopover() {
                       onClick={() => setPrefs({ quickBuyButtonSize: size })}
                       className={cn(
                         'flex flex-col items-center gap-0.5 rounded-md border py-1.5 text-[10px] font-semibold transition',
-                        prefs.quickBuyButtonSize === size
-                          ? CHIP_ACTIVE
-                          : CHIP_IDLE,
+                        quickBuyButtonSize === size ? 'bg-bg-sunken/50 text-fg-primary' : CHIP_IDLE,
                       )}
+                      style={
+                        quickBuyButtonSize === size
+                          ? { borderColor: `${prefs.accentHex}66` }
+                          : undefined
+                      }
                     >
                       <span className="inline-flex items-center gap-0.5">
                         <Zap className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-                        <span className="tabular-nums">{prefs.displayQuickBuySol}</span>
+                        <span className="tabular-nums">{displayQuickBuySol}</span>
                       </span>
                       {QUICK_BUY_LABELS[size]}
                     </button>
                   ))}
                 </div>
-                <label className="mt-1.5 flex items-center gap-2 text-[11px] text-fg-muted">
-                  <span>Amount</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={prefs.displayQuickBuySol}
-                    onChange={(e) => {
-                      const n = parseFloat(e.target.value);
-                      if (Number.isFinite(n) && n > 0) setPrefs({ displayQuickBuySol: n });
-                    }}
-                    className="w-20 rounded-md border border-border-subtle bg-bg-sunken px-2 py-0.5 font-mono text-xs text-fg-primary"
-                  />
-                  <span>SOL</span>
-                </label>
               </div>
 
-              <button
-                type="button"
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-[12px] text-fg-muted',
-                  CHIP_IDLE,
-                )}
-                title="Theme presets live in Settings"
-              >
-                <Sun className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-                Grey
-              </button>
+              <PulseAccentColorPicker
+                color={prefs.accentHex}
+                onChange={(hex) => setPrefs({ accentHex: hex })}
+              />
             </div>
 
             <div className={cn('flex shrink-0 gap-0.5 border-b bg-bg-base/30 px-2 py-1.5', PANEL_DIVIDER)}>
@@ -411,65 +423,97 @@ export function PulseDisplayPopover() {
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                     Protocol row colors
                   </p>
+                  <p className="text-[11px] leading-snug text-fg-muted">
+                    Select a launchpad, then tune its row tint. Colors are saved to your display prefs.
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {PULSE_DISPLAY_PROTOCOL_IDS.map((id) => {
+                    {displayProtocolIds.map((id) => {
                       const on = prefs.protocolRowColors[id] ?? false;
                       const brandColor = pulseDisplayProtocolColor(id);
                       const swatchColor = prefs.protocolColorHex[id] ?? brandColor;
+                      const selected = selectedProtocolId === id;
                       return (
-                        <div
+                        <button
                           key={id}
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-full border pl-1.5 pr-2 py-0.5 text-[10px] font-semibold transition',
-                            on ? 'border-border-default bg-bg-hover/40' : cn(CHIP_IDLE, 'opacity-50'),
-                          )}
-                          style={on ? { borderColor: `${swatchColor}55`, color: swatchColor } : undefined}
-                        >
-                          <label
-                            className={cn(
-                              'relative block h-3.5 w-3.5 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-white/10',
-                              !on && 'pointer-events-none opacity-40',
-                            )}
-                            title={`${pulseDisplayProtocolLabel(id)} color`}
-                          >
-                            <span
-                              className="absolute inset-0"
-                              style={{ backgroundColor: swatchColor }}
-                              aria-hidden
-                            />
-                            <input
-                              type="color"
-                              value={swatchColor}
-                              disabled={!on}
-                              onChange={(e) =>
-                                setPrefs({
-                                  protocolColorHex: {
-                                    ...prefs.protocolColorHex,
-                                    [id]: e.target.value,
-                                  },
-                                })
-                              }
-                              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() =>
+                          type="button"
+                          onClick={() => {
+                            setSelectedProtocolId(id);
+                            if (!on) {
                               setPrefs({
-                                protocolRowColors: {
-                                  ...prefs.protocolRowColors,
-                                  [id]: !on,
-                                },
-                              })
+                                protocolRowColors: { ...prefs.protocolRowColors, [id]: true },
+                              });
                             }
-                            className="min-w-0 truncate"
-                          >
-                            {pulseDisplayProtocolLabel(id)}
-                          </button>
-                        </div>
+                          }}
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold transition',
+                            on
+                              ? selected
+                                ? 'bg-bg-hover/50'
+                                : 'border-border-default bg-bg-hover/25'
+                              : cn(CHIP_IDLE, 'opacity-45'),
+                          )}
+                          style={
+                            on
+                              ? {
+                                  borderColor: selected ? swatchColor : `${swatchColor}66`,
+                                  color: swatchColor,
+                                }
+                              : undefined
+                          }
+                        >
+                          <ProtocolBrandIcon protocolId={id} dotClassName="h-3.5 w-3.5" />
+                          <span className="min-w-0 truncate">{pulseDisplayProtocolLabel(id)}</span>
+                        </button>
                       );
                     })}
                   </div>
+                  {(() => {
+                    const activeId =
+                      selectedProtocolId ??
+                      displayProtocolIds.find((id) => prefs.protocolRowColors[id]) ??
+                      displayProtocolIds[0];
+                    if (!activeId) return null;
+                    const brandColor = pulseDisplayProtocolColor(activeId);
+                    const swatchColor = prefs.protocolColorHex[activeId] ?? brandColor;
+                    const enabled = prefs.protocolRowColors[activeId] ?? false;
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-fg-secondary">
+                          {pulseDisplayProtocolLabel(activeId)}
+                        </p>
+                        <PrefToggle
+                          label="Enabled"
+                          description="Tint rows for this launchpad."
+                          value={enabled}
+                          onChange={(v) =>
+                            setPrefs({
+                              protocolRowColors: {
+                                ...prefs.protocolRowColors,
+                                [activeId]: v,
+                              },
+                            })
+                          }
+                        />
+                        <ProtocolColorPicker
+                          color={swatchColor}
+                          defaultColor={brandColor}
+                          onChange={(hex) =>
+                            setPrefs({
+                              protocolColorHex: {
+                                ...prefs.protocolColorHex,
+                                [activeId]: hex,
+                              },
+                            })
+                          }
+                          onReset={() => {
+                            const next = { ...prefs.protocolColorHex };
+                            delete next[activeId];
+                            setPrefs({ protocolColorHex: next });
+                          }}
+                        />
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : null}
 
@@ -565,16 +609,6 @@ export function PulseDisplayPopover() {
                     ))}
                   </div>
 
-                  <label className="flex items-center gap-2 text-[11px] text-fg-muted">
-                    Accent
-                    <input
-                      type="color"
-                      value={prefs.accentHex}
-                      onChange={(e) => setPrefs({ accentHex: e.target.value })}
-                      className="h-7 w-10 cursor-pointer rounded border border-border-subtle bg-bg-sunken"
-                    />
-                    <span className="font-mono text-fg-secondary">{prefs.accentHex}</span>
-                  </label>
                 </div>
               ) : null}
             </div>

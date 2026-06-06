@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { PacksTerminal } from '@/components/packs/PacksTerminal';
+import { PacksTerminalLazy } from '@/components/packs/PacksTerminalLazy';
 
 export const metadata: Metadata = {
   title: 'Packs',
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function PacksPage() {
   return (
     <div className="flex min-h-[calc(100dvh-var(--app-topbar-h)-var(--app-bottombar-h))] min-h-0 flex-col bg-bg-base">
-      <PacksTerminal className="min-h-0 flex-1" />
+      <PacksTerminalLazy className="min-h-0 flex-1" />
     </div>
   );
 }

@@ -76,7 +76,7 @@ export function StockTerminal({ market }: { market: SyntheticStockMarket }) {
             <StockChart symbol={market.symbol} market={market} edgeToEdge className="h-full min-h-0 flex-1" />
           </section>
           <section className="flex min-h-[180px] min-w-0 flex-col bg-bg-raised xl:min-h-0">
-            <PerpsOrderBook coin={market.symbol} book={book} loading={bookLoading} />
+            <PerpsOrderBook coin={market.symbol} book={book ?? undefined} loading={bookLoading} />
           </section>
           <section className="flex min-h-[360px] min-w-0 flex-col bg-bg-raised xl:min-h-0">
             <StockOrderPanel market={market} />

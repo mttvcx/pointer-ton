@@ -34,13 +34,18 @@ export function toastCopied(value: string, opts?: ToastCopiedOptions) {
 
   toast.success(title, {
     description: opts?.preview?.trim() || undefined,
-    icon: <Clipboard className="h-4 w-4 shrink-0 text-accent-primary" strokeWidth={2.25} aria-hidden />,
+    icon: <Clipboard className="h-4 w-4 shrink-0 text-fg-secondary" strokeWidth={2.25} aria-hidden />,
     position: placement,
     duration: 3200,
     closeButton: true,
     classNames: {
-      toast: '!bg-bg-base !border-[rgb(var(--signal-bull-rgb)/0.45)]',
-      title: '!text-signal-bull',
+      // Match the wallet-tracker notification toast theme (see
+      // components/walletTracker/WalletTrackerTradeToast.tsx) — clean dark
+      // surface, faint white hairline, soft shadow + blur. No green outline.
+      toast:
+        '!rounded-lg !border !border-white/[0.09] !bg-bg-raised/95 !shadow-[0_18px_48px_-16px_rgba(0,0,0,0.85)] !backdrop-blur-md',
+      title: '!text-fg-primary !font-medium',
+      description: '!text-fg-secondary',
     },
   });
 }
@@ -53,5 +58,11 @@ export function toastCopyFailed(message = 'Clipboard access denied.') {
     position: placement,
     duration: 3200,
     closeButton: true,
+    classNames: {
+      toast:
+        '!rounded-lg !border !border-white/[0.09] !bg-bg-raised/95 !shadow-[0_18px_48px_-16px_rgba(0,0,0,0.85)] !backdrop-blur-md',
+      title: '!text-signal-bear !font-medium',
+      description: '!text-fg-secondary',
+    },
   });
 }

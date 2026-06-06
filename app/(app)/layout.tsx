@@ -69,8 +69,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   useAuthSync();
 
   const onSharePage = Boolean(pathname?.startsWith('/share/'));
+  const onPulseRoute = Boolean(pathname?.startsWith('/pulse'));
   const guestBrowse =
-    Boolean(pathname?.startsWith('/pulse')) ||
+    onPulseRoute ||
     Boolean(pathname?.startsWith('/stock/')) ||
     Boolean(pathname?.startsWith('/explore')) ||
     Boolean(pathname?.startsWith('/token/')) ||
@@ -179,7 +180,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <ProtocolLogoPreloader />
       <Topbar />
       <WatchlistTickerBar />
-      <PulseChromeStack />
+      {onPulseRoute ? <PulseChromeStack /> : null}
       <CopilotStripSlot />
       <GlobalSearchModal />
       <WalletLabelsBootstrap />

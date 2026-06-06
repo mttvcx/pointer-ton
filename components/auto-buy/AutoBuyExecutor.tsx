@@ -25,7 +25,16 @@ function skipToast(title: string, mint?: string) {
 
 export function AutoBuyExecutor() {
   const { authenticated } = usePointerAuth();
-  const { data } = useAlertsTickerQuery({ pollAggressively: true });
+  const autoBuyEnabled = useAutoBuyStore((s) => s.autoBuyEnabled);
+  // Only consume the aggressive alerts stream when auto-buy is actually armed.
+  // When enabled we keep polling in the background so a hidden tab does not
+  // silently stop firing the user's auto-buys (hard requirement). When the
+  // master toggle is off the executor withdraws entirely — no 8s loop anywhere.
+  const { data } = useAlertsTickerQuery({
+    pollAggressively: true,
+    keepWhenHidden: true,
+    enabled: autoBuyEnabled,
+  });
   const { buyToken } = usePulseQuickBuy();
   const seenIds = useRef<Set<string>>(new Set());
   const hydrated = useRef(false);

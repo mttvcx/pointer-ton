@@ -3,6 +3,7 @@ import { PublicKey } from '@solana/web3.js';
 import { z } from 'zod';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { getUserByPrivyId } from '@/lib/db/users';
+import { isActivityFrozen } from '@/lib/db/accountControls';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
 import { getQuote } from '@/lib/jupiter/quote';
 import { getSwapTx, getDefaultSwapFeeParams, type SwapFeeParams } from '@/lib/jupiter/swap';
@@ -123,6 +124,26 @@ export async function POST(req: NextRequest) {
       { error: 'user_not_synced', message: 'Call /api/auth/sync first' },
       { status: 403 },
     );
+  }
+
+  // Emergency kill-switch: a superadmin-frozen account cannot mint swap
+  // transactions. Since every order (manual, quick-buy, autobuy, copy-trade)
+  // gets its swap tx from here, this stops a hijacked-automation drain at the
+  // source for ALL wallet types — no transaction is ever produced to sign.
+  try {
+    const { frozen } = await isActivityFrozen(user.id, 'trading');
+    if (frozen) {
+      return NextResponse.json(
+        {
+          error: 'account_frozen',
+          message:
+            'Trading is temporarily unavailable on this account. Please try again later or contact support.',
+        },
+        { status: 423 },
+      );
+    }
+  } catch {
+    /* fail-open on lookup error: never block legitimate trading on a freeze-check fault */
   }
 
   let body: z.infer<typeof QuoteBodySchema>;

@@ -960,6 +960,577 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['user_announcement_dismissals']['Insert']>;
         Relationships: [];
       };
+
+      admin_users: {
+        Row: {
+          id: string;
+          user_id: string;
+          is_active: boolean;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          is_active?: boolean;
+          notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['admin_users']['Insert']>;
+        Relationships: [];
+      };
+
+      admin_roles: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          description: string | null;
+          permissions: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          name: string;
+          description?: string | null;
+          permissions?: string[];
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['admin_roles']['Insert']>;
+        Relationships: [];
+      };
+
+      admin_user_roles: {
+        Row: {
+          admin_user_id: string;
+          role_id: string;
+          granted_by: string | null;
+          granted_at: string;
+        };
+        Insert: {
+          admin_user_id: string;
+          role_id: string;
+          granted_by?: string | null;
+          granted_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['admin_user_roles']['Insert']>;
+        Relationships: [];
+      };
+
+      admin_audit_log: {
+        Row: {
+          id: string;
+          admin_user_id: string | null;
+          actor_label: string;
+          action: string;
+          target_type: string;
+          target_id: string | null;
+          reason: string | null;
+          before: Json | null;
+          after: Json | null;
+          metadata: Json;
+          ip: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          admin_user_id?: string | null;
+          actor_label: string;
+          action: string;
+          target_type: string;
+          target_id?: string | null;
+          reason?: string | null;
+          before?: Json | null;
+          after?: Json | null;
+          metadata?: Json;
+          ip?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['admin_audit_log']['Insert']>;
+        Relationships: [];
+      };
+
+      pack_opens: {
+        Row: {
+          id: string;
+          open_id: string;
+          user_id: string | null;
+          pack_type: string;
+          price_sol: number;
+          sol_usd: number | null;
+          highlight_rarity: string | null;
+          total_token_value_sol: number | null;
+          house_edge_bps: number | null;
+          is_override: boolean;
+          override_id: string | null;
+          simulated: boolean;
+          result: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          open_id: string;
+          user_id?: string | null;
+          pack_type: string;
+          price_sol?: number;
+          sol_usd?: number | null;
+          highlight_rarity?: string | null;
+          total_token_value_sol?: number | null;
+          house_edge_bps?: number | null;
+          is_override?: boolean;
+          override_id?: string | null;
+          simulated?: boolean;
+          result?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['pack_opens']['Insert']>;
+        Relationships: [];
+      };
+
+      pack_overrides: {
+        Row: {
+          id: string;
+          target_user_id: string;
+          pack_type: string | null;
+          forced_outcome: string;
+          reason: string;
+          status: string;
+          requires_approval: boolean;
+          created_by: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+          rejected_reason: string | null;
+          expires_at: string;
+          consumed_open_id: string | null;
+          consumed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          target_user_id: string;
+          pack_type?: string | null;
+          forced_outcome: string;
+          reason: string;
+          status?: string;
+          requires_approval?: boolean;
+          created_by?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          rejected_reason?: string | null;
+          expires_at: string;
+          consumed_open_id?: string | null;
+          consumed_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['pack_overrides']['Insert']>;
+        Relationships: [];
+      };
+
+      cashback_ledger: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount_sol: number;
+          kind: string;
+          reason: string | null;
+          status: string;
+          created_by: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount_sol: number;
+          kind?: string;
+          reason?: string | null;
+          status?: string;
+          created_by?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['cashback_ledger']['Insert']>;
+        Relationships: [];
+      };
+
+      admin_campaigns: {
+        Row: {
+          id: string;
+          name: string;
+          grant_type: string;
+          config: Json;
+          status: string;
+          reason: string | null;
+          starts_at: string | null;
+          ends_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          grant_type: string;
+          config?: Json;
+          status?: string;
+          reason?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['admin_campaigns']['Insert']>;
+        Relationships: [];
+      };
+
+      admin_grants: {
+        Row: {
+          id: string;
+          campaign_id: string | null;
+          target_user_id: string;
+          grant_type: string;
+          amount: number;
+          reason: string;
+          status: string;
+          created_by: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id?: string | null;
+          target_user_id: string;
+          grant_type: string;
+          amount: number;
+          reason: string;
+          status?: string;
+          created_by?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['admin_grants']['Insert']>;
+        Relationships: [];
+      };
+
+      feature_flags: {
+        Row: {
+          key: string;
+          value: Json;
+          description: string | null;
+          allow_prod: boolean;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value?: Json;
+          description?: string | null;
+          allow_prod?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['feature_flags']['Insert']>;
+        Relationships: [];
+      };
+
+      account_controls: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: string;
+          scope: string;
+          reason: string;
+          created_by: string | null;
+          created_at: string;
+          released_by: string | null;
+          released_reason: string | null;
+          released_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          status?: string;
+          scope?: string;
+          reason: string;
+          created_by?: string | null;
+          created_at?: string;
+          released_by?: string | null;
+          released_reason?: string | null;
+          released_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['account_controls']['Insert']>;
+        Relationships: [];
+      };
+
+      emergency_actions: {
+        Row: {
+          id: string;
+          target_user_id: string;
+          action: string;
+          wallet_address: string;
+          mint: string | null;
+          tx_signature: string | null;
+          status: string;
+          reason: string;
+          error_message: string | null;
+          metadata: Json;
+          performed_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          target_user_id: string;
+          action: string;
+          wallet_address: string;
+          mint?: string | null;
+          tx_signature?: string | null;
+          status?: string;
+          reason: string;
+          error_message?: string | null;
+          metadata?: Json;
+          performed_by?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['emergency_actions']['Insert']>;
+        Relationships: [];
+      };
+
+      wallet_signer_provisions: {
+        Row: {
+          user_id: string;
+          wallet_address: string;
+          privy_wallet_id: string | null;
+          status: string;
+          provisioned_at: string;
+          last_verified_at: string | null;
+        };
+        Insert: {
+          user_id: string;
+          wallet_address: string;
+          privy_wallet_id?: string | null;
+          status?: string;
+          provisioned_at?: string;
+          last_verified_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['wallet_signer_provisions']['Insert']>;
+        Relationships: [];
+      };
+
+      bug_reports: {
+        Row: {
+          id: string;
+          receipt_id: string;
+          category: string;
+          severity: string;
+          description: string;
+          route: string | null;
+          active_chain: string | null;
+          mint_hint: string | null;
+          wallet_masked: string | null;
+          context: Json;
+          status: string;
+          triaged_by: string | null;
+          triaged_at: string | null;
+          delivered: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          receipt_id: string;
+          category: string;
+          severity: string;
+          description: string;
+          route?: string | null;
+          active_chain?: string | null;
+          mint_hint?: string | null;
+          wallet_masked?: string | null;
+          context?: Json;
+          status?: string;
+          triaged_by?: string | null;
+          triaged_at?: string | null;
+          delivered?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['bug_reports']['Insert']>;
+        Relationships: [];
+      };
+
+      identity_profiles: {
+        Row: {
+          id: string;
+          display_name: string;
+          normalized_display_name: string;
+          avatar_url: string | null;
+          twitter_handle: string | null;
+          telegram_handle: string | null;
+          website_url: string | null;
+          notes: string | null;
+          primary_category: string;
+          badges: Json;
+          verified: boolean;
+          source_priority: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          display_name: string;
+          normalized_display_name: string;
+          avatar_url?: string | null;
+          twitter_handle?: string | null;
+          telegram_handle?: string | null;
+          website_url?: string | null;
+          notes?: string | null;
+          primary_category?: string;
+          badges?: Json;
+          verified?: boolean;
+          source_priority?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['identity_profiles']['Insert']>;
+        Relationships: [];
+      };
+
+      identity_wallets: {
+        Row: {
+          id: string;
+          identity_id: string;
+          chain: string;
+          address: string;
+          normalized_address: string;
+          address_type: string;
+          label: string | null;
+          source: string;
+          source_url: string | null;
+          confidence: number;
+          verified: boolean;
+          first_seen_at: string;
+          last_seen_at: string;
+        };
+        Insert: {
+          id?: string;
+          identity_id: string;
+          chain: string;
+          address: string;
+          normalized_address: string;
+          address_type: string;
+          label?: string | null;
+          source: string;
+          source_url?: string | null;
+          confidence?: number;
+          verified?: boolean;
+          first_seen_at?: string;
+          last_seen_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['identity_wallets']['Insert']>;
+        Relationships: [];
+      };
+
+      championship_events: {
+        Row: {
+          id: string;
+          region: string;
+          week_index: number;
+          week_label: string;
+          season_id: string;
+          season_label: string;
+          starts_at: string;
+          ends_at: string;
+          review_ends_at: string;
+          status: string;
+          finalized_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          region?: string;
+          week_index?: number;
+          week_label: string;
+          season_id: string;
+          season_label: string;
+          starts_at: string;
+          ends_at: string;
+          review_ends_at: string;
+          status?: string;
+          finalized_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['championship_events']['Insert']>;
+        Relationships: [];
+      };
+
+      championship_participants: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string | null;
+          display_name: string;
+          handle: string | null;
+          wallet_address: string | null;
+          avatar_url: string | null;
+          realized_pnl_usd: number;
+          event_volume_usd: number;
+          closed_trades: number;
+          profitable_closed_trades: number;
+          unique_tokens_traded: number;
+          biggest_win_roi_pct: number;
+          roi_pct: number;
+          max_drawdown_pct: number;
+          suspicious_flags: Json;
+          review_status: string;
+          closed_trade_rois_pct: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id?: string | null;
+          display_name: string;
+          handle?: string | null;
+          wallet_address?: string | null;
+          avatar_url?: string | null;
+          realized_pnl_usd?: number;
+          event_volume_usd?: number;
+          closed_trades?: number;
+          profitable_closed_trades?: number;
+          unique_tokens_traded?: number;
+          biggest_win_roi_pct?: number;
+          roi_pct?: number;
+          max_drawdown_pct?: number;
+          suspicious_flags?: Json;
+          review_status?: string;
+          closed_trade_rois_pct?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['championship_participants']['Insert']>;
+        Relationships: [];
+      };
+
+      championship_finalizations: {
+        Row: {
+          id: string;
+          event_id: string;
+          leaderboard: Json;
+          finalized_by: string | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          leaderboard?: Json;
+          finalized_by?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['championship_finalizations']['Insert']>;
+        Relationships: [];
+      };
     };
 
     Views: {

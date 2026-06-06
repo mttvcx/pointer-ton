@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
+import { useJupiterTickers } from '@/lib/hooks/useJupiterTickers';
 import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
 import { TrackersPanel } from '@/components/trackers/TrackersPanel';
 import {
@@ -137,7 +138,6 @@ type PortfolioTab = 'spot' | 'wallets' | 'trackers';
 type SpotTableTab = 'active_positions' | 'history' | 'top100';
 type TimeFilter = '1d' | '7d' | '30d' | 'max';
 type PortfolioWalletSelection = 'all' | string;
-type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
 const EMPTY_POSITIONS: PositionRow[] = [];
 const EMPTY_CLOSED_SELLS: ClosedSellRow[] = [];
@@ -376,15 +376,7 @@ export function PortfolioDashboard({
     queueMicrotask(() => setSelectedPortfolioWalletId('all'));
   }, [query.isError, query.error]);
 
-  const tickersQ = useQuery({
-    queryKey: ['portfolio-page-tickers'],
-    queryFn: async (): Promise<TickerRow[]> => {
-      const res = await fetch('/api/prices/tickers');
-      const j = (await res.json()) as { tickers?: TickerRow[] };
-      return j.tickers ?? [];
-    },
-    staleTime: 30_000,
-  });
+  const tickersQ = useJupiterTickers({ staleTime: 30_000 });
 
   const walletRows = useMemo(() => {
     const q = searchWallets.trim().toLowerCase();
@@ -655,7 +647,7 @@ export function PortfolioDashboard({
         )}
       >
         Account sync failed — portfolio needs your user profile in the database.
-        <p className="mt-1 text-[11px] text-fg-muted">{authSyncError}</p>
+        <p className="mt-1 text-[11px] text-fg-secondary">{authSyncError}</p>
         <button
           type="button"
           className="mt-2 text-[11px] font-semibold text-accent-primary hover:underline"
@@ -688,7 +680,7 @@ export function PortfolioDashboard({
             onClick={() => setTab(id)}
             className={cn(
               'relative pb-1 text-[13px] transition',
-              tab === id ? 'font-semibold text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
+              tab === id ? 'font-semibold text-fg-primary' : 'text-fg-secondary hover:text-fg-secondary',
             )}
           >
             {label}
@@ -703,7 +695,7 @@ export function PortfolioDashboard({
         <div className="mx-2 mt-2 flex shrink-0 items-center justify-between gap-3 rounded-md border border-signal-bear/30 bg-signal-bear/10 px-3 py-2 text-[12px] text-signal-bear">
           <span>
             Could not load portfolio
-            <span className="ml-1.5 text-[11px] text-fg-muted">{portfolioLoadError}</span>
+            <span className="ml-1.5 text-[11px] text-fg-secondary">{portfolioLoadError}</span>
           </span>
           <button
             type="button"
@@ -744,7 +736,7 @@ export function PortfolioDashboard({
         />
         <label
           className={cn(
-            'flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-raised px-2 text-[10px] font-medium text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary',
+            'flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-raised px-2 text-[10px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-secondary',
             showHidden && 'border-accent-primary/35 text-fg-primary',
           )}
           title="Show archived / hidden wallets"
@@ -755,17 +747,17 @@ export function PortfolioDashboard({
             onChange={(e) => setShowHidden(e.target.checked)}
             className="sr-only"
           />
-          <EyeOff className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2} />
+          <EyeOff className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2} />
           <span className="hidden sm:inline">Hidden</span>
         </label>
         <div className="min-w-2 flex-1" />
         <div className="flex h-8 min-w-[140px] max-w-[260px] flex-1 items-center gap-2 rounded-lg border border-border-subtle bg-bg-sunken px-3 transition focus-within:border-accent-primary/50 focus-within:outline-none focus-within:ring-1 focus-within:ring-accent-primary/20">
-          <Search className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2.2} />
+          <Search className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2.2} />
           <input
             value={searchWallets}
             onChange={(e) => setSearchWallets(e.target.value)}
             placeholder="Search other wallets"
-            className="min-w-0 flex-1 border-0 bg-transparent text-xs text-fg-primary outline-none placeholder:text-fg-muted"
+            className="min-w-0 flex-1 border-0 bg-transparent text-xs text-fg-primary outline-none placeholder:text-fg-secondary"
           />
         </div>
         <button
@@ -781,7 +773,7 @@ export function PortfolioDashboard({
             });
           }}
           className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-raised text-fg-muted transition',
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-raised text-fg-secondary transition',
             'hover:border-accent-primary/35 hover:bg-accent-primary/10 hover:text-accent-primary',
             pnlTrackerOpen && pnlPortfolioScope !== null && 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
           )}
@@ -810,7 +802,7 @@ export function PortfolioDashboard({
                 'px-2 py-1 text-xs font-medium transition-colors',
                 timeFilter === f
                   ? 'border-b-2 border-accent-primary font-semibold text-fg-primary'
-                  : 'text-fg-muted hover:text-fg-secondary',
+                  : 'text-fg-secondary hover:text-fg-secondary',
               )}
             >
               {f}
@@ -843,7 +835,7 @@ export function PortfolioDashboard({
                   <button
                     type="button"
                     onClick={() => setUsdMode((v) => !v)}
-                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium uppercase tracking-wide text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
+                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium uppercase tracking-wide text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary"
                     title={`Switch to ${usdMode ? nativeSym : 'USD'}`}
                   >
                     {usdMode ? 'USD' : nativeSym}
@@ -852,14 +844,14 @@ export function PortfolioDashboard({
                 </div>
 
                 <div>
-                  <p className="text-[10px] text-fg-muted">Total Value</p>
+                  <p className="text-[10px] text-fg-secondary">Total Value</p>
                   <p className="mt-0.5 font-sans text-2xl font-bold tabular-nums leading-none text-fg-primary">
                     {formatBalancePrimary(portfolio.summary.totalValueUsd, true)}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-[10px] text-fg-muted">Unrealized PNL</p>
+                  <p className="text-[10px] text-fg-secondary">Unrealized PNL</p>
                   <p
                     className={cn(
                       'mt-0.5 font-sans text-lg font-semibold tabular-nums leading-none',
@@ -867,7 +859,7 @@ export function PortfolioDashboard({
                         ? 'text-signal-bull'
                         : (portfolio.summary.unrealizedPnlUsd ?? 0) < 0
                           ? 'text-signal-bear'
-                          : 'text-fg-muted',
+                          : 'text-fg-secondary',
                     )}
                   >
                     {formatBalancePrimary(portfolio.summary.unrealizedPnlUsd)}
@@ -876,13 +868,13 @@ export function PortfolioDashboard({
 
                 <div className="flex items-start justify-between gap-2 border-t border-border-subtle pt-2">
                   <div>
-                    <p className="text-[10px] text-fg-muted">Tradeable Balance</p>
+                    <p className="text-[10px] text-fg-secondary">Tradeable Balance</p>
                     <p className="mt-0.5 font-sans text-sm font-semibold tabular-nums text-fg-primary">
                       {formatNativePrimary(selectedNativeUi)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] text-fg-muted">Wallets Funding</p>
+                    <p className="text-[10px] text-fg-secondary">Wallets Funding</p>
                     <div className="mt-0.5 flex items-center justify-end gap-1.5">
                       <ChainIcon chain={activeChain} size={14} className="shrink-0 rounded-full" />
                       <span className="font-sans text-sm font-semibold tabular-nums text-fg-primary">
@@ -898,7 +890,7 @@ export function PortfolioDashboard({
               <div className="relative z-10 flex items-center justify-between px-4 pb-2 pt-4">
                 <span className="text-xs font-semibold text-fg-primary">Realized PNL</span>
                 <div className="pointer-events-auto relative z-10 flex items-center gap-2">
-                  <span className="text-[10px] text-fg-muted">30d</span>
+                  <span className="text-[10px] text-fg-secondary">30d</span>
                   <button
                     type="button"
                     title="View PNL Calendar"
@@ -922,7 +914,7 @@ export function PortfolioDashboard({
                         usdMode,
                       });
                     }}
-                    className="relative z-10 flex h-7 w-7 items-center justify-center rounded border border-border-subtle text-fg-muted transition hover:border-accent-primary/35 hover:bg-bg-hover hover:text-fg-primary"
+                    className="relative z-10 flex h-7 w-7 items-center justify-center rounded border border-border-subtle text-fg-secondary transition hover:border-accent-primary/35 hover:bg-bg-hover hover:text-fg-primary"
                   >
                     <Calendar className="pointer-events-none h-3.5 w-3.5" strokeWidth={2} />
                   </button>
@@ -958,7 +950,7 @@ export function PortfolioDashboard({
                   },
                 ].map((m) => (
                   <div key={m.label} className="flex items-center justify-between">
-                    <span className="text-xs text-fg-muted">{m.label}</span>
+                    <span className="text-xs text-fg-secondary">{m.label}</span>
                     <span
                       className={cn(
                         'text-xs font-semibold tabular-nums',
@@ -968,7 +960,7 @@ export function PortfolioDashboard({
                             ? 'text-signal-bull'
                             : Number(m.value) < 0
                               ? 'text-signal-bear'
-                              : 'text-fg-muted',
+                              : 'text-fg-secondary',
                       )}
                     >
                       {m.neutral ? String(m.value) : formatUsd(Number(m.value))}
@@ -977,7 +969,7 @@ export function PortfolioDashboard({
                 ))}
 
                 <div className="mt-3 border-t border-border-subtle pt-3">
-                  <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+                  <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-fg-secondary">
                     Return Distribution
                   </p>
                   {[
@@ -1002,7 +994,7 @@ export function PortfolioDashboard({
                     <div key={b.label} className="mb-1.5 flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <span className={cn('h-2 w-2 shrink-0 rounded-full', b.dot)} />
-                        <span className="text-[11px] text-fg-muted">{b.label}</span>
+                        <span className="text-[11px] text-fg-secondary">{b.label}</span>
                       </div>
                       <span className="text-xs font-semibold tabular-nums text-fg-primary">{b.count}</span>
                     </div>
@@ -1051,7 +1043,7 @@ export function PortfolioDashboard({
                         'px-2 py-1 text-xs font-medium transition-colors',
                         spotTableTab === id
                           ? 'border-b-2 border-accent-primary font-semibold text-fg-primary'
-                          : 'text-fg-muted hover:text-fg-secondary',
+                          : 'text-fg-secondary hover:text-fg-secondary',
                       )}
                     >
                       {label}
@@ -1060,15 +1052,15 @@ export function PortfolioDashboard({
                 </div>
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                   <div className="flex h-8 min-w-[140px] items-center gap-2 rounded-lg border border-border-subtle bg-bg-sunken px-3 transition focus-within:border-accent-primary/50 focus-within:outline-none focus-within:ring-1 focus-within:ring-accent-primary/20">
-                    <Search className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2} />
+                    <Search className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2} />
                     <input
                       value={searchTable}
                       onChange={(e) => setSearchTable(e.target.value)}
                       placeholder="Search by name or address"
-                      className="min-w-0 flex-1 border-0 bg-transparent text-xs text-fg-primary outline-none placeholder:text-fg-muted"
+                      className="min-w-0 flex-1 border-0 bg-transparent text-xs text-fg-primary outline-none placeholder:text-fg-secondary"
                     />
                   </div>
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-[10px] text-fg-muted">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-[10px] text-fg-secondary">
                     <input
                       type="checkbox"
                       checked={showHidden}
@@ -1090,19 +1082,19 @@ export function PortfolioDashboard({
                 <table className="w-full border-collapse text-left">
                   <thead className="sticky top-0 bg-bg-sunken">
                     <tr className="border-b border-border-subtle">
-                      <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                      <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-fg-secondary">
                         Token
                       </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-muted tabular-nums">
+                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-secondary tabular-nums">
                         Bought
                       </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-muted tabular-nums">
+                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-secondary tabular-nums">
                         Sold
                       </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-muted tabular-nums">
+                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-secondary tabular-nums">
                         PnL
                       </th>
-                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                      <th className="px-4 py-2 text-right text-[10px] font-semibold uppercase tracking-wide text-fg-secondary">
                         Action
                       </th>
                     </tr>
@@ -1148,7 +1140,7 @@ export function PortfolioDashboard({
                               )}
                               <div className="min-w-0">
                                 <div className="text-sm font-semibold text-fg-primary">{symbol}</div>
-                                <div className="truncate text-xs text-fg-muted">{shortenAddress(mint, 8)}</div>
+                                <div className="truncate text-xs text-fg-secondary">{shortenAddress(mint, 8)}</div>
                               </div>
                             </div>
                           </td>
@@ -1156,7 +1148,7 @@ export function PortfolioDashboard({
                             <div className="flex flex-col items-end gap-0.5">
                               <span className="text-xs font-semibold tabular-nums text-signal-bull">{boughtPrimary}</span>
                               {boughtSecondary ? (
-                                <span className="font-mono text-[10px] tabular-nums text-fg-muted">
+                                <span className="font-mono text-[10px] tabular-nums text-fg-secondary">
                                   {boughtSecondary} {symbol}
                                 </span>
                               ) : null}
@@ -1166,7 +1158,7 @@ export function PortfolioDashboard({
                             <div className="flex flex-col items-end gap-0.5">
                               <span className="text-xs font-semibold tabular-nums text-signal-bear">{soldPrimary}</span>
                               {soldSecondary ? (
-                                <span className="font-mono text-[10px] tabular-nums text-fg-muted">
+                                <span className="font-mono text-[10px] tabular-nums text-fg-secondary">
                                   {soldSecondary} {symbol}
                                 </span>
                               ) : null}
@@ -1183,12 +1175,12 @@ export function PortfolioDashboard({
                                 {pnlPrimary}
                               </span>
                               {pnlPct != null ? (
-                                <span className="text-[10px] tabular-nums text-fg-muted">({pnlPct}%)</span>
+                                <span className="text-[10px] tabular-nums text-fg-secondary">({pnlPct}%)</span>
                               ) : null}
                             </div>
                           </td>
                           <td className="px-4 align-middle text-right">
-                            <div className="inline-flex items-center gap-1 text-fg-muted">
+                            <div className="inline-flex items-center gap-1 text-fg-secondary">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1227,7 +1219,7 @@ export function PortfolioDashboard({
                     'px-2 py-1 text-xs font-medium transition-colors',
                     spotActivityTab === 'activity'
                       ? 'border-b-2 border-accent-primary font-semibold text-fg-primary'
-                      : 'text-fg-muted hover:text-fg-secondary',
+                      : 'text-fg-secondary hover:text-fg-secondary',
                   )}
                 >
                   Activity
@@ -1239,7 +1231,7 @@ export function PortfolioDashboard({
                     'px-2 py-1 text-xs font-medium transition-colors',
                     spotActivityTab === 'transfers'
                       ? 'border-b-2 border-accent-primary font-semibold text-fg-primary'
-                      : 'text-fg-muted hover:text-fg-secondary',
+                      : 'text-fg-secondary hover:text-fg-secondary',
                   )}
                 >
                   Transfers
@@ -1251,22 +1243,22 @@ export function PortfolioDashboard({
                     <table className="w-full table-fixed border-separate border-spacing-0 text-left text-[11px]">
                       <thead className="sticky top-0 z-[1] bg-bg-sunken">
                         <tr className="border-b border-border-subtle">
-                          <th scope="col" className="w-[4.5rem] whitespace-nowrap px-2 py-2.5 text-left text-[10px] font-semibold tracking-tight text-fg-muted">
+                          <th scope="col" className="w-[4.5rem] whitespace-nowrap px-2 py-2.5 text-left text-[10px] font-semibold tracking-tight text-fg-secondary">
                             Type
                           </th>
-                          <th scope="col" className="min-w-0 px-2 py-2.5 text-left text-[10px] font-semibold tracking-tight text-fg-muted">
+                          <th scope="col" className="min-w-0 px-2 py-2.5 text-left text-[10px] font-semibold tracking-tight text-fg-secondary">
                             Token
                           </th>
-                          <th scope="col" className="w-[5.75rem] whitespace-nowrap px-2 py-2.5 text-right text-[10px] font-semibold tracking-tight tabular-nums text-fg-muted sm:w-[28%]">
+                          <th scope="col" className="w-[5.75rem] whitespace-nowrap px-2 py-2.5 text-right text-[10px] font-semibold tracking-tight tabular-nums text-fg-secondary sm:w-[28%]">
                             Amount
                           </th>
-                          <th scope="col" className="hidden px-2 py-2.5 text-right text-[10px] font-semibold tracking-tight text-fg-muted sm:table-cell md:w-[20%]">
+                          <th scope="col" className="hidden px-2 py-2.5 text-right text-[10px] font-semibold tracking-tight text-fg-secondary sm:table-cell md:w-[20%]">
                             M.Cap
                           </th>
-                          <th scope="col" className="min-w-[3.75rem] px-2 py-2.5 pr-4 text-right text-[10px] font-semibold tracking-tight tabular-nums text-fg-muted sm:min-w-0 md:w-[16%]">
+                          <th scope="col" className="min-w-[3.75rem] px-2 py-2.5 pr-4 text-right text-[10px] font-semibold tracking-tight tabular-nums text-fg-secondary sm:min-w-0 md:w-[16%]">
                             Age
                           </th>
-                          <th scope="col" className="w-[2.875rem] px-2 py-2.5 text-center text-[10px] font-semibold tracking-tight text-fg-muted" title="Explorer">
+                          <th scope="col" className="w-[2.875rem] px-2 py-2.5 text-center text-[10px] font-semibold tracking-tight text-fg-secondary" title="Explorer">
                             <ExternalLink className="mx-auto h-3 w-3 opacity-60" aria-hidden />
                             <span className="sr-only">Explorer</span>
                           </th>
@@ -1299,7 +1291,7 @@ export function PortfolioDashboard({
                                   href={xLiveSearchContractUrl(t.mint)}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="shrink-0 rounded-md p-1.5 text-fg-muted hover:bg-bg-hover hover:text-accent-primary"
+                                  className="shrink-0 rounded-md p-1.5 text-fg-secondary hover:bg-bg-hover hover:text-accent-primary"
                                   aria-label="Search contract on X"
                                   title="Search contract on X"
                                 >
@@ -1311,13 +1303,13 @@ export function PortfolioDashboard({
                               {t.amountSol != null ? (
                                 formatNumber(t.amountSol, { decimals: 3 })
                               ) : (
-                                <span className="text-[13px] font-normal tabular-nums text-fg-muted">—</span>
+                                <span className="text-[13px] font-normal tabular-nums text-fg-secondary">—</span>
                               )}
                             </td>
                             <td className="hidden px-2 py-2.5 text-right align-middle tabular-nums text-[11px] sm:table-cell">
-                              <span className="inline-block tabular-nums text-[13px] text-fg-muted">—</span>
+                              <span className="inline-block tabular-nums text-[13px] text-fg-secondary">—</span>
                             </td>
-                            <td className="px-2 py-2.5 pr-3 text-right align-middle tabular-nums text-[11px] text-fg-muted">
+                            <td className="px-2 py-2.5 pr-3 text-right align-middle tabular-nums text-[11px] text-fg-secondary">
                               {formatRelativeTime(t.submittedAt)}
                             </td>
                             <td className="px-1.5 py-2 text-center align-middle sm:px-2">
@@ -1325,7 +1317,7 @@ export function PortfolioDashboard({
                                 href={explorerUrlSolanaTx(t.txSignature)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="mx-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-bg-hover hover:text-accent-primary"
+                                className="mx-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-secondary transition-colors hover:bg-bg-hover hover:text-accent-primary"
                                 aria-label="Open transaction on explorer"
                                 title="View on explorer"
                               >
@@ -1339,7 +1331,7 @@ export function PortfolioDashboard({
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12">
                       <div className="relative mb-2 h-8 w-8">
-                        <Activity className="h-8 w-8 text-fg-muted" strokeWidth={1.75} />
+                        <Activity className="h-8 w-8 text-fg-secondary" strokeWidth={1.75} />
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="h-px w-8 rotate-45 bg-fg-muted" />
                         </div>
@@ -1350,7 +1342,7 @@ export function PortfolioDashboard({
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12">
                     <p className="text-sm text-fg-secondary">No transfers</p>
-                    <p className="mt-1 text-xs text-fg-muted">Incoming and outgoing transfers will show here.</p>
+                    <p className="mt-1 text-xs text-fg-secondary">Incoming and outgoing transfers will show here.</p>
                   </div>
                 )}
               </div>
@@ -1371,12 +1363,12 @@ export function PortfolioDashboard({
                   'bg-bg-sunken',
                 )}
               >
-                <Search className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2.2} />
+                <Search className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2.2} />
                 <input
                   value={searchWallets}
                   onChange={(e) => setSearchWallets(e.target.value)}
                   placeholder="Search by name or address…"
-                  className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
+                  className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-secondary"
                 />
               </div>
               <button
@@ -1437,7 +1429,7 @@ export function PortfolioDashboard({
               onSelectGroup={setSelectedWalletGroupId}
             />
 
-            <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+            <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-secondary">
               <span className="min-w-0 flex-1">Wallet</span>
               <span className="flex shrink-0 items-center gap-6 pr-[5.5rem]">
                 <span className="min-w-[4.5rem] text-right">Balance</span>
@@ -1477,11 +1469,11 @@ export function PortfolioDashboard({
                     OS.borderSoft,
                   )}
                 >
-                  <Wallet className="mb-2 h-7 w-7 text-fg-muted" strokeWidth={1.5} />
+                  <Wallet className="mb-2 h-7 w-7 text-fg-secondary" strokeWidth={1.5} />
                   <p className="text-[12px] font-medium text-fg-secondary">
                     {showHidden ? 'No archived wallets' : `No wallets on ${nativeSym}`}
                   </p>
-                  <p className="mt-1 max-w-[240px] text-[11px] leading-relaxed text-fg-muted">
+                  <p className="mt-1 max-w-[240px] text-[11px] leading-relaxed text-fg-secondary">
                     {showHidden
                       ? 'Archived wallets appear here when you archive them from the list.'
                       : 'Import an external wallet or create one to get started.'}
@@ -1496,7 +1488,7 @@ export function PortfolioDashboard({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-fg-secondary">Capital routing</h3>
-                  <p className="mt-0.5 text-[10px] text-fg-muted">Source a balance, fan out to receivers, preview the split.</p>
+                  <p className="mt-0.5 text-[10px] text-fg-secondary">Source a balance, fan out to receivers, preview the split.</p>
                 </div>
                 <span className="rounded-full border border-border-subtle bg-bg-sunken px-2.5 py-1 text-[10px] font-medium tabular-nums text-fg-secondary">
                   {funderWallet ? '1 source' : '0 sources'} · {receiverWallets.length} rcv
@@ -1513,7 +1505,7 @@ export function PortfolioDashboard({
               </div>
 
               <div className={cn('shrink-0 rounded-lg border border-border-subtle bg-bg-sunken p-2.5', OS.borderSoft)}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">01 — Source</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-secondary">01 — Source</p>
                 <div className="mt-2" ref={funderPickerRef}>
                   <CapitalFunderPicker
                     open={funderPickerOpen}
@@ -1533,8 +1525,8 @@ export function PortfolioDashboard({
               <div className={cn('flex min-h-0 flex-1 flex-col rounded-lg border border-border-subtle bg-bg-sunken p-2.5', OS.borderSoft)}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">02 — Receivers</p>
-                    <p className="mt-0.5 text-[10px] text-fg-muted">Equal split · tap to toggle</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-secondary">02 — Receivers</p>
+                    <p className="mt-0.5 text-[10px] text-fg-secondary">Equal split · tap to toggle</p>
                   </div>
                   <span className="rounded-md border border-border-subtle bg-bg-base px-2 py-0.5 text-[10px] font-medium tabular-nums text-fg-secondary">
                     {receiverWallets.length} selected
@@ -1562,7 +1554,7 @@ export function PortfolioDashboard({
                           <span className="block truncate font-semibold text-fg-primary">
                             {w.label?.trim() || shortenAddress(w.wallet_address, 4)}
                           </span>
-                          <span className="block truncate tabular-nums tracking-tight text-[10px] text-fg-muted">
+                          <span className="block truncate tabular-nums tracking-tight text-[10px] text-fg-secondary">
                             {shortenAddress(w.wallet_address, 5)}
                             {disabled ? ' · source' : ''}
                           </span>
@@ -1590,7 +1582,7 @@ export function PortfolioDashboard({
                     OS.borderSoft,
                   )}
                 >
-                  <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-muted">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-secondary">
                     Total to route ({nativeSym})
                   </label>
                   <input
@@ -1598,9 +1590,9 @@ export function PortfolioDashboard({
                     onChange={(e) => setTransferAmount(e.target.value)}
                     placeholder={nativeSym === 'SOL' ? '0.00' : '0'}
                     inputMode="decimal"
-                    className="mt-1 w-full border-0 bg-transparent py-0.5 text-[20px] font-semibold tabular-nums tracking-tight text-fg-primary outline-none placeholder:text-fg-muted"
+                    className="mt-1 w-full border-0 bg-transparent py-0.5 text-[20px] font-semibold tabular-nums tracking-tight text-fg-primary outline-none placeholder:text-fg-secondary"
                   />
-                  <p className="mt-1 text-[10px] text-fg-muted">
+                  <p className="mt-1 text-[10px] text-fg-secondary">
                     Execution preview only — confirms split math before handoff.
                   </p>
                 </div>
@@ -1652,7 +1644,7 @@ export function PortfolioDashboard({
         </div>
       )}
 
-      <div className="flex shrink-0 items-center justify-between border-t border-border-subtle px-2 py-1 text-[10px] text-fg-muted">
+      <div className="flex shrink-0 items-center justify-between border-t border-border-subtle px-2 py-1 text-[10px] text-fg-secondary">
         <div className="flex items-center gap-2">
           <span>BTC</span>
           <span className="tabular-nums text-fg-primary">{btc?.usdPrice != null ? `$${formatNumber(btc.usdPrice, { decimals: 2 })}` : '—'}</span>
@@ -1776,7 +1768,7 @@ function TransferModal({
           <h2 className="text-[13px] font-semibold text-fg-primary">
             Split from {source.label?.trim() || 'wallet'} to {receivers.length} wallet{receivers.length === 1 ? '' : 's'}
           </h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-fg-muted hover:text-fg-primary">
+          <button type="button" onClick={onClose} className="rounded p-1 text-fg-secondary hover:text-fg-primary">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1786,11 +1778,11 @@ function TransferModal({
               <span className="h-3 w-3 rounded-sm bg-accent-primary" />
               {nativeSym}
             </span>
-            <span className="text-[10px] text-fg-muted">Native asset</span>
+            <span className="text-[10px] text-fg-secondary">Native asset</span>
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-fg-muted">Amount</label>
+            <label className="mb-1 block text-[11px] font-medium text-fg-secondary">Amount</label>
             <div className="flex gap-2">
               <div className="flex min-w-0 flex-1 items-center rounded border border-border-subtle bg-bg-sunken px-2">
                 <input
@@ -1798,11 +1790,11 @@ function TransferModal({
                   onChange={(e) => onAmountChange(e.target.value)}
                   placeholder="Enter amount"
                   inputMode="decimal"
-                  className="min-w-0 flex-1 border-0 bg-transparent py-2 text-[12px] text-fg-primary outline-none placeholder:text-fg-muted"
+                  className="min-w-0 flex-1 border-0 bg-transparent py-2 text-[12px] text-fg-primary outline-none placeholder:text-fg-secondary"
                 />
                 <span className="h-3 w-3 rounded-sm bg-accent-primary" />
               </div>
-              <div className="flex w-14 items-center justify-center rounded border border-border-subtle bg-bg-sunken text-[11px] text-fg-muted">
+              <div className="flex w-14 items-center justify-center rounded border border-border-subtle bg-bg-sunken text-[11px] text-fg-secondary">
                 0.0 %
               </div>
             </div>
@@ -1812,7 +1804,7 @@ function TransferModal({
             <div className="relative h-1 rounded-full bg-bg-sunken">
               <div className="absolute left-0 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-accent-primary" />
             </div>
-            <div className="flex justify-between text-[10px] text-fg-muted">
+            <div className="flex justify-between text-[10px] text-fg-secondary">
               <span>0%</span>
               <span>25%</span>
               <span>50%</span>
@@ -1821,13 +1813,13 @@ function TransferModal({
             </div>
           </div>
 
-          <div className="text-[11px] text-fg-muted">
+          <div className="text-[11px] text-fg-secondary">
             Available:{' '}
             <span className="tabular-nums text-fg-primary">
               {formatNumber(available, { decimals: 5 })} {nativeSym}
             </span>
           </div>
-          <div className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-2 text-[11px] text-fg-muted">
+          <div className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-2 text-[11px] text-fg-secondary">
             <div className="flex justify-between">
               <span>Receivers</span>
               <span className="tabular-nums text-fg-primary">{receivers.length}</span>
@@ -1884,7 +1876,7 @@ function TinyLineChart({ positive = true, empty = false }: { positive?: boolean;
       {empty ? (
         <div className="flex h-full flex-col items-center justify-center px-4 text-center">
           <p className="text-xs font-semibold text-fg-secondary">No PNL history yet</p>
-          <p className="mt-1 text-[10px] text-fg-muted">
+          <p className="mt-1 text-[10px] text-fg-secondary">
             Trades will appear here once this wallet has activity.
           </p>
         </div>
@@ -1932,9 +1924,9 @@ function PortfolioPlaceholderRows() {
     <tr>
       <td colSpan={5} className="px-4 py-12">
         <div className="flex flex-col items-center justify-center">
-          <Wallet className="mb-2 h-6 w-6 text-fg-muted" strokeWidth={1.75} />
+          <Wallet className="mb-2 h-6 w-6 text-fg-secondary" strokeWidth={1.75} />
           <p className="text-sm text-fg-secondary">No active positions</p>
-          <p className="mt-1 text-xs text-fg-muted">Positions will appear after trades are detected</p>
+          <p className="mt-1 text-xs text-fg-secondary">Positions will appear after trades are detected</p>
         </div>
       </td>
     </tr>
@@ -1944,10 +1936,10 @@ function PortfolioPlaceholderRows() {
 function SummaryTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-2">
-      <div className="text-[10px] text-fg-muted">{label}</div>
+      <div className="text-[10px] text-fg-secondary">{label}</div>
       <div className="mt-0.5 truncate text-[12px] font-semibold tabular-nums text-fg-primary">
         {value}
-        {sub ? <span className="ml-1 text-[10px] font-medium text-fg-muted">{sub}</span> : null}
+        {sub ? <span className="ml-1 text-[10px] font-medium text-fg-secondary">{sub}</span> : null}
       </div>
     </div>
   );

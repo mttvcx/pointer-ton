@@ -11,6 +11,7 @@ import { PulseDisplayPrefsSync } from '@/components/pulse/PulseDisplayPrefsSync'
 import { PulseWorkspaceToolbar } from '@/components/pulse/PulseWorkspaceToolbar';
 import { usePulseAssetModeStore } from '@/store/pulseAssetMode';
 import { useWatchlistStore } from '@/store/watchlist';
+import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
@@ -31,6 +32,12 @@ export function PulseChromeStack() {
   const hydrated = usePulseAssetModeStore((s) => s.hydrated);
   const setAssetMode = usePulseAssetModeStore((s) => s.setMode);
   const hydrateAssets = usePulseAssetModeStore((s) => s.hydrate);
+
+  // When the tracker peek is docked on the right it squeezes the toolbar — lift
+  // Help + Display onto a top row to reclaim the empty band beside the panel.
+  const walletPeekOpen = useTokenDockPeekStore((s) => s.walletPeekOpen);
+  const walletDockSnap = useTokenDockPeekStore((s) => s.dockWalletDockSnap);
+  const toolbarStacked = walletPeekOpen && walletDockSnap === 'right';
 
   const showBrief = isEmbedded && showBriefSlot;
   const onPulse = Boolean(pathname?.startsWith('/pulse'));
@@ -83,7 +90,7 @@ export function PulseChromeStack() {
             )}
           >
             <div className="pointer-events-auto pr-2 sm:pr-3 lg:pr-4">
-              <PulseWorkspaceToolbar />
+              <PulseWorkspaceToolbar stacked={toolbarStacked} />
             </div>
           </div>
 

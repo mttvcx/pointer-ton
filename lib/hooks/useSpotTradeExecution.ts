@@ -9,6 +9,7 @@ import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import { toast } from 'sonner';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
+import { buildBlitzAwareFees, isBlitzWallet } from '@/lib/trading/blitz';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import {
@@ -71,7 +72,10 @@ export function useSpotTradeExecution(mint: string) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const qc = useQueryClient();
   const { submitFromQuote } = usePointerTradeSubmit();
-  const { activePresetSlot, spendAsset, setSpendAsset } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
+  const spendAsset = useTradingStore((s) => s.spendAsset);
+  const setSpendAsset = useTradingStore((s) => s.setSpendAsset);
+  const blitzWalletAddresses = useTradingStore((s) => s.blitzWalletAddresses);
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -207,15 +211,19 @@ export function useSpotTradeExecution(mint: string) {
         return;
       }
 
-      const feeExtra =
+      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const presetFees =
         activePreset != null
           ? {
               jitoTipLamports: activePreset.jito_tip_lamports,
               priorityFeeLamports: activePreset.priority_fee_lamports,
               autoFee: activePreset.auto_fee,
               maxFeeSol: activePreset.max_fee_sol,
+              landing,
             }
-          : {};
+          : { landing };
+      const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
+      const tradeLanding = blitzLanding ?? landing;
 
       const toastId = toast.loading('Buy: quote...');
       try {
@@ -232,7 +240,7 @@ export function useSpotTradeExecution(mint: string) {
             ...buyQuoteAmountFields(asset, amount),
             slippageBps: effectiveSlippageBps,
             dynamicSlippage,
-            landing,
+            landing: tradeLanding,
             includeSwapTx: true,
             ...feeExtra,
           }),
@@ -338,15 +346,19 @@ export function useSpotTradeExecution(mint: string) {
         return;
       }
 
-      const feeExtra =
+      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const presetFees =
         activePreset != null
           ? {
               jitoTipLamports: activePreset.jito_tip_lamports,
               priorityFeeLamports: activePreset.priority_fee_lamports,
               autoFee: activePreset.auto_fee,
               maxFeeSol: activePreset.max_fee_sol,
+              landing,
             }
-          : {};
+          : { landing };
+      const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
+      const tradeLanding = blitzLanding ?? landing;
 
       const toastId = toast.loading('Sell: quote...');
       try {
@@ -363,7 +375,7 @@ export function useSpotTradeExecution(mint: string) {
             amountTokenRaw,
             slippageBps: effectiveSlippageBps,
             dynamicSlippage,
-            landing,
+            landing: tradeLanding,
             includeSwapTx: true,
             ...feeExtra,
           }),
@@ -469,15 +481,19 @@ export function useSpotTradeExecution(mint: string) {
         return;
       }
 
-      const feeExtra =
+      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const presetFees =
         activePreset != null
           ? {
               jitoTipLamports: activePreset.jito_tip_lamports,
               priorityFeeLamports: activePreset.priority_fee_lamports,
               autoFee: activePreset.auto_fee,
               maxFeeSol: activePreset.max_fee_sol,
+              landing,
             }
-          : {};
+          : { landing };
+      const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
+      const tradeLanding = blitzLanding ?? landing;
 
       const toastId = toast.loading('Sell: quote...');
       try {
@@ -494,7 +510,7 @@ export function useSpotTradeExecution(mint: string) {
             amountSolOut,
             slippageBps: effectiveSlippageBps,
             dynamicSlippage,
-            landing,
+            landing: tradeLanding,
             includeSwapTx: true,
             ...feeExtra,
           }),

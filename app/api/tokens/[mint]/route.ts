@@ -17,14 +17,16 @@ export async function GET(
   }
 
   try {
+    // Snapshot only needs the mint, so fetch it alongside the token row.
+    const snapshotPromise = getLatestSnapshotForMint(mint);
     const token = await ensureTokenRowFromDas(mint);
     if (!token) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
-    const snapshot = await getLatestSnapshotForMint(mint);
-    const dev = token.creator_wallet
-      ? await getDevWalletStats(token.creator_wallet)
-      : null;
+    const devPromise = token.creator_wallet
+      ? getDevWalletStats(token.creator_wallet)
+      : Promise.resolve(null);
+    const [snapshot, dev] = await Promise.all([snapshotPromise, devPromise]);
     return NextResponse.json({ token, snapshot, dev });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'token_detail_failed';

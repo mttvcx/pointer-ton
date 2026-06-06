@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Share2, X } from 'lucide-react';
@@ -14,9 +14,7 @@ import {
   type ColumnSortKey,
   COLUMN_SORT_KEYS,
   BUY_BUTTON_STYLES,
-  type BuyButtonStyle,
   PULSE_SECOND_BUTTON_MODES,
-  type PulseSecondButtonMode,
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
   countActiveColumnFilters,
   defaultColumnFiltersForChain,
@@ -32,6 +30,7 @@ import {
 import { protocolBrand } from '@/lib/tokens/protocolBrand';
 import type { ColumnPulsePresetSlot } from '@/store/pulseColumns';
 import { usePulseColumnStore } from '@/store/pulseColumns';
+import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
 import { useUIStore } from '@/store/ui';
 import {
   modalBackdropClass,
@@ -141,6 +140,74 @@ function NumField({
       />
       {suffix ? <span className="text-[9px] text-fg-muted">{suffix}</span> : null}
     </label>
+  );
+}
+
+function FilterDarkSelect<T extends string>({
+  value,
+  options,
+  onChange,
+  getLabel = (v) => v,
+  className,
+}: {
+  value: T;
+  options: readonly T[];
+  onChange: (v: T) => void;
+  getLabel?: (v: T) => string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div ref={ref} className={cn('relative', className)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-left text-[11px] text-white outline-none transition hover:border-white/[0.1]"
+      >
+        <span className="capitalize">{getLabel(value)}</span>
+        <ChevronDown className={cn('h-3 w-3 shrink-0 text-white/40 transition', open && 'rotate-180')} />
+      </button>
+      {open ? (
+        <ul
+          role="listbox"
+          className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-48 overflow-y-auto rounded-lg border border-border-subtle bg-bg-raised py-1 shadow-xl"
+        >
+          {options.map((opt) => (
+            <li key={opt} role="option" aria-selected={opt === value}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'flex w-full px-2.5 py-1.5 text-left text-[11px] capitalize transition',
+                  opt === value
+                    ? 'bg-accent-primary/15 text-fg-primary'
+                    : 'text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+                )}
+              >
+                {getLabel(opt)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
@@ -268,6 +335,7 @@ export function ColumnFilterModal({
 }: Props) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
+  const hydrateQuickBuyFromColumns = usePulseDisplayPrefsStore((s) => s.hydrateQuickBuyFromColumns);
   const setLocalColumnFilters = usePulseColumnStore((s) => s.setLocalColumnFilters);
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
   const activeChain = useUIStore((s) => s.activeChain);
@@ -280,7 +348,6 @@ export function ColumnFilterModal({
   const [searchKeywords, setSearchKeywords] = useState('');
   const [excludeKeywords, setExcludeKeywords] = useState('');
 
-  const [name, setName] = useState('Preset');
   const [filters, setFilters] = useState<ColumnFilters>(() => defaultColumnFiltersForChain(activeChain));
   const [display, setDisplay] = useState<ColumnDisplayOptions>(DEFAULT_COLUMN_DISPLAY_OPTIONS);
   const [quickSolDraft, setQuickSolDraft] = useState('');
@@ -289,6 +356,7 @@ export function ColumnFilterModal({
   const [importText, setImportText] = useState('');
 
   const scopePresetSlot = usePulseColumnStore((s) => s.byColumn[scopeColumn].presetSlot);
+  const presetName = `P${scopePresetSlot}`;
 
   useEffect(() => {
     if (open) setScopeColumn(columnId);
@@ -322,14 +390,13 @@ export function ColumnFilterModal({
   const resetDraft = useCallback(() => {
     const chain = useUIStore.getState().activeChain;
     const qb = usePulseColumnStore.getState().byColumn[scopeColumn].quickBuySol;
-    setName(activeRow?.name?.trim() || `P${scopePresetSlot}`);
     setFilters(defaultColumnFiltersForChain(chain));
     setDisplay({ ...DEFAULT_COLUMN_DISPLAY_OPTIONS, density: 'normal', quickBuySol: qb });
     setSortBy('created_at');
     setSortDir('desc');
     setSearchKeywords('');
     setExcludeKeywords('');
-  }, [scopeColumn, scopePresetSlot, activeRow?.name]);
+  }, [scopeColumn, scopePresetSlot]);
 
   useEffect(() => {
     if (!open) return;
@@ -340,7 +407,6 @@ export function ColumnFilterModal({
       resetDraft();
       return;
     }
-    setName(activeRow.name?.trim() || `P${scopePresetSlot}`);
     setFilters(normalizeColumnFilters(activeRow.filters, activeChain));
     const disp = normalizeColumnDisplayOptions(activeRow.display_options);
     const qb = usePulseColumnStore.getState().byColumn[scopeColumn].quickBuySol;
@@ -395,7 +461,7 @@ export function ColumnFilterModal({
         v: 1,
         column_id: scopeColumn,
         preset_slot: scopePresetSlot,
-        name: name.trim() || undefined,
+        name: presetName,
         filters,
         display_options: { ...display, density: 'normal' },
         sort_by: sortBy,
@@ -404,7 +470,7 @@ export function ColumnFilterModal({
     } catch {
       return null;
     }
-  }, [scopeColumn, scopePresetSlot, name, filters, display, sortBy, sortDir]);
+  }, [scopeColumn, scopePresetSlot, presetName, filters, display, sortBy, sortDir]);
 
   const onKey = useCallback(
     (e: KeyboardEvent) => {
@@ -419,13 +485,32 @@ export function ColumnFilterModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onKey]);
 
+  const syncQuickBuyAfterApply = useCallback(
+    (opts: { allColumns: boolean }) => {
+      const cols = opts.allColumns ? [...PULSE_COLUMNS] : [scopeColumn];
+      for (const col of cols) {
+        setQuickBuySol(col, display.quickBuySol);
+        setBuyButtonStyle(col, display.buyButtonStyle);
+      }
+      hydrateQuickBuyFromColumns();
+    },
+    [
+      scopeColumn,
+      display.quickBuySol,
+      display.buyButtonStyle,
+      setQuickBuySol,
+      setBuyButtonStyle,
+      hydrateQuickBuyFromColumns,
+    ],
+  );
+
   const saveOne = useMutation({
     mutationFn: async (opts: { allColumns?: boolean }) => {
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const body = {
         preset_slot: scopePresetSlot,
-        name: name.trim() || `P${scopePresetSlot}`,
+        name: presetName,
         filters,
         display_options: { ...display, density: 'normal' },
         sort_by: sortBy,
@@ -461,6 +546,7 @@ export function ColumnFilterModal({
       return { allColumns: opts.allColumns === true };
     },
     onSuccess: (_, vars) => {
+      syncQuickBuyAfterApply({ allColumns: vars.allColumns === true });
       void qc.invalidateQueries({ queryKey: ['pulse-column-presets'] });
       toast.success(vars.allColumns ? 'Applied to all columns' : 'Applied to this column');
       onSaved();
@@ -477,14 +563,14 @@ export function ColumnFilterModal({
     const obj = {
       column_id: scopeColumn,
       preset_slot: scopePresetSlot,
-      name: name.trim(),
+      name: presetName,
       filters,
       display_options: { ...display, density: 'normal' },
       sort_by: sortBy,
       sort_dir: sortDir,
     };
     return JSON.stringify(obj, null, 2);
-  }, [scopeColumn, scopePresetSlot, name, filters, display, sortBy, sortDir]);
+  }, [scopeColumn, scopePresetSlot, presetName, filters, display, sortBy, sortDir]);
 
   const onImport = useCallback(() => {
     const parsed = parseImportedPresetJson(importText, scopeColumn, activeChain);
@@ -496,7 +582,6 @@ export function ColumnFilterModal({
     setDisplay({ ...normalizeColumnDisplayOptions(parsed.display_options), density: 'normal' });
     setSortBy(parsed.sort_by);
     setSortDir(parsed.sort_dir);
-    if (parsed.name) setName(parsed.name);
     toast.success('Imported (apply to save)');
   }, [importText, scopeColumn, activeChain]);
 
@@ -864,35 +949,31 @@ export function ColumnFilterModal({
           </button>
           {advancedOpen ? (
             <div className="max-h-[200px] space-y-3 overflow-y-auto border-t border-white/[0.04] px-5 py-3">
-              <label className="block space-y-1">
-                <span className="text-[10px] uppercase tracking-wide text-white/40">Preset name</span>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[12px] text-white/80 outline-none"
-                />
-              </label>
+              <div className="block space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-white/40">Preset slot</span>
+                <div
+                  aria-readonly
+                  className="w-full cursor-default rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px] text-white/50"
+                >
+                  {presetName}
+                </div>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] text-white/40">Sort</span>
-                <select
+                <FilterDarkSelect
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as ColumnSortKey)}
-                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
-                >
-                  {COLUMN_SORT_KEYS.map((k) => (
-                    <option key={k} value={k}>
-                      {SORT_LABELS[k]}
-                    </option>
-                  ))}
-                </select>
-                <select
+                  options={COLUMN_SORT_KEYS}
+                  getLabel={(k) => SORT_LABELS[k]}
+                  onChange={setSortBy}
+                  className="min-w-[9rem]"
+                />
+                <FilterDarkSelect
                   value={sortDir}
-                  onChange={(e) => setSortDir(e.target.value === 'asc' ? 'asc' : 'desc')}
-                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
-                >
-                  <option value="desc">Desc</option>
-                  <option value="asc">Asc</option>
-                </select>
+                  options={['desc', 'asc'] as const}
+                  getLabel={(d) => (d === 'desc' ? 'Desc' : 'Asc')}
+                  onChange={setSortDir}
+                  className="min-w-[5rem]"
+                />
               </div>
               <textarea
                 value={importText}
@@ -959,39 +1040,25 @@ export function ColumnFilterModal({
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] uppercase text-white/40">Quick buy button</span>
-                <select
+                <FilterDarkSelect
                   value={display.buyButtonStyle}
-                  onChange={(e) => {
-                    const v = e.target.value as BuyButtonStyle;
+                  options={BUY_BUTTON_STYLES}
+                  onChange={(v) => {
                     setDisplay((d) => ({ ...d, buyButtonStyle: v }));
                     setBuyButtonStyle(scopeColumn, v);
                   }}
-                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
-                >
-                  {BUY_BUTTON_STYLES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] uppercase text-white/40">Second button</span>
-                <select
+                <FilterDarkSelect
                   value={display.pulseSecondButton}
-                  onChange={(e) => {
-                    const v = e.target.value as PulseSecondButtonMode;
+                  options={PULSE_SECOND_BUTTON_MODES}
+                  onChange={(v) => {
                     setDisplay((d) => ({ ...d, pulseSecondButton: v }));
                     onDisplayPreview?.({ pulseSecondButton: v });
                   }}
-                  className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1.5 text-[11px] text-white outline-none"
-                >
-                  {PULSE_SECOND_BUTTON_MODES.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
             </div>
           ) : null}
@@ -1044,6 +1111,7 @@ export function ColumnFilterModal({
                   return;
                 }
                 setLocalColumnFilters(scopeColumn, scopePresetSlot, filters);
+                syncQuickBuyAfterApply({ allColumns: false });
                 toast.success('Applied to this column');
                 onSaved();
                 onClose();
@@ -1065,6 +1133,7 @@ export function ColumnFilterModal({
                     setLocalColumnFilters(col, slot, filters);
                   }
                 }
+                syncQuickBuyAfterApply({ allColumns: true });
                 toast.success('Applied to all columns');
                 onSaved();
                 onClose();

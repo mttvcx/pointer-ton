@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AppToaster } from '@/components/providers/AppToaster';
 import { WalletTrackerToaster } from '@/components/providers/WalletTrackerToaster';
+import { ProvisionServerSigner } from '@/components/auth/ProvisionServerSigner';
 import { PointerAuthProvider } from '@/lib/auth/pointerAuth';
 import { PRIVY_APP_ID, privyClientConfig } from '@/lib/privy/publicConfig';
 
@@ -79,6 +80,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <PrivyProvider appId={PRIVY_APP_ID} config={privyClientConfig}>
         <PointerAuthProvider>
+          <ProvisionServerSigner />
           {children}
           <WalletTrackerToaster />
           <AppToaster />

@@ -30,8 +30,8 @@ function formatTapeUsd(value: number): string {
 
 /**
  * Axiom-style trade desk row — one slot above Buy/Sell.
- * Default: 5m · 1h · 6h · 24h picker. Click a window → vol / buys / sells / net for that TF.
- * Hover again to switch windows.
+ * Default: vol / buys / sells / net for the selected TF.
+ * Hover → 5m · 1h · 6h · 24h picker. Click a window to switch.
  */
 export function TokenTradeDeskStrip({
   metrics,
@@ -49,16 +49,15 @@ export function TokenTradeDeskStrip({
   className?: string;
 }) {
   const [hovering, setHovering] = useState(false);
-  const [statsPinned, setStatsPinned] = useState(false);
 
-  const showStats = statsPinned && !hovering;
+  // Stats are the resting state; the TF picker only appears on hover.
+  const showStats = !hovering;
   const tape = tapeMetricsForTf(metrics, selected, mint);
   const volTotal = tape.buyVolUsd + tape.sellVolUsd;
   const buyRatio = volTotal > 0 ? tape.buyVolUsd / volTotal : 0.5;
 
   const pickTf = (tf: TokenTradePerfTf) => {
     onSelect(tf);
-    setStatsPinned(true);
   };
 
   return (

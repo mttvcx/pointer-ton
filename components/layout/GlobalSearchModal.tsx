@@ -7,6 +7,7 @@ import {
   BarChart3,
   CheckCircle2,
   ChevronDown,
+  CircleDollarSign,
   Clock,
   Flame,
   GraduationCap,
@@ -36,6 +37,7 @@ import {
   TON_NATIVE_UI_MINT,
 } from '@/lib/utils/tonDemoMints';
 import { cn } from '@/lib/utils/cn';
+import type { ProtocolBrandId } from '@/lib/tokens/protocolBrand';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelFromTopClasses } from '@/lib/ui/overlayMotion';
@@ -102,6 +104,8 @@ type EnrichedSummary = SummaryRow & {
   mockAgeMs: number;
   mockSafety: number;
   protocol: ProtocolId;
+  /** Whether this token's primary pair is quoted in USDC (drives the USDC filter). */
+  quoteIsUsdc: boolean;
   dexLabel: string;
 };
 
@@ -128,6 +132,7 @@ function enrichSummary(row: SummaryRow): EnrichedSummary {
   const mockVol = (h >>> 8) % 420_000;
   const mockLiq = 1_200 + ((h >>> 16) % 520_000);
   const mockAgeMs = ((h >>> 4) % 21) * 86_400_000 + ((h >>> 12) % 12) * 3_600_000;
+  const quoteIsUsdc = ((h >>> 24) & 1) === 0;
   return {
     ...row,
     mockMc,
@@ -136,6 +141,7 @@ function enrichSummary(row: SummaryRow): EnrichedSummary {
     mockAgeMs,
     mockSafety,
     protocol,
+    quoteIsUsdc,
     dexLabel: PROTOCOL_LAUNCHPAD_LABEL[protocol],
   };
 }
@@ -199,6 +205,12 @@ export function GlobalSearchModal() {
 
   /** Active protocol filters: empty set = show all tokens. Non-empty = keep rows matching any selected protocol. */
   const [activeProtocols, setActiveProtocols] = useState<Set<ProtocolId>>(() => new Set());
+  /**
+   * USDC filter is a separate AND dimension, combinable with the protocol chips
+   * (e.g. OG Mode + USDC = OG tokens whose pair is USDC-quoted). It narrows the
+   * searched ticker/name down to USDC pairs.
+   */
+  const [usdcOnly, setUsdcOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('relevance');
   /** Row vertical density toggled via list icon. */
   const [compactRows, setCompactRows] = useState(false);
@@ -426,12 +438,13 @@ export function GlobalSearchModal() {
   );
 
   const searchSorted = useMemo(() => {
-    const filtered = filterSearchByProtocols(searchEnriched, activeProtocols);
+    let filtered = filterSearchByProtocols(searchEnriched, activeProtocols);
+    if (usdcOnly) filtered = filtered.filter((r) => r.quoteIsUsdc);
     return sortEnrichedRows(filtered, sortMode);
-  }, [searchEnriched, activeProtocols, sortMode]);
+  }, [searchEnriched, activeProtocols, usdcOnly, sortMode]);
 
   const hasSearchSection = queryLooksLikeCa && (searchRaw.length > 0 || loadingSearch);
-  const filtersActive = activeProtocols.size > 0;
+  const filtersActive = activeProtocols.size > 0 || usdcOnly;
   const closeSearch = () => {
     setOpen(false);
     setSearchQuery('');
@@ -482,6 +495,13 @@ export function GlobalSearchModal() {
                   MetaIcon={MetaIcon}
                 />
               ))}
+              <SearchProtocolFilterChip
+                key="usdc"
+                label="USDC"
+                active={usdcOnly}
+                onClick={() => setUsdcOnly((v) => !v)}
+                MetaIcon={CircleDollarSign}
+              />
               {filtersActive ? (
                 <span className="text-[10px] text-fg-muted">· results only</span>
               ) : null}

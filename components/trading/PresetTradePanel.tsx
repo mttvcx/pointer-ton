@@ -330,7 +330,8 @@ function MetricBox({
 
 /** Axiom-style preset row — tap to expand settings, tap again to collapse (stay selected). */
 export function PresetTradePanel({ presets, disabled }: Props) {
-  const { activePresetSlot, setActivePresetSlot } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
+  const setActivePresetSlot = useTradingStore((s) => s.setActivePresetSlot);
   const [expandedSlot, setExpandedSlot] = useState<PresetSlot | null>(null);
 
   const expandedPreset = useMemo(

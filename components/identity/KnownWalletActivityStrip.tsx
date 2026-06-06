@@ -1,22 +1,13 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { hydrateTradeEventsFromMintTrades, getTokenIdentityTradeEvents } from '@/lib/identity/tradeEvents';
+import { useMintTrades } from '@/lib/hooks/useMintTrades';
 import { WalletIdentityLabel } from '@/components/identity/WalletIdentityLabel';
 import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
 import { formatCompactUsd, formatRelativeTime } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
-
-type TradeRow = {
-  wallet_address: string;
-  side: string;
-  submitted_at: string;
-  price_usd?: number | null;
-  amount_usd?: number | null;
-  tx_signature?: string | null;
-};
 
 export function KnownWalletActivityStrip({
   chain,
@@ -27,21 +18,24 @@ export function KnownWalletActivityStrip({
   mint: string;
   className?: string;
 }) {
-  const tradesQ = useQuery({
-    queryKey: ['token-trades-identity', mint],
-    queryFn: async () => {
-      const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}/trades?limit=80`);
-      if (!r.ok) return [] as TradeRow[];
-      const json = (await r.json()) as { trades?: TradeRow[] };
-      return json.trades ?? [];
-    },
-    staleTime: 30_000,
-  });
+  // Shares the `['mint-trades', mint]` cache with the trades desk so this strip
+  // never issues a second request to the same endpoint.
+  const tradesQ = useMintTrades(mint, { staleTime: 30_000 });
 
   const events = useMemo(() => {
     const stored = getTokenIdentityTradeEvents({ chain, tokenAddress: mint });
     if (stored.length > 0) return stored.slice(0, 12);
-    const rows = tradesQ.data ?? [];
+    // The `/trades` rows are wallet-activity shaped at runtime; assert the
+    // structural shape `hydrateTradeEventsFromMintTrades` consumes (same as the
+    // strip did before it shared the trades cache).
+    const rows = (tradesQ.data?.trades ?? []) as unknown as Array<{
+      wallet_address: string;
+      side: string;
+      submitted_at: string;
+      price_usd?: number | null;
+      amount_usd?: number | null;
+      tx_signature?: string | null;
+    }>;
     return hydrateTradeEventsFromMintTrades(chain, mint, rows).slice(0, 12);
   }, [chain, mint, tradesQ.data]);
 

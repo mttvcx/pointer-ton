@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ChampionshipTerminal } from '@/components/championship/ChampionshipTerminal';
+import { ChampionshipTerminalLazy } from '@/components/championship/ChampionshipTerminalLazy';
 
 export const metadata: Metadata = {
   title: 'Championship',
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function ChampionshipPage() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-base px-1 py-1 sm:px-1.5">
-      <ChampionshipTerminal />
+      <ChampionshipTerminalLazy />
     </div>
   );
 }

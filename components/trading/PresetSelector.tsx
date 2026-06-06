@@ -16,7 +16,8 @@ type Props = {
 };
 
 export function PresetSelector({ presets, onEdit, onAdvancedSettings, disabled }: Props) {
-  const { activePresetSlot, setActivePresetSlot } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
+  const setActivePresetSlot = useTradingStore((s) => s.setActivePresetSlot);
   const bySlot = new Map(presets.map((p) => [p.slot, p.name] as const));
 
   return (

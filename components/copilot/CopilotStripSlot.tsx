@@ -37,7 +37,7 @@ export function CopilotStripSlot() {
         className="pointer-events-none fixed inset-x-0 z-40"
         style={{ top: 'var(--app-topbar-h)' }}
       >
-        <div className="pointer-events-auto mx-auto w-full max-w-[440px] px-3 pb-0 pt-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.22)_transparent]">
+        <div className="pointer-events-auto mx-auto w-full max-w-[440px] px-3 pb-0 pt-2 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.22)_transparent]">
           <CopilotStripBody />
         </div>
       </div>

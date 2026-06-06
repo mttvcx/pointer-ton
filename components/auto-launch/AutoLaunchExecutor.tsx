@@ -14,7 +14,15 @@ import { toast } from 'sonner';
 
 export function AutoLaunchExecutor() {
   const { authenticated } = usePointerAuth();
-  const { data } = useAlertsTickerQuery({ pollAggressively: true });
+  const autoLaunchEnabled = useAutoLaunchStore((s) => s.autoLaunchEnabled);
+  // Mirror AutoBuyExecutor: aggressive stream only while auto-launch is armed,
+  // kept alive in the background so a hidden tab keeps reacting; fully off
+  // (no polling) when the toggle is off.
+  const { data } = useAlertsTickerQuery({
+    pollAggressively: true,
+    keepWhenHidden: true,
+    enabled: autoLaunchEnabled,
+  });
   const seenIds = useRef<Set<string>>(new Set());
   const hydrated = useRef(false);
   const inFlight = useRef<Set<string>>(new Set());

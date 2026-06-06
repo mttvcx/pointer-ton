@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { BuyButtonStyle } from '@/lib/tokens/columnPresetModel';
 import { BUY_BUTTON_STYLES } from '@/lib/tokens/columnPresetModel';
+import { DEFAULT_PULSE_ACCENT_HEX } from '@/lib/ui/pulseAccent';
 
 export const PulseDisplayTabSchema = z.enum(['layout', 'metrics', 'row', 'extras']);
 export type PulseDisplayTab = z.infer<typeof PulseDisplayTabSchema>;
@@ -148,7 +149,7 @@ export const DEFAULT_PULSE_DISPLAY_PREFS: PulseDisplayPrefs = {
   quickBuyClickBehavior: 'nothing',
   walletGroupsInHeader: true,
   secondButtonMode: 'off',
-  accentHex: '#526EEE',
+  accentHex: DEFAULT_PULSE_ACCENT_HEX,
 };
 
 export function withPulseDisplayDefaults(

@@ -32,6 +32,7 @@ import { preferTokenTableDemoRows } from '@/lib/dev/uiDemoMode';
 import { demoTablesEnabled } from '@/lib/dev/demoPolicy';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
+import { useMintTrades } from '@/lib/hooks/useMintTrades';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
 import type { TraderDeskFilter } from '@/lib/walletIdentity/traderFilters';
@@ -357,6 +358,10 @@ export function TokenActivityTabs({
   marketCapUsd?: number | null;
 }) {
   const [tab, setTab] = useState<TabId>('trades');
+  const visibleTabs = useMemo(
+    () => (tradesPanel ? TABS.filter((t) => t.id !== 'trades') : TABS),
+    [tradesPanel],
+  );
   const [tradesFeedHoverPause, setTradesFeedHoverPause] = useState(false);
   const [onlyTracked, setOnlyTracked] = useState(false);
   const [traderDeskFilter, setTraderDeskFilter] = useState<TraderDeskFilter>('all');
@@ -386,7 +391,18 @@ export function TokenActivityTabs({
   const handleFilterMintTrades = (address: string) => {
     setTradesMakerFilter(address);
     onTradesDeskFilterChange('all');
+    if (tradesPanel) onTradesPanelChange(false);
     setTab('trades');
+  };
+
+  const toggleTradesPanelLayout = () => {
+    if (tradesPanel) {
+      onTradesPanelChange(false);
+      setTab('trades');
+      return;
+    }
+    onTradesPanelChange(true);
+    if (tab === 'trades') setTab('positions');
   };
 
   const handleClearTradesMakerFilter = () => {
@@ -402,18 +418,13 @@ export function TokenActivityTabs({
     onTradesDeskFilterChange(tradesDeskFilter === id ? 'all' : id);
   };
 
-  const tradesQ = useQuery({
-    queryKey: ['mint-trades', mint],
-    queryFn: async () => {
-      const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}/trades?limit=80`);
-      if (!r.ok) throw new Error('trades');
-      return r.json() as Promise<{ trades: TradeRow[] }>;
-    },
-    enabled: tab === 'trades',
+  const tradesFeedActive = tab === 'trades' || tradesPanel;
+  const tradesQ = useMintTrades(mint, {
+    enabled: tradesFeedActive,
     placeholderData: demoTables ? { trades: demoTrades } : undefined,
     staleTime: 15_000,
-    refetchInterval: tab === 'trades' && !tradesFeedHoverPause ? 4500 : false,
-    refetchOnWindowFocus: tab === 'trades' ? !tradesFeedHoverPause : true,
+    refetchInterval: tradesFeedActive && !tradesFeedHoverPause ? 4500 : false,
+    refetchOnWindowFocus: tradesFeedActive ? !tradesFeedHoverPause : true,
   });
 
   const tradersQ = useQuery({
@@ -435,6 +446,7 @@ export function TokenActivityTabs({
       if (!r.ok) throw new Error('holders_failed');
       return r.json() as Promise<{ holders: { id: number }[] }>;
     },
+    enabled: tab === 'holders',
     placeholderData: demoTables ? demoHolders : undefined,
     staleTime: 60_000,
   });
@@ -485,6 +497,10 @@ export function TokenActivityTabs({
   useEffect(() => {
     if (tab !== 'trades') setTradesFeedHoverPause(false);
   }, [tab]);
+
+  useEffect(() => {
+    if (tradesPanel && tab === 'trades') setTab('positions');
+  }, [tradesPanel, tab]);
 
   const displayMode: 'USD' | 'SOL' = tableUsd ? 'USD' : 'SOL';
 
@@ -580,7 +596,7 @@ export function TokenActivityTabs({
     <div className="flex min-h-0 flex-1 flex-col bg-bg-raised font-sans text-[12px] leading-snug text-fg-primary antialiased">
       <div className="flex shrink-0 items-center gap-1 border-b border-border-subtle/25 px-2 py-0.5">
         <nav className="flex shrink-0 items-center gap-0" aria-label="Token activity">
-          {TABS.map((t) => {
+          {visibleTabs.map((t) => {
             const active = tab === t.id;
             return (
               <button
@@ -670,37 +686,37 @@ export function TokenActivityTabs({
               Paused
             </span>
           ) : null}
+          {tradesPanel || tab === 'trades' ? (
+            <button
+              type="button"
+              onClick={toggleTradesPanelLayout}
+              className={cn(
+                'btn-press inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold transition-colors duration-200',
+                tradesPanel
+                  ? 'border-border-subtle bg-bg-hover text-fg-primary'
+                  : 'border-border-subtle/80 text-fg-muted hover:border-border-default hover:text-fg-primary',
+              )}
+              title={
+                tradesPanel
+                  ? 'Show full trades table below the chart'
+                  : 'Show compact live feed beside the chart'
+              }
+            >
+              {tradesPanel ? (
+                <>
+                  <Table2 className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                  Trades Table
+                </>
+              ) : (
+                <>
+                  <LayoutPanelTop className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                  Trades Panel
+                </>
+              )}
+            </button>
+          ) : null}
           {showTableControls ? (
             <>
-              {tab === 'trades' ? (
-                <button
-                  type="button"
-                  onClick={() => onTradesPanelChange(!tradesPanel)}
-                  className={cn(
-                    'btn-press inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold transition-colors duration-200',
-                    tradesPanel
-                      ? 'border-border-subtle bg-bg-hover text-fg-primary'
-                      : 'border-border-subtle/80 text-fg-muted hover:border-border-default hover:text-fg-primary',
-                  )}
-                  title={
-                    tradesPanel
-                      ? 'Show full trades table below the chart'
-                      : 'Show compact live feed beside the chart'
-                  }
-                >
-                  {tradesPanel ? (
-                    <>
-                      <Table2 className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-                      Trades Table
-                    </>
-                  ) : (
-                    <>
-                      <LayoutPanelTop className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-                      Trades Panel
-                    </>
-                  )}
-                </button>
-              ) : null}
               <button
                 type="button"
                 onClick={() => setTableUsd((u) => !u)}
@@ -808,24 +824,7 @@ export function TokenActivityTabs({
           </div>
         ) : null}
         {tab === 'trades' ? (
-          tradesPanel ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-              <p className="text-[12px] font-semibold text-fg-primary">Trades live in the panel</p>
-              <p className="max-w-xs text-[11px] leading-relaxed text-fg-muted">
-                The compact feed is beside the chart. Click{' '}
-                <span className="font-semibold text-fg-secondary">Trades Table</span> above to move
-                trades back here.
-              </p>
-              <button
-                type="button"
-                onClick={() => onTradesPanelChange(false)}
-                className="btn-press mt-1 inline-flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-bg-hover px-3 text-[11px] font-semibold text-fg-primary transition hover:border-border-default"
-              >
-                <Table2 className="h-3 w-3" strokeWidth={2} aria-hidden />
-                Trades Table
-              </button>
-            </div>
-          ) : tradeRowsForTable.length === 0 ? (
+          tradeRowsForTable.length === 0 ? (
             <div className="flex flex-1 items-center justify-center p-8 text-[11px] font-sans text-fg-muted">
               No transactions found
             </div>

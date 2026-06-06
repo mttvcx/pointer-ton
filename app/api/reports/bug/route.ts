@@ -6,6 +6,8 @@ import {
   POINTER_REPORT_VERSION,
   type BugReportPayload,
 } from '@/lib/reports/bugReportModel';
+import { insertBugReport } from '@/lib/db/bugReports';
+import type { Json } from '@/lib/supabase/types';
 
 export const runtime = 'nodejs';
 
@@ -94,10 +96,6 @@ async function deliverBugReport(
  */
 export async function POST(req: Request) {
   try {
-    if (!bugReportWebhookConfigured()) {
-      return NextResponse.json({ error: 'reporting_disabled' }, { status: 503 });
-    }
-
     const jsonUnknown: unknown = await req.json().catch(() => null);
     const parsed = coercePayload(jsonUnknown);
 
@@ -109,10 +107,38 @@ export async function POST(req: Request) {
     const trace = `[bug-report] receipt=${receiptId} route=${parsed.context.route ?? '?'} severity=${parsed.severity} category=${parsed.category}`;
     console.info(trace);
 
-    const delivered = await deliverBugReport(receiptId, parsed);
-    if (!delivered.ok) {
-      console.error('[bug-report] delivery failed:', delivered.reason, trace);
-      return NextResponse.json({ error: 'delivery_failed' }, { status: 502 });
+    // Deliver to the webhook when configured (best-effort).
+    let delivered = false;
+    if (bugReportWebhookConfigured()) {
+      const res = await deliverBugReport(receiptId, parsed);
+      delivered = res.ok;
+      if (!res.ok) console.error('[bug-report] delivery failed:', res.reason, trace);
+    }
+
+    // Persist to the control-room dashboard. This is now the durable sink, so
+    // reports are retained even when no webhook is configured.
+    const ctx = parsed.context;
+    let persisted = false;
+    try {
+      await insertBugReport({
+        receiptId,
+        category: parsed.category,
+        severity: parsed.severity,
+        description: parsed.description,
+        route: ctx.route ?? null,
+        activeChain: ctx.activeChain ?? null,
+        mintHint: ctx.tokenMintHints?.[0] ?? ctx.pulseHighlightMint ?? null,
+        walletMasked: ctx.activeWalletMasked ?? null,
+        context: ctx as unknown as Json,
+        delivered,
+      });
+      persisted = true;
+    } catch (err) {
+      console.error('[bug-report] persist failed:', err, trace);
+    }
+
+    if (!delivered && !persisted) {
+      return NextResponse.json({ error: 'report_failed' }, { status: 502 });
     }
 
     return NextResponse.json({ ok: true, receiptId }, { status: 200 });

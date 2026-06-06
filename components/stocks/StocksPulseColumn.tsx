@@ -74,30 +74,33 @@ export function StocksPulseColumn({
 
   return (
     <section className="pulse-column flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised">
-      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-white/[0.1] bg-bg-hover px-3 py-2 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05),0_6px_12px_-8px_rgba(0,0,0,0.85)]">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <div className="flex min-w-0 items-center gap-2">
+      <header className="sticky top-0 z-[40] shrink-0 border-b border-white/[0.1] bg-bg-hover px-3 py-2 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05),0_6px_12px_-8px_rgba(0,0,0,0.85)]">
+        <div className="flex min-h-[2.125rem] items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotClass)} aria-hidden />
-            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
+            <h2 className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
               {title}
             </h2>
           </div>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search symbol or name..."
-            className={cn(
-              'min-w-[100px] max-w-[14rem] flex-1 rounded-full border border-transparent px-3 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
-              'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
-              'hover:border-white/15',
-            )}
-            aria-label={`Search ${title}`}
-          />
+          <div className="flex min-w-0 flex-1 items-center justify-center px-1">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by ticker or name"
+              className={cn(
+                'h-[2.125rem] w-full min-w-0 rounded-full border border-transparent px-3 text-[12px] text-fg-primary outline-none transition-colors duration-150',
+                'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
+                'hover:border-white/15',
+              )}
+              aria-label={`Search ${title}`}
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
           <label
             className={cn(
-              'flex min-h-[2.125rem] shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2.5 py-1.5 transition-all duration-150',
-              'bg-white/5 hover:border-white/15 focus-within:border-transparent focus-within:bg-white/[0.08] focus-within:ring-1 focus-within:ring-accent-primary/25',
+              'flex h-[2.125rem] shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 transition-colors duration-150',
+              'hover:border-white/15 focus-within:bg-white/[0.08] focus-within:ring-1 focus-within:ring-accent-primary/25',
             )}
             title={`Default leverage for ${title}`}
           >
@@ -144,6 +147,7 @@ export function StocksPulseColumn({
             >
               <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />
             </button>
+          </div>
           </div>
         </div>
       </header>

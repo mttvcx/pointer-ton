@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { Bell, ExternalLink, Search, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,10 +31,7 @@ import {
 import type { Tables } from '@/lib/supabase/types';
 import type { TokenMarketSnapshotRow, TokenRow } from '@/lib/db/tokens';
 import { cn } from '@/lib/utils/cn';
-import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
-import { EMPTY_TOKEN_EXTENDED_METRICS } from '@/lib/dev/demoPolicy';
-import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
-import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { useTokenExtendedMetrics } from '@/lib/hooks/useTokenExtendedMetrics';
 import { openAlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import { explorerTokenAriaLabel, explorerTokenHrefFromMint } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
@@ -116,24 +112,7 @@ export function TokenHeader({
   const feesSol = extractGlobalFeesSol(snapshot?.extended_metrics);
   const extJson = snapshot?.extended_metrics;
 
-  const uiDemo = useUiDemoMode();
-  const demoMetrics = useMemo(
-    () => (uiDemo ? syntheticTokenExtendedMetrics(mint) : EMPTY_TOKEN_EXTENDED_METRICS),
-    [uiDemo, mint],
-  );
-
-  const extQ = useQuery({
-    queryKey: ['token-header-metrics', mint],
-    queryFn: async () => {
-      const res = await fetch(`/api/tokens/${encodeURIComponent(mint)}/extended-metrics`);
-      const json: unknown = await res.json();
-      if (!res.ok) return null;
-      return json as { metrics: TokenExtendedMetrics };
-    },
-    placeholderData: uiDemo ? { metrics: demoMetrics } : undefined,
-    staleTime: 45_000,
-  });
-  const headerMetrics = extQ.data?.metrics ?? (uiDemo ? demoMetrics : EMPTY_TOKEN_EXTENDED_METRICS);
+  const { metrics: headerMetrics } = useTokenExtendedMetrics(mint);
   const proTraders = headerMetrics.proTraders ?? null;
 
   const activeChain = useUIStore((s) => s.activeChain);
@@ -224,7 +203,7 @@ export function TokenHeader({
   return (
     <div className="relative z-20 min-w-0 overflow-visible border-b border-white/[0.06] bg-bg-raised font-sans">
       <div className="flex min-w-0 items-center overflow-visible px-2.5 sm:px-3">
-        <div className="flex min-w-0 shrink-0 items-center gap-2 py-2.5">
+        <div className="flex shrink-0 items-center gap-2 py-2.5">
           <div className="relative shrink-0 overflow-visible pr-1.5 pb-1.5">
             <PulseTokenAvatar
               bundle={bundle}
@@ -237,8 +216,8 @@ export function TokenHeader({
             />
           </div>
 
-          <div className="flex min-w-0 flex-col justify-center gap-0.5 overflow-visible">
-            <div className="flex min-w-0 items-center gap-1.5 overflow-visible">
+          <div className="flex shrink-0 flex-col justify-center gap-0.5 overflow-visible">
+            <div className="flex shrink-0 items-center gap-1.5 overflow-visible">
               <TokenHeaderNameHover ticker={ticker} name={name} mint={mint} />
               <CopyButton
                 value={mint}

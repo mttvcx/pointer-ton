@@ -25,6 +25,10 @@ interface TradingState {
   /** Solana buy spend asset (SOL or USDC). */
   spendAsset: SolSpendAsset;
   setSpendAsset: (asset: SolSpendAsset) => void;
+  /** Per-wallet Blitz (Pointer Turbo) — boosted Jito + auto prio/tip for that signer. */
+  blitzWalletAddresses: string[];
+  enableBlitzWallet: (walletAddress: string) => void;
+  disableBlitzWallet: (walletAddress: string) => void;
 }
 
 export const useTradingStore = create<TradingState>()(
@@ -56,6 +60,17 @@ export const useTradingStore = create<TradingState>()(
         set({ compactInstantTradeOpen: !get().compactInstantTradeOpen }),
       spendAsset: 'sol',
       setSpendAsset: (spendAsset) => set({ spendAsset }),
+      blitzWalletAddresses: [],
+      enableBlitzWallet: (walletAddress) =>
+        set((s) => {
+          const cur = s.blitzWalletAddresses ?? [];
+          if (cur.includes(walletAddress)) return {};
+          return { blitzWalletAddresses: [...cur, walletAddress] };
+        }),
+      disableBlitzWallet: (walletAddress) =>
+        set((s) => ({
+          blitzWalletAddresses: (s.blitzWalletAddresses ?? []).filter((a) => a !== walletAddress),
+        })),
     }),
     {
       name: 'pointer-trading-preset',
@@ -67,6 +82,7 @@ export const useTradingStore = create<TradingState>()(
           instantTradeWalletShortlist: Array.isArray(p?.instantTradeWalletShortlist)
             ? p!.instantTradeWalletShortlist!
             : [],
+          blitzWalletAddresses: Array.isArray(p?.blitzWalletAddresses) ? p.blitzWalletAddresses : [],
         };
       },
       partialize: (s) => ({
@@ -74,6 +90,7 @@ export const useTradingStore = create<TradingState>()(
         instantTradeWalletShortlist: s.instantTradeWalletShortlist,
         compactInstantTradeOpen: s.compactInstantTradeOpen,
         spendAsset: s.spendAsset,
+        blitzWalletAddresses: s.blitzWalletAddresses,
       }),
     },
   ),

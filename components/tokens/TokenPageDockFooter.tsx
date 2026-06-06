@@ -17,6 +17,7 @@ import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { nativeTicker, nativeUsdTickerSymbol } from '@/lib/chains/nativeCurrency';
+import { useNativeUsdSpot } from '@/lib/hooks/useJupiterTickers';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { useTradingStore } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
@@ -48,7 +49,7 @@ function DockNav({
  */
 export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: string | null }) {
   const { getAccessToken, authenticated } = usePointerAuth();
-  const { activePresetSlot } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
 
@@ -88,15 +89,7 @@ export function TokenPageDockFooter({ mint, symbol }: { mint: string; symbol: st
 
   const tickerSymbol = nativeUsdTickerSymbol(activeChain);
 
-  const tickersQ = useQuery({
-    queryKey: ['dock-native-usd', tickerSymbol],
-    queryFn: async () => {
-      const res = await fetch('/api/prices/tickers');
-      const j = (await res.json()) as { tickers?: { symbol: string; usdPrice: number | null }[] };
-      return j.tickers?.find((t) => t.symbol === tickerSymbol)?.usdPrice ?? null;
-    },
-    staleTime: 60_000,
-  });
+  const tickersQ = useNativeUsdSpot(tickerSymbol, { staleTime: 60_000 });
 
   const solBal = parseLamportsStringToSol(portfolioQ.data?.solLamports);
   const nativeUsd = tickersQ.data;

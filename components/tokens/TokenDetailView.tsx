@@ -41,9 +41,14 @@ const TokenChart = dynamic(
     loading: () => <Skeleton className="h-[420px] w-full rounded-lg" />,
   },
 );
+const BuySellPanel = dynamic(
+  () => import('@/components/tokens/BuySellPanel').then((m) => ({ default: m.BuySellPanel })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-full min-h-[420px] w-full rounded-lg" />,
+  },
+);
 import { TokenActivityTabs } from '@/components/tokens/TokenActivityTabs';
-import { BuySellPanel } from '@/components/tokens/BuySellPanel';
-import { CompactInstantTradePanel } from '@/components/trading/CompactInstantTradePanel';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { Tables } from '@/lib/supabase/types';
@@ -51,6 +56,7 @@ import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { noteRecentTradeMint } from '@/store/recentTradeMints';
 import { useTradingStore } from '@/store/trading';
+import { useTokenPageLayoutStore } from '@/store/tokenPageLayout';
 
 type LimitOrderRow = Tables<'limit_orders'>;
 type MintTradeRow = Tables<'trades'>;
@@ -420,27 +426,37 @@ export function TokenDetailView({
   const { getAccessToken, authenticated } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
 
-  const [rightStackW, setRightStackW] = useState(340);
-  const [chartH, setChartH] = useState<number | null>(null);
+  const rightStackW = useTokenPageLayoutStore((s) => s.rightStackW);
+  const setRightStackW = useTokenPageLayoutStore((s) => s.setRightStackW);
+  const chartH = useTokenPageLayoutStore((s) => s.chartH);
+  const setChartH = useTokenPageLayoutStore((s) => s.setChartH);
   const [lg, setLg] = useState(false);
   const instantTradeOpen = useTradingStore((s) => s.compactInstantTradeOpen);
   const toggleCompactInstantTrade = useTradingStore((s) => s.toggleCompactInstantTrade);
-  const setCompactInstantTradeOpen = useTradingStore((s) => s.setCompactInstantTradeOpen);
-  const [tradesPanel, setTradesPanel] = useState(true);
-  const [tradesDeskFilter, setTradesDeskFilter] = useState<TradesDeskFilter>('all');
-  const [tradesAgeSortDir, setTradesAgeSortDir] = useState<'asc' | 'desc'>('desc');
-  const [tradesAgeDisplay, setTradesAgeDisplay] = useState<'age' | 'time'>('age');
+  const tradesPanel = useTokenPageLayoutStore((s) => s.tradesPanel);
+  const setTradesPanel = useTokenPageLayoutStore((s) => s.setTradesPanel);
+  const tradesDeskFilter = useTokenPageLayoutStore((s) => s.tradesDeskFilter);
+  const setTradesDeskFilter = useTokenPageLayoutStore((s) => s.setTradesDeskFilter);
+  const tradesAgeSortDir = useTokenPageLayoutStore((s) => s.tradesAgeSortDir);
+  const setTradesAgeSortDir = useTokenPageLayoutStore((s) => s.setTradesAgeSortDir);
+  const tradesAgeDisplay = useTokenPageLayoutStore((s) => s.tradesAgeDisplay);
+  const setTradesAgeDisplay = useTokenPageLayoutStore((s) => s.setTradesAgeDisplay);
   const [liveTrades, setLiveTrades] = useState<{ rows: MintTradeRow[]; isLoading: boolean }>({
     rows: [],
     isLoading: true,
   });
-  const toggleTradesDeskFilter = useCallback((id: Exclude<TradesDeskFilter, 'all'>) => {
-    setTradesDeskFilter((cur) => (cur === id ? 'all' : id));
-  }, []);
+  const toggleTradesDeskFilter = useCallback(
+    (id: Exclude<TradesDeskFilter, 'all'>) => {
+      const cur = useTokenPageLayoutStore.getState().tradesDeskFilter;
+      setTradesDeskFilter(cur === id ? 'all' : id);
+    },
+    [setTradesDeskFilter],
+  );
 
   const toggleTradesAgeSort = useCallback(() => {
-    setTradesAgeSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
-  }, []);
+    const d = useTokenPageLayoutStore.getState().tradesAgeSortDir;
+    setTradesAgeSortDir(d === 'desc' ? 'asc' : 'desc');
+  }, [setTradesAgeSortDir]);
 
   const onLiveTradesSnapshot = useCallback(
     (s: { rows: MintTradeRow[]; isLoading: boolean }) => {
@@ -500,15 +516,17 @@ export function TokenDetailView({
   useEffect(() => {
     const sync = () => {
       const avail = chartSplitAvailPx();
-      setChartH((ch) => {
-        if (ch == null) return Math.round(Math.min(480, (avail * 58) / 100));
-        return clamp(ch, MIN_CHART, maxChartHeightPx());
-      });
+      const ch = useTokenPageLayoutStore.getState().chartH;
+      if (ch == null) {
+        setChartH(Math.round(Math.min(480, (avail * 58) / 100)));
+        return;
+      }
+      setChartH(clamp(ch, MIN_CHART, maxChartHeightPx()));
     };
     sync();
     window.addEventListener('resize', sync);
     return () => window.removeEventListener('resize', sync);
-  }, []);
+  }, [setChartH]);
 
   const maxRightForContainer = useCallback((containerW: number) => {
     return Math.min(MAX_RIGHT_STACK, Math.max(MIN_RIGHT_STACK, containerW - MIN_LEFT_COL - 6));
@@ -698,20 +716,6 @@ export function TokenDetailView({
           </div>
         </div>
       </div>
-
-      <CompactInstantTradePanel
-        mint={mint}
-        symbol={symbol}
-        decimals={decimals}
-        open={instantTradeOpen}
-        onClose={() => setCompactInstantTradeOpen(false)}
-        onOpenFullTradeSettings={() => {
-          document.querySelector<HTMLElement>('[data-mint="' + mint + '"]')?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-          });
-        }}
-      />
     </>
   );
 }

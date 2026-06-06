@@ -60,6 +60,17 @@ export function formatSol(amount: number): string {
   return parseFloat(amount.toPrecision(4)).toString();
 }
 
+/** Session trade PnL footer — `+0(+0%)` style (Axiom parity). */
+export function formatNativeTradePnl(pnl: number, pct: number | null): string {
+  const pctRounded =
+    pct == null || !Number.isFinite(pct) ? 0 : Math.abs(pct) < 0.05 ? 0 : Math.round(pct);
+  const pctSign = pctRounded >= 0 ? '+' : '';
+  if (pnl < 0) {
+    return `${formatSol(pnl)}(${pctSign}${pctRounded}%)`;
+  }
+  return `+${formatSol(pnl)}(${pctSign}${pctRounded}%)`;
+}
+
 /** Lamports → compact SOL string (same rules as {@link formatSol}). */
 export function formatSolFromLamports(
   lamports: number | bigint | null | undefined,

@@ -46,6 +46,7 @@ export function TraderProfileDrawer({
       if (!res.ok) throw new Error('trader_fetch');
       return (await res.json()) as LivePayload;
     },
+    staleTime: 30_000,
   });
 
   useEffect(() => {

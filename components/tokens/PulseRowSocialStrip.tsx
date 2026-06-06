@@ -7,8 +7,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils/cn';
 import { extractTwitterHandle } from '@/lib/utils/extractTwitterHandle';
 import { getPulseSocialModel, isTweetOlderThan, ensureBrowserUrl, resolveDisplayWebsite, twitterHandleFromProfileUrl } from '@/lib/tokens/pulseSocialLinks';
-import { usePrefetchTwitterProfileOnVisible } from '@/lib/hooks/usePrefetchTwitterProfileOnVisible';
-import { usePrefetchCoinCommunityOnVisible } from '@/lib/hooks/usePrefetchCoinCommunityOnVisible';
+import { enqueueTwitterProfilePrefetch } from '@/lib/twitter/twitterProfilePrefetchQueue';
+import { normalizeTwitterHandle } from '@/lib/twitter/twitterProfileQuery';
 import { enqueueCoinCommunityPrefetch } from '@/lib/communities/coinCommunityPrefetchQueue';
 import { twitterFollowersFromBundle } from '@/lib/tokens/columnPresetModel';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -31,15 +31,13 @@ import {
   BrandLinkHoverPanel,
   FeeShareHoverPanel,
   AgentHoverPanel,
-  PulseCashbackCompactHover,
-  PulseCompactHoverAbove,
-  TelegramCompactHover,
   TwitterProfileHoverTrigger,
-  WebsiteGlobeCompactHover,
 } from '@/components/tokens/PulseRichPopovers';
+import { PulseAxiomMicroTip, PulseAxiomUrlTip } from '@/components/tokens/PulseAxiomMicroTip';
 import { PulseHeaderSocialIcon } from '@/components/tokens/PulseHeaderSocialIcon';
 import { CoinCommunityHoverTrigger } from '@/components/tokens/CoinCommunityHover';
 import { coinCommunityWebUrl } from '@/lib/communities/coinCommunity';
+import { useCoinCommunity } from '@/lib/hooks/useCoinCommunity';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
 
@@ -63,12 +61,7 @@ function twitterProfileUrlFromHandleField(tokenHandle: string | null | undefined
 const MS_PER_DAY = 86_400_000;
 
 function StripTip({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
+  return <PulseAxiomMicroTip label={label}>{children}</PulseAxiomMicroTip>;
 }
 
 /**
@@ -321,81 +314,23 @@ function TwitterLinkHover({ url, children }: { url: string; children: ReactNode 
   );
 }
 
-function SocialTooltip({
-  open,
-  previewTitle,
-  previewSubtitle,
-}: {
-  open: boolean;
-  previewTitle: string;
-  previewSubtitle?: string;
-}) {
-  if (!open) return null;
-  return (
-        <div
-          className="pointer-events-none absolute left-1/2 top-[calc(100%+6px)] z-[90] w-[13.5rem] -translate-x-1/2 rounded-xl border border-white/[0.08] bg-[#0a0b0d]/98 px-2.5 py-2 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md"
-          role="tooltip"
-        >
-          <p className="text-[11px] font-semibold leading-snug text-white/95">{previewTitle}</p>
-          {previewSubtitle ? (
-            <p className="mt-0.5 text-[10px] leading-snug text-white/50">{previewSubtitle}</p>
-          ) : null}
-        </div>
-  );
-}
-
-function WithHoverTooltip({
-  children,
-  previewTitle,
-  previewSubtitle,
-}: {
-  children: ReactNode;
-  previewTitle: string;
-  previewSubtitle?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const t = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clear = () => {
-    if (t.current) clearTimeout(t.current);
-    t.current = null;
-  };
-  return (
-    <span
-      className="relative inline-flex"
-      onMouseEnter={() => {
-        clear();
-        t.current = setTimeout(() => setOpen(true), 90);
-      }}
-      onMouseLeave={() => {
-        clear();
-        t.current = setTimeout(() => setOpen(false), 160);
-      }}
-    >
-      {children}
-      <SocialTooltip open={open} previewTitle={previewTitle} previewSubtitle={previewSubtitle} />
-    </span>
-  );
-}
-
 function ExternalGlyphLink({
   href,
   label,
   glyph,
-  previewTitle,
-  previewSubtitle,
+  tipLabel,
   linkClassName,
   glyphPx,
 }: {
   href: string;
   label: string;
   glyph: GlyphKey;
-  previewTitle: string;
-  previewSubtitle?: string;
+  tipLabel?: string;
   linkClassName?: string;
   glyphPx: number;
 }) {
   return (
-    <WithHoverTooltip previewTitle={previewTitle} previewSubtitle={previewSubtitle}>
+    <PulseAxiomMicroTip label={tipLabel ?? label}>
       <a
         href={href}
         target="_blank"
@@ -405,106 +340,84 @@ function ExternalGlyphLink({
       >
         <PulseGlyphMask name={glyph} size={glyphPx} />
       </a>
-    </WithHoverTooltip>
-  );
-}
-
-/** Stat glyph + dense above-card hover (Axiom parity). */
-function PulseGlyphStatHoverCard({
-  href,
-  ariaLabel,
-  hoverTitle,
-  hoverAccent,
-  hoverMuted,
-  glyph,
-  stat,
-  glyphPx,
-}: {
-  href: string;
-  ariaLabel: string;
-  hoverTitle: string;
-  hoverAccent: ReactNode;
-  hoverMuted: string;
-  glyph: GlyphKey;
-  stat: ReactNode;
-  glyphPx: number;
-}) {
-  return (
-    <PulseCompactHoverAbove
-      content={
-        <>
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="min-w-0 text-[11px] font-semibold leading-none text-white/95">{hoverTitle}</p>
-            <span className="shrink-0 text-[11px] font-semibold tabular-nums leading-none text-emerald-400">
-              {hoverAccent}
-            </span>
-          </div>
-          <p className="mt-1.5 text-[10px] leading-snug text-white/50">{hoverMuted}</p>
-        </>
-      }
-    >
-      <Link
-        href={href}
-        aria-label={ariaLabel}
-        data-row-click-skip="true"
-        className={cn(iconHit, 'pl-0 pr-0')}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <PulseGlyphMask name={glyph} size={glyphPx} />
-        <span className={statNumberClsFor(glyphPx)}>{stat}</span>
-      </Link>
-    </PulseCompactHoverAbove>
+    </PulseAxiomMicroTip>
   );
 }
 
 /**
- * Coin Communities entry point — the double-avatar glyph now opens the token's
- * per-token community (replaces the dead X Communities link). Hover reveals a rich
- * preview (members / posts / recent messages); click opens the community page.
+ * Coin Communities entry point — brand mark + member count (same pattern as
+ * holders / pro traders). Hover reveals posts preview; click opens community.
  */
 function CoinCommunityStatLink({
   mint,
-  stat,
   glyphPx,
 }: {
   mint: string;
-  stat: ReactNode;
   glyphPx: number;
 }) {
   const queryClient = useQueryClient();
+  const { data } = useCoinCommunity(mint, { enabled: false });
+
+  useEffect(() => {
+    enqueueCoinCommunityPrefetch(queryClient, mint);
+  }, [queryClient, mint]);
+
+  const memberCount = data?.memberCount;
+  const membersLabel =
+    memberCount != null && memberCount > 0
+      ? formatNumber(memberCount, { decimals: 0, compact: memberCount >= 1000 })
+      : '—';
+
   return (
-    <CoinCommunityHoverTrigger mint={mint}>
-      <a
-        href={coinCommunityWebUrl(mint)}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Coin Community"
-        className={cn(iconHit, 'pl-0 pr-0')}
-        onPointerEnter={() => enqueueCoinCommunityPrefetch(queryClient, mint)}
+    <PulseAxiomMicroTip label="Coin Community">
+      <CoinCommunityHoverTrigger mint={mint}>
+        <a
+          href={coinCommunityWebUrl(mint)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={
+            memberCount != null && memberCount > 0
+              ? `Coin Community, ${membersLabel} members`
+              : 'Coin Community'
+          }
+          className={cn(iconHit, 'pl-0 pr-0')}
+          onPointerEnter={() => enqueueCoinCommunityPrefetch(queryClient, mint)}
+        >
+          <PulseLuminanceGlyph src={PULSE_BRAND_SRC.communities} size={glyphPx} />
+          <span className={statNumberClsFor(glyphPx)}>{membersLabel}</span>
+        </a>
+      </CoinCommunityHoverTrigger>
+    </PulseAxiomMicroTip>
+  );
+}
+
+/** Plain holders stat — two-people glyph + holder count (no community logic). */
+function HoldersStatChip({ stat, glyphPx }: { stat: ReactNode; glyphPx: number }) {
+  return (
+    <PulseAxiomMicroTip label="Holders">
+      <span
+        className={cn(iconHit, 'pl-0 pr-0 cursor-default')}
+        aria-label="Holders"
+        role="img"
       >
-        <PulseLuminanceGlyph src={PULSE_BRAND_SRC.communities} size={glyphPx} />
+        <PulseGlyphMask name="community" size={glyphPx} />
         <span className={statNumberClsFor(glyphPx)}>{stat}</span>
-      </a>
-    </CoinCommunityHoverTrigger>
+      </span>
+    </PulseAxiomMicroTip>
   );
 }
 
 function ExternalInstagramLink({
   href,
-  previewTitle,
-  previewSubtitle,
   glyphPx,
   linkClassName,
 }: {
   href: string;
-  previewTitle: string;
-  previewSubtitle?: string;
   glyphPx: number;
   linkClassName?: string;
 }) {
   return (
-    <WithHoverTooltip previewTitle={previewTitle} previewSubtitle={previewSubtitle}>
+    <PulseAxiomMicroTip label="Instagram">
       <a
         href={href}
         target="_blank"
@@ -512,10 +425,9 @@ function ExternalInstagramLink({
         aria-label="Instagram"
         className={cn(iconHit, linkClassName)}
       >
-        {/* Same luminance-mask treatment as other strip glyphs — avoids baked black tiles. */}
         <PulseLuminanceGlyph src={PULSE_INSTAGRAM_SRC} size={glyphPx} />
       </a>
-    </WithHoverTooltip>
+    </PulseAxiomMicroTip>
   );
 }
 
@@ -620,17 +532,19 @@ export function PulseRowSocialStrip({
     (profile?.url ? twitterHandleFromProfileUrl(profile.url) ?? null : null) ||
     (twitterProfileUrl ? twitterHandleFromProfileUrl(twitterProfileUrl) ?? null : null);
 
-  const prefetchTwitterRef = usePrefetchTwitterProfileOnVisible(twitterDisplayHandle);
-  const prefetchCommunityRef = usePrefetchCoinCommunityOnVisible(
-    showHoldersCommunity ? bundle.token.mint : null,
-  );
-  const rowPrefetchRef = useCallback(
-    (node: HTMLElement | null) => {
-      prefetchTwitterRef(node);
-      prefetchCommunityRef(node);
-    },
-    [prefetchTwitterRef, prefetchCommunityRef],
-  );
+  // Social data (Twitter profile + coin community) is only rendered inside hover
+  // cards, so we no longer prefetch it for every row that scrolls into view.
+  // Instead we warm the cache on pointer-enter of the row's social area — right
+  // before the user can reach an icon's hover card. The hover cards still fetch
+  // on open as a fallback, so behavior/UI is unchanged.
+  const queryClient = useQueryClient();
+  const handleSocialPrefetch = useCallback(() => {
+    const normalizedHandle = normalizeTwitterHandle(twitterDisplayHandle ?? '');
+    if (normalizedHandle) enqueueTwitterProfilePrefetch(queryClient, normalizedHandle);
+    if (showHoldersCommunity && bundle.token.mint) {
+      enqueueCoinCommunityPrefetch(queryClient, bundle.token.mint);
+    }
+  }, [queryClient, twitterDisplayHandle, showHoldersCommunity, bundle.token.mint]);
 
   const showFollowerRow =
     twitterDisplayHandle &&
@@ -660,11 +574,10 @@ export function PulseRowSocialStrip({
   const displayWebsite = resolveDisplayWebsite(model.website);
 
   if (inlineHeader) {
-    const headerHoverPlacement = 'below' as const;
     const showSearchIcon = Boolean(xSearchUrl);
 
     return (
-      <div ref={rowPrefetchRef} className="inline-flex min-w-0 items-center font-sans">
+      <div onPointerEnter={handleSocialPrefetch} className="inline-flex min-w-0 items-center font-sans">
         <div className="flex h-6 min-w-0 flex-nowrap items-center gap-0.5 overflow-visible py-0">
           {twitterProfileUrl && twitterDisplayHandle ? (
             <TwitterProfileHoverTrigger
@@ -686,11 +599,7 @@ export function PulseRowSocialStrip({
           ) : null}
 
           {displayWebsite ? (
-            <WebsiteGlobeCompactHover
-              url={displayWebsite}
-              tokenCreatedAt={bundle.token.created_at}
-              placement={headerHoverPlacement}
-            >
+            <PulseAxiomUrlTip url={displayWebsite}>
               <a
                 href={displayWebsite}
                 target="_blank"
@@ -700,11 +609,11 @@ export function PulseRowSocialStrip({
               >
                 <PulseHeaderSocialIcon kind="globe" size={sx} />
               </a>
-            </WebsiteGlobeCompactHover>
+            </PulseAxiomUrlTip>
           ) : null}
 
           {model.telegram ? (
-            <TelegramCompactHover url={model.telegram} placement={headerHoverPlacement}>
+            <PulseAxiomMicroTip label="Telegram">
               <a
                 href={model.telegram}
                 target="_blank"
@@ -714,21 +623,11 @@ export function PulseRowSocialStrip({
               >
                 <PulseHeaderSocialIcon kind="telegram" size={sx} />
               </a>
-            </TelegramCompactHover>
+            </PulseAxiomMicroTip>
           ) : null}
 
           {showSearchIcon ? (
-            <PulseCompactHoverAbove
-              placement={headerHoverPlacement}
-              content={
-                <>
-                  <p className="text-[11px] font-bold leading-none text-white">Search on X</p>
-                  <p className="mt-1.5 max-w-[12rem] truncate text-[9px] leading-snug text-white/45">
-                    {fallbackXSearchQuery?.trim() || 'Token search'}
-                  </p>
-                </>
-              }
-            >
+            <PulseAxiomMicroTip label="Search on X">
               <a
                 href={xSearchUrl!}
                 target="_blank"
@@ -738,7 +637,7 @@ export function PulseRowSocialStrip({
               >
                 <PulseHeaderSocialIcon kind="search" size={sx} />
               </a>
-            </PulseCompactHoverAbove>
+            </PulseAxiomMicroTip>
           ) : null}
         </div>
       </div>
@@ -747,12 +646,12 @@ export function PulseRowSocialStrip({
 
   return (
     <div
-      ref={rowPrefetchRef}
+      onPointerEnter={handleSocialPrefetch}
       className={cn(
         'min-w-0 font-sans',
         inlineHeader && 'inline-flex min-w-0 items-center',
         pulseBoard
-          ? 'flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden'
+          ? 'flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-visible'
           : compact
             ? 'mt-0'
             : 'mt-1',
@@ -760,7 +659,7 @@ export function PulseRowSocialStrip({
     >
       <div
         className={cn(
-          'flex min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-hidden overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          'flex min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-visible overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           'gap-1 py-px',
         )}
       >
@@ -818,8 +717,7 @@ export function PulseRowSocialStrip({
             href={model.twitterSearch.url}
             label="Search on X"
             glyph="xLogo"
-            previewTitle="X search or query"
-            previewSubtitle="Search, hashtag, or explore link from metadata"
+            tipLabel="Search on X"
             glyphPx={sx}
             linkClassName={headerLinkCls}
           />
@@ -828,15 +726,14 @@ export function PulseRowSocialStrip({
             href={fallbackXSearch}
             label="Search on X"
             glyph="xLogo"
-            previewTitle="Search on X"
-            previewSubtitle={fallbackXSearchQuery ?? ''}
+            tipLabel="Search on X"
             glyphPx={sx}
             linkClassName={headerLinkCls}
           />
         ) : null}
 
         {model.telegram ? (
-          <TelegramCompactHover url={model.telegram}>
+          <PulseAxiomMicroTip label="Telegram">
             <a
               href={model.telegram}
               target="_blank"
@@ -846,14 +743,12 @@ export function PulseRowSocialStrip({
             >
               <PulseGlyphMask name="telegram" size={sx} />
             </a>
-          </TelegramCompactHover>
+          </PulseAxiomMicroTip>
         ) : null}
 
         {model.instagram ? (
           <ExternalInstagramLink
             href={model.instagram}
-            previewTitle="Instagram"
-            previewSubtitle={model.instagram.replace(/^https?:\/\//i, '').slice(0, 52)}
             glyphPx={sx}
             linkClassName={headerLinkCls}
           />
@@ -896,7 +791,7 @@ export function PulseRowSocialStrip({
             if (!websiteUrl) return null;
 
             return (
-              <WebsiteGlobeCompactHover url={websiteUrl} tokenCreatedAt={bundle.token.created_at}>
+              <PulseAxiomUrlTip url={websiteUrl}>
                 <a
                   href={websiteUrl}
                   target="_blank"
@@ -906,7 +801,7 @@ export function PulseRowSocialStrip({
                 >
                   <PulseGlyphMask name="globe" size={sx} />
                 </a>
-              </WebsiteGlobeCompactHover>
+              </PulseAxiomUrlTip>
             );
           })()
         ) : null}
@@ -922,7 +817,7 @@ export function PulseRowSocialStrip({
         ) : null}
 
         {cashback ? (
-          <PulseCashbackCompactHover>
+          <PulseAxiomMicroTip label="Cashback">
             <span
               className={cn(hit, 'pointer-events-none cursor-default')}
               aria-label="Cashback token"
@@ -930,7 +825,7 @@ export function PulseRowSocialStrip({
             >
               <PulseGlyphMask name="cashback" size={sx} variant="mono" />
             </span>
-          </PulseCashbackCompactHover>
+          </PulseAxiomMicroTip>
         ) : null}
 
         {feeShare ? (
@@ -946,39 +841,33 @@ export function PulseRowSocialStrip({
         ) : null}
 
         {showHoldersCommunity ? (
-          <CoinCommunityStatLink
-            mint={bundle.token.mint}
-            stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
-            glyphPx={sx}
-          />
+          <>
+            <HoldersStatChip
+              stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
+              glyphPx={sx}
+            />
+            <CoinCommunityStatLink mint={bundle.token.mint} glyphPx={sx} />
+          </>
         ) : null}
 
         {showProTradersStat ? (
-          <PulseGlyphStatHoverCard
-            href={tokenPath}
-            ariaLabel="Pro traders — hover for details, click for token page"
-            hoverTitle="Pro Traders"
-            hoverAccent={proTradersLabel}
-            hoverMuted="Wallets matching pro-trader heuristics in the holder set."
-            glyph="trophy"
-            stat={proTradersLabel}
-            glyphPx={sx}
-          />
+          <PulseAxiomMicroTip label="Pro Traders">
+            <Link
+              href={tokenPath}
+              aria-label="Pro traders"
+              data-row-click-skip="true"
+              className={cn(hit, 'pl-0 pr-0')}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <PulseGlyphMask name="trophy" size={sx} />
+              <span className={statNumberClsFor(sx)}>{proTradersLabel}</span>
+            </Link>
+          </PulseAxiomMicroTip>
         ) : null}
 
         {showDevCrownStat ? (
-          <PulseCompactHoverAbove
-            content={
-              <>
-                <p className="text-[12px] font-medium leading-tight text-white/90">
-                  Dev Migrations/Created
-                </p>
-                <p className="mt-0.5 text-[10.5px] leading-tight text-white/40">
-                  click to open in Solscan
-                </p>
-              </>
-            }
-          >
+          <PulseAxiomMicroTip label="Dev Migrations">
             <a
               href={solscanDevWalletUrl ?? '#'}
               target="_blank"
@@ -995,7 +884,7 @@ export function PulseRowSocialStrip({
               <PulseGlyphMask name="crown" size={sx} />
               <span className={statNumberClsFor(sx)}>{crownSlashDisplay}</span>
             </a>
-          </PulseCompactHoverAbove>
+          </PulseAxiomMicroTip>
         ) : null}
 
         {showDevWallet && devWalletAddr && !pulseBoard ? (

@@ -40,3 +40,10 @@ export async function listNonZeroSplBalances(walletAddress: string): Promise<Spl
   });
   return out;
 }
+
+/** Raw SPL balance for one mint, or null when no ATA / zero balance. */
+export async function getSplBalanceRaw(walletAddress: string, mint: string): Promise<string | null> {
+  const rows = await listNonZeroSplBalances(walletAddress);
+  const hit = rows.find((r) => r.mint === mint);
+  return hit?.rawAmount ?? null;
+}

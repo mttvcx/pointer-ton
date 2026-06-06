@@ -23,9 +23,9 @@ export function CopilotTopbarSlot() {
   const setPanelCollapsed = useUIStore((s) => s.setPanelCollapsed);
   const setDetached = useUIStore((s) => s.setCopilotDetached);
   const panelOpen = useUIStore((s) => s.panelOpen);
-  const xMonitorOpen =
-    usePulseTwitterRailStore((s) => s.side !== 'hidden') ||
-    useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
+  const xMonitorRailOpen = usePulseTwitterRailStore((s) => s.side !== 'hidden');
+  const xMonitorPeekOpen = useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
+  const xMonitorOpen = xMonitorRailOpen || xMonitorPeekOpen;
 
   const { hideHoverBrief, showBriefSlot } = useCopilotBriefSlotVisibility();
 

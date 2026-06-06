@@ -16,6 +16,8 @@ import {
 } from '@/lib/packs/packConfig';
 import { approximateUsdFromSol } from '@/lib/packs/pricing';
 import { PACKS_LIVE_COMMERCE_ENABLED, PACKS_OPEN_USES_SIMULATED_LEDGER } from '@/lib/packs/mode';
+import { findActiveOverride, consumeOverride, recordPackOpen, type ForcedOutcome } from '@/lib/db/packs';
+import type { Json } from '@/lib/supabase/types';
 import type { PackType } from '@/types/pack';
 
 export const runtime = 'nodejs';
@@ -109,33 +111,53 @@ export async function POST(req: NextRequest) {
     fullOpenEvSol: economics.fullOpenEvSol,
   };
 
-  // TODO(fairness): commit-reveal seed + audit log row in Supabase.
   // TODO(commerce): charge primary wallet when PACKS_LIVE_COMMERCE_ENABLED.
   // TODO(commerce): reserve rewardPoolBudget + swap route for token_reward kinds.
   const isDev = process.env.NODE_ENV === 'development';
-  const testMode =
+  const devTestMode: ForcedOutcome | null =
     isDev && body.testCelebration
       ? body.testCelebration
       : isDev && body.testJackpot
         ? ('jackpot' as const)
         : null;
 
+  // Admin-issued override (real promo) takes precedence over dev QA modes and
+  // the RNG. We claim the override atomically *after* computing the forced
+  // result; if the claim loses a race we fall back to a normal roll so the
+  // outcome is never granted twice.
+  let activeOverride = userId ? await findActiveOverride(userId, body.packType) : null;
+  const forcedOutcome: ForcedOutcome | null =
+    (activeOverride?.forced_outcome as ForcedOutcome | undefined) ?? devTestMode;
+
   let epicSurgeConfig = config;
   if (
-    testMode === 'epic_surge' &&
+    forcedOutcome === 'epic_surge' &&
     (body.packType === 'bronze' || body.packType === 'silver')
   ) {
     epicSurgeConfig = resolvePackConfig('gold', quote.solUsd);
   }
 
-  const result =
-    testMode === 'jackpot'
+  const buildForced = (mode: ForcedOutcome) =>
+    mode === 'jackpot'
       ? openPackJackpotTest(config)
-      : testMode === 'legendary_elite'
+      : mode === 'legendary_elite'
         ? openPackLegendaryEliteTest(config)
-        : testMode === 'epic_surge'
-          ? openPackEpicSurgeTest(epicSurgeConfig)
-          : openPackServer(config, Math.random, openMeta);
+        : openPackEpicSurgeTest(epicSurgeConfig);
+
+  let result = forcedOutcome ? buildForced(forcedOutcome) : openPackServer(config, Math.random, openMeta);
+  let appliedOverrideId: string | null = null;
+
+  if (activeOverride) {
+    const claimed = await consumeOverride(activeOverride.id, result.openId);
+    if (claimed) {
+      appliedOverrideId = activeOverride.id;
+    } else {
+      // Lost the claim race (override already consumed elsewhere). Re-roll
+      // honestly unless a dev QA mode was also requested.
+      activeOverride = null;
+      result = devTestMode ? buildForced(devTestMode) : openPackServer(config, Math.random, openMeta);
+    }
+  }
 
   const withPricing = {
     ...result,
@@ -146,17 +168,26 @@ export async function POST(req: NextRequest) {
   const enriched = await enrichPackRewards(withPricing.rewards, quote.solUsd);
   const finalResult = { ...withPricing, rewards: enriched };
 
-  console.info('[packs/open]', {
-    userId,
-    simulated: PACKS_OPEN_USES_SIMULATED_LEDGER,
-    openId: finalResult.openId,
-    packType: finalResult.packType,
-    packPriceSol: config.packPriceSol,
-    solUsd: quote.solUsd,
-    highlight: finalResult.highlightRarity,
-    houseEdgeBps: economics.houseEdgeBps,
-    totalTokenValueSol: finalResult.totalTokenValueSol,
-  });
+  // Persist every open (replaces the old console-only TODO). Fail-soft: a
+  // history write failure must not break the user's open.
+  try {
+    await recordPackOpen({
+      openId: finalResult.openId,
+      userId,
+      packType: finalResult.packType,
+      priceSol: config.packPriceSol,
+      solUsd: quote.solUsd,
+      highlightRarity: finalResult.highlightRarity,
+      totalTokenValueSol: finalResult.totalTokenValueSol,
+      houseEdgeBps: economics.houseEdgeBps,
+      isOverride: Boolean(appliedOverrideId),
+      overrideId: appliedOverrideId,
+      simulated: PACKS_OPEN_USES_SIMULATED_LEDGER,
+      result: finalResult as unknown as Json,
+    });
+  } catch (err) {
+    console.error('[packs/open] history write failed', err);
+  }
 
   return NextResponse.json({
     result: finalResult,

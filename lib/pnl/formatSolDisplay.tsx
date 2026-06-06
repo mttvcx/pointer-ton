@@ -36,7 +36,7 @@ export function formatPnlTerminal(
   const pos = value >= 0;
   const abs = Math.abs(value);
   if (mode === 'usd') {
-    const body = abs >= 1000 ? formatCompactUsd(abs) : `$${formatNumber(abs, { decimals: abs >= 1 ? 2 : 4 })}`;
+    const body = abs >= 1000 ? formatCompactUsd(abs) : `$${formatNumber(abs, { decimals: 2 })}`;
     return pos ? `+${body}` : `-${body}`;
   }
   if (abs < 0.0001 && abs > 0) {

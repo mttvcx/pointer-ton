@@ -5,7 +5,7 @@ import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import {
   type LaunchpadAvatarChrome,
 } from '@/lib/tokens/launchpadAvatarChrome';
-import { dexScreenerTokenIconUrl } from '@/lib/explore/demoTokenIcons';
+import { resolvePulseTokenImageUrl } from '@/lib/tokens/pulseTokenImageUrl';
 import { useUIStore } from '@/store/ui';
 import { protocolBrand, type ProtocolBrandId } from '@/lib/tokens/protocolBrand';
 import { cn } from '@/lib/utils/cn';
@@ -259,8 +259,7 @@ export function PulseTokenAvatar({
   const [imageFailed, setImageFailed] = useState(false);
   const activeChain = useUIStore((s) => s.activeChain);
   const { token } = bundle;
-  const dexFallback = dexScreenerTokenIconUrl(activeChain, token.mint);
-  const imageSrc = token.image_url?.trim() || dexFallback;
+  const imageSrc = resolvePulseTokenImageUrl(bundle, activeChain);
   const showImage = Boolean(imageSrc) && !imageFailed;
   const fallbackInitials = (token.symbol ?? token.name ?? '??')
     .replace(/[^a-zA-Z0-9]/g, '')

@@ -9,14 +9,8 @@ import {
 } from '@/lib/tokens/pulseAxiomSpriteMetrics';
 import { PulseRichHover, DevFundedHoverPanel } from '@/components/tokens/PulseRichPopovers';
 import { PulseLuminanceGlyph } from '@/components/tokens/PulseGlyphMask';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { PulseAxiomMicroTip } from '@/components/tokens/PulseAxiomMicroTip';
 import { cn } from '@/lib/utils/cn';
-
-/** Mini-tooltip styling shared by the snipers + bundle chips. */
-const SPRITE_CHIP_TOOLTIP_CLASS = cn(
-  'rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5',
-  'whitespace-nowrap text-[11.5px] font-normal text-white/80 shadow-lg shadow-black/50',
-);
 
 /** Luminance-sheet assets (shared shape); color comes from masked `bg-current`. */
 const METRIC_ICON_BASE = [
@@ -94,7 +88,7 @@ export function PulseRowAxiomSpriteStrip({
   }[] = [
     {
       key: 'top10',
-      title: 'Top 10 holder concentration',
+      title: 'Top 10 Holders',
       iconIndex: 0,
       text: formatAxiomPctCell(m.top10Pct),
     },
@@ -156,19 +150,11 @@ export function PulseRowAxiomSpriteStrip({
           );
         }
 
-        /**
-         * Snipers + Bundle chips get a styled Radix Tooltip (single-line text).
-         * Uses the app-level `TooltipProvider` already wrapping the layout — no
-         * second provider here. `delayDuration` on `Root` overrides the global default.
-         */
-        if (c.key === 'sniper' || c.key === 'bundle') {
+        if (c.key === 'top10' || c.key === 'sniper' || c.key === 'bundle') {
           return (
-            <Tooltip key={c.key} delayDuration={150}>
-              <TooltipTrigger asChild>{inner}</TooltipTrigger>
-              <TooltipContent side="top" sideOffset={6} className={SPRITE_CHIP_TOOLTIP_CLASS}>
-                {c.title}
-              </TooltipContent>
-            </Tooltip>
+            <PulseAxiomMicroTip key={c.key} label={c.title}>
+              {inner}
+            </PulseAxiomMicroTip>
           );
         }
 

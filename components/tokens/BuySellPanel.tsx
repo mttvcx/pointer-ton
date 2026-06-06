@@ -20,12 +20,9 @@ import {
   Check,
   CircleDollarSign,
   Clock,
-  Coins,
   Loader2,
   Pencil,
-  Settings,
   TrendingDown,
-  Wallet,
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,7 +33,9 @@ import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvent
 import { USDC_MINT } from '@/lib/utils/addresses';
 import {
   formatCompactUsd,
+  formatNativeTradePnl,
   formatNumber,
+  formatSol,
   formatUsd,
   lamportsToSol,
   rawToUi,
@@ -44,9 +43,7 @@ import {
 } from '@/lib/utils/formatters';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
-import { EMPTY_TOKEN_EXTENDED_METRICS } from '@/lib/dev/demoPolicy';
-import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
-import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { useTokenExtendedMetrics } from '@/lib/hooks/useTokenExtendedMetrics';
 import {
   noWalletLinkedBanner,
   viewOnlyWalletTradeMessage,
@@ -68,6 +65,7 @@ import {
   pickTokenTradePerfChanges,
   type TokenTradePerfTf,
 } from '@/lib/tokens/tokenTradePerfTfs';
+import { buildBlitzAwareFees, isBlitzWallet } from '@/lib/trading/blitz';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
@@ -77,6 +75,8 @@ import {
   readInstantTradeLifetimeStats,
 } from '@/lib/trading/instantTradeStats';
 import { WalletCurrencyToggle } from '@/components/wallet/analytics/WalletCurrencyToggle';
+import { TradingWalletPickerPopover } from '@/components/trading/TradingWalletPickerPopover';
+import { MultiWalletBuySettingsModal } from '@/components/trading/MultiWalletBuySettingsModal';
 
 type LimitOrderRow = Tables<'limit_orders'>;
 
@@ -107,21 +107,18 @@ function TradeAmountInput({
   value,
   onChange,
   placeholder,
-  suffix,
-  icon,
   'aria-label': ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
-  suffix: string;
-  icon: 'sol' | 'token';
   'aria-label'?: string;
 }) {
-  const Icon = icon === 'sol' ? Coins : Wallet;
   return (
     <div className="relative flex min-h-[2.35rem] items-center gap-2 rounded-md border border-border-subtle bg-bg-hover/40 px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors focus-within:border-accent-primary/55 focus-within:ring-accent-primary/20">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-fg-muted" aria-hidden />
+      <span className="pointer-events-none shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+        Amount
+      </span>
       <input
         type="text"
         inputMode="decimal"
@@ -131,9 +128,6 @@ function TradeAmountInput({
         onChange={(e) => onChange(e.target.value)}
         className="focus-ring min-w-0 flex-1 border-0 bg-transparent py-0.5 text-right font-sans text-sm font-medium tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/80 placeholder:italic"
       />
-      <span className="pointer-events-none shrink-0 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-        {suffix}
-      </span>
     </div>
   );
 }
@@ -270,7 +264,6 @@ export function BuySellPanel({
 }) {
   const { getAccessToken, authenticated } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
-  const uiDemo = useUiDemoMode();
   const nativeSym = nativeTicker(activeChain);
   const qc = useQueryClient();
   const myWalletsQ = useQuery({
@@ -296,10 +289,6 @@ export function BuySellPanel({
     () => myWalletsQ.data?.wallets.find((w) => w.wallet_address === wallet?.address),
     [myWalletsQ.data?.wallets, wallet?.address],
   );
-  const activeWalletCount = useMemo(() => {
-    const raw = myWalletsQ.data?.wallets ?? [];
-    return raw.filter((w) => !w.is_archived && mintMatchesAppChain(w.wallet_address, activeChain)).length;
-  }, [myWalletsQ.data?.wallets, activeChain]);
   const solBalPreview = useMemo(() => {
     const lam = activeWalletRow?.balance_lamports;
     if (lam == null || lam === '') return null;
@@ -311,7 +300,10 @@ export function BuySellPanel({
   }, [activeWalletRow?.balance_lamports]);
   const tradingBlockedImported = activeWalletRow?.is_imported === true;
   const { submitFromQuote } = usePointerTradeSubmit();
-  const { activePresetSlot, spendAsset, setSpendAsset } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
+  const spendAsset = useTradingStore((s) => s.spendAsset);
+  const setSpendAsset = useTradingStore((s) => s.setSpendAsset);
+  const blitzWalletAddresses = useTradingStore((s) => s.blitzWalletAddresses);
 
   const limitToastRef = useRef<string | null>(null);
   const initialBuySolAppliedRef = useRef(false);
@@ -343,6 +335,7 @@ export function BuySellPanel({
   const [dynamicSlippage, setDynamicSlippage] = useState(true);
   const [landing, setLanding] = useState<LandingMode>('jito');
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [multiWalletBuySettingsOpen, setMultiWalletBuySettingsOpen] = useState(false);
   const [selectedWalletAddresses, setSelectedWalletAddresses] = useState<string[]>([]);
   const [buyChipsEditing, setBuyChipsEditing] = useState(false);
   const [buyChipsDraft, setBuyChipsDraft] = useState(['', '', '', '']);
@@ -375,28 +368,11 @@ export function BuySellPanel({
     return Math.min(5000, Math.max(1, Math.round(n)));
   }, [slippageBps, slippageCustom, useCustomSlippage]);
 
-  const demoExtendedTape = useMemo(
-    () => (uiDemo ? syntheticTokenExtendedMetrics(mint) : EMPTY_TOKEN_EXTENDED_METRICS),
-    [uiDemo, mint],
-  );
-
-  const { data: extendedTape, isLoading: extendedTapeLoading } = useQuery({
-    queryKey: ['trade-extended-tape', mint],
-    queryFn: async (): Promise<TokenExtendedMetrics | null> => {
-      const res = await fetch(`/api/tokens/${encodeURIComponent(mint)}/extended-metrics`);
-      const json: unknown = await res.json();
-      if (!res.ok) return null;
-      if (typeof json === 'object' && json && 'metrics' in json) {
-        return (json as { metrics: TokenExtendedMetrics }).metrics;
-      }
-      return null;
-    },
-    placeholderData: uiDemo ? demoExtendedTape : undefined,
-    staleTime: 45_000,
-  });
-
-  const effectiveExtendedTape =
-    extendedTape ?? (uiDemo ? demoExtendedTape : EMPTY_TOKEN_EXTENDED_METRICS);
+  const {
+    rawMetrics: extendedTape,
+    metrics: effectiveExtendedTape,
+    isLoading: extendedTapeLoading,
+  } = useTokenExtendedMetrics(mint);
 
   const perfChanges = useMemo(
     () => pickTokenTradePerfChanges(marketSnapshot?.extended_metrics, mint),
@@ -501,7 +477,7 @@ export function BuySellPanel({
           ? formatCompactUsd(usd)
           : formatUsd(usd, { decimals: 2 });
       }
-      return formatNumber(solAmount, { decimals: 4 });
+      return formatSol(solAmount);
     },
     [statsUsdMode, solUsdRate],
   );
@@ -691,7 +667,13 @@ export function BuySellPanel({
       if (!res.ok) return { orders: [] as LimitOrderRow[] };
       return res.json() as Promise<{ orders: LimitOrderRow[] }>;
     },
-    enabled: Boolean(authenticated && mint),
+    // Only fetch the user's existing limit orders once they're actually in a
+    // limit-order surface — no eager fetch on every token open for the common
+    // market-buy flow. Mutations call refetch() directly, which works even
+    // while the query is otherwise disabled.
+    enabled: Boolean(
+      authenticated && mint && (tradePanelMode === 'limit_alerts' || tradePanelMode === 'limit_mcap'),
+    ),
     staleTime: 15_000,
   });
 
@@ -875,15 +857,19 @@ export function BuySellPanel({
 
     const toastId = toast.loading('Getting quote...');
     try {
-      const feeExtra =
+      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const presetFees =
         activePreset != null
           ? {
               jitoTipLamports: activePreset.jito_tip_lamports,
               priorityFeeLamports: activePreset.priority_fee_lamports,
               autoFee: activePreset.auto_fee,
               maxFeeSol: activePreset.max_fee_sol,
+              landing,
             }
-          : {};
+          : { landing };
+      const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
+      const tradeLanding = blitzLanding ?? landing;
 
       const buyAsset = activeChain === 'sol' ? spendAsset : 'sol';
       const body =
@@ -895,7 +881,7 @@ export function BuySellPanel({
               ...buyQuoteAmountFields(buyAsset, buyAmount!),
               slippageBps: effectiveSlippageBps,
               dynamicSlippage,
-              landing,
+              landing: tradeLanding,
               includeSwapTx: true,
               ...feeExtra,
             }
@@ -906,7 +892,7 @@ export function BuySellPanel({
               amountTokenRaw: sellAmountTokenRaw!,
               slippageBps: effectiveSlippageBps,
               dynamicSlippage,
-              landing,
+              landing: tradeLanding,
               includeSwapTx: true,
               ...feeExtra,
             };
@@ -1062,22 +1048,28 @@ export function BuySellPanel({
     if (addresses[0]) setActiveWalletAddress(addresses[0]);
   };
 
-  const walletPickerShellRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!walletMenuOpen) return;
-    function onDown(e: MouseEvent) {
-      const el = walletPickerShellRef.current;
-      if (el?.contains(e.target as Node)) return;
-      setWalletMenuOpen(false);
+  const selectedCombinedSol = useMemo(() => {
+    let total = 0n;
+    for (const w of walletMenuRows) {
+      if (!selectedWalletAddresses.includes(w.wallet_address) || !w.balance_lamports) continue;
+      try {
+        total += BigInt(w.balance_lamports);
+      } catch {
+        /* skip malformed balance */
+      }
     }
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [walletMenuOpen]);
+    return lamportsToSol(total);
+  }, [walletMenuRows, selectedWalletAddresses]);
+
+  const toggleWalletSelection = (address: string) => {
+    setSelectedWalletAddresses((current) =>
+      current.includes(address) ? current.filter((addr) => addr !== address) : [...current, address],
+    );
+  };
 
   return (
+    <>
     <div
-      ref={walletPickerShellRef}
       data-mint={mint}
       className="relative flex w-full min-w-0 flex-col bg-bg-raised text-[12px] text-fg-primary"
     >
@@ -1132,7 +1124,7 @@ export function BuySellPanel({
           </button>
         </div>
 
-        <div className="flex min-w-0 items-center gap-1 border-b border-border-subtle/40 pb-0 pt-0.5">
+        <div className="flex h-9 min-w-0 items-center gap-0.5 overflow-hidden border-b border-border-subtle/40">
           {([['market', 'Market'], ['limit_mcap', 'Limit'], ['advanced', 'Adv.']] as const).map(([id, label]) => (
             <button
               key={id}
@@ -1140,8 +1132,7 @@ export function BuySellPanel({
               aria-pressed={panelMode === id}
               onClick={() => setTradePanelMode(id)}
               className={cn(
-                'px-2.5 pb-2 pt-1 text-[12px] font-semibold transition-colors duration-150',
-                'border-b-2',
+                '-mb-px flex h-full items-center border-b-2 px-2.5 text-[12px] font-semibold transition-colors duration-150',
                 panelMode === id
                   ? 'border-fg-primary text-fg-primary'
                   : 'border-transparent text-fg-muted hover:text-fg-secondary',
@@ -1150,20 +1141,23 @@ export function BuySellPanel({
               {label}
             </button>
           ))}
-          <div className="relative ml-auto">
-            <button
-              type="button"
-              onClick={() => setWalletMenuOpen((v) => !v)}
-              className="flex items-center gap-1 rounded-full border border-border-subtle bg-bg-raised px-2 py-1 text-[10px] text-fg-secondary hover:bg-white/[0.04] hover:text-fg-primary"
-              aria-expanded={walletMenuOpen}
-              aria-label="Select trading wallets"
-            >
-              <Wallet className="h-3 w-3" />
-              <span className="tabular-nums">{activeWalletCount}</span>
-              <Coins className="h-3 w-3 text-accent-primary" />
-              <span className="tabular-nums">{solBalPreview ?? '0.0000'}</span>
-            </button>
-          </div>
+          <TradingWalletPickerPopover
+            className="h-full"
+            open={walletMenuOpen}
+            onOpenChange={setWalletMenuOpen}
+            wallets={walletMenuRows}
+            selectedAddresses={selectedWalletAddresses}
+            onToggleWallet={toggleWalletSelection}
+            onSelectWallets={selectWallets}
+            triggerBalanceSol={selectedCombinedSol}
+            activeChain={activeChain}
+            disabled={!walletsReady || walletMenuRows.length === 0}
+            onSettingsClick={() => {
+              setWalletMenuOpen(false);
+              setMultiWalletBuySettingsOpen(true);
+            }}
+            demoBuyAmount={buyAmount ?? activePresetSol ?? undefined}
+          />
         </div>
 
         {panelMode === 'advanced' ? (
@@ -1242,8 +1236,6 @@ export function BuySellPanel({
               value={buyCustomSol}
               onChange={onBuyCustom}
               placeholder={activePresetSol != null ? String(activePresetSol) : '0.0'}
-              suffix={activeChain === 'sol' && spendAsset === 'usdc' ? 'USDC' : nativeSym}
-              icon={activeChain === 'sol' && spendAsset === 'usdc' ? 'token' : 'sol'}
               aria-label={`${activeChain === 'sol' && spendAsset === 'usdc' ? 'USDC' : nativeSym} amount to buy`}
             />
             <div className={cn('mt-1 grid gap-1.5', canEditBuyChips ? 'grid-cols-5' : 'grid-cols-4')}>
@@ -1339,7 +1331,7 @@ export function BuySellPanel({
                 Custom
               </button>
             </div>
-            {sellUseCustom ? <div className="mt-1.5"><TradeAmountInput value={sellCustomUi} onChange={setSellCustomUi} placeholder="Tokens to sell" suffix={sym.length > 8 ? `${sym.slice(0, 6)}...` : sym} icon="token" aria-label={`${sym} amount to sell`} /></div> : null}
+            {sellUseCustom ? <div className="mt-1.5"><TradeAmountInput value={sellCustomUi} onChange={setSellCustomUi} placeholder="Tokens to sell" aria-label={`${sym} amount to sell`} /></div> : null}
           </div>
         )}
 
@@ -1429,9 +1421,14 @@ export function BuySellPanel({
               <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">PnL</span>
               <span
                 className={cn(
-                  'inline-flex max-w-full items-center gap-1 truncate text-[13px] font-semibold tabular-nums',
+                  'inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold tabular-nums',
                   netSessionPnlSol >= 0 ? 'text-signal-bull' : 'text-signal-bear',
                 )}
+                title={
+                  statsUsdMode
+                    ? formatSessionStat(netSessionPnlSol)
+                    : formatNativeTradePnl(netSessionPnlSol, netPnlPct)
+                }
               >
                 {!statsUsdMode ? (
                   <img
@@ -1443,16 +1440,20 @@ export function BuySellPanel({
                     draggable={false}
                   />
                 ) : null}
-                <span className="truncate">
-                  {netSessionPnlSol >= 0 ? '+' : ''}
-                  {formatSessionStat(netSessionPnlSol)}
-                </span>
-                {netPnlPct != null ? (
-                  <span className="text-[11px] font-medium opacity-90">
-                    ({netPnlPct >= 0 ? '+' : ''}
-                    {formatNumber(netPnlPct, { decimals: 1 })}%)
-                  </span>
-                ) : null}
+                {statsUsdMode ? (
+                  <>
+                    {netSessionPnlSol >= 0 ? '+' : ''}
+                    {formatSessionStat(netSessionPnlSol)}
+                    {netPnlPct != null ? (
+                      <span className="text-[11px] font-medium opacity-90">
+                        ({netPnlPct >= 0 ? '+' : ''}
+                        {formatNumber(netPnlPct, { decimals: 1 })}%)
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  formatNativeTradePnl(netSessionPnlSol, netPnlPct)
+                )}
               </span>
             </div>
           </div>
@@ -1494,95 +1495,12 @@ export function BuySellPanel({
         </div>
       </div>
 
-      {walletMenuOpen ? (
-        <div
-          className="absolute right-3 top-[104px] z-[80] w-[350px] max-w-[calc(100%-24px)] overflow-hidden rounded-md border border-border bg-bg-hover shadow-2xl"
-        >
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <div className="flex min-w-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={() => selectWallets(walletMenuRows.filter((w) => !w.is_archived && w.is_active))}
-                className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-white hover:bg-white/15"
-              >
-                Select All
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  selectWallets(
-                    walletMenuRows.filter((w) => {
-                      if (w.is_archived || !w.is_active || !w.balance_lamports) return false;
-                      try {
-                        return BigInt(w.balance_lamports) > 0n;
-                      } catch {
-                        return false;
-                      }
-                    }),
-                  )
-                }
-                className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-white hover:bg-white/15"
-              >
-                Select All with Balance
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => toast.info('Wallet selector settings coming soon')}
-              className="rounded p-1 text-fg-secondary hover:bg-white/5 hover:text-fg-primary"
-              aria-label="Wallet selector settings"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="max-h-[270px] overflow-y-auto">
-            {walletMenuRows.map((w, i) => {
-              const selected = selectedWalletAddresses.includes(w.wallet_address);
-              const sol = w.balance_lamports ? formatNumber(lamportsToSol(BigInt(w.balance_lamports)), { decimals: 3 }) : '0';
-              return (
-                <button
-                  key={w.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedWalletAddresses((current) =>
-                      current.includes(w.wallet_address)
-                        ? current.filter((addr) => addr !== w.wallet_address)
-                        : [...current, w.wallet_address],
-                    );
-                    setActiveWalletAddress(w.wallet_address);
-                  }}
-                  className="grid w-full grid-cols-[1.5rem_1fr_auto_auto] items-center gap-2 border-b px-3 py-2 text-left hover:bg-white/[0.04]"
-                  style={{ borderColor: 'var(--border-subtle)' }}
-                >
-                  <span
-                    className={cn(
-                      'flex h-4 w-4 items-center justify-center rounded border text-[10px]',
-                      selected ? 'border-signal-bull bg-signal-bull text-fg-inverse' : 'border-border-strong',
-                    )}
-                  >
-                    {selected ? '✓' : ''}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[12px] font-semibold text-white">
-                      {w.label?.trim() || `Wallet ${i + 1}`}
-                    </span>
-                    <span className="block truncate text-[10px] text-fg-secondary">
-                      {w.is_imported ? 'View-only' : 'Trading'} · {w.wallet_address.slice(0, 5)}...{w.wallet_address.slice(-4)}
-                    </span>
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] tabular-nums text-fg-secondary">
-                    <Coins className="h-3 w-3 text-accent-primary" /> {sol}
-                  </span>
-                  <span className="rounded-full border border-border-subtle bg-bg-base px-2 py-1 text-[11px] text-fg-secondary">0</span>
-                </button>
-              );
-            })}
-            {walletMenuRows.length === 0 ? (
-              <div className="px-3 py-6 text-center text-[11px] text-fg-secondary">No wallets found</div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
     </div>
+    <MultiWalletBuySettingsModal
+      open={multiWalletBuySettingsOpen}
+      onClose={() => setMultiWalletBuySettingsOpen(false)}
+      selectedWalletCount={selectedWalletAddresses.length}
+    />
+    </>
   );
 }

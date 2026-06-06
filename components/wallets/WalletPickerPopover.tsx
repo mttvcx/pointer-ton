@@ -10,9 +10,10 @@ import { useActiveWalletStore } from '@/store/activeWallet';
 import { useTradingStore } from '@/store/trading';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { useUIStore } from '@/store/ui';
-import { nativeTicker } from '@/lib/chains/nativeCurrency';
+import { BlitzWalletChip } from '@/components/trading/BlitzWalletChip';
+import { WalletMenuNativeBalance } from '@/components/wallets/WalletMenuNativeBalance';
 import { shortenAddress } from '@/lib/utils/addresses';
-import { formatNumber, parseLamportsStringToSol } from '@/lib/utils/formatters';
+import { parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { Z_BOTTOM_BAR_POPOVER } from '@/lib/ui/zLayers';
 
@@ -48,7 +49,6 @@ export function WalletPickerPopover({
   >(null);
 
   const activeChain = useUIStore((s) => s.activeChain);
-  const nativeSym = nativeTicker(activeChain);
 
   const { authenticated, getAccessToken } = usePointerAuth();
   const activeAddress = useActiveWalletStore((s) => s.activeWalletAddress);
@@ -247,20 +247,21 @@ export function WalletPickerPopover({
                           </span>
                         ) : null}
                       </div>
-                      <div className="truncate font-mono text-[10px] text-fg-muted">
-                        {shortenAddress(w.wallet_address)}
+                      <div className="flex items-center gap-1 truncate font-mono text-[10px] text-fg-muted">
+                        <BlitzWalletChip
+                          walletAddress={w.wallet_address}
+                          walletLabel={label}
+                          activeChain={activeChain}
+                        />
+                        <span aria-hidden>·</span>
+                        <span className="truncate">{shortenAddress(w.wallet_address)}</span>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-xs tabular-nums text-fg-secondary">
-                        {balanceUi != null
-                          ? formatNumber(balanceUi, { decimals: 3 })
-                          : '\u2014'}
-                      </div>
-                      <div className="text-[9px] uppercase tracking-wide text-fg-muted">
-                        {nativeSym}
-                      </div>
-                    </div>
+                    <WalletMenuNativeBalance
+                      amount={balanceUi}
+                      activeChain={activeChain}
+                      className="shrink-0"
+                    />
                   </button>
                 );
               })

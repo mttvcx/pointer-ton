@@ -45,6 +45,7 @@ import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
 import { useShellPrefsStore } from '@/store/shellPrefs';
 import { bottomBarRegionById } from '@/lib/layout/bottomBarRegions';
 import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus';
+import { useJupiterTickers } from '@/lib/hooks/useJupiterTickers';
 
 type TickerRow = { symbol: string; usdPrice: number | null; priceChange24h: number | null };
 
@@ -219,7 +220,7 @@ export function BottomBar() {
   useDockTrackerHotkeys();
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const { getAccessToken, authenticated } = usePointerAuth();
-  const { activePresetSlot } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
   const activeChain = useUIStore((s) => s.activeChain);
 
   const myWalletsQ = useQuery({
@@ -239,19 +240,13 @@ export function BottomBar() {
 
   const { activeAddress } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
 
-  const tickersQ = useQuery({
-    queryKey: ['jupiter-tickers'],
-    queryFn: async (): Promise<TickerRow[]> => {
-      const res = await fetch('/api/prices/tickers');
-      const json: unknown = await res.json();
-      const arr =
-        json && typeof json === 'object' && 'tickers' in json
-          ? (json as { tickers: TickerRow[] }).tickers
-          : [];
-      return Array.isArray(arr) ? arr : [];
-    },
-    refetchInterval: 30_000,
+  // Shared `['jupiter-tickers']` cache (one network source across the shell).
+  // Fetch once for the visible ticker, but only keep the 30s poll alive while
+  // signed in — guests still see prices, they just don't drive background
+  // polling. `useJupiterTickers` pauses polling when the tab is hidden.
+  const tickersQ = useJupiterTickers({
     staleTime: 25_000,
+    refetchInterval: authenticated ? 30_000 : false,
   });
 
   const rows = tickersQ.data ?? [];
@@ -384,9 +379,9 @@ function DockTrackerSlot({
   const togglePulsePeek = useTokenDockPeekStore((s) => s.togglePulsePeek);
   const walletPeekOpen = useTokenDockPeekStore((s) => s.walletPeekOpen);
   const toggleWalletPeek = useTokenDockPeekStore((s) => s.toggleWalletPeek);
-  const xMonitorOpen =
-    usePulseTwitterRailStore((s) => s.side !== 'hidden') ||
-    useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
+  const xMonitorRailOpen = usePulseTwitterRailStore((s) => s.side !== 'hidden');
+  const xMonitorPeekOpen = useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
+  const xMonitorOpen = xMonitorRailOpen || xMonitorPeekOpen;
   const squadsRailOpen = usePulseSquadsRailStore((s) => s.side !== 'hidden');
   const squadsOpen = squadsRailOpen || isSquadsRailOpen();
   const pnlPeekOpen = usePnlTrackerStore((s) => s.open);

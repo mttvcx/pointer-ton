@@ -18,7 +18,6 @@ import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { useUIStore } from '@/store/ui';
 import { useAuthSyncStore } from '@/store/authSync';
 import {
-  AUTH_TOAST_ID,
   toastAuthenticated,
   toastLoggedOut,
   toastLoggingOut,
@@ -384,13 +383,19 @@ function InnerAuth({ children }: { children: ReactNode }) {
     }
     useAuthSyncStore.getState().reset();
     queryClient.clear();
-    await tonConnectUI.disconnect();
-    try {
-      await privy.logout();
-      toastLoggedOut();
-    } catch {
-      toast.error('Could not log out', { id: AUTH_TOAST_ID });
-    }
+
+    // Never let a hung provider call freeze the "Logging out…" toast. Each
+    // teardown step is isolated and time-boxed; local state is already cleared
+    // above so the user is effectively logged out regardless of the outcome.
+    const withTimeout = (p: Promise<unknown>, ms: number) =>
+      Promise.race([
+        Promise.resolve(p).catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, ms)),
+      ]);
+
+    await withTimeout(tonConnectUI.disconnect(), 4000);
+    await withTimeout(privy.logout(), 4000);
+    toastLoggedOut();
   }, [privy, tonConnectUI, queryClient]);
 
   const getAccessToken = useCallback(async () => {

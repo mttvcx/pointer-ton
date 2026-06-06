@@ -7,6 +7,7 @@ import { BellRing, ChevronRight, X } from 'lucide-react';
 import {
   clampPeekTopLeftWithinViewport,
   DOCK_PEEK_BOTTOM_CSS,
+  DOCK_PEEK_TOP_GAP_PX,
   readDockPeekTopPx,
   readLayoutChromePx,
   snapDockPeekCoords,
@@ -146,10 +147,14 @@ export function DockWalletTrackerFloatingPanel() {
     const { topbar, botbar } = readLayoutChromePx();
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
+    // Float math uses the standard band (sits below Pulse chrome on Pulse).
     const dockTopPx = readDockPeekTopPx(onPulse);
+    // Edge-docked: anchor to just under the topbar so the panel reclaims the
+    // empty top-left band (the copilot brief is centered, so no overlap).
+    const dockedTopPx = topbar + DOCK_PEEK_TOP_GAP_PX;
     const maxFloatH = Math.max(MIN_PANEL_H, vh - dockTopPx - botbar - 12);
     const maxFloatW = Math.max(MIN_PANEL_W, vw - 24);
-    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx };
+    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx, dockedTopPx };
   };
 
   useEffect(() => {
@@ -448,10 +453,10 @@ export function DockWalletTrackerFloatingPanel() {
   if (!open || activeChain !== 'sol' || onWalletMgmtPage) return null;
 
   void layoutEpoch;
-  const { topbar, botbar, maxFloatH, dockTopPx } = readMetrics();
+  const { topbar, botbar, maxFloatH, dockedTopPx } = readMetrics();
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
-  const dockedChromeTop = `${dockTopPx}px`;
+  const dockedChromeTop = `${dockedTopPx}px`;
   const dockedChromeBot = DOCK_PEEK_BOTTOM_CSS;
   const floatW = transientSizeRef.current?.w ?? cw;
   const floatH = transientSizeRef.current?.h ?? Math.min(ch, maxFloatH);
@@ -461,7 +466,7 @@ export function DockWalletTrackerFloatingPanel() {
       {draggingUi && dockGlow === 'left' ? (
         <div
           className="pointer-events-none fixed left-0 z-[217]"
-          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockedTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-r-3xl bg-gradient-to-r from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />
@@ -470,7 +475,7 @@ export function DockWalletTrackerFloatingPanel() {
       {draggingUi && dockGlow === 'right' ? (
         <div
           className="pointer-events-none fixed right-0 z-[217]"
-          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockedTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-l-3xl bg-gradient-to-l from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />

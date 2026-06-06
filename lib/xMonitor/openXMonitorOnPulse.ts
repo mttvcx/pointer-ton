@@ -1,6 +1,6 @@
 'use client';
 
-import { goToPulse, isOnPulseRoute } from '@/lib/navigation/clientNavigate';
+import { goToPulse, isOnPulseRoute, isOnTokenRoute } from '@/lib/navigation/clientNavigate';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
@@ -30,11 +30,19 @@ export function openXMonitorOnPulse(side: 'left' | 'right' = 'left') {
   ui.setAlertRulesDocked(false);
   ui.setAlertRulesPopout(null);
 
-  usePulseTwitterRailStore.getState().setSide(side);
-
-  if (!isOnPulseRoute()) {
-    goToPulse();
+  if (isOnPulseRoute()) {
+    usePulseTwitterRailStore.getState().setSide(side);
+    return;
   }
+
+  if (isOnTokenRoute()) {
+    usePulseTwitterRailStore.getState().setSide('hidden');
+    peek.setXMonitorPeekOpen(true);
+    return;
+  }
+
+  usePulseTwitterRailStore.getState().setSide(side);
+  goToPulse();
 }
 
 export function toggleXMonitorOnPulse(side: 'left' | 'right' = 'left') {

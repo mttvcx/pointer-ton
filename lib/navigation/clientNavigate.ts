@@ -25,3 +25,8 @@ export function isOnPulseRoute(): boolean {
   if (typeof window === 'undefined') return false;
   return window.location.pathname.startsWith('/pulse');
 }
+
+export function isOnTokenRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith('/token/');
+}

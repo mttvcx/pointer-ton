@@ -150,6 +150,10 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
     {
       name: 'pointer-dock-pulse-panel',
       partialize: (s) => ({
+        pulsePeekOpen: s.pulsePeekOpen,
+        walletPeekOpen: s.walletPeekOpen,
+        xMonitorPeekOpen: s.xMonitorPeekOpen,
+        squadsPeekOpen: s.squadsPeekOpen,
         dockPulseTab: s.dockPulseTab,
         dockPulsePosition: s.dockPulsePosition,
         dockPulseDockSnap: s.dockPulseDockSnap,
@@ -164,12 +168,16 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
         dockSquadsPanelSize: s.dockSquadsPanelSize,
         dockSquadsDockSnap: s.dockSquadsDockSnap,
       }),
-      version: 4,
+      version: 5,
       merge: (persisted, current) => {
         const p = persisted as Partial<TokenDockPeekState> | undefined;
         return {
           ...current,
           ...p,
+          pulsePeekOpen: p?.pulsePeekOpen ?? current.pulsePeekOpen,
+          walletPeekOpen: p?.walletPeekOpen ?? current.walletPeekOpen,
+          xMonitorPeekOpen: p?.xMonitorPeekOpen ?? current.xMonitorPeekOpen,
+          squadsPeekOpen: p?.squadsPeekOpen ?? current.squadsPeekOpen,
           dockPulseTab: p?.dockPulseTab ?? current.dockPulseTab,
           dockPulsePosition: p?.dockPulsePosition ?? current.dockPulsePosition,
           dockPulseDockSnap: p?.dockPulseDockSnap ?? current.dockPulseDockSnap,

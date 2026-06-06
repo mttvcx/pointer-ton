@@ -37,6 +37,9 @@ import { useUIStore } from '@/store/ui';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { formatNumber, lamportsToSol, rawToUi } from '@/lib/utils/formatters';
+import { BlitzWalletChip } from '@/components/trading/BlitzWalletChip';
+import { WalletMenuNativeBalance } from '@/components/wallets/WalletMenuNativeBalance';
+import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
 import { InstantTradeSettingsModal } from '@/components/trading/InstantTradeSettingsModal';
 import { PresetEditorModal } from '@/components/trading/PresetEditorModal';
 import {
@@ -45,6 +48,7 @@ import {
 } from '@/components/trading/AdvancedTradingSettingsModal';
 import {
   readInstantTradeUiSettings,
+  persistInstantTradeUiSettings,
   defaultInstantTradeUiSettings,
   type InstantTradeUiSettings,
 } from '@/lib/trading/instantTradeUiSettings';
@@ -56,10 +60,29 @@ const SLOT_OVERRIDES_KEY = 'pointer-instant-trade-slot-overrides-v1';
 
 /** Stops resize before internal overflow; pairing with viewport bottom inset avoids covering the SOL dock. */
 const MIN_W = 284;
-/** Tall enough for header + buy/sell 4×2 grids + PnL footer without clipping. */
-const MIN_H = 352;
+/** Compact single-row chrome + buy/sell 4×1 + PnL. */
+const MIN_H_ONE_ROW = 268;
 /** Axiom-style default — compact width, two preset rows at open. */
 const DEFAULT_BOUNDS = { x: 56, y: 72, w: 318, h: 388 } as const;
+/** Two-row 4×2 grids when panel is wide AND tall enough (Axiom resize logic). */
+const PRESET_TWO_ROW_MIN_W = 296;
+const PRESET_TWO_ROW_MIN_H = 352;
+/** Fixed preset grid height in single-row mode — no flex stretch / dead space. */
+const ONE_ROW_GRID_H = 32;
+/** Axiom-parity toolbar — ~32px touch targets, still easy to tap. */
+const INSTANT_TOOLBAR_ROW = 'flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-raised px-2 py-1.5';
+const INSTANT_TOOLBAR_BTN =
+  'btn-press focus-ring flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary';
+
+/** Keep toolbar buttons from bubbling pointerdown to drag spacers / row chrome. */
+function blockToolbarDrag(e: React.PointerEvent) {
+  e.stopPropagation();
+}
+const INSTANT_PRESET_TAB =
+  'btn-press focus-ring h-8 min-w-[2.25rem] cursor-pointer rounded-md px-2.5 text-[11px] font-bold transition';
+/** Inline Buy-row asset pills (Axiom — not a full-width second row). */
+const INSTANT_ASSET_PILL =
+  'btn-press focus-ring flex h-6 items-center gap-1 rounded px-2 text-[10px] font-semibold transition';
 /** Preset grid stays this wide in single-row compact mode so widening the shell does not stretch pills. */
 const PRESET_GRID_MAX_W = 320;
 /** Max pill width per cell in compact (single-row) mode. */
@@ -71,11 +94,8 @@ const DEFAULT_SELL_PCT = [0.5, 1, 2, 3, 5, 10, 25, 100] as const;
 const DEFAULT_SELL_SOL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 const INSTANT_FILL = [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5] as const;
 
-/**
- * Two-row 4×2 preset grids at normal panel height (Axiom default).
- * Single-row (top 4 only) only when squished to minimum height.
- */
-const PRESET_TWO_ROW_MIN_H = MIN_H;
+const INSTANT_FILL_USDC = [10, 25, 50, 100, 200, 400, 600, 800] as const;
+const DEFAULT_SELL_USDC = [25, 50, 100, 200, 400, 600, 800, 1000] as const;
 
 const EDGE_INSET = 8;
 
@@ -113,6 +133,7 @@ export type SlotPersistV2 = {
   buyUsdc?: number[];
   sellPct: number[];
   sellSol: number[];
+  sellUsdc?: number[];
   sellMode: SellMode;
 };
 
@@ -147,6 +168,7 @@ function readSlotOverrides(): SlotPersistV2 | null {
       sell?: unknown;
       sellPct?: unknown;
       sellSol?: unknown;
+      sellUsdc?: unknown;
       sellMode?: unknown;
     };
     const buy = Array.isArray(j.buy)
@@ -163,6 +185,9 @@ function readSlotOverrides(): SlotPersistV2 | null {
     const sellSol = Array.isArray(j.sellSol)
       ? j.sellSol.filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
       : [];
+    const sellUsdc = Array.isArray(j.sellUsdc)
+      ? j.sellUsdc.filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
+      : undefined;
     const buyUsdc = Array.isArray(j.buyUsdc)
       ? j.buyUsdc.filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
       : undefined;
@@ -176,6 +201,7 @@ function readSlotOverrides(): SlotPersistV2 | null {
       ...(buyUsdc?.length === 8 ? { buyUsdc } : {}),
       sellPct: pct,
       sellSol: sol,
+      ...(sellUsdc?.length === 8 ? { sellUsdc } : {}),
       sellMode,
     };
   } catch {
@@ -223,6 +249,14 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
+function minPanelHeightFor(_h: number): number {
+  return MIN_H_ONE_ROW;
+}
+
+function isTwoRowPanelSize(w: number, h: number): boolean {
+  return w >= PRESET_TWO_ROW_MIN_W && h >= PRESET_TWO_ROW_MIN_H;
+}
+
 /** Enforce instant-trade mins and keep on-screen (matches resize clamps — avoids saved tiny bounds + inner scroll). */
 function clampInstantTradeBounds(b: { x: number; y: number; w: number; h: number }): {
   x: number;
@@ -231,12 +265,12 @@ function clampInstantTradeBounds(b: { x: number; y: number; w: number; h: number
   h: number;
 } {
   if (typeof window === 'undefined') {
-    return { ...b, w: Math.max(MIN_W, b.w), h: Math.max(MIN_H, b.h) };
+    return { ...b, w: Math.max(MIN_W, b.w), h: Math.max(MIN_H_ONE_ROW, b.h) };
   }
   const maxR = window.innerWidth - EDGE_INSET;
   const maxB = window.innerHeight - viewportBottomReservePx();
   const w = Math.max(MIN_W, Math.min(b.w, maxR - EDGE_INSET));
-  const h = Math.max(MIN_H, Math.min(b.h, maxB - EDGE_INSET));
+  const h = Math.max(minPanelHeightFor(b.h), Math.min(b.h, maxB - EDGE_INSET));
   const x = clamp(b.x, EDGE_INSET, Math.max(EDGE_INSET, maxR - w));
   const y = clamp(b.y, EDGE_INSET, Math.max(EDGE_INSET, maxB - h));
   return { x, y, w, h };
@@ -267,14 +301,6 @@ function normalizeInstantTradeBounds(b: { x: number; y: number; w: number; h: nu
   h: number;
 } {
   let { x, y, w, h } = b;
-  // Saved wide + short panels stretched single-row pills — snap back to Axiom width.
-  if (h < PRESET_TWO_ROW_MIN_H + 8 && w > PRESET_GRID_MAX_W + 24) {
-    w = DEFAULT_BOUNDS.w;
-  }
-  // Old saves below two-row threshold — bump height so 8 presets show at normal open.
-  if (h >= MIN_H && h < PRESET_TWO_ROW_MIN_H + 40) {
-    h = Math.max(h, DEFAULT_BOUNDS.h);
-  }
   return clampInstantTradeBounds({ x, y, w, h });
 }
 
@@ -324,12 +350,12 @@ function fmtUsdcChip(n: number): string {
   return t || String(n);
 }
 
-function eightBuyUsdcAmounts(preset: readonly number[]): number[] {
+function eightPresetAmounts(preset: readonly number[], fill: readonly number[]): number[] {
   const ordered = new Set<number>();
   for (const n of preset) {
     if (Number.isFinite(n) && n > 0) ordered.add(n);
   }
-  for (const n of BUY_PRESETS_USDC) {
+  for (const n of fill) {
     if (ordered.size >= 8) break;
     ordered.add(n);
   }
@@ -338,9 +364,31 @@ function eightBuyUsdcAmounts(preset: readonly number[]): number[] {
     .slice(0, 8);
 }
 
+function eightBuyUsdcAmounts(preset: readonly number[]): number[] {
+  return eightPresetAmounts(preset, INSTANT_FILL_USDC);
+}
+
 function fmtSolChip(n: number): string {
   const t = n.toFixed(4).replace(/\.?0+$/, '');
   return t || String(n);
+}
+
+/** PnL footer — `0` at rest, trim trailing zeros (Axiom parity). */
+function fmtInstantFooterAmount(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return '0';
+  const sign = n < 0 ? '-' : '';
+  const t = Math.abs(n).toFixed(4).replace(/\.?0+$/, '');
+  return `${sign}${t || '0'}`;
+}
+
+function fmtInstantPnlCell(pnl: number, pct: number | null): string {
+  const pctRounded =
+    pct == null || !Number.isFinite(pct) ? 0 : Math.abs(pct) < 0.05 ? 0 : Math.round(pct);
+  const pctSign = pctRounded >= 0 ? '+' : '';
+  if (pnl < 0) {
+    return `${fmtInstantFooterAmount(pnl)}(${pctSign}${pctRounded}%)`;
+  }
+  return `+${fmtInstantFooterAmount(pnl)}(${pctSign}${pctRounded}%)`;
 }
 
 function fmtPctChip(n: number): string {
@@ -349,17 +397,7 @@ function fmtPctChip(n: number): string {
 }
 
 function eightBuyAmounts(preset: number[]): number[] {
-  const ordered = new Set<number>();
-  for (const n of preset) {
-    if (Number.isFinite(n) && n > 0) ordered.add(n);
-  }
-  for (const n of INSTANT_FILL) {
-    if (ordered.size >= 8) break;
-    ordered.add(n);
-  }
-  return Array.from(ordered)
-    .sort((a, b) => a - b)
-    .slice(0, 8);
+  return eightPresetAmounts(preset, INSTANT_FILL);
 }
 
 function fullPresetForSlot(list: TradingPresetApi[], slot: PresetSlot) {
@@ -465,25 +503,27 @@ function applyResize(
     }
     w = MIN_W;
   }
-  if (h < MIN_H) {
+  const minH = minPanelHeightFor(h);
+  if (h < minH) {
     if (edge === 'n' || edge === 'nw' || edge === 'ne') {
-      y = ry + rh - MIN_H;
+      y = ry + rh - minH;
     }
-    h = MIN_H;
+    h = minH;
   }
 
   const insetB = viewportBottomReservePx();
   const maxR = window.innerWidth - EDGE_INSET;
   const maxB = window.innerHeight - insetB;
+  const minHFinal = minPanelHeightFor(h);
 
   x = clamp(x, EDGE_INSET, maxR - MIN_W);
-  y = clamp(y, EDGE_INSET, maxB - MIN_H);
+  y = clamp(y, EDGE_INSET, maxB - minHFinal);
   w = clamp(w, MIN_W, maxR - x);
-  h = clamp(h, MIN_H, maxB - y);
+  h = clamp(h, minHFinal, maxB - y);
   if (x + w > maxR) w = maxR - x;
   if (y + h > maxB) h = maxB - y;
   w = Math.max(MIN_W, w);
-  h = Math.max(MIN_H, h);
+  h = Math.max(minPanelHeightFor(h), h);
   return { x, y, w, h };
 }
 
@@ -509,6 +549,8 @@ export function CompactInstantTradePanel({
   const [mounted, setMounted] = useState(false);
   const [bounds, setBounds] = useState(() => readBoundsForWallet(null));
   const boundsRef = useRef(bounds);
+  /** Panel position loads once per open — wallet switches must not jump/reshape the shell. */
+  const boundsInitForOpenRef = useRef(false);
   useEffect(() => {
     boundsRef.current = bounds;
   }, [bounds]);
@@ -586,14 +628,12 @@ export function CompactInstantTradePanel({
   } | null>(null);
 
   const { getAccessToken } = usePointerAuth();
-  const {
-    activePresetSlot,
-    setActivePresetSlot,
-    instantTradeWalletShortlist,
-    toggleInstantTradeWallet,
-    setInstantTradeWalletShortlist,
-    clearInstantTradeWalletShortlist,
-  } = useTradingStore();
+  const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
+  const setActivePresetSlot = useTradingStore((s) => s.setActivePresetSlot);
+  const instantTradeWalletShortlist = useTradingStore((s) => s.instantTradeWalletShortlist);
+  const toggleInstantTradeWallet = useTradingStore((s) => s.toggleInstantTradeWallet);
+  const setInstantTradeWalletShortlist = useTradingStore((s) => s.setInstantTradeWalletShortlist);
+  const clearInstantTradeWalletShortlist = useTradingStore((s) => s.clearInstantTradeWalletShortlist);
 
   const {
     wallet,
@@ -696,11 +736,17 @@ export function CompactInstantTradePanel({
     return () => cancelAnimationFrame(raf);
   }, []);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      boundsInitForOpenRef.current = false;
+      return;
+    }
     const raf = requestAnimationFrame(() => {
-      const normalized = readBoundsForWallet(wallet?.address ?? null);
-      setBounds(normalized);
-      persistBoundsForWallet(normalized, wallet?.address ?? null);
+      if (!boundsInitForOpenRef.current) {
+        boundsInitForOpenRef.current = true;
+        const normalized = readBoundsForWallet(wallet?.address ?? null);
+        setBounds(normalized);
+        boundsRef.current = normalized;
+      }
       setSlotBundle(readSlotOverrides() ?? migrateLegacySlots());
       setInstantUi(readInstantTradeUiSettings());
     });
@@ -777,8 +823,20 @@ export function CompactInstantTradePanel({
     slotBundle?.sellSol && slotBundle.sellSol.length === 8
       ? slotBundle.sellSol
       : [...DEFAULT_SELL_SOL];
+  const sellUsdcArr =
+    slotBundle?.sellUsdc && slotBundle.sellUsdc.length === 8
+      ? slotBundle.sellUsdc
+      : eightPresetAmounts(DEFAULT_SELL_USDC, INSTANT_FILL_USDC);
 
-  const sellValues = sellMode === 'pct' ? sellPctArr : sellSolArr;
+  const sellFixedAsset: SolSpendAsset = buySpendAsset === 'usdc' ? 'usdc' : 'sol';
+  const sellFixedSym = sellFixedAsset === 'usdc' ? 'USDC' : nativeTicker(activeChain);
+  const sellValues =
+    sellMode === 'pct'
+      ? sellPctArr
+      : sellFixedAsset === 'usdc'
+        ? sellUsdcArr
+        : sellSolArr;
+  const fmtSellFixedChip = sellFixedAsset === 'usdc' ? fmtUsdcChip : fmtSolChip;
 
   const setSellMode = useCallback(
     (m: SellMode) => {
@@ -787,6 +845,10 @@ export function CompactInstantTradePanel({
           buy: prev?.buy && prev.buy.length === 8 ? prev.buy : buyFromPreset,
           sellPct: prev?.sellPct && prev.sellPct.length === 8 ? prev.sellPct : [...DEFAULT_SELL_PCT],
           sellSol: prev?.sellSol && prev.sellSol.length === 8 ? prev.sellSol : [...DEFAULT_SELL_SOL],
+          sellUsdc:
+            prev?.sellUsdc && prev.sellUsdc.length === 8
+              ? prev.sellUsdc
+              : eightPresetAmounts(DEFAULT_SELL_USDC, INSTANT_FILL_USDC),
           sellMode: m,
         };
         persistSlotOverrides(next);
@@ -806,7 +868,11 @@ export function CompactInstantTradePanel({
       const parseSellOne = (raw: string, i: number, asPct: boolean) => {
         const t = filterDecimalTyped(String(raw).replace(/%/g, '').trim(), asPct ? 4 : 9);
         const n = parseFloat(t);
-        const fallback = asPct ? sellPctArr[i] ?? 1 : sellSolArr[i] ?? 0.01;
+        const fallback = asPct
+          ? sellPctArr[i] ?? 1
+          : sellFixedAsset === 'usdc'
+            ? sellUsdcArr[i] ?? 25
+            : sellSolArr[i] ?? 0.01;
         if (!Number.isFinite(n) || n <= 0) return fallback;
         return asPct ? clamp(n, 0.0001, 100) : clamp(n, 1e-12, 1e12);
       };
@@ -815,15 +881,20 @@ export function CompactInstantTradePanel({
           ? draftSell.map((s, i) => parseSellOne(s, i, true))
           : sellPctArr;
       const sellSolNext =
-        sellMode === 'sol'
+        sellMode === 'sol' && sellFixedAsset === 'sol'
           ? draftSell.map((s, i) => parseSellOne(s, i, false))
           : sellSolArr;
+      const sellUsdcNext =
+        sellMode === 'sol' && sellFixedAsset === 'usdc'
+          ? draftSell.map((s, i) => parseSellOne(s, i, false))
+          : sellUsdcArr;
       if (buy8.length === 8) {
         const payload: SlotPersistV2 = {
           buy: buySpendAsset === 'usdc' ? buyValuesSol : buy8,
           buyUsdc: buySpendAsset === 'usdc' ? buy8 : buyValuesUsdc,
           sellPct: sellPctNext,
           sellSol: sellSolNext,
+          sellUsdc: sellUsdcNext,
           sellMode,
         };
         persistSlotOverrides(payload);
@@ -834,7 +905,7 @@ export function CompactInstantTradePanel({
     }
     setDraftBuy(buyValues.map((n) => fmtBuyChip(n)));
     setDraftSell(
-      sellValues.map((n) => (sellMode === 'pct' ? fmtPctChip(n) : fmtSolChip(n))),
+      sellValues.map((n) => (sellMode === 'pct' ? fmtPctChip(n) : fmtSellFixedChip(n))),
     );
     setEditSlots(true);
   }, [
@@ -849,6 +920,9 @@ export function CompactInstantTradePanel({
     sellMode,
     sellPctArr,
     sellSolArr,
+    sellUsdcArr,
+    sellFixedAsset,
+    fmtSellFixedChip,
   ]);
 
   const tradableWalletRows = useMemo(() => {
@@ -867,44 +941,47 @@ export function CompactInstantTradePanel({
   );
 
   const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '').slice(0, 8) || 'TOKEN';
-  const uiBal = formatNumber(rawToUi(balanceRaw, decimals), { decimals: 4 });
-  const uiUsdcBal = formatNumber(rawToUi(usdcBalanceRaw, USDC_DECIMALS), { decimals: 2 });
+  const uiBal = fmtInstantFooterAmount(rawToUi(balanceRaw, decimals));
+  const uiUsdcBal = fmtInstantFooterAmount(rawToUi(usdcBalanceRaw, USDC_DECIMALS));
   const nativeSym = nativeTicker(activeChain);
 
   const presetLayout = useMemo(() => {
     const w = bounds.w;
     const h = bounds.h;
-    const twoRowGrid = h >= PRESET_TWO_ROW_MIN_H;
+    const twoRowGrid = isTwoRowPanelSize(w, h);
     const topRowOnlyCompact = !twoRowGrid;
     const gridCols = 'grid-cols-4';
     const gridGapCls = 'gap-1';
     const gridRowsCls = twoRowGrid ? 'grid-rows-2' : 'grid-rows-1';
+    const gridGapPx = 4;
 
     const gridMaxWidth = twoRowGrid ? undefined : Math.min(PRESET_GRID_MAX_W, w - 16);
-    const gridGapPx = 4;
     const usableGridW = twoRowGrid ? w - 16 : Math.min(PRESET_GRID_MAX_W, w - 16);
     const rawCellW = (usableGridW - gridGapPx * 3) / 4;
     const cellW = twoRowGrid
       ? Math.max(48, rawCellW)
       : Math.max(48, Math.min(PRESET_CHIP_MAX_W, rawCellW));
 
-    const chromeH = 118;
+    const chromeH = 128;
     const pnlRowH = 36;
-    const innerH = Math.max(140, h - chromeH - pnlRowH);
+    const innerH = Math.max(120, h - chromeH - pnlRowH);
     const sectionH = innerH / 2;
     const rowCount = twoRowGrid ? 2 : 1;
-    const metaBand = 24;
-    const buyGridH = Math.max(twoRowGrid ? 52 : 30, sectionH - metaBand);
-    const cellH = (buyGridH - gridGapPx * Math.max(0, rowCount - 1)) / rowCount;
+    const metaBand = 26;
+    const buyGridH = twoRowGrid
+      ? Math.max(52, sectionH - metaBand)
+      : ONE_ROW_GRID_H;
+    const cellH = twoRowGrid
+      ? (buyGridH - gridGapPx * Math.max(0, rowCount - 1)) / rowCount
+      : ONE_ROW_GRID_H;
     const chipDim = Math.min(cellW, cellH);
     const chipFontPx = twoRowGrid
       ? clamp(Math.round(chipDim * 0.34), 12, 16)
-      : clamp(Math.round(Math.min(cellW, 32) * 0.38), 11, 13);
+      : clamp(Math.round(Math.min(cellW, ONE_ROW_GRID_H) * 0.38), 11, 13);
 
-    const chipBox = cn(
-      'h-full w-full px-0.5',
-      twoRowGrid ? 'min-h-[26px] rounded-full' : 'min-h-[28px] max-h-[32px] rounded-full',
-    );
+    const chipBox = twoRowGrid
+      ? cn('h-full w-full min-h-[26px] rounded-full px-0.5')
+      : cn('h-8 w-full max-w-[76px] rounded-full px-0.5');
     const chipStyle = {
       fontSize: chipFontPx,
       lineHeight: 1.05,
@@ -921,16 +998,25 @@ export function CompactInstantTradePanel({
     return {
       twoRowGrid,
       topRowOnlyCompact,
-      gridCols,
-      gridGapCls,
-      gridRowsCls,
-      gridMaxWidth,
+      sectionClass: twoRowGrid
+        ? 'flex min-h-0 flex-[1_1_0] flex-col'
+        : 'flex shrink-0 flex-col',
+      bodyClass: 'min-h-0 flex-1',
+      gridClass: cn(
+        'mt-0.5 grid',
+        gridCols,
+        gridGapCls,
+        gridRowsCls,
+        twoRowGrid ? 'min-h-[48px] flex-[1_1_0]' : 'mx-auto w-full shrink-0 place-items-center',
+      ),
+      gridStyle: twoRowGrid
+        ? undefined
+        : ({ height: ONE_ROW_GRID_H, maxWidth: gridMaxWidth } as const),
       chipCls: chipBox,
       chipStyle,
       chipFontPx,
       metaText,
       metaIcon,
-      gridMinH: twoRowGrid ? 48 : 30,
     };
   }, [bounds.w, bounds.h]);
 
@@ -965,7 +1051,12 @@ export function CompactInstantTradePanel({
       { k: 'usdc' as const, label: 'USDC', disabled: true },
       { k: 'usol' as const, label: `w${t}`, disabled: true },
     ];
-  }, [activeChain]);
+  }, [activeChain, nativeSym]);
+
+  const spendAssetOptionsVisible = useMemo(
+    () => spendAssetOptions.filter((o) => !o.disabled),
+    [spendAssetOptions],
+  );
 
   const onMoveDown = useCallback(
     (e: React.PointerEvent) => {
@@ -982,7 +1073,7 @@ export function CompactInstantTradePanel({
         px: e.clientX,
         py: e.clientY,
       };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     },
     [bounds],
   );
@@ -1008,11 +1099,11 @@ export function CompactInstantTradePanel({
     [bounds],
   );
 
-  const onDragMove = useCallback((e: React.PointerEvent) => {
+  const applyPointerDrag = useCallback((clientX: number, clientY: number) => {
     const d = dragStart.current;
     if (!d) return;
-    const dx = e.clientX - d.px;
-    const dy = e.clientY - d.py;
+    const dx = clientX - d.px;
+    const dy = clientY - d.py;
     const maxW = window.innerWidth - EDGE_INSET;
     const maxBottomY = window.innerHeight - viewportBottomReservePx();
     setBounds((prev) => {
@@ -1029,27 +1120,55 @@ export function CompactInstantTradePanel({
     });
   }, []);
 
-  const onDragUp = useCallback((e: React.PointerEvent) => {
+  const endPointerDrag = useCallback(() => {
     if (!dragStart.current) return;
     dragStart.current = null;
     setGrabbed(false);
-    try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
     persistBoundsForWallet(boundsRef.current, wallet?.address ?? null);
   }, [wallet?.address]);
+
+  useEffect(() => {
+    if (!grabbed) return;
+    const onMove = (e: PointerEvent) => applyPointerDrag(e.clientX, e.clientY);
+    const onUp = () => endPointerDrag();
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [grabbed, applyPointerDrag, endPointerDrag]);
+
+  const isToolbarInteractiveTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(
+      target.closest(
+        'button,a,input,textarea,select,[role="checkbox"],[role="switch"],[role="menuitem"]',
+      ),
+    );
+  };
+
+  const onToolbarPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (isToolbarInteractiveTarget(e.target)) return;
+      onMoveDown(e);
+    },
+    [onMoveDown],
+  );
 
   /** Empty chrome only — never wrap buttons/inputs (they must keep pointer events). */
   const panelDragSurfaceClass =
     'cursor-grab touch-none active:cursor-grabbing select-none';
-  const panelDragHandlers = {
-    onPointerDown: onMoveDown,
-    onPointerMove: onDragMove,
-    onPointerUp: onDragUp,
-    onPointerCancel: onDragUp,
-  } as const;
+
+  const toggleHotkeys = useCallback(() => {
+    setInstantUi((prev) => {
+      const next = { ...prev, hotkeysEnabled: !prev.hotkeysEnabled };
+      persistInstantTradeUiSettings(next);
+      return next;
+    });
+  }, []);
 
   /** Must run before any early return — otherwise opening the panel changes hook count (React crashes). */
   const selectAllWallets = useCallback(() => {
@@ -1090,8 +1209,12 @@ export function CompactInstantTradePanel({
     ? `${lamportsToSol(BigInt(activePreset.priority_fee_lamports)).toFixed(3)} / ${lamportsToSol(BigInt(activePreset.jito_tip_lamports)).toFixed(3)}`
     : '-';
 
-  const EDGE_HIT = 6;
-  const CORNER = 10;
+  /** Resize handles sit above toolbar (z-50) but below wallet popovers. */
+  const RESIZE_Z = 'z-[60]';
+  const EDGE_HIT = 10;
+  const CORNER = 14;
+  /** Side handles start below the main toolbar so they don't fight hotkey/preset clicks. */
+  const SIDE_RESIZE_TOP = 44;
 
   const panel = (
     <div
@@ -1103,86 +1226,62 @@ export function CompactInstantTradePanel({
       role="dialog"
       aria-label="Instant trade"
     >
-      {/* Resize: edges */}
+      {/* Resize: edges + corners (above toolbar chrome) */}
       <div
         role="presentation"
-        className="absolute left-[10px] right-[10px] top-0 z-30 cursor-ns-resize"
-        style={{ height: EDGE_HIT }}
-        onPointerDown={onResizeDown('n')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
-      />
-      <div
-        role="presentation"
-        className="absolute bottom-0 left-0 right-0 z-30 cursor-ns-resize"
+        className={cn('absolute bottom-0 left-0 right-0 cursor-ns-resize', RESIZE_Z)}
         style={{ height: EDGE_HIT }}
         onPointerDown={onResizeDown('s')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
       />
       <div
         role="presentation"
-        className="absolute bottom-0 left-0 top-0 z-30 cursor-ew-resize"
-        style={{ width: EDGE_HIT }}
+        className={cn('absolute bottom-0 left-0 cursor-ew-resize', RESIZE_Z)}
+        style={{ width: EDGE_HIT, top: SIDE_RESIZE_TOP }}
         onPointerDown={onResizeDown('w')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
       />
       <div
         role="presentation"
-        className="absolute bottom-0 right-0 top-0 z-30 cursor-ew-resize"
-        style={{ width: EDGE_HIT }}
+        className={cn('absolute bottom-0 right-0 cursor-ew-resize', RESIZE_Z)}
+        style={{ width: EDGE_HIT, top: SIDE_RESIZE_TOP }}
         onPointerDown={onResizeDown('e')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
       />
-      {/* Corners */}
       <div
         role="presentation"
-        className="absolute left-0 top-0 z-40 cursor-nwse-resize"
+        className={cn('absolute left-0 top-0 cursor-nwse-resize', RESIZE_Z)}
         style={{ width: CORNER, height: CORNER }}
         onPointerDown={onResizeDown('nw')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
       />
       <div
         role="presentation"
-        className="absolute right-0 top-0 z-40 cursor-nesw-resize"
+        className={cn('absolute right-0 top-0 cursor-nesw-resize', RESIZE_Z)}
         style={{ width: CORNER, height: CORNER }}
         onPointerDown={onResizeDown('ne')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
       />
       <div
         role="presentation"
-        className="absolute bottom-0 left-0 z-40 cursor-nesw-resize"
+        className={cn('absolute bottom-0 left-0 cursor-nesw-resize', RESIZE_Z)}
         style={{ width: CORNER, height: CORNER }}
         onPointerDown={onResizeDown('sw')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
       />
       <div
         role="presentation"
-        className="absolute bottom-0 right-0 z-40 cursor-nwse-resize"
+        className={cn('absolute bottom-0 right-0 cursor-nwse-resize', RESIZE_Z)}
         style={{ width: CORNER, height: CORNER }}
         onPointerDown={onResizeDown('se')}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragUp}
-        onPointerCancel={onDragUp}
+      />
+      <div
+        role="presentation"
+        className={cn('absolute left-0 right-0 cursor-ns-resize', RESIZE_Z)}
+        style={{ top: SIDE_RESIZE_TOP, height: EDGE_HIT }}
+        onPointerDown={onResizeDown('n')}
       />
 
       {walletGroupViews.length > 0 ? (
-      <div className="relative z-20 flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-raised px-1.5 py-1">
+      <div className={cn(INSTANT_TOOLBAR_ROW, 'relative z-50 gap-2 py-1.5')}>
         <div
-          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Wallet groups"
+          onPointerDown={onToolbarPointerDown}
         >
           {recentWalletGroups.map((g) => {
             const active = activeWalletGroupId === g.id;
@@ -1190,10 +1289,11 @@ export function CompactInstantTradePanel({
               <button
                 key={g.id}
                 type="button"
+                onPointerDown={blockToolbarDrag}
                 onClick={() => selectWalletGroup(g.id)}
                 title={`${g.label} · ${g.walletCount} wallet${g.walletCount === 1 ? '' : 's'}`}
                 className={cn(
-                  'btn-press h-6 shrink-0 rounded-md border px-2 text-[10px] font-semibold transition-colors',
+                  'btn-press h-8 shrink-0 rounded-md border px-2.5 text-[11px] font-semibold transition-colors',
                   active
                     ? 'border-accent-primary/55 bg-accent-primary/15 text-accent-primary'
                     : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
@@ -1204,41 +1304,54 @@ export function CompactInstantTradePanel({
             );
           })}
         </div>
-        <div
-          {...panelDragHandlers}
-          className={cn(panelDragSurfaceClass, 'h-6 min-w-[1.25rem] shrink-0 rounded')}
-          aria-label="Drag instant trade panel"
-          title="Drag"
-        />
         {overflowWalletGroups.length > 0 ? (
           <div className="relative shrink-0" ref={walletGroupMenuRef}>
             <button
               ref={walletGroupMenuBtnRef}
               type="button"
+              onPointerDown={blockToolbarDrag}
               onClick={() => setWalletGroupMenuOpen((v) => !v)}
               className={cn(
-                'btn-press flex h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary',
+                INSTANT_TOOLBAR_BTN,
                 walletGroupMenuOpen && 'bg-bg-hover text-fg-primary',
               )}
               aria-expanded={walletGroupMenuOpen}
               aria-haspopup="listbox"
               title="More wallet groups"
             >
-              <ChevronDown className="h-3 w-3" strokeWidth={2} />
+              <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
           </div>
         ) : null}
       </div>
       ) : null}
 
-      <div className="relative z-20 flex shrink-0 items-center gap-0.5 border-b border-border-subtle bg-bg-raised px-1.5 py-1 pl-2">
+      <div className={cn(INSTANT_TOOLBAR_ROW, 'relative z-50 min-h-[38px] pl-2')}>
         <div
-          {...panelDragHandlers}
-          className={cn(panelDragSurfaceClass, 'shrink-0 rounded p-0.5')}
+          className={cn('absolute inset-0', panelDragSurfaceClass)}
+          onPointerDown={onMoveDown}
           aria-hidden
+        />
+        <div className="relative z-10 flex w-full min-w-0 items-center gap-1 pointer-events-none">
+        <button
+          type="button"
+          onClick={() => toggleHotkeys()}
+          className={cn(
+            INSTANT_TOOLBAR_BTN,
+            'pointer-events-auto shrink-0',
+            instantUi.hotkeysEnabled &&
+              'bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/35',
+          )}
+          aria-pressed={instantUi.hotkeysEnabled}
+          aria-label={instantUi.hotkeysEnabled ? 'Hotkeys enabled' : 'Enable hotkeys'}
+          title={
+            instantUi.hotkeysEnabled
+              ? 'Hotkeys enabled · Hold space to use hotkeys'
+              : 'Enable hotkeys'
+          }
         >
-          <Keyboard className="h-3 w-3 text-fg-muted/70" />
-        </div>
+          <Keyboard className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
         {([1, 2, 3] as const).map((slot) => (
           <button
             key={slot}
@@ -1258,10 +1371,11 @@ export function CompactInstantTradePanel({
               setActivePresetSlot(slot as PresetSlot);
             }}
             className={cn(
-              'btn-press rounded px-1.5 py-0.5 text-[9px] font-semibold transition',
+              INSTANT_PRESET_TAB,
+              'pointer-events-auto',
               activePresetSlot === slot
-                ? 'bg-accent-primary/25 text-accent-primary'
-                : 'text-fg-muted hover:text-fg-secondary',
+                ? 'bg-accent-primary/25 text-accent-primary ring-1 ring-accent-primary/30'
+                : 'text-fg-muted hover:bg-bg-hover hover:text-fg-secondary',
             )}
           >
             P{slot}
@@ -1269,44 +1383,34 @@ export function CompactInstantTradePanel({
         ))}
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleSlotEdit();
-          }}
+          onClick={() => toggleSlotEdit()}
           className={cn(
-            'btn-press rounded p-0.5 transition',
+            INSTANT_TOOLBAR_BTN,
+            'pointer-events-auto',
             editSlots
               ? 'bg-sky-500/40 text-sky-50 shadow-[0_0_16px_rgba(56,189,248,0.55)] ring-2 ring-sky-400'
-              : 'text-fg-muted hover:text-fg-secondary',
+              : undefined,
           )}
           aria-label={editSlots ? 'Finish editing amounts' : 'Edit buy and sell amounts'}
           aria-pressed={editSlots}
           title="Edit grid amounts"
         >
-          <Pencil className="h-2.5 w-2.5" strokeWidth={2} />
+          <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
         <div
-          className={cn(
-            'mx-0.5 flex min-w-0 flex-1 touch-none items-center justify-center rounded py-0.5',
-            panelDragSurfaceClass,
-          )}
-          {...panelDragHandlers}
-          aria-label="Drag instant trade panel"
-          title="Drag"
+          className="pointer-events-none mx-1 flex min-h-8 min-w-[1.5rem] flex-1 items-center justify-center py-1"
+          aria-hidden
         >
-          <GripVertical className="pointer-events-none h-3.5 w-3.5 text-fg-muted/40" strokeWidth={2} />
+          <GripVertical className="h-3.5 w-3.5 text-fg-muted/50" strokeWidth={2} />
         </div>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setInstantSettingsOpen(true);
-          }}
-          className="btn-press rounded p-0.5 text-fg-muted hover:text-fg-secondary"
+          onClick={() => setInstantSettingsOpen(true)}
+          className={cn(INSTANT_TOOLBAR_BTN, 'pointer-events-auto')}
           aria-label="Instant trade settings"
           title="Instant trade settings"
         >
-          <Settings2 className="h-3 w-3" />
+          <Settings2 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
         <div className="relative shrink-0" ref={walletMenuRef}>
           <button
@@ -1314,17 +1418,18 @@ export function CompactInstantTradePanel({
             onClick={() => setWalletMenuOpen((o) => !o)}
             disabled={!authenticated || !(walletRows?.length)}
             className={cn(
-              'btn-press relative rounded p-0.5',
-              walletMenuOpen ? 'text-accent-primary' : 'text-fg-muted hover:text-fg-secondary',
+              INSTANT_TOOLBAR_BTN,
+              'pointer-events-auto relative',
+              walletMenuOpen && 'bg-accent-primary/10 text-accent-primary',
               (!authenticated || !walletRows?.length) && 'cursor-not-allowed opacity-40',
             )}
             aria-expanded={walletMenuOpen}
             aria-haspopup="listbox"
             title="Wallets — check up to 100 · Shift / Ctrl + P1–P3 for preset editors"
           >
-            <Wallet className="h-3 w-3" strokeWidth={2} />
+            <Wallet className="h-3.5 w-3.5" strokeWidth={2} />
             {instantTradeWalletShortlist.length > 0 ? (
-              <span className="absolute -right-1 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-accent-primary px-0.5 tabular-nums text-[7px] font-semibold leading-none text-fg-inverse">
+              <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-accent-primary px-0.5 tabular-nums text-[8px] font-bold leading-none text-fg-inverse">
                 {instantTradeWalletShortlist.length > 99 ? '99+' : instantTradeWalletShortlist.length}
               </span>
             ) : null}
@@ -1333,11 +1438,12 @@ export function CompactInstantTradePanel({
         <button
           type="button"
           onClick={onClose}
-          className="btn-press rounded p-0.5 text-fg-muted hover:text-signal-bear"
+          className={cn(INSTANT_TOOLBAR_BTN, 'pointer-events-auto hover:text-signal-bear')}
           aria-label="Close instant trade"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
+        </div>
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden bg-bg-raised">
@@ -1350,88 +1456,83 @@ export function CompactInstantTradePanel({
             <p className="text-signal-warn">Sign in with an embedded wallet to trade.</p>
           </div>
         ) : (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2 pt-1 text-[10px]">
+          <div
+            className={cn(
+              'flex min-w-0 flex-col overflow-hidden px-2.5 pt-1.5 text-[11px]',
+              presetLayout.bodyClass,
+            )}
+          >
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-1.5">
-              <div className="flex min-h-0 flex-[1_1_0] flex-col">
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="shrink-0 font-semibold uppercase tracking-wide text-fg-muted">Buy</span>
-              <div
-                {...panelDragHandlers}
-                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
-                aria-label="Drag instant trade panel"
-                title="Drag"
-              />
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="inline-flex items-center gap-1 tabular-nums text-fg-muted">
-                  {buySpendAsset === 'usdc' ? (
-                    <>
-                      <QuoteTokenIcon kind="usdc" className="h-3 w-3" />
-                      {uiUsdcBal}
-                    </>
-                  ) : (
-                    <>
-                      <img
-                        src={CHAIN_ICON_PNG[activeChain]}
-                        alt=""
-                        className="h-3 w-3 shrink-0 object-contain"
-                        draggable={false}
-                        aria-hidden
-                      />
-                      {formatNumber(
+              <div className={presetLayout.sectionClass}>
+            <div className="flex w-full min-w-0 shrink-0 items-center gap-1.5">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-fg-secondary">
+                Buy
+              </span>
+              {spendAssetOptionsVisible.length > 1 ? (
+                <div
+                  className="flex shrink-0 items-center gap-px rounded-md border border-border-subtle bg-bg-sunken/60 p-px"
+                  role="tablist"
+                  aria-label="Spend asset"
+                >
+                  {spendAssetOptionsVisible.map(({ k, label }) => (
+                    <button
+                      key={k}
+                      type="button"
+                      role="tab"
+                      aria-selected={buySpendAsset === k}
+                      title={k === 'usdc' ? 'Trading with USDC' : undefined}
+                      onClick={() => setSpendAsset(k as SolSpendAsset)}
+                      className={cn(
+                        INSTANT_ASSET_PILL,
+                        buySpendAsset === k
+                          ? 'bg-bg-hover text-fg-primary'
+                          : 'text-fg-muted hover:text-fg-secondary',
+                      )}
+                    >
+                      {k === 'usdc' ? (
+                        <QuoteTokenIcon kind="usdc" className="h-3 w-3 shrink-0" />
+                      ) : (
+                        <img
+                          src={CHAIN_ICON_PNG[activeChain]}
+                          alt=""
+                          className="h-3 w-3 shrink-0 object-contain opacity-90"
+                          draggable={false}
+                          aria-hidden
+                        />
+                      )}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <div className="min-w-0 flex-1" aria-hidden />
+              <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold tabular-nums text-fg-primary">
+                {buySpendAsset === 'usdc' ? (
+                  <>
+                    <QuoteTokenIcon kind="usdc" className="h-3 w-3 shrink-0" />
+                    {uiUsdcBal}
+                  </>
+                ) : (
+                  <>
+                    <img
+                      src={CHAIN_ICON_PNG[activeChain]}
+                      alt=""
+                      className="h-3 w-3 shrink-0 object-contain"
+                      draggable={false}
+                      aria-hidden
+                    />
+                    <TerminalNativeBalance
+                      amount={
                         wallet?.address && activeWalletRow?.balance_lamports
                           ? lamportsToSol(BigInt(activeWalletRow.balance_lamports))
-                          : 0,
-                        { decimals: 4 },
-                      )}
-                    </>
-                  )}
-                </span>
-                <div className="flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5">
-                {spendAssetOptions.map(({ k, label, disabled }) => (
-                  <button
-                    key={k}
-                    type="button"
-                    disabled={disabled}
-                    title={
-                      disabled
-                        ? 'Coming soon'
-                        : k === 'usdc'
-                          ? 'Trading with USDC'
-                          : undefined
-                    }
-                    onClick={() => {
-                      if (disabled || k === 'usol') return;
-                      setSpendAsset(k);
-                    }}
-                    className={cn(
-                      'rounded-sm px-1.5 py-0 text-[9px] font-semibold transition',
-                      buySpendAsset === k
-                        ? 'bg-accent-primary/20 text-accent-primary'
-                        : 'text-fg-muted',
-                      disabled
-                        ? 'cursor-not-allowed opacity-45'
-                        : 'hover:text-fg-secondary',
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-                </div>
-              </div>
+                          : 0
+                      }
+                    />
+                  </>
+                )}
+              </span>
             </div>
-            <div
-              className={cn(
-                'mt-0.5 grid flex-[1_1_0]',
-                presetLayout.gridCols,
-                presetLayout.gridGapCls,
-                presetLayout.gridRowsCls,
-                !presetLayout.twoRowGrid && 'mx-auto w-full',
-              )}
-              style={{
-                minHeight: presetLayout.gridMinH,
-                maxWidth: presetLayout.gridMaxWidth,
-              }}
-            >
+            <div className={presetLayout.gridClass} style={presetLayout.gridStyle}>
               {buyChips.map((sol, i) =>
                 editSlots ? (
                   <input
@@ -1468,9 +1569,11 @@ export function CompactInstantTradePanel({
               )}
             </div>
             <div
+              onPointerDown={onToolbarPointerDown}
               className={cn(
                 'mt-1 flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
                 presetLayout.metaText,
+                panelDragSurfaceClass,
               )}
             >
               <span className="font-medium tabular-nums">
@@ -1484,31 +1587,34 @@ export function CompactInstantTradePanel({
                 />{' '}
                 On
               </span>
-              <div
-                {...panelDragHandlers}
-                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
-                aria-label="Drag instant trade panel"
-                title="Drag"
-              />
-              <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5">
+              <span className="min-w-0 flex-1" aria-hidden />
+              <label
+                className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px] font-medium"
+                onPointerDown={blockToolbarDrag}
+              >
                 <input
                   type="checkbox"
                   checked={advChecked}
                   onChange={(e) => setAdvChecked(e.target.checked)}
-                  className="h-3 w-3 rounded border-border-subtle accent-accent-primary"
+                  className="h-3.5 w-3.5 rounded border-border-subtle accent-accent-primary"
                 />
                 Adv.
               </label>
             </div>
               </div>
 
-              <div className="mt-2 flex min-h-0 flex-[1_1_0] flex-col border-t border-border-subtle pt-2">
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="inline-flex shrink-0 items-center gap-1 font-semibold uppercase tracking-wide text-fg-muted">
+              <div
+                className={cn(
+                  'mt-2 flex border-t border-border-subtle pt-2',
+                  presetLayout.sectionClass,
+                )}
+              >
+            <div className="flex w-full shrink-0 items-center justify-between gap-2 py-0.5">
+              <span className="inline-flex min-w-0 items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-fg-secondary">
                 Sell
                 <span
                   className={cn(
-                    'tabular-nums text-[9px]',
+                    'tabular-nums text-[10px]',
                     sellMode === 'pct' ? 'text-accent-primary' : 'text-fg-muted',
                   )}
                 >
@@ -1520,44 +1626,26 @@ export function CompactInstantTradePanel({
                     if (editSlots) setEditSlots(false);
                     setSellMode(sellMode === 'pct' ? 'sol' : 'pct');
                   }}
-                  className="btn-press rounded p-0.5 text-fg-muted hover:text-fg-secondary"
-                  title={`Switch: % of balance vs fixed ${nativeSym} received`}
+                  className={cn(INSTANT_TOOLBAR_BTN, 'h-7 min-w-7 shrink-0')}
+                  title={`Switch: % of balance vs fixed ${sellFixedSym} received`}
                   aria-label="Toggle sell mode"
                 >
-                  <ArrowLeftRight className="h-2.5 w-2.5" strokeWidth={2} />
+                  <ArrowLeftRight className="h-3 w-3" strokeWidth={2} />
                 </button>
                 <span
                   className={cn(
-                    'tabular-nums text-[9px]',
+                    'tabular-nums text-[10px]',
                     sellMode === 'sol' ? 'text-accent-primary' : 'text-fg-muted',
                   )}
                 >
-                  {nativeSym}
+                  {sellFixedSym}
                 </span>
               </span>
-              <div
-                {...panelDragHandlers}
-                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
-                aria-label="Drag instant trade panel"
-                title="Drag"
-              />
-              <span className="shrink-0 truncate tabular-nums text-[9px] text-fg-secondary">
+              <span className="shrink-0 truncate text-[11px] font-semibold tabular-nums text-fg-secondary">
                 {uiBal} {tick}
               </span>
             </div>
-            <div
-              className={cn(
-                'mt-0.5 grid flex-[1_1_0]',
-                presetLayout.gridCols,
-                presetLayout.gridGapCls,
-                presetLayout.gridRowsCls,
-                !presetLayout.twoRowGrid && 'mx-auto w-full',
-              )}
-              style={{
-                minHeight: presetLayout.gridMinH,
-                maxWidth: presetLayout.gridMaxWidth,
-              }}
-            >
+            <div className={presetLayout.gridClass} style={presetLayout.gridStyle}>
               {sellChips.map((pct, i) =>
                 editSlots ? (
                   <input
@@ -1574,7 +1662,7 @@ export function CompactInstantTradePanel({
                           ...(prev.length === 8
                             ? prev
                             : sellValues.map((n) =>
-                                sellMode === 'pct' ? fmtPctChip(n) : fmtSolChip(n),
+                                sellMode === 'pct' ? fmtPctChip(n) : fmtSellFixedChip(n),
                               )),
                         ];
                         next[i] = v;
@@ -1583,8 +1671,8 @@ export function CompactInstantTradePanel({
                     }}
                     className={cn('h-full min-h-[24px] w-full min-w-0', EDIT_PRESET_CLASS)}
                     style={presetLayout.chipStyle}
-                    placeholder={sellMode === 'pct' ? '0–100' : nativeSym}
-                    aria-label={sellMode === 'pct' ? 'Sell percent' : `${nativeSym} out`}
+                    placeholder={sellMode === 'pct' ? '0–100' : sellFixedSym}
+                    aria-label={sellMode === 'pct' ? 'Sell percent' : `${sellFixedSym} out`}
                   />
                 ) : (
                   <button
@@ -1600,15 +1688,17 @@ export function CompactInstantTradePanel({
                     )}
                     style={presetLayout.chipStyle}
                   >
-                    {sellMode === 'pct' ? `${fmtPctChip(pct)}%` : fmtSolChip(pct)}
+                    {sellMode === 'pct' ? `${fmtPctChip(pct)}%` : fmtSellFixedChip(pct)}
                   </button>
                 ),
               )}
             </div>
             <div
+              onPointerDown={onToolbarPointerDown}
               className={cn(
                 'mt-1 flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 font-medium text-fg-secondary',
                 presetLayout.metaText,
+                panelDragSurfaceClass,
               )}
             >
               <span className="font-medium tabular-nums">
@@ -1622,14 +1712,10 @@ export function CompactInstantTradePanel({
                 />{' '}
                 On
               </span>
-              <div
-                {...panelDragHandlers}
-                className={cn(panelDragSurfaceClass, 'min-h-[1.25rem] min-w-[1.5rem] flex-1 rounded')}
-                aria-label="Drag instant trade panel"
-                title="Drag"
-              />
+              <span className="min-w-0 flex-1" aria-hidden />
               <button
                 type="button"
+                onPointerDown={blockToolbarDrag}
                 title={`Sell enough to recover tracked ${nativeSym} in (principal); profit stays in tokens`}
                 disabled={!costBasisTonSol || costBasisTonSol <= 0}
                 onClick={() => void runSellInitial()}
@@ -1648,7 +1734,7 @@ export function CompactInstantTradePanel({
             {instantUi.showPnlRow ? (
               <div className="shrink-0 border-t border-border-subtle">
                 <div
-                  {...panelDragHandlers}
+                  onPointerDown={onMoveDown}
                   className={cn(panelDragSurfaceClass, 'h-2 w-full')}
                   aria-label="Drag instant trade panel"
                   title="Drag"
@@ -1672,7 +1758,7 @@ export function CompactInstantTradePanel({
                       className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {formatNumber(lifetimeStats.buyTon, { decimals: 4 })}
+                    {fmtInstantFooterAmount(lifetimeStats.buyTon)}
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
@@ -1689,7 +1775,7 @@ export function CompactInstantTradePanel({
                       className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {formatNumber(lifetimeStats.sellTon, { decimals: 4 })}
+                    {fmtInstantFooterAmount(lifetimeStats.sellTon)}
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
@@ -1706,7 +1792,7 @@ export function CompactInstantTradePanel({
                       className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {formatNumber(remainingTon, { decimals: 4 })}
+                    {fmtInstantFooterAmount(remainingTon)}
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
@@ -1715,11 +1801,7 @@ export function CompactInstantTradePanel({
                       'inline-flex min-w-0 max-w-full items-center justify-center gap-1 truncate tabular-nums font-semibold',
                       netSessionPnl >= 0 ? 'text-emerald-400' : 'text-rose-400',
                     )}
-                    title={
-                      netPctForTitle != null
-                        ? `PnL — ${netPctForTitle >= 0 ? '+' : ''}${formatNumber(netPctForTitle, { decimals: 1 })}%`
-                        : 'PnL'
-                    }
+                    title={`PnL — ${fmtInstantPnlCell(netSessionPnl, netPctForTitle)}`}
                   >
                     <span className="sr-only">PnL </span>
                     <img
@@ -1731,14 +1813,13 @@ export function CompactInstantTradePanel({
                       draggable={false}
                     />
                     <span className="min-w-0 truncate tracking-tight">
-                      {netSessionPnl >= 0 ? '+' : ''}
-                      {formatNumber(netSessionPnl, { decimals: 4 })}
+                      {fmtInstantPnlCell(netSessionPnl, netPctForTitle)}
                     </span>
                   </span>
                 </div>
               </div>
                 <div
-                  {...panelDragHandlers}
+                  onPointerDown={onMoveDown}
                   className={cn(panelDragSurfaceClass, 'h-2 w-full')}
                   aria-label="Drag instant trade panel"
                   title="Drag"
@@ -1746,7 +1827,7 @@ export function CompactInstantTradePanel({
               </div>
             ) : (
               <div
-                {...panelDragHandlers}
+                onPointerDown={onMoveDown}
                 className={cn(
                   panelDragSurfaceClass,
                   'h-3 shrink-0 border-t border-border-subtle',
@@ -1867,18 +1948,21 @@ export function CompactInstantTradePanel({
                           </span>
                         ) : null}
                       </div>
-                      <div className="truncate font-mono text-[10px] text-fg-muted">
-                        {shortenAddress(w.wallet_address, 4)}
+                      <div className="flex items-center gap-1 truncate text-[10px] text-fg-muted">
+                        <BlitzWalletChip
+                          walletAddress={w.wallet_address}
+                          walletLabel={label || shortenAddress(w.wallet_address, 4)}
+                          activeChain={activeChain}
+                        />
+                        <span aria-hidden>·</span>
+                        <span className="truncate font-mono">{shortenAddress(w.wallet_address, 4)}</span>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-xs tabular-nums text-fg-secondary">
-                        {solUi != null ? formatNumber(solUi, { decimals: 3 }) : '\u2014'}
-                      </div>
-                      <div className="text-[9px] uppercase tracking-wide text-fg-muted">
-                        {nativeSym}
-                      </div>
-                    </div>
+                    <WalletMenuNativeBalance
+                      amount={solUi}
+                      activeChain={activeChain}
+                      className="shrink-0"
+                    />
                   </button>
                 );
               })}

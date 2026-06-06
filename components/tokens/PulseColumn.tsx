@@ -497,108 +497,111 @@ function PulseColumnBody({
        * Header: brighter grey (`bg-bg-hover`) so it reads as a distinct band
        * above the row list — Axiom parity. Border-b separates it from rows.
        */}
-      <header className="sticky top-0 z-[40] shrink-0 space-y-2 border-b border-white/[0.1] bg-bg-hover px-3 py-2 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05),0_6px_12px_-8px_rgba(0,0,0,0.85)]">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <div className="flex min-w-0 items-center gap-2">
+      <header className="sticky top-0 z-[40] shrink-0 border-b border-white/[0.1] bg-bg-hover px-3 py-2 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05),0_6px_12px_-8px_rgba(0,0,0,0.85)]">
+        {/*
+         * Axiom header zones: title (left) · search (center) · amount + presets + filter (right).
+         * Single nowrap row — no flex-wrap so search never gets pushed off-screen.
+         */}
+        <div className="flex min-h-[2.125rem] items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span
               className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotClass)}
               aria-hidden
             />
-            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
+            <h2 className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
               {title}
             </h2>
             {column === 'new' ? (
-              <span className="text-[9px] tabular-nums text-fg-muted/80">&lt; 30m</span>
+              <span className="whitespace-nowrap text-[9px] tabular-nums text-fg-muted/80">&lt; 30m</span>
             ) : null}
           </div>
 
-          {/**
-           * Search is capped (`max-w-[14rem]`) so the inline quick-buy SOL
-           * chip below has room — Axiom parity (search + amount enterer + chips).
-           * Pill-rounded (`rounded-full`) to match Axiom's softer header inputs.
-           */}
-          {!hideColumnSearch ? (
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search symbol or name..."
-              className={cn(
-                'min-w-[100px] max-w-[14rem] flex-1 rounded-full border border-transparent px-3 py-1.5 text-[12px] text-fg-primary outline-none transition-all duration-150',
-                'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
-                'hover:border-white/15',
-              )}
-              aria-label={`Search ${title}`}
-            />
-          ) : null}
-
-          {/**
-           * Quick-buy SOL amount enterer for this column. Bound to the
-           * `quickBuySol` slot in `usePulseColumnStore`, so every Ultra / filled
-           * button in this column's rows fires at this size. Number input keeps
-           * mobile decimal keypad without the browser spinner.
-           */}
-          <label
-            className={cn(
-              'flex min-h-[2.125rem] shrink-0 items-center gap-1 rounded-full border border-transparent px-2.5 py-1.5 transition-all duration-150',
-              'bg-white/5 hover:border-white/15 focus-within:border-transparent focus-within:bg-white/[0.08] focus-within:ring-1 focus-within:ring-accent-primary/25',
-            )}
-            title={`Quick-buy amount in ${quoteSymbol} for ${title}`}
-          >
-            <Zap
-              className="h-3.5 w-3.5 shrink-0 fill-accent-primary/40 text-accent-primary"
-              strokeWidth={2.4}
-              aria-hidden
-            />
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min={0}
-              value={Number.isFinite(quickBuyAmount) ? quickBuyAmount : 0}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                setQuickBuyAmount(column, Number.isFinite(next) && next >= 0 ? next : 0);
-              }}
-              className="w-10 min-w-0 bg-transparent text-[12px] font-medium tabular-nums text-fg-primary outline-none placeholder:text-fg-muted [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              aria-label={`Quick-buy amount for ${title} in ${quoteSymbol}`}
-            />
-            {isUsdcQuickBuy ? (
-              <QuoteTokenIcon kind="usdc" className="h-3.5 w-3.5 opacity-95" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element -- chain pill matches PulseChainSelector
-              <img
-                src={CHAIN_ICON_PNG[activeChain]}
-                alt=""
-                width={14}
-                height={14}
-                draggable={false}
-                className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-              />
-            )}
-          </label>
-
-          <div className="flex shrink-0 items-center gap-0.5">
-            {([1, 2, 3] as const).map((slot) => (
-              <button
-                key={slot}
-                type="button"
-                onClick={() => setPresetSlot(column, slot)}
+          <div className="flex min-h-[2.125rem] min-w-0 flex-1 items-center justify-center px-1">
+            {!hideColumnSearch ? (
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by ticker or name"
                 className={cn(
-                  'btn-press focus-ring rounded-md border px-2 py-1 text-[10px] font-semibold leading-none transition',
-                  presetSlot === slot
-                    ? 'border-accent-primary/50 bg-accent-primary/10 text-accent-primary'
-                    : 'border-border-subtle text-fg-muted hover:border-border-default hover:text-fg-secondary',
+                  'h-[2.125rem] w-full min-w-[7.5rem] max-w-[13.5rem] rounded-full border border-white/[0.14] px-3 text-[12px] text-fg-primary outline-none transition-colors duration-150',
+                  'bg-black/25 placeholder:text-fg-muted/65 focus:border-white/20 focus:bg-black/35 focus:ring-1 focus:ring-accent-primary/30',
+                  'hover:border-white/20',
                 )}
+                aria-label={`Search ${title}`}
+              />
+            ) : (
+              <span className="sr-only">Column search hidden — enable in Display → Layout</span>
+            )}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <div
+              className={cn(
+                'flex h-[2.125rem] shrink-0 items-stretch overflow-hidden rounded-full border border-white/10 bg-white/5',
+              )}
+            >
+              <label
+                className="flex items-center gap-1 border-r border-white/10 px-2.5"
+                title={`Quick-buy amount in ${quoteSymbol} for ${title}`}
               >
-                P{slot}
-              </button>
-            ))}
+                <Zap
+                  className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--pulse-accent-rgb)/1)]"
+                  strokeWidth={2.4}
+                  aria-hidden
+                />
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min={0}
+                  value={Number.isFinite(quickBuyAmount) ? quickBuyAmount : 0}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setQuickBuyAmount(column, Number.isFinite(next) && next >= 0 ? next : 0);
+                  }}
+                  className="w-9 min-w-0 bg-transparent text-[12px] font-medium tabular-nums text-fg-primary outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  aria-label={`Quick-buy amount for ${title} in ${quoteSymbol}`}
+                />
+              </label>
+              <span className="flex items-center border-r border-white/10 px-2">
+                {isUsdcQuickBuy ? (
+                  <QuoteTokenIcon kind="usdc" className="h-3.5 w-3.5 opacity-95" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- chain pill matches PulseChainSelector
+                  <img
+                    src={CHAIN_ICON_PNG[activeChain]}
+                    alt=""
+                    width={14}
+                    height={14}
+                    draggable={false}
+                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                  />
+                )}
+              </span>
+              <div className="flex items-center gap-0.5 px-1">
+                {([1, 2, 3] as const).map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => setPresetSlot(column, slot)}
+                    className={cn(
+                      'btn-press focus-ring rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition',
+                      presetSlot === slot
+                        ? 'text-accent-primary'
+                        : 'text-fg-muted hover:text-fg-secondary',
+                    )}
+                  >
+                    P{slot}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <button
               type="button"
               onClick={() => setFilterOpen(true)}
-              className="btn-press focus-ring flex h-8 w-8 items-center justify-center rounded-md text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary"
+              className="btn-press focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-muted transition hover:bg-bg-hover hover:text-fg-secondary"
               aria-label="Column filters and sort"
             >
               <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />

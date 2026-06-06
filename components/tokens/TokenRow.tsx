@@ -39,10 +39,13 @@ import { metricBandColorForValue } from '@/lib/pulse/metricBandColor';
 import { resolveProtocolRowTint } from '@/lib/pulse/protocolRowTint';
 import { resolvePulseTranslationGloss } from '@/lib/translate/pulseTranslationGloss';
 import { useAutoTranslateStore } from '@/store/autoTranslate';
+import { useShallow } from 'zustand/react/shallow';
 import { PulseMintCopyCaption } from '@/components/tokens/PulseMintCopyCaption';
+import { PulseTokenTitleRow } from '@/components/tokens/PulseTokenTitleRow';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
+import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseRowDensity } from '@/store/pulseColumns';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -118,7 +121,16 @@ function TokenRowInner({
    * Latin gloss line under non-Latin Pulse identities — applies to **every chain**
    * now (Hebrew, Arabic, CJK, Cyrillic, Devanagari, Thai, Hangul, …), not just BNB.
    */
-  const autoTranslate = useAutoTranslateStore();
+  const autoTranslate = useAutoTranslateStore(
+    useShallow((s) => ({
+      enabled: s.enabled,
+      showOnHover: s.showOnHover,
+      showBoth: s.showBoth,
+      textColor: s.textColor,
+      translateAllLanguages: s.translateAllLanguages,
+      selectedLanguageIds: s.selectedLanguageIds,
+    })),
+  );
   const translationGloss = useMemo(
     () => resolvePulseTranslationGloss(token, autoTranslate),
     [
@@ -181,18 +193,28 @@ function TokenRowInner({
   /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
   const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
 
+  /** Display → Avatar size preference (small / default / large) scales the base footprint. */
+  const { prefs } = usePreferences();
+  const avatarScale =
+    prefs.avatarSize === 'small' ? 0.84 : prefs.avatarSize === 'large' ? 1.16 : 1;
+
   /** Pulse grid: fill most of the slot height (Axiom-style). Else preference-driven rhythm. */
   const avatarSize = useMemo(() => {
+    let base: number;
     if (slotHeight != null) {
       const verticalPad = 24; // pt-4 + pb-2 on Pulse grid hit area
       const captionReserve = 15; // truncated mint + gap under avatar
       const raw = slotHeight - verticalPad - captionReserve;
-      return Math.min(78, Math.max(44, Math.round(raw)));
+      base = Math.min(78, Math.max(44, Math.round(raw)));
+    } else if (layoutDensity === 'compact') {
+      base = 48;
+    } else if (layoutDensity === 'expanded') {
+      base = 56;
+    } else {
+      base = 52;
     }
-    if (layoutDensity === 'compact') return 48;
-    if (layoutDensity === 'expanded') return 56;
-    return 52;
-  }, [slotHeight, layoutDensity]);
+    return Math.round(base * avatarScale);
+  }, [slotHeight, layoutDensity, avatarScale]);
 
   /**
    * Strip icon size — bumped ~10% across the board so Pulse rows read closer to Axiom:
@@ -293,7 +315,6 @@ function TokenRowInner({
   }
 
   const tokenPath = `/token/${token.mint}`;
-  const nameTitle = `${ticker} \u2014 ${name}`;
 
   const isInteractiveClickTarget = (target: EventTarget | null) =>
     target instanceof HTMLElement &&
@@ -330,22 +351,8 @@ function TokenRowInner({
       )}
     >
       {slotHeight != null ? (
-        <div className="group/mintTitle flex min-w-0 flex-1 flex-col gap-0.5">
-          <div
-            className={cn(
-              'inline-flex min-w-0 max-w-full items-center rounded-sm px-0.5 -mx-0.5',
-              'transition-colors hover:bg-white/[0.05]',
-            )}
-          >
-            <p className="min-w-0 font-sans leading-[1.12] whitespace-nowrap" title={nameTitle}>
-              <span className={cn('font-semibold text-fg-primary text-[16px] tracking-tight')}>
-                {ticker}
-              </span>
-              <span className={cn('font-normal text-fg-secondary ml-1.5 text-[15px] tracking-tight')}>
-                {name}
-              </span>
-            </p>
-          </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <PulseTokenTitleRow mint={token.mint} ticker={ticker} name={name} size="pulse" />
           {translationGloss ? (
             <p
               className={cn(
@@ -363,30 +370,7 @@ function TokenRowInner({
         </div>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
-          <p
-            className={cn(
-              'min-w-0 flex-1 truncate font-sans',
-              'leading-tight',
-            )}
-            title={nameTitle}
-          >
-            <span
-              className={cn(
-                'font-semibold text-fg-primary',
-                'text-[15px]',
-              )}
-            >
-              {ticker}
-            </span>
-            <span
-              className={cn(
-                'font-normal text-fg-secondary',
-                'ml-1.5 text-[14px]',
-              )}
-            >
-              {name}
-            </span>
-          </p>
+          <PulseTokenTitleRow mint={token.mint} ticker={ticker} name={name} size="compact" />
           {translationGloss ? (
             <p
               className={cn(
@@ -542,7 +526,7 @@ function TokenRowInner({
         //
         // Card surface + border come from `.pulse-column .pulse-row` in globals.css
         // (theme tokens). Tracked-dev tints below still override via `!bg-…`.
-        'pulse-row group/pulseRow group relative flex items-stretch rounded-lg outline-none transition-colors duration-150 ease-out',
+        'pulse-row group/pulseRow group relative flex items-stretch rounded-lg outline-none',
         slotHeight != null
           ? 'h-full min-h-0 max-h-full overflow-visible'
           : null,
@@ -580,11 +564,10 @@ function TokenRowInner({
           onClick={onTokenAreaClick}
           onKeyDown={onTokenAreaKeyDown}
           className={cn(
-            'relative z-[1] flex min-h-0 min-w-0 flex-1 cursor-pointer items-start outline-none transition-[background-color] duration-150',
+            'relative z-[1] flex min-h-0 min-w-0 flex-1 cursor-pointer items-start outline-none',
             'hover:bg-white/[0.04]',
             'focus-visible:bg-bg-hover/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/45',
             slotHeight != null ? 'px-3 pt-4 pb-2' : 'p-3',
-            reserveRightActionCol && dockReservePadding,
           )}
           {...hoverProps}
         >
@@ -599,8 +582,13 @@ function TokenRowInner({
             >
               <div
                 className={cn(
+                  // Only the NAME row reserves the dock column so the title never
+                  // collides with the floating V/MC. The icon rows below flow
+                  // full-width and stay put — they no longer reserve/affect the
+                  // buttons or Ultra outline (same independence as V/MC).
                   'flex min-w-0 flex-nowrap items-center gap-2',
                   slotHeight == null && 'overflow-hidden',
+                  reserveRightActionCol && dockReservePadding,
                 )}
               >
                 <div className="block min-w-0 flex-1">
@@ -637,7 +625,7 @@ function TokenRowInner({
                    * Age column + shared text column: metric pills align under @handle / icons
                    * (never under the avatar). Horizontal scroll contains overflow in-column.
                    */}
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-nowrap items-stretch gap-2 overflow-hidden">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-nowrap items-stretch gap-2 overflow-x-hidden overflow-y-visible">
                     <div className="shrink-0 self-start pt-px">{ageCluster}</div>
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
                       <PulseRowSocialStrip
@@ -1199,38 +1187,35 @@ function quickBuyPillSizeClasses(
     case 'small':
       return cn(
         base,
+        'pulse-qb-pill pulse-qb-pill--small',
         pulseFit
           ? 'h-6 max-h-6 gap-0.5 rounded px-1.5 text-[10px] font-medium'
           : 'h-7 gap-1 rounded-md px-2 text-[10px] font-medium',
-        'border-0 bg-signal-bull/10 text-signal-bull hover:bg-signal-bull/16 active:bg-signal-bull/22',
       );
     case 'large':
       return cn(
         base,
+        'pulse-qb-pill pulse-qb-pill--large',
         pulseFit
           ? 'h-11 min-h-[2.75rem] max-h-12 gap-1.5 rounded-[6px] px-3 text-xs font-semibold'
           : 'h-10 min-h-10 gap-1.5 rounded-md px-4 text-xs font-semibold',
-        'border border-signal-bull bg-signal-bull text-[#030806]',
-        'shadow-[0_4px_22px_-10px_rgba(52,211,153,0.55)]',
-        'hover:border-signal-bull hover:bg-signal-bull/95 active:bg-signal-bull/85',
       );
     case 'medium':
     default:
       return cn(
         base,
+        'pulse-qb-pill pulse-qb-pill--medium',
         pulseFit
           ? 'h-8 max-h-8 min-h-8 gap-1 rounded-md px-2.5 text-[11px] font-medium'
           : 'h-8 gap-1 rounded-md px-2.5 text-[11px] font-medium',
-        'border border-signal-bull/45 bg-signal-bull/25 text-signal-bull',
-        'hover:border-signal-bull/60 hover:bg-signal-bull/32 active:bg-signal-bull/40',
       );
   }
 }
 
 function quickBuyPillIconClass(style: Exclude<BuyButtonStyle, 'ultra'>): string {
-  if (style === 'small') return 'h-2.5 w-2.5 shrink-0';
-  if (style === 'large') return 'h-3.5 w-3.5 shrink-0 fill-[#030806] text-[#030806]';
-  return 'h-3 w-3 shrink-0';
+  if (style === 'small') return 'pulse-qb-icon h-2.5 w-2.5 shrink-0';
+  if (style === 'large') return 'pulse-qb-icon pulse-qb-icon--on h-3.5 w-3.5 shrink-0';
+  return 'pulse-qb-icon h-3 w-3 shrink-0';
 }
 
 function QuickBuyPill({
@@ -1359,23 +1344,11 @@ function UltraQuickBuyZone({
          *     the right edge + lifted off the bottom edge so it reads as a button,
          *     not a flush slab. Chip centered, V/MC stays visible above.
          */
-        'focus-ring pointer-events-auto relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-sans font-semibold tabular-nums tracking-normal transition-all duration-200',
+        'pulse-qb-ultra focus-ring pointer-events-auto relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-sans font-semibold tabular-nums tracking-normal',
+        filled ? 'pulse-qb-ultra--filled transition-[filter] duration-200' : 'pulse-qb-ultra--outline',
         filled
           ? 'h-1/3 w-[calc(100%-0.625rem)] self-end mr-2.5 mb-2 items-center justify-center px-2 py-1'
           : 'h-full w-full flex-col items-end justify-end p-2 pb-2.5 pr-2.5',
-        filled
-          ? cn(
-              'border-emerald-400/90 bg-emerald-400 text-[#030806]',
-              'shadow-[0_4px_22px_-10px_rgba(52,211,153,0.65)]',
-              'hover:border-emerald-300 hover:bg-emerald-300',
-              'active:bg-emerald-500 active:border-emerald-400',
-            )
-          : cn(
-              'border-emerald-400/90 bg-transparent text-emerald-400',
-              'shadow-[0_0_14px_-14px_rgba(52,211,153,0.38)] backdrop-blur-none',
-              'hover:border-emerald-300/95 hover:bg-emerald-400/[0.08] hover:shadow-[0_0_18px_-12px_rgba(52,211,153,0.48)] hover:backdrop-blur-[6px]',
-              'active:border-emerald-300 active:bg-emerald-400/12 active:backdrop-blur-sm',
-            ),
         'disabled:pointer-events-none disabled:opacity-55',
       )}
       aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
@@ -1388,8 +1361,8 @@ function UltraQuickBuyZone({
       >
         <Zap
           className={cn(
-            'h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5',
-            filled ? 'fill-[#030806] text-[#030806]' : 'fill-emerald-400/35 text-emerald-400',
+            'pulse-qb-icon h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5',
+            filled && 'pulse-qb-icon--on',
           )}
           aria-hidden
         />
@@ -1398,7 +1371,10 @@ function UltraQuickBuyZone({
       {loading ? (
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
           <Loader2
-            className={cn('h-4 w-4 shrink-0 animate-spin', filled ? 'text-[#030806]' : 'text-emerald-400')}
+            className={cn(
+              'pulse-qb-icon h-4 w-4 shrink-0 animate-spin',
+              filled && 'pulse-qb-icon--on',
+            )}
           />
         </span>
       ) : null}

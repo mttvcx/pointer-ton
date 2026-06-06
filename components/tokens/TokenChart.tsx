@@ -34,6 +34,7 @@ import {
   type ChartOverlayFlags,
 } from '@/lib/chart/tokenChartOverlays';
 import { nativeTicker, nativeUsdTickerSymbol } from '@/lib/chains/nativeCurrency';
+import { useNativeUsdSpot } from '@/lib/hooks/useJupiterTickers';
 import { useUIStore } from '@/store/ui';
 
 const OVERLAYS_EVT = 'pointer-chart-overlays';
@@ -123,16 +124,7 @@ export function TokenChart({
   const nativeUsdSymbol = nativeUsdTickerSymbol(activeChain);
   const nativeSym = nativeTicker(activeChain);
 
-  const nativeUsdSpotQ = useQuery({
-    queryKey: ['native-usd-spot', nativeUsdSymbol],
-    queryFn: async () => {
-      const r = await fetch('/api/prices/tickers');
-      const j = (await r.json()) as { tickers?: { symbol: string; usdPrice: number | null }[] };
-      const hit = j.tickers?.find((t) => t.symbol === nativeUsdSymbol);
-      return hit?.usdPrice ?? null;
-    },
-    staleTime: 60_000,
-  });
+  const nativeUsdSpotQ = useNativeUsdSpot(nativeUsdSymbol, { staleTime: 60_000 });
   const nativeUsdSpot = nativeUsdSpotQ.data ?? null;
 
   const { data, isLoading, isError } = useQuery({
@@ -142,6 +134,7 @@ export function TokenChart({
       if (!r.ok) throw new Error('chart_request_failed');
       return r.json() as Promise<ChartResponse>;
     },
+    staleTime: 30_000,
   });
 
   const barsCount = data?.bars?.length ?? 0;
@@ -163,9 +156,13 @@ export function TokenChart({
     },
   });
 
+  // Markers are only painted when `showMarkers` is true (auth + bubbles shown).
+  // Gate the fetch on the same condition so we don't request wallet markers
+  // when the user has hidden bubbles or turned the alert-bubble overlay off.
+  // `alertBubbles` defaults to on, so the common case is unchanged.
   const { data: markersRes } = useQuery({
     queryKey: ['token-wallet-markers', mint],
-    enabled: authenticated,
+    enabled: authenticated && !hideAllBubbles && overlays.alertBubbles,
     staleTime: 30_000,
     queryFn: async (): Promise<WalletMarkersResponse> => {
       const token = await getAccessToken();

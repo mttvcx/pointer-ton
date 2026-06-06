@@ -66,11 +66,19 @@ export function InstantTradeSettingsModal({ open, onClose, onOpenFullTradeColumn
   );
 
   return (
-    <div className="fixed inset-0 z-[530] flex animate-in fade-in items-center justify-center bg-black/65 p-4 duration-200">
+    <div className="fixed inset-0 z-[530] flex animate-in fade-in items-center justify-center p-4 duration-200">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/65"
+        aria-label="Close instant trade settings"
+        onClick={onClose}
+      />
       <div
-        className="flex max-h-[90vh] w-full max-w-md animate-in zoom-in-95 fade-in flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-base shadow-2xl duration-200"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-md animate-in zoom-in-95 fade-in flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-base shadow-2xl duration-200"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="instant-settings-title"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
           <h2 id="instant-settings-title" className="text-sm font-semibold text-fg-primary">

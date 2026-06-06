@@ -6,6 +6,7 @@ import { inferMintKind } from '@/lib/chains/mintKind';
 import { getFeeBpsForUser } from '@/lib/db/tiers';
 import { countConfirmedTradesForUser, insertTrade } from '@/lib/db/trades';
 import { getUserByPrivyId } from '@/lib/db/users';
+import { isActivityFrozen } from '@/lib/db/accountControls';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
 import { awardPoints } from '@/lib/points/award';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
@@ -62,6 +63,17 @@ export async function POST(req: NextRequest) {
   const user = await getUserByPrivyId(verified.privyId);
   if (!user) {
     return NextResponse.json({ error: 'user_not_synced' }, { status: 403 });
+  }
+
+  // Defense-in-depth: refuse to record trades for a frozen account. The primary
+  // stop is the quote builder (no tx is minted), this just closes the loop.
+  try {
+    const { frozen } = await isActivityFrozen(user.id, 'trading');
+    if (frozen) {
+      return NextResponse.json({ error: 'account_frozen' }, { status: 423 });
+    }
+  } catch {
+    /* fail-open on lookup fault */
   }
 
   const json: unknown = await req.json();

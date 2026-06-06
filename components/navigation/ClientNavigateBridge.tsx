@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { closeSquadsRail } from '@/lib/squads/openSquadsOnPulse';
 import {
@@ -24,9 +24,17 @@ export function ClientNavigateBridge() {
     return () => window.removeEventListener(POINTER_CLIENT_NAV_EVT, onNav);
   }, [router]);
 
+  const prevPathRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (pathname?.startsWith('/pulse')) return;
-    closeSquadsRail();
+    const prev = prevPathRef.current;
+    prevPathRef.current = pathname ?? null;
+    if (!pathname || !prev) return;
+    const wasOnPulse = prev.startsWith('/pulse');
+    const nowOnPulse = pathname.startsWith('/pulse');
+    if (wasOnPulse && !nowOnPulse) {
+      closeSquadsRail();
+    }
   }, [pathname]);
 
   return null;

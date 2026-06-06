@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -105,7 +106,7 @@ export function PulseRichHover({
             entered ? 'opacity-100' : 'opacity-0',
             bare
               ? null
-              : 'rounded-2xl border border-white/[0.08] bg-[#0f1419]/[0.98] shadow-[0_28px_70px_-16px_rgba(0,0,0,0.88),inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-xl',
+              : 'rounded-xl border border-border-subtle bg-bg-raised shadow-panel',
             bare ? null : wide ? 'w-[19.5rem]' : 'w-[17.25rem]',
           )}
           onMouseEnter={() => {
@@ -128,10 +129,15 @@ export function PulseRichHover({
 
 const labelMuted = 'text-[10px] font-medium uppercase tracking-wide text-[#9ca3af]';
 
+/** Opaque micro-hover shell — no backdrop blur (Axiom parity). */
+export const pulseCompactPanelCn = cn(
+  'rounded-lg border border-border-subtle bg-bg-raised px-2.5 py-2 shadow-panel',
+);
+
 /** Shared Axiom-ish micro-card shell (above trigger). Used by Pulse strip hovers + globe URL card. */
 export const pulseCompactAbovePanelCn = cn(
   'absolute left-1/2 z-[260] w-max max-w-[min(17.5rem,calc(100vw-2rem))] -translate-x-1/2',
-  'rounded-lg border border-white/[0.12] bg-[#111418]/98 px-2.5 py-2 shadow-[0_8px_24px_-10px_rgba(0,0,0,0.55)] backdrop-blur-sm',
+  pulseCompactPanelCn,
 );
 
 const pulseCompactBelowPanelCn = cn(
@@ -161,6 +167,8 @@ export function PulseCompactHoverAbove({
   placement?: 'above' | 'below';
 }) {
   const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clear = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -169,33 +177,75 @@ export function PulseCompactHoverAbove({
 
   useEffect(() => () => clear(), []);
 
+  const syncPanelPos = () => {
+    const el = anchorRef.current;
+    if (!el || typeof window === 'undefined') return;
+    const r = el.getBoundingClientRect();
+    setPanelPos({
+      top: placement === 'below' ? r.bottom + 6 : r.top - 6,
+      left: r.left + r.width / 2,
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => {
+      setOpen(false);
+      setPanelPos(null);
+    };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+
   const scheduleOpen = () => {
     clear();
-    timer.current = setTimeout(() => setOpen(true), openDelayMs);
+    timer.current = setTimeout(() => {
+      syncPanelPos();
+      setOpen(true);
+    }, openDelayMs);
   };
   const scheduleClose = () => {
     clear();
-    timer.current = setTimeout(() => setOpen(false), closeDelayMs);
+    timer.current = setTimeout(() => {
+      setOpen(false);
+      setPanelPos(null);
+    }, closeDelayMs);
   };
 
+  const panel =
+    open && panelPos && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className={cn(
+              'pointer-events-auto fixed z-[260] w-max max-w-[min(17.5rem,calc(100vw-2rem))]',
+              pulseCompactPanelCn,
+              placement === 'below' ? '-translate-x-1/2' : '-translate-x-1/2 -translate-y-full',
+            )}
+            style={{ top: panelPos.top, left: panelPos.left }}
+            role={role}
+            onMouseEnter={scheduleOpen}
+            onMouseLeave={scheduleClose}
+          >
+            {content}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <span className="relative isolate inline-flex" data-popover-open={open ? 'true' : undefined}>
+    <span
+      ref={anchorRef}
+      className="relative inline-flex"
+      data-popover-open={open ? 'true' : undefined}
+    >
       <span className="inline-flex" onMouseEnter={scheduleOpen} onMouseLeave={scheduleClose}>
         {children}
       </span>
-      {open ? (
-        <div
-          className={cn(
-            placement === 'below' ? pulseCompactBelowPanelCn : pulseCompactAboveOnlyPanelCn,
-            'pointer-events-auto',
-          )}
-          role={role}
-          onMouseEnter={scheduleOpen}
-          onMouseLeave={scheduleClose}
-        >
-          {content}
-        </div>
-      ) : null}
+      {panel}
     </span>
   );
 }
@@ -207,7 +257,7 @@ export function PulseCashbackCompactHover({ children }: { children: React.ReactN
         <>
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-[11px] font-semibold leading-none text-white/95">Cashback</p>
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide leading-none text-emerald-400">
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide leading-none text-signal-bull/80">
               On
             </span>
           </div>
@@ -602,7 +652,7 @@ export function WebsiteGlobeCompactHover({
             <p className="min-w-0 truncate text-[11px] font-bold leading-none text-white" title={hostname}>
               {hostname}
             </p>
-            <span className="shrink-0 text-[10px] font-semibold tabular-nums leading-none text-emerald-400">
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums leading-none text-signal-bull/75">
               {age}
             </span>
           </div>
@@ -912,7 +962,7 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
   };
 
   return (
-    <div className="flex w-[260px] flex-col gap-2 rounded-lg border border-white/[0.06] bg-[#0a0a0a] p-3 shadow-2xl shadow-black/60">
+    <div className="flex w-[260px] flex-col gap-2 rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-panel">
       {/* Header — short mint + copy + open */}
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-[11.5px] leading-none tracking-tight text-white/90">

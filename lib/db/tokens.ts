@@ -485,6 +485,53 @@ export async function upsertTokenEmbedding(
   return data;
 }
 
+export type ReusedImageTokenRow = {
+  mint: string;
+  symbol: string | null;
+  name: string | null;
+  image_url: string | null;
+  created_at: string;
+  market_cap_usd: number | null;
+};
+
+/** Tokens that share the exact same `image_url` (Axiom-style reused-image hover). */
+export async function listTokensByImageUrl(
+  imageUrl: string,
+  opts: { excludeMint?: string; limit?: number } = {},
+): Promise<{ items: ReusedImageTokenRow[]; total: number }> {
+  const url = imageUrl.trim();
+  if (!url) return { items: [], total: 0 };
+
+  const limit = Math.min(Math.max(opts.limit ?? 12, 1), 20);
+  const supabase = createAdminSupabase();
+
+  let query = supabase
+    .from('tokens')
+    .select('mint,symbol,name,image_url,created_at', { count: 'exact' })
+    .eq('image_url', url)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  const excludeMint = opts.excludeMint?.trim();
+  if (excludeMint) query = query.neq('mint', excludeMint);
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(`listTokensByImageUrl failed: ${error.message}`);
+
+  const rows = data ?? [];
+  const snapshots = await getLatestSnapshotsForMints(rows.map((r) => r.mint));
+  const items: ReusedImageTokenRow[] = rows.map((row) => ({
+    mint: row.mint,
+    symbol: row.symbol,
+    name: row.name,
+    image_url: row.image_url,
+    created_at: row.created_at,
+    market_cap_usd: snapshots.get(row.mint)?.market_cap_usd ?? null,
+  }));
+
+  return { items, total: count ?? items.length };
+}
+
 export async function findSimilarTokensByEmbedding(
   _mint: string,
   _limit: number,

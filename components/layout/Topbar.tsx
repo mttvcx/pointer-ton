@@ -129,7 +129,8 @@ export function Topbar() {
 
   const { activeAddress, ready: walletsReady } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
   const walletAddress = activeAddress;
-  const { spendAsset, setSpendAsset } = useTradingStore();
+  const spendAsset = useTradingStore((s) => s.spendAsset);
+  const setSpendAsset = useTradingStore((s) => s.setSpendAsset);
 
   useEffect(() => {
     if (!avatarMenuOpen) return;
@@ -182,7 +183,15 @@ export function Topbar() {
       const json: unknown = await res.json();
       const arr =
         json && typeof json === 'object' && 'tickers' in json
-          ? (json as { tickers: Array<{ symbol: string; usdPrice: number | null }> }).tickers
+          ? (
+              json as {
+                tickers: Array<{
+                  symbol: string;
+                  usdPrice: number | null;
+                  priceChange24h: number | null;
+                }>;
+              }
+            ).tickers
           : [];
       return Array.isArray(arr) ? arr : [];
     },

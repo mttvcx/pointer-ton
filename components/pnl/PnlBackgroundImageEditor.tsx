@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CloudUpload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PnlTrackerSceneChrome } from '@/components/pnl/PnlTrackerSceneChrome';
-import { PointerNeonBird } from '@/components/wallet/analytics/PointerNeonBird';
-import { presetClass, presetMeta } from '@/lib/share/backgrounds';
+import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
+import { presetClass } from '@/lib/share/backgrounds';
 import type { ShareBackgroundPresetId } from '@/lib/share/types';
 import {
   backgroundImageStyle,
@@ -207,7 +207,7 @@ export function PnlBackgroundImageEditor({
             <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wide text-white/45">Balance</p>
           </div>
           <div className="flex flex-col items-center pb-0.5">
-            <PointerNeonBird className="h-6 w-6" glow={presetMeta(presetId).birdGlow} />
+            <PointerBirdMark className="h-6 w-6" size={24} />
             <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.18em] text-white/80">pointer</p>
           </div>
           <div className="text-right">

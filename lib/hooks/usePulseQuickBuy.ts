@@ -13,6 +13,7 @@ import { addInstantTradeSellTon } from '@/lib/trading/instantTradeStats';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { formatNumber } from '@/lib/utils/formatters';
+import { buildBlitzAwareFees, isBlitzWallet } from '@/lib/trading/blitz';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import {
   viewOnlyWalletTradeMessage,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/trading/walletConnectCopy';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
+import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/store/ui';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import {
@@ -74,7 +76,13 @@ export function usePulseQuickBuy() {
   const qc = useQueryClient();
   const activeChain = useUIStore((s) => s.activeChain);
   const { submitFromQuote } = usePointerTradeSubmit();
-  const { activePresetSlot, spendAsset } = useTradingStore();
+  const { activePresetSlot, spendAsset, blitzWalletAddresses } = useTradingStore(
+    useShallow((s) => ({
+      activePresetSlot: s.activePresetSlot,
+      spendAsset: s.spendAsset,
+      blitzWalletAddresses: s.blitzWalletAddresses,
+    })),
+  );
   const [activeMint, setActiveMint] = useState<string | null>(null);
   const [queueSize, setQueueSize] = useState(0);
 
@@ -152,19 +160,22 @@ export function usePulseQuickBuy() {
         return fail('Sign in required.');
       }
 
-      const feeExtra =
+      const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
+      const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
+      const baseLanding = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
+      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const presetFees =
         activePreset != null
           ? {
               jitoTipLamports: activePreset.jito_tip_lamports,
               priorityFeeLamports: activePreset.priority_fee_lamports,
               autoFee: activePreset.auto_fee,
               maxFeeSol: activePreset.max_fee_sol,
+              landing: baseLanding,
             }
-          : {};
-
-      const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
-      const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
-      const landing = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
+          : { landing: baseLanding };
+      const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
+      const tradeLanding = blitzLanding ?? baseLanding;
 
       const toastId = silent ? undefined : toast.loading('Getting quote...');
       try {
@@ -175,7 +186,7 @@ export function usePulseQuickBuy() {
           ...buyQuoteAmountFields(asset, amount),
           slippageBps,
           dynamicSlippage,
-          landing,
+          landing: tradeLanding,
           includeSwapTx: true,
           ...feeExtra,
         };
@@ -320,19 +331,22 @@ export function usePulseQuickBuy() {
           return fail('No tokens to sell — zero balance.');
         }
 
-        const feeExtra =
+        const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
+        const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
+        const baseLanding = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
+        const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+        const presetFees =
           activePreset != null
             ? {
                 jitoTipLamports: activePreset.jito_tip_lamports,
                 priorityFeeLamports: activePreset.priority_fee_lamports,
                 autoFee: activePreset.auto_fee,
                 maxFeeSol: activePreset.max_fee_sol,
+                landing: baseLanding,
               }
-            : {};
-
-        const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
-        const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
-        const landing = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
+            : { landing: baseLanding };
+        const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
+        const tradeLanding = blitzLanding ?? baseLanding;
 
         const res = await fetch('/api/trade/quote', {
           method: 'POST',
@@ -347,7 +361,7 @@ export function usePulseQuickBuy() {
             amountTokenRaw,
             slippageBps,
             dynamicSlippage,
-            landing,
+            landing: tradeLanding,
             includeSwapTx: true,
             ...feeExtra,
           }),

@@ -137,7 +137,7 @@ export function recommendedPulseDisplayPrefs(chain: AppChainId): PulseDisplayPre
     quickBuyButtonSize: 'large',
     displayQuickBuySol: 0.5,
     compactTables: false,
-    hideColumnSearch: true,
+    hideColumnSearch: false,
     noDecimals: false,
     circleAvatars: false,
     showBondingProgress: true,
@@ -154,6 +154,6 @@ export function recommendedPulseDisplayPrefs(chain: AppChainId): PulseDisplayPre
     quickBuyClickBehavior: 'nothing',
     walletGroupsInHeader: true,
     secondButtonMode: 'off',
-    accentHex: '#526EEE',
+    accentHex: '#34D399',
   });
 }

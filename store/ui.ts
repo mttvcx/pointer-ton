@@ -154,6 +154,9 @@ const PANEL_MAX = 480;
 const PANEL_MIN_FLOAT = 260;
 const PANEL_MAX_FLOAT = 720;
 
+/** Single pending auto-clear timer for the Pulse track-flash highlight. */
+let trackPulseFlashTimer: ReturnType<typeof setTimeout> | null = null;
+
 /** Left-rail alert builder: keep narrow so Pulse still fits with co-pilot open. */
 export const ALERT_DOCK_MIN_W = 240;
 export const ALERT_DOCK_MAX_W = 400;
@@ -332,13 +335,21 @@ export const useUIStore = create<UIState>()(
       flashTrackPulseMint: (mint, ms = 12_000) => {
         const trimmed = mint.trim();
         if (!trimmed) return;
+        if (trackPulseFlashTimer) clearTimeout(trackPulseFlashTimer);
         set({ trackPulseHighlightMint: trimmed });
-        window.setTimeout(() => {
+        trackPulseFlashTimer = setTimeout(() => {
+          trackPulseFlashTimer = null;
           const cur = useUIStore.getState().trackPulseHighlightMint;
           if (cur === trimmed) set({ trackPulseHighlightMint: null });
         }, ms);
       },
-      clearTrackPulseFlash: () => set({ trackPulseHighlightMint: null }),
+      clearTrackPulseFlash: () => {
+        if (trackPulseFlashTimer) {
+          clearTimeout(trackPulseFlashTimer);
+          trackPulseFlashTimer = null;
+        }
+        set({ trackPulseHighlightMint: null });
+      },
 
       setCopilotTopStripActive: (active) => set({ copilotTopStripActive: active }),
       setCopilotStripTab: (tab) => set({ copilotStripTab: tab }),
