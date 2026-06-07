@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireSyncedUser } from '@/lib/ai/auth';
 import { aiErrorResponse } from '@/lib/ai/http';
 import { generateLaunchPackage } from '@/lib/launch/generateLaunchPackage';
+import { EMPTY_LAUNCH_PACKAGE } from '@/lib/launch/mapLaunchPackageOutput';
 import { tweetLaunchCacheSubject } from '@/lib/launch/tweetLaunchSubject';
 import type { LaunchPackage, TweetLaunchInput } from '@/lib/launch/types';
 
@@ -56,13 +57,28 @@ export async function POST(req: NextRequest) {
         tweetUrl: t.tweetUrl,
       };
       const subject = tweetLaunchCacheSubject(tweet);
-      const out = await generateLaunchPackage(tweet, auth.user.id);
-      items.push({
-        subject,
-        package: out.package,
-        cacheHit: out.cacheHit,
-        fromCache: out.fromCache,
-      });
+      try {
+        const out = await generateLaunchPackage(tweet, auth.user.id);
+        items.push({
+          subject,
+          package: out.package,
+          cacheHit: out.cacheHit,
+          fromCache: out.fromCache,
+        });
+      } catch (err) {
+        // One tweet failing AI (model JSON/schema miss, rate limit, provider
+        // hiccup) shouldn't 500 the whole feed — degrade that row to "no launch".
+        console.warn(
+          '[/api/ai/launch-packages] tweet failed:',
+          err instanceof Error ? err.message : err,
+        );
+        items.push({
+          subject,
+          package: { ...EMPTY_LAUNCH_PACKAGE },
+          cacheHit: false,
+          fromCache: false,
+        });
+      }
     }
 
     return NextResponse.json({ items });

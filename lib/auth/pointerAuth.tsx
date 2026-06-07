@@ -117,6 +117,8 @@ type Ctx = {
   authenticated: boolean;
   /** True only when Privy has an active session (not legacy TON JWT alone). */
   privyAuthenticated: boolean;
+  /** True while a sign-out is tearing down — used to suppress the brief "Connect wallet" flash. */
+  loggingOut: boolean;
   /**
    * In-app "Connect wallet" CTA. Chain-aware: SOL/BNB/Base jump straight to a
    * wallet picker via Privy's `useConnectWallet`; TON falls back to the full
@@ -181,6 +183,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
   const wallet = useTonWallet();
   const queryClient = useQueryClient();
   const [localReady, setLocalReady] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const payloadTokenRef = useRef<string | null>(null);
   const syncingRef = useRef(false);
@@ -371,6 +374,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
   }, [privy.ready, privy.login, privyReadyTimedOut]);
 
   const logout = useCallback(async () => {
+    setLoggingOut(true);
     toastLoggingOut();
     privyAuthBaselineRef.current = false;
     setLandingRequireSignIn();
@@ -396,6 +400,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
     await withTimeout(tonConnectUI.disconnect(), 4000);
     await withTimeout(privy.logout(), 4000);
     toastLoggedOut();
+    setLoggingOut(false);
   }, [privy, tonConnectUI, queryClient]);
 
   const getAccessToken = useCallback(async () => {
@@ -437,6 +442,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
       ready,
       authenticated,
       privyAuthenticated,
+      loggingOut,
       login,
       signIn,
       logout,
@@ -448,6 +454,7 @@ function InnerAuth({ children }: { children: ReactNode }) {
       ready,
       authenticated,
       privyAuthenticated,
+      loggingOut,
       login,
       signIn,
       logout,

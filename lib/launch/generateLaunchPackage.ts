@@ -35,9 +35,11 @@ export async function generateLaunchPackage(
     'Use pump.fun for classic viral memes; bonk for BONK/LetsBonk culture; moonshot for Moonit-style curves; bags for fee-share / creator splits; heaven for fast permissionless launches; bonkers only when BONK-adjacent chaos fits.',
     'imageStrategy: use_tweet_image when a attached image fits as logo; generate when text-only but visual meme is needed; no_image when inappropriate or risky.',
     'suggestedTicker: uppercase, 2-10 chars, no $. suggestedName: max 32 chars.',
-    'When shouldLaunch is true, provide exactly three ranked options in the options array (best first). Each option needs distinct name/ticker/angle.',
-    'When shouldLaunch is false, options must be an empty array and other string fields should be empty.',
-    'Respond ONLY with JSON matching the schema.',
+    'Respond ONLY with a single minified JSON object of EXACTLY this shape:',
+    '{"shouldLaunch": <boolean>, "confidence": <number 0..1>, "reasoning": "<why / why not, <=600 chars>", "options": [{"suggestedName": "<=32 chars", "suggestedTicker": "UPPERCASE 2-10, no $", "narrative": "<=500 chars", "suggestedLaunchpad": "pump.fun|bonk|moonshot|bags|bonkers|heaven", "imageStrategy": "use_tweet_image|generate|no_image", "reasoning": "<=500 chars"}]}',
+    'confidence MUST be a number between 0 and 1 (e.g. 0.82), never a word. Do NOT put suggestedName/suggestedTicker/suggestedLaunchpad/imageStrategy at the top level — they belong ONLY inside each options entry.',
+    'When shouldLaunch is true, provide 1-3 ranked options (best first), each with a distinct name/ticker/angle.',
+    'When shouldLaunch is false, options MUST be an empty array [].',
   ].join(' ');
 
   const user = [

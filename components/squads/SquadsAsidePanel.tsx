@@ -41,7 +41,10 @@ function GripDots({ className }: { className?: string }) {
 }
 
 function headerDragAllowed(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return true;
+  // Use `Element` (not `HTMLElement`): clicks land on the SVG inside buttons
+  // (e.g. the close X), which are SVGElements. Treating those as drag-allowed
+  // hijacked the click and the panel could never be closed.
+  if (!(target instanceof Element)) return false;
   return !target.closest('button, a, input, textarea, [data-squads-no-drag]');
 }
 
@@ -230,10 +233,12 @@ export function SquadsAsidePanel({
               type="button"
               title="Hide squads"
               aria-label="Hide squads panel"
+              data-squads-no-drag
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={handleClose}
-              className="btn-press flex h-7 w-7 items-center justify-center rounded-lg text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
+              className="btn-press relative z-10 flex h-7 w-7 items-center justify-center rounded-lg text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
             >
-              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              <X className="h-3.5 w-3.5 pointer-events-none" strokeWidth={2} aria-hidden />
             </button>
           </div>
         </div>

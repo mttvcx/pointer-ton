@@ -13,7 +13,6 @@ import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { DeferredAppShellGate } from '@/components/layout/DeferredAppShellHosts';
-import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { useUIStore } from '@/store/ui';
 import { APP_NAME } from '@/lib/utils/constants';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -65,8 +64,7 @@ function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { ready, authenticated, login, linkedTonAddress } = usePointerAuth();
-  useAuthSync();
+  const { ready, authenticated, loggingOut, login, linkedTonAddress } = usePointerAuth();
 
   const onSharePage = Boolean(pathname?.startsWith('/share/'));
   const onPulseRoute = Boolean(pathname?.startsWith('/pulse'));
@@ -129,7 +127,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  if (!ready) {
+  if (!ready || loggingOut) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base text-fg-muted">
         <Loader2 className="h-5 w-5 animate-spin" />

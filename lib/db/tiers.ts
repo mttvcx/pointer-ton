@@ -21,6 +21,23 @@ export type TierRow = Tables<'user_tiers'>;
 const TIER_CACHE_MS = 60_000;
 const tierCache = new Map<string, { row: TierRow; at: number }>();
 
+const DEFAULT_TIER_ROW: TierRow = {
+  id: DEFAULT_TIER_ID,
+  name: 'Default',
+  fee_bps: DEFAULT_PLATFORM_FEE_BPS,
+  ai_quota_usd_daily: DEFAULT_AI_DAILY_QUOTA_USD,
+  point_multiplier: 1,
+};
+
+/** Missing `user_tiers` table — fall back to the in-memory default tier. */
+function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42P01' || error.code === 'PGRST205') return true;
+  return /schema cache|find the table|does not exist|relation .* does not exist/i.test(
+    error.message ?? '',
+  );
+}
+
 async function getTier(tierId: string): Promise<TierRow> {
   const cached = tierCache.get(tierId);
   if (cached && Date.now() - cached.at < TIER_CACHE_MS) return cached.row;
@@ -31,17 +48,14 @@ async function getTier(tierId: string): Promise<TierRow> {
     .select('*')
     .eq('id', tierId)
     .maybeSingle();
-  if (error) throw new Error(`getTier(${tierId}) failed: ${error.message}`);
+  // Fall back to the in-memory default both when the row is missing AND when
+  // the `user_tiers` table itself hasn't been created yet, so a fresh DB never
+  // 500s fee/quota/points lookups.
+  if (error && !isMissingTableError(error)) {
+    throw new Error(`getTier(${tierId}) failed: ${error.message}`);
+  }
 
-  // Fallback: in-memory default if the row is missing. Lets a fresh dev DB
-  // function before the seed is applied.
-  const row: TierRow = data ?? {
-    id: DEFAULT_TIER_ID,
-    name: 'Default',
-    fee_bps: DEFAULT_PLATFORM_FEE_BPS,
-    ai_quota_usd_daily: DEFAULT_AI_DAILY_QUOTA_USD,
-    point_multiplier: 1,
-  };
+  const row: TierRow = data ?? { ...DEFAULT_TIER_ROW, id: tierId || DEFAULT_TIER_ID };
 
   tierCache.set(tierId, { row, at: Date.now() });
   return row;

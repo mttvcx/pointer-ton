@@ -31,7 +31,7 @@ type LandingSignInModalProps = {
 
 function GoogleMark() {
   return (
-    <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0">
+    <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4 shrink-0">
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -40,12 +40,23 @@ function GoogleMark() {
   );
 }
 
+/** Official Phantom mark — purple gradient tile + ghost. */
 function PhantomMark() {
   return (
-    <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0">
-      <circle cx="12" cy="12" r="10" fill="#AB9FF2" />
-      <ellipse cx="9.5" cy="11" rx="1.2" ry="1.6" fill="#1C1C1C" />
-      <ellipse cx="14.5" cy="11" rx="1.2" ry="1.6" fill="#1C1C1C" />
+    <svg aria-hidden viewBox="0 0 128 128" className="h-4 w-4 shrink-0">
+      <rect width="128" height="128" rx="30" fill="url(#phantom-grad)" />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M110.584 64.914h-11.442c0-23.149-18.97-41.914-42.37-41.914-23.111 0-41.9 18.306-42.36 41.058-.476 23.523 21.631 43.942 45.157 43.942h3.014c20.76 0 48.562-16.186 52.906-35.935.803-3.651-2.069-7.151-4.905-7.151ZM45.854 66.972c0 3.119-2.55 5.668-5.669 5.668-3.119 0-5.668-2.549-5.668-5.668v-9.17c0-3.119 2.549-5.668 5.668-5.668 3.119 0 5.669 2.549 5.669 5.668v9.17Zm20.389 0c0 3.119-2.549 5.668-5.668 5.668-3.12 0-5.669-2.549-5.669-5.668v-9.17c0-3.119 2.549-5.668 5.669-5.668 3.119 0 5.668 2.549 5.668 5.668v9.17Z"
+        fill="#FFFDF8"
+      />
+      <defs>
+        <linearGradient id="phantom-grad" x1="64" y1="0" x2="64" y2="128" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#534BB1" />
+          <stop offset="1" stopColor="#551BF9" />
+        </linearGradient>
+      </defs>
     </svg>
   );
 }
@@ -67,14 +78,14 @@ function SocialButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'btn-press focus-ring relative flex w-full items-center gap-3 rounded-xl border border-border-subtle bg-bg-sunken/80 px-4 py-3',
-        'text-[14px] font-medium text-fg-primary transition hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-50',
-        badge && 'pr-24',
+        'btn-press focus-ring relative flex w-full items-center gap-2.5 rounded-lg border border-border-subtle/70 bg-bg-sunken/50 px-3 py-2.5',
+        'text-[13px] font-medium text-fg-secondary transition hover:border-border-subtle hover:bg-bg-hover hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50',
+        badge && 'pr-20',
       )}
     >
       {children}
       {badge ? (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-border-subtle bg-bg-raised px-1.5 py-0.5 text-[10px] font-medium text-fg-muted">
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border-subtle/70 bg-bg-raised px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-fg-muted">
           {badge}
         </span>
       ) : null}
@@ -150,9 +161,14 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
 
   useEffect(() => {
     if (open) return;
+    // Don't clear the pending-enter flag while Privy is still restoring its
+    // session. On a Google OAuth return the page remounts with the modal
+    // closed and `authenticated` momentarily false; clearing here would strip
+    // the flag the landing redirect needs, stranding the user on `/`.
+    if (!privyReady) return;
     if (privyAuthenticated) return;
     clearLandingEnterPending();
-  }, [open, privyAuthenticated]);
+  }, [open, privyReady, privyAuthenticated]);
 
   /** Privy OAuth redirect often remounts before `onComplete` fires — watch session here too. */
   useEffect(() => {
@@ -248,7 +264,10 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
     setBusy('wallet');
     setLandingEnterPending();
     toastAuthenticating();
-    connectWallet({ walletChainType: 'solana-only' });
+    // Restrict the Privy modal to Phantom only so it routes straight to the
+    // Phantom extension (Axiom-style) instead of showing the full picker
+    // (Solflare / Backpack / MetaMask / OKX …).
+    connectWallet({ walletChainType: 'solana-only', walletList: ['phantom'] });
   }
 
   return (
@@ -263,29 +282,29 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="landing-sign-in-title"
-        className="relative w-full max-w-[440px] animate-in zoom-in-95 fade-in overflow-hidden rounded-2xl border border-border-subtle bg-bg-base shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] duration-200"
+        className="relative w-full max-w-[360px] animate-in zoom-in-95 fade-in overflow-hidden rounded-xl border border-border-subtle bg-bg-base shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative px-6 pb-2 pt-5">
-          <h2 id="landing-sign-in-title" className="text-center text-[22px] font-semibold tracking-tight text-fg-primary">
+        <div className="relative px-5 pb-1 pt-4">
+          <h2 id="landing-sign-in-title" className="text-center text-[17px] font-semibold tracking-tight text-fg-primary">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="btn-press focus-ring absolute right-4 top-4 rounded-lg p-1.5 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
+            className="btn-press focus-ring absolute right-3 top-3 rounded-md p-1 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
             aria-label="Close"
           >
-            <X className="h-4 w-4" strokeWidth={2} />
+            <X className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
 
-        <div className="space-y-5 px-6 pb-6 pt-3">
+        <div className="space-y-4 px-5 pb-5 pt-2">
           {step === 'methods' ? (
             <>
-              <form onSubmit={(e) => void onSendEmail(e)} className="space-y-4">
-                <label className="block space-y-2" htmlFor="landing-email">
-                  <span className="text-[13px] font-medium text-fg-secondary">Email</span>
+              <form onSubmit={(e) => void onSendEmail(e)} className="space-y-3">
+                <label className="block space-y-1.5" htmlFor="landing-email">
+                  <span className="text-[12px] font-medium text-fg-secondary">Email</span>
                   <input
                     id="landing-email"
                     type="email"
@@ -293,7 +312,7 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter email"
-                    className="focus-ring w-full rounded-xl border border-border-subtle bg-bg-sunken/70 px-4 py-3 text-[14px] text-fg-primary outline-none placeholder:text-fg-muted/50"
+                    className="focus-ring w-full rounded-lg border border-border-subtle bg-bg-sunken/70 px-3 py-2.5 text-[13px] text-fg-primary outline-none placeholder:text-fg-muted/50"
                   />
                 </label>
 
@@ -301,7 +320,7 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
                   type="submit"
                   disabled={!email.trim() || emailSending || !privyReady}
                   className={cn(
-                    'btn-press focus-ring flex w-full items-center justify-center rounded-xl py-3 text-[14px] font-semibold text-white',
+                    'btn-press focus-ring flex w-full items-center justify-center rounded-lg py-2.5 text-[13px] font-semibold text-white',
                     'bg-gradient-to-b from-[#6b77f7] to-[#5865F2]',
                     'shadow-[0_4px_14px_-4px_rgba(88,101,242,0.55),inset_0_1px_0_rgb(255_255_255/0.16)]',
                     'transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50',
@@ -313,20 +332,20 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border-subtle" />
+                  <div className="w-full border-t border-border-subtle/70" />
                 </div>
-                <p className="relative mx-auto w-fit bg-bg-base px-3 text-[12px] text-fg-muted">
+                <p className="relative mx-auto w-fit bg-bg-base px-3 text-[11px] text-fg-muted">
                   Or {mode === 'signup' ? 'Sign Up' : 'Log in'}
                 </p>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <SocialButton
                   onClick={() => void onGoogle()}
                   disabled={googleBusy || !privyReady}
                   badge={lastAuth === 'google' ? 'Last used' : undefined}
                 >
-                  {googleBusy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleMark />}
+                  {googleBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleMark />}
                   <span className="flex-1 text-left">Continue with Google</span>
                 </SocialButton>
 
@@ -336,7 +355,7 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
                   badge={lastAuth === 'phantom' ? 'Last used' : undefined}
                 >
                   {busy === 'wallet' ? (
-                    <Loader2 className="h-[18px] w-[18px] animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <PhantomMark />
                   )}
@@ -344,7 +363,7 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
                 </SocialButton>
               </div>
 
-              <p className="text-center text-[13px] text-fg-muted">
+              <p className="text-center text-[12px] text-fg-muted">
                 {mode === 'signup' ? (
                   <>
                     Already have an account?{' '}
@@ -371,8 +390,8 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
               </p>
             </>
           ) : (
-            <form onSubmit={(e) => void onVerifyOtp(e)} className="space-y-4">
-              <p className="text-center text-[13px] leading-relaxed text-fg-secondary">
+            <form onSubmit={(e) => void onVerifyOtp(e)} className="space-y-3">
+              <p className="text-center text-[12px] leading-relaxed text-fg-secondary">
                 We sent a code to{' '}
                 <span className="font-medium text-fg-primary">{email}</span>
               </p>
@@ -383,13 +402,13 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 placeholder="Enter code"
-                className="focus-ring w-full rounded-xl border border-border-subtle bg-bg-sunken/70 px-4 py-3 text-center text-lg font-semibold tabular-nums tracking-[0.25em] text-fg-primary outline-none placeholder:text-fg-muted/40"
+                className="focus-ring w-full rounded-lg border border-border-subtle bg-bg-sunken/70 px-3 py-2.5 text-center text-base font-semibold tabular-nums tracking-[0.25em] text-fg-primary outline-none placeholder:text-fg-muted/40"
               />
               <button
                 type="submit"
                 disabled={!otp.trim() || busy === 'otp'}
                 className={cn(
-                  'btn-press focus-ring flex w-full items-center justify-center rounded-xl py-3 text-[14px] font-semibold text-white',
+                  'btn-press focus-ring flex w-full items-center justify-center rounded-lg py-2.5 text-[13px] font-semibold text-white',
                   'bg-gradient-to-b from-[#6b77f7] to-[#5865F2]',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
@@ -399,7 +418,7 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
               <button
                 type="button"
                 onClick={() => setStep('methods')}
-                className="w-full text-center text-[13px] font-medium text-fg-muted hover:text-fg-secondary"
+                className="w-full text-center text-[12px] font-medium text-fg-muted hover:text-fg-secondary"
               >
                 Back
               </button>
@@ -408,7 +427,7 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
         </div>
 
         {step === 'methods' ? (
-          <p className="border-t border-border-subtle px-6 py-4 text-center text-[11px] leading-relaxed text-fg-muted">
+          <p className="border-t border-border-subtle/70 px-5 py-3 text-center text-[10px] leading-relaxed text-fg-muted">
             By creating an account, you agree to Pointer&apos;s{' '}
             <a href="/privacy" className="text-accent-primary hover:underline">
               Privacy Policy

@@ -87,7 +87,8 @@ export function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { authenticated, logout, getAccessToken, login, linkedTonAddress } = usePointerAuth();
+  const { authenticated, loggingOut, logout, getAccessToken, login, linkedTonAddress } =
+    usePointerAuth();
   const searchQuery = useUIStore((s) => s.searchQuery);
   const searchOpen = useUIStore((s) => s.searchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
@@ -414,7 +415,7 @@ export function Topbar() {
 
         <ChainSelectDropdown />
 
-        {!authenticated ? (
+        {!authenticated && !loggingOut ? (
           <button
             type="button"
             onClick={() => void login()}
@@ -567,14 +568,13 @@ export function Topbar() {
                       role="menuitem"
                       onClick={() => {
                         setAvatarMenuOpen(false);
-                        void (async () => {
-                          try {
-                            await logout();
-                          } finally {
-                            queryClient.clear();
-                            router.replace('/');
-                          }
-                        })();
+                        // `logout()` clears local session + sets the logging-out
+                        // flag synchronously before its first await, so kicking it
+                        // off and navigating immediately drops the app shell (and
+                        // the "Connect wallet" button) right away — the slow Privy /
+                        // TonConnect teardown then finishes in the background.
+                        void logout();
+                        router.replace('/');
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] font-semibold text-signal-bear transition-colors hover:bg-signal-bear/10"
                     >

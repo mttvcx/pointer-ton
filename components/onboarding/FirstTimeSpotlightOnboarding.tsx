@@ -1,16 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUIStore } from '@/store/ui';
+import { useCopilotMode } from '@/components/copilot/CopilotModeContext';
 import { cn } from '@/lib/utils/cn';
 import { HYPE_MINT } from '@/lib/utils/constants';
 import { ME_QUERY_KEY, useMeQuery } from '@/lib/hooks/useMe';
 
 const STEP_SELECTORS = [
   '[data-onboarding="pulse-feed"]',
+  '[data-onboarding="copilot"]',
   '[data-onboarding="copilot"]',
   '[data-onboarding="instant-trade"]',
 ] as const;
@@ -22,7 +24,11 @@ const STEP_COPY: { title: string; body: string }[] = [
   },
   {
     title: 'AI co-pilot',
-    body: 'Context, alerts, and asks stay pinned here while you browse tokens and wallets.',
+    body: 'Context, alerts, and asks stay pinned in the side panel while you browse tokens and wallets.',
+  },
+  {
+    title: 'Top answer box',
+    body: 'Prefer it up top? The same co-pilot also lives in a compact answer box below the toolbar — open it for quick asks without the side panel.',
   },
   {
     title: 'Instant trade',
@@ -46,6 +52,17 @@ function queryVisibleTarget(selector: string): HTMLElement | null {
 
 type Hole = { top: number; left: number; width: number; height: number };
 
+function sameHole(a: Hole | null, b: Hole | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    Math.abs(a.top - b.top) < 0.5 &&
+    Math.abs(a.left - b.left) < 0.5 &&
+    Math.abs(a.width - b.width) < 0.5 &&
+    Math.abs(a.height - b.height) < 0.5
+  );
+}
+
 export function FirstTimeSpotlightOnboarding() {
   const router = useRouter();
   const pathname = usePathname();
@@ -54,9 +71,14 @@ export function FirstTimeSpotlightOnboarding() {
   const meQ = useMeQuery();
   const setPanelOpen = useUIStore((s) => s.setPanelOpen);
   const panelOpen = useUIStore((s) => s.panelOpen);
+  const { mode: copilotMode, setMode: setCopilotMode } = useCopilotMode();
 
   const [stepIndex, setStepIndex] = useState(0);
   const [hole, setHole] = useState<Hole | null>(null);
+  const holeRef = useRef<Hole | null>(null);
+  // Local dismiss so "Done"/"Skip" close instantly instead of waiting on the
+  // network round-trip + `me` refetch (which felt laggy).
+  const [dismissed, setDismissed] = useState(false);
 
   const onboardingDone = Boolean(meQ.data?.onboardingCompletedAt);
 
@@ -84,23 +106,39 @@ export function FirstTimeSpotlightOnboarding() {
     const selector = STEP_SELECTORS[idx]!;
     const el = queryVisibleTarget(selector);
     if (!el) {
-      setHole(null);
+      if (holeRef.current !== null) {
+        holeRef.current = null;
+        setHole(null);
+      }
       return;
     }
     const r = el.getBoundingClientRect();
     const pad = 10;
-    setHole({
+    const next: Hole = {
       top: r.top - pad,
       left: r.left - pad,
       width: r.width + pad * 2,
       height: r.height + pad * 2,
-    });
+    };
+    if (!sameHole(holeRef.current, next)) {
+      holeRef.current = next;
+      setHole(next);
+    }
   }, [stepIndex]);
 
   useLayoutEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hole derives from anchor DOM layout
     updateHole();
-  }, [updateHole, pathname, panelOpen]);
+  }, [updateHole, pathname, panelOpen, copilotMode]);
+
+  // Re-measure a few times after each step change so spotlight targets that
+  // mount or animate in (side panel, top answer box) get encircled instead of
+  // leaving a full black overlay.
+  useEffect(() => {
+    const delays = [0, 60, 150, 300, 500, 800];
+    const timers = delays.map((d) => window.setTimeout(updateHole, d));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [updateHole]);
 
   useEffect(() => {
     window.addEventListener('resize', updateHole);
@@ -112,7 +150,7 @@ export function FirstTimeSpotlightOnboarding() {
   }, [updateHole]);
 
   useEffect(() => {
-    /** Only steer to Pulse during step 0 while the spotlight is actually shown (hooks run even when we return null after onboarding completes). */
+    /** Only steer to Pulse during step 0 while the spotlight is actually shown. */
     if (onboardingDone || !meQ.data || meQ.isLoading) return;
     if (stepIndex !== 0) return;
     if (pathname !== '/pulse' && pathname !== '/') {
@@ -120,23 +158,36 @@ export function FirstTimeSpotlightOnboarding() {
     }
   }, [stepIndex, pathname, router, onboardingDone, meQ.data, meQ.isLoading]);
 
+  /** Step 1 — co-pilot side panel. */
   useEffect(() => {
     if (stepIndex !== 1) return;
-    const wide = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
-    if (wide) setPanelOpen(true);
-  }, [stepIndex, setPanelOpen]);
+    setCopilotMode('sidebar');
+    setPanelOpen(true);
+  }, [stepIndex, setCopilotMode, setPanelOpen]);
 
+  /** Step 2 — top answer box (embedded strip, panel closed). */
+  useEffect(() => {
+    if (stepIndex !== 2) return;
+    setPanelOpen(false);
+    setCopilotMode('embedded');
+  }, [stepIndex, setCopilotMode, setPanelOpen]);
+
+  /** Step 3 — instant trade on a token page. */
   useEffect(() => {
     if (onboardingDone || !meQ.data || meQ.isLoading) return;
-    if (stepIndex !== 2) return;
+    if (stepIndex !== 3) return;
     if (!pathname.startsWith('/token/')) {
       router.replace(`/token/${encodeURIComponent(HYPE_MINT)}`);
     }
   }, [stepIndex, pathname, router, onboardingDone, meQ.data, meQ.isLoading]);
 
   const finish = useCallback(() => {
+    // Close instantly; persist in the background.
+    setDismissed(true);
+    setPanelOpen(false);
+    setCopilotMode('embedded');
     finishMutation.mutate();
-  }, [finishMutation]);
+  }, [finishMutation, setPanelOpen, setCopilotMode]);
 
   const onNext = useCallback(() => {
     if (stepIndex < STEP_SELECTORS.length - 1) {
@@ -146,25 +197,26 @@ export function FirstTimeSpotlightOnboarding() {
     finish();
   }, [stepIndex, finish]);
 
-  if (!meQ.data || meQ.isLoading || onboardingDone) return null;
+  if (dismissed || !meQ.data || meQ.isLoading || onboardingDone) return null;
 
   const idx = Math.min(Math.max(0, stepIndex), STEP_COPY.length - 1);
   const copy = STEP_COPY[idx]!;
   const isLast = idx >= STEP_SELECTORS.length - 1;
+  const SCRIM = 'absolute bg-black/55';
 
   return (
     <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="onb-title">
       {!hole ? (
-        <div className="absolute inset-0 bg-black/75" aria-hidden />
+        <div className="absolute inset-0 bg-black/55" aria-hidden />
       ) : (
         <>
           <div
-            className="absolute bg-black/75"
+            className={SCRIM}
             style={{ top: 0, left: 0, right: 0, height: Math.max(0, hole.top) }}
             aria-hidden
           />
           <div
-            className="absolute bg-black/75"
+            className={SCRIM}
             style={{
               top: hole.top,
               left: 0,
@@ -174,7 +226,7 @@ export function FirstTimeSpotlightOnboarding() {
             aria-hidden
           />
           <div
-            className="absolute bg-black/75"
+            className={SCRIM}
             style={{
               top: hole.top,
               left: hole.left + hole.width,
@@ -184,7 +236,7 @@ export function FirstTimeSpotlightOnboarding() {
             aria-hidden
           />
           <div
-            className="absolute bg-black/75"
+            className={SCRIM}
             style={{
               top: hole.top + hole.height,
               left: 0,
@@ -223,16 +275,14 @@ export function FirstTimeSpotlightOnboarding() {
           <button
             type="button"
             onClick={() => finish()}
-            disabled={finishMutation.isPending}
-            className="btn-press rounded-sm border border-border-subtle px-3 py-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary disabled:opacity-50"
+            className="btn-press rounded-sm border border-border-subtle px-3 py-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary"
           >
             Skip
           </button>
           <button
             type="button"
             onClick={() => onNext()}
-            disabled={finishMutation.isPending}
-            className="btn-press rounded-sm bg-accent-primary px-3 py-1.5 text-xs font-medium text-fg-inverse hover:bg-accent-glow disabled:opacity-50"
+            className="btn-press rounded-sm bg-accent-primary px-3 py-1.5 text-xs font-medium text-fg-inverse hover:bg-accent-glow"
           >
             {isLast ? 'Done' : 'Next'}
           </button>

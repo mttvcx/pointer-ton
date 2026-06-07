@@ -39,10 +39,24 @@ function db(): UntypedDb {
   return createAdminSupabase() as unknown as UntypedDb;
 }
 
+/**
+ * True when the table simply isn't there yet. Covers both Postgres
+ * `undefined_table` (42P01) and PostgREST's "Could not find the table ... in
+ * the schema cache" (PGRST205) so a missing `ai_scan_cache` degrades to an
+ * uncached AI call instead of throwing.
+ */
+function isMissingTableError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42P01' || error.code === 'PGRST205') return true;
+  return /schema cache|find the table|does not exist|relation .* does not exist/i.test(
+    error.message ?? '',
+  );
+}
+
 export async function getAiScanCacheRow(cacheKey: string): Promise<AiScanCacheRow | null> {
   const { data, error } = await db().from('ai_scan_cache').select('*').eq('cache_key', cacheKey).maybeSingle();
   if (error) {
-    if (error.code === '42P01') return null;
+    if (isMissingTableError(error)) return null;
     throw new Error(`getAiScanCacheRow failed: ${error.message}`);
   }
   return data;
@@ -73,13 +87,16 @@ export async function upsertAiScanCacheRow(input: {
     },
     { onConflict: 'cache_key' },
   );
-  if (error) throw new Error(`upsertAiScanCacheRow failed: ${error.message}`);
+  if (error) {
+    if (isMissingTableError(error)) return;
+    throw new Error(`upsertAiScanCacheRow failed: ${error.message}`);
+  }
 }
 
 export async function incrementAiScanCacheHit(cacheKey: string): Promise<number | null> {
   const { data, error } = await db().rpc('increment_ai_scan_cache_hit', { p_cache_key: cacheKey });
   if (error) {
-    if (error.code === '42883' || error.code === '42P01' || error.code === 'PGRST202') {
+    if (error.code === '42883' || error.code === 'PGRST202' || isMissingTableError(error)) {
       const row = await getAiScanCacheRow(cacheKey);
       if (!row || new Date(row.expires_at).getTime() <= Date.now()) return null;
       const next = row.hit_count + 1;
@@ -107,7 +124,7 @@ export async function listTopAiScanCacheByHitsToday(limit = 20): Promise<AiScanC
   const chain = db().from('ai_scan_cache').select('*').gte('created_at', start.toISOString());
   const { data, error } = await chain.order('hit_count', { ascending: false }).limit(limit);
   if (error) {
-    if (error.code === '42P01') return [];
+    if (isMissingTableError(error)) return [];
     throw new Error(`listTopAiScanCacheByHitsToday failed: ${error.message}`);
   }
   return data ?? [];
@@ -123,7 +140,7 @@ export async function getAiScanCacheStatsToday(): Promise<{
   const chain = db().from('ai_scan_cache').select('*').gte('created_at', start.toISOString());
   const { data, error } = await chain.order('hit_count', { ascending: false }).limit(10_000);
   if (error) {
-    if (error.code === '42P01') return { entries: 0, totalHits: 0, misses: 0 };
+    if (isMissingTableError(error)) return { entries: 0, totalHits: 0, misses: 0 };
     throw new Error(`getAiScanCacheStatsToday failed: ${error.message}`);
   }
   const rows = data ?? [];

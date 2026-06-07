@@ -56,20 +56,34 @@ export async function POST(req: NextRequest) {
 
     const n0 = await countUserWallets(user.id);
 
-    for (const { address, chain } of embedded) {
+    // Solana first so the SOL embedded wallet takes the primary slot off spawn
+    // (Pointer is SOL-first) and gets the "Pointer Wallet" name.
+    const ordered = [...embedded].sort((a, b) => {
+      if (a.chain === b.chain) return 0;
+      return a.chain === 'solana' ? -1 : 1;
+    });
+
+    for (const { address, chain } of ordered) {
       const normalized = normalizeWalletAddressForStorage(address);
       if (!normalized) continue;
       const dup = await getUserWalletByAddress(user.id, normalized);
       if (dup) continue;
 
-      const label = chain === 'solana' ? 'Privy Solana' : 'Privy EVM';
-      const slot = n0 + created;
       const totalBeforeThisRow = n0 + created;
+      const isPrimary = totalBeforeThisRow === 0;
+      // The user's main spawn wallet is the primary SOL embedded wallet.
+      const label =
+        chain === 'solana'
+          ? isPrimary
+            ? 'Pointer Wallet'
+            : 'Pointer Solana'
+          : 'Pointer EVM';
+      const slot = n0 + created;
       await insertUserWallet({
         user_id: user.id,
         wallet_address: normalized,
         label,
-        is_primary: totalBeforeThisRow === 0,
+        is_primary: isPrimary,
         slot,
         is_archived: false,
         is_active: true,

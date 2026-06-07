@@ -27,7 +27,8 @@ function normalizeVariant(v: LaunchPackageOutput['options'][number]): LaunchPack
   };
 }
 
-const EMPTY: LaunchPackage = {
+/** Safe "no launch" package — also used as a per-tweet fallback when AI fails. */
+export const EMPTY_LAUNCH_PACKAGE: LaunchPackage = {
   shouldLaunch: false,
   confidence: 0,
   suggestedName: '',
@@ -41,7 +42,7 @@ const EMPTY: LaunchPackage = {
 export function mapLaunchPackageOutput(raw: LaunchPackageOutput): LaunchPackage {
   if (!raw.shouldLaunch || raw.options.length === 0) {
     return {
-      ...EMPTY,
+      ...EMPTY_LAUNCH_PACKAGE,
       shouldLaunch: false,
       confidence: Math.min(1, Math.max(0, raw.confidence)),
       reasoning: raw.reasoning?.trim() || 'Not a strong launch signal.',
