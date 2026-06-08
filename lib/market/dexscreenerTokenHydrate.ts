@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { AppChainId } from '@/lib/chains/appChain';
-import { launchEventToTokenInsert } from '@/lib/helius/discoveryIngest';
+import { classificationUpdateFromLaunchEvent, enrichTokenInsertFromLaunchEvent } from '@/lib/protocol/enrichTokenRow';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import { getTokenByMint, insertMarketSnapshot, updateToken, upsertToken, type TokenRow } from '@/lib/db/tokens';
 import type { Json } from '@/lib/supabase/types';
@@ -93,15 +93,29 @@ export async function ensureTokenRowFromDexScreener(
 
     const now = new Date().toISOString();
     if (existing) {
+      const classPatch = classificationUpdateFromLaunchEvent(ev, existing, 'dexscreener_hydrate');
       await updateToken(mint, {
         last_seen_at: now,
         symbol: symbol ?? existing.symbol,
         name: name ?? existing.name,
         image_url: image_url ?? existing.image_url,
         raw_metadata: raw,
+        ...(classPatch ?? {}),
       });
     } else {
-      await upsertToken(launchEventToTokenInsert(ev));
+      const base = {
+        mint: ev.mint,
+        symbol: ev.symbol,
+        name: ev.name,
+        decimals: 6,
+        image_url: ev.image_url,
+        creator_wallet: null,
+        launch_pad: ev.launchpad === 'unknown' ? null : ev.launchpad,
+        raw_metadata: raw,
+        created_at: now,
+        last_seen_at: now,
+      };
+      await upsertToken(enrichTokenInsertFromLaunchEvent(base, ev, 'dexscreener_hydrate'));
     }
   }
 

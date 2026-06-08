@@ -1,42 +1,32 @@
 import type { AppChainId } from '@/lib/chains/appChain';
+import { supportedFilterIdsForChain } from '@/lib/protocol/registry';
 import {
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
   type ColumnDisplayOptions,
   type ColumnFilters,
   defaultColumnFiltersForChain,
 } from '@/lib/tokens/columnPresetModel';
-import { pulseProtocolPresetIdsForChain } from '@/lib/tokens/pulseProtocolRegistry';
 import type { PulseDisplayPrefs } from '@/lib/preferences/pulseDisplay';
 import { withPulseDisplayDefaults } from '@/lib/preferences/pulseDisplay';
 import type { PulseColumnId } from '@/lib/utils/constants';
 
-/** Popular launch venues per chain (Axiom-style starter set). */
+/** Popular launch venues per chain — only backend-supported classifier ids. */
 export const RECOMMENDED_PROTOCOL_IDS: Record<AppChainId, readonly string[]> = {
-  sol: [
-    'pump.fun',
-    'bonk',
-    'moonshot',
-    'bags',
-    'mayhem',
-    'soar',
-    'jupiter-studio',
-    'meteora',
-    'daos.fun',
-  ],
-  ton: ['uranus', 'groypad', 'blum', 'tonfun'],
-  eth: ['uniswap-v2', 'uniswap-v3', 'uniswap-v4', 'clanker', 'virtuals'],
-  bnb: ['four.meme', 'flap', 'pancakeswap'],
-  base: ['clanker', 'bankr', 'zora-creator', 'virtuals'],
+  sol: ['pump.fun', 'bonk', 'moonshot', 'bags', 'mayhem', 'heaven', 'dynamic-bc'],
+  ton: ['ton'],
+  eth: ['eth', 'uniswap-v3'],
+  bnb: ['bsc', 'pancakeswap'],
+  base: ['base'],
 };
 
 export const PULSE_RECOMMENDED_CHECKLIST = [
-  'Focus on popular launch platforms (Pump, Bonk, etc.)',
+  'Focus on supported launch platforms with backend classification',
   'Filter out new tokens with a low market cap',
   'Optimized display to show essential info on Pulse',
 ] as const;
 
 function allowedProtocols(chain: AppChainId): string[] {
-  const allowed = new Set(pulseProtocolPresetIdsForChain(chain));
+  const allowed = new Set(supportedFilterIdsForChain(chain));
   return RECOMMENDED_PROTOCOL_IDS[chain].filter((id) => allowed.has(id));
 }
 
@@ -127,7 +117,7 @@ export function recommendedColumnDisplayOptions(): ColumnDisplayOptions {
 export function recommendedPulseDisplayPrefs(chain: AppChainId): PulseDisplayPrefs {
   const protocolRowColors: Record<string, boolean> = {};
   const popular = new Set(allowedProtocols(chain));
-  for (const id of pulseProtocolPresetIdsForChain(chain)) {
+  for (const id of supportedFilterIdsForChain(chain)) {
     protocolRowColors[id] = popular.has(id);
   }
 

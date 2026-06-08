@@ -1,5 +1,6 @@
 import type { AppChainId } from '@/lib/chains/appChain';
 import { LAUNCHPAD_PROGRAM_IDS } from '@/lib/utils/constants';
+import { protocolBrandIdFromToken } from '@/lib/protocol/tokenProtocolDisplay';
 import { isPulseMayhemToken } from '@/lib/tokens/mayhemMode';
 import {
   launchPadToProtocolId,
@@ -291,27 +292,13 @@ export function resolveLaunchpadProtocolFromBundle(
   bundle: PulseTokenBundle,
   chain: AppChainId = 'sol',
 ): ProtocolBrandId | null {
-  if (isPulseMayhemToken(bundle)) return 'mayhem';
+  const fromDb = protocolBrandIdFromToken(bundle.token);
+  if (fromDb) return fromDb;
 
-  const { token } = bundle;
-  const mintLower = token.mint?.trim().toLowerCase() ?? '';
-  if (mintLower.endsWith('pump')) return 'pump.fun';
+  if (bundle.token.protocol_id === 'pump_fun_mayhem') return 'mayhem';
+  if (isPulseMayhemToken(bundle) && (bundle.token.source_confidence ?? 0) >= 0.85) return 'mayhem';
 
-  const fromPad = launchPadToProtocolId(token.launch_pad, chain);
-  if (fromPad && LAUNCHPAD_AVATAR_PROTOCOLS.has(fromPad as ProtocolBrandId)) {
-    return fromPad as ProtocolBrandId;
-  }
-
-  const fromTokenMeta = inferProtocolFromMetadata(token.raw_metadata);
-  if (fromTokenMeta) return fromTokenMeta;
-
-  const fromSnapMeta = inferProtocolFromMetadata(bundle.snapshot?.extended_metrics);
-  if (fromSnapMeta) return fromSnapMeta;
-
-  if (fromPad && LAUNCHPAD_AVATAR_PROTOCOLS.has(fromPad as ProtocolBrandId)) {
-    return fromPad as ProtocolBrandId;
-  }
-  return fromPad as ProtocolBrandId | null;
+  return null;
 }
 
 export function resolveLaunchpadAvatarChrome(
@@ -380,18 +367,5 @@ export function resolveLaunchpadAvatarChromeWithFallback(
     chain?: AppChainId;
   },
 ): LaunchpadAvatarChrome | null {
-  const chain = opts.chain ?? 'sol';
-  const chrome = resolveLaunchpadAvatarChrome(bundle, opts);
-  if (chrome) return chrome;
-
-  if (chain !== 'sol') return null;
-
-  const pad =
-    bundle.token.launch_pad?.trim() ||
-    (bundle.token.mint.toLowerCase().endsWith('pump') ? 'pump.fun' : 'pump.fun');
-
-  return resolveLaunchpadAvatarChrome(
-    { ...bundle, token: { ...bundle.token, launch_pad: pad } },
-    opts,
-  );
+  return resolveLaunchpadAvatarChrome(bundle, opts);
 }

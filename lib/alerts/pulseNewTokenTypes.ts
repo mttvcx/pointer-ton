@@ -21,4 +21,7 @@ export interface PulseNewTokenAlertInput {
   tx_signature?: string | null;
   /** Initial SOL in bonding curve when known (webhook / ingest). */
   initial_liquidity_sol?: number | null;
+  /** Classified protocol id from unified classifier (snake_case). */
+  protocol_id?: string | null;
+  source_confidence?: number | null;
 }

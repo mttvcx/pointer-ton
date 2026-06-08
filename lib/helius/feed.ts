@@ -20,6 +20,8 @@ import { DEFAULT_APP_CHAIN } from '@/lib/chains/appChain';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { tokenMatchesAppChain } from '@/lib/chains/evmTokenChain';
 import { ensureTokenRowFromGeckoEvm } from '@/lib/evm/geckoTerminalPulse';
+import { enrichTokenInsertFromLaunchEvent, classificationUpdateFromTokenFields } from '@/lib/protocol/enrichTokenRow';
+import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import {
   pulseTwitterProfileHoverTestTokenRow,
 } from '@/lib/dev/demoPulseBundles';
@@ -89,7 +91,11 @@ function pickSocialFromJetton(j: TonApiJetton): {
   };
 }
 
-function jettonToTokenRow(j: TonApiJetton, now: string): TablesInsert<'tokens'> | null {
+function jettonToTokenRow(
+  j: TonApiJetton,
+  now: string,
+  alertSource: 'tonapi_poll' | 'tonapi_hydrate',
+): TablesInsert<'tokens'> | null {
   const mint = rawMetadataAddrToMint(j.metadata?.address ?? '');
   if (!mint) return null;
   if (j.verification === 'blacklist') return null;
@@ -99,7 +105,7 @@ function jettonToTokenRow(j: TonApiJetton, now: string): TablesInsert<'tokens'> 
   const creator_wallet = adminRaw ? normalizeTonAddress(adminRaw) : null;
   const social = pickSocialFromJetton(j);
 
-  return {
+  const base: TablesInsert<'tokens'> = {
     mint,
     symbol: j.metadata?.symbol ?? '???',
     name: j.metadata?.name ?? 'Unknown Jetton',
@@ -115,6 +121,20 @@ function jettonToTokenRow(j: TonApiJetton, now: string): TablesInsert<'tokens'> 
     created_at: now,
     last_seen_at: now,
   };
+
+  const ev: LaunchpadEvent = {
+    launchpad: 'unknown',
+    mint,
+    creator_wallet,
+    symbol: base.symbol ?? null,
+    name: base.name ?? null,
+    image_url: base.image_url ?? null,
+    initial_liquidity_sol: null,
+    bonding_progress: null,
+    raw: base.raw_metadata ?? {},
+  };
+
+  return enrichTokenInsertFromLaunchEvent(base, ev, alertSource);
 }
 
 interface IngestOptions {
@@ -129,7 +149,7 @@ async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): 
   const now = new Date().toISOString();
 
   for (const j of items) {
-    const row = jettonToTokenRow(j, now);
+    const row = jettonToTokenRow(j, now, opts.alertSource);
     if (!row) {
       skipped += 1;
       continue;
@@ -137,6 +157,14 @@ async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): 
 
     const existing = await getTokenByMint(row.mint);
     if (existing) {
+      const classPatch = classificationUpdateFromTokenFields(
+        {
+          ...existing,
+          raw_metadata: row.raw_metadata ?? existing.raw_metadata,
+          launch_pad: existing.launch_pad ?? 'ton',
+        },
+        'tonapi_jetton',
+      );
       await updateToken(row.mint, {
         last_seen_at: now,
         raw_metadata: row.raw_metadata,
@@ -149,6 +177,7 @@ async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): 
         website_url: row.website_url ?? existing.website_url,
         telegram_url: row.telegram_url ?? existing.telegram_url,
         twitter_handle: row.twitter_handle ?? existing.twitter_handle,
+        ...(classPatch ?? {}),
       });
       updated += 1;
     } else {
@@ -162,6 +191,8 @@ async function ingestTonApiJettons(items: TonApiJetton[], opts: IngestOptions): 
         source: opts.alertSource,
         creator_wallet: row.creator_wallet,
         initial_liquidity_sol: null,
+        protocol_id: row.protocol_id ?? null,
+        source_confidence: row.source_confidence ?? null,
       });
     }
   }
@@ -400,7 +431,7 @@ export async function ensureTokenRowFromTon(mint: string): Promise<TokenRow | nu
   if (!j?.metadata?.address) return null;
 
   const now = new Date().toISOString();
-  const row = jettonToTokenRow(j, now);
+  const row = jettonToTokenRow(j, now, 'tonapi_hydrate');
   if (!row) return null;
 
   const saved = await upsertToken(row);

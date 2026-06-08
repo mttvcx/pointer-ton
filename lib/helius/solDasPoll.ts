@@ -151,7 +151,7 @@ export async function pollSolanaPulseFromDas(): Promise<number> {
         if (seen.has(ev0.mint)) continue;
         seen.add(ev0.mint);
         const ev = mergeLaunchpad(ev0, pad);
-        inserted += await ingestLaunchpadDiscovery(ev, { alertSource: 'das_authority' });
+        inserted += await ingestLaunchpadDiscovery(ev, { alertSource: 'das_authority', dasAuthorityPad: pad });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

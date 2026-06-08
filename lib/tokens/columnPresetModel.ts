@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
-import { launchPadToProtocolId } from '@/lib/tokens/protocolBrand';
+import { filterIdsFromTokenBundle } from '@/lib/protocol/tokenProtocolDisplay';
+import { launchpadToAlertFilterIds } from '@/lib/protocol/alertProtocolMatch';
 import {
   ALL_PULSE_PROTOCOL_FILTER_IDS,
   defaultProtocolsForChain,
@@ -19,35 +20,53 @@ const PulsePresetProtocolEnum = z.enum(
   ],
 );
 
-/** Pulse “protocol” buckets for Pointer TON — venues / discovery sources (not Solana DEXes). */
+/** @deprecated Alert rules now use canonical filter ids via {@link launchpadToAlertFilterIds}. */
 export const PULSE_PROTOCOL_IDS = ['ton', 'dedust', 'stonfi', 'megaton'] as const;
 export type PulseProtocolId = (typeof PULSE_PROTOCOL_IDS)[number];
 
-/** Legacy Solana-era preset IDs → collapse into TON buckets when loading saved filters. */
-const LEGACY_PROTOCOL_TO_TON: Record<string, PulseProtocolId> = {
-  pump: 'ton',
-  bags: 'ton',
-  printr: 'ton',
-  moonshot: 'ton',
-  raydium: 'dedust',
-  meteora: 'stonfi',
+/** Map legacy stored protocol ids → supported canonical filter ids. */
+const LEGACY_TO_SUPPORTED: Record<string, string> = {
+  pump: 'pump.fun',
+  pumpfun: 'pump.fun',
+  'pump.fun': 'pump.fun',
+  bonk: 'bonk',
+  bags: 'bags',
+  printr: 'printr',
+  moonshot: 'moonshot',
+  heaven: 'heaven',
+  'dynamic-bc': 'dynamic-bc',
+  mayhem: 'mayhem',
+  raydium: 'raydium',
+  meteora: 'meteora',
+  ton: 'ton',
+  dedust: 'ton',
+  stonfi: 'ton',
+  megaton: 'ton',
+  bsc: 'bsc',
+  base: 'base',
+  eth: 'eth',
+  pancakeswap: 'pancakeswap',
+  'uniswap-v2': 'uniswap-v2',
+  'uniswap-v3': 'uniswap-v3',
+  'uniswap-v4': 'uniswap-v4',
 };
 
-/** Migrate Solana-era preset/protocol IDs to TON buckets (Pulse filters + alert rules). */
-export function migrateLegacyPulseProtocols(raw: unknown): PulseProtocolId[] | undefined {
+export function migrateLegacyPulseProtocols(raw: unknown): string[] | undefined {
   if (!Array.isArray(raw)) return undefined;
-  const next = new Set<PulseProtocolId>();
+  const next = new Set<string>();
   for (const item of raw) {
     if (typeof item !== 'string') continue;
-    if ((PULSE_PROTOCOL_IDS as readonly string[]).includes(item)) {
-      next.add(item as PulseProtocolId);
+    const id = item.trim();
+    if (!id) continue;
+    if (isKnownPresetProtocol(id)) {
+      next.add(id);
       continue;
     }
-    const mapped = LEGACY_PROTOCOL_TO_TON[item];
-    if (mapped) next.add(mapped);
+    const mapped = LEGACY_TO_SUPPORTED[id.toLowerCase()] ?? LEGACY_TO_SUPPORTED[id];
+    if (mapped && isKnownPresetProtocol(mapped)) next.add(mapped);
   }
   if (next.size === 0) return undefined;
-  return PULSE_PROTOCOL_IDS.filter((p) => next.has(p));
+  return [...next];
 }
 
 export const COLUMN_SORT_KEYS = [
@@ -218,7 +237,7 @@ export function sanitizePresetProtocols(raw: unknown, chain?: AppChainId): strin
   const candidates = expandPresetProtocolCandidates(raw);
   if (!chain) {
     const intersect = ALL_PULSE_PROTOCOL_FILTER_IDS.filter((id) => candidates.has(id));
-    return intersect.length > 0 ? [...intersect] : [...PULSE_PROTOCOL_IDS];
+    return intersect.length > 0 ? [...intersect] : defaultProtocolsForChain('sol');
   }
   const allowedChain = pulseProtocolPresetIdsForChain(chain);
   const intersect = allowedChain.filter((id) => candidates.has(id));
@@ -301,87 +320,18 @@ export function decodeColumnPresetShare(raw: string): ColumnPresetSharePayload |
   }
 }
 
-export function padToProtocols(pad: string | null): PulseProtocolId[] {
-  if (!pad) return [];
-  const p = pad.toLowerCase().trim();
-  const out: PulseProtocolId[] = [];
-  // `jettonToTokenRow` sets launch_pad: 'ton' for TonAPI ingest.
-  if (p === 'ton' || p === 'tonapi') out.push('ton');
-  // Friendly labels / legacy rows
-  if (p === 'pump.fun' || p === 'pump' || p.includes('launchpad')) out.push('ton');
-  if (p.includes('dedust')) out.push('dedust');
-  if (p.includes('ston.fi') || p.includes('stonfi')) out.push('stonfi');
-  if (p.includes('megaton')) out.push('megaton');
-  const mapped = LEGACY_PROTOCOL_TO_TON[p];
-  if (mapped) out.push(mapped);
-  return [...new Set(out)];
-}
-
-function protocolsFromExtended(bundle: PulseTokenBundle): PulseProtocolId[] {
-  const em = bundle.snapshot?.extended_metrics;
-  if (!em || typeof em !== 'object' || Array.isArray(em)) return [];
-  const r = em as Record<string, unknown>;
-  const dex =
-    (typeof r.dex === 'string' ? r.dex : '') ||
-    (typeof r.dexId === 'string' ? r.dexId : '') ||
-    (typeof r.poolDex === 'string' ? r.poolDex : '') ||
-    '';
-  const d = dex.toLowerCase();
-  const out: PulseProtocolId[] = [];
-  if (d.includes('dedust')) out.push('dedust');
-  if (d.includes('stonfi') || d.includes('ston.fi')) out.push('stonfi');
-  if (d.includes('megaton')) out.push('megaton');
-  return [...new Set(out)];
-}
-
-function protocolsFromIngestHints(bundle: PulseTokenBundle, chain: AppChainId): string[] {
-  const out: string[] = [];
-  const scan = (obj: unknown) => {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
-    const r = obj as Record<string, unknown>;
-    for (const key of ['protocol', 'source', 'poolType', 'poolDex', 'dex', 'dexId', 'launch_pad', 'launchPad']) {
-      const v = r[key];
-      if (typeof v !== 'string' || !v.trim()) continue;
-      const id = launchPadToProtocolId(v, chain);
-      if (id) out.push(id);
-    }
-  };
-  scan(bundle.token.raw_metadata);
-  scan(bundle.snapshot?.extended_metrics);
-  return out;
+export function padToProtocols(pad: string | null): string[] {
+  return launchpadToAlertFilterIds(pad, null, null);
 }
 
 export function tokenProtocolIdsForChain(bundle: PulseTokenBundle, chain: AppChainId): Set<string> {
-  const set = new Set<string>();
-  if (chain === 'ton') {
-    const id = launchPadToProtocolId(bundle.token.launch_pad ?? null, chain);
-    if (id) set.add(id);
-    for (const x of protocolsFromExtended(bundle)) set.add(x);
-    for (const x of protocolsFromIngestHints(bundle, chain)) set.add(x);
-    return set;
-  }
-
-  const pad = bundle.token.launch_pad;
-  const fromPad = launchPadToProtocolId(pad ?? null, chain);
-  if (fromPad) set.add(fromPad);
-
-  if (chain === 'sol') {
-    for (const x of protocolsFromIngestHints(bundle, chain)) set.add(x);
-    return set;
-  }
-
-  if (chain === 'eth' || chain === 'bnb' || chain === 'base') {
-    for (const x of protocolsFromIngestHints(bundle, chain)) set.add(x);
-    return set;
-  }
-
-  return set;
+  void chain;
+  return new Set(filterIdsFromTokenBundle(bundle.token));
 }
 
-/** Prefer {@link tokenProtocolIdsForChain} — this keeps TON-only alias behavior for alerts. */
-export function tokenProtocolIds(bundle: PulseTokenBundle): Set<PulseProtocolId> {
-  const s = tokenProtocolIdsForChain(bundle, 'ton');
-  return new Set([...s].filter((x): x is PulseProtocolId => (PULSE_PROTOCOL_IDS as readonly string[]).includes(x)));
+/** @deprecated use {@link tokenProtocolIdsForChain} */
+export function tokenProtocolIds(bundle: PulseTokenBundle): Set<string> {
+  return tokenProtocolIdsForChain(bundle, 'ton');
 }
 
 import { quoteSymbolFromBundle } from '@/lib/tokens/quoteToken';

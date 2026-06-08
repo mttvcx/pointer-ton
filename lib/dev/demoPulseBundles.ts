@@ -38,6 +38,19 @@ function demoSnapshotId(mint: string): number {
 
 const now = () => new Date().toISOString();
 
+const NULL_CLASSIFICATION_FIELDS = {
+  protocol_id: null,
+  protocol_family: null,
+  chain_id: null,
+  token_kind: null,
+  launch_type: null,
+  migration_state: null,
+  dex_id: null,
+  classification_source: null,
+  source_confidence: null,
+  classification_updated_at: null,
+} as const satisfies Partial<TokenRow>;
+
 function bundle(
   mint: string,
   symbol: string,
@@ -62,6 +75,7 @@ function bundle(
       website_url: null,
       creator_wallet: 'EQD0vdSA_NedY9wgmkLAtBZmRnYxlMJT0F2f5pTkOmXuTES',
       launch_pad: launchPad,
+      ...NULL_CLASSIFICATION_FIELDS,
       raw_metadata: null,
       initial_liquidity_sol: 42,
       initial_liquidity_at: createdAt,
@@ -128,6 +142,7 @@ function solBundle(
       website_url: null,
       creator_wallet: SOL_DEMO_CREATOR_WALLET,
       launch_pad: launchPad,
+      ...NULL_CLASSIFICATION_FIELDS,
       raw_metadata: null,
       initial_liquidity_sol: 85,
       initial_liquidity_at: createdAt,
@@ -1282,6 +1297,7 @@ function evmBundle(
       website_url: null,
       creator_wallet: EVM_DEMO_CREATOR,
       launch_pad: launchPad,
+      ...NULL_CLASSIFICATION_FIELDS,
       raw_metadata: null,
       initial_liquidity_sol: null,
       initial_liquidity_at: createdAt,

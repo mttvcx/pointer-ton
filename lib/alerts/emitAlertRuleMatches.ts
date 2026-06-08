@@ -4,12 +4,11 @@ import { insertAlert } from '@/lib/db/alerts';
 import { listActivePulseLaunchpadRules } from '@/lib/db/alertRules';
 import {
   ALERT_TYPE_ALERT_RULE,
-  launchpadFilterMatchesProtocols,
   parsePulseLaunchpadRuleConfig,
 } from '@/lib/alerts/alertRuleModel';
 import type { PulseNewTokenAlertInput } from '@/lib/alerts/pulseNewTokenTypes';
 import { notifyUserWebPush } from '@/lib/push/notifyUser';
-import { padToProtocols } from '@/lib/tokens/columnPresetModel';
+import { alertProtocolFilterMatches } from '@/lib/protocol/alertProtocolMatch';
 
 /**
  * Fan-out user alerts when a new Pulse token is indexed and matches saved rules.
@@ -28,10 +27,11 @@ export async function emitMatchingPulseLaunchpadAlertRules(
       if (!config) continue;
 
       if (
-        !launchpadFilterMatchesProtocols(
+        !alertProtocolFilterMatches(
           input.launchpad ?? null,
+          input.protocol_id ?? null,
+          input.source_confidence ?? null,
           config.launchpads,
-          padToProtocols,
         )
       ) {
         continue;

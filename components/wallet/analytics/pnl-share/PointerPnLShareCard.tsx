@@ -130,7 +130,6 @@ export function PointerPnLShareCard({
         username={data.username}
         theme={theme}
         accent={accent}
-        scale={scale}
         className="absolute z-[1]"
         style={{
           left: colX,

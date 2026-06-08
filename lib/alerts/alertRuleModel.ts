@@ -1,26 +1,18 @@
 import { z } from 'zod';
-import {
-  PULSE_PROTOCOL_IDS,
-  type PulseProtocolId,
-  migrateLegacyPulseProtocols,
-} from '@/lib/tokens/columnPresetModel';
+import { migrateLegacyPulseProtocols } from '@/lib/tokens/columnPresetModel';
+import { ALL_PULSE_PROTOCOL_FILTER_IDS } from '@/lib/tokens/pulseProtocolRegistry';
 
 export const ALERT_RULE_TYPES = ['pulse_launchpad', 'sol_twitter_listen', 'automation'] as const;
 export type AlertRuleType = (typeof ALERT_RULE_TYPES)[number];
 
 export const ALERT_TYPE_ALERT_RULE = 'alert_rule' as const;
-
-/** Alerts ticker + rail surfaces for `{@link AlertRuleType} sol_twitter_listen` hits. */
 export const ALERT_TYPE_TWITTER_LISTEN = 'twitter_listen' as const;
 
-const PROTOCOL_IDS_ENUM = PULSE_PROTOCOL_IDS as unknown as [
-  PulseProtocolId,
-  ...PulseProtocolId[],
-];
+const PROTOCOL_FILTER_ENUM = ALL_PULSE_PROTOCOL_FILTER_IDS as unknown as [string, ...string[]];
 
 export const PulseLaunchpadRuleConfigSchema = z
   .object({
-    launchpads: z.array(z.enum(PROTOCOL_IDS_ENUM)).optional(),
+    launchpads: z.array(z.enum(PROTOCOL_FILTER_ENUM)).optional(),
     minInitialLiquiditySol: z.number().nonnegative().nullable().optional(),
   })
   .strict();
@@ -38,16 +30,8 @@ export const SolTwitterListenRuleConfigSchema = z
     execution: z.enum(['notify', 'auto_buy', 'auto_launch']).optional(),
     launchMode: z.enum(['manual', 'ai']).optional(),
     launchBuySol: z.number().positive().max(420).nullable().optional(),
-    /**
-     * How to resolve a mint when the post includes media URLs:
-     * - off: caption + regular links only (legacy behaviour).
-     * - smart: caption wins when it has a mint; otherwise scan image CDN URLs for embedded base58.
-     * - prefer_media: when there are images, prefer mint found in media URLs over caption-only mints.
-     */
     tweetImageMintMode: z.enum(TWEET_IMAGE_MINT_MODES).optional(),
-    /** When true, alerts carry `coverImageUrl` so the client can flash / open with the tweet photo when possible. */
     openWithTweetMedia: z.boolean().optional(),
-    /** SOL per attempted auto-buy — null inherits Pulse quick-buy on client. */
     buySolPreset: z.number().positive().max(420).nullable().optional(),
     maxSolPerDay: z.number().positive().max(1_000_000).nullable().optional(),
     slippageBps: z.number().int().min(50).max(5000).nullable().optional(),
@@ -77,16 +61,17 @@ export function parsePulseLaunchpadRuleConfig(raw: unknown): PulseLaunchpadRuleC
   if (Array.isArray(o.launchpads)) {
     const migrated = migrateLegacyPulseProtocols(o.launchpads);
     if (migrated?.length) o.launchpads = migrated;
-    else if (o.launchpads.length > 0) o.launchpads = ['ton'];
+    else o.launchpads = [];
   }
   const p = PulseLaunchpadRuleConfigSchema.safeParse(o);
   return p.success ? p.data : null;
 }
 
+/** @deprecated use {@link alertProtocolFilterMatches} from lib/protocol/alertProtocolMatch */
 export function launchpadFilterMatchesProtocols(
   launchPad: string | null,
-  filter: PulseProtocolId[] | undefined,
-  padToProtocols: (pad: string | null) => PulseProtocolId[],
+  filter: string[] | undefined,
+  padToProtocols: (pad: string | null) => string[],
 ): boolean {
   if (!filter || filter.length === 0) return true;
   const detected = new Set(padToProtocols(launchPad));

@@ -4,6 +4,10 @@ import { emitGlobalPulseNewTokenAlert } from '@/lib/alerts/generate';
 import type { PulseNewTokenAlertInput } from '@/lib/alerts/pulseNewTokenTypes';
 import { getTokenByMint, updateToken, upsertToken } from '@/lib/db/tokens';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
+import {
+  classificationUpdateFromLaunchEvent,
+  enrichTokenInsertFromLaunchEvent,
+} from '@/lib/protocol/enrichTokenRow';
 import type { Json, TablesInsert } from '@/lib/supabase/types';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 import { extractChainObservedAt } from '@/lib/helius/chainTimestamp';
@@ -30,10 +34,13 @@ function inferDecimalsFromRaw(raw: Json): number {
   return 6;
 }
 
-export function launchEventToTokenInsert(ev: Readonly<LaunchpadEvent>): TablesInsert<'tokens'> {
+export function launchEventToTokenInsert(
+  ev: Readonly<LaunchpadEvent>,
+  alertSource: string,
+): TablesInsert<'tokens'> {
   const now = new Date().toISOString();
   const chainAt = extractChainObservedAt(ev.raw);
-  return {
+  const base: TablesInsert<'tokens'> = {
     mint: ev.mint,
     symbol: ev.symbol,
     name: ev.name,
@@ -48,6 +55,7 @@ export function launchEventToTokenInsert(ev: Readonly<LaunchpadEvent>): TablesIn
     created_at: chainAt ?? now,
     last_seen_at: now,
   };
+  return enrichTokenInsertFromLaunchEvent(base, ev, alertSource);
 }
 
 /**
@@ -59,6 +67,7 @@ export async function ingestLaunchpadDiscovery(
   opts: {
     alertSource: PulseNewTokenAlertInput['source'];
     txSignature?: string | null;
+    dasAuthorityPad?: string | null;
   },
 ): Promise<number> {
   const rawWithSource: Json =
@@ -73,6 +82,14 @@ export async function ingestLaunchpadDiscovery(
       enrichedEv.bonding_progress != null
         ? Math.max(enrichedEv.bonding_progress, existing.bonding_progress ?? 0)
         : existing.bonding_progress;
+
+    const launch_pad =
+      existing.launch_pad ?? (enrichedEv.launchpad === 'unknown' ? null : enrichedEv.launchpad);
+
+    const classPatch = classificationUpdateFromLaunchEvent(enrichedEv, existing, opts.alertSource, {
+      das_authority_pad: opts.dasAuthorityPad ?? null,
+    });
+
     await updateToken(enrichedEv.mint, {
       last_seen_at: now,
       raw_metadata: rawWithSource,
@@ -81,11 +98,14 @@ export async function ingestLaunchpadDiscovery(
       image_url: enrichedEv.image_url ?? existing.image_url,
       creator_wallet: enrichedEv.creator_wallet ?? existing.creator_wallet,
       ...(bonding_progress != null ? { bonding_progress } : {}),
+      ...(launch_pad != null ? { launch_pad } : {}),
+      ...(classPatch ?? {}),
     });
     revalidatePulseFeedCache();
     return 0;
   }
-  await upsertToken(launchEventToTokenInsert(enrichedEv));
+  const inserted = launchEventToTokenInsert(enrichedEv, opts.alertSource);
+  await upsertToken(inserted);
   revalidatePulseFeedCache();
   await emitGlobalPulseNewTokenAlert({
     mint: enrichedEv.mint,
@@ -96,6 +116,8 @@ export async function ingestLaunchpadDiscovery(
     creator_wallet: enrichedEv.creator_wallet,
     tx_signature: opts.txSignature ?? undefined,
     initial_liquidity_sol: enrichedEv.initial_liquidity_sol,
+    protocol_id: inserted.protocol_id ?? null,
+    source_confidence: inserted.source_confidence ?? null,
   });
   return 1;
 }

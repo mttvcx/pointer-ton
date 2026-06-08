@@ -9,8 +9,6 @@ import {
   ChevronDown,
   CircleDollarSign,
   Clock,
-  Flame,
-  GraduationCap,
   LayoutList,
   LineChart,
   Loader2,
@@ -37,7 +35,6 @@ import {
   TON_NATIVE_UI_MINT,
 } from '@/lib/utils/tonDemoMints';
 import { cn } from '@/lib/utils/cn';
-import type { ProtocolBrandId } from '@/lib/tokens/protocolBrand';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelFromTopClasses } from '@/lib/ui/overlayMotion';
@@ -50,32 +47,6 @@ import {
 import { useRecentTradeMintsStore } from '@/store/recentTradeMints';
 import { useSearchModalPrefsStore } from '@/store/searchModalPrefs';
 import { useUIStore } from '@/store/ui';
-
-const PROTOCOL_IDS = ['pump', 'bonk', 'bags', 'og_mode', 'graduated', 'dex_paid'] as const;
-type ProtocolId = (typeof PROTOCOL_IDS)[number];
-
-const PROTOCOL_FILTERS: {
-  id: ProtocolId;
-  label: string;
-  protocolLogo?: ProtocolBrandId;
-  MetaIcon?: ComponentType<{ className?: string; strokeWidth?: number }>;
-}[] = [
-  { id: 'pump', label: 'Pump', protocolLogo: 'pump.fun' },
-  { id: 'bonk', label: 'Bonk', protocolLogo: 'bonk' },
-  { id: 'bags', label: 'Bags', protocolLogo: 'bags' },
-  { id: 'og_mode', label: 'OG Mode', MetaIcon: Flame },
-  { id: 'graduated', label: 'Graduated', MetaIcon: GraduationCap },
-  { id: 'dex_paid', label: 'Dex Paid', MetaIcon: Shield },
-];
-
-const PROTOCOL_LAUNCHPAD_LABEL: Record<ProtocolId, string> = {
-  pump: 'Pump.fun',
-  bonk: 'Bonk Launch',
-  bags: 'Bags',
-  og_mode: 'OG Mode',
-  graduated: 'Graduated',
-  dex_paid: 'Dex Paid',
-};
 
 const MAX_RECENT = 20;
 
@@ -103,7 +74,6 @@ type EnrichedSummary = SummaryRow & {
   mockLiq: number;
   mockAgeMs: number;
   mockSafety: number;
-  protocol: ProtocolId;
   /** Whether this token's primary pair is quoted in USDC (drives the USDC filter). */
   quoteIsUsdc: boolean;
   dexLabel: string;
@@ -126,7 +96,6 @@ function fnv1aHex(s: string): number {
 
 function enrichSummary(row: SummaryRow): EnrichedSummary {
   const h = fnv1aHex(row.mint);
-  const protocol = PROTOCOL_IDS[h % PROTOCOL_IDS.length]!;
   const mockSafety = (h >>> 20) % 101;
   const mockMc = 2_500 + (h % 998_500);
   const mockVol = (h >>> 8) % 420_000;
@@ -140,9 +109,8 @@ function enrichSummary(row: SummaryRow): EnrichedSummary {
     mockLiq,
     mockAgeMs,
     mockSafety,
-    protocol,
     quoteIsUsdc,
-    dexLabel: PROTOCOL_LAUNCHPAD_LABEL[protocol],
+    dexLabel: 'Market',
   };
 }
 
@@ -178,13 +146,6 @@ function sortEnrichedRows(rows: EnrichedSummary[], sortMode: SortMode): Enriched
   }
 }
 
-function filterSearchByProtocols(
-  rows: EnrichedSummary[],
-  activeProtocols: Set<ProtocolId>,
-): EnrichedSummary[] {
-  if (activeProtocols.size === 0) return rows;
-  return rows.filter((r) => activeProtocols.has(r.protocol));
-}
 
 /**
  * Command-palette style search: mint / wallet resolve, recent mints, Esc to close.
@@ -203,13 +164,6 @@ export function GlobalSearchModal() {
   const uiDemo = useUiDemoMode();
   const { mounted: overlayMounted, visible } = useOverlayPresence(open);
 
-  /** Active protocol filters: empty set = show all tokens. Non-empty = keep rows matching any selected protocol. */
-  const [activeProtocols, setActiveProtocols] = useState<Set<ProtocolId>>(() => new Set());
-  /**
-   * USDC filter is a separate AND dimension, combinable with the protocol chips
-   * (e.g. OG Mode + USDC = OG tokens whose pair is USDC-quoted). It narrows the
-   * searched ticker/name down to USDC pairs.
-   */
   const [usdcOnly, setUsdcOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>('relevance');
   /** Row vertical density toggled via list icon. */
@@ -311,15 +265,6 @@ export function GlobalSearchModal() {
       document.removeEventListener('mousedown', onDoc);
     };
   }, [densityMenuOpen]);
-
-  function toggleProtocol(id: ProtocolId) {
-    setActiveProtocols((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   function navigateSearchTarget(path: string) {
     setSearchQuery('');
@@ -438,13 +383,13 @@ export function GlobalSearchModal() {
   );
 
   const searchSorted = useMemo(() => {
-    let filtered = filterSearchByProtocols(searchEnriched, activeProtocols);
+    let filtered = searchEnriched;
     if (usdcOnly) filtered = filtered.filter((r) => r.quoteIsUsdc);
     return sortEnrichedRows(filtered, sortMode);
-  }, [searchEnriched, activeProtocols, usdcOnly, sortMode]);
+  }, [searchEnriched, usdcOnly, sortMode]);
 
   const hasSearchSection = queryLooksLikeCa && (searchRaw.length > 0 || loadingSearch);
-  const filtersActive = activeProtocols.size > 0 || usdcOnly;
+  const filtersActive = usdcOnly;
   const closeSearch = () => {
     setOpen(false);
     setSearchQuery('');
@@ -485,16 +430,6 @@ export function GlobalSearchModal() {
         <div className="shrink-0 border-b border-border-subtle px-4 pt-2.5 pb-2 sm:px-5">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-              {PROTOCOL_FILTERS.map(({ id, label, protocolLogo, MetaIcon }) => (
-                <SearchProtocolFilterChip
-                  key={id}
-                  label={label}
-                  active={activeProtocols.has(id)}
-                  onClick={() => toggleProtocol(id)}
-                  protocolLogo={protocolLogo}
-                  MetaIcon={MetaIcon}
-                />
-              ))}
               <SearchProtocolFilterChip
                 key="usdc"
                 label="USDC"
@@ -503,7 +438,7 @@ export function GlobalSearchModal() {
                 MetaIcon={CircleDollarSign}
               />
               {filtersActive ? (
-                <span className="text-[10px] text-fg-muted">· results only</span>
+                <span className="text-[10px] text-fg-muted">· USDC pairs only</span>
               ) : null}
             </div>
 

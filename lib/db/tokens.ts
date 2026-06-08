@@ -8,6 +8,7 @@ import { withSupabaseRetry } from '@/lib/db/supabaseRetry';
 import { PULSE_THRESHOLDS, type PulseColumnId, type MigrationDestination } from '@/lib/utils/constants';
 import { PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
 import { dedupeTokenRowsByMint } from '@/lib/tokens/dedupePulseTokens';
+import { classificationUpdateFromTokenFields } from '@/lib/protocol/enrichTokenRow';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 
@@ -149,17 +150,23 @@ export async function markTokenMigrated(
   const existing = await getTokenByMint(mint);
   if (!existing) return null;
   const at = migratedAt ?? new Date().toISOString();
-  if (existing.migrated_at) {
-    if (!existing.migrated_to) {
-      return updateToken(mint, { migrated_to: migratedTo, last_seen_at: at });
-    }
-    return existing;
-  }
+  if (existing.migrated_at && existing.migrated_to) return existing;
+
+  const migrated_at = existing.migrated_at ?? at;
+  const migrated_to = existing.migrated_to ?? migratedTo;
+  const merged = {
+    ...existing,
+    migrated_at,
+    migrated_to,
+    bonding_progress: 100,
+  };
+  const classPatch = classificationUpdateFromTokenFields(merged, 'migration_program');
   return updateToken(mint, {
-    migrated_at: at,
-    migrated_to: migratedTo,
+    migrated_at,
+    migrated_to,
     bonding_progress: 100,
     last_seen_at: at,
+    ...(classPatch ?? {}),
   });
 }
 

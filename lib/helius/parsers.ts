@@ -24,6 +24,8 @@ export type LaunchpadEvent = {
   initial_liquidity_sol: number | null;
   /** Bonding curve fill % (0–100) when present in tx metadata. */
   bonding_progress: number | null;
+  /** Solana program id when detected from webhook. */
+  solana_program_id?: string | null;
   raw: Json;
 };
 
@@ -179,6 +181,16 @@ export function parseEnhancedTransaction(tx: unknown): LaunchpadEvent | null {
   const mint = pickMintFromTx(root, feePayer);
   if (!mint) return null;
 
+  let solana_program_id: string | null = null;
+  if (pad) {
+    for (const [prog, p] of Object.entries(PROGRAM_TO_PAD)) {
+      if (p === pad) {
+        solana_program_id = prog;
+        break;
+      }
+    }
+  }
+
   const tokenTransfers = root.tokenTransfers;
   let symbol: string | null = null;
   let name: string | null = null;
@@ -207,6 +219,7 @@ export function parseEnhancedTransaction(tx: unknown): LaunchpadEvent | null {
     image_url: null,
     initial_liquidity_sol: null,
     bonding_progress,
+    solana_program_id,
     raw: JSON.parse(JSON.stringify(tx)) as Json,
   };
 }
