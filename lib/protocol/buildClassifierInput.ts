@@ -60,11 +60,21 @@ export function buildClassifierInputFromLaunchEvent(
 }
 
 export function ingestHintFromSource(source: string): ClassificationSource {
+  if (source === 'das_authority') return 'helius_das_authority';
+  if (source === 'das_search') return 'helius_das_search';
+  if (source === 'das_hydrate') return 'helius_das_hydrate';
   if (source.includes('webhook')) return 'helius_webhook_program';
-  if (source.includes('das')) return 'helius_das_authority';
   if (source.includes('gecko')) return 'gecko_dex';
   if (source.includes('dexscreener')) return 'dexscreener_dex';
   if (source.includes('ton')) return 'tonapi_jetton';
   if (source === 'backfill') return 'backfill';
+  if (source === 'migration_program') return 'migration_program';
   return 'launch_pad_legacy';
+}
+
+/** Read pointerIngestSource stamped on raw_metadata during ingest. */
+export function ingestHintFromRawMetadata(raw: unknown): ClassificationSource | null {
+  const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
+  const src = typeof r?.pointerIngestSource === 'string' ? r.pointerIngestSource : null;
+  return src ? ingestHintFromSource(src) : null;
 }

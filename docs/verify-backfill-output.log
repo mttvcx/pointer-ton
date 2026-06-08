@@ -1,0 +1,20 @@
+﻿=== Fixes A-E backfill run ===
+
+Before backfill:
+  total token rows: 223
+  Sol unknown (protocol_id null or confidence < 0.5): 42/92 (45.7%)
+
+Backfill:
+  rows scanned: 223
+  rows updated: 14
+  skipped (higher confidence): 179
+  skipped (no patch): 30
+
+Cleanup (unrecoverable das_search / das_hydrate Sol wallet holdings):
+  deleted: 30 (das_search: 28, das_hydrate: 2)
+
+After backfill + cleanup:
+  total token rows: 193 (removed 30)
+  Sol unknown: 0/62 (0.0%)
+
+Bonk misleading helius_das_authority @ 0.000: none

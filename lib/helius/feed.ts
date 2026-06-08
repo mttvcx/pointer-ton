@@ -21,6 +21,10 @@ import { inferMintKind } from '@/lib/chains/mintKind';
 import { tokenMatchesAppChain } from '@/lib/chains/evmTokenChain';
 import { ensureTokenRowFromGeckoEvm } from '@/lib/evm/geckoTerminalPulse';
 import { enrichTokenInsertFromLaunchEvent, classificationUpdateFromTokenFields } from '@/lib/protocol/enrichTokenRow';
+import {
+  classifyLaunchEventForIngest,
+  meetsPulseDiscoveryThreshold,
+} from '@/lib/protocol/pulseIngestGate';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import {
   pulseTwitterProfileHoverTestTokenRow,
@@ -481,6 +485,13 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
     const asset = await heliusDasRpc<Asset>('getAsset', { id: canonical });
     const ev = launchpadEventFromDasAsset(asset);
     if (!ev) return null;
+    if (!existing) {
+      const preview = classifyLaunchEventForIngest(ev, 'das_hydrate');
+      if (!meetsPulseDiscoveryThreshold(preview)) {
+        const { ensureTokenRowFromDexScreener } = await import('@/lib/market/dexscreenerTokenHydrate');
+        return ensureTokenRowFromDexScreener(canonical, 'sol');
+      }
+    }
     await ingestLaunchpadDiscovery(ev, { alertSource: 'das_hydrate' });
     return getTokenByMint(canonical);
   } catch {

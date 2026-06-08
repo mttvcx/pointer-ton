@@ -48,6 +48,8 @@ export type MigrationState = 'pre_migration' | 'migrated' | 'post_migration' | '
 export type ClassificationSource =
   | 'helius_webhook_program'
   | 'helius_das_authority'
+  | 'helius_das_search'
+  | 'helius_das_hydrate'
   | 'helius_das_uri'
   | 'migration_program'
   | 'gecko_dex'
@@ -55,7 +57,8 @@ export type ClassificationSource =
   | 'launch_pad_legacy'
   | 'tonapi_jetton'
   | 'metadata_structured'
-  | 'backfill';
+  | 'backfill'
+  | 'unknown';
 
 export type TokenClassification = {
   protocol_id: CanonicalProtocolId | null;

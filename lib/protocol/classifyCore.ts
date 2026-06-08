@@ -21,6 +21,7 @@ const CONF = {
   GECKO_DEX: 0.88,
   DEXSCREENER: 0.82,
   DAS_URI: 0.62,
+  METADATA_KEYWORD: 0.55,
   LAUNCH_PAD: 0.55,
   TON_GENERIC: 0.7,
   EVM_GENERIC: 0.65,
@@ -106,6 +107,54 @@ function inferUriProtocol(jsonUri: string | undefined): CanonicalProtocolId | nu
   if (u.includes('believe') || u.includes('launchcoin')) return 'dynamic_bc';
   if (u.includes('meteora') && (u.includes('dbc') || u.includes('dynamic'))) return 'dynamic_bc';
   return null;
+}
+
+function inferKeywordProtocolFromText(text: string, strictSymbolName: boolean): CanonicalProtocolId | null {
+  const t = text.toLowerCase();
+  if (!t) return null;
+  if (strictSymbolName) {
+    const compact = t.replace(/[^a-z0-9]/g, '');
+    if (compact === 'bonk') return 'bonk';
+    if (compact.includes('letsbonk')) return 'bonk';
+    if (compact.includes('pumpfun') || compact === 'pump') return 'pump_fun';
+  }
+  if (t.includes('letsbonk') || t.includes('launchlab')) return 'bonk';
+  if (/\bbonk\b/.test(t)) return 'bonk';
+  if (t.includes('pump.fun') || t.includes('pumpfun')) return 'pump_fun';
+  if (/\bpump\b/.test(t) && !strictSymbolName) return 'pump_fun';
+  if (t.includes('bags.fm') || /\bbags\b/.test(t)) return 'bags';
+  if (t.includes('printr')) return 'printr';
+  if (t.includes('moon.it') || t.includes('moonit') || t.includes('moonshot')) return 'moonshot';
+  if (t.includes('heaven')) return 'heaven';
+  if (t.includes('believe') || t.includes('launchcoin')) return 'dynamic_bc';
+  if (t.includes('meteora') && (t.includes('dbc') || t.includes('dynamic'))) return 'dynamic_bc';
+  return null;
+}
+
+function inferMetadataKeywordProtocol(raw: unknown): CanonicalProtocolId | null {
+  const r = asRecord(raw);
+  if (!r) return null;
+  const content = asRecord(r.content);
+  const md = asRecord(content?.metadata);
+  const symbolNameBits = [md?.symbol, md?.name, r.symbol, r.name]
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .join(' ');
+  if (symbolNameBits) {
+    const fromSn = inferKeywordProtocolFromText(symbolNameBits, true);
+    if (fromSn) return fromSn;
+  }
+  try {
+    const serialized = JSON.stringify(r).toLowerCase();
+    return inferKeywordProtocolFromText(serialized, false);
+  } catch {
+    return null;
+  }
+}
+
+function resolveUnknownClassificationSource(hint?: ClassificationSource): ClassificationSource {
+  if (hint === 'helius_das_search' || hint === 'helius_das_hydrate') return hint;
+  if (hint === 'backfill') return 'backfill';
+  return 'unknown';
 }
 
 export function parseGeckoDexProtocol(pool: unknown, network: 'eth' | 'bsc' | 'base'): { protocol_id: CanonicalProtocolId; dex_id: string } | null {
@@ -244,6 +293,29 @@ export function classifyTokenProtocol(input: ClassifierInput): TokenClassificati
     return buildResult({ protocol_id, classification_source: 'helius_das_uri', source_confidence: CONF.DAS_URI, token_kind: chain_id === 'sol' ? 'bonding_curve' : 'unknown' }, input);
   }
 
+  if (chain_id === 'sol' && input.mint.toLowerCase().endsWith('pump')) {
+    let protocol_id: CanonicalProtocolId = 'pump_fun';
+    if (hasStructuredMayhemFlag(input.raw_metadata)) protocol_id = 'pump_fun_mayhem';
+    return buildResult({
+      protocol_id,
+      classification_source: 'helius_das_uri',
+      source_confidence: CONF.DAS_URI,
+      token_kind: 'bonding_curve',
+    }, input);
+  }
+
+  const fromMeta = inferMetadataKeywordProtocol(input.raw_metadata);
+  if (fromMeta) {
+    let protocol_id: CanonicalProtocolId = fromMeta;
+    if (fromMeta === 'pump_fun' && hasStructuredMayhemFlag(input.raw_metadata)) protocol_id = 'pump_fun_mayhem';
+    return buildResult({
+      protocol_id,
+      classification_source: 'helius_das_uri',
+      source_confidence: CONF.METADATA_KEYWORD,
+      token_kind: 'bonding_curve',
+    }, input);
+  }
+
   if (chain_id === 'ton' || input.launch_pad === 'ton') {
     return buildResult({
       protocol_id: 'ton',
@@ -271,6 +343,19 @@ export function classifyTokenProtocol(input: ClassifierInput): TokenClassificati
 
   const generic =
     chain_id === 'eth' ? 'eth' : chain_id === 'bnb' ? 'bsc' : chain_id === 'base' ? 'base' : null;
+
+  if (chain_id === 'sol' && !generic) {
+    return buildResult({
+      protocol_id: null,
+      protocol_family: null,
+      classification_source: resolveUnknownClassificationSource(input.ingest_hint),
+      source_confidence: 0,
+      token_kind: 'spl',
+      launch_type: 'unknown',
+      migration_state: 'unknown',
+    }, input);
+  }
+
   return buildResult({
     protocol_id: generic,
     protocol_family: generic ? 'evm' : null,

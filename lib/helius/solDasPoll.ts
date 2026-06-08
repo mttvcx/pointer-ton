@@ -4,6 +4,10 @@ import type { Asset } from 'helius-sdk/types/das';
 import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
 import { launchpadEventFromDasAsset, type LaunchpadEvent } from '@/lib/helius/parsers';
 import {
+  classifyLaunchEventForIngest,
+  meetsPulseDiscoveryThreshold,
+} from '@/lib/protocol/pulseIngestGate';
+import {
   getHeliusRpcUrl,
   LAUNCHPAD_AUTHORITIES,
   type LaunchpadId,
@@ -168,6 +172,8 @@ export async function pollSolanaPulseFromDas(): Promise<number> {
       const ev = launchpadEventFromDasAsset(asset);
       if (!ev) continue;
       if (seen.has(ev.mint)) continue;
+      const preview = classifyLaunchEventForIngest(ev, 'das_search');
+      if (!meetsPulseDiscoveryThreshold(preview)) continue;
       seen.add(ev.mint);
       inserted += await ingestLaunchpadDiscovery(ev, { alertSource: 'das_search' });
     }

@@ -8,6 +8,11 @@ import {
   classificationUpdateFromLaunchEvent,
   enrichTokenInsertFromLaunchEvent,
 } from '@/lib/protocol/enrichTokenRow';
+import {
+  classifyLaunchEventForIngest,
+  isNonAuthorityDiscoverySource,
+  meetsPulseDiscoveryThreshold,
+} from '@/lib/protocol/pulseIngestGate';
 import type { Json, TablesInsert } from '@/lib/supabase/types';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 import { extractChainObservedAt } from '@/lib/helius/chainTimestamp';
@@ -37,6 +42,7 @@ function inferDecimalsFromRaw(raw: Json): number {
 export function launchEventToTokenInsert(
   ev: Readonly<LaunchpadEvent>,
   alertSource: string,
+  opts?: { dasAuthorityPad?: string | null },
 ): TablesInsert<'tokens'> {
   const now = new Date().toISOString();
   const chainAt = extractChainObservedAt(ev.raw);
@@ -55,7 +61,9 @@ export function launchEventToTokenInsert(
     created_at: chainAt ?? now,
     last_seen_at: now,
   };
-  return enrichTokenInsertFromLaunchEvent(base, ev, alertSource);
+  return enrichTokenInsertFromLaunchEvent(base, ev, alertSource, {
+    das_authority_pad: opts?.dasAuthorityPad ?? null,
+  });
 }
 
 /**
@@ -104,7 +112,19 @@ export async function ingestLaunchpadDiscovery(
     revalidatePulseFeedCache();
     return 0;
   }
-  const inserted = launchEventToTokenInsert(enrichedEv, opts.alertSource);
+
+  if (isNonAuthorityDiscoverySource(opts.alertSource)) {
+    const preview = classifyLaunchEventForIngest(enrichedEv, opts.alertSource, {
+      dasAuthorityPad: opts.dasAuthorityPad ?? null,
+    });
+    if (!meetsPulseDiscoveryThreshold(preview)) {
+      return 0;
+    }
+  }
+
+  const inserted = launchEventToTokenInsert(enrichedEv, opts.alertSource, {
+    dasAuthorityPad: opts.dasAuthorityPad ?? null,
+  });
   await upsertToken(inserted);
   revalidatePulseFeedCache();
   await emitGlobalPulseNewTokenAlert({

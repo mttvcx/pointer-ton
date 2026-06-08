@@ -11,11 +11,14 @@ export function enrichTokenInsertFromLaunchEvent(
   base: TablesInsert<'tokens'>,
   ev: LaunchpadEvent,
   alertSource: string,
+  overrides?: Partial<ClassifierInput>,
 ): TablesInsert<'tokens'> {
   const input = buildClassifierInputFromLaunchEvent(ev, null, {
     ingest_hint: ingestHintFromSource(alertSource),
     solana_program_id: ev.solana_program_id ?? null,
     launch_pad: base.launch_pad ?? null,
+    das_authority_pad: overrides?.das_authority_pad ?? null,
+    ...overrides,
   });
   return { ...base, ...classificationFieldsForInsert(input) };
 }

@@ -4,6 +4,7 @@ import { LAUNCHPAD_PROGRAM_IDS } from '@/lib/utils/constants';
 import { classifyTokenProtocol, parseGeckoDexProtocol } from '@/lib/protocol/classifyTokenProtocol';
 import { filterIdsFromTokenRow } from '@/lib/protocol/filterIds';
 import { shouldApplyClassification } from '@/lib/protocol/classifyCore';
+import { ingestHintFromSource } from '@/lib/protocol/buildClassifierInput';
 
 test('classify pump.fun from program id', () => {
   const c = classifyTokenProtocol({
@@ -72,4 +73,59 @@ test('generic ton jetton', () => {
   });
   assert.equal(c.protocol_id, 'ton');
   assert.equal(c.token_kind, 'native_jetton');
+});
+
+test('classify pump.fun from mint suffix ending in pump', () => {
+  const c = classifyTokenProtocol({
+    mint: 'H9D6zuYzL35aZZV4MxRc3H5nAJb8M4kxK38HCUGypump',
+    ingest_hint: 'helius_das_search',
+  });
+  assert.equal(c.protocol_id, 'pump_fun');
+  assert.equal(c.classification_source, 'helius_das_uri');
+  assert.ok(c.source_confidence >= 0.5);
+});
+
+test('classify Bonk from symbol/name metadata (not URI)', () => {
+  const c = classifyTokenProtocol({
+    mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+    raw_metadata: {
+      content: {
+        metadata: { symbol: 'Bonk', name: 'Bonk' },
+        json_uri: 'https://example.com/metadata.json',
+      },
+    },
+    ingest_hint: 'helius_das_hydrate',
+  });
+  assert.equal(c.protocol_id, 'bonk');
+  assert.equal(c.classification_source, 'helius_das_uri');
+  assert.ok(c.source_confidence >= 0.5);
+  assert.notEqual(c.classification_source, 'helius_das_authority');
+});
+
+test('plain random SPL stays unknown with honest das_search source', () => {
+  const c = classifyTokenProtocol({
+    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    raw_metadata: { content: { metadata: { symbol: 'USDC', name: 'USD Coin' } } },
+    ingest_hint: 'helius_das_search',
+  });
+  assert.equal(c.protocol_id, null);
+  assert.equal(c.classification_source, 'helius_das_search');
+  assert.equal(c.source_confidence, 0);
+});
+
+test('das_authority pad classifies pump token at high confidence', () => {
+  const c = classifyTokenProtocol({
+    mint: 'So11111111111111111111111111111111111111112',
+    das_authority_pad: 'pump.fun',
+    ingest_hint: 'helius_das_authority',
+  });
+  assert.equal(c.protocol_id, 'pump_fun');
+  assert.equal(c.classification_source, 'helius_das_authority');
+  assert.ok(c.source_confidence >= 0.9);
+});
+
+test('ingestHintFromSource maps das paths honestly', () => {
+  assert.equal(ingestHintFromSource('das_search'), 'helius_das_search');
+  assert.equal(ingestHintFromSource('das_hydrate'), 'helius_das_hydrate');
+  assert.equal(ingestHintFromSource('das_authority'), 'helius_das_authority');
 });
