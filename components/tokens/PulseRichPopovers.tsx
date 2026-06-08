@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUpRight,
@@ -44,6 +44,103 @@ function isTwitterishUrl(url: string): boolean {
   }
 }
 
+type HoverPlacement = 'above' | 'below';
+
+function usePortaledHoverPosition(
+  open: boolean,
+  anchorRef: React.RefObject<HTMLElement | null>,
+  placement: HoverPlacement,
+  gapPx = 6,
+) {
+  const [pos, setPos] = useState<{ top: number; left: number; transform: string } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) {
+      setPos(null);
+      return;
+    }
+    const sync = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const left = r.left + r.width / 2;
+      if (placement === 'below') {
+        setPos({ top: r.bottom + gapPx, left, transform: 'translate(-50%, 0)' });
+      } else {
+        setPos({ top: r.top - gapPx, left, transform: 'translate(-50%, -100%)' });
+      }
+    };
+    sync();
+    window.addEventListener('scroll', sync, true);
+    window.addEventListener('resize', sync);
+    return () => {
+      window.removeEventListener('scroll', sync, true);
+      window.removeEventListener('resize', sync);
+    };
+  }, [open, placement, gapPx, anchorRef]);
+
+  return pos;
+}
+
+export function PulsePortaledHoverLayer({
+  open,
+  anchorRef,
+  placement,
+  gapPx,
+  className,
+  role,
+  children,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  open: boolean;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  placement: HoverPlacement;
+  gapPx?: number;
+  className?: string;
+  role?: string;
+  children: ReactNode;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const pos = usePortaledHoverPosition(open, anchorRef, placement, gapPx);
+
+  useEffect(() => setMounted(true), []);
+
+  if (!open || !mounted || !pos) return null;
+
+  return createPortal(
+    <div
+      className={cn('pointer-events-auto fixed z-[280]', className)}
+      style={{ top: pos.top, left: pos.left, transform: pos.transform }}
+      role={role}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Invisible bridge so the cursor can travel trigger → panel without closing. */}
+      <div
+        className={cn(
+          'absolute left-1/2 w-8 -translate-x-1/2',
+          placement === 'below' ? '-top-2 h-2' : '-bottom-2 h-2',
+        )}
+        aria-hidden
+      />
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
+/** Opaque micro-card — no backdrop-blur (blur bled through when parent overflow clipped panels). */
+export const pulseCompactPortalPanelCn = cn(
+  'w-max max-w-[min(17.5rem,calc(100vw-2rem))]',
+  'rounded-lg border border-border-subtle bg-bg-raised px-2.5 py-2 shadow-panel',
+);
+
+/** @deprecated inline absolute positioning — use pulseCompactPortalPanelCn via portal */
+export const pulseCompactAbovePanelCn = pulseCompactPortalPanelCn;
+
 /** Axiom-style dense hover card; use `pointer-events-auto` on interactive panels. */
 export function PulseRichHover({
   children,
@@ -59,96 +156,59 @@ export function PulseRichHover({
   bare?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [entered, setEntered] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const t = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clear = () => {
     if (t.current) clearTimeout(t.current);
     t.current = null;
   };
 
-  useEffect(() => {
-    if (!open) {
-      setEntered(false);
-      return;
-    }
-    setEntered(true);
-  }, [open]);
+  useEffect(() => () => clear(), []);
+
+  const scheduleOpen = () => {
+    clear();
+    t.current = setTimeout(() => setOpen(true), 40);
+  };
+  const scheduleClose = () => {
+    clear();
+    t.current = setTimeout(() => setOpen(false), 120);
+  };
 
   return (
     <span
-      className="relative isolate inline-flex"
-      /**
-       * Marked while the popover is open. Ancestors (e.g. the Pulse virtual slot in
-       * `PulseColumn`) use `:has([data-popover-open])` to lift their z-index so the
-       * popover paints above neighboring rows even when the cursor leaves the slot's
-       * visual box to travel down into the popup body.
-       */
+      className="relative inline-flex"
       data-popover-open={open ? 'true' : undefined}
     >
       <span
+        ref={anchorRef}
         className="inline-flex"
-        onMouseEnter={() => {
-          clear();
-          t.current = setTimeout(() => setOpen(true), 40);
-        }}
-        onMouseLeave={() => {
-          clear();
-          t.current = setTimeout(() => setOpen(false), 80);
-        }}
+        onMouseEnter={scheduleOpen}
+        onMouseLeave={scheduleClose}
       >
         {children}
       </span>
-      {open ? (
-        <div
-          className={cn(
-            'pointer-events-auto absolute left-1/2 top-[calc(100%+10px)] z-[260] max-h-[min(72vh,30rem)] max-w-[calc(100vw-1.25rem)] -translate-x-1/2 overflow-y-auto overflow-x-hidden',
-            'transition-opacity duration-75 ease-out motion-reduce:transition-none motion-reduce:opacity-100',
-            entered ? 'opacity-100' : 'opacity-0',
-            bare
-              ? null
-              : 'rounded-xl border border-border-subtle bg-bg-raised shadow-panel',
-            bare ? null : wide ? 'w-[19.5rem]' : 'w-[17.25rem]',
-          )}
-          onMouseEnter={() => {
-            clear();
-            setOpen(true);
-          }}
-          onMouseLeave={() => {
-            clear();
-            t.current = setTimeout(() => setOpen(false), 80);
-          }}
-          role="dialog"
-          aria-label="Details"
-        >
-          {panel}
-        </div>
-      ) : null}
+      <PulsePortaledHoverLayer
+        open={open}
+        anchorRef={anchorRef}
+        placement="below"
+        gapPx={8}
+        role="dialog"
+        aria-label="Details"
+        onMouseEnter={scheduleOpen}
+        onMouseLeave={scheduleClose}
+        className={cn(
+          'max-h-[min(72vh,30rem)] max-w-[calc(100vw-1.25rem)] overflow-y-auto overflow-x-hidden',
+          bare ? null : 'rounded-xl border border-border-subtle bg-bg-raised shadow-panel',
+          bare ? null : wide ? 'w-[19.5rem]' : 'w-[17.25rem]',
+        )}
+      >
+        {panel}
+      </PulsePortaledHoverLayer>
     </span>
   );
 }
 
 const labelMuted = 'text-[10px] font-medium uppercase tracking-wide text-[#9ca3af]';
-
-/** Opaque micro-hover shell — no backdrop blur (Axiom parity). */
-export const pulseCompactPanelCn = cn(
-  'rounded-lg border border-border-subtle bg-bg-raised px-2.5 py-2 shadow-panel',
-);
-
-/** Shared Axiom-ish micro-card shell (above trigger). Used by Pulse strip hovers + globe URL card. */
-export const pulseCompactAbovePanelCn = cn(
-  'absolute left-1/2 z-[260] w-max max-w-[min(17.5rem,calc(100vw-2rem))] -translate-x-1/2',
-  pulseCompactPanelCn,
-);
-
-const pulseCompactBelowPanelCn = cn(
-  pulseCompactAbovePanelCn,
-  'top-[calc(100%+6px)] bottom-auto',
-);
-
-const pulseCompactAboveOnlyPanelCn = cn(
-  pulseCompactAbovePanelCn,
-  'bottom-[calc(100%+6px)]',
-);
 
 /** Small dense hover card — defaults above trigger; use `placement="below"` under token header icons. */
 export function PulseCompactHoverAbove({
@@ -167,7 +227,6 @@ export function PulseCompactHoverAbove({
   placement?: 'above' | 'below';
 }) {
   const [open, setOpen] = useState(false);
-  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clear = () => {
@@ -177,75 +236,32 @@ export function PulseCompactHoverAbove({
 
   useEffect(() => () => clear(), []);
 
-  const syncPanelPos = () => {
-    const el = anchorRef.current;
-    if (!el || typeof window === 'undefined') return;
-    const r = el.getBoundingClientRect();
-    setPanelPos({
-      top: placement === 'below' ? r.bottom + 6 : r.top - 6,
-      left: r.left + r.width / 2,
-    });
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const close = () => {
-      setOpen(false);
-      setPanelPos(null);
-    };
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [open]);
-
   const scheduleOpen = () => {
     clear();
-    timer.current = setTimeout(() => {
-      syncPanelPos();
-      setOpen(true);
-    }, openDelayMs);
+    timer.current = setTimeout(() => setOpen(true), openDelayMs);
   };
   const scheduleClose = () => {
     clear();
-    timer.current = setTimeout(() => {
-      setOpen(false);
-      setPanelPos(null);
-    }, closeDelayMs);
+    timer.current = setTimeout(() => setOpen(false), closeDelayMs);
   };
 
-  const panel =
-    open && panelPos && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className={cn(
-              'pointer-events-auto fixed z-[260] w-max max-w-[min(17.5rem,calc(100vw-2rem))]',
-              pulseCompactPanelCn,
-              placement === 'below' ? '-translate-x-1/2' : '-translate-x-1/2 -translate-y-full',
-            )}
-            style={{ top: panelPos.top, left: panelPos.left }}
-            role={role}
-            onMouseEnter={scheduleOpen}
-            onMouseLeave={scheduleClose}
-          >
-            {content}
-          </div>,
-          document.body,
-        )
-      : null;
-
   return (
-    <span
-      ref={anchorRef}
-      className="relative inline-flex"
-      data-popover-open={open ? 'true' : undefined}
-    >
-      <span className="inline-flex" onMouseEnter={scheduleOpen} onMouseLeave={scheduleClose}>
+    <span className="relative inline-flex" data-popover-open={open ? 'true' : undefined}>
+      <span ref={anchorRef} className="inline-flex" onMouseEnter={scheduleOpen} onMouseLeave={scheduleClose}>
         {children}
       </span>
-      {panel}
+      <PulsePortaledHoverLayer
+        open={open}
+        anchorRef={anchorRef}
+        placement={placement}
+        gapPx={6}
+        role={role}
+        onMouseEnter={scheduleOpen}
+        onMouseLeave={scheduleClose}
+        className={pulseCompactPortalPanelCn}
+      >
+        {content}
+      </PulsePortaledHoverLayer>
     </span>
   );
 }
@@ -257,7 +273,7 @@ export function PulseCashbackCompactHover({ children }: { children: React.ReactN
         <>
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-[11px] font-semibold leading-none text-white/95">Cashback</p>
-            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide leading-none text-signal-bull/80">
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide leading-none text-emerald-400">
               On
             </span>
           </div>
@@ -652,7 +668,7 @@ export function WebsiteGlobeCompactHover({
             <p className="min-w-0 truncate text-[11px] font-bold leading-none text-white" title={hostname}>
               {hostname}
             </p>
-            <span className="shrink-0 text-[10px] font-semibold tabular-nums leading-none text-signal-bull/75">
+            <span className="shrink-0 text-[10px] font-semibold tabular-nums leading-none text-emerald-400">
               {age}
             </span>
           </div>
@@ -962,7 +978,7 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
   };
 
   return (
-    <div className="flex w-[260px] flex-col gap-2 rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-panel">
+    <div className="flex w-[260px] flex-col gap-2 rounded-lg border border-white/[0.06] bg-[#0a0a0a] p-3 shadow-2xl shadow-black/60">
       {/* Header — short mint + copy + open */}
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-[11.5px] leading-none tracking-tight text-white/90">

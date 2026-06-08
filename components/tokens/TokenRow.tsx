@@ -19,6 +19,7 @@ import { PulseRowBondingHoverTag } from '@/components/tokens/PulseRowBondingHove
 import { PulseMayhemTimerBadge } from '@/components/tokens/PulseMayhemTimerBadge';
 import { PulseRowAgeLabel } from '@/components/tokens/PulseRowAgeLabel';
 import { PulseTokenAvatarHover } from '@/components/tokens/PulseTokenAvatarHover';
+import { PulseTokenTitleRow } from '@/components/tokens/PulseTokenTitleRow';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
@@ -39,13 +40,10 @@ import { metricBandColorForValue } from '@/lib/pulse/metricBandColor';
 import { resolveProtocolRowTint } from '@/lib/pulse/protocolRowTint';
 import { resolvePulseTranslationGloss } from '@/lib/translate/pulseTranslationGloss';
 import { useAutoTranslateStore } from '@/store/autoTranslate';
-import { useShallow } from 'zustand/react/shallow';
 import { PulseMintCopyCaption } from '@/components/tokens/PulseMintCopyCaption';
-import { PulseTokenTitleRow } from '@/components/tokens/PulseTokenTitleRow';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
-import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import type { PulseRowDensity } from '@/store/pulseColumns';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -121,16 +119,7 @@ function TokenRowInner({
    * Latin gloss line under non-Latin Pulse identities — applies to **every chain**
    * now (Hebrew, Arabic, CJK, Cyrillic, Devanagari, Thai, Hangul, …), not just BNB.
    */
-  const autoTranslate = useAutoTranslateStore(
-    useShallow((s) => ({
-      enabled: s.enabled,
-      showOnHover: s.showOnHover,
-      showBoth: s.showBoth,
-      textColor: s.textColor,
-      translateAllLanguages: s.translateAllLanguages,
-      selectedLanguageIds: s.selectedLanguageIds,
-    })),
-  );
+  const autoTranslate = useAutoTranslateStore();
   const translationGloss = useMemo(
     () => resolvePulseTranslationGloss(token, autoTranslate),
     [
@@ -193,28 +182,18 @@ function TokenRowInner({
   /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
   const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
 
-  /** Display → Avatar size preference (small / default / large) scales the base footprint. */
-  const { prefs } = usePreferences();
-  const avatarScale =
-    prefs.avatarSize === 'small' ? 0.84 : prefs.avatarSize === 'large' ? 1.16 : 1;
-
   /** Pulse grid: fill most of the slot height (Axiom-style). Else preference-driven rhythm. */
   const avatarSize = useMemo(() => {
-    let base: number;
     if (slotHeight != null) {
       const verticalPad = 24; // pt-4 + pb-2 on Pulse grid hit area
       const captionReserve = 15; // truncated mint + gap under avatar
       const raw = slotHeight - verticalPad - captionReserve;
-      base = Math.min(78, Math.max(44, Math.round(raw)));
-    } else if (layoutDensity === 'compact') {
-      base = 48;
-    } else if (layoutDensity === 'expanded') {
-      base = 56;
-    } else {
-      base = 52;
+      return Math.min(78, Math.max(44, Math.round(raw)));
     }
-    return Math.round(base * avatarScale);
-  }, [slotHeight, layoutDensity, avatarScale]);
+    if (layoutDensity === 'compact') return 48;
+    if (layoutDensity === 'expanded') return 56;
+    return 52;
+  }, [slotHeight, layoutDensity]);
 
   /**
    * Strip icon size — bumped ~10% across the board so Pulse rows read closer to Axiom:
@@ -283,7 +262,7 @@ function TokenRowInner({
   const avatarStack = (
     <div
       className={cn(
-        'flex shrink-0 flex-col items-center',
+        'flex shrink-0 flex-col items-center overflow-visible',
         slotHeight != null ? 'gap-1.5' : 'gap-px',
       )}
       style={{ minWidth: avatarSize }}
@@ -315,7 +294,6 @@ function TokenRowInner({
   }
 
   const tokenPath = `/token/${token.mint}`;
-
   const isInteractiveClickTarget = (target: EventTarget | null) =>
     target instanceof HTMLElement &&
     Boolean(
@@ -526,7 +504,7 @@ function TokenRowInner({
         //
         // Card surface + border come from `.pulse-column .pulse-row` in globals.css
         // (theme tokens). Tracked-dev tints below still override via `!bg-…`.
-        'pulse-row group/pulseRow group relative flex items-stretch rounded-lg outline-none',
+        'pulse-row group/pulseRow group relative flex items-stretch rounded-lg outline-none transition-colors duration-150 ease-out',
         slotHeight != null
           ? 'h-full min-h-0 max-h-full overflow-visible'
           : null,
@@ -564,10 +542,10 @@ function TokenRowInner({
           onClick={onTokenAreaClick}
           onKeyDown={onTokenAreaKeyDown}
           className={cn(
-            'relative z-[1] flex min-h-0 min-w-0 flex-1 cursor-pointer items-start outline-none',
+            'relative z-[1] flex min-h-0 min-w-0 flex-1 cursor-pointer items-start outline-none transition-[background-color] duration-150',
             'hover:bg-white/[0.04]',
             'focus-visible:bg-bg-hover/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/45',
-            slotHeight != null ? 'px-3 pt-4 pb-2' : 'p-3',
+            slotHeight != null ? 'pl-5 pr-3 pt-4 pb-2' : 'p-3',
           )}
           {...hoverProps}
         >
@@ -582,10 +560,7 @@ function TokenRowInner({
             >
               <div
                 className={cn(
-                  // Only the NAME row reserves the dock column so the title never
-                  // collides with the floating V/MC. The icon rows below flow
-                  // full-width and stay put — they no longer reserve/affect the
-                  // buttons or Ultra outline (same independence as V/MC).
+                  // Only the name row reserves the dock column — icon/chip rows stay full-width.
                   'flex min-w-0 flex-nowrap items-center gap-2',
                   slotHeight == null && 'overflow-hidden',
                   reserveRightActionCol && dockReservePadding,
@@ -621,11 +596,7 @@ function TokenRowInner({
                  * handle / follower row is rendered (Axiom-style consistency).
                  */
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 overflow-visible">
-                  {/**
-                   * Age column + shared text column: metric pills align under @handle / icons
-                   * (never under the avatar). Horizontal scroll contains overflow in-column.
-                   */}
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-nowrap items-stretch gap-2 overflow-x-hidden overflow-y-visible">
+                  <div className="flex min-h-0 min-w-0 flex-nowrap items-start gap-2 overflow-visible">
                     <div className="shrink-0 self-start pt-px">{ageCluster}</div>
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
                       <PulseRowSocialStrip
@@ -645,22 +616,20 @@ function TokenRowInner({
                       {mayhemBadge ? (
                         <div className="min-w-0 shrink-0 pt-0.5">{mayhemBadge}</div>
                       ) : null}
-                      <div
-                        className={cn(
-                          'relative mt-auto min-w-0 w-full max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain pt-1.5',
-                          '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
-                        )}
-                      >
-                        <PulseRowBondingHoverTag
-                          fillPct={bond.fillPct}
-                          migrated={isMigratedVisual || bond.migrated}
-                        />
-                        <PulseRowAxiomSpriteStrip
-                          bundle={bundle}
-                          socialGlyphPx={socialGlyphSize}
-                        />
-                      </div>
                     </div>
+                  </div>
+                  {/**
+                   * Metric chips align under the age column (2m / 8s), not under social icons.
+                   */}
+                  <div className="relative min-w-0 overflow-visible pt-0.5">
+                    <PulseRowBondingHoverTag
+                      fillPct={bond.fillPct}
+                      migrated={isMigratedVisual || bond.migrated}
+                    />
+                    <PulseRowAxiomSpriteStrip
+                      bundle={bundle}
+                      socialGlyphPx={socialGlyphSize}
+                    />
                   </div>
                 </div>
               ) : (

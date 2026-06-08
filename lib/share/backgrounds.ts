@@ -1,5 +1,4 @@
 import type { ShareBackgroundPresetId } from '@/lib/share/types';
-import { PNL_SHARE_REFERENCE_IMG } from '@/lib/share/pnlShareLayout';
 import {
   DEFAULT_SHARE_CARD_THEME_ID,
   SHARE_CARD_THEMES,
@@ -21,21 +20,16 @@ const WORDMARK_TONE: Record<ShareBackgroundPresetId, 'violet' | 'cyan' | 'slate'
 export const PRESET_BACKGROUNDS = SHARE_CARD_THEMES.map((t) => ({
   id: t.id,
   label: t.label,
-  previewImage: PNL_SHARE_REFERENCE_IMG,
-  imageFilter: t.imageFilter,
+  previewGradient: t.previewGradient,
   birdGlow: BIRD_GLOW[t.id],
   wordmarkTone: WORDMARK_TONE[t.id],
 }));
 
 export const DEFAULT_BACKGROUND_ID: ShareBackgroundPresetId = DEFAULT_SHARE_CARD_THEME_ID;
 
-/** PNL tracker widgets — reference card as cover background. */
 export function presetClass(id: ShareBackgroundPresetId): string {
-  return 'bg-[#05000a] bg-cover bg-center';
-}
-
-export function presetBackgroundImage(id: ShareBackgroundPresetId): string {
-  return PNL_SHARE_REFERENCE_IMG;
+  void id;
+  return 'bg-black';
 }
 
 export function presetMeta(id: ShareBackgroundPresetId) {
@@ -43,8 +37,7 @@ export function presetMeta(id: ShareBackgroundPresetId) {
   return {
     id: t.id,
     label: t.label,
-    previewImage: t.referenceImage,
-    imageFilter: t.imageFilter,
+    previewGradient: t.previewGradient,
     birdGlow: BIRD_GLOW[t.id],
     wordmarkTone: WORDMARK_TONE[t.id],
   };

@@ -7,9 +7,8 @@ import {
   getAxiomSpriteBadFlags,
   getAxiomSpriteMetrics,
 } from '@/lib/tokens/pulseAxiomSpriteMetrics';
-import { PulseRichHover, DevFundedHoverPanel } from '@/components/tokens/PulseRichPopovers';
+import { PulseRichHover, DevFundedHoverPanel, PulseCompactHoverAbove } from '@/components/tokens/PulseRichPopovers';
 import { PulseLuminanceGlyph } from '@/components/tokens/PulseGlyphMask';
-import { PulseAxiomMicroTip } from '@/components/tokens/PulseAxiomMicroTip';
 import { cn } from '@/lib/utils/cn';
 
 /** Luminance-sheet assets (shared shape); color comes from masked `bg-current`. */
@@ -88,7 +87,7 @@ export function PulseRowAxiomSpriteStrip({
   }[] = [
     {
       key: 'top10',
-      title: 'Top 10 Holders',
+      title: 'Top 10 holder concentration',
       iconIndex: 0,
       text: formatAxiomPctCell(m.top10Pct),
     },
@@ -150,11 +149,16 @@ export function PulseRowAxiomSpriteStrip({
           );
         }
 
-        if (c.key === 'top10' || c.key === 'sniper' || c.key === 'bundle') {
+        if (c.key === 'sniper' || c.key === 'bundle' || c.key === 'top10') {
           return (
-            <PulseAxiomMicroTip key={c.key} label={c.title}>
+            <PulseCompactHoverAbove
+              key={c.key}
+              placement="below"
+              openDelayMs={150}
+              content={<p className="text-[11px] font-medium leading-snug text-fg-primary">{c.title}</p>}
+            >
               {inner}
-            </PulseAxiomMicroTip>
+            </PulseCompactHoverAbove>
           );
         }
 

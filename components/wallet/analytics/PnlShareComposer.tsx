@@ -270,7 +270,7 @@ export function PnlShareComposer() {
   const pngExportBg =
     (composer.mode === 'video' && customVideoUrl) || (composer.mode === 'image' && customImageUrl)
       ? null
-      : '#05000a';
+      : '#000000';
 
   const onDownloadPng = async () => {
     const p = displayPayloadStable;
@@ -327,8 +327,8 @@ export function PnlShareComposer() {
       });
       const blob = await exportShareVideoWebm({
         videoEl: vid,
-        width: 1536,
-        height: 1024,
+        width: 1920,
+        height: 1080,
         overlay: composer.overlay,
         cardArgs: {
           ticker: p.tokenTicker,
@@ -346,6 +346,10 @@ export function PnlShareComposer() {
           referralCode: referralQ.data?.code ?? null,
           backgroundId: composer.backgroundId,
           momentBasis: shareAmountMotionBasis,
+          periodLabel:
+            shareKind === 'monthly' && shareHeader ? `${shareHeader} Realized` : composer.headlineText,
+          statBoughtLabel: p.statInvestedLabel ?? 'Total Bought',
+          statSoldLabel: p.statPositionLabel ?? 'Total Sold',
         },
         maxDurationSec: SHARE_VIDEO_MAX_DURATION_SEC,
         videoPan: composer.videoPan,
@@ -434,18 +438,20 @@ export function PnlShareComposer() {
                 videoPaused
                 headlineText={composer.headlineText}
                 referralCode={referralCode}
-                editableHeadline
-                onHeadlineChange={composer.setHeadlineText}
                 amountMotionBasis={shareAmountMotionBasis}
                 amountMotionFrozen={busy === 'png' || busy === 'copy'}
                 amountRevealKey={shareAmountRevealKey}
+                chainTicker={composer.chainTicker as 'SOL' | 'USD'}
+                solUsd={solUsdQ.data ?? null}
+                shareKind={shareKind}
+                shareHeader={shareHeader}
               />
           </div>
           <video
             ref={videoExportRef}
-            className="pointer-events-none fixed left-[-10000px] top-0 h-[1024px] w-[1536px] max-w-none opacity-0"
-            width={1536}
-            height={1024}
+            className="pointer-events-none fixed left-[-10000px] top-0 h-[1080px] w-[1920px] max-w-none opacity-0"
+            width={1920}
+            height={1080}
             playsInline
             preload="auto"
           />

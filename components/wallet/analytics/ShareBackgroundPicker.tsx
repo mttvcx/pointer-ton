@@ -31,14 +31,7 @@ export function ShareBackgroundPicker({
             selectedId === p.id ? 'ring-border-default' : 'ring-transparent hover:ring-border-subtle',
           )}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={p.previewImage}
-            alt=""
-            className="h-full w-full object-cover"
-            style={p.imageFilter ? { filter: p.imageFilter } : undefined}
-            draggable={false}
-          />
+          <div className="h-full w-full" style={{ background: p.previewGradient }} />
         </button>
       ))}
       <label

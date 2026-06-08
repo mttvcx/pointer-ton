@@ -42,6 +42,13 @@ export const DEFAULT_SHARE_OVERLAY: ShareOverlaySettings = {
   overlayAlign: 'left',
 };
 
+export type PnlShareCalendarDay = {
+  label: string;
+  day: number;
+  value: string;
+  positive: boolean;
+};
+
 export type PnlSharePayload = {
   walletAddress: string;
   walletLabel: string | null;
@@ -60,6 +67,8 @@ export type PnlSharePayload = {
   /** Override stat row labels (e.g. monthly PNL share). */
   statInvestedLabel?: string;
   statPositionLabel?: string;
+  /** Optional daily boxes for PNL calendar module on share card. */
+  calendarDays?: PnlShareCalendarDay[];
 };
 
 export const SHARE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;

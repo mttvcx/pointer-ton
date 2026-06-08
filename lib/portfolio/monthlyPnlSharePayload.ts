@@ -5,6 +5,7 @@ import {
   type CalendarCurrency,
   type MonthPnlSummary,
 } from '@/lib/portfolio/dailyPnlCalendar';
+import { buildMonthlyCalendarDays } from '@/lib/share/pnlShareCardData';
 
 export type MonthlyPnlSharePayload = {
   year: number;
@@ -25,6 +26,7 @@ export function monthlyPnlToSharePayload({
   solUsd,
   buyVolSol,
   sellVolSol,
+  currency = 'usd',
 }: {
   year: number;
   month: number;
@@ -53,6 +55,7 @@ export function monthlyPnlToSharePayload({
     positionUsd: sellVolSol * rate,
     statInvestedLabel: 'Total Bought',
     statPositionLabel: 'Total Sold',
+    calendarDays: buildMonthlyCalendarDays(summary, currency),
   };
 }
 

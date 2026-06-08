@@ -1,53 +1,48 @@
 import type { ShareBackgroundPresetId } from '@/lib/share/types';
-import {
-  PNL_SHARE_PRESET_FILTERS,
-  PNL_SHARE_REFERENCE_IMG,
-} from '@/lib/share/pnlShareLayout';
 
-export const PNL_SHARE_POS_COLOR = '#22EEB3';
-export const PNL_SHARE_NEG_COLOR = '#FF5E78';
+export const PNL_SHARE_POS_COLOR = '#e8e8ec';
+export const PNL_SHARE_NEG_COLOR = '#c4a0a8';
 
 export type ShareCardTheme = {
   id: ShareBackgroundPresetId;
   label: string;
-  referenceImage: string;
-  imageFilter?: string;
   accent: string;
   accentMuted: string;
   heroBoxBorder: string;
   heroBoxGlow: string;
+  previewGradient: string;
 };
 
 export const SHARE_CARD_THEMES: ShareCardTheme[] = [
   {
     id: 'midnight',
-    label: 'Purple',
-    referenceImage: PNL_SHARE_REFERENCE_IMG,
-    imageFilter: PNL_SHARE_PRESET_FILTERS.midnight,
-    accent: '#a78bfa',
-    accentMuted: '#c4b5fd',
-    heroBoxBorder: 'rgba(125,60,255,0.55)',
-    heroBoxGlow: 'rgba(124,58,237,0.28)',
+    label: 'Chrome',
+    accent: '#f0f0f4',
+    accentMuted: '#c8c8d0',
+    heroBoxBorder: 'rgba(255,255,255,0.35)',
+    heroBoxGlow: 'rgba(255,255,255,0.12)',
+    previewGradient:
+      'linear-gradient(145deg, #000 0%, #0a0a0a 50%, #050505 100%), radial-gradient(ellipse 60% 40% at 30% 20%, rgba(255,255,255,0.12), transparent)',
   },
   {
     id: 'onyx',
     label: 'Mono',
-    referenceImage: PNL_SHARE_REFERENCE_IMG,
-    imageFilter: PNL_SHARE_PRESET_FILTERS.onyx,
-    accent: '#cbd5e1',
-    accentMuted: '#e2e8f0',
+    accent: '#e2e8f0',
+    accentMuted: '#94a3b8',
     heroBoxBorder: 'rgba(148,163,184,0.42)',
     heroBoxGlow: 'rgba(148,163,184,0.14)',
+    previewGradient:
+      'linear-gradient(145deg, #000 0%, #0f0f0f 50%, #050505 100%), radial-gradient(ellipse 55% 38% at 70% 30%, rgba(148,163,184,0.15), transparent)',
   },
   {
     id: 'glacier',
-    label: 'Cyan',
-    referenceImage: PNL_SHARE_REFERENCE_IMG,
-    imageFilter: PNL_SHARE_PRESET_FILTERS.glacier,
-    accent: '#67e8f9',
-    accentMuted: '#a5f3fc',
-    heroBoxBorder: 'rgba(34,211,238,0.5)',
-    heroBoxGlow: 'rgba(34,211,238,0.22)',
+    label: 'Ice',
+    accent: '#a5f3fc',
+    accentMuted: '#67e8f9',
+    heroBoxBorder: 'rgba(103,232,249,0.45)',
+    heroBoxGlow: 'rgba(34,211,238,0.18)',
+    previewGradient:
+      'linear-gradient(145deg, #000 0%, #050a0c 50%, #000 100%), radial-gradient(ellipse 58% 42% at 25% 75%, rgba(103,232,249,0.18), transparent)',
   },
 ];
 

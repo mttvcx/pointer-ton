@@ -309,7 +309,7 @@ export function PulseTokenAvatarHover({
     >
       <div
         className={cn(
-          'flex shrink-0 flex-col gap-0.5 overflow-hidden transition-all duration-150',
+          'flex shrink-0 flex-col gap-0.5 transition-all duration-150',
           hovered ? 'mr-0.5 w-[18px] opacity-100' : 'mr-0 w-0 opacity-0',
         )}
       >
