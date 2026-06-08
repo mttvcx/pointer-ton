@@ -4,12 +4,10 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownUp,
-  ChevronDown,
   Copy,
   Download,
   Image as ImageIcon,
   Loader2,
-  Paintbrush,
   Pause,
   Play,
   Trash2,
@@ -22,6 +20,7 @@ import { toast } from 'sonner';
 import { PnlShareCard } from '@/components/wallet/analytics/PnlShareCard';
 import type { PnlMomentBasis } from '@/components/wallet/analytics/PnlMomentAmount';
 import { ShareBackgroundPicker } from '@/components/wallet/analytics/ShareBackgroundPicker';
+import { ShareBackgroundPositionControls } from '@/components/wallet/analytics/ShareBackgroundPositionControls';
 import { ShareCustomizePanel } from '@/components/wallet/analytics/ShareCustomizePanel';
 import { copyShareImagePng, exportShareImagePng } from '@/lib/share/exportShareImage';
 import { exportShareVideoWebm } from '@/lib/share/exportShareVideo';
@@ -31,9 +30,9 @@ import {
   SHARE_VIDEO_MAX_DURATION_SEC,
   SHARE_IMAGE_MAX_BYTES,
 } from '@/lib/share/types';
-import { shareCardTheme } from '@/lib/share/shareCardTheme';
-import { accentHex as pickAccentHex } from '@/lib/share/videoCanvasFrame';
-import { formatCompactUsd } from '@/lib/utils/formatters';
+import { accentHex as pickAccentHex } from '@/lib/share/accentTokens';
+import { sharePeriodHeadline } from '@/lib/share/pnlShareFormat';
+import { formatShareSolAmount, formatShareUsdAmount } from '@/lib/share/pnlShareFormat';
 import { idbDeleteBlob, idbGetBlob, idbPutBlob } from '@/lib/share/localMediaDb';
 import { shortenAddress, SOL_MINT } from '@/lib/utils/addresses';
 import { useShareComposerState } from '@/hooks/useShareComposerState';
@@ -46,7 +45,6 @@ import {
   modalBtnSecondaryClass,
   modalCloseBtnClass,
   modalPanelClass,
-  modalSectionLabelClass,
 } from '@/lib/ui/modalChrome';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
@@ -93,7 +91,6 @@ export function PnlShareComposer() {
   const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
   const [customVideoUrl, setCustomVideoUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<'png' | 'copy' | 'video' | null>(null);
-  const [showCustomize, setShowCustomize] = useState(false);
   const [videoProg, setVideoProg] = useState(0);
   const [videoMuted, setVideoMuted] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
@@ -246,12 +243,10 @@ export function PnlShareComposer() {
     const p = displayPayloadStable;
     if (!p) return null;
     if (composer.chainTicker === 'SOL' && solUsdQ.data != null && p.pnlUsd != null) {
-      const sol = p.pnlUsd / solUsdQ.data;
-      const sign = sol >= 0 ? '+' : '-';
-      return `${sign}${Math.abs(sol).toFixed(3)} SOL`;
+      return formatShareSolAmount(p.pnlUsd / solUsdQ.data);
     }
     if (p.pnlUsd == null) return null;
-    return p.pnlUsd >= 0 ? `+${formatCompactUsd(p.pnlUsd)}` : formatCompactUsd(p.pnlUsd);
+    return formatShareUsdAmount(p.pnlUsd);
   }
 
   const shareAmountMotionBasis: PnlMomentBasis | null =
@@ -342,14 +337,15 @@ export function PnlShareComposer() {
           accentHex: pickAccentHex(composer.overlay.accent),
           chainTicker: composer.chainTicker,
           amountPrimary: amountPrimaryText(),
-          headlineText: composer.headlineText,
           referralCode: referralQ.data?.code ?? null,
           backgroundId: composer.backgroundId,
           momentBasis: shareAmountMotionBasis,
-          periodLabel:
-            shareKind === 'monthly' && shareHeader ? `${shareHeader} Realized` : composer.headlineText,
+          periodLabel: sharePeriodHeadline(shareKind, shareHeader, p.timeframe),
           statBoughtLabel: p.statInvestedLabel ?? 'Total Bought',
           statSoldLabel: p.statPositionLabel ?? 'Total Sold',
+          shareKind,
+          shareHeader,
+          timeframe: p.timeframe,
         },
         maxDurationSec: SHARE_VIDEO_MAX_DURATION_SEC,
         videoPan: composer.videoPan,
@@ -382,7 +378,8 @@ export function PnlShareComposer() {
 
   const showVideoBg = composer.mode === 'video' && customVideoUrl;
   const showImageBg = composer.mode === 'image' && customImageUrl;
-  const referralCode = referralQ.data?.code ?? 'POINTER';
+  const hasCalendarData = Boolean(d.calendarDays && d.calendarDays.length > 0);
+  const hasUploadedMedia = Boolean(showVideoBg || showImageBg);
 
   return (
     <div className="fixed inset-0 z-[570] flex items-center justify-center p-3 sm:p-5">
@@ -398,7 +395,7 @@ export function PnlShareComposer() {
         aria-labelledby="pnl-share-title"
         className={cn(
           modalPanelClass,
-          'relative z-10 max-h-[92vh] w-full max-w-[720px] fill-mode-forwards',
+          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col fill-mode-forwards',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
@@ -420,7 +417,7 @@ export function PnlShareComposer() {
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-          <div className="overflow-hidden rounded-md border border-border-subtle bg-bg-sunken p-1.5">
+          <div className="overflow-hidden">
             <PnlShareCard
                 ref={cardRef}
                 payload={d}
@@ -436,8 +433,7 @@ export function PnlShareComposer() {
                 videoZoom={composer.videoZoom}
                 videoMuted={videoMuted}
                 videoPaused
-                headlineText={composer.headlineText}
-                referralCode={referralCode}
+                referralCode={referralQ.data?.code ?? null}
                 amountMotionBasis={shareAmountMotionBasis}
                 amountMotionFrozen={busy === 'png' || busy === 'copy'}
                 amountRevealKey={shareAmountRevealKey}
@@ -499,7 +495,7 @@ export function PnlShareComposer() {
               disabled={Boolean(busy)}
             />
           ) : (
-            <div className="space-y-2 rounded-md border border-border-subtle bg-bg-sunken p-3">
+            <div className="space-y-3 rounded-md border border-border-subtle bg-bg-sunken p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <label className={cn(TOOL_BTN, 'cursor-pointer')}>
                   Upload video
@@ -522,7 +518,7 @@ export function PnlShareComposer() {
                 ) : null}
               </div>
               {customVideoUrl ? (
-                <div className="space-y-2 border-t border-border-subtle pt-2">
+                <div className="space-y-3 border-t border-border-subtle pt-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <button type="button" onClick={toggleVideoPlay} className={TOOL_BTN}>
                       {videoPlaying ? (
@@ -542,23 +538,6 @@ export function PnlShareComposer() {
                     </button>
                   </div>
                   <VideoScrubber video={videoPreviewRef} onSeek={seekPreviewVideo} />
-                  <details className="group text-[11px] text-fg-muted">
-                    <summary className="cursor-pointer list-none text-fg-secondary hover:text-fg-primary [&::-webkit-details-marker]:hidden">
-                      Frame position
-                    </summary>
-                    <div className="mt-2">
-                      <VideoFrameControls
-                        pan={composer.videoPan}
-                        zoom={composer.videoZoom}
-                        onPan={composer.setVideoPan}
-                        onZoom={composer.setVideoZoom}
-                        onReset={() => {
-                          composer.setVideoPan({ x: 0, y: 0 });
-                          composer.setVideoZoom(1);
-                        }}
-                      />
-                    </div>
-                  </details>
                 </div>
               ) : (
                 <p className="text-[11px] text-fg-muted">
@@ -569,93 +548,44 @@ export function PnlShareComposer() {
             </div>
           )}
 
-          {composer.mode === 'image' && customImageUrl ? (
-            <div className="rounded-md border border-border-subtle bg-bg-sunken p-3">
-              <p className={modalSectionLabelClass}>Image position</p>
-              <div
-                className="relative mt-2 aspect-video cursor-grab overflow-hidden rounded-sm border border-border-subtle active:cursor-grabbing"
-                onMouseDown={(down) => {
-                  const startX = down.clientX;
-                  const startY = down.clientY;
-                  const ox = composer.imagePan.x;
-                  const oy = composer.imagePan.y;
-                  function move(ev: MouseEvent) {
-                    composer.setImagePan({
-                      x: ox + (ev.clientX - startX),
-                      y: oy + (ev.clientY - startY),
-                    });
-                  }
-                  function up() {
-                    window.removeEventListener('mousemove', move);
-                    window.removeEventListener('mouseup', up);
-                  }
-                  window.addEventListener('mousemove', move);
-                  window.addEventListener('mouseup', up);
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={customImageUrl} alt="" className="h-full w-full object-cover opacity-80" />
-              </div>
-              <div className="mt-2 flex items-center gap-3">
-                <label className="flex flex-1 items-center gap-2 text-[11px] text-fg-muted">
-                  Zoom
-                  <input
-                    type="range"
-                    min={1}
-                    max={2}
-                    step={0.02}
-                    value={composer.imageZoom}
-                    onChange={(e) => composer.setImageZoom(Number(e.target.value))}
-                    className="flex-1 accent-emerald-400"
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="text-[11px] font-medium text-fg-secondary hover:text-fg-primary"
-                  onClick={() => {
-                    composer.setImagePan({ x: 0, y: 0 });
-                    composer.setImageZoom(1);
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
+          {hasUploadedMedia ? (
+            <ShareBackgroundPositionControls
+              pan={composer.mode === 'video' ? composer.videoPan : composer.imagePan}
+              zoom={composer.mode === 'video' ? composer.videoZoom : composer.imageZoom}
+              onPan={(pan) =>
+                composer.mode === 'video' ? composer.setVideoPan(pan) : composer.setImagePan(pan)
+              }
+              onZoom={(zoom) =>
+                composer.mode === 'video' ? composer.setVideoZoom(zoom) : composer.setImageZoom(zoom)
+              }
+              onReset={() => {
+                if (composer.mode === 'video') {
+                  composer.setVideoPan({ x: 0, y: 0 });
+                  composer.setVideoZoom(1);
+                } else {
+                  composer.setImagePan({ x: 0, y: 0 });
+                  composer.setImageZoom(1);
+                }
+              }}
+            />
           ) : null}
 
-          <div className="rounded-md border border-border-subtle bg-bg-sunken">
-            <button
-              type="button"
-              onClick={() => setShowCustomize((s) => !s)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-[12px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary"
-            >
-              <span className="inline-flex items-center gap-2">
-                <Paintbrush className="h-3.5 w-3.5" strokeWidth={2} />
-                Customize card
-              </span>
-              <ChevronDown
-                className={cn('h-4 w-4 text-fg-muted transition', showCustomize && 'rotate-180')}
-                strokeWidth={2}
-              />
-            </button>
-            {showCustomize ? (
-              <div className="border-t border-border-subtle px-3 pb-3 pt-1">
-                <ShareCustomizePanel
-                  overlay={composer.overlay}
-                  onChange={composer.patchOverlay}
-                  onReset={composer.resetDefaults}
-                />
-              </div>
-            ) : null}
+          <div className="rounded-md border border-border-subtle bg-bg-sunken p-3">
+            <ShareCustomizePanel
+              overlay={composer.overlay}
+              onChange={composer.patchOverlay}
+              onReset={composer.resetDefaults}
+              hasCalendarData={hasCalendarData}
+            />
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle bg-bg-raised px-4 py-3 sm:px-5">
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border-subtle bg-bg-raised px-4 py-3 sm:px-5">
           <button
             type="button"
             onClick={() => void onCopyPng()}
             disabled={busy !== null || composer.mode === 'video'}
-            className={cn(modalBtnSecondaryClass, 'h-8 px-3 text-[11px]')}
+            className={cn(modalBtnSecondaryClass, 'inline-flex h-9 shrink-0 items-center gap-1.5 px-4 text-[12px]')}
           >
             {busy === 'copy' ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -670,7 +600,7 @@ export function PnlShareComposer() {
               composer.mode === 'video' ? void onExportVideo() : void onDownloadPng()
             }
             disabled={busy !== null || (composer.mode === 'video' && !customVideoUrl)}
-            className={cn(modalBtnPrimaryClass, 'h-8 px-3 text-[11px]')}
+            className={cn(modalBtnPrimaryClass, 'inline-flex h-9 shrink-0 items-center gap-1.5 px-4 text-[12px]')}
           >
             {busy === 'png' || busy === 'video' ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -732,100 +662,8 @@ function VideoScrubber({
         onChange={(e) => {
           onSeek(Number(e.target.value));
         }}
-        className="h-1 flex-1 accent-emerald-400"
+        className="h-1 flex-1 accent-accent-primary"
       />
     </div>
-  );
-}
-
-function VideoFrameControls({
-  pan,
-  zoom,
-  onPan,
-  onZoom,
-  onReset,
-}: {
-  pan: { x: number; y: number };
-  zoom: number;
-  onPan: (pan: { x: number; y: number }) => void;
-  onZoom: (zoom: number) => void;
-  onReset: () => void;
-}) {
-  return (
-    <div className="rounded-sm border border-border-subtle bg-bg-base p-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <p className={modalSectionLabelClass}>Frame</p>
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-[11px] font-medium text-fg-secondary hover:text-fg-primary"
-        >
-          Reset
-        </button>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <FrameSlider
-          label="X"
-          value={pan.x}
-          min={-50}
-          max={50}
-          step={1}
-          onChange={(x) => onPan({ ...pan, x })}
-        />
-        <FrameSlider
-          label="Y"
-          value={pan.y}
-          min={-50}
-          max={50}
-          step={1}
-          onChange={(y) => onPan({ ...pan, y })}
-        />
-        <FrameSlider
-          label="Zoom"
-          value={zoom}
-          min={1}
-          max={2.5}
-          step={0.02}
-          onChange={onZoom}
-          display={`${zoom.toFixed(2)}x`}
-        />
-      </div>
-    </div>
-  );
-}
-
-function FrameSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  display,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  display?: string;
-}) {
-  return (
-    <label className="min-w-0 text-[10.5px] text-fg-muted">
-      <span className="flex items-center justify-between gap-2">
-        <span className="font-medium">{label}</span>
-        <span className="tabular-nums text-fg-secondary">{display ?? value}</span>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1 w-full accent-emerald-400"
-      />
-    </label>
   );
 }

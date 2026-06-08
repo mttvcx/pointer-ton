@@ -371,13 +371,11 @@ function ExternalGlyphLink({
   );
 }
 
-/** Stat glyph + dense above-card hover (Axiom parity). */
+/** Stat glyph + compact hover label (Axiom parity). */
 function PulseGlyphStatHoverCard({
   href,
   ariaLabel,
   hoverTitle,
-  hoverAccent,
-  hoverMuted,
   glyph,
   stat,
   glyphPx,
@@ -386,8 +384,6 @@ function PulseGlyphStatHoverCard({
   href: string;
   ariaLabel: string;
   hoverTitle: string;
-  hoverAccent: ReactNode;
-  hoverMuted: string;
   glyph: GlyphKey;
   stat: ReactNode;
   glyphPx: number;
@@ -396,16 +392,10 @@ function PulseGlyphStatHoverCard({
   return (
     <PulseCompactHoverAbove
       placement={placement}
+      openDelayMs={90}
+      closeDelayMs={90}
       content={
-        <>
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="min-w-0 text-[11px] font-semibold leading-none text-white/95">{hoverTitle}</p>
-            <span className="shrink-0 text-[11px] font-semibold tabular-nums leading-none text-emerald-400">
-              {hoverAccent}
-            </span>
-          </div>
-          <p className="mt-1.5 text-[10px] leading-snug text-white/50">{hoverMuted}</p>
-        </>
+        <p className="text-[11px] font-semibold leading-none text-fg-primary">{hoverTitle}</p>
       }
     >
       <Link
@@ -923,8 +913,6 @@ export function PulseRowSocialStrip({
             href={tokenPath}
             ariaLabel="Pro traders — hover for details, click for token page"
             hoverTitle="Pro Traders"
-            hoverAccent={proTradersLabel}
-            hoverMuted="Wallets matching pro-trader heuristics in the holder set."
             glyph="trophy"
             stat={proTradersLabel}
             glyphPx={sx}

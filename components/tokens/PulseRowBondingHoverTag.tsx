@@ -23,20 +23,31 @@ export function PulseRowBondingHoverTag({
   return (
     <div
       className={cn(
-        'pointer-events-none absolute inset-x-0 bottom-full z-[12] mb-0.5 hidden h-0 group-hover/pulseRow:block',
+        /**
+         * Only visible while hovering the metric-chip strip — never on name/social hovers.
+         * Stays above the pills (Axiom-style), not over them or other row popovers.
+         */
+        'pointer-events-none absolute inset-x-0 bottom-full z-[6] mb-2 hidden h-0',
+        'group-hover/metricStrip:block',
+        'group-has-[[data-popover-open=true]]/pulseRow:!hidden',
         className,
       )}
       aria-hidden
     >
       <span
-        className={cn(
-          'absolute bottom-0 whitespace-nowrap rounded-md border border-white/[0.1]',
-          'bg-bg-raised px-2 py-0.5 text-[10px] font-medium leading-none text-signal-bull',
-          'transition-[left] duration-200 ease-linear',
-        )}
-        style={{ left: `${pct}%`, transform: 'translateX(-50%)' }}
+        className="absolute bottom-0 -translate-x-1/2"
+        style={{ left: `${pct}%` }}
       >
-        {label}
+        <span
+          className={cn(
+            'block whitespace-nowrap rounded-md border border-white/[0.1]',
+            'bg-bg-raised px-2 py-0.5 text-[10px] font-medium leading-none text-signal-bull shadow-panel',
+            'transition-[opacity,transform] duration-150 ease-out',
+            'opacity-0 translate-y-0.5 group-hover/metricStrip:opacity-100 group-hover/metricStrip:translate-y-0',
+          )}
+        >
+          {label}
+        </span>
       </span>
     </div>
   );

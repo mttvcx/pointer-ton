@@ -621,7 +621,7 @@ function TokenRowInner({
                   {/**
                    * Metric chips align under the age column (2m / 8s), not under social icons.
                    */}
-                  <div className="relative min-w-0 overflow-visible pt-0.5">
+                  <div className="group/metricStrip relative min-w-0 overflow-visible pt-0.5">
                     <PulseRowBondingHoverTag
                       fillPct={bond.fillPct}
                       migrated={isMigratedVisual || bond.migrated}

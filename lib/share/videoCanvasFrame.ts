@@ -1,10 +1,15 @@
 import type { ShareOverlaySettings, ShareBackgroundPresetId } from '@/lib/share/types';
-import { DEFAULT_SHARE_HEADLINE } from '@/lib/share/types';
+import { accentHex as pickAccentHex } from '@/lib/share/accentTokens';
+import { sharePeriodHeadline, shareUsernameHandle, formatShareSolInteger, formatShareUsdAmount, fitShareHeroFontSize } from '@/lib/share/pnlShareFormat';
+import { shareCardTheme } from '@/lib/share/shareCardTheme';
 import { pnlMomentSnapshot, PNL_MOMENT_DURATION_SEC } from '@/lib/share/pnlMomentMotion';
-import { PNL_SHARE_CARD_REF, PNL_SHARE_POS } from '@/lib/share/pnlShareLayout';
+import { PNL_SHARE_CARD_REF, PNL_SHARE_POS, pnlShareContentOffset } from '@/lib/share/pnlShareLayout';
 import { formatCompactUsd } from '@/lib/utils/formatters';
+import { shortenAddress } from '@/lib/utils/addresses';
+import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
 
 export { PNL_SHARE_CARD_REF };
+export { pickAccentHex as accentHex };
 
 export type CardFrameArgs = {
   ticker: string;
@@ -18,7 +23,6 @@ export type CardFrameArgs = {
   accentHex: string;
   chainTicker: string;
   amountPrimary?: string | null;
-  headlineText?: string | null;
   referralCode?: string | null;
   backgroundId?: ShareBackgroundPresetId;
   momentBasis?: { kind: 'usd'; value: number } | { kind: 'sol'; value: number } | null;
@@ -27,60 +31,94 @@ export type CardFrameArgs = {
   statSoldLabel?: string | null;
   totalBought?: string | null;
   totalSold?: string | null;
+  shareKind?: 'position' | 'monthly';
+  shareHeader?: string | null;
+  timeframe?: WalletAnalyticsTimeframe;
 };
-
-const ACCENT: Record<ShareOverlaySettings['accent'], string> = {
-  teal: '#2dd4bf',
-  purple: '#c084fc',
-  blue: '#60a5fa',
-  green: '#4ade80',
-};
-
-export function accentHex(accent: ShareOverlaySettings['accent']): string {
-  return ACCENT[accent];
-}
 
 const BIRD_PATH =
   'M64 376 C 132 308 196 250 264 196 C 230 248 214 286 214 318 C 268 286 322 268 384 256 C 332 280 290 312 248 358 C 304 332 358 320 416 320 C 348 348 286 384 224 432 C 198 404 168 388 132 384 C 108 380 86 380 64 376 Z';
 
-/** @deprecated reference PNG removed — no preload needed */
 export function preloadPnlShareReference(): Promise<HTMLImageElement | null> {
   return Promise.resolve(null);
 }
 
 export function preloadPointerLogoForExport(): Promise<HTMLImageElement | null> {
-  return Promise.resolve(null);
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = '/branding/pointer-bird.png';
+  });
 }
 
-export const POINTER_BIRD_LOGO_SRC = '/branding/pointer-bird-transparent.png';
+export const POINTER_BIRD_LOGO_SRC = '/branding/pointer-bird.png';
 
-function drawCodeBackground(ctx: CanvasRenderingContext2D, w: number, h: number, bgId: ShareBackgroundPresetId) {
+function drawCodeBackground(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  bgId: ShareBackgroundPresetId,
+  overlayOpacity: number,
+) {
   const grad = ctx.createLinearGradient(0, 0, w, h);
-  grad.addColorStop(0, '#000000');
-  grad.addColorStop(0.45, '#050505');
-  grad.addColorStop(1, '#0a0a0a');
+  if (bgId === 'glacier') {
+    grad.addColorStop(0, '#000203');
+    grad.addColorStop(0.45, '#020608');
+    grad.addColorStop(1, '#000a0c');
+  } else if (bgId === 'onyx') {
+    grad.addColorStop(0, '#000000');
+    grad.addColorStop(0.45, '#08080a');
+    grad.addColorStop(1, '#0c0c0e');
+  } else {
+    grad.addColorStop(0, '#000000');
+    grad.addColorStop(0.45, '#040404');
+    grad.addColorStop(1, '#0a0a0a');
+  }
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
   ctx.save();
-  ctx.globalAlpha = bgId === 'glacier' ? 0.12 : 0.08;
-  const bloom = ctx.createRadialGradient(w * 0.18, h * 0.12, 0, w * 0.18, h * 0.12, w * 0.45);
-  bloom.addColorStop(0, bgId === 'glacier' ? '#67e8f9' : '#ffffff');
+  ctx.globalAlpha = bgId === 'glacier' ? 0.95 : 0.88;
+  const bloom = ctx.createRadialGradient(w * 0.18, h * 0.12, 0, w * 0.18, h * 0.12, w * 0.48);
+  if (bgId === 'glacier') {
+    bloom.addColorStop(0, 'rgba(103,232,249,0.28)');
+  } else if (bgId === 'onyx') {
+    bloom.addColorStop(0, 'rgba(148,163,184,0.2)');
+  } else {
+    bloom.addColorStop(0, 'rgba(255,255,255,0.14)');
+  }
   bloom.addColorStop(1, 'transparent');
   ctx.fillStyle = bloom;
   ctx.fillRect(0, 0, w, h);
   ctx.restore();
 
   ctx.save();
-  ctx.translate(w * 0.15, h * 0.2);
-  ctx.rotate(-0.42);
-  const streak = ctx.createLinearGradient(0, 0, w * 0.55, 0);
-  streak.addColorStop(0, 'transparent');
-  streak.addColorStop(0.45, 'rgba(255,255,255,0.1)');
-  streak.addColorStop(0.52, 'rgba(255,255,255,0.03)');
-  streak.addColorStop(1, 'transparent');
-  ctx.fillStyle = streak;
-  ctx.fillRect(0, 0, w * 0.55, h * 0.55);
+  ctx.globalAlpha = Math.min(0.55, overlayOpacity * 0.65);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+function drawGlassBox(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  bw: number,
+  bh: number,
+  bgId: ShareBackgroundPresetId,
+) {
+  const cardTheme = shareCardTheme(bgId);
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.strokeStyle = cardTheme.heroBoxBorder;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = cardTheme.heroBoxGlow;
+  ctx.shadowBlur = 28;
+  roundRect(ctx, x, y, bw, bh, 14);
+  ctx.fill();
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -91,41 +129,52 @@ function drawChromeText(
   y: number,
   fontSize: number,
   weight = '800',
+  accentHex?: string,
+  bgId: ShareBackgroundPresetId = 'midnight',
 ) {
   ctx.font = `${weight} ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  const cardTheme = shareCardTheme(bgId);
   const g = ctx.createLinearGradient(x, y - fontSize, x, y);
-  g.addColorStop(0, '#ffffff');
-  g.addColorStop(0.45, '#b8bac4');
-  g.addColorStop(0.65, '#f0f0f4');
-  g.addColorStop(1, '#888890');
+  if (bgId === 'glacier') {
+    g.addColorStop(0, '#f0fdff');
+    g.addColorStop(0.45, '#67e8f9');
+    g.addColorStop(0.65, '#ecfeff');
+    g.addColorStop(1, '#0891b2');
+  } else if (bgId === 'onyx') {
+    g.addColorStop(0, '#f8fafc');
+    g.addColorStop(0.45, '#94a3b8');
+    g.addColorStop(0.65, '#e2e8f0');
+    g.addColorStop(1, '#64748b');
+  } else {
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.45, '#b8bac4');
+    g.addColorStop(0.65, '#f0f0f4');
+    g.addColorStop(1, '#888890');
+  }
   ctx.fillStyle = g;
-  ctx.shadowColor = 'rgba(255,255,255,0.25)';
-  ctx.shadowBlur = 14;
+  ctx.shadowColor = accentHex ? `${accentHex}66` : cardTheme.heroBoxGlow;
+  ctx.shadowBlur = accentHex ? 18 : 16;
   ctx.fillText(text, x, y);
   ctx.shadowBlur = 0;
 }
 
-function drawGlassBox(ctx: CanvasRenderingContext2D, x: number, y: number, bw: number, bh: number) {
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.strokeStyle = 'rgba(255,255,255,0.24)';
-  ctx.lineWidth = 1.5;
-  ctx.shadowColor = 'rgba(255,255,255,0.08)';
-  ctx.shadowBlur = 24;
-  roundRect(ctx, x, y, bw, bh, 14);
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
-}
-
-function roundRect(
+function drawPlainWhiteText(
   ctx: CanvasRenderingContext2D,
+  text: string,
   x: number,
   y: number,
-  w: number,
-  h: number,
-  r: number,
+  fontSize: number,
+  weight = '600',
 ) {
+  ctx.font = `${weight} ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(255,255,255,0.2)';
+  ctx.shadowBlur = 10;
+  ctx.fillText(text, x, y);
+  ctx.shadowBlur = 0;
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -139,7 +188,11 @@ function roundRect(
   ctx.closePath();
 }
 
-function drawBirdMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+function drawBirdMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, logoImg: HTMLImageElement | null) {
+  if (logoImg) {
+    ctx.drawImage(logoImg, x, y, size, size);
+    return;
+  }
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(size / 512, size / 512);
@@ -159,7 +212,7 @@ export function drawPnlCardFrame(
   h: number,
   args: CardFrameArgs,
   overlay: ShareOverlaySettings,
-  _refImg: HTMLImageElement | null,
+  logoImg: HTMLImageElement | null,
   moment?: { tSec: number } | null,
   options?: { overlayOnly?: boolean },
 ): void {
@@ -168,14 +221,18 @@ export function drawPnlCardFrame(
   const bgId = args.backgroundId ?? 'midnight';
   const overlayOnly = options?.overlayOnly === true;
   const pos = PNL_SHARE_POS;
+  const accent = args.accentHex;
+  const colX = pnlShareContentOffset(overlay.overlayAlign) * scale;
 
   if (!overlayOnly) {
-    drawCodeBackground(ctx, w, h, bgId);
+    drawCodeBackground(ctx, w, h, bgId, overlay.overlayOpacity);
   }
 
-  const rawHandle =
-    (args.referralCode || 'pointer').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 18) || 'pointer';
-  const handle = `@${rawHandle}`;
+  const handle = shareUsernameHandle(args.walletLabel, args.referralCode);
+
+  const periodLabel =
+    args.periodLabel?.trim() ||
+    sharePeriodHeadline(args.shareKind ?? 'position', args.shareHeader, args.timeframe ?? '30d');
 
   const mainAmt =
     args.amountPrimary ??
@@ -192,101 +249,134 @@ export function drawPnlCardFrame(
     moment != null ? pnlMomentSnapshot(moment.tSec) : pnlMomentSnapshot(PNL_MOMENT_DURATION_SEC);
   const heroLabel = formatHeroAmountForMoment(args, mainAmt, moment != null ? snap.countProgress : 1);
 
-  const periodLabel =
-    args.periodLabel?.trim() ||
-    (args.headlineText ?? DEFAULT_SHARE_HEADLINE).slice(0, 48).trim() ||
-    'Realized';
+  const showPctStat = overlay.pnlFormat !== 'amount' && pctStr;
+  const heroDisplay = overlay.pnlFormat === 'pct' && pctStr ? pctStr : heroLabel;
 
   ctx.textBaseline = 'alphabetic';
 
-  if (overlay.showBranding) {
-    drawBirdMark(ctx, pos.logo.x * scale, pos.logo.y * scale, 36 * scale);
-    drawChromeText(ctx, 'pointer.', pos.logo.x * scale + 44 * scale, pos.logo.y * scale + 28 * scale, Math.round(28 * ts), '600');
-    ctx.textAlign = 'right';
-    drawChromeText(ctx, 'x', w - pos.username.right * scale, pos.logo.y * scale + 18 * scale, Math.round(15 * ts), '500');
-    drawChromeText(ctx, handle, w - pos.username.right * scale, pos.logo.y * scale + 52 * scale, Math.round(34 * ts), '600');
-    ctx.textAlign = 'left';
-  }
+  drawBirdMark(ctx, pos.logo.x * scale, pos.logo.y * scale, pos.logo.birdSize * scale, logoImg);
+
+  ctx.textAlign = 'right';
+  drawChromeText(
+    ctx,
+    'pointer.',
+    w - pos.wordmark.right * scale,
+    pos.wordmark.y * scale + pos.wordmark.fontSize * 0.85 * scale,
+    Math.round(pos.wordmark.fontSize * ts),
+    '600',
+    accent,
+    bgId,
+  );
+  ctx.textAlign = 'left';
 
   drawChromeText(
     ctx,
-    periodLabel.toUpperCase(),
-    pos.periodHeadline.x * scale,
+    periodLabel,
+    colX,
     pos.periodHeadline.y * scale + pos.periodHeadline.fontSize * ts * 0.85,
     Math.round(pos.periodHeadline.fontSize * ts),
     '900',
+    accent,
+    bgId,
   );
 
-  const boxX = pos.heroBox.x * scale;
+  const boxX = colX;
   const boxY = pos.heroBox.y * scale;
   const boxW = pos.heroBox.w * scale;
   const boxH = pos.heroBox.h * scale;
-  drawGlassBox(ctx, boxX, boxY, boxW, boxH);
+  drawGlassBox(ctx, boxX, boxY, boxW, boxH, bgId);
 
   ctx.save();
   ctx.globalAlpha *= snap.opacity;
   const token = args.chainTicker || 'USD';
-  const parts = heroLabel.split(/\s+/);
-  const amountPart = parts.length >= 2 ? parts.slice(0, -1).join(' ') : heroLabel;
-  const tokenPart = parts.length >= 2 ? parts[parts.length - 1]! : token;
-  drawChromeText(
-    ctx,
+  const parts = heroDisplay.split(/\s+/);
+  const amountPart = parts.length >= 2 && overlay.pnlFormat !== 'pct' ? parts.slice(0, -1).join(' ') : heroDisplay;
+  const tokenPart = parts.length >= 2 && overlay.pnlFormat !== 'pct' ? parts[parts.length - 1]! : token;
+  const heroFont = fitShareHeroFontSize(
     amountPart,
-    boxX + 32 * scale,
-    boxY + boxH * 0.62,
+    overlay.pnlFormat !== 'pct' && !heroDisplay.includes('%') ? tokenPart : null,
     Math.round(pos.heroAmount.fontSize * ts),
-    '900',
   );
-  drawChromeText(
-    ctx,
-    tokenPart.toUpperCase(),
-    boxX + 32 * scale + ctx.measureText(amountPart).width + 16 * scale,
-    boxY + boxH * 0.62,
-    Math.round(42 * ts),
-    '700',
-  );
+  drawChromeText(ctx, amountPart, boxX + 36 * scale, boxY + boxH * 0.64, heroFont, '900', accent, bgId);
+  if (overlay.pnlFormat !== 'pct' && !heroDisplay.includes('%')) {
+    drawChromeText(
+      ctx,
+      tokenPart.toUpperCase(),
+      boxX + 36 * scale + ctx.measureText(amountPart).width + 18 * scale,
+      boxY + boxH * 0.64,
+      Math.round(pos.heroAmount.tokenSize * ts * (heroFont / (pos.heroAmount.fontSize * ts))),
+      '700',
+      accent,
+      bgId,
+    );
+  }
   ctx.restore();
 
   let statY = pos.stats.y * scale;
-  const statX = pos.stats.x * scale;
-  const statFont = Math.round(pos.stats.fontSize * ts);
+  const statX = colX;
+  const labelFont = Math.round(pos.stats.labelSize * ts);
+  const valueFont = Math.round(pos.stats.valueSize * ts);
   const boughtLabel = args.statBoughtLabel ?? 'Total Bought';
   const soldLabel = args.statSoldLabel ?? 'Total Sold';
   const boughtVal = args.totalBought ?? (args.investedUsd == null ? '\u2014' : formatCompactUsd(args.investedUsd));
   const soldVal = args.totalSold ?? (args.positionUsd == null ? '\u2014' : formatCompactUsd(args.positionUsd));
 
-  if (pctStr) {
-    ctx.font = `700 ${statFont}px ui-sans-serif, system-ui, sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.42)';
+  if (showPctStat) {
+    ctx.font = `700 italic ${labelFont}px ui-serif, Georgia, serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.fillText('PNL', statX, statY);
-    drawChromeText(ctx, pctStr, statX + 280 * scale, statY, statFont, '800');
+    drawChromeText(ctx, pctStr!, statX + pos.stats.labelGap * scale, statY, valueFont, '800', accent, bgId);
     statY += pos.stats.rowGap * scale;
   }
 
-  ctx.font = `700 ${statFont}px ui-sans-serif, system-ui, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.42)';
+  ctx.font = `700 italic ${labelFont}px ui-serif, Georgia, serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.fillText(boughtLabel.toUpperCase(), statX, statY);
-  drawChromeText(ctx, boughtVal, statX + 280 * scale, statY, statFont, '800');
+  ctx.font = `800 italic ${valueFont}px ui-serif, Georgia, serif`;
+  drawChromeText(ctx, boughtVal, statX + pos.stats.labelGap * scale, statY, valueFont, '800', accent, bgId);
   statY += pos.stats.rowGap * scale;
 
-  ctx.fillStyle = 'rgba(255,255,255,0.42)';
+  ctx.font = `700 italic ${labelFont}px ui-serif, Georgia, serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.fillText(soldLabel.toUpperCase(), statX, statY);
-  drawChromeText(ctx, soldVal, statX + 280 * scale, statY, statFont, '800');
+  ctx.font = `800 italic ${valueFont}px ui-serif, Georgia, serif`;
+  drawChromeText(ctx, soldVal, statX + pos.stats.labelGap * scale, statY, valueFont, '800', accent, bgId);
 
-  if (overlay.showBranding) {
-    drawChromeText(ctx, handle, pos.footerHandle.x * scale, pos.footerHandle.y * scale, Math.round(26 * ts), '700');
-    ctx.font = `600 ${Math.round(13 * ts)}px ui-sans-serif, system-ui, sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
-    ctx.fillText('pointer.trade', pos.footerBrand.x * scale, pos.footerBrand.y * scale);
-    if (overlay.showCashbackFooter) {
-      ctx.fillStyle = 'rgba(255,255,255,0.42)';
-      ctx.fillText(
-        'Save 50% off fees, the highest in the game.',
-        pos.footerBrand.x * scale + ctx.measureText('pointer.trade').width + 20 * scale,
-        pos.footerBrand.y * scale,
-      );
-    }
+  if (overlay.showWalletAddress) {
+    statY += pos.stats.rowGap * scale;
+    ctx.fillStyle = 'rgba(255,255,255,0.48)';
+    ctx.fillText('WALLET', statX, statY);
+    drawChromeText(
+      ctx,
+      shortenAddress(args.walletAddress, 6),
+      statX + pos.stats.labelGap * scale,
+      statY,
+      valueFont,
+      '800',
+      accent,
+      bgId,
+    );
   }
+
+  const cardTheme = shareCardTheme(bgId);
+  drawBirdMark(ctx, colX, pos.footerLogo.y * scale, pos.footerLogo.size * scale, logoImg);
+
+  drawChromeText(
+    ctx,
+    handle,
+    colX,
+    pos.footerHandle.y * scale,
+    Math.round(pos.footerHandle.fontSize * ts),
+    '700',
+    accent,
+    bgId,
+  );
+  ctx.font = `600 ${Math.round(pos.footerDomain.fontSize * ts)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = cardTheme.accent;
+  ctx.fillText('pointer.trade', colX, pos.footerDomain.y * scale);
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  ctx.font = `500 ${Math.round(pos.footerPromo.fontSize * ts)}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillText('Save 50% off fees, forever.', colX, pos.footerPromo.y * scale);
 }
 
 function formatHeroAmountForMoment(args: CardFrameArgs, fallback: string, progress: number): string {
@@ -294,9 +384,8 @@ function formatHeroAmountForMoment(args: CardFrameArgs, fallback: string, progre
   if (!b) return fallback;
   if (b.kind === 'usd') {
     const v = b.value * progress;
-    return v >= 0 ? `+${formatCompactUsd(v)}` : formatCompactUsd(v);
+    return formatShareUsdAmount(v);
   }
   const v = b.value * progress;
-  const sign = v >= 0 ? '+' : '-';
-  return `${sign}${Math.abs(v).toFixed(3)} SOL`;
+  return formatShareSolInteger(v);
 }

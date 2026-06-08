@@ -46,8 +46,11 @@ function isTwitterishUrl(url: string): boolean {
 
 type HoverPlacement = 'above' | 'below';
 
+/** Axiom-style micro tooltip enter/exit — fast enough to feel instant, smooth enough to not hard-cut. */
+const PULSE_PORTAL_HOVER_ANIM_MS = 90;
+
 function usePortaledHoverPosition(
-  open: boolean,
+  track: boolean,
   anchorRef: React.RefObject<HTMLElement | null>,
   placement: HoverPlacement,
   gapPx = 6,
@@ -55,10 +58,7 @@ function usePortaledHoverPosition(
   const [pos, setPos] = useState<{ top: number; left: number; transform: string } | null>(null);
 
   useLayoutEffect(() => {
-    if (!open || !anchorRef.current) {
-      setPos(null);
-      return;
-    }
+    if (!track || !anchorRef.current) return;
     const sync = () => {
       const el = anchorRef.current;
       if (!el) return;
@@ -77,7 +77,7 @@ function usePortaledHoverPosition(
       window.removeEventListener('scroll', sync, true);
       window.removeEventListener('resize', sync);
     };
-  }, [open, placement, gapPx, anchorRef]);
+  }, [track, placement, gapPx, anchorRef]);
 
   return pos;
 }
@@ -104,29 +104,60 @@ export function PulsePortaledHoverLayer({
   onMouseLeave: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
-  const pos = usePortaledHoverPosition(open, anchorRef, placement, gapPx);
+  const [shown, setShown] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const pos = usePortaledHoverPosition(shown, anchorRef, placement, gapPx);
 
   useEffect(() => setMounted(true), []);
 
-  if (!open || !mounted || !pos) return null;
+  useEffect(() => {
+    if (open) {
+      setShown(true);
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setVisible(true));
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+    setVisible(false);
+    const t = window.setTimeout(() => setShown(false), PULSE_PORTAL_HOVER_ANIM_MS);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
+  if (!mounted || !shown || !pos) return null;
 
   return createPortal(
     <div
-      className={cn('pointer-events-auto fixed z-[280]', className)}
+      className="pointer-events-none fixed z-[280]"
       style={{ top: pos.top, left: pos.left, transform: pos.transform }}
       role={role}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
     >
-      {/* Invisible bridge so the cursor can travel trigger → panel without closing. */}
       <div
         className={cn(
-          'absolute left-1/2 w-8 -translate-x-1/2',
-          placement === 'below' ? '-top-2 h-2' : '-bottom-2 h-2',
+          'pointer-events-auto transition-[opacity,transform] duration-[90ms] ease-out will-change-[opacity,transform]',
+          placement === 'below' ? 'origin-top' : 'origin-bottom',
+          visible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.97]',
+          placement === 'below'
+            ? visible
+              ? 'translate-y-0'
+              : '-translate-y-0.5'
+            : visible
+              ? 'translate-y-0'
+              : 'translate-y-0.5',
+          className,
         )}
-        aria-hidden
-      />
-      {children}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        {/* Invisible bridge so the cursor can travel trigger → panel without closing. */}
+        <div
+          className={cn(
+            'absolute left-1/2 w-8 -translate-x-1/2',
+            placement === 'below' ? '-top-2 h-2' : '-bottom-2 h-2',
+          )}
+          aria-hidden
+        />
+        {children}
+      </div>
     </div>,
     document.body,
   );
@@ -171,7 +202,7 @@ export function PulseRichHover({
   };
   const scheduleClose = () => {
     clear();
-    t.current = setTimeout(() => setOpen(false), 120);
+    t.current = setTimeout(() => setOpen(false), 90);
   };
 
   return (
@@ -214,8 +245,8 @@ const labelMuted = 'text-[10px] font-medium uppercase tracking-wide text-[#9ca3a
 export function PulseCompactHoverAbove({
   children,
   content,
-  openDelayMs = 120,
-  closeDelayMs = 120,
+  openDelayMs = 90,
+  closeDelayMs = 90,
   role = 'tooltip',
   placement = 'above',
 }: {

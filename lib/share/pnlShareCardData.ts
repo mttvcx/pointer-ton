@@ -1,10 +1,19 @@
-import type { PnlShareCalendarDay, PnlSharePayload, ShareOverlaySettings, ShareBackgroundPresetId } from '@/lib/share/types';
-import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
-import { formatCompactUsd, formatSol } from '@/lib/utils/formatters';
+import type {
+  PnlShareCalendarDay,
+  PnlSharePayload,
+  ShareOverlaySettings,
+  ShareBackgroundPresetId,
+  OverlayAccent,
+} from '@/lib/share/types';
+import { formatCompactUsd } from '@/lib/utils/formatters';
+import { formatShareSolInteger, formatShareUsdAmount } from '@/lib/share/pnlShareFormat';
 import type { MonthPnlSummary } from '@/lib/portfolio/dailyPnlCalendar';
+import { sharePeriodHeadline, shareUsernameHandle } from '@/lib/share/pnlShareFormat';
+import { shortenAddress } from '@/lib/utils/addresses';
 
 export type PointerPnLShareCardData = {
   username: string;
+  walletAddressLine: string | null;
   periodLabel: string;
   pnlAmount: string;
   pnlToken: 'SOL' | 'USD';
@@ -13,32 +22,21 @@ export type PointerPnLShareCardData = {
   totalSold: string;
   calendarDays: PnlShareCalendarDay[];
   showCalendar: boolean;
-  showFooterBranding: boolean;
-  showLogo: boolean;
   themeVariant: ShareBackgroundPresetId;
+  accent: OverlayAccent;
   positive: boolean;
+  pnlFormat: ShareOverlaySettings['pnlFormat'];
+  overlayAlign: ShareOverlaySettings['overlayAlign'];
 };
-
-const TF_LABEL: Record<WalletAnalyticsTimeframe, string> = {
-  '1d': '1D Realized',
-  '7d': '7D Realized',
-  '30d': '30D Realized',
-  max: 'ALL Realized',
-};
-
-function timeframeLabel(tf: WalletAnalyticsTimeframe): string {
-  return TF_LABEL[tf] ?? 'Realized';
-}
 
 function fmtSignedUsd(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—';
-  return v >= 0 ? `+${formatCompactUsd(v)}` : formatCompactUsd(v);
+  return formatShareUsdAmount(v);
 }
 
-function fmtSignedSol(v: number | null | undefined): string {
+function fmtSolStat(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—';
-  const sign = v >= 0 ? '+' : '-';
-  return `${sign}${formatSol(Math.abs(v))}`;
+  return `${formatShareSolInteger(v, false)} SOL`;
 }
 
 function fmtPct(v: number | null | undefined): string | null {
@@ -65,7 +63,7 @@ export function buildMonthlyCalendarDays(
     const positive = pnl >= 0;
     const value =
       currency === 'sol'
-        ? `${positive ? '+' : '-'}${formatSol(Math.abs(pnl))}`
+        ? formatShareSolInteger(positive ? pnl : -Math.abs(pnl))
         : positive
           ? `+${formatCompactUsd(pnl)}`
           : formatCompactUsd(pnl);
@@ -84,7 +82,6 @@ export function payloadToShareCardData(params: {
   backgroundId: ShareBackgroundPresetId;
   amountPrimary?: string | null;
   referralCode?: string | null;
-  headlineText?: string | null;
   chainTicker?: 'SOL' | 'USD';
   solUsd?: number | null;
   shareKind?: 'position' | 'monthly';
@@ -96,29 +93,27 @@ export function payloadToShareCardData(params: {
     backgroundId,
     amountPrimary,
     referralCode,
-    headlineText,
     chainTicker = 'USD',
     solUsd,
     shareKind = 'position',
     shareHeader,
   } = params;
 
-  const rawHandle =
-    (referralCode || 'pointer').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 18) || 'pointer';
-  const username = `@${rawHandle}`;
+  const username = shareUsernameHandle(payload.walletLabel, referralCode);
+  const walletAddressLine = overlay.showWalletAddress
+    ? shortenAddress(payload.walletAddress, 6)
+    : null;
 
-  const periodLabel =
-    shareKind === 'monthly' && shareHeader
-      ? `${shareHeader} Realized`
-      : headlineText?.trim()
-        ? headlineText.trim().slice(0, 48)
-        : timeframeLabel(payload.timeframe);
-
+  const periodLabel = sharePeriodHeadline(shareKind, shareHeader, payload.timeframe);
   const pos = payload.pnlUsd != null && payload.pnlUsd >= 0;
+  const pctStr = fmtPct(payload.pnlPct);
 
   let pnlAmount = '—';
   let pnlToken: 'SOL' | 'USD' = chainTicker;
-  if (amountPrimary) {
+  if (overlay.pnlFormat === 'pct' && pctStr) {
+    pnlAmount = pctStr;
+    pnlToken = chainTicker;
+  } else if (amountPrimary) {
     const parts = amountPrimary.trim().split(/\s+/);
     if (parts.length >= 2 && /SOL|USD/i.test(parts[parts.length - 1]!)) {
       const tok = parts[parts.length - 1]!.toUpperCase();
@@ -137,37 +132,31 @@ export function payloadToShareCardData(params: {
   let totalBought = '—';
   let totalSold = '—';
   if (chainTicker === 'SOL' && rate != null) {
-    totalBought =
-      payload.investedUsd != null ? fmtSignedSol(payload.investedUsd / rate).replace(/^[+-]/, '') : '—';
-    totalSold =
-      payload.positionUsd != null ? fmtSignedSol(payload.positionUsd / rate).replace(/^[+-]/, '') : '—';
-    if (totalBought !== '—') totalBought = `${totalBought} SOL`;
-    if (totalSold !== '—') totalSold = `${totalSold} SOL`;
+    totalBought = payload.investedUsd != null ? fmtSolStat(payload.investedUsd / rate) : '—';
+    totalSold = payload.positionUsd != null ? fmtSolStat(payload.positionUsd / rate) : '—';
   } else {
-    totalBought =
-      payload.investedUsd != null ? formatCompactUsd(payload.investedUsd) : '—';
-    totalSold =
-      payload.positionUsd != null ? formatCompactUsd(payload.positionUsd) : '—';
-    if (totalBought !== '—') totalBought = `${totalBought}`;
-    if (totalSold !== '—') totalSold = `${totalSold}`;
+    totalBought = payload.investedUsd != null ? formatCompactUsd(payload.investedUsd) : '—';
+    totalSold = payload.positionUsd != null ? formatCompactUsd(payload.positionUsd) : '—';
   }
 
   const calendarDays = payload.calendarDays ?? [];
-  const showCalendar = calendarDays.length > 0;
+  const showCalendar = overlay.showCalendar && calendarDays.length > 0;
 
   return {
     username,
+    walletAddressLine,
     periodLabel,
     pnlAmount,
-    pnlToken,
-    pnlPercent: fmtPct(payload.pnlPct),
+    pnlToken: overlay.pnlFormat === 'pct' ? chainTicker : pnlToken,
+    pnlPercent: pctStr,
     totalBought,
     totalSold,
     calendarDays,
     showCalendar,
-    showFooterBranding: overlay.showBranding,
-    showLogo: overlay.showBranding,
     themeVariant: backgroundId,
+    accent: overlay.accent,
     positive: pos,
+    pnlFormat: overlay.pnlFormat,
+    overlayAlign: overlay.overlayAlign,
   };
 }

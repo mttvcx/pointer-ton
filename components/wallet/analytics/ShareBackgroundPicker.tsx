@@ -18,7 +18,7 @@ export function ShareBackgroundPicker({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 pt-1">
+    <div className="flex gap-2 overflow-x-auto pb-0.5">
       {PRESET_BACKGROUNDS.map((p) => (
         <button
           key={p.id}
@@ -27,7 +27,7 @@ export function ShareBackgroundPicker({
           title={p.label}
           onClick={() => onSelect(p.id)}
           className={cn(
-            'relative h-14 w-[4.5rem] shrink-0 overflow-hidden rounded-sm ring-2 ring-offset-2 ring-offset-bg-sunken transition',
+            'relative h-14 w-[4.5rem] shrink-0 overflow-hidden rounded-sm ring-2 ring-inset transition',
             selectedId === p.id ? 'ring-border-default' : 'ring-transparent hover:ring-border-subtle',
           )}
         >

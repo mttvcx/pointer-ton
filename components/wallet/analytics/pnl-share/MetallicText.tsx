@@ -2,13 +2,14 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
-import type { ShareBackgroundPresetId } from '@/lib/share/types';
+import type { OverlayAccent, ShareBackgroundPresetId } from '@/lib/share/types';
 import { metallicTextStyle, type MetallicVariant } from '@/components/wallet/analytics/pnl-share/metallicStyles';
 
 export function MetallicText({
   children,
   variant = 'body',
   theme = 'midnight',
+  accent = 'teal',
   positive = true,
   className,
   style,
@@ -17,6 +18,7 @@ export function MetallicText({
   children: ReactNode;
   variant?: MetallicVariant;
   theme?: ShareBackgroundPresetId;
+  accent?: OverlayAccent;
   positive?: boolean;
   className?: string;
   style?: CSSProperties;
@@ -25,7 +27,7 @@ export function MetallicText({
   return (
     <Tag
       className={cn(className)}
-      style={{ ...metallicTextStyle(variant, theme, positive), ...style }}
+      style={{ ...metallicTextStyle(variant, theme, positive, accent), ...style }}
     >
       {children}
     </Tag>

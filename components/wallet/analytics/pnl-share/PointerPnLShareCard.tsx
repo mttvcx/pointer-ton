@@ -4,11 +4,11 @@ import type { CSSProperties } from 'react';
 import { CalendarPanel } from '@/components/wallet/analytics/pnl-share/CalendarPanel';
 import { FooterBranding } from '@/components/wallet/analytics/pnl-share/FooterBranding';
 import { MetallicText } from '@/components/wallet/analytics/pnl-share/MetallicText';
-import { PointerLogoLockup } from '@/components/wallet/analytics/pnl-share/PointerLogoLockup';
+import { PointerBirdMark, PointerWordmark } from '@/components/wallet/analytics/pnl-share/PointerLogoLockup';
 import { PnLValueBox } from '@/components/wallet/analytics/pnl-share/PnLValueBox';
 import { StatRow } from '@/components/wallet/analytics/pnl-share/StatRow';
 import type { PointerPnLShareCardData } from '@/lib/share/pnlShareCardData';
-import { PNL_SHARE_POS } from '@/lib/share/pnlShareLayout';
+import { PNL_SHARE_POS, pnlShareContentOffset } from '@/lib/share/pnlShareLayout';
 import { cn } from '@/lib/utils/cn';
 
 export type { PointerPnLShareCardData };
@@ -20,7 +20,6 @@ export function PointerPnLShareCard({
   calendarMonthLabel,
   statBoughtLabel = 'Total Bought',
   statSoldLabel = 'Total Sold',
-  showCashbackFooter = true,
   motionBasis,
   motionFrozen,
   motionRevealKey,
@@ -32,7 +31,6 @@ export function PointerPnLShareCard({
   calendarMonthLabel?: string | null;
   statBoughtLabel?: string;
   statSoldLabel?: string;
-  showCashbackFooter?: boolean;
   motionBasis?: import('@/components/wallet/analytics/PnlMomentAmount').PnlMomentBasis | null;
   motionFrozen?: boolean;
   motionRevealKey?: string;
@@ -40,63 +38,57 @@ export function PointerPnLShareCard({
 }) {
   const s = scale * textScale;
   const theme = data.themeVariant;
+  const accent = data.accent;
   const pos = PNL_SHARE_POS;
+  const colX = pnlShareContentOffset(data.overlayAlign) * scale;
 
   const heroFontSize = Math.round(pos.heroAmount.fontSize * s);
   const periodFontSize = Math.round(pos.periodHeadline.fontSize * s);
+  const showPctStat = data.pnlFormat !== 'amount' && data.pnlPercent;
+  const showHeroToken = data.pnlFormat !== 'pct';
 
   return (
-    <div className={cn('relative h-full w-full', className)}>
-      {/* Top bar */}
+    <div className={cn('relative h-full w-full overflow-visible', className)}>
+      <PointerBirdMark
+        className="absolute z-10"
+        style={{ left: pos.logo.x * scale, top: pos.logo.y * scale }}
+      />
       <div
-        className="absolute flex items-start justify-between"
+        className="absolute z-10"
         style={{
-          left: pos.logo.x * scale,
-          right: pos.username.right * scale,
-          top: pos.logo.y * scale,
+          right: pos.wordmark.right * scale,
+          top: pos.wordmark.y * scale,
+          maxWidth: 320 * scale,
         }}
       >
-        {data.showLogo ? <PointerLogoLockup theme={theme} size="md" /> : <span />}
-        <div className="flex flex-col items-end text-right">
-          <MetallicText
-            variant="username"
-            theme={theme}
-            className="text-[15px] font-medium leading-none opacity-80"
-          >
-            x
-          </MetallicText>
-          <MetallicText
-            variant="username"
-            theme={theme}
-            className="mt-1 max-w-[420px] truncate text-[34px] font-semibold leading-tight"
-            style={{ fontSize: Math.round(34 * s) }}
-          >
-            {data.username}
-          </MetallicText>
-        </div>
+        <PointerWordmark
+          theme={theme}
+          accent={accent}
+          style={{ fontSize: Math.round(pos.wordmark.fontSize * s) }}
+        />
       </div>
 
-      {/* Period headline */}
       <MetallicText
         variant="title"
         theme={theme}
+        accent={accent}
         as="h1"
-        className="absolute font-black uppercase leading-none tracking-tight"
+        className="absolute z-[1] font-black uppercase tracking-tight"
         style={{
-          left: pos.periodHeadline.x * scale,
+          left: colX,
           top: pos.periodHeadline.y * scale,
           fontSize: periodFontSize,
-          maxWidth: (pos.heroBox.w + 120) * scale,
+          lineHeight: pos.periodHeadline.lineHeight,
+          maxWidth: pos.heroBox.w * scale,
         }}
       >
         {data.periodLabel}
       </MetallicText>
 
-      {/* Hero PnL box */}
       <div
-        className="absolute"
+        className="absolute z-[2]"
         style={{
-          left: pos.heroBox.x * scale,
+          left: colX,
           top: pos.heroBox.y * scale,
           width: pos.heroBox.w * scale,
         }}
@@ -106,66 +98,62 @@ export function PointerPnLShareCard({
           token={data.pnlToken}
           positive={data.positive}
           theme={theme}
+          accent={accent}
           fontSize={heroFontSize}
-          motionBasis={motionBasis}
+          showToken={showHeroToken}
+          motionBasis={data.pnlFormat === 'pct' ? null : motionBasis}
           motionFrozen={motionFrozen}
           motionRevealKey={motionRevealKey}
         />
       </div>
 
-      {/* Stats */}
       <div
-        className="absolute flex flex-col"
+        className="absolute z-[1] flex flex-col overflow-visible"
         style={{
-          left: pos.stats.x * scale,
+          left: colX,
           top: pos.stats.y * scale,
-          width: 520 * scale,
+          width: 720 * scale,
           gap: pos.stats.rowGap * scale,
         }}
       >
-        {data.pnlPercent ? (
-          <StatRow label="PNL" value={data.pnlPercent} theme={theme} className="[&_span:last-child]:text-[26px]" />
+        {showPctStat ? (
+          <StatRow label="PNL" value={data.pnlPercent!} theme={theme} accent={accent} />
         ) : null}
-        <StatRow
-          label={statBoughtLabel}
-          value={data.totalBought}
-          theme={theme}
-          className="[&_span:last-child]:text-[22px]"
-        />
-        <StatRow
-          label={statSoldLabel}
-          value={data.totalSold}
-          theme={theme}
-          className="[&_span:last-child]:text-[22px]"
-        />
+        <StatRow label={statBoughtLabel} value={data.totalBought} theme={theme} accent={accent} />
+        <StatRow label={statSoldLabel} value={data.totalSold} theme={theme} accent={accent} />
+        {data.walletAddressLine ? (
+          <StatRow label="Wallet" value={data.walletAddressLine} theme={theme} accent={accent} />
+        ) : null}
       </div>
 
-      {/* Calendar */}
+      <FooterBranding
+        username={data.username}
+        theme={theme}
+        accent={accent}
+        scale={scale}
+        className="absolute z-[1]"
+        style={{
+          left: colX,
+          top: pos.footerLogo.y * scale,
+        } satisfies CSSProperties}
+      />
+
       {data.showCalendar ? (
         <div
-          className="absolute"
+          className="absolute z-[1]"
           style={{
             left: pos.calendar.x * scale,
             top: pos.calendar.y * scale,
             width: pos.calendar.w * scale,
           }}
         >
-          <CalendarPanel days={data.calendarDays} monthLabel={calendarMonthLabel} theme={theme} />
+          <CalendarPanel
+            days={data.calendarDays}
+            monthLabel={calendarMonthLabel}
+            theme={theme}
+            accent={accent}
+          />
         </div>
-      ) : null}
-
-      {/* Footer */}
-      {data.showFooterBranding ? (
-        <FooterBranding
-          username={data.username}
-          theme={theme}
-          showCashbackLine={showCashbackFooter}
-          className="absolute"
-          style={{
-            left: pos.footerHandle.x * scale,
-            top: pos.footerHandle.y * scale,
-          } satisfies CSSProperties}
-        />
       ) : null}
     </div>
   );

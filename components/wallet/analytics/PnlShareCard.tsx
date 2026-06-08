@@ -42,10 +42,7 @@ export const PnlShareCard = forwardRef<
     videoPan?: { x: number; y: number };
     videoZoom?: number;
     videoMuted?: boolean;
-    headlineText?: string;
     referralCode?: string | null;
-    editableHeadline?: boolean;
-    onHeadlineChange?: (value: string) => void;
     className?: string;
     amountMotionBasis?: PnlMomentBasis | null;
     amountMotionFrozen?: boolean;
@@ -70,7 +67,6 @@ export const PnlShareCard = forwardRef<
     videoPan = { x: 0, y: 0 },
     videoZoom = 1,
     videoMuted = false,
-    headlineText,
     referralCode,
     className,
     chainTicker = 'USD',
@@ -82,8 +78,9 @@ export const PnlShareCard = forwardRef<
     amountRevealKey,
   } = props;
 
-  const outerRef = useRef<HTMLDivElement | null>(null);
-  const fitScale = useCardFitScale(outerRef);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const fitScale = useCardFitScale(previewRef);
   const showCustomMedia = Boolean(customImageSrc || videoSrc);
 
   const cardData = payloadToShareCardData({
@@ -92,26 +89,27 @@ export const PnlShareCard = forwardRef<
     backgroundId,
     amountPrimary,
     referralCode,
-    headlineText,
     chainTicker,
     solUsd,
     shareKind,
     shareHeader,
   });
 
-  const setRefs = (node: HTMLDivElement | null) => {
-    outerRef.current = node;
+  const setCanvasRef = (node: HTMLDivElement | null) => {
+    canvasRef.current = node;
     if (typeof ref === 'function') ref(node);
     else if (ref) ref.current = node;
   };
 
   return (
     <div
-      ref={setRefs}
-      className={cn('relative aspect-video w-full overflow-hidden rounded-[10px] bg-black', className)}
+      ref={previewRef}
+      className={cn('relative aspect-video w-full bg-black', className)}
     >
       <div
-        className="absolute left-0 top-0 origin-top-left"
+        ref={setCanvasRef}
+        data-pnl-share-canvas
+        className="absolute left-0 top-0 origin-top-left overflow-visible"
         style={{
           width: PNL_SHARE_CARD_REF.w,
           height: PNL_SHARE_CARD_REF.h,
@@ -143,7 +141,7 @@ export const PnlShareCard = forwardRef<
               alt=""
               className="h-full w-full object-cover"
               style={{
-                transform: `translate(${imagePan.x}px, ${imagePan.y}px) scale(${imageZoom})`,
+                transform: `translate(${imagePan.x}%, ${imagePan.y}%) scale(${imageZoom})`,
                 transformOrigin: 'center center',
               }}
             />
@@ -164,7 +162,6 @@ export const PnlShareCard = forwardRef<
           calendarMonthLabel={shareKind === 'monthly' ? shareHeader : null}
           statBoughtLabel={payload.statInvestedLabel ?? 'Total Bought'}
           statSoldLabel={payload.statPositionLabel ?? 'Total Sold'}
-          showCashbackFooter={overlay.showCashbackFooter}
           motionBasis={amountMotionBasis}
           motionFrozen={amountMotionFrozen}
           motionRevealKey={amountRevealKey}

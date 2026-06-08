@@ -10,14 +10,11 @@ export type PnlFormatMode = 'amount' | 'pct' | 'both';
 export type OverlayAccent = 'teal' | 'purple' | 'blue' | 'green';
 
 export type ShareOverlaySettings = {
-  showTokenName: boolean;
-  showWalletLabel: boolean;
   showWalletAddress: boolean;
-  showBranding: boolean;
-  showCashbackFooter: boolean;
-  compactStats: boolean;
+  /** Monthly calendar panel — only shown when calendar data exists. */
+  showCalendar: boolean;
   pnlFormat: PnlFormatMode;
-  /** Dark overlay on background media, 0–1 */
+  /** Card darkness / glass strength, 0–1 */
   overlayOpacity: number;
   /** 0.85 – 1.2 */
   textScale: number;
@@ -25,22 +22,43 @@ export type ShareOverlaySettings = {
   overlayAlign: 'left' | 'center' | 'right';
 };
 
-export const DEFAULT_SHARE_HEADLINE = '50% CASHBACK, THE HIGHEST IN THE GAME.';
-export const MAX_SHARE_HEADLINE_CHARS = 72;
-
 export const DEFAULT_SHARE_OVERLAY: ShareOverlaySettings = {
-  showTokenName: true,
-  showWalletLabel: true,
   showWalletAddress: false,
-  showBranding: true,
-  showCashbackFooter: true,
-  compactStats: false,
+  showCalendar: true,
   pnlFormat: 'both',
-  overlayOpacity: 0.52,
+  overlayOpacity: 0.48,
   textScale: 1,
   accent: 'teal',
   overlayAlign: 'left',
 };
+
+/** Migrate persisted overlay JSON from older composer versions. */
+export function normalizeShareOverlay(raw: unknown): ShareOverlaySettings {
+  if (!raw || typeof raw !== 'object') return DEFAULT_SHARE_OVERLAY;
+  const o = raw as Record<string, unknown>;
+  return {
+    showWalletAddress: typeof o.showWalletAddress === 'boolean' ? o.showWalletAddress : false,
+    showCalendar: typeof o.showCalendar === 'boolean' ? o.showCalendar : true,
+    pnlFormat:
+      o.pnlFormat === 'amount' || o.pnlFormat === 'pct' || o.pnlFormat === 'both'
+        ? o.pnlFormat
+        : DEFAULT_SHARE_OVERLAY.pnlFormat,
+    overlayOpacity:
+      typeof o.overlayOpacity === 'number' ? o.overlayOpacity : DEFAULT_SHARE_OVERLAY.overlayOpacity,
+    textScale: typeof o.textScale === 'number' ? o.textScale : DEFAULT_SHARE_OVERLAY.textScale,
+    accent:
+      o.accent === 'teal' ||
+      o.accent === 'purple' ||
+      o.accent === 'blue' ||
+      o.accent === 'green'
+        ? o.accent
+        : DEFAULT_SHARE_OVERLAY.accent,
+    overlayAlign:
+      o.overlayAlign === 'left' || o.overlayAlign === 'center' || o.overlayAlign === 'right'
+        ? o.overlayAlign
+        : DEFAULT_SHARE_OVERLAY.overlayAlign,
+  };
+}
 
 export type PnlShareCalendarDay = {
   label: string;

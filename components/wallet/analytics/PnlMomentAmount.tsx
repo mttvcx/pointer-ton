@@ -7,6 +7,7 @@ import {
   pnlMomentSnapshot,
 } from '@/lib/share/pnlMomentMotion';
 import { formatCompactUsd } from '@/lib/utils/formatters';
+import { formatShareSolInteger } from '@/lib/share/pnlShareFormat';
 
 export type PnlMomentBasis =
   | { kind: 'usd'; value: number }
@@ -17,7 +18,7 @@ export function PnlMomentAmount({
   fallbackText,
   frozen,
   revealKey,
-  positive,
+  positive: _positive,
   className,
   style: styleProp,
 }: {
@@ -78,34 +79,21 @@ export function PnlMomentAmount({
     label = v >= 0 ? `+${formatCompactUsd(v)}` : formatCompactUsd(v);
   } else {
     const v = basis.value * snap.countProgress;
-    const sign = v >= 0 ? '+' : '-';
-    label = `${sign}${Math.abs(v).toFixed(3)} SOL`;
+    label = formatShareSolInteger(v);
   }
 
-  const glowColor = positive ? 'rgba(45,212,191,0.45)' : 'rgba(253,164,175,0.35)';
-
   return (
-    <span className="relative inline-block">
-      <span
-        className="pointer-events-none absolute left-1/2 top-[48%] h-[140%] w-[min(140%,420px)] -translate-x-1/2 -translate-y-1/2 rounded-full mix-blend-screen"
-        style={{
-          background: `radial-gradient(circle at 50% 50%, ${glowColor}, transparent 68%)`,
-          opacity: snap.glowStrength * 0.85,
-        }}
-        aria-hidden
-      />
-      <span
-        className={cn('relative inline-block will-change-[transform,opacity,filter]', className)}
-        style={{
-          ...styleProp,
-          transformOrigin: 'center center',
-          opacity: snap.opacity,
-          transform: `scale(${snap.scale})`,
-          filter: snap.blurPx > 0.04 ? `blur(${snap.blurPx}px)` : undefined,
-        }}
-      >
-        {label}
-      </span>
+    <span
+      className={cn('relative inline-block will-change-[transform,opacity,filter]', className)}
+      style={{
+        ...styleProp,
+        transformOrigin: 'center center',
+        opacity: snap.opacity,
+        transform: `scale(${snap.scale})`,
+        filter: snap.blurPx > 0.04 ? `blur(${snap.blurPx}px)` : undefined,
+      }}
+    >
+      {label}
     </span>
   );
 }

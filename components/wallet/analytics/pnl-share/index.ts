@@ -3,7 +3,7 @@ export { CalendarPanel } from '@/components/wallet/analytics/pnl-share/CalendarP
 export { ChromePanel } from '@/components/wallet/analytics/pnl-share/ChromePanel';
 export { FooterBranding } from '@/components/wallet/analytics/pnl-share/FooterBranding';
 export { MetallicText } from '@/components/wallet/analytics/pnl-share/MetallicText';
-export { PointerLogoLockup } from '@/components/wallet/analytics/pnl-share/PointerLogoLockup';
+export { PointerBirdMark, PointerWordmark } from '@/components/wallet/analytics/pnl-share/PointerLogoLockup';
 export { PointerPnLShareCard } from '@/components/wallet/analytics/pnl-share/PointerPnLShareCard';
 export type { PointerPnLShareCardData } from '@/components/wallet/analytics/pnl-share/PointerPnLShareCard';
 export { PnLValueBox } from '@/components/wallet/analytics/pnl-share/PnLValueBox';

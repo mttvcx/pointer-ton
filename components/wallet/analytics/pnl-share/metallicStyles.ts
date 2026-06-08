@@ -1,48 +1,44 @@
+'use client';
+
 import type { CSSProperties } from 'react';
-import type { ShareBackgroundPresetId } from '@/lib/share/types';
+import type { OverlayAccent, ShareBackgroundPresetId } from '@/lib/share/types';
+import { ACCENT_GLOW_RGBA, ACCENT_SOFT_RGBA } from '@/lib/share/accentTokens';
+import { shareCardTheme, themeMetallicGradient } from '@/lib/share/shareCardTheme';
 
-export type MetallicVariant = 'hero' | 'title' | 'body' | 'username' | 'stat';
-
-const CHROME_GRADIENT: Record<ShareBackgroundPresetId, string> = {
-  midnight:
-    'linear-gradient(180deg, #ffffff 0%, #e8e8ec 18%, #a8aab4 42%, #f0f0f4 58%, #8a8c98 78%, #ffffff 100%)',
-  onyx:
-    'linear-gradient(180deg, #f8fafc 0%, #cbd5e1 25%, #94a3b8 50%, #e2e8f0 72%, #64748b 88%, #f1f5f9 100%)',
-  glacier:
-    'linear-gradient(180deg, #f0fdff 0%, #cffafe 20%, #67e8f9 45%, #ecfeff 62%, #22d3ee 80%, #ffffff 100%)',
-};
-
-const CHROME_SHADOW: Record<ShareBackgroundPresetId, string> = {
-  midnight: '0 0 24px rgba(255,255,255,0.35), 0 2px 8px rgba(0,0,0,0.8)',
-  onyx: '0 0 20px rgba(226,232,240,0.28), 0 2px 6px rgba(0,0,0,0.75)',
-  glacier: '0 0 26px rgba(103,232,249,0.32), 0 2px 8px rgba(0,0,0,0.8)',
-};
+export type MetallicVariant = 'hero' | 'title' | 'body' | 'username' | 'stat' | 'wordmark';
 
 export function metallicTextStyle(
   variant: MetallicVariant,
   theme: ShareBackgroundPresetId,
   positive = true,
+  accent: OverlayAccent = 'teal',
 ): CSSProperties {
+  const cardTheme = shareCardTheme(theme);
+  const accentGlow = ACCENT_GLOW_RGBA[accent];
+
   const base: CSSProperties = {
-    backgroundImage: CHROME_GRADIENT[theme],
+    backgroundImage: themeMetallicGradient(theme),
     WebkitBackgroundClip: 'text',
     backgroundClip: 'text',
     color: 'transparent',
     WebkitTextFillColor: 'transparent',
   };
 
+  const themeGlow = cardTheme.heroBoxGlow;
+  const themeTint = `${cardTheme.accent}55`;
+
   if (variant === 'hero') {
     return {
       ...base,
-      filter: positive ? undefined : 'saturate(0.7) hue-rotate(-8deg)',
-      textShadow: CHROME_SHADOW[theme],
+      filter: positive ? undefined : 'saturate(0.75) brightness(0.92)',
+      textShadow: `0 0 32px ${themeGlow}, 0 0 18px ${themeTint}, 0 0 12px ${accentGlow}, 0 2px 10px rgba(0,0,0,0.75)`,
     };
   }
 
-  if (variant === 'title') {
+  if (variant === 'title' || variant === 'wordmark') {
     return {
       ...base,
-      textShadow: '0 0 18px rgba(255,255,255,0.22), 0 1px 4px rgba(0,0,0,0.6)',
+      textShadow: `0 0 24px ${themeGlow}, 0 0 14px ${themeTint}, 0 1px 4px rgba(0,0,0,0.65)`,
     };
   }
 
@@ -50,31 +46,36 @@ export function metallicTextStyle(
     return {
       ...base,
       fontStyle: 'italic',
-      textShadow: '0 0 12px rgba(255,255,255,0.18)',
+      textShadow: `0 0 18px ${themeGlow}, 0 0 10px ${accentGlow}, 0 1px 3px rgba(0,0,0,0.55)`,
     };
   }
 
   if (variant === 'stat') {
     return {
       ...base,
-      textShadow: '0 0 10px rgba(255,255,255,0.14)',
+      textShadow: `0 0 20px ${themeGlow}, 0 0 12px ${themeTint}, 0 0 8px ${accentGlow}, 0 1px 3px rgba(0,0,0,0.5)`,
     };
   }
 
   return {
-    color: 'rgba(255,255,255,0.72)',
+    color: cardTheme.accentMuted,
     textShadow: '0 1px 2px rgba(0,0,0,0.5)',
   };
 }
 
-export function glassPanelStyle(intensity: 'soft' | 'medium' | 'strong' = 'medium'): CSSProperties {
-  const opacity = intensity === 'soft' ? 0.04 : intensity === 'strong' ? 0.12 : 0.08;
+export function glassPanelStyle(
+  intensity: 'soft' | 'medium' | 'strong' = 'medium',
+  accent: OverlayAccent = 'teal',
+  theme: ShareBackgroundPresetId = 'midnight',
+): CSSProperties {
+  const cardTheme = shareCardTheme(theme);
+  const opacity = intensity === 'soft' ? 0.05 : intensity === 'strong' ? 0.1 : 0.07;
+  const accentSoft = ACCENT_SOFT_RGBA[accent];
   return {
-    background: `linear-gradient(135deg, rgba(255,255,255,${opacity + 0.04}) 0%, rgba(255,255,255,${opacity}) 40%, rgba(0,0,0,${opacity + 0.06}) 100%)`,
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255,255,255,0.22)',
-    boxShadow:
-      'inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.35), 0 0 32px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.45)',
+    background: `linear-gradient(135deg, rgba(255,255,255,${opacity + 0.05}) 0%, rgba(255,255,255,${opacity}) 45%, rgba(0,0,0,${opacity + 0.08}) 100%)`,
+    backdropFilter: intensity === 'strong' ? 'blur(8px)' : 'blur(6px)',
+    WebkitBackdropFilter: intensity === 'strong' ? 'blur(8px)' : 'blur(6px)',
+    border: `1px solid ${cardTheme.heroBoxBorder}`,
+    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 0 40px ${cardTheme.heroBoxGlow}, 0 0 20px ${accentSoft}`,
   };
 }

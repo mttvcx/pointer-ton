@@ -4,26 +4,21 @@ import type { CSSProperties } from 'react';
 import { PnlMomentAmount, type PnlMomentBasis } from '@/components/wallet/analytics/PnlMomentAmount';
 import { ChromePanel } from '@/components/wallet/analytics/pnl-share/ChromePanel';
 import { MetallicText } from '@/components/wallet/analytics/pnl-share/MetallicText';
-import type { ShareBackgroundPresetId } from '@/lib/share/types';
+import type { OverlayAccent, ShareBackgroundPresetId } from '@/lib/share/types';
+import { fitShareHeroFontSize } from '@/lib/share/pnlShareFormat';
+import { themeMetallicGradient } from '@/lib/share/shareCardTheme';
+import { PNL_SHARE_POS } from '@/lib/share/pnlShareLayout';
 import { cn } from '@/lib/utils/cn';
-
-const HERO_METALLIC: CSSProperties = {
-  backgroundImage:
-    'linear-gradient(180deg, #ffffff 0%, #e8e8ec 18%, #a8aab4 42%, #f0f0f4 58%, #8a8c98 78%, #ffffff 100%)',
-  WebkitBackgroundClip: 'text',
-  backgroundClip: 'text',
-  color: 'transparent',
-  WebkitTextFillColor: 'transparent',
-  textShadow: '0 0 40px rgba(255,255,255,0.25), 0 4px 12px rgba(0,0,0,0.65)',
-};
 
 export function PnLValueBox({
   amount,
   token,
   positive,
   theme = 'midnight',
+  accent = 'teal',
   className,
-  fontSize = 88,
+  fontSize = PNL_SHARE_POS.heroAmount.fontSize,
+  showToken = true,
   motionBasis,
   motionFrozen,
   motionRevealKey,
@@ -32,61 +27,81 @@ export function PnLValueBox({
   token: string;
   positive: boolean;
   theme?: ShareBackgroundPresetId;
+  accent?: OverlayAccent;
   className?: string;
   fontSize?: number;
+  showToken?: boolean;
   motionBasis?: PnlMomentBasis | null;
   motionFrozen?: boolean;
   motionRevealKey?: string;
 }) {
+  const tokenSize = PNL_SHARE_POS.heroAmount.tokenSize;
+  const tokenLabel = showToken && !amount.includes('%') ? token : null;
+  const fittedAmountSize = fitShareHeroFontSize(amount, tokenLabel, fontSize);
+  const fittedTokenSize = Math.round(tokenSize * (fittedAmountSize / fontSize));
+
+  const heroRow = (
+    <>
+      {motionBasis && showToken !== false ? (
+        <PnlMomentAmount
+          basis={motionBasis}
+          fallbackText={amount}
+          frozen={motionFrozen ?? false}
+          revealKey={motionRevealKey ?? `${amount}|${token}`}
+          positive={positive}
+          className="shrink-0 font-mono font-black tabular-nums leading-none tracking-tight"
+          style={{
+            fontSize: fittedAmountSize,
+            backgroundImage: themeMetallicGradient(theme),
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+            WebkitTextFillColor: 'transparent',
+            textShadow: '0 2px 8px rgba(0,0,0,0.55)',
+          }}
+        />
+      ) : (
+        <MetallicText
+          variant="hero"
+          theme={theme}
+          accent={accent}
+          positive={positive}
+          className="shrink-0 font-mono font-black tabular-nums leading-none tracking-tight"
+          style={{ fontSize: fittedAmountSize }}
+        >
+          {amount}
+        </MetallicText>
+      )}
+      {tokenLabel ? (
+        <MetallicText
+          variant="title"
+          theme={theme}
+          accent={accent}
+          className="shrink-0 font-mono font-bold tabular-nums uppercase leading-none opacity-95"
+          style={{ fontSize: fittedTokenSize }}
+        >
+          {tokenLabel}
+        </MetallicText>
+      ) : null}
+    </>
+  );
+
   return (
-    <ChromePanel intensity="strong" rounded="md" className={cn('px-8 py-5', className)}>
+    <ChromePanel
+      intensity="strong"
+      rounded="md"
+      accent={accent}
+      theme={theme}
+      className={cn('px-8', className)}
+      style={{ minHeight: PNL_SHARE_POS.heroBox.h }}
+    >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)' }}
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)' }}
         aria-hidden
       />
-      <div className="flex items-baseline gap-4">
-        {motionBasis ? (
-          <>
-            <PnlMomentAmount
-              basis={motionBasis}
-              fallbackText={motionBasis.kind === 'sol' ? `${amount} ${token}` : amount}
-              frozen={motionFrozen ?? false}
-              revealKey={motionRevealKey ?? `${amount}|${token}`}
-              positive={positive}
-              className="font-mono font-black tabular-nums leading-none tracking-tight"
-              style={{ ...HERO_METALLIC, fontSize }}
-            />
-            {motionBasis.kind === 'usd' ? (
-              <MetallicText
-                variant="title"
-                theme={theme}
-                className="font-mono text-[42px] font-bold tabular-nums uppercase leading-none opacity-90"
-              >
-                {token}
-              </MetallicText>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <MetallicText
-              variant="hero"
-              theme={theme}
-              positive={positive}
-              className="font-mono font-black tabular-nums leading-none tracking-tight"
-              style={{ fontSize, textShadow: '0 0 40px rgba(255,255,255,0.25), 0 4px 12px rgba(0,0,0,0.65)' }}
-            >
-              {amount}
-            </MetallicText>
-            <MetallicText
-              variant="title"
-              theme={theme}
-              className="font-mono text-[42px] font-bold tabular-nums uppercase leading-none opacity-90"
-            >
-              {token}
-            </MetallicText>
-          </>
-        )}
+      <div className="flex h-full min-h-[inherit] flex-nowrap items-center gap-5 overflow-hidden whitespace-nowrap py-5">
+        {heroRow}
       </div>
     </ChromePanel>
   );
