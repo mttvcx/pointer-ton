@@ -18,6 +18,8 @@ import {
 } from '@/lib/trading/walletConnectCopy';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
+import { isSandboxMode } from '@/lib/sandbox/mode';
+import { sandboxBuy, sandboxSellPct, sandboxSellSolOut } from '@/lib/sandbox/trade';
 import { formatNumber } from '@/lib/utils/formatters';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
@@ -189,6 +191,18 @@ export function useSpotTradeExecution(mint: string) {
 
   const runBuy = useCallback(
     async (amount: number, spendAssetOverride?: SolSpendAsset) => {
+      // SANDBOX: route to the fake executor before ANY live quote/sign/execute.
+      if (isSandboxMode()) {
+        const res = sandboxBuy({ mint, amountSol: amount });
+        if (res.ok) {
+          toast.success('SANDBOX buy filled', {
+            description: `${res.tx.hash.slice(0, 18)}… · fake fill, no real funds`,
+          });
+        } else {
+          toast.error('SANDBOX buy failed', { description: res.error });
+        }
+        return;
+      }
       const asset: SolSpendAsset =
         spendAssetOverride ?? (activeChain === 'sol' ? spendAsset : 'sol');
       if (!wallet) {
@@ -323,6 +337,17 @@ export function useSpotTradeExecution(mint: string) {
 
   const runSell = useCallback(
     async (sellPct: number) => {
+      if (isSandboxMode()) {
+        const res = sandboxSellPct({ mint, pct: sellPct });
+        if (res.ok) {
+          toast.success('SANDBOX sell filled', {
+            description: `PnL ${res.realizedPnlSol >= 0 ? '+' : ''}${res.realizedPnlSol.toFixed(4)} SOL · fake`,
+          });
+        } else {
+          toast.error('SANDBOX sell failed', { description: res.error });
+        }
+        return;
+      }
       if (!wallet) {
         toast.error(walletConnectRequiredMessage(activeChain));
         return;
@@ -461,6 +486,17 @@ export function useSpotTradeExecution(mint: string) {
 
   const runSellSolOut = useCallback(
     async (amountSolOut: number, opts?: { clearCostBasis?: boolean }) => {
+      if (isSandboxMode()) {
+        const res = sandboxSellSolOut({ mint, amountSolOut });
+        if (res.ok) {
+          toast.success('SANDBOX sell filled', {
+            description: `PnL ${res.realizedPnlSol >= 0 ? '+' : ''}${res.realizedPnlSol.toFixed(4)} SOL · fake`,
+          });
+        } else {
+          toast.error('SANDBOX sell failed', { description: res.error });
+        }
+        return;
+      }
       if (!wallet) {
         toast.error(walletConnectRequiredMessage(activeChain));
         return;
@@ -597,6 +633,10 @@ export function useSpotTradeExecution(mint: string) {
   );
 
   const runSellInitial = useCallback(async () => {
+    if (isSandboxMode()) {
+      await runSell(100);
+      return;
+    }
     if (!wallet?.address) {
       toast.error(walletConnectRequiredMessage(activeChain));
       return;
@@ -609,7 +649,7 @@ export function useSpotTradeExecution(mint: string) {
       return;
     }
     await runSellSolOut(basis, { clearCostBasis: true });
-  }, [mint, wallet?.address, runSellSolOut, activeChain]);
+  }, [mint, wallet?.address, runSellSolOut, runSell, activeChain]);
 
   return {
     wallet,

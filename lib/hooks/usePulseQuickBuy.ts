@@ -11,6 +11,8 @@ import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import { addInstantTradeSellTon } from '@/lib/trading/instantTradeStats';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
+import { isSandboxMode } from '@/lib/sandbox/mode';
+import { sandboxBuy, sandboxSellPct } from '@/lib/sandbox/trade';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { formatNumber } from '@/lib/utils/formatters';
 import { buildBlitzAwareFees, isBlitzWallet } from '@/lib/trading/blitz';
@@ -145,6 +147,22 @@ export function usePulseQuickBuy() {
         return { ok: false, error };
       };
 
+      // SANDBOX: fake fill before ANY live quote/sign/execute (covers manual
+      // quick-buy AND silent auto-buy callers).
+      if (isSandboxMode()) {
+        const res = sandboxBuy({ mint, amountSol: amount, source: silent ? 'autobuy' : 'manual' });
+        if (res.ok) {
+          if (!silent) {
+            toast.success('SANDBOX buy filled', {
+              description: `${res.tx.hash.slice(0, 18)}… · fake fill`,
+            });
+          }
+          return { ok: true, signature: res.tx.hash };
+        }
+        if (!silent) toast.error('SANDBOX buy failed', { description: res.error });
+        return { ok: false, error: res.error };
+      }
+
       if (!walletsReady || !wallet) {
         return fail(walletConnectRequiredMessage(activeChain));
       }
@@ -278,6 +296,21 @@ export function usePulseQuickBuy() {
     ): Promise<QuickBuyResult | void> => {
       const silent = options?.silent === true;
       const fail = (error: string): QuickBuyResult => ({ ok: false, error });
+
+      // SANDBOX: fake sell before ANY live quote/sign/execute.
+      if (isSandboxMode()) {
+        const res = sandboxSellPct({ mint, pct: sellPct });
+        if (res.ok) {
+          if (!silent) {
+            toast.success('SANDBOX sell filled', {
+              description: `PnL ${res.realizedPnlSol >= 0 ? '+' : ''}${res.realizedPnlSol.toFixed(4)} SOL · fake`,
+            });
+          }
+          return { ok: true, signature: res.tx.hash };
+        }
+        if (!silent) toast.error('SANDBOX sell failed', { description: res.error });
+        return { ok: false, error: res.error };
+      }
 
       if (!walletsReady || !wallet) {
         if (!silent) {

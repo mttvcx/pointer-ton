@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, ChevronDown, Settings, Wallet, X } from 'lucide-react';
 import { BugReportDrawer } from '@/components/reports/BugReportDrawer';
 import { BottomBarStatusRail } from '@/components/layout/bottomBar/BottomBarStatusRail';
+import { SandboxBadge } from '@/components/sandbox/SandboxBadge';
 import { snapshotRecentClientErrors } from '@/lib/reports/clientErrorRing';
 import { cn } from '@/lib/utils/cn';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
@@ -337,6 +338,7 @@ export function BottomBar() {
               ) : null}
             </div>
 
+            <SandboxBadge variant="bottombar" />
             <IssuesIndicator onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
             <BottomBarStatusRail onOpenDiagnostics={() => setDiagnosticsOpen(true)} />
           </div>

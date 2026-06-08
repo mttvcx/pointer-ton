@@ -22,6 +22,7 @@ import {
   ClipboardMintTopbarSlot,
 } from '@/components/layout/ClipboardMintTopbarChip';
 import { CopilotTopbarSlot } from '@/components/copilot/CopilotTopbarSlot';
+import { SandboxBadge } from '@/components/sandbox/SandboxBadge';
 import { ChainSelectDropdown } from '@/components/layout/ChainSelectDropdown';
 import { WebPushControls } from '@/components/layout/WebPushControls';
 import { resolveTopbarNav } from '@/lib/layout/topbarNav';
@@ -412,6 +413,8 @@ export function Topbar() {
           >
             <Search className="h-4 w-4 shrink-0" aria-hidden />
           </button>
+
+        <SandboxBadge variant="topbar" />
 
         <ChainSelectDropdown />
 
