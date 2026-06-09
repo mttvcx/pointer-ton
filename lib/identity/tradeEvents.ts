@@ -1,7 +1,28 @@
 import type { AppChainId } from '@/lib/chains/appChain';
 import { resolveWalletIdentity } from '@/lib/identity/identityService';
-import { walletRegistryKey } from '@/lib/identity/normalize';
+import { normalizeWalletAddress } from '@/lib/identity/normalize';
 import type { TradeIdentityEvent } from '@/lib/identity/types';
+
+export type MintTradeHydrateRow = {
+  wallet_address?: string | null;
+  chain_wallet?: string | null;
+  side: string;
+  submitted_at: string;
+  price_usd?: number | null;
+  price_usd_at_fill?: number | null;
+  amount_usd?: number | null;
+  tx_signature?: string | null;
+};
+
+function resolveTradeWallet(row: MintTradeHydrateRow): string | null {
+  const candidates = [row.wallet_address, row.chain_wallet];
+  for (const c of candidates) {
+    if (typeof c !== 'string') continue;
+    const t = c.trim();
+    if (t.length > 0) return t;
+  }
+  return null;
+}
 
 const eventsByToken = new Map<string, TradeIdentityEvent[]>();
 
@@ -62,34 +83,55 @@ export function getTokenIdentityTradeEvents(params: {
   return list.filter((e) => e.identityId != null || e.displayName != null);
 }
 
-/** Hydrate trade rows from mint trades API shape. */
+export type HydrateMintTradesResult = {
+  events: TradeIdentityEvent[];
+  skippedInvalidWallet: number;
+};
+
+/** Hydrate trade rows from mint / chain trades API shape. */
 export function hydrateTradeEventsFromMintTrades(
   chain: AppChainId,
   tokenAddress: string,
-  trades: Array<{
-    wallet_address: string;
-    side: string;
-    submitted_at: string;
-    price_usd?: number | null;
-    amount_usd?: number | null;
-    tx_signature?: string | null;
-  }>,
+  trades: MintTradeHydrateRow[],
 ): TradeIdentityEvent[] {
+  return hydrateTradeEventsFromMintTradesDetailed(chain, tokenAddress, trades).events;
+}
+
+export function hydrateTradeEventsFromMintTradesDetailed(
+  chain: AppChainId,
+  tokenAddress: string,
+  trades: MintTradeHydrateRow[],
+): HydrateMintTradesResult {
   const out: TradeIdentityEvent[] = [];
+  let skippedInvalidWallet = 0;
+
   for (const t of trades) {
+    const wallet = resolveTradeWallet(t);
+    if (!wallet) {
+      skippedInvalidWallet += 1;
+      continue;
+    }
+
+    const { valid } = normalizeWalletAddress(chain, wallet);
+    if (!valid) {
+      skippedInvalidWallet += 1;
+      continue;
+    }
+
     const side = t.side === 'sell' ? 'sell' : 'buy';
-    const key = walletRegistryKey(chain, t.wallet_address);
-    const resolved = resolveWalletIdentity({ chain, address: t.wallet_address });
+    const resolved = resolveWalletIdentity({ chain, address: wallet });
     if (!resolved.identityId && resolved.displayName === resolved.shortAddress) continue;
+
+    const priceUsd = t.price_usd_at_fill ?? t.price_usd ?? null;
     out.push({
       id: `trade_${t.tx_signature ?? t.submitted_at}`,
       chain,
       tokenAddress,
-      walletAddress: t.wallet_address,
+      walletAddress: wallet,
       identityId: resolved.identityId,
       side,
       timestamp: t.submitted_at,
-      priceUsd: t.price_usd ?? null,
+      priceUsd,
       amountUsd: t.amount_usd ?? null,
       amountToken: null,
       txHash: t.tx_signature ?? null,
@@ -100,5 +142,13 @@ export function hydrateTradeEventsFromMintTrades(
       badges: resolved.badges,
     });
   }
-  return out;
+
+  if (skippedInvalidWallet > 0 && process.env.NODE_ENV === 'development') {
+    console.debug('[hydrateTradeEventsFromMintTrades] skipped invalid wallet rows', {
+      skippedInvalidWallet,
+      total: trades.length,
+    });
+  }
+
+  return { events: out, skippedInvalidWallet };
 }

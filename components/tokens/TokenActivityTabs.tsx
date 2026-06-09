@@ -7,7 +7,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd } from '@/lib/format';
 import { shortenAddress } from '@/lib/utils/addresses';
-import { buildDeskFundingSynth } from '@/lib/tokens/holderDeskSynth';
+import { buildDeskFundingSynth, EMPTY_DESK_FUNDING } from '@/lib/tokens/holderDeskSynth';
 import { tradeTraderHint, tradeRowMatchesDeskFilter, type TradesDeskFilter } from '@/lib/tokens/tradeFormatting';
 import type { Tables } from '@/lib/supabase/types';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
@@ -30,6 +30,7 @@ import {
 } from '@/lib/dev/demoTokenFixtures';
 import { preferTokenTableDemoRows } from '@/lib/dev/uiDemoMode';
 import { demoTablesEnabled } from '@/lib/dev/demoPolicy';
+import { isPointerQaMintClient } from '@/lib/qa/pointerQaMintClient';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useMintTrades } from '@/lib/hooks/useMintTrades';
@@ -428,11 +429,14 @@ export function TokenActivityTabs({
   });
 
   const tradersQ = useQuery({
-    queryKey: ['mint-top-traders', mint],
+    queryKey: ['mint-top-traders', mint, isPointerQaMintClient(mint) ? 'chain' : 'pointer'],
     queryFn: async () => {
-      const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}/top-traders?limit=25`);
+      const path = isPointerQaMintClient(mint)
+        ? `/api/tokens/${encodeURIComponent(mint)}/chain-top-traders?limit=25`
+        : `/api/tokens/${encodeURIComponent(mint)}/top-traders?limit=25`;
+      const r = await fetch(path);
       if (!r.ok) throw new Error('traders');
-      return r.json() as Promise<{ traders: MintTopTraderRow[] }>;
+      return r.json() as Promise<{ traders: MintTopTraderRow[]; source?: string }>;
     },
     enabled: tab === 'traders',
     placeholderData: demoTables ? { traders: demoTraders } : undefined,
@@ -544,14 +548,16 @@ export function TokenActivityTabs({
   const sortedTraders = useMemo(() => {
     const withFunding = filteredTraders.map((row) => ({
       ...row,
-      funding: buildDeskFundingSynth(row.wallet_address, mint),
+      funding: demoTables
+        ? buildDeskFundingSynth(row.wallet_address, mint)
+        : EMPTY_DESK_FUNDING,
     }));
     if (!traderPnlSortDir) return withFunding;
     return [...withFunding].sort((a, b) => {
       const diff = (a.realized_pnl_usd ?? 0) - (b.realized_pnl_usd ?? 0);
       return traderPnlSortDir === 'asc' ? diff : -diff;
     });
-  }, [filteredTraders, traderPnlSortDir, mint]);
+  }, [filteredTraders, traderPnlSortDir, mint, demoTables]);
 
   const handleSortPnL = () => {
     setTraderPnlSortDir((d) => (d === null ? 'desc' : d === 'desc' ? 'asc' : null));
@@ -562,6 +568,55 @@ export function TokenActivityTabs({
     if (!demoTables) return [];
     return syntheticDevTokensForCreator(creatorWallet, mint);
   }, [creatorWallet, mint, demoTables]);
+
+  const qaMint = isPointerQaMintClient(mint);
+  const devTokensLiveQ = useQuery({
+    queryKey: ['dev-tokens-live', mint],
+    queryFn: async () => {
+      const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}/dev-tokens`);
+      if (!r.ok) throw new Error('dev_tokens');
+      return r.json() as Promise<{
+        tokens: Array<{
+          mint: string;
+          symbol: string | null;
+          name: string | null;
+          created_at: string;
+          migrated_at: string | null;
+          market_cap_usd: number | null;
+          volume_24h_usd: number | null;
+          is_current: boolean;
+        }>;
+      }>;
+    },
+    enabled: qaMint && tab === 'dev_tokens' && Boolean(creatorWallet),
+    staleTime: 60_000,
+  });
+
+  const devTokensForPane = useMemo(() => {
+    if (qaMint && devTokensLiveQ.data?.tokens?.length) {
+      return devTokensLiveQ.data.tokens.map((t) => ({
+        mint: t.mint,
+        symbol: t.symbol ?? '—',
+        name: t.name ?? t.symbol ?? 'Token',
+        mcUsd: Number(t.market_cap_usd) || 0,
+        athUsd: Number(t.market_cap_usd) || 0,
+        liquidityUsd: 0,
+        volume1hUsd: Number(t.volume_24h_usd) || 0,
+        balanceUsd: 0,
+        pnlUsd: 0,
+        migrated: Boolean(t.migrated_at),
+        dex: t.migrated_at ? 'raydium' : null,
+        status: (t.migrated_at ? 'mooned' : 'active') as 'active' | 'mooned' | 'rugged',
+        launchedAt: t.created_at,
+      }));
+    }
+    return devTokens;
+  }, [qaMint, devTokensLiveQ.data?.tokens, devTokens]);
+
+  const effectiveDevCountLive =
+    qaMint && devTokensLiveQ.data?.tokens?.length
+      ? devTokensLiveQ.data.tokens.length
+      : effectiveDevCount;
 
   const tradersEmpty = sortedTraders.length === 0;
   const tradersLensEmpty =
@@ -580,8 +635,8 @@ export function TokenActivityTabs({
       if (n > 0) return `Top Traders (${n})`;
       return 'Top Traders';
     }
-    if (t.id === 'dev_tokens' && effectiveDevCount > 0) {
-      return `Dev Tokens (${effectiveDevCount})`;
+    if (t.id === 'dev_tokens' && effectiveDevCountLive > 0) {
+      return `Dev Tokens (${effectiveDevCountLive})`;
     }
     return t.label;
   };
@@ -825,8 +880,22 @@ export function TokenActivityTabs({
         ) : null}
         {tab === 'trades' ? (
           tradeRowsForTable.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-[11px] font-sans text-fg-muted">
-              No transactions found
+            <div className="flex flex-1 flex-col items-center justify-center gap-1 p-8 text-center text-[11px] font-sans text-fg-muted">
+              <p className="font-medium text-fg-secondary">
+                {demoTables
+                  ? 'No transactions found'
+                  : 'No indexed chain trades yet'}
+              </p>
+              {!demoTables && !isPointerQaMintClient(mint) ? (
+                <p className="max-w-sm text-[10px] leading-relaxed text-fg-muted/90">
+                  Chain swap indexer is not wired for this mint. Pointer platform fills are separate
+                  and do not populate this tape.
+                </p>
+              ) : !demoTables && isPointerQaMintClient(mint) ? (
+                <p className="max-w-sm text-[10px] leading-relaxed text-fg-muted/90">
+                  Run backfill for this QA mint to populate indexed chain trades.
+                </p>
+              ) : null}
             </div>
           ) : (
             <MintTradesScroll
@@ -873,14 +942,20 @@ export function TokenActivityTabs({
                     ? 'No wallets match filter'
                     : onlyTracked
                       ? 'No tracked traders here'
-                      : 'No ranked traders'
+                      : demoTables
+                        ? 'No ranked traders'
+                        : 'Requires chain trade indexer'
                 }
                 description={
                   tradersLensEmpty
                     ? 'Loosen desk filters / pick “All”.'
                     : onlyTracked
                       ? 'Add wallets in Trackers, then filter this table to them.'
-                      : 'Desk ranks only include Pointer fills seen on this mint (FIFO realized PnL).'
+                      : demoTables
+                        ? 'Demo ranks — not live chain data.'
+                        : isPointerQaMintClient(mint)
+                          ? 'Run QA backfill to populate chain-indexed trader ranks.'
+                          : 'Requires chain trade indexer. Wallet ranks need parsed swaps and FIFO PnL per mint.'
                 }
               />
             </div>
@@ -904,7 +979,7 @@ export function TokenActivityTabs({
           )
         ) : null}
         {tab === 'dev_tokens' && creatorWallet ? (
-          <DevTokensPane creatorWallet={creatorWallet} dev={dev} tokens={devTokens} />
+          <DevTokensPane creatorWallet={creatorWallet} dev={dev} tokens={devTokensForPane} />
         ) : tab === 'dev_tokens' ? (
           <PlaceholderTab
             title="Dev token list"

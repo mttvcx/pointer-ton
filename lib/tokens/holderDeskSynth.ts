@@ -29,6 +29,34 @@ export type SharedFundingPopoverRow = {
 
 const SHARED_FUND_AGE_POOL = ['1y', '2mo', '9d', '22d', '4h', '12m', '7mo', '16d', '5mo'] as const;
 
+/** Live-mode placeholder — no invented desk numbers until chain indexer ships. */
+export const EMPTY_HOLDER_DESK_SYNTH: HolderDeskSynth = {
+  solBalance: 0,
+  lastActive: '\u2014',
+  boughtUsd: '\u2014',
+  boughtTokensCompact: '\u2014',
+  buyTxCount: 0,
+  avgBuyUsd: null,
+  soldUsd: '\u2014',
+  soldTokensCompact: '\u2014',
+  sellTxCount: 0,
+  avgSellUsd: null,
+  uPnlUsd: '\u2014',
+  uPnlUsdRaw: 0,
+  remainingUsd: '\u2014',
+  pctLine: 0,
+  funding: null,
+  heldAge: '\u2014',
+};
+
+export const EMPTY_DESK_FUNDING: HolderDeskSynthFunding = {
+  venue: null,
+  ageSinceFund: null,
+  solFunding: null,
+  txCount: null,
+  sharedFundedCount: 0,
+};
+
 export type HolderDeskSynth = {
   solBalance: number;
   lastActive: string;

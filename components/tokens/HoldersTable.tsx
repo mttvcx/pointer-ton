@@ -16,7 +16,9 @@ import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
-import { buildHolderDeskSynth } from '@/lib/tokens/holderDeskSynth';
+import { holderDeskFromWalletStats } from '@/lib/indexer/holderDeskFromStats';
+import type { MintWalletStatsRow } from '@/lib/db/mintWalletStats';
+import { buildHolderDeskSynth, EMPTY_HOLDER_DESK_SYNTH } from '@/lib/tokens/holderDeskSynth';
 import { HoldersDeskTable, type HolderDeskRow } from '@/components/tokens/HoldersDeskTable';
 import { DESK_SCROLL_WELL_CLASS } from '@/components/tokens/cells/deskTokens';
 import { cn } from '@/lib/utils/cn';
@@ -25,6 +27,8 @@ type HoldersResponse = {
   mint: string;
   decimals: number;
   holders: HolderDeskRow[];
+  walletStats?: Record<string, MintWalletStatsRow>;
+  indexerSource?: string | null;
 };
 
 export function HoldersTable({
@@ -96,15 +100,32 @@ export function HoldersTable({
         });
       }) ?? [];
 
-    const enriched = base.map((h) => ({
-      ...h,
-      synth: buildHolderDeskSynth({
-        wallet: h.wallet_address,
-        mint,
-        qtyUi: rawToUi(h.amount_raw, decimals),
-        pctSupply: h.pct_of_supply,
-      }),
-    }));
+    const statsMap = data?.walletStats ?? {};
+    const enriched = base.map((h) => {
+      const indexed = statsMap[h.wallet_address];
+      const pctLine =
+        h.pct_of_supply != null && Number.isFinite(h.pct_of_supply)
+          ? Math.min(100, Math.max(0, h.pct_of_supply))
+          : 0;
+      if (demoTables) {
+        return {
+          ...h,
+          synth: buildHolderDeskSynth({
+            wallet: h.wallet_address,
+            mint,
+            qtyUi: rawToUi(h.amount_raw, decimals),
+            pctSupply: h.pct_of_supply,
+          }),
+        };
+      }
+      if (indexed && (indexed.buy_usd > 0 || indexed.sell_usd > 0)) {
+        return {
+          ...h,
+          synth: holderDeskFromWalletStats(indexed, h.pct_of_supply, decimals),
+        };
+      }
+      return { ...h, synth: { ...EMPTY_HOLDER_DESK_SYNTH, pctLine } };
+    });
 
     if (!uPnlSortDir) return enriched;
     return [...enriched].sort((a, b) => {
@@ -121,6 +142,8 @@ export function HoldersTable({
     mint,
     decimals,
     uPnlSortDir,
+    demoTables,
+    data?.walletStats,
   ]);
 
   const filteredEmpty =

@@ -1,7 +1,5 @@
 import 'server-only';
 
-import { subHours } from 'date-fns';
-import { listTradesForMintSince } from '@/lib/db/trades';
 import { getRedis } from '@/lib/redis/client';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import {
@@ -50,39 +48,10 @@ async function countProTraders(holders: TokenHolderRow[]): Promise<number> {
   return data?.length ?? 0;
 }
 
-function aggregate6hTrades(trades: Awaited<ReturnType<typeof listTradesForMintSince>>) {
-  let buyVol = 0;
-  let sellVol = 0;
-  let buys = 0;
-  let sells = 0;
-  for (const t of trades) {
-    const usd =
-      t.price_usd_at_fill != null && t.amount_token != null
-        ? Math.abs(t.price_usd_at_fill * t.amount_token)
-        : t.amount_sol != null
-          ? t.amount_sol * 150
-          : 0;
-    if (t.side === 'buy') {
-      buys += 1;
-      buyVol += usd;
-    } else {
-      sells += 1;
-      sellVol += usd;
-    }
-  }
-  return {
-    vol6hUsd: buyVol + sellVol,
-    buys6h: buys,
-    sells6h: sells,
-    buyVol6hUsd: buyVol,
-    sellVol6hUsd: sellVol,
-    netVol6hUsd: buyVol - sellVol,
-  };
-}
-
 /**
  * Compute extended token metrics on read. Cached in Redis 60s per mint.
- * Insiders / bundlers / LP burned: Phase 2 stubs (null); indexer in Phase 3.
+ * Desk vol/buy/sell/net: null until chain swap indexer (mint_swaps) ships.
+ * Insiders / bundlers / LP burned: Phase 2 stubs (null).
  */
 export async function getTokenExtendedMetrics(
   mint: string,
@@ -95,16 +64,13 @@ export async function getTokenExtendedMetrics(
     return { metrics: cached, token };
   }
 
-  const [token, snap, holderDesk, since] = await Promise.all([
+  const [token, snap, holderDesk] = await Promise.all([
     getTokenByMint(mint),
     getLatestSnapshotForMint(mint),
     loadHolders(mint),
-    Promise.resolve(subHours(new Date(), 6).toISOString()),
   ]);
 
   const holders = holderDesk.rows;
-  const trades = await listTradesForMintSince(mint, since, 2_000);
-  const agg = aggregate6hTrades(trades);
 
   let sniperPct = 0;
   for (const h of holders) {
@@ -123,13 +89,12 @@ export async function getTokenExtendedMetrics(
     holders: holderDesk.holderCount ?? snap?.holder_count ?? null,
     proTraders,
     dexPaid: token?.is_paid ?? null,
-    vol6hUsd: agg.vol6hUsd > 0 ? agg.vol6hUsd : null,
-    buys6h: agg.buys6h > 0 ? agg.buys6h : null,
-    sells6h: agg.sells6h > 0 ? agg.sells6h : null,
-    buyVol6hUsd: agg.buyVol6hUsd > 0 ? agg.buyVol6hUsd : null,
-    sellVol6hUsd: agg.sellVol6hUsd > 0 ? agg.sellVol6hUsd : null,
-    netVol6hUsd:
-      agg.netVol6hUsd !== 0 ? agg.netVol6hUsd : agg.vol6hUsd > 0 ? agg.netVol6hUsd : null,
+    vol6hUsd: null,
+    buys6h: null,
+    sells6h: null,
+    buyVol6hUsd: null,
+    sellVol6hUsd: null,
+    netVol6hUsd: null,
     taxPct: null,
   };
 

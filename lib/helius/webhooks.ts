@@ -16,6 +16,12 @@ import { ruleMatchesTokenLaunch } from '@/lib/trackers/evaluateRules';
 import { parseRuleCondition } from '@/lib/trackers/ruleCondition';
 import type { Json } from '@/lib/supabase/types';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
+import { createAdminSupabase } from '@/lib/supabase/server';
+import {
+  ingestQaSwapsFromEnhancedTxs,
+  qaIndexerEnabled,
+  type QaIngestReport,
+} from '@/lib/indexer/qaMintIngest';
 
 /** Constant-time compare for webhook auth header. */
 export function verifyHeliusWebhookAuthorization(
@@ -53,7 +59,13 @@ function extractTxSignature(tx: unknown): string | null {
 export async function processHeliusWebhookBody(
   body: unknown,
   meta: { source: string; signature: string },
-): Promise<{ events: number; tokensUpserted: number; alerts: number; migrations: number }> {
+): Promise<{
+  events: number;
+  tokensUpserted: number;
+  alerts: number;
+  migrations: number;
+  qaSwaps: QaIngestReport | null;
+}> {
   await upsertWebhookEvent({
     signature: meta.signature,
     source: meta.source,
@@ -154,9 +166,30 @@ export async function processHeliusWebhookBody(
     }
   }
 
+  let qaSwaps: QaIngestReport | null = null;
+  if (qaIndexerEnabled()) {
+    try {
+      const supabase = createAdminSupabase();
+      qaSwaps = await ingestQaSwapsFromEnhancedTxs(supabase, txs, {
+        swapSource: 'helius_webhook',
+        recomputeStats: true,
+      });
+      if (qaSwaps.swapsInserted > 0) {
+        console.info('[helius-webhook] qa mint swaps ingested', {
+          inserted: qaSwaps.swapsInserted,
+          duplicates: qaSwaps.swapsSkippedDuplicate,
+          parsed: qaSwaps.swapsParsed,
+          failures: qaSwaps.parserFailures,
+        });
+      }
+    } catch (err) {
+      console.warn('[helius-webhook] qa mint swap ingest failed', err);
+    }
+  }
+
   if (tokensUpserted > 0 || migrations > 0) {
     revalidatePulseFeedCache();
   }
 
-  return { events, tokensUpserted, alerts, migrations };
+  return { events, tokensUpserted, alerts, migrations, qaSwaps };
 }

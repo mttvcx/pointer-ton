@@ -4,7 +4,7 @@ import { formatCompactUsd } from '@/lib/format';
 import type { Tables } from '@/lib/supabase/types';
 import { shortenAddress } from '@/lib/utils/addresses';
 
-type TradeRow = Tables<'trades'>;
+type TradeRow = Tables<'trades'> & { chain_wallet?: string | null };
 
 function demoTradeIndexFromRow(t: TradeRow): number | null {
   const m = String(t.id).match(/^demo-tx-(\d+)$/);
@@ -114,6 +114,15 @@ export type TradeTraderHint = {
 };
 
 export function tradeTraderHint(t: TradeRow, rowIndex: number): TradeTraderHint {
+  const chainWallet = t.chain_wallet?.trim();
+  if (chainWallet) {
+    return {
+      shortLabel: chainWallet.length >= 3 ? chainWallet.slice(-3) : chainWallet,
+      fullAddress: chainWallet,
+      tradeCountForMint: null,
+    };
+  }
+
   const demoIdx = demoTradeIndexFromRow(t);
   if (demoIdx != null) {
     const w = demoTradeMakerWallet(demoIdx);

@@ -37,10 +37,16 @@ export function isValidEvmAddress(addr: string): boolean {
 
 export function normalizeWalletAddress(
   chain: AppChainId,
-  address: string,
+  address: string | null | undefined,
 ): { normalized: string; addressType: IdentityAddressType; valid: boolean } {
   const addressType = addressTypeForChain(chain);
+  if (typeof address !== 'string') {
+    return { normalized: '', addressType, valid: false };
+  }
   const raw = address.trim();
+  if (!raw) {
+    return { normalized: '', addressType, valid: false };
+  }
   if (addressType === 'solana' && chain === 'sol') {
     if (!isValidSolanaAddress(raw)) return { normalized: raw, addressType, valid: false };
     return { normalized: raw, addressType, valid: true };
@@ -55,7 +61,7 @@ export function normalizeWalletAddress(
   return { normalized: raw, addressType, valid: false };
 }
 
-export function walletRegistryKey(chain: AppChainId, address: string): string {
+export function walletRegistryKey(chain: AppChainId, address: string | null | undefined): string {
   const { normalized } = normalizeWalletAddress(chain, address);
   return `${chain}:${normalized}`;
 }

@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { ensureTokenRowFromDas } from '@/lib/helius/feed';
+import { listMintWalletStatsByWallets } from '@/lib/db/mintWalletStats';
 import { resolveTokenHolders } from '@/lib/onchain/resolveTokenHolders';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
+import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +30,14 @@ export async function GET(
       return NextResponse.json({ error: 'holders_unavailable' }, { status: 503 });
     }
 
+    const walletStats =
+      isPointerQaMint(mint)
+        ? await listMintWalletStatsByWallets(
+            mint,
+            resolved.holders.map((h) => h.wallet_address),
+          )
+        : new Map();
+
     return NextResponse.json({
       mint,
       decimals: resolved.decimals ?? token.decimals,
@@ -36,6 +46,8 @@ export async function GET(
       top10HolderPct: resolved.top10HolderPct,
       devHoldingPct: resolved.devHoldingPct,
       source: resolved.source,
+      walletStats: Object.fromEntries(walletStats),
+      indexerSource: isPointerQaMint(mint) ? 'chain_indexer' : null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'holders_failed';

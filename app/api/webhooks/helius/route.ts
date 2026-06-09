@@ -44,7 +44,15 @@ export async function POST(req: NextRequest) {
 
   const claimed = await claimHeliusWebhookSignature(signature);
   if (!claimed) {
-    return NextResponse.json({ ok: true, deduped: true, events: 0, tokensUpserted: 0, alerts: 0, migrations: 0 });
+    return NextResponse.json({
+      ok: true,
+      deduped: true,
+      events: 0,
+      tokensUpserted: 0,
+      alerts: 0,
+      migrations: 0,
+      qaSwaps: null,
+    });
   }
 
   try {

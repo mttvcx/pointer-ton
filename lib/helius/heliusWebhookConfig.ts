@@ -2,6 +2,7 @@ import {
   LAUNCHPAD_PROGRAM_IDS,
   MIGRATION_PROGRAM_IDS,
 } from '@/lib/utils/constants';
+import { DEFAULT_POINTER_QA_MINT } from '@/lib/qa/pointerQaMintClient';
 
 /** Account addresses watched by the Pulse Helius enhanced webhook. */
 export const HELIUS_PULSE_WEBHOOK_ADDRESSES: readonly string[] = [
@@ -19,6 +20,27 @@ export const HELIUS_PULSE_WEBHOOK_ADDRESSES: readonly string[] = [
   MIGRATION_PROGRAM_IDS.meteoraDammV2,
   MIGRATION_PROGRAM_IDS.meteoraDlmm,
 ];
+
+/**
+ * Optional QA mint indexer addresses (pair / pool) appended when registering webhooks.
+ * Set `POINTER_QA_INDEXER_POOL` to the DexScreener PumpSwap pair for G7anch.
+ * Not deployed by default — scripts only merge when env is set.
+ */
+export function optionalQaIndexerWebhookAddresses(): string[] {
+  const out: string[] = [];
+  const pool = process.env.POINTER_QA_INDEXER_POOL?.trim();
+  if (pool) out.push(pool);
+  const mintOnly = process.env.POINTER_QA_INDEXER_WATCH_MINT?.trim();
+  if (mintOnly === '1') {
+    const mint = process.env.POINTER_QA_MINT?.trim() || DEFAULT_POINTER_QA_MINT;
+    out.push(mint);
+  }
+  return out;
+}
+
+export function allHeliusPulseWebhookAddresses(): string[] {
+  return [...HELIUS_PULSE_WEBHOOK_ADDRESSES, ...optionalQaIndexerWebhookAddresses()];
+}
 
 export type HeliusPulseWebhookConfig = {
   webhookURL: string;
@@ -43,6 +65,6 @@ export function buildHeliusPulseWebhookConfig(opts: {
     txnStatus: 'all',
     encoding: 'json',
     authHeader: `Bearer ${opts.authToken}`,
-    accountAddresses: [...HELIUS_PULSE_WEBHOOK_ADDRESSES],
+    accountAddresses: allHeliusPulseWebhookAddresses(),
   };
 }

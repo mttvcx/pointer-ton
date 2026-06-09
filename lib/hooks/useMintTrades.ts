@@ -1,19 +1,34 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import type { ChainDeskTrade } from '@/lib/indexer/types';
+import { isPointerQaMintClient } from '@/lib/qa/pointerQaMintClient';
 import type { Tables } from '@/lib/supabase/types';
 
-export type MintTradeRow = Tables<'trades'>;
+export type MintTradeRow = Tables<'trades'> & {
+  chain_wallet?: string | null;
+  wallet_address?: string | null;
+};
 
 /** Canonical shared cache key for a mint's recent trades. */
 export function mintTradesQueryKey(mint: string) {
   return ['mint-trades', mint] as const;
 }
 
-async function fetchMintTrades(mint: string): Promise<{ trades: MintTradeRow[] }> {
-  const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}/trades?limit=80`);
+async function fetchMintTrades(mint: string): Promise<{ trades: MintTradeRow[]; source?: string }> {
+  const path = isPointerQaMintClient(mint)
+    ? `/api/tokens/${encodeURIComponent(mint)}/chain-trades?limit=80`
+    : `/api/tokens/${encodeURIComponent(mint)}/trades?limit=80`;
+  const r = await fetch(path);
   if (!r.ok) throw new Error('trades');
-  return r.json() as Promise<{ trades: MintTradeRow[] }>;
+  const json = (await r.json()) as { trades: (MintTradeRow | ChainDeskTrade)[]; source?: string };
+  return {
+    trades: json.trades.map((t) => ({
+      ...t,
+      chain_wallet: 'chain_wallet' in t ? t.chain_wallet : null,
+    })),
+    source: json.source,
+  };
 }
 
 type MintTradesOptions = {

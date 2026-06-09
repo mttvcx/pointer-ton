@@ -28,14 +28,7 @@ export function KnownWalletActivityStrip({
     // The `/trades` rows are wallet-activity shaped at runtime; assert the
     // structural shape `hydrateTradeEventsFromMintTrades` consumes (same as the
     // strip did before it shared the trades cache).
-    const rows = (tradesQ.data?.trades ?? []) as unknown as Array<{
-      wallet_address: string;
-      side: string;
-      submitted_at: string;
-      price_usd?: number | null;
-      amount_usd?: number | null;
-      tx_signature?: string | null;
-    }>;
+    const rows = tradesQ.data?.trades ?? [];
     return hydrateTradeEventsFromMintTrades(chain, mint, rows).slice(0, 12);
   }, [chain, mint, tradesQ.data]);
 

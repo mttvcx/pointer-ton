@@ -262,6 +262,92 @@ export interface Database {
         Relationships: [];
       };
 
+      mint_swaps: {
+        Row: {
+          id: number;
+          mint: string;
+          signature: string;
+          wallet: string;
+          side: TradeSide;
+          token_amount_raw: number;
+          token_amount_ui: number;
+          sol_amount: number;
+          usd_amount: number | null;
+          price_usd: number | null;
+          market_cap_usd: number | null;
+          block_time: string;
+          slot: number | null;
+          program_id: string | null;
+          pool_address: string | null;
+          source: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          mint: string;
+          signature: string;
+          wallet: string;
+          side: TradeSide;
+          token_amount_raw: number;
+          token_amount_ui: number;
+          sol_amount: number;
+          usd_amount?: number | null;
+          price_usd?: number | null;
+          market_cap_usd?: number | null;
+          block_time: string;
+          slot?: number | null;
+          program_id?: string | null;
+          pool_address?: string | null;
+          source?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['mint_swaps']['Insert']>;
+        Relationships: [];
+      };
+
+      mint_wallet_stats: {
+        Row: {
+          mint: string;
+          wallet: string;
+          bought_token_raw: number;
+          sold_token_raw: number;
+          buy_sol: number;
+          sell_sol: number;
+          buy_usd: number;
+          sell_usd: number;
+          avg_buy_usd: number | null;
+          avg_sell_usd: number | null;
+          realized_pnl_usd: number;
+          unrealized_pnl_usd: number | null;
+          remaining_token_raw: number;
+          remaining_token_ui: number;
+          first_trade_at: string | null;
+          last_trade_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          mint: string;
+          wallet: string;
+          bought_token_raw?: number;
+          sold_token_raw?: number;
+          buy_sol?: number;
+          sell_sol?: number;
+          buy_usd?: number;
+          sell_usd?: number;
+          avg_buy_usd?: number | null;
+          avg_sell_usd?: number | null;
+          realized_pnl_usd?: number;
+          unrealized_pnl_usd?: number | null;
+          remaining_token_raw?: number;
+          remaining_token_ui?: number;
+          first_trade_at?: string | null;
+          last_trade_at?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['mint_wallet_stats']['Insert']>;
+        Relationships: [];
+      };
+
       trades: {
         Row: {
           id: string;
