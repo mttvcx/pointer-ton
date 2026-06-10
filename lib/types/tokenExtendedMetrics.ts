@@ -34,6 +34,8 @@ export interface TokenExtendedMetrics {
   netVol6hUsd: number | null;
   /** Per-TF tape from mint_swaps (QA indexer mints). Null when unavailable. */
   tapeByTf?: Partial<Record<TokenTradePerfTf, TokenTapeWindowMetrics>> | null;
+  /** DexScreener vol fallback when indexed window is empty. Vol only — no buy/sell split. */
+  dexTapeByTf?: Partial<Record<TokenTradePerfTf, TokenTapeWindowMetrics>> | null;
   /** True when indexed swap history does not span the requested TF window. */
   indexedVolPartial?: Partial<Record<TokenTradePerfTf, boolean>> | null;
   /** Transfer / trade tax % when known (buy+sell combined or total fee). */

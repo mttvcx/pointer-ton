@@ -16,15 +16,20 @@ import {
 } from '@/lib/indexer/mintSwapWindowMetrics';
 import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
 import { resolveTokenHolders } from '@/lib/onchain/resolveTokenHolders';
+import { fetchCreatorDevHoldingPct } from '@/lib/onchain/creatorDevHolding';
+import { dexTapeFromSnapshot } from '@/lib/market/dexTapeFromSnapshot';
 
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 
 const VOL_WINDOW_MS = 6 * 60 * 60_000;
 
-const CACHE_PREFIX = 'token:extended_metrics:v3:';
+const CACHE_PREFIX = 'token:extended_metrics:v4:';
 const CACHE_TTL_SEC = 60;
 
-async function loadHolders(mint: string): Promise<{
+async function loadHolders(
+  mint: string,
+  opts?: { forceLive?: boolean },
+): Promise<{
   rows: TokenHolderRow[];
   holderCountTotal: number | null;
   holderRowsLoaded: number;
@@ -32,7 +37,10 @@ async function loadHolders(mint: string): Promise<{
   top10HolderPctRaw: number | null;
   devHoldingPct: number | null;
 }> {
-  const resolved = await resolveTokenHolders(mint, { limit: 20 });
+  const resolved = await resolveTokenHolders(mint, {
+    limit: 20,
+    forceLive: opts?.forceLive,
+  });
   if (!resolved) {
     return {
       rows: [],
@@ -87,10 +95,15 @@ export async function getTokenExtendedMetrics(
   const [token, snap, holderDesk] = await Promise.all([
     getTokenByMint(mint),
     getLatestSnapshotForMint(mint),
-    loadHolders(mint),
+    loadHolders(mint, { forceLive: isPointerQaMint(mint) }),
   ]);
 
   const holders = holderDesk.rows;
+
+  let devHoldingPct = holderDesk.devHoldingPct;
+  if (devHoldingPct == null && token?.creator_wallet?.trim()) {
+    devHoldingPct = await fetchCreatorDevHoldingPct(mint, token.creator_wallet);
+  }
 
   let sniperPct = 0;
   for (const h of holders) {
@@ -133,7 +146,7 @@ export async function getTokenExtendedMetrics(
       holderDesk.top10HolderPct ??
       (snap?.top10_holder_pct != null ? Math.min(100, snap.top10_holder_pct) : null),
     top10HolderPctRaw: holderDesk.top10HolderPctRaw,
-    devHoldingPct: holderDesk.devHoldingPct ?? snap?.dev_holding_pct ?? null,
+    devHoldingPct: devHoldingPct ?? snap?.dev_holding_pct ?? null,
     sniperHolderPct: sniperPct > 0 ? sniperPct : null,
     insidersPct: null,
     bundlersPct: null,
@@ -149,6 +162,7 @@ export async function getTokenExtendedMetrics(
     sellVol6hUsd,
     netVol6hUsd,
     tapeByTf,
+    dexTapeByTf: dexTapeFromSnapshot(snap),
     indexedVolPartial,
     taxPct: null,
   };

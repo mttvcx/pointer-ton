@@ -1,4 +1,4 @@
-import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
+import type { TokenExtendedMetrics, TokenTapeWindowMetrics } from '@/lib/types/tokenExtendedMetrics';
 import type { TokenTradePerfTf } from '@/lib/tokens/tokenTradePerfTfs';
 
 export type TokenTradeTapeWindow = {
@@ -19,17 +19,37 @@ const EMPTY_TAPE: TokenTradeTapeWindow = {
   netVolUsd: 0,
 };
 
-/** Read indexed tape for a timeframe — no scaling/jitter; returns null when unavailable or partial. */
+function hasIndexedTape(
+  tape: TokenTapeWindowMetrics | undefined,
+): tape is TokenTapeWindowMetrics {
+  return tape != null;
+}
+
+/**
+ * Read desk tape for a timeframe.
+ * Prefers indexed mint_swaps; falls back to Dex snapshot vol when indexed is empty.
+ * Partial windows still show indexed data (label with * in UI).
+ */
 export function tapeMetricsForTf(
   m: TokenExtendedMetrics,
   tf: TokenTradePerfTf,
   _mint: string,
 ): TokenTradeTapeWindow | null {
-  if (m.indexedVolPartial?.[tf]) return null;
-
   const indexed = m.tapeByTf?.[tf];
-  if (indexed && (indexed.volUsd > 0 || indexed.buys > 0 || indexed.sells > 0)) {
+  if (hasIndexedTape(indexed)) {
+    if (indexed.volUsd > 0 || indexed.buys > 0 || indexed.sells > 0) {
+      return indexed;
+    }
+    const dex = m.dexTapeByTf?.[tf];
+    if (dex && dex.volUsd > 0) {
+      return dex;
+    }
     return indexed;
+  }
+
+  const dex = m.dexTapeByTf?.[tf];
+  if (dex && dex.volUsd > 0) {
+    return dex;
   }
 
   if (tf === '6h' && m.vol6hUsd != null) {
@@ -41,6 +61,10 @@ export function tapeMetricsForTf(
       sellVolUsd: m.sellVol6hUsd ?? 0,
       netVolUsd: m.netVol6hUsd ?? 0,
     };
+  }
+
+  if (m.indexedVolPartial?.[tf]) {
+    return null;
   }
 
   return null;
