@@ -43,7 +43,7 @@ export function TokenTradeDeskStrip({
 }: {
   metrics: TokenExtendedMetrics;
   mint: string;
-  changes: Record<TokenTradePerfTf, number>;
+  changes: Record<TokenTradePerfTf, number | null>;
   selected: TokenTradePerfTf;
   onSelect: (tf: TokenTradePerfTf) => void;
   className?: string;
@@ -53,8 +53,11 @@ export function TokenTradeDeskStrip({
   // Stats are the resting state; the TF picker only appears on hover.
   const showStats = !hovering;
   const tape = tapeMetricsForTf(metrics, selected, mint);
-  const volTotal = tape.buyVolUsd + tape.sellVolUsd;
-  const buyRatio = volTotal > 0 ? tape.buyVolUsd / volTotal : 0.5;
+  const indexedTape = tape != null;
+  const volTotal = tape ? tape.buyVolUsd + tape.sellVolUsd : 0;
+  const buyRatio = volTotal > 0 && tape ? tape.buyVolUsd / volTotal : 0.5;
+  const dash = '\u2014';
+  const hasActivity = indexedTape && tape && (tape.volUsd > 0 || tape.buys > 0 || tape.sells > 0);
 
   const pickTf = (tf: TokenTradePerfTf) => {
     onSelect(tf);
@@ -74,7 +77,7 @@ export function TokenTradeDeskStrip({
                 {selected} Vol
               </p>
               <p className="mt-1.5 whitespace-nowrap text-[12px] font-semibold tabular-nums leading-none text-fg-primary">
-                {formatCompactUsd(tape.volUsd)}
+                {indexedTape && tape ? formatCompactUsd(tape.volUsd) : dash}
               </p>
             </div>
             <div className="min-w-0">
@@ -82,7 +85,9 @@ export function TokenTradeDeskStrip({
                 Buys
               </p>
               <p className="mt-1.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bull">
-                {formatTapeCount(tape.buys)} / {formatTapeUsd(tape.buyVolUsd)}
+                {indexedTape
+                  ? `${formatTapeCount(tape.buys)} / ${formatTapeUsd(tape.buyVolUsd)}`
+                  : dash}
               </p>
             </div>
             <div className="min-w-0">
@@ -90,7 +95,9 @@ export function TokenTradeDeskStrip({
                 Sells
               </p>
               <p className="mt-1.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bear">
-                {formatTapeCount(tape.sells)} / {formatTapeUsd(tape.sellVolUsd)}
+                {indexedTape && tape
+                  ? `${formatTapeCount(tape.sells)} / ${formatTapeUsd(tape.sellVolUsd)}`
+                  : dash}
               </p>
             </div>
             <div className="min-w-0 text-right">
@@ -100,29 +107,41 @@ export function TokenTradeDeskStrip({
               <p
                 className={cn(
                   'mt-1.5 whitespace-nowrap text-[12px] font-semibold tabular-nums leading-none',
-                  tape.netVolUsd < 0 ? 'text-signal-bear' : 'text-signal-bull',
+                  !indexedTape
+                    ? 'text-fg-muted'
+                    : tape && tape.netVolUsd < 0
+                      ? 'text-signal-bear'
+                      : 'text-signal-bull',
                 )}
               >
-                {tape.netVolUsd >= 0 ? '+' : ''}
-                {formatCompactUsd(tape.netVolUsd)}
+                {indexedTape && tape ? (
+                  <>
+                    {tape.netVolUsd >= 0 ? '+' : ''}
+                    {formatCompactUsd(tape.netVolUsd)}
+                  </>
+                ) : (
+                  dash
+                )}
               </p>
             </div>
           </div>
 
-          <div className="mt-3 flex h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full bg-signal-bull/90"
-              style={{ width: `${Math.max(0, Math.min(100, buyRatio * 100))}%` }}
-            />
-            <div className="h-full flex-1 bg-signal-bear/90" />
-          </div>
+          {hasActivity ? (
+            <div className="mt-3 flex h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full bg-signal-bull/90"
+                style={{ width: `${Math.max(0, Math.min(100, buyRatio * 100))}%` }}
+              />
+              <div className="h-full flex-1 bg-signal-bear/90" />
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="grid min-h-[4.25rem] grid-cols-4 gap-px rounded-md bg-border-subtle/20 p-px py-0.5">
           {TOKEN_TRADE_PERF_TFS.map((tf) => {
             const pct = changes[tf];
             const isSelected = selected === tf;
-            const pos = pct >= 0;
+            const pos = (pct ?? 0) >= 0;
 
             return (
               <button

@@ -3,9 +3,10 @@
 
 CREATE TABLE IF NOT EXISTS mint_swaps (
   id bigserial PRIMARY KEY,
-  mint text NOT NULL REFERENCES tokens (mint) ON DELETE CASCADE,
+  mint text NOT NULL,
   signature text NOT NULL,
   wallet text NOT NULL,
+  event_kind text NOT NULL DEFAULT 'swap' CHECK (event_kind IN ('swap', 'remove_liq', 'add_liq')),
   side text NOT NULL CHECK (side IN ('buy', 'sell')),
   token_amount_raw numeric NOT NULL,
   token_amount_ui numeric NOT NULL,
@@ -19,7 +20,7 @@ CREATE TABLE IF NOT EXISTS mint_swaps (
   pool_address text,
   source text NOT NULL DEFAULT 'helius_enhanced',
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT mint_swaps_unique_leg UNIQUE (signature, wallet, side, mint)
+  CONSTRAINT mint_swaps_unique_leg UNIQUE (signature, wallet, mint, event_kind)
 );
 
 CREATE INDEX IF NOT EXISTS mint_swaps_mint_block_time_idx
@@ -29,7 +30,7 @@ CREATE INDEX IF NOT EXISTS mint_swaps_mint_wallet_idx
   ON mint_swaps (mint, wallet);
 
 CREATE TABLE IF NOT EXISTS mint_wallet_stats (
-  mint text NOT NULL REFERENCES tokens (mint) ON DELETE CASCADE,
+  mint text NOT NULL,
   wallet text NOT NULL,
   bought_token_raw numeric NOT NULL DEFAULT 0,
   sold_token_raw numeric NOT NULL DEFAULT 0,

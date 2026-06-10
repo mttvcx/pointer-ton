@@ -20,13 +20,19 @@ import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import {
   tradeRowMatchesDeskFilter,
   tradeFillMarketCapUsdLabel,
+  tradeIsDeskSwap,
+  tradeIsLiquidityEvent,
   tradeMakerWallet,
+  tradeMcColumnLabel,
   tradeRowDemoIndex,
   tradeTraderHint,
   tradeWalletDeskExtras,
   type TradesDeskFilter,
 } from '@/lib/tokens/tradeFormatting';
+import { preferTokenTableDemoRows } from '@/lib/dev/uiDemoMode';
+import { isPointerQaMintClient } from '@/lib/qa/pointerQaMintClient';
 import { formatRelativeShort } from '@/lib/format';
+import { InlineBarCell } from '@/components/tokens/cells/InlineBarCell';
 import { SortIndicator } from '@/components/tokens/cells/SortableTh';
 import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
 import { KnownWalletActivityStrip } from '@/components/identity/KnownWalletActivityStrip';
@@ -149,7 +155,7 @@ function tradeMcSnapshot(
   supplyTokens: number | null | undefined,
   fallbackMcUsd: number | null | undefined,
 ): string {
-  return tradeFillMarketCapUsdLabel(t, supplyTokens, fallbackMcUsd);
+  return tradeMcColumnLabel(t, supplyTokens, fallbackMcUsd);
 }
 
 function optionalTradeBool(row: MintTradeRow, key: string): boolean {
@@ -187,9 +193,11 @@ function TokenLiveTradesSidePanel({
   const [displayMode, setDisplayMode] = useState<'USD' | 'SOL'>('SOL');
   const [valueColumn, setValueColumn] = useState<'mc' | 'price'>('mc');
 
+  const tradeRows = useMemo(() => rows.filter(tradeIsDeskSwap), [rows]);
+
   const filteredRows = useMemo(() => {
-    if (tradesDeskFilter === 'all') return rows;
-    return rows.filter((row, rowIndex) => {
+    if (tradesDeskFilter === 'all') return tradeRows;
+    return tradeRows.filter((row, rowIndex) => {
       const wallet = tradeMakerWallet(row, rowIndex) ?? row.user_id;
       return tradeRowMatchesDeskFilter({
         wallet,
@@ -199,7 +207,7 @@ function TokenLiveTradesSidePanel({
         filter: tradesDeskFilter,
       });
     });
-  }, [rows, tradesDeskFilter, creatorWallet, isTracked, activeWalletAddress]);
+  }, [tradeRows, tradesDeskFilter, creatorWallet, isTracked, activeWalletAddress]);
 
   const sortedRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
@@ -209,6 +217,20 @@ function TokenLiveTradesSidePanel({
       return ageSortDir === 'asc' ? ta - tb : tb - ta;
     });
   }, [filteredRows, ageSortDir]);
+
+  const { maxSol, maxUsd } = useMemo(() => {
+    let s = 0;
+    let u = 0;
+    for (const r of sortedRows) {
+      const sol = Math.abs(r.amount_sol ?? 0);
+      const usd = sol * Math.abs(r.price_usd_at_fill ?? 0);
+      if (sol > s) s = sol;
+      if (usd > u) u = usd;
+    }
+    return { maxSol: s || 1, maxUsd: u || 1 };
+  }, [sortedRows]);
+
+  const qaLive = isPointerQaMintClient(mint);
 
   return (
     <div className="flex min-w-[220px] max-w-[280px] shrink-0 flex-1 flex-col overflow-hidden border-l border-border-subtle bg-bg-raised lg:max-w-none lg:flex-none lg:basis-[240px]">
@@ -277,7 +299,9 @@ function TokenLiveTradesSidePanel({
             ))}
           </div>
         ) : sortedRows.length === 0 ? (
-          <p className="px-3 py-4 text-center text-[11px] text-fg-muted">No transactions found</p>
+          <p className="px-3 py-4 text-center text-[11px] text-fg-muted">
+            {qaLive || !preferTokenTableDemoRows() ? 'No trades yet' : 'No transactions found'}
+          </p>
         ) : (
           sortedRows.map((t, i) => {
             const sol = t.amount_sol ?? 0;
@@ -286,36 +310,47 @@ function TokenLiveTradesSidePanel({
               sol != null && Number.isFinite(sol)
                 ? formatNumber(sol, { decimals: Math.abs(sol) < 1 ? 3 : 2 })
                 : '\u2014';
-            const bull = t.side === 'buy';
+            const liqEvent = tradeIsLiquidityEvent(t);
+            const tone = liqEvent ? 'sell' : t.side === 'buy' ? 'buy' : 'sell';
+            const barValue = displayMode === 'SOL' ? Math.abs(sol) : usdValue;
+            const barMax = displayMode === 'SOL' ? maxSol : maxUsd;
             const traderHint = tradeTraderHint(t, i);
             const wallet = traderHint.fullAddress;
             const demoIdx = tradeRowDemoIndex(t);
-            const deskExtras = wallet ? tradeWalletDeskExtras(wallet, demoIdx, creatorWallet) : null;
+            const chainBadges = (t as MintTradeRow & { desk_badges?: string[] }).desk_badges;
+            const deskExtras = wallet
+              ? tradeWalletDeskExtras(wallet, demoIdx, creatorWallet, chainBadges as never)
+              : null;
             const mc = tradeMcSnapshot(t, supplyTokens, marketCapUsd);
             const ageLabel = formatRelativeShort(t.submitted_at);
 
             return (
               <div
                 key={t.id}
-                className="flex items-center border-b border-border-subtle/25 px-2 py-1 text-xs transition-colors last:border-b-0 hover:bg-white/[0.03]"
+                className={cn(
+                  'flex items-center border-b border-border-subtle/25 px-2 py-0.5 text-xs transition-colors last:border-b-0',
+                  liqEvent ? 'bg-signal-bear/[0.06] hover:bg-signal-bear/10' : 'hover:bg-white/[0.03]',
+                )}
               >
+                <div className="relative mr-1 h-6 w-[72px] shrink-0 overflow-hidden rounded-sm">
+                  <InlineBarCell value={barValue} max={barMax} tone={tone} className="h-full min-h-6">
+                    {displayMode === 'SOL' ? (
+                      <>
+                        <ChainIcon chain="sol" size={11} />
+                        {solStr}
+                      </>
+                    ) : (
+                      formatCompactUsd(usdValue)
+                    )}
+                  </InlineBarCell>
+                </div>
                 <span
                   className={cn(
-                    'flex w-[72px] shrink-0 items-center gap-0.5 font-sans tabular-nums',
-                    bull ? 'text-signal-bull' : 'text-signal-bear',
+                    'w-[58px] shrink-0 truncate font-sans tabular-nums',
+                    liqEvent && valueColumn === 'mc'
+                      ? 'font-semibold uppercase text-fg-primary'
+                      : 'text-fg-secondary',
                   )}
-                >
-                  {displayMode === 'SOL' ? (
-                    <>
-                      <ChainIcon chain="sol" size={11} />
-                      {solStr}
-                    </>
-                  ) : (
-                    formatCompactUsd(usdValue)
-                  )}
-                </span>
-                <span
-                  className="w-[58px] shrink-0 truncate font-sans tabular-nums text-fg-secondary"
                   title={valueColumn === 'mc' ? mc : undefined}
                 >
                   {valueColumn === 'mc' ? (
@@ -333,7 +368,8 @@ function TokenLiveTradesSidePanel({
                       creatorWallet={creatorWallet}
                       href={`/wallet/${encodeURIComponent(wallet)}`}
                       preferIntelModal
-                      addressFormat="axiom-ticker"
+                      addressFormat="axiom"
+                      truncate={4}
                       outlineOnHover
                       badgeBeforeAddress
                       suppressFilterButton

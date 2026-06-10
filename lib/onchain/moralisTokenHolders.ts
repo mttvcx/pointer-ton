@@ -77,7 +77,7 @@ export async function fetchMoralisTokenHolderSnapshot(
     : null;
 
   const now = new Date().toISOString();
-  const rows: TablesInsert<'token_holders'>[] = [];
+  const byOwner = new Map<string, { amountRaw: string; pct: number | null }>();
   let devPct: number | null = null;
 
   for (const item of holdersJson.result ?? []) {
@@ -86,17 +86,50 @@ export async function fetchMoralisTokenHolderSnapshot(
     const amountRaw = pickAmountRaw(item);
     if (amountRaw === '0') continue;
     const pct = pickPct(item);
+    const prev = byOwner.get(owner);
+    if (prev) {
+      try {
+        const sum = BigInt(prev.amountRaw) + BigInt(amountRaw);
+        byOwner.set(owner, {
+          amountRaw: sum.toString(),
+          pct: (prev.pct ?? 0) + (pct ?? 0),
+        });
+      } catch {
+        byOwner.set(owner, { amountRaw, pct });
+      }
+    } else {
+      byOwner.set(owner, { amountRaw, pct });
+    }
     const isDev = Boolean(creator && creator === owner);
     if (isDev && pct != null) devPct = pct;
+  }
 
+  const sorted = [...byOwner.entries()].sort((a, b) => {
+    const pa = a[1].pct ?? 0;
+    const pb = b[1].pct ?? 0;
+    if (pb !== pa) return pb - pa;
+    try {
+      const ba = BigInt(a[1].amountRaw);
+      const bb = BigInt(b[1].amountRaw);
+      if (bb !== ba) return bb > ba ? 1 : -1;
+    } catch {
+      /* fall through */
+    }
+    return a[0].localeCompare(b[0]);
+  });
+
+  const rows: TablesInsert<'token_holders'>[] = [];
+  for (let i = 0; i < sorted.length && i < limit; i += 1) {
+    const [owner, agg] = sorted[i]!;
+    const isDev = Boolean(creator && creator === owner);
     rows.push({
       mint,
       wallet_address: owner,
-      amount_raw: amountRaw,
-      pct_of_supply: pct,
+      amount_raw: agg.amountRaw,
+      pct_of_supply: agg.pct,
       is_dev: isDev,
       is_sniper: null,
-      rank: rows.length + 1,
+      rank: i + 1,
       computed_at: now,
     });
   }
@@ -110,7 +143,7 @@ export async function fetchMoralisTokenHolderSnapshot(
     mint,
     decimals: 9,
     holders: rows,
-    holderCount: metricsJson?.totalHolders ?? (rows.length > 0 ? rows.length : null),
+    holderCountTotal: metricsJson?.totalHolders ?? null,
     top10HolderPct: top10Pct,
     devHoldingPct: devPct,
     fetchedAt: now,

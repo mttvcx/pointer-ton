@@ -1,9 +1,12 @@
 import type { TradeSide } from '@/lib/supabase/types';
 
+export type MintSwapEventKind = 'swap' | 'remove_liq' | 'add_liq';
+
 export type ParsedMintSwap = {
   mint: string;
   signature: string;
   wallet: string;
+  eventKind: MintSwapEventKind;
   side: TradeSide;
   tokenAmountRaw: number;
   tokenAmountUi: number;
@@ -65,4 +68,9 @@ export type ChainDeskTrade = {
   /** Alias for identity / activity strip hydration. */
   wallet_address: string;
   source: 'chain_indexer';
+  event_kind: MintSwapEventKind;
+  /** MC at fill from indexer — preferred over price×supply for desk MC column. */
+  market_cap_usd_at_fill: number | null;
+  /** Chain-derived wallet badges for desk rows. */
+  desk_badges?: import('@/lib/walletIdentity/types').WalletIntelBadgeKind[];
 };

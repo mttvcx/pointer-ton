@@ -6,12 +6,13 @@ import { TokenDetailView } from '@/components/tokens/TokenDetailView';
 import { TokenHeader } from '@/components/tokens/TokenHeader';
 import { getLatestSnapshotForMint } from '@/lib/db/tokens';
 import { getDevWalletStats } from '@/lib/db/wallets';
-import { ensureTokenRowFromDas } from '@/lib/helius/feed';
+import { cachedEnsureTokenRowFromDas } from '@/lib/helius/cachedEnsureTokenRow';
 import { pulseTwitterProfileHoverTestBundle } from '@/lib/dev/demoPulseBundles';
 import { demoFixturesEnabledServer } from '@/lib/dev/demoPolicy';
 import { PULSE_X_HOVER_QA_MINT } from '@/lib/utils/solDemoMints';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
-import { extractSupplyTokens } from '@/lib/tokens/metadataHints';
+import { ensureTokenDexSnapshot } from '@/lib/market/ensureTokenDexSnapshot';
+import { resolveTokenSupplyUi } from '@/lib/tokens/supplyUi';
 
 /** Compact USD market-cap label (e.g. "$121M" / "$1.4B" / "$640K"). */
 function formatMcUsd(mc: number): string {
@@ -30,11 +31,20 @@ export async function generateMetadata({
   const { mint } = await params;
   const short = mint.length > 12 ? `${mint.slice(0, 4)}\u2026${mint.slice(-4)}` : mint;
   try {
-    // Reuse the same fetches the page itself runs; React/Next will dedupe.
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[token-hydrate] metadata call', mint);
+    }
+    // Shared with page body via React cache() — one hydrate per request.
     const [token, snapshot] = await Promise.all([
-      ensureTokenRowFromDas(mint),
+      cachedEnsureTokenRowFromDas(mint),
       getLatestSnapshotForMint(mint),
     ]);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[token-hydrate] metadata result', mint, {
+        rowMint: token?.mint ?? null,
+        symbol: token?.symbol ?? null,
+      });
+    }
     const symbol = (token?.symbol ?? '').trim() || short;
     const mcStr = formatMcUsd(Number(snapshot?.market_cap_usd ?? 0));
     const title = mcStr ? `${symbol} ${mcStr} | Pointer` : `${symbol} | Pointer`;
@@ -57,24 +67,35 @@ export default async function TokenDetailPage({
     notFound();
   }
 
-  const snapshotPromise = getLatestSnapshotForMint(mint);
-  const token = await ensureTokenRowFromDas(mint);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[token-hydrate] page call', mint);
+  }
+  const token = await cachedEnsureTokenRowFromDas(mint);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[token-hydrate] page result', mint, {
+      rowMint: token?.mint ?? null,
+      symbol: token?.symbol ?? null,
+      returnValue: token ? 'row' : 'null',
+    });
+  }
   if (!token) {
     notFound();
   }
 
-  // Dev stats depend on the resolved token; run them in parallel with the
-  // still-in-flight snapshot fetch instead of serially after it.
-  const devPromise = token.creator_wallet
-    ? getDevWalletStats(token.creator_wallet)
-    : Promise.resolve(null);
-  const [snapshotInitial, dev] = await Promise.all([snapshotPromise, devPromise]);
+  // Supply/LP hydrate is manual-only for pump RPC enrich; Dex snapshot runs on cold load.
+  const [snapshotInitial, dev] = await Promise.all([
+    ensureTokenDexSnapshot(mint, 'sol'),
+    token.creator_wallet ? getDevWalletStats(token.creator_wallet) : Promise.resolve(null),
+  ]);
 
-  let snapshot = snapshotInitial;
+  let snapshot = snapshotInitial ?? (await getLatestSnapshotForMint(mint));
   if (mint === PULSE_X_HOVER_QA_MINT && demoFixturesEnabledServer()) {
     snapshot = pulseTwitterProfileHoverTestBundle('sol')?.snapshot ?? snapshot;
   }
-  const supplyTokens = extractSupplyTokens(token.raw_metadata);
+  const supplyTokens = resolveTokenSupplyUi(token.raw_metadata, token.decimals, {
+    marketCapUsd: snapshot?.market_cap_usd,
+    priceUsd: snapshot?.price_usd,
+  });
 
   return (
     <>

@@ -1,10 +1,13 @@
 import type { MintSwapRow } from '@/lib/db/mintSwaps';
+import { inferSwapEventKind } from '@/lib/indexer/inferSwapEventKind';
 import type { ChainDeskTrade } from '@/lib/indexer/types';
 
 /** Map indexed swap row → desk trades table shape. */
 export function mintSwapToDeskTrade(row: MintSwapRow): ChainDeskTrade | null {
   const wallet = row.wallet?.trim();
   if (!wallet) return null;
+
+  const eventKind = inferSwapEventKind(row);
 
   return {
     id: `chain-${row.id}`,
@@ -28,5 +31,7 @@ export function mintSwapToDeskTrade(row: MintSwapRow): ChainDeskTrade | null {
     chain_wallet: wallet,
     wallet_address: wallet,
     source: 'chain_indexer',
+    event_kind: eventKind,
+    market_cap_usd_at_fill: row.market_cap_usd,
   };
 }

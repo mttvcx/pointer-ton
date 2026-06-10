@@ -1,6 +1,6 @@
-/** Client-safe QA mint gate (mirrors server `POINTER_QA_MINT` / default G7anch). */
+/** Client-safe QA mint gate (mirrors server `POINTER_QA_MINT` / default WIF). */
 export const DEFAULT_POINTER_QA_MINT =
-  'GZQFCZjfzQyFSkA4jBuEeh5eKTLNzju7PZrEWxMvpump';
+  'CExejcGZSEnk4FBsBQa3nMnU1jjCYsjw4x9d7cJ4pump';
 
 export function getPointerQaMintClient(): string {
   const raw = process.env.NEXT_PUBLIC_POINTER_QA_MINT?.trim();

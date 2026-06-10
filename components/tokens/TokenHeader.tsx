@@ -17,9 +17,9 @@ import { enrichBundleTwitterFromSocialModel } from '@/lib/tokens/pulseSocialLink
 import { resolveLaunchpadAvatarChromeWithFallback } from '@/lib/tokens/launchpadAvatarChrome';
 import {
   extractGlobalFeesSol,
-  extractSupplyTokens,
   formatSupplyHint,
 } from '@/lib/tokens/metadataHints';
+import { resolveTokenSupplyUi } from '@/lib/tokens/supplyUi';
 import type { PulseTokenBundle } from '@/types/tokens';
 import {
   formatAgeShort,
@@ -32,6 +32,14 @@ import type { Tables } from '@/lib/supabase/types';
 import type { TokenMarketSnapshotRow, TokenRow } from '@/lib/db/tokens';
 import { cn } from '@/lib/utils/cn';
 import { useTokenExtendedMetrics } from '@/lib/hooks/useTokenExtendedMetrics';
+import { TokenSupplyRefreshControl } from '@/components/tokens/TokenSupplyRefreshControl';
+import { DESK_FIELD_TOOLTIPS } from '@/lib/tokens/deskFieldTooltips';
+import { headerStatValueClass } from '@/lib/tokens/tokenDeskRisk';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { openAlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import { explorerTokenAriaLabel, explorerTokenHrefFromMint } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
@@ -107,7 +115,10 @@ export function TokenHeader({
     [token, snapshot],
   );
   const bonding = getPulseBondingRingState(bundle);
-  const supplyRaw = extractSupplyTokens(token.raw_metadata);
+  const supplyRaw = resolveTokenSupplyUi(token.raw_metadata, token.decimals, {
+    marketCapUsd: snapshot?.market_cap_usd,
+    priceUsd: snapshot?.price_usd,
+  });
   const supplyLabel = formatSupplyHint(supplyRaw);
   const feesSol = extractGlobalFeesSol(snapshot?.extended_metrics);
   const extJson = snapshot?.extended_metrics;
@@ -185,19 +196,41 @@ export function TokenHeader({
     }
   }, [mint, ticker]);
 
-  const stats = [
+  const liquidityUsd = snapshot?.liquidity_usd ?? null;
+  const snapshotAt = snapshot?.snapshot_at ?? null;
+
+  const stats: {
+    label: string;
+    value: string;
+    accent?: boolean;
+    prosMuted?: boolean;
+    showRefresh?: boolean;
+    missingTooltip?: string;
+    sub?: string;
+  }[] = [
     { label: 'Price', value: priceStr },
-    { label: 'Liquidity', value: liquidityStr },
-    { label: 'Supply', value: supplyDisplay },
-    { label: 'Fees', value: feesDisplay },
-    { label: 'Bonding', value: bondingValue, accent: true as const },
+    {
+      label: 'Liquidity',
+      value: liquidityStr,
+      showRefresh: true,
+      missingTooltip: DESK_FIELD_TOOLTIPS.liquidity,
+    },
+    {
+      label: 'Supply',
+      value: supplyDisplay,
+      showRefresh: true,
+      missingTooltip: DESK_FIELD_TOOLTIPS.supply,
+    },
+    { label: 'Fees', value: feesDisplay, missingTooltip: DESK_FIELD_TOOLTIPS.fees },
+    { label: 'Bonding', value: bondingValue, accent: true, missingTooltip: DESK_FIELD_TOOLTIPS.bonding },
     {
       label: 'ATH',
       value: athPrimary,
       sub: athSub,
+      missingTooltip: DESK_FIELD_TOOLTIPS.ath,
     },
     { label: 'Holders', value: holdersValue },
-    { label: 'Pros', value: prosValue, prosMuted },
+    { label: 'Pros', value: prosValue, prosMuted, missingTooltip: DESK_FIELD_TOOLTIPS.pros },
   ];
 
   return (
@@ -313,20 +346,41 @@ export function TokenHeader({
               const mutedBase =
                 stat.value === '\u2014' || stat.value === '\u2026' || stat.value === '';
 
-              let valueClassName = mutedBase ? 'text-fg-muted' : 'text-fg-primary';
-              if ('accent' in stat && stat.accent && stat.value !== '\u2014') {
-                valueClassName = 'text-signal-warn';
-              }
-              if ('prosMuted' in stat && stat.prosMuted && stat.value !== '\u2014') {
-                valueClassName = 'text-fg-muted';
-              }
+              const valueClassName = headerStatValueClass(stat.label, stat.value, {
+                liquidityUsd,
+                accent: stat.accent,
+                prosMuted: stat.prosMuted,
+              });
 
-              const sub = 'sub' in stat ? stat.sub : undefined;
+              const sub = stat.sub;
+
+              const valueNode = mutedBase && stat.missingTooltip ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={cn(
+                        'cursor-help border-b border-dotted border-fg-muted/30',
+                        valueClassName,
+                      )}
+                    >
+                      {stat.value}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] text-[10px] leading-snug">
+                    {stat.missingTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                stat.value
+              );
 
               return (
                 <div key={stat.label} className="flex min-w-[3.25rem] shrink-0 flex-col">
-                  <span className="whitespace-nowrap text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted/85">
+                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted/85">
                     {stat.label}
+                    {stat.showRefresh ? (
+                      <TokenSupplyRefreshControl mint={mint} lastRefreshedAt={snapshotAt} />
+                    ) : null}
                   </span>
                   <span
                     className={cn(
@@ -334,7 +388,7 @@ export function TokenHeader({
                       valueClassName,
                     )}
                   >
-                    {stat.value}
+                    {valueNode}
                     {sub ? (
                       <span className="text-[10px] font-medium tabular-nums leading-none text-signal-bull">
                         {sub}

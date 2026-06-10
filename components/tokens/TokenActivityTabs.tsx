@@ -8,7 +8,12 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd } from '@/lib/format';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { buildDeskFundingSynth, EMPTY_DESK_FUNDING } from '@/lib/tokens/holderDeskSynth';
-import { tradeTraderHint, tradeRowMatchesDeskFilter, type TradesDeskFilter } from '@/lib/tokens/tradeFormatting';
+import {
+  tradeIsDeskSwap,
+  tradeTraderHint,
+  tradeRowMatchesDeskFilter,
+  type TradesDeskFilter,
+} from '@/lib/tokens/tradeFormatting';
 import type { Tables } from '@/lib/supabase/types';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import { cn } from '@/lib/utils/cn';
@@ -375,8 +380,9 @@ export function TokenActivityTabs({
   const nativeSym = nativeTicker(activeChain);
   const nativeUsdHint = NATIVE_USD_HINT[activeChain];
   const sym = symbol ?? 'TOK';
-  const tableDemoEnv = preferTokenTableDemoRows() || forceDemoTables;
-  const demoTables = demoTablesEnabled(uiDemo) || forceDemoTables;
+  const qaLive = isPointerQaMintClient(mint);
+  const tableDemoEnv = qaLive ? false : preferTokenTableDemoRows() || forceDemoTables;
+  const demoTables = qaLive ? false : demoTablesEnabled(uiDemo) || forceDemoTables;
   const demoTrades = useMemo(() => syntheticTradesForMint(mint), [mint]);
   const demoTraders = useMemo(() => syntheticTopTradersForMint(mint), [mint]);
   const demoHolders = useMemo(() => syntheticHoldersResponse(mint, 9), [mint]);
@@ -458,7 +464,7 @@ export function TokenActivityTabs({
   const tradeRowsRaw = useMemo((): TradeRow[] => {
     const raw = tradesQ.data?.trades ?? [];
     if (tableDemoEnv || (uiDemo && (raw.length === 0 || tradesQ.isError))) return demoTrades;
-    return raw;
+    return raw.filter(tradeIsDeskSwap);
   }, [tradesQ.data?.trades, tradesQ.isError, uiDemo, tableDemoEnv, demoTrades]);
 
   const tradeRowsForTable = useMemo((): TradeRow[] => {
@@ -618,7 +624,7 @@ export function TokenActivityTabs({
       ? devTokensLiveQ.data.tokens.length
       : effectiveDevCount;
 
-  const tradersEmpty = sortedTraders.length === 0;
+  const tradersEmpty = sortedTraders.length === 0 && !tradersQ.isLoading;
   const tradersLensEmpty =
     traderDeskFilter !== 'all' && traderRowsAfterTrack.length > 0 && filteredTraders.length === 0;
 
@@ -882,20 +888,8 @@ export function TokenActivityTabs({
           tradeRowsForTable.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-1 p-8 text-center text-[11px] font-sans text-fg-muted">
               <p className="font-medium text-fg-secondary">
-                {demoTables
-                  ? 'No transactions found'
-                  : 'No indexed chain trades yet'}
+                {demoTables ? 'No transactions found' : 'No trades yet'}
               </p>
-              {!demoTables && !isPointerQaMintClient(mint) ? (
-                <p className="max-w-sm text-[10px] leading-relaxed text-fg-muted/90">
-                  Chain swap indexer is not wired for this mint. Pointer platform fills are separate
-                  and do not populate this tape.
-                </p>
-              ) : !demoTables && isPointerQaMintClient(mint) ? (
-                <p className="max-w-sm text-[10px] leading-relaxed text-fg-muted/90">
-                  Run backfill for this QA mint to populate indexed chain trades.
-                </p>
-              ) : null}
             </div>
           ) : (
             <MintTradesScroll
@@ -944,7 +938,7 @@ export function TokenActivityTabs({
                       ? 'No tracked traders here'
                       : demoTables
                         ? 'No ranked traders'
-                        : 'Requires chain trade indexer'
+                        : 'No top traders yet'
                 }
                 description={
                   tradersLensEmpty
@@ -953,9 +947,7 @@ export function TokenActivityTabs({
                       ? 'Add wallets in Trackers, then filter this table to them.'
                       : demoTables
                         ? 'Demo ranks — not live chain data.'
-                        : isPointerQaMintClient(mint)
-                          ? 'Run QA backfill to populate chain-indexed trader ranks.'
-                          : 'Requires chain trade indexer. Wallet ranks need parsed swaps and FIFO PnL per mint.'
+                        : undefined
                 }
               />
             </div>

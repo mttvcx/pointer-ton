@@ -2,7 +2,7 @@ import 'server-only';
 
 import { emitGlobalPulseNewTokenAlert } from '@/lib/alerts/generate';
 import type { PulseNewTokenAlertInput } from '@/lib/alerts/pulseNewTokenTypes';
-import { getTokenByMint, updateToken, upsertToken } from '@/lib/db/tokens';
+import { getTokenByMint, updateToken, upsertToken, type TokenRow } from '@/lib/db/tokens';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import {
   classificationUpdateFromLaunchEvent,
@@ -70,14 +70,21 @@ export function launchEventToTokenInsert(
  * Persist a launch discovery (DAS, Gecko, webhook). Returns 1 if a new mint row
  * was created, else 0.
  */
+export type IngestLaunchpadDiscoveryResult = {
+  created: 0 | 1;
+  row: TokenRow | null;
+};
+
 export async function ingestLaunchpadDiscovery(
   ev: LaunchpadEvent,
   opts: {
     alertSource: PulseNewTokenAlertInput['source'];
     txSignature?: string | null;
     dasAuthorityPad?: string | null;
+    /** Page hydrate already passed the pulse gate — skip duplicate inner gate. */
+    bypassDiscoveryGate?: boolean;
   },
-): Promise<number> {
+): Promise<IngestLaunchpadDiscoveryResult> {
   const rawWithSource: Json =
     ev.raw && typeof ev.raw === 'object' && !Array.isArray(ev.raw)
       ? ({ ...(ev.raw as Record<string, unknown>), pointerIngestSource: opts.alertSource } as Json)
@@ -98,7 +105,7 @@ export async function ingestLaunchpadDiscovery(
       das_authority_pad: opts.dasAuthorityPad ?? null,
     });
 
-    await updateToken(enrichedEv.mint, {
+    const row = await updateToken(enrichedEv.mint, {
       last_seen_at: now,
       raw_metadata: rawWithSource,
       symbol: enrichedEv.symbol ?? existing.symbol,
@@ -110,22 +117,25 @@ export async function ingestLaunchpadDiscovery(
       ...(classPatch ?? {}),
     });
     revalidatePulseFeedCache();
-    return 0;
+    return { created: 0, row };
   }
 
-  if (isNonAuthorityDiscoverySource(opts.alertSource)) {
+  if (
+    !opts.bypassDiscoveryGate &&
+    isNonAuthorityDiscoverySource(opts.alertSource)
+  ) {
     const preview = classifyLaunchEventForIngest(enrichedEv, opts.alertSource, {
       dasAuthorityPad: opts.dasAuthorityPad ?? null,
     });
     if (!meetsPulseDiscoveryThreshold(preview)) {
-      return 0;
+      return { created: 0, row: null };
     }
   }
 
   const inserted = launchEventToTokenInsert(enrichedEv, opts.alertSource, {
     dasAuthorityPad: opts.dasAuthorityPad ?? null,
   });
-  await upsertToken(inserted);
+  const row = await upsertToken(inserted);
   revalidatePulseFeedCache();
   await emitGlobalPulseNewTokenAlert({
     mint: enrichedEv.mint,
@@ -139,5 +149,5 @@ export async function ingestLaunchpadDiscovery(
     protocol_id: inserted.protocol_id ?? null,
     source_confidence: inserted.source_confidence ?? null,
   });
-  return 1;
+  return { created: 1, row };
 }

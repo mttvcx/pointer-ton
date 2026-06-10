@@ -10,41 +10,46 @@ export type TokenTradeTapeWindow = {
   netVolUsd: number;
 };
 
-const TF_SCALE: Record<TokenTradePerfTf, number> = {
-  '5m': 5 / 360,
-  '1h': 1 / 6,
-  '6h': 1,
-  '24h': 4,
+const EMPTY_TAPE: TokenTradeTapeWindow = {
+  volUsd: 0,
+  buys: 0,
+  sells: 0,
+  buyVolUsd: 0,
+  sellVolUsd: 0,
+  netVolUsd: 0,
 };
 
-function hashSeed(input: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+/** Read indexed tape for a timeframe — no scaling/jitter; returns null when unavailable or partial. */
+export function tapeMetricsForTf(
+  m: TokenExtendedMetrics,
+  tf: TokenTradePerfTf,
+  _mint: string,
+): TokenTradeTapeWindow | null {
+  if (m.indexedVolPartial?.[tf]) return null;
+
+  const indexed = m.tapeByTf?.[tf];
+  if (indexed && (indexed.volUsd > 0 || indexed.buys > 0 || indexed.sells > 0)) {
+    return indexed;
   }
-  return h >>> 0;
+
+  if (tf === '6h' && m.vol6hUsd != null) {
+    return {
+      volUsd: m.vol6hUsd ?? 0,
+      buys: m.buys6h ?? 0,
+      sells: m.sells6h ?? 0,
+      buyVolUsd: m.buyVol6hUsd ?? 0,
+      sellVolUsd: m.sellVol6hUsd ?? 0,
+      netVolUsd: m.netVol6hUsd ?? 0,
+    };
+  }
+
+  return null;
 }
 
-/** Scale 6h tape metrics to other windows until per-TF API fields exist. */
-export function tapeMetricsForTf(
+export function tapeMetricsForTfOrEmpty(
   m: TokenExtendedMetrics,
   tf: TokenTradePerfTf,
   mint: string,
 ): TokenTradeTapeWindow {
-  const scale = TF_SCALE[tf];
-  const jitter = 0.9 + (hashSeed(`${mint}:tape:${tf}`) % 20) / 100;
-
-  const buyVolUsd = (m.buyVol6hUsd ?? 0) * scale * jitter;
-  const sellVolUsd = (m.sellVol6hUsd ?? 0) * scale * jitter;
-  const netVolUsd = (m.netVol6hUsd ?? 0) * scale * jitter;
-
-  return {
-    volUsd: (m.vol6hUsd ?? 0) * scale * jitter,
-    buys: Math.max(0, Math.round((m.buys6h ?? 0) * scale * jitter)),
-    sells: Math.max(0, Math.round((m.sells6h ?? 0) * scale * jitter)),
-    buyVolUsd,
-    sellVolUsd,
-    netVolUsd,
-  };
+  return tapeMetricsForTf(m, tf, mint) ?? EMPTY_TAPE;
 }

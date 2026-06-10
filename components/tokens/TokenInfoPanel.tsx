@@ -7,52 +7,139 @@ import { formatNumber } from '@/lib/utils/formatters';
 import { EMPTY_TOKEN_EXTENDED_METRICS } from '@/lib/dev/demoPolicy';
 import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
+import { isQaDeskLiveModeClient } from '@/lib/qa/qaDeskLiveModeClient';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
+import { DESK_FIELD_TOOLTIPS } from '@/lib/tokens/deskFieldTooltips';
 import { TokenInfoTaxBanner, hasTokenTax } from '@/components/tokens/TokenInfoTaxBanner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils/cn';
 
-function pctOrDash(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return '\u2014';
-  return `${formatNumber(n, { decimals: 2 })}%`;
+function pctOrDash(n: number | null | undefined): { text: string; missing: boolean } {
+  if (n == null || !Number.isFinite(n)) return { text: '\u2014', missing: true };
+  const v = Math.min(100, Math.max(0, n));
+  return { text: `${formatNumber(v, { decimals: 2 })}%`, missing: false };
 }
 
-function TokenInfoMetricGrid({ m, loading }: { m: TokenExtendedMetrics; loading?: boolean }) {
-  const pct = (n: number | null | undefined) => (loading ? '\u2026' : pctOrDash(n));
+const METRIC_TOOLTIPS: Partial<Record<string, string>> = {
+  'Snipers H.': DESK_FIELD_TOOLTIPS.snipers,
+  Bundlers: DESK_FIELD_TOOLTIPS.bundlers,
+  Insiders: DESK_FIELD_TOOLTIPS.insiders,
+  'LP Burned': DESK_FIELD_TOOLTIPS.lpBurned,
+  'Dex Paid': DESK_FIELD_TOOLTIPS.dexPaid,
+};
 
-  const dexLabel = m.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid';
-  const dexCls = tokenMetricValueClass('dex', 0, m.dexPaid);
+function MetricValue({
+  label,
+  value,
+  valueClass,
+  missing,
+}: {
+  label: string;
+  value: ReactNode;
+  valueClass: string;
+  missing?: boolean;
+}) {
+  const tip = METRIC_TOOLTIPS[label];
+  if (!missing || !tip) {
+    return <div className={cn(valueClass, label !== 'Dex Paid' && 'truncate')}>{value}</div>;
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className={cn(valueClass, 'cursor-help truncate border-b border-dotted border-fg-muted/30')}>
+          {value}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[220px] text-[10px] leading-snug">
+        {tip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
-  const cells: { label: string; value: ReactNode; valueClass: string }[] = [
+function TokenInfoMetricGrid({
+  m,
+  loading,
+}: {
+  m: TokenExtendedMetrics;
+  loading?: boolean;
+}) {
+  const cells: {
+    label: string;
+    value: ReactNode;
+    valueClass: string;
+    missing?: boolean;
+  }[] = [
     {
       label: 'Top 10 H.',
-      value: pct(m.top10HolderPct),
-      valueClass: tokenMetricValueClass('top10', m.top10HolderPct ?? 0),
+      ...(() => {
+        const p = loading ? { text: '\u2026', missing: false } : pctOrDash(m.top10HolderPct);
+        return {
+          value: p.text,
+          valueClass: tokenMetricValueClass('top10', m.top10HolderPct),
+          missing: p.missing,
+        };
+      })(),
     },
     {
       label: 'Dev H.',
-      value: pct(m.devHoldingPct),
-      valueClass: tokenMetricValueClass('devh', m.devHoldingPct ?? 0),
+      ...(() => {
+        const p = loading ? { text: '\u2026', missing: false } : pctOrDash(m.devHoldingPct);
+        return {
+          value: p.text,
+          valueClass: tokenMetricValueClass('devh', m.devHoldingPct),
+          missing: p.missing,
+        };
+      })(),
     },
     {
       label: 'Snipers H.',
-      value: pct(m.sniperHolderPct),
-      valueClass: tokenMetricValueClass('sniper', m.sniperHolderPct ?? 0),
+      ...(() => {
+        const p = loading ? { text: '\u2026', missing: false } : pctOrDash(m.sniperHolderPct);
+        return {
+          value: p.text,
+          valueClass: tokenMetricValueClass('sniper', m.sniperHolderPct),
+          missing: p.missing,
+        };
+      })(),
     },
     {
       label: 'Insiders',
-      value: pct(m.insidersPct),
-      valueClass: tokenMetricValueClass('insider', m.insidersPct ?? 0),
+      ...(() => {
+        const p = loading ? { text: '\u2026', missing: false } : pctOrDash(m.insidersPct);
+        return {
+          value: p.text,
+          valueClass: tokenMetricValueClass('insider', m.insidersPct),
+          missing: p.missing,
+        };
+      })(),
     },
     {
       label: 'Bundlers',
-      value: pct(m.bundlersPct),
-      valueClass: tokenMetricValueClass('bundler', m.bundlersPct ?? 0),
+      ...(() => {
+        const p = loading ? { text: '\u2026', missing: false } : pctOrDash(m.bundlersPct);
+        return {
+          value: p.text,
+          valueClass: tokenMetricValueClass('bundler', m.bundlersPct),
+          missing: p.missing,
+        };
+      })(),
     },
     {
       label: 'LP Burned',
-      value: pct(m.lpBurnedPct),
-      valueClass: tokenMetricValueClass('lp', m.lpBurnedPct ?? 0),
+      ...(() => {
+        const p = loading ? { text: '\u2026', missing: false } : pctOrDash(m.lpBurnedPct);
+        return {
+          value: p.text,
+          valueClass: tokenMetricValueClass('lp', m.lpBurnedPct),
+          missing: p.missing,
+        };
+      })(),
     },
     {
       label: 'Holders',
@@ -61,7 +148,8 @@ function TokenInfoMetricGrid({ m, loading }: { m: TokenExtendedMetrics; loading?
         : m.holders != null
           ? formatNumber(m.holders, { decimals: 0 })
           : '\u2014',
-      valueClass: tokenMetricValueClass('holders', m.holders ?? 0),
+      valueClass: tokenMetricValueClass('holders', m.holders),
+      missing: !loading && m.holders == null,
     },
     {
       label: 'Pro Traders',
@@ -70,7 +158,8 @@ function TokenInfoMetricGrid({ m, loading }: { m: TokenExtendedMetrics; loading?
         : m.proTraders != null
           ? formatNumber(m.proTraders, { decimals: 0 })
           : '\u2014',
-      valueClass: tokenMetricValueClass('pro', m.proTraders ?? 0),
+      valueClass: tokenMetricValueClass('pro', m.proTraders),
+      missing: !loading && m.proTraders == null,
     },
     {
       label: 'Dex Paid',
@@ -78,12 +167,13 @@ function TokenInfoMetricGrid({ m, loading }: { m: TokenExtendedMetrics; loading?
         m.dexPaid === false || m.dexPaid == null ? (
           <span className="inline-flex items-center justify-center gap-0.5">
             <AlertTriangle className="inline h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-            {dexLabel}
+            Unpaid
           </span>
         ) : (
-          dexLabel
+          'Paid'
         ),
-      valueClass: dexCls,
+      valueClass: tokenMetricValueClass('dex', null, m.dexPaid),
+      missing: m.dexPaid == null,
     },
   ];
 
@@ -93,20 +183,23 @@ function TokenInfoMetricGrid({ m, loading }: { m: TokenExtendedMetrics; loading?
       <div className="overflow-hidden rounded-lg border border-border-subtle/70 bg-bg-hover/40">
         {hasTokenTax(m.taxPct) ? <TokenInfoTaxBanner taxPct={m.taxPct} /> : null}
         <div className="grid grid-cols-3 gap-px">
-        {cells.map((item) => (
-          <div
-            key={item.label}
-            className={cn(
-              'flex flex-col items-center justify-center px-1 py-2',
-              tokenMetricCellSurface(item.valueClass),
-            )}
-          >
-            <div className={cn(item.valueClass, item.label !== 'Dex Paid' && 'truncate')}>
-              {item.value}
+          {cells.map((item) => (
+            <div
+              key={item.label}
+              className={cn(
+                'flex flex-col items-center justify-center px-1 py-2',
+                tokenMetricCellSurface(item.valueClass),
+              )}
+            >
+              <MetricValue
+                label={item.label}
+                value={item.value}
+                valueClass={item.valueClass}
+                missing={item.missing}
+              />
+              <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg-muted">{item.label}</div>
             </div>
-            <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg-muted">{item.label}</div>
-          </div>
-        ))}
+          ))}
         </div>
       </div>
     </>
@@ -115,6 +208,7 @@ function TokenInfoMetricGrid({ m, loading }: { m: TokenExtendedMetrics; loading?
 
 export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGrid?: boolean }) {
   const uiDemo = useUiDemoMode();
+  const qaLive = isQaDeskLiveModeClient(mint);
   const demoPayload = useMemo(
     () => ({ metrics: syntheticTokenExtendedMetrics(mint), symbol: null as string | null }),
     [mint],
@@ -134,42 +228,24 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
       }
       return json as { metrics: TokenExtendedMetrics; symbol: string | null };
     },
-    placeholderData: uiDemo ? demoPayload : undefined,
+    placeholderData: uiDemo && !qaLive ? demoPayload : undefined,
     staleTime: 45_000,
   });
 
-  const m = q.data?.metrics ?? (uiDemo ? demoPayload.metrics : EMPTY_TOKEN_EXTENDED_METRICS);
+  const m = q.data?.metrics ?? (uiDemo && !qaLive ? demoPayload.metrics : EMPTY_TOKEN_EXTENDED_METRICS);
   const metricsLoading = q.isLoading && !q.data;
-
-  const footer = (
-    <div className="mt-2 space-y-1 text-[10px] text-fg-muted">
-      <div className="font-medium uppercase tracking-wider text-fg-muted">6h volume</div>
-      <div className="flex justify-between gap-2 font-medium">
-        <span>Vol $</span>
-        <span className="tabular-nums text-fg-secondary">
-          {metricsLoading
-            ? '\u2026'
-            : m.vol6hUsd != null
-              ? `$${formatNumber(m.vol6hUsd, { decimals: 0 })}`
-              : '\u2014'}
-        </span>
-      </div>
-    </div>
-  );
 
   if (compactGrid) {
     return (
       <div className="w-full min-w-0 bg-bg-raised p-2">
         <TokenInfoMetricGrid m={m} loading={metricsLoading} />
-        {footer}
       </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-[200px] w-full min-w-0 flex-col gap-2 bg-bg-raised p-2">
-      <TokenInfoMetricGrid m={m} />
-      {footer}
+      <TokenInfoMetricGrid m={m} loading={metricsLoading} />
     </div>
   );
 }

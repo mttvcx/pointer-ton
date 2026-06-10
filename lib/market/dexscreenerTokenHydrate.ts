@@ -66,6 +66,10 @@ export async function ensureTokenRowFromDexScreener(
   }
 
   const best = pickBestPair(pairs.filter((p) => p.baseToken?.address?.trim() === mint));
+  let saved: TokenRow | null =
+    existing?.name?.trim() && existing?.symbol?.trim() && existing?.image_url?.trim()
+      ? existing
+      : null;
   if (best?.baseToken) {
     const symbol = best.baseToken.symbol?.trim() || null;
     const name = best.baseToken.name?.trim() || null;
@@ -94,7 +98,7 @@ export async function ensureTokenRowFromDexScreener(
     const now = new Date().toISOString();
     if (existing) {
       const classPatch = classificationUpdateFromLaunchEvent(ev, existing, 'dexscreener_hydrate');
-      await updateToken(mint, {
+      saved = await updateToken(mint, {
         last_seen_at: now,
         symbol: symbol ?? existing.symbol,
         name: name ?? existing.name,
@@ -115,7 +119,7 @@ export async function ensureTokenRowFromDexScreener(
         created_at: now,
         last_seen_at: now,
       };
-      await upsertToken(enrichTokenInsertFromLaunchEvent(base, ev, 'dexscreener_hydrate'));
+      saved = await upsertToken(enrichTokenInsertFromLaunchEvent(base, ev, 'dexscreener_hydrate'));
     }
   }
 
@@ -129,5 +133,6 @@ export async function ensureTokenRowFromDexScreener(
     }
   }
 
+  if (saved) return saved;
   return getTokenByMint(mint);
 }

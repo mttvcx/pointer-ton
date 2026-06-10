@@ -46,7 +46,9 @@ import { geckoNetworkForAppChain } from '@/lib/chains/evmTokenChain';
 import { ingestLaunchpadDiscovery } from '@/lib/helius/discoveryIngest';
 import { launchpadEventFromDasAsset } from '@/lib/helius/parsers';
 import { heliusDasRpc, pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
+import { hydratePumpFunTokenRow } from '@/lib/market/hydratePumpFunTokenRow';
 import { enrichPulseBundlesWithDexScreener } from '@/lib/market/dexscreenerPulse';
+import { enrichPulseBundlesWithMetrics } from '@/lib/market/pulseMetricsEnrich';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { withTimeout } from '@/lib/utils/withTimeout';
 import { PublicKey } from '@solana/web3.js';
@@ -407,10 +409,15 @@ export async function getPulseFeed(
   const bundles = await bundlePulseTokens(tokens);
   const deduped = dedupePulseBundlesByMint(bundles);
   try {
-    return await withTimeout(
+    const dexEnriched = await withTimeout(
       enrichPulseBundlesWithDexScreener(deduped, chain),
       6_000,
       'pulse_dex_enrich',
+    );
+    return await withTimeout(
+      enrichPulseBundlesWithMetrics(dexEnriched, chain),
+      9_000,
+      'pulse_metrics_enrich',
     );
   } catch {
     return deduped;
@@ -472,31 +479,49 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
     existing?.symbol?.trim() &&
     existing?.image_url?.trim()
   ) {
+    if (!existing.creator_wallet?.trim()) {
+      return hydratePumpFunTokenRow(canonical, existing);
+    }
     return existing;
   }
 
+  const { ensureTokenRowFromDexScreener } = await import('@/lib/market/dexscreenerTokenHydrate');
+
+  let heliusOk = true;
   try {
     getHeliusRpcUrl();
   } catch {
-    return null;
+    heliusOk = false;
+  }
+
+  if (!heliusOk) {
+    return ensureTokenRowFromDexScreener(canonical, 'sol');
   }
 
   try {
     const asset = await heliusDasRpc<Asset>('getAsset', { id: canonical });
     const ev = launchpadEventFromDasAsset(asset);
-    if (!ev) return null;
+    if (!ev) {
+      return ensureTokenRowFromDexScreener(canonical, 'sol');
+    }
     if (!existing) {
       const preview = classifyLaunchEventForIngest(ev, 'das_hydrate');
       if (!meetsPulseDiscoveryThreshold(preview)) {
-        const { ensureTokenRowFromDexScreener } = await import('@/lib/market/dexscreenerTokenHydrate');
         return ensureTokenRowFromDexScreener(canonical, 'sol');
       }
     }
-    await ingestLaunchpadDiscovery(ev, { alertSource: 'das_hydrate' });
-    return getTokenByMint(canonical);
+    const { row } = await ingestLaunchpadDiscovery(ev, {
+      alertSource: 'das_hydrate',
+      bypassDiscoveryGate: true,
+    });
+    if (row) {
+      return hydratePumpFunTokenRow(canonical, row);
+    }
+    const fallback = (await getTokenByMint(canonical)) ?? (await ensureTokenRowFromDexScreener(canonical, 'sol'));
+    return fallback ? hydratePumpFunTokenRow(canonical, fallback) : null;
   } catch {
-    const { ensureTokenRowFromDexScreener } = await import('@/lib/market/dexscreenerTokenHydrate');
-    return ensureTokenRowFromDexScreener(canonical, 'sol');
+    const fallback = await ensureTokenRowFromDexScreener(canonical, 'sol');
+    return fallback ? hydratePumpFunTokenRow(canonical, fallback) : null;
   }
 }
 

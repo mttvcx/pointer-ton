@@ -8,8 +8,8 @@ import type { TokenRow } from '@/types/tokens';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 /**
- * One-shot hydrate for the QA mint: pump.fun creator/socials + holder metrics snapshot.
- * Safe to call on token page load — no-ops for other mints.
+ * Manual QA hydrate: pump.fun creator/socials + holder metrics snapshot.
+ * Invoked from `/api/tokens/[mint]/refresh-desk` only — not on page SSR.
  */
 export async function hydrateQaTokenIfNeeded(
   mint: string,

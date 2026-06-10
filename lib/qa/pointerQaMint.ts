@@ -1,8 +1,8 @@
 import 'server-only';
 
-/** Canonical QA token — G7 Anchor on pump.fun (safe to hammer APIs / Supabase during desk wiring). */
+/** Canonical QA token — dogwifhat (WIF) on pump.fun; active desk for founder-beta wiring. */
 export const DEFAULT_POINTER_QA_MINT =
-  'GZQFCZjfzQyFSkA4jBuEeh5eKTLNzju7PZrEWxMvpump';
+  'CExejcGZSEnk4FBsBQa3nMnU1jjCYsjw4x9d7cJ4pump';
 
 export function getPointerQaMint(): string {
   const raw = process.env.POINTER_QA_MINT?.trim();

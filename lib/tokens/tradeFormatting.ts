@@ -1,10 +1,17 @@
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 import { demoWalletAt } from '@/lib/dev/demoTokenFixtures';
 import { formatCompactUsd } from '@/lib/format';
+import { tradeRowEventKind } from '@/lib/indexer/parseSwapFromEnhancedTx';
+import type { MintSwapEventKind } from '@/lib/indexer/types';
 import type { Tables } from '@/lib/supabase/types';
 import { shortenAddress } from '@/lib/utils/addresses';
 
-type TradeRow = Tables<'trades'> & { chain_wallet?: string | null };
+type TradeRow = Tables<'trades'> & {
+  chain_wallet?: string | null;
+  event_kind?: MintSwapEventKind | string | null;
+  market_cap_usd_at_fill?: number | null;
+  desk_badges?: WalletIntelBadgeKind[];
+};
 
 function demoTradeIndexFromRow(t: TradeRow): number | null {
   const m = String(t.id).match(/^demo-tx-(\d+)$/);
@@ -16,26 +23,67 @@ export function tradeWalletDeskExtras(
   wallet: string,
   demoIdx: number | null,
   creatorWallet: string | null,
+  chainBadges?: WalletIntelBadgeKind[] | null,
 ): {
   isDev: boolean;
   isSniper: boolean;
+  isFresh: boolean;
   inlineBadges: WalletIntelBadgeKind[];
 } {
-  const inlineBadges: WalletIntelBadgeKind[] = [];
+  const inlineBadges: WalletIntelBadgeKind[] = [...(chainBadges ?? [])];
   if (demoIdx != null) {
-    if (demoIdx % 8 === 5) inlineBadges.push('kol');
-    else if (demoIdx % 6 === 1) inlineBadges.push('whale');
-    else if (demoIdx % 4 === 0) inlineBadges.push('top_trader');
+    if (demoIdx % 8 === 5 && !inlineBadges.includes('kol')) inlineBadges.push('kol');
+    else if (demoIdx % 6 === 1 && !inlineBadges.includes('whale')) inlineBadges.push('whale');
+    else if (demoIdx % 4 === 0 && !inlineBadges.includes('top_trader')) inlineBadges.push('top_trader');
   }
+  const isDev =
+    inlineBadges.includes('dev') ||
+    Boolean(creatorWallet && creatorWallet === wallet) ||
+    demoIdx === 0;
+  const isSniper =
+    inlineBadges.includes('sniper') ||
+    wallet === demoWalletAt(3) ||
+    wallet === demoWalletAt(8) ||
+    demoIdx === 3 ||
+    demoIdx === 8;
+  const isFresh = inlineBadges.includes('fresh');
   return {
-    isDev: Boolean(creatorWallet && creatorWallet === wallet) || demoIdx === 0,
-    isSniper:
-      wallet === demoWalletAt(3) ||
-      wallet === demoWalletAt(8) ||
-      demoIdx === 3 ||
-      demoIdx === 8,
+    isDev,
+    isSniper,
+    isFresh,
     inlineBadges,
   };
+}
+
+export function tradeRowEventKindFromRow(t: TradeRow): MintSwapEventKind {
+  return tradeRowEventKind(t);
+}
+
+/** MC column label — REMOVE for liquidity events (Axiom parity). */
+export function tradeMcColumnLabel(
+  t: TradeRow,
+  supplyTokens: number | null | undefined,
+  fallbackMcUsd?: number | null,
+): string {
+  const kind = tradeRowEventKindFromRow(t);
+  if (kind === 'remove_liq') return 'REMOVE';
+  if (kind === 'add_liq') return 'ADD';
+
+  const stored = t.market_cap_usd_at_fill;
+  if (stored != null && Number.isFinite(stored) && stored > 0) {
+    return formatCompactUsd(stored);
+  }
+  return tradeFillMarketCapUsdLabel(t, supplyTokens, fallbackMcUsd);
+}
+
+export function tradeIsLiquidityEvent(t: TradeRow): boolean {
+  const k = tradeRowEventKindFromRow(t);
+  return k === 'remove_liq' || k === 'add_liq';
+}
+
+/** Default desk tape / trades table — buy/sell only. */
+export function tradeIsDeskSwap(t: TradeRow): boolean {
+  return !tradeIsLiquidityEvent(t);
 }
 
 export function tradeRowDemoIndex(t: TradeRow): number | null {
@@ -71,8 +119,11 @@ export function demoTradeMakerWallet(rowIndex: number): string {
   return demoWalletAt(rowIndex % 24);
 }
 
-/** Resolve maker wallet for filtering (demo + future API fields). */
+/** Resolve maker wallet for filtering (demo + chain indexer). */
 export function tradeMakerWallet(t: TradeRow, rowIndex: number): string | null {
+  const chain = t.chain_wallet?.trim();
+  if (chain) return chain;
+
   const demoIdx = demoTradeIndexFromRow(t);
   if (demoIdx != null) {
     return demoTradeMakerWallet(demoIdx);

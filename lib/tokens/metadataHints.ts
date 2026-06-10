@@ -1,5 +1,13 @@
 /** Best-effort walks for supply / fee hints from Helius DAS / snapshot JSON. */
 
+import {
+  extractRawSupplyValue,
+  normalizeTokenSupplyUi,
+  resolveTokenSupplyUi,
+} from '@/lib/tokens/supplyUi';
+
+export { normalizeTokenSupplyUi, resolveTokenSupplyUi };
+
 function asNum(v: unknown): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
   if (typeof v === 'string' && v.trim() !== '') {
@@ -32,41 +40,11 @@ export function formatSupplyHint(raw: number | null): string | null {
   return String(Math.round(raw));
 }
 
-export function extractSupplyTokens(metadata: unknown): number | null {
-  if (metadata == null) return null;
-  const keys = [
-    'supply',
-    'total_supply',
-    'totalSupply',
-    'max_supply',
-    'maxSupply',
-    'circulating_supply',
-    'circulatingSupply',
-    'uiAmount',
-    'ui_amount',
-  ];
-  const walk = (obj: unknown, depth: number): number | null => {
-    if (depth > 12 || obj == null) return null;
-    if (typeof obj === 'object' && !Array.isArray(obj)) {
-      const r = obj as Record<string, unknown>;
-      for (const k of keys) {
-        const n = asNum(r[k]);
-        if (n != null && n > 0) return n;
-      }
-      for (const v of Object.values(r)) {
-        const h = walk(v, depth + 1);
-        if (h != null) return h;
-      }
-    }
-    if (Array.isArray(obj)) {
-      for (const item of obj) {
-        const h = walk(item, depth + 1);
-        if (h != null) return h;
-      }
-    }
-    return null;
-  };
-  return walk(metadata, 0);
+/** UI token supply from metadata (normalizes base units when decimals known). */
+export function extractSupplyTokens(metadata: unknown, decimals = 6): number | null {
+  const raw = extractRawSupplyValue(metadata);
+  if (raw == null || raw <= 0) return null;
+  return normalizeTokenSupplyUi(raw, decimals);
 }
 
 /** SOL spent on global / pool fees when indexer provides it (best-effort). */

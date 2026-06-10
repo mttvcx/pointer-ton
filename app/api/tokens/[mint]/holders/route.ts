@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { ensureTokenRowFromDas } from '@/lib/helius/feed';
 import { listMintWalletStatsByWallets } from '@/lib/db/mintWalletStats';
+import { buildDeskWalletClassifications } from '@/lib/indexer/deskWalletClassifications';
+import { resolveKnownPoolAddresses } from '@/lib/onchain/resolveKnownPoolAddresses';
+import { dedupeTokenHolderRows } from '@/lib/onchain/dedupeTokenHolders';
 import { resolveTokenHolders } from '@/lib/onchain/resolveTokenHolders';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
@@ -30,23 +33,51 @@ export async function GET(
       return NextResponse.json({ error: 'holders_unavailable' }, { status: 503 });
     }
 
+    const holders = dedupeTokenHolderRows(resolved.holders);
+
     const walletStats =
       isPointerQaMint(mint)
         ? await listMintWalletStatsByWallets(
             mint,
-            resolved.holders.map((h) => h.wallet_address),
+            holders.map((h) => h.wallet_address),
           )
         : new Map();
+
+    const [poolCtx, walletClassifications] = await Promise.all([
+      resolveKnownPoolAddresses(mint),
+      buildDeskWalletClassifications({
+        mint,
+        holders,
+        walletStats,
+        creatorWallet: token.creator_wallet,
+        tokenCreatedAt: token.created_at,
+      }),
+    ]);
+
+    const holdersEnriched = holders.map((h) => {
+      const cls = walletClassifications[h.wallet_address];
+      return {
+        ...h,
+        is_sniper: cls?.isSniper ?? h.is_sniper,
+        is_dev: cls?.isDev ?? h.is_dev,
+      };
+    });
 
     return NextResponse.json({
       mint,
       decimals: resolved.decimals ?? token.decimals,
-      holders: resolved.holders,
-      holderCount: resolved.holderCount,
-      top10HolderPct: resolved.top10HolderPct,
+      holders: holdersEnriched,
+      holderCount: resolved.holderCountTotal,
+      holderCountTotal: resolved.holderCountTotal,
+      holderRowsLoaded: resolved.holderRowsLoaded,
+      top10HolderPct: resolved.top10HolderPctAdjusted ?? resolved.top10HolderPct,
+      top10HolderPctRaw: resolved.top10HolderPctRaw,
+      top10HolderPctAdjusted: resolved.top10HolderPctAdjusted,
       devHoldingPct: resolved.devHoldingPct,
       source: resolved.source,
       walletStats: Object.fromEntries(walletStats),
+      walletClassifications,
+      poolAddresses: [...poolCtx.addresses],
       indexerSource: isPointerQaMint(mint) ? 'chain_indexer' : null,
     });
   } catch (err) {

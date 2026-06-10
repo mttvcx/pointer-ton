@@ -11,6 +11,8 @@ import {
 } from '@/lib/format';
 import {
   tradeFillMarketCapUsdLabel,
+  tradeIsLiquidityEvent,
+  tradeMcColumnLabel,
   tradeTraderHint,
   tradeWalletDeskExtras,
   tradeRowDemoIndex,
@@ -190,7 +192,8 @@ export function MintTradesTable({
       </thead>
       <tbody>
         {sortedRows.map((row, i) => {
-          const tone = row.side === 'buy' ? 'buy' : 'sell';
+          const liqEvent = tradeIsLiquidityEvent(row);
+          const tone = liqEvent ? 'sell' : row.side === 'buy' ? 'buy' : 'sell';
           const sol = row.amount_sol ?? 0;
           const tokens = row.amount_token ?? 0;
           const traderHint = tradeTraderHint(row, i);
@@ -209,12 +212,16 @@ export function MintTradesTable({
 
           const wallet = traderHint.fullAddress;
           const demoIdx = tradeRowDemoIndex(row);
+          const chainBadges = (row as TradeRow & { desk_badges?: string[] }).desk_badges;
           const deskExtras = wallet
-            ? tradeWalletDeskExtras(wallet, demoIdx, creatorWallet)
+            ? tradeWalletDeskExtras(wallet, demoIdx, creatorWallet, chainBadges as never)
             : null;
 
           return (
-            <tr key={row.id} className={DESK_ROW_CLASS}>
+            <tr
+              key={row.id}
+              className={cn(DESK_ROW_CLASS, liqEvent && 'bg-signal-bear/10')}
+            >
               <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
                 <span className={CELL_MUTED_CLASS}>
                   {ageDisplay === 'time'
@@ -227,15 +234,20 @@ export function MintTradesTable({
                   className={cn(
                     sizeClass,
                     'uppercase tracking-wide',
-                    tone === 'buy' ? 'text-signal-bull' : 'text-signal-bear',
+                    liqEvent ? 'font-semibold text-signal-bear' : tone === 'buy' ? 'text-signal-bull' : 'text-signal-bear',
                   )}
                 >
-                  {row.side === 'buy' ? 'Buy' : 'Sell'}
+                  {liqEvent ? 'Remove' : row.side === 'buy' ? 'Buy' : 'Sell'}
                 </span>
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
-                <span className="text-[12px] font-medium font-sans tabular-nums text-fg-primary">
-                  {tradeFillMarketCapUsdLabel(row, supplyTokens, marketCapUsd)}
+                <span
+                  className={cn(
+                    'text-[12px] font-medium font-sans tabular-nums',
+                    liqEvent ? 'font-semibold uppercase text-fg-primary' : 'text-fg-primary',
+                  )}
+                >
+                  {tradeMcColumnLabel(row, supplyTokens, marketCapUsd)}
                 </span>
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>

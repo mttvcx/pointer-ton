@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS tokens (
 
 CREATE TABLE IF NOT EXISTS token_market_snapshots (
   id bigserial PRIMARY KEY,
-  mint text NOT NULL REFERENCES tokens (mint) ON DELETE CASCADE,
+  mint text NOT NULL,
   market_cap_usd numeric,
   liquidity_usd numeric,
   price_usd numeric,
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS token_embeddings (
 
 CREATE TABLE IF NOT EXISTS token_holders (
   id bigserial PRIMARY KEY,
-  mint text NOT NULL REFERENCES tokens (mint) ON DELETE CASCADE,
+  mint text NOT NULL,
   wallet_address text NOT NULL,
   amount_raw text NOT NULL,
   pct_of_supply numeric,

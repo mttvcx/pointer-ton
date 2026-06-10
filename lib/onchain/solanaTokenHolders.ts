@@ -12,7 +12,7 @@ export type TokenHolderSnapshot = {
   mint: string;
   decimals: number;
   holders: TablesInsert<'token_holders'>[];
-  holderCount: number | null;
+  holderCountTotal: number | null;
   top10HolderPct: number | null;
   devHoldingPct: number | null;
   fetchedAt: string;
@@ -106,7 +106,7 @@ export async function fetchSolanaTokenHolderSnapshot(
       mint: mintPk.toBase58(),
       decimals,
       holders: [],
-      holderCount: 0,
+      holderCountTotal: 0,
       top10HolderPct: null,
       devHoldingPct: null,
       fetchedAt: new Date().toISOString(),
@@ -118,8 +118,8 @@ export async function fetchSolanaTokenHolderSnapshot(
     c.getMultipleParsedAccounts(tokenAccounts),
   );
 
-  const rows: TablesInsert<'token_holders'>[] = [];
-  let devPct: number | null = null;
+  /** Aggregate multiple token accounts per owner (prevents duplicate holder rows). */
+  const byOwner = new Map<string, bigint>();
 
   for (let i = 0; i < largest.length; i += 1) {
     const acctInfo = parsed.value[i];
@@ -138,7 +138,20 @@ export async function fetchSolanaTokenHolderSnapshot(
       continue;
     }
     if (amountRaw <= 0n) continue;
+    byOwner.set(owner, (byOwner.get(owner) ?? 0n) + amountRaw);
+  }
 
+  const sortedOwners = [...byOwner.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] > a[1] ? 1 : -1;
+    return a[0].localeCompare(b[0]);
+  });
+
+  const rows: TablesInsert<'token_holders'>[] = [];
+  let devPct: number | null = null;
+  const now = new Date().toISOString();
+
+  for (let i = 0; i < sortedOwners.length && i < limit; i += 1) {
+    const [owner, amountRaw] = sortedOwners[i]!;
     const pct = pctOfSupply(amountRaw, supplyRaw);
     const isDev = Boolean(creator && creator === owner);
     if (isDev && pct != null) devPct = pct;
@@ -150,19 +163,19 @@ export async function fetchSolanaTokenHolderSnapshot(
       pct_of_supply: pct,
       is_dev: isDev,
       is_sniper: null,
-      rank: rows.length + 1,
-      computed_at: new Date().toISOString(),
+      rank: i + 1,
+      computed_at: now,
     });
   }
 
   const top10 = rows.slice(0, 10).reduce((sum, h) => sum + (h.pct_of_supply ?? 0), 0);
-  const holderCount = await countNonZeroHolders(mintPk);
+  const holderCountTotal = await countNonZeroHolders(mintPk);
 
   return {
     mint: mintPk.toBase58(),
     decimals,
     holders: rows,
-    holderCount: holderCount ?? (rows.length >= 20 ? 20 : rows.length),
+    holderCountTotal,
     top10HolderPct: top10 > 0 ? top10 : null,
     devHoldingPct: devPct,
     fetchedAt: new Date().toISOString(),

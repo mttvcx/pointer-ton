@@ -11,6 +11,7 @@ import {
 } from '@/lib/qa/pointerQaMintClient';
 import type { BackfillReport, ParsedMintSwap } from '@/lib/indexer/types';
 import type { MintSwapRow } from '@/lib/db/mintSwaps';
+import { resolveTokenSupplyUi } from '@/lib/tokens/supplyUi';
 
 const WSOL = 'So11111111111111111111111111111111111111112';
 
@@ -40,8 +41,8 @@ async function ensureTokenExists(supabase: SupabaseClient, mint: string): Promis
   if (data?.mint) return;
   const { error } = await supabase.from('tokens').upsert({
     mint,
-    symbol: 'G7anch',
-    name: 'G7 Anchor',
+    symbol: mint === 'CExejcGZSEnk4FBsBQa3nMnU1jjCYsjw4x9d7cJ4pump' ? 'WIF' : 'QA',
+    name: mint === 'CExejcGZSEnk4FBsBQa3nMnU1jjCYsjw4x9d7cJ4pump' ? 'dogwifhat' : 'QA Token',
     decimals: 6,
     launch_pad: 'pump.fun',
     last_seen_at: new Date().toISOString(),
@@ -135,13 +136,10 @@ export async function backfillQaMintSwaps(
 
   const solUsd = await fetchSolUsdSpot();
 
-  const supplyRaw = token?.raw_metadata as { supply?: number } | null;
-  const supplyTokens =
-    typeof supplyRaw?.supply === 'number'
-      ? supplyRaw.supply / 10 ** decimals
-      : snap?.market_cap_usd != null && snap?.price_usd != null && snap.price_usd > 0
-        ? snap.market_cap_usd / snap.price_usd
-        : null;
+  const supplyTokens = resolveTokenSupplyUi(token?.raw_metadata, decimals, {
+    marketCapUsd: snap?.market_cap_usd,
+    priceUsd: snap?.price_usd,
+  });
 
   let signaturesFetched = 0;
   let transactionsParsed = 0;

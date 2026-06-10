@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils/cn';
+import { metricMissingClass } from '@/lib/tokens/tokenDeskRisk';
 
 /** Subtle cell tint from the value text tier (bull/warn/bear) on grey workspace surfaces. */
 export function tokenMetricCellSurface(valueTextClass: string): string {
@@ -8,10 +9,13 @@ export function tokenMetricCellSurface(valueTextClass: string): string {
   return 'bg-bg-hover/70';
 }
 
+function isMissing(n: number | null | undefined): boolean {
+  return n == null || !Number.isFinite(n);
+}
+
 /**
  * Axiom-style read: low risky concentration → green, elevated → amber, high → red.
- * LP burned: full burn → green.
- * Dex paid: boolean.
+ * Missing values → muted gray (never green).
  */
 export function tokenMetricValueClass(
   kind:
@@ -29,32 +33,38 @@ export function tokenMetricValueClass(
 ): string {
   if (kind === 'dex') {
     if (dexPaid === true) return 'text-sm font-semibold tabular-nums text-signal-bull';
-    return 'text-sm font-semibold tabular-nums text-signal-bear';
+    if (dexPaid === false) return 'text-sm font-semibold tabular-nums text-signal-bear';
+    return metricMissingClass();
   }
 
-  const v = n ?? 0;
-  const isZero = !Number.isFinite(v) || v === 0;
+  if (isMissing(n)) {
+    return metricMissingClass();
+  }
+
+  const v = n as number;
 
   if (kind === 'holders' || kind === 'pro') {
-    return cn('text-sm font-semibold tabular-nums', isZero ? 'text-fg-muted' : 'text-fg-primary');
+    return cn(
+      'text-sm font-semibold tabular-nums',
+      v === 0 ? 'text-fg-muted' : 'text-fg-primary',
+    );
   }
 
   if (kind === 'lp') {
-    if (!Number.isFinite(v)) return 'text-sm font-semibold tabular-nums text-fg-muted';
     if (v >= 99) return 'text-sm font-semibold tabular-nums text-signal-bull';
     if (v >= 70) return 'text-sm font-semibold tabular-nums text-signal-warn';
     return 'text-sm font-semibold tabular-nums text-signal-bear';
   }
 
   if (kind === 'top10' || kind === 'devh') {
-    if (isZero) return 'text-sm font-semibold tabular-nums text-fg-muted';
+    if (v === 0) return 'text-sm font-semibold tabular-nums text-signal-bull';
     if (v < 5) return 'text-sm font-semibold tabular-nums text-signal-bull';
     if (v < 18) return 'text-sm font-semibold tabular-nums text-signal-warn';
     return 'text-sm font-semibold tabular-nums text-signal-bear';
   }
 
   if (kind === 'sniper' || kind === 'insider' || kind === 'bundler') {
-    if (isZero) return 'text-sm font-semibold tabular-nums text-signal-bull';
+    if (v === 0) return 'text-sm font-semibold tabular-nums text-signal-bull';
     if (v < 2.5) return 'text-sm font-semibold tabular-nums text-signal-warn';
     return 'text-sm font-semibold tabular-nums text-signal-bear';
   }

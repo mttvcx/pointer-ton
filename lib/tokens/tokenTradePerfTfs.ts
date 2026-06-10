@@ -45,12 +45,14 @@ function syntheticPct(mint: string, tf: TokenTradePerfTf): number {
 export function pickTokenTradePerfChanges(
   ext: unknown,
   mint: string,
-): Record<TokenTradePerfTf, number> {
-  const out: Record<TokenTradePerfTf, number> = {
-    '5m': syntheticPct(mint, '5m'),
-    '1h': syntheticPct(mint, '1h'),
-    '6h': syntheticPct(mint, '6h'),
-    '24h': syntheticPct(mint, '24h'),
+  opts?: { allowSynthetic?: boolean },
+): Record<TokenTradePerfTf, number | null> {
+  const allowSynthetic = opts?.allowSynthetic !== false;
+  const out: Record<TokenTradePerfTf, number | null> = {
+    '5m': allowSynthetic ? syntheticPct(mint, '5m') : null,
+    '1h': allowSynthetic ? syntheticPct(mint, '1h') : null,
+    '6h': allowSynthetic ? syntheticPct(mint, '6h') : null,
+    '24h': allowSynthetic ? syntheticPct(mint, '24h') : null,
   };
 
   if (ext == null || typeof ext !== 'object' || Array.isArray(ext)) return out;
@@ -78,7 +80,8 @@ export function pickTokenTradePerfChanges(
   return out;
 }
 
-export function formatTradePerfPct(pct: number): string {
+export function formatTradePerfPct(pct: number | null | undefined): string {
+  if (pct == null || !Number.isFinite(pct)) return '\u2014';
   const sign = pct >= 0 ? '+' : '';
   const abs = Math.abs(pct);
   const decimals = abs > 0 && abs < 10 ? 2 : 1;
