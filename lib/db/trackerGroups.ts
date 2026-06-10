@@ -31,11 +31,10 @@ export async function insertTrackerGroup(
   return data;
 }
 
-/** One-time starter packs per chain — skips users who already track wallets. */
+/** One-time starter packs per chain — idempotent; repairs partial/empty group seeds. */
 export async function ensureStarterTrackerGroups(userId: string): Promise<void> {
   const user = await getUserById(userId);
   if (!user) return;
-  if (user.starter_trackers_seeded_at) return;
 
   let wallets: Awaited<ReturnType<typeof import('@/lib/db/wallets').listTrackedWalletsForUser>>;
   let groups: TrackerGroupRow[];
@@ -49,20 +48,31 @@ export async function ensureStarterTrackerGroups(userId: string): Promise<void> 
     return;
   }
 
-  if (wallets.length > 0 || groups.length > 0) {
-    await updateUser(userId, { starter_trackers_seeded_at: new Date().toISOString() });
+  const starterGroups = groups.filter((g) => g.is_starter);
+  const starterWalletCount = wallets.filter(
+    (w) => w.group_id && starterGroups.some((g) => g.id === w.group_id),
+  ).length;
+
+  if (wallets.length > 0 && starterWalletCount > 0) {
+    if (!user.starter_trackers_seeded_at) {
+      await updateUser(userId, { starter_trackers_seeded_at: new Date().toISOString() });
+    }
     return;
   }
 
   for (const pack of STARTER_WALLET_PACKS) {
-    const group = await insertTrackerGroup({
-      user_id: userId,
-      label: pack.label,
-      app_chain: pack.chain,
-      is_starter: true,
-      slug: pack.slug,
-      sort_order: pack.sortOrder,
-    });
+    let group = groups.find((g) => g.is_starter && g.slug === pack.slug);
+    if (!group) {
+      group = await insertTrackerGroup({
+        user_id: userId,
+        label: pack.label,
+        app_chain: pack.chain,
+        is_starter: true,
+        slug: pack.slug,
+        sort_order: pack.sortOrder,
+      });
+      groups = [...groups, group];
+    }
 
     for (const w of pack.wallets) {
       const norm = normalizeWalletAddressForStorage(w.address);

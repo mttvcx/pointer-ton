@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { Tables } from '@/lib/supabase/types';
 import { listConfirmedTradesForUserAsc, listTradesForUser } from '@/lib/db/trades';
-import { fetchTonUsdFromCoinGecko, fetchUsdPricesForMints } from '@/lib/jupiter/priceTickers';
+import { fetchUsdPricesForMints } from '@/lib/jupiter/priceTickers';
 import type { PositionMark } from '@/lib/portfolio/fifoPnl';
 import {
   fifoClosedSellsAndOpenLots,
@@ -10,6 +10,8 @@ import {
   sumUnrealizedUsd,
   totalPortfolioUsd,
 } from '@/lib/portfolio/fifoPnl';
+
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
 type TradeRow = Tables<'trades'>;
 
@@ -62,15 +64,12 @@ export async function buildPortfolioSnapshot(params: {
     listConfirmedTradesForUserAsc(userId, fifoTradeLimit),
   ]);
 
-  const mints = new Set<string>();
+  const mints = new Set<string>([SOL_MINT]);
   for (const h of holdings) mints.add(h.mint);
   for (const t of tradesAsc) mints.add(t.mint);
 
-  const [priceMap, tonQuote] = await Promise.all([
-    fetchUsdPricesForMints([...mints]),
-    fetchTonUsdFromCoinGecko(),
-  ]);
-  const solUsd = tonQuote.usdPrice;
+  const priceMap = await fetchUsdPricesForMints([...mints]);
+  const solUsd = priceMap.get(SOL_MINT)?.usdPrice ?? null;
 
   const { closedSells, openByMint, realizedPnlSol } = fifoClosedSellsAndOpenLots(tradesAsc);
 

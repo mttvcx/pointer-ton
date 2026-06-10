@@ -8,6 +8,7 @@ import {
   PulseGlyphMask,
   PulseLuminanceGlyph,
   PULSE_BRAND_SRC,
+  PULSE_GLYPH,
   PULSE_INSTAGRAM_SRC,
 } from '@/components/tokens/PulseGlyphMask';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -58,14 +59,7 @@ export function TokenHeaderLinkStrip({ bundle }: { bundle: PulseTokenBundle }) {
   if (model.twitterTweet?.url) {
     nodes.push(
       <LinkIcon key="tweet" href={model.twitterTweet.url} label="Linked post on X">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/icons/twitter-tweet.png"
-          alt=""
-          width={ICON}
-          height={ICON}
-          className="shrink-0 object-contain opacity-90"
-        />
+        <PulseLuminanceGlyph src={PULSE_GLYPH.feather} size={ICON} className="text-fg-secondary" />
       </LinkIcon>,
     );
   }

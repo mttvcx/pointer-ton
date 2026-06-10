@@ -4,6 +4,7 @@ import { tokenMatchesAppChain } from '@/lib/chains/evmTokenChain';
 import { PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
 import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import type { Tables } from '@/lib/supabase/types';
+import type { Json } from '@/lib/supabase/types';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 type TokenRow = Tables<'tokens'>;
@@ -87,6 +88,73 @@ export function mergeSnapshotIntoPulseCache(
     if (b.token.mint !== snapshot.mint) return b;
     touched = true;
     return { ...b, snapshot };
+  });
+  if (!touched) return false;
+  qc.setQueryData<PulseFeedQueryData>(key, { ...prev, items });
+  return true;
+}
+
+/** Merge holder / risk fields into an existing cached snapshot row. */
+export function mergePartialSnapshotIntoPulseCache(
+  qc: QueryClient,
+  column: PulseColumnId,
+  chain: AppChainId,
+  mint: string,
+  patch: {
+    holder_count?: number | null;
+    top10_holder_pct?: number | null;
+    dev_holding_pct?: number | null;
+    extended_metrics?: Record<string, unknown> | null;
+  },
+): boolean {
+  const key = pulseQueryKey(column, chain);
+  const prev = qc.getQueryData<PulseFeedQueryData>(key);
+  if (!prev) return false;
+
+  let touched = false;
+  const items = prev.items.map((b) => {
+    if (b.token.mint !== mint) return b;
+    touched = true;
+    const snap = b.snapshot;
+    const base = snap ?? {
+      id: -1,
+      mint,
+      market_cap_usd: null,
+      liquidity_usd: null,
+      price_usd: null,
+      volume_5m_usd: null,
+      volume_1h_usd: null,
+      volume_24h_usd: null,
+      txns_5m: null,
+      txns_1h: null,
+      holder_count: null,
+      top10_holder_pct: null,
+      dev_holding_pct: null,
+      extended_metrics: null,
+      snapshot_at: new Date().toISOString(),
+    };
+    const prevExt =
+      base.extended_metrics &&
+      typeof base.extended_metrics === 'object' &&
+      !Array.isArray(base.extended_metrics)
+        ? (base.extended_metrics as Record<string, unknown>)
+        : {};
+    const nextExt =
+      patch.extended_metrics != null
+        ? { ...prevExt, ...patch.extended_metrics }
+        : base.extended_metrics;
+
+    return {
+      ...b,
+      snapshot: {
+        ...base,
+        holder_count: patch.holder_count ?? base.holder_count,
+        top10_holder_pct: patch.top10_holder_pct ?? base.top10_holder_pct,
+        dev_holding_pct: patch.dev_holding_pct ?? base.dev_holding_pct,
+        extended_metrics: nextExt as Json,
+        snapshot_at: new Date().toISOString(),
+      },
+    };
   });
   if (!touched) return false;
   qc.setQueryData<PulseFeedQueryData>(key, { ...prev, items });

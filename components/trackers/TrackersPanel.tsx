@@ -704,7 +704,7 @@ export function TrackersPanel({
           </div>
         </div>
       ) : null}
-      <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-bg-raised px-3 py-2">
+      <header className="mb-0 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle/45 px-4 py-2.5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[16px] font-semibold leading-tight text-fg-primary">

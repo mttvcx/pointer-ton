@@ -135,6 +135,17 @@
     background: var(--border-strong);
   }
 
+  /* Axiom tweet hover — scrollable body, no visible scrollbar */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   /* Hide spinner on number inputs */
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button {
@@ -952,6 +963,21 @@
   background-color: rgb(var(--pulse-accent-rgb) / 0.14);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+}
+
+/* No-border ultra + pill chrome (Display → Quick buy → No border). */
+.pulse-qb-ultra--borderless,
+[data-pulse-qb-chrome='borderless'] .pulse-qb-ultra--outline {
+  border-width: 0;
+  box-shadow: none;
+}
+.pulse-qb-ultra--borderless:hover,
+[data-pulse-qb-chrome='borderless'] .pulse-qb-ultra--outline:hover {
+  box-shadow: none;
+}
+[data-pulse-qb-chrome='borderless'] .pulse-qb-pill--medium,
+[data-pulse-qb-chrome='borderless'] .pulse-qb-pill--large {
+  border-width: 0;
 }
 
 .pulse-qb-ultra--filled {

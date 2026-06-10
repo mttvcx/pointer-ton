@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { ChefHat } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils/cn';
 import { extractTwitterHandle } from '@/lib/utils/extractTwitterHandle';
 import { getPulseSocialModel, isTweetOlderThan, ensureBrowserUrl, resolveDisplayWebsite, twitterHandleFromProfileUrl } from '@/lib/tokens/pulseSocialLinks';
 import { usePrefetchTwitterProfileOnVisible } from '@/lib/hooks/usePrefetchTwitterProfileOnVisible';
+import { useCoinCommunity } from '@/lib/hooks/useCoinCommunity';
 import { usePrefetchCoinCommunityOnVisible } from '@/lib/hooks/usePrefetchCoinCommunityOnVisible';
 import { enqueueCoinCommunityPrefetch } from '@/lib/communities/coinCommunityPrefetchQueue';
 import { twitterFollowersFromBundle } from '@/lib/tokens/columnPresetModel';
@@ -33,9 +34,9 @@ import {
   AgentHoverPanel,
   PulseCashbackCompactHover,
   PulseCompactHoverAbove,
-  PulsePortaledHoverLayer,
   TelegramCompactHover,
   TwitterProfileHoverTrigger,
+  TwitterTweetHoverTrigger,
   WebsiteGlobeCompactHover,
 } from '@/components/tokens/PulseRichPopovers';
 import { PulseHeaderSocialIcon } from '@/components/tokens/PulseHeaderSocialIcon';
@@ -63,12 +64,32 @@ function twitterProfileUrlFromHandleField(tokenHandle: string | null | undefined
 
 const MS_PER_DAY = 86_400_000;
 
-function StripTip({ label, children }: { label: string; children: ReactNode }) {
+/** Linked X post — Axiom feather glyph + standard tweet HoverCard. */
+function TweetStripLink({
+  url,
+  sx,
+  linkClassName,
+  stale,
+}: {
+  url: string;
+  sx: number;
+  linkClassName?: string;
+  stale?: boolean | null;
+}) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+    <TwitterTweetHoverTrigger url={url}>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={stale === true ? 'Post on X (over 24h old)' : 'Post on X'}
+        className={cn(iconHit, linkClassName)}
+      >
+        <StripGlyph>
+          <PulseLuminanceGlyph src={PULSE_GLYPH.feather} size={sx} />
+        </StripGlyph>
+      </a>
+    </TwitterTweetHoverTrigger>
   );
 }
 
@@ -78,236 +99,20 @@ function StripTip({ label, children }: { label: string; children: ReactNode }) {
 const iconHit = cn(
   'group inline-flex shrink-0 items-center justify-center gap-1',
   'border-0 bg-transparent px-0.5 py-px shadow-none outline-none ring-0',
-  'rounded-md text-fg-primary/95',
+  'rounded-md',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40 focus-visible:ring-offset-0',
 );
 
+/** Icons only — 100% opaque gray (numbers stay white via {@link statNumberClsFor}). */
+const pulseStripIconTone = 'text-fg-secondary';
+
 function statNumberClsFor(_glyphPx: number) {
-  // Axiom-style: number sits flush against the glyph; bumped from `text-[12px]` →
-  // `text-[13px]` so the numerals are crisper next to the larger icons.
   return 'ml-0 font-sans text-[13px] font-semibold leading-none tracking-tight text-fg-primary';
 }
 
-type TwitterTweetAuthor = {
-  name?: string | null;
-  handle?: string | null;
-  avatar?: string | null;
-  verified?: boolean;
-};
-
-type TwitterPreviewData =
-  | {
-      type: 'tweet';
-      fallback: boolean;
-      url: string;
-      text?: string | null;
-      createdAt?: string | null;
-      author?: TwitterTweetAuthor | null;
-      favorites?: number | null;
-      media?: string | null;
-    }
-  | {
-      type: 'profile';
-      handle: string;
-      profileUrl: string;
-      fallback?: boolean;
-    };
-
-function twitterHoverClientFallback(href: string): TwitterPreviewData {
-  const isTweet = /\/status\/\d+/.test(href);
-  if (isTweet) {
-    return { type: 'tweet', fallback: true, url: href };
-  }
-  const handle = extractTwitterHandle(href) || 'unknown';
-  return {
-    type: 'profile',
-    handle,
-    profileUrl: `https://x.com/${encodeURIComponent(handle)}`,
-    fallback: true,
-  };
-}
-
-/**
- * Twitter/X profile + tweet preview popover — portaled so Pulse row overflow cannot clip it.
- */
-function TwitterLinkHover({ url, children }: { url: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState<TwitterPreviewData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  const t = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fetched = useRef(false);
-
-  useEffect(() => {
-    fetched.current = false;
-    setData(null);
-  }, [url]);
-
-  const clear = () => {
-    if (t.current) clearTimeout(t.current);
-    t.current = null;
-  };
-
-  useEffect(() => () => clear(), []);
-
-  const scheduleOpen = () => {
-    clear();
-    t.current = setTimeout(() => {
-      setOpen(true);
-      void fetchPreview();
-    }, 400);
-  };
-  const scheduleClose = () => {
-    clear();
-    t.current = setTimeout(() => setOpen(false), 200);
-  };
-
-  const fetchPreview = async () => {
-    if (fetched.current) return;
-    fetched.current = true;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/twitter-preview?url=${encodeURIComponent(url)}`);
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        console.warn('[TwitterHover] API failed:', res.status, errText);
-        setData(twitterHoverClientFallback(url));
-        return;
-      }
-      const json: unknown = await res.json();
-      if (
-        json &&
-        typeof json === 'object' &&
-        (json as { type?: unknown }).type === 'tweet' &&
-        typeof (json as { url?: unknown }).url === 'string'
-      ) {
-        setData(json as TwitterPreviewData);
-        return;
-      }
-      if (
-        json &&
-        typeof json === 'object' &&
-        (json as { type?: unknown }).type === 'profile' &&
-        typeof (json as { handle?: unknown }).handle === 'string' &&
-        typeof (json as { profileUrl?: unknown }).profileUrl === 'string'
-      ) {
-        setData(json as TwitterPreviewData);
-        return;
-      }
-      setData(twitterHoverClientFallback(url));
-    } catch (e) {
-      console.warn('[TwitterHover] fetch error:', e);
-      setData(twitterHoverClientFallback(url));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+function StripGlyph({ children }: { children: ReactNode }) {
   return (
-    <span className="relative inline-flex" data-popover-open={open ? 'true' : undefined}>
-      <span ref={anchorRef} className="inline-flex" onMouseEnter={scheduleOpen} onMouseLeave={scheduleClose}>
-        {children}
-      </span>
-      <PulsePortaledHoverLayer
-        open={open}
-        anchorRef={anchorRef}
-        placement="below"
-        gapPx={10}
-        role="dialog"
-        onMouseEnter={scheduleOpen}
-        onMouseLeave={scheduleClose}
-        className="w-[280px] overflow-hidden rounded-lg border border-border-subtle bg-bg-raised p-3 shadow-panel"
-      >
-          {loading && !data ? (
-            <p className="text-xs text-fg-muted">Loading preview…</p>
-          ) : null}
-          {data?.type === 'tweet' && !data.fallback ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                {data.author?.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- X CDN avatar
-                  <img
-                    src={data.author.avatar}
-                    alt=""
-                    className="h-8 w-8 rounded-full bg-transparent object-cover ring-0"
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-bg-sunken" />
-                )}
-                <div className="flex min-w-0 flex-col">
-                  <div className="flex items-center gap-1">
-                    <span className="truncate text-xs font-semibold text-fg-primary">{data.author?.name}</span>
-                    {data.author?.verified ? (
-                      <span className="text-[10px] text-accent-primary">✓</span>
-                    ) : null}
-                  </div>
-                  <span className="text-[10px] text-fg-muted">@{data.author?.handle ?? '…'}</span>
-                </div>
-                <span className="ml-auto text-sm font-bold text-fg-muted">𝕏</span>
-              </div>
-              {data.text ? (
-                <p className="line-clamp-4 text-[11px] leading-relaxed text-fg-secondary">{data.text}</p>
-              ) : null}
-              {data.media ? (
-                // eslint-disable-next-line @next/next/no-img-element -- tweet media CDN
-                <img src={data.media} alt="" className="w-full rounded border border-border-subtle" />
-              ) : null}
-              <div className="mt-1 flex items-center justify-between">
-                {data.favorites != null ? (
-                  <span className="text-[10px] text-fg-muted">❤ {data.favorites.toLocaleString()}</span>
-                ) : (
-                  <span />
-                )}
-                <a
-                  href={data.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-accent-primary hover:text-accent-glow"
-                >
-                  View on X →
-                </a>
-              </div>
-            </div>
-          ) : null}
-          {data?.type === 'tweet' && data.fallback ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-[11px] text-fg-muted">Tweet preview unavailable from X syndication.</p>
-              <a
-                href={data.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] text-accent-primary hover:text-accent-glow"
-              >
-                View on X →
-              </a>
-            </div>
-          ) : null}
-          {data?.type === 'profile' ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex shrink-0 text-white/85">
-                  <PulseGlyphMask name="profile" size={32} />
-                </span>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-mono text-sm font-semibold text-fg-primary">
-                    @{data.handle.replace(/^@/, '')}
-                  </span>
-                  <span className="text-[10px] text-fg-muted">X profile</span>
-                </div>
-                <span className="ml-auto text-sm font-bold text-fg-muted">𝕏</span>
-              </div>
-              <a
-                href={data.profileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-7 w-full items-center justify-center rounded border border-border text-xs text-fg-secondary transition-colors hover:border-border-strong hover:text-fg-primary"
-              >
-                See profile on X →
-              </a>
-            </div>
-          ) : null}
-      </PulsePortaledHoverLayer>
-    </span>
+    <span className={cn('inline-flex shrink-0 opacity-100', pulseStripIconTone)}>{children}</span>
   );
 }
 
@@ -365,7 +170,9 @@ function ExternalGlyphLink({
         aria-label={label}
         className={cn(iconHit, linkClassName)}
       >
-        <PulseGlyphMask name={glyph} size={glyphPx} />
+        <StripGlyph>
+          <PulseGlyphMask name={glyph} size={glyphPx} />
+        </StripGlyph>
       </a>
     </WithHoverTooltip>
   );
@@ -406,7 +213,9 @@ function PulseGlyphStatHoverCard({
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <PulseGlyphMask name={glyph} size={glyphPx} />
+        <StripGlyph>
+          <PulseGlyphMask name={glyph} size={glyphPx} />
+        </StripGlyph>
         <span className={statNumberClsFor(glyphPx)}>{stat}</span>
       </Link>
     </PulseCompactHoverAbove>
@@ -420,26 +229,32 @@ function PulseGlyphStatHoverCard({
  */
 function CoinCommunityStatLink({
   mint,
-  stat,
   glyphPx,
 }: {
   mint: string;
-  stat: ReactNode;
   glyphPx: number;
 }) {
   const queryClient = useQueryClient();
+  const { data } = useCoinCommunity(mint);
+  const memberStat =
+    data?.memberCount != null && Number.isFinite(data.memberCount)
+      ? formatNumber(data.memberCount, { decimals: 0 })
+      : '0';
+
   return (
     <CoinCommunityHoverTrigger mint={mint}>
       <a
         href={coinCommunityWebUrl(mint)}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Coin Community"
+        aria-label="Coin Community members"
         className={cn(iconHit, 'pl-0 pr-0')}
         onPointerEnter={() => enqueueCoinCommunityPrefetch(queryClient, mint)}
       >
-        <PulseLuminanceGlyph src={PULSE_BRAND_SRC.communities} size={glyphPx} />
-        <span className={statNumberClsFor(glyphPx)}>{stat}</span>
+        <StripGlyph>
+          <PulseLuminanceGlyph src={PULSE_BRAND_SRC.communities} size={glyphPx} />
+        </StripGlyph>
+        <span className={statNumberClsFor(glyphPx)}>{memberStat}</span>
       </a>
     </CoinCommunityHoverTrigger>
   );
@@ -468,7 +283,9 @@ function ExternalInstagramLink({
         className={cn(iconHit, linkClassName)}
       >
         {/* Same luminance-mask treatment as other strip glyphs — avoids baked black tiles. */}
-        <PulseLuminanceGlyph src={PULSE_INSTAGRAM_SRC} size={glyphPx} />
+        <StripGlyph>
+          <PulseLuminanceGlyph src={PULSE_INSTAGRAM_SRC} size={glyphPx} />
+        </StripGlyph>
       </a>
     </WithHoverTooltip>
   );
@@ -498,7 +315,9 @@ function BrandIconLink({
         aria-label={label}
         className={cn(iconHit, linkClassName)}
       >
-        <PulseLuminanceGlyph src={src} size={glyphPx} />
+        <StripGlyph>
+          <PulseLuminanceGlyph src={src} size={glyphPx} />
+        </StripGlyph>
       </a>
     </PulseRichHover>
   );
@@ -546,7 +365,7 @@ export function PulseRowSocialStrip({
   const profileSx = profileGlyphSize ?? (inlineHeader ? sx + 4 : sx);
   const hit = cn(
     iconHit,
-    inlineHeader && 'h-6 min-w-[22px] justify-center px-0',
+    inlineHeader && 'h-7 min-w-[26px] justify-center px-0.5',
   );
   const headerLinkCls = inlineHeader ? 'h-7 min-w-[28px] justify-center px-1' : undefined;
   const followerGlyph = Math.max(14, Math.round(sx * 0.55));
@@ -616,17 +435,16 @@ export function PulseRowSocialStrip({
 
   if (inlineHeader) {
     const headerHoverPlacement = 'below' as const;
-    const showSearchIcon = Boolean(xSearchUrl);
 
     return (
       <div ref={rowPrefetchRef} className="inline-flex min-w-0 items-center font-sans">
-        <div className="flex h-6 min-w-0 flex-nowrap items-center gap-0.5 overflow-visible py-0">
+        <div className="flex h-7 min-w-0 flex-nowrap items-center gap-1 overflow-visible py-0">
           {twitterProfileUrl && twitterDisplayHandle ? (
             <TwitterProfileHoverTrigger
               handle={twitterDisplayHandle}
               side="bottom"
               align="start"
-              sideOffset={8}
+              sideOffset={0}
             >
               <a
                 href={twitterProfileUrl}
@@ -640,22 +458,8 @@ export function PulseRowSocialStrip({
             </TwitterProfileHoverTrigger>
           ) : null}
 
-          {displayWebsite ? (
-            <WebsiteGlobeCompactHover
-              url={displayWebsite}
-              tokenCreatedAt={bundle.token.created_at}
-              placement={headerHoverPlacement}
-            >
-              <a
-                href={displayWebsite}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Open ${displayWebsite}`}
-                className={hit}
-              >
-                <PulseHeaderSocialIcon kind="globe" size={sx} />
-              </a>
-            </WebsiteGlobeCompactHover>
+          {tweetUrl ? (
+            <TweetStripLink url={tweetUrl} sx={sx} linkClassName={hit} stale={tweetStale} />
           ) : null}
 
           {model.telegram ? (
@@ -672,7 +476,25 @@ export function PulseRowSocialStrip({
             </TelegramCompactHover>
           ) : null}
 
-          {showSearchIcon ? (
+          {displayWebsite ? (
+            <WebsiteGlobeCompactHover
+              url={displayWebsite}
+              tokenCreatedAt={bundle.token.created_at}
+              placement={headerHoverPlacement}
+            >
+              <a
+                href={displayWebsite}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${displayWebsite}`}
+                className={hit}
+              >
+                <PulseHeaderSocialIcon kind="globe" size={sx} className="text-inherit" />
+              </a>
+            </WebsiteGlobeCompactHover>
+          ) : null}
+
+          {xSearchUrl ? (
             <PulseCompactHoverAbove
               placement={headerHoverPlacement}
               content={
@@ -685,13 +507,13 @@ export function PulseRowSocialStrip({
               }
             >
               <a
-                href={xSearchUrl!}
+                href={xSearchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Search on X"
                 className={hit}
               >
-                <PulseHeaderSocialIcon kind="search" size={sx} />
+                <PulseHeaderSocialIcon kind="search" size={sx} className="text-inherit" />
               </a>
             </PulseCompactHoverAbove>
           ) : null}
@@ -740,32 +562,7 @@ export function PulseRowSocialStrip({
         ) : null}
 
         {tweetUrl ? (
-          <TwitterLinkHover url={tweetUrl}>
-            <StripTip
-              label={tweetStale === true ? 'Linked post on X — over 24h old' : 'Linked post on X'}
-            >
-              <a
-                href={tweetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={tweetStale === true ? 'Post on X (over 24h old)' : 'Post on X'}
-                className={hit}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- bundled PNG asset */}
-                <img
-                  src="/icons/twitter-tweet.png"
-                  alt="Twitter tweet"
-                  width={sx}
-                  height={sx}
-                  style={{ width: sx, height: sx }}
-                  className={cn(
-                    'shrink-0 object-contain opacity-95 transition-opacity hover:opacity-100',
-                    tweetStale === true && 'rounded-sm ring-2 ring-signal-warn/45',
-                  )}
-                />
-              </a>
-            </StripTip>
-          </TwitterLinkHover>
+          <TweetStripLink url={tweetUrl} sx={sx} linkClassName={hit} stale={tweetStale} />
         ) : null}
 
         {model.twitterSearch?.url ? (
@@ -799,7 +596,9 @@ export function PulseRowSocialStrip({
               aria-label="Telegram"
               className={iconHit}
             >
-              <PulseGlyphMask name="telegram" size={sx} />
+              <StripGlyph>
+                <PulseGlyphMask name="telegram" size={sx} />
+              </StripGlyph>
             </a>
           </TelegramCompactHover>
         ) : null}
@@ -859,7 +658,9 @@ export function PulseRowSocialStrip({
                   aria-label={`Open ${websiteUrl}`}
                   className={hit}
                 >
-                  <PulseGlyphMask name="globe" size={sx} />
+                  <StripGlyph>
+                    <PulseGlyphMask name="globe" size={sx} />
+                  </StripGlyph>
                 </a>
               </WebsiteGlobeCompactHover>
             );
@@ -883,7 +684,9 @@ export function PulseRowSocialStrip({
               aria-label="Cashback token"
               role="img"
             >
-              <PulseGlyphMask name="cashback" size={sx} variant="mono" />
+              <StripGlyph>
+                <PulseGlyphMask name="cashback" size={sx} />
+              </StripGlyph>
             </span>
           </PulseCashbackCompactHover>
         ) : null}
@@ -895,17 +698,15 @@ export function PulseRowSocialStrip({
               aria-label="Pump fee-share / rebates — hover for breakdown"
               role="button"
             >
-              <PulseGlyphMask name="feeShare" size={sx} variant="mono" />
+              <StripGlyph>
+                <PulseGlyphMask name="feeShare" size={sx} />
+              </StripGlyph>
             </span>
           </PulseRichHover>
         ) : null}
 
         {showHoldersCommunity ? (
-          <CoinCommunityStatLink
-            mint={bundle.token.mint}
-            stat={holders != null ? formatNumber(holders, { decimals: 0 }) : '—'}
-            glyphPx={sx}
-          />
+          <CoinCommunityStatLink mint={bundle.token.mint} glyphPx={sx} />
         ) : null}
 
         {showProTradersStat ? (
@@ -947,7 +748,9 @@ export function PulseRowSocialStrip({
                 if (!solscanDevWalletUrl) e.preventDefault();
               }}
             >
-              <PulseGlyphMask name="crown" size={sx} />
+              <StripGlyph>
+                <PulseGlyphMask name="crown" size={sx} />
+              </StripGlyph>
               <span className={statNumberClsFor(sx)}>{crownSlashDisplay}</span>
             </a>
           </PulseCompactHoverAbove>

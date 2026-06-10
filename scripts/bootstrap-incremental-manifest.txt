@@ -1,0 +1,33 @@
+# Pointer Supabase bootstrap — run AFTER bootstrap-phase1-core.sql
+# One file per line; lines starting with # are ignored.
+
+onboarding-announcements.sql
+beta-gate.sql
+phase2-steps-9-13.sql
+phase4-schema.sql
+automation-rules-migration.sql
+push-subscriptions.sql
+step10-user-wallets-is-imported.sql
+user-wallets-archived-active.sql
+tracker-rules.sql
+tracker-groups.sql
+twitter-ingest-tweets.sql
+helius-usage.sql
+ai-scan-cache.sql
+admin-rbac.sql
+admin-packs.sql
+admin-cashback.sql
+admin-campaigns.sql
+admin-feature-flags.sql
+admin-account-controls.sql
+admin-emergency-actions.sql
+admin-bug-reports.sql
+admin-championship.sql
+identity-schema.sql
+track-automation.sql
+creator-portal.sql
+pulse-feed-indexes.sql
+mint-swaps-indexer.sql
+refresh-points-leaderboard-rpc.sql
+supabase-realtime-pulse.sql
+reload-postgrest-schema.sql

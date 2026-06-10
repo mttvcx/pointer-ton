@@ -17,6 +17,14 @@ export const OS = {
     'bg-bg-raised/95 backdrop-blur-xl shadow-[0_24px_64px_-28px_rgba(0,0,0,0.55),inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.06)]',
   rowHover:
     'hover:bg-bg-hover/85 hover:shadow-[inset_0_0_0_1px_rgb(var(--accent-primary-rgb)/0.12)]',
+  /** Portfolio Spot — single grey plane, hairline grid (Axiom-style). */
+  spotSurface: 'bg-bg-raised',
+  spotHairline: 'border-border-subtle/45',
+  spotDivideX: 'divide-x divide-border-subtle/45',
+  spotDivideY: 'divide-y divide-border-subtle/45',
+  /** Tab + wallet chrome sits on page black; content panel is spotSurface below. */
+  spotChrome: 'bg-bg-base',
+  spotChromeHairline: 'border-white/[0.06]',
   trigger:
     'rounded-xl border border-border-default bg-gradient-to-b from-bg-hover to-bg-sunken shadow-[inset_0_1px_0_rgb(var(--fg-primary-rgb)/0.06)]',
 };
@@ -29,7 +37,7 @@ export function WalletMonogram({ address, label }: { address: string; label: str
   const sym = pair.toUpperCase();
   return (
     <span
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-[10px] font-semibold tracking-tight text-fg-secondary"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-white/[0.04] text-[10px] font-semibold tracking-tight text-fg-secondary"
       aria-hidden
     >
       {sym}
@@ -78,6 +86,8 @@ export type PortfolioWalletSelectorProps = {
   onSelectAll: () => void;
   onSelectWallet: (w: MyWalletRow) => void;
   combinedNative: number;
+  /** Resolved balance for the selector chip (live when available). */
+  headerNativeBalance: number;
   nativeSym: string;
   balanceOf: BalanceFn;
   selectedDisplayName: string;
@@ -98,6 +108,7 @@ export function PortfolioWalletSelector({
   onSelectAll,
   onSelectWallet,
   combinedNative,
+  headerNativeBalance,
   nativeSym,
   balanceOf,
   selectedDisplayName,
@@ -113,8 +124,8 @@ export function PortfolioWalletSelector({
         type="button"
         onClick={() => onOpenChange(!open)}
         className={cn(
-          'inline-flex min-w-[220px] max-w-[min(420px,92vw)] items-center justify-between gap-3 rounded-lg border border-border-subtle bg-bg-raised px-3 py-2.5 text-left text-xs font-medium text-fg-primary shadow-none transition hover:bg-bg-hover',
-          open && 'border-accent-primary/35 ring-1 ring-accent-primary/25',
+          'inline-flex min-w-[220px] max-w-[min(420px,92vw)] items-center justify-between gap-3 py-1.5 text-left text-xs font-medium text-fg-primary transition',
+          open && 'opacity-100',
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -138,7 +149,7 @@ export function PortfolioWalletSelector({
         <span className="flex shrink-0 items-center gap-1.5">
           <span className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold tabular-nums text-fg-primary">
             <ChainIcon chain={activeChain} size={14} className="opacity-90" />
-            {formatNumber(selectedId === 'all' ? combinedNative : balanceOf(selectedWallet?.balance_lamports), {
+            {formatNumber(headerNativeBalance, {
               decimals: 4,
             })}
             <span className="text-[10px] font-medium text-fg-muted">{nativeSym}</span>

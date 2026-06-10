@@ -6,6 +6,7 @@ import { WalletPickerPopover } from '@/components/wallets/WalletPickerPopover';
 import { pulseWalletBtnCls } from '@/components/pulse/pulseToolbarStyles';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
+import { useWalletNativeBalance } from '@/lib/hooks/useWalletNativeBalance';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { useTradingStore } from '@/store/trading';
@@ -34,10 +35,23 @@ export function PulseWorkspaceWalletChip({ className }: { className?: string }) 
 
   const { activeAddress } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
   const rowForActive = myWalletsQ.data?.wallets?.find((w) => w.wallet_address === activeAddress);
-  const solBal = parseLamportsStringToSol(rowForActive?.balance_lamports ?? null);
+
+  const liveNativeBalQ = useWalletNativeBalance({
+    enabled: authenticated && Boolean(rowForActive?.id),
+    walletId: rowForActive?.id,
+    fallbackLamports: rowForActive?.balance_lamports,
+    getAccessToken,
+  });
+
+  const solBal =
+    activeChain === 'sol'
+      ? (liveNativeBalQ.data?.ui ?? parseLamportsStringToSol(rowForActive?.balance_lamports ?? null))
+      : null;
   const tonBalUi =
     activeChain === 'ton'
-      ? (parseLamportsStringToSol(rowForActive?.balance_lamports ?? null) ?? 0)
+      ? (liveNativeBalQ.data?.ui ??
+        parseLamportsStringToSol(rowForActive?.balance_lamports ?? null) ??
+        0)
       : null;
   const barBal = activeChain === 'sol' ? solBal : activeChain === 'ton' ? tonBalUi : null;
 

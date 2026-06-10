@@ -1,4 +1,3 @@
-import type { Json } from '@/lib/supabase/types';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 /** Bonding % at or above this uses the “final stretch” (blue) ring treatment. */
@@ -106,14 +105,29 @@ export function getPulseBondingRingState(bundle: PulseTokenBundle): PulseBonding
   if (token.migrated_at) {
     return { fillPct: 100, migrated: true };
   }
+
+  const raw = token.raw_metadata;
+  if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>;
+    if (r.pumpComplete === true) {
+      return { fillPct: 100, migrated: true };
+    }
+  }
+
+  const em = snapshot?.extended_metrics;
+  if (em != null && typeof em === 'object' && !Array.isArray(em)) {
+    const e = em as Record<string, unknown>;
+    if (e.dexMigrated === true) {
+      return { fillPct: 100, migrated: true };
+    }
+  }
+
   if (token.bonding_progress != null && Number.isFinite(token.bonding_progress)) {
     return { fillPct: token.bonding_progress, migrated: false };
   }
-  const raw = token.raw_metadata as Json | null;
   const fromToken = raw != null ? walkForFillPct(raw, 0) : null;
   if (fromToken != null) return { fillPct: fromToken, migrated: false };
 
-  const em = snapshot?.extended_metrics;
   const fromSnap = em != null ? walkForFillPct(em, 0) : null;
   return { fillPct: fromSnap, migrated: false };
 }

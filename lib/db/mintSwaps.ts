@@ -8,6 +8,7 @@ export type MintSwapRow = {
   mint: string;
   signature: string;
   wallet: string;
+  event_kind: 'swap' | 'remove_liq' | 'add_liq';
   side: 'buy' | 'sell';
   token_amount_raw: number;
   token_amount_ui: number;
@@ -27,10 +28,11 @@ export async function insertMintSwap(
   swap: ParsedMintSwap,
 ): Promise<'inserted' | 'duplicate' | 'error'> {
   const supabase = createAdminSupabase();
-  const { error } = await supabase.from('mint_swaps').insert({
+  const row = {
     mint: swap.mint,
     signature: swap.signature,
     wallet: swap.wallet,
+    event_kind: swap.eventKind,
     side: swap.side,
     token_amount_raw: swap.tokenAmountRaw,
     token_amount_ui: swap.tokenAmountUi,
@@ -43,7 +45,13 @@ export async function insertMintSwap(
     program_id: swap.programId,
     pool_address: swap.poolAddress,
     source: swap.source,
-  });
+  };
+
+  let { error } = await supabase.from('mint_swaps').insert(row);
+  if (error?.message?.includes('event_kind')) {
+    const { event_kind: _drop, ...legacy } = row;
+    ({ error } = await supabase.from('mint_swaps').insert(legacy));
+  }
 
   if (!error) return 'inserted';
   if (error.code === '23505') return 'duplicate';

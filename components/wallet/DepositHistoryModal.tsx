@@ -5,27 +5,25 @@ import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
+import { EX } from '@/components/wallet/exchangeModalUi';
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-/**
- * Axiom-style empty deposit history sheet (cross-chain list not wired yet).
- */
 export function DepositHistoryModal({ open, onOpenChange }: Props) {
   const { mounted, visible } = useOverlayPresence(open);
 
   if (!mounted) return null;
 
   return (
-    <div className={cn('fixed inset-0 flex items-center justify-center p-4', Z_APP_MODAL_OVERLAY)}>
+    <div className={cn('fixed inset-0 flex items-end justify-center sm:items-center sm:p-4', Z_APP_MODAL_OVERLAY)}>
       <button
         type="button"
         aria-label="Close"
         className={cn(
-          'absolute inset-0 cursor-default bg-black/70 backdrop-blur-[2px]',
+          'absolute inset-0 cursor-default bg-black/90 backdrop-blur-[2px]',
           overlayBackdropClasses(visible),
           'fill-mode-forwards',
         )}
@@ -33,47 +31,39 @@ export function DepositHistoryModal({ open, onOpenChange }: Props) {
       />
       <div
         data-modal-panel
-        className={cn(
-          'relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-[#1b1f2a] bg-[#080d14] shadow-2xl',
-          'fill-mode-forwards font-sans text-[12px]',
-          overlayPanelClasses(visible),
-        )}
+        className={cn(EX.shell, 'fill-mode-forwards', overlayPanelClasses(visible))}
         role="dialog"
         aria-modal="true"
         aria-labelledby="deposit-history-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#1b1f2a] px-3 py-2.5">
-          <h2 id="deposit-history-title" className="text-[14px] font-semibold text-white">
-            Deposit History
+        <div className={EX.header}>
+          <h2 id="deposit-history-title" className={EX.title}>
+            Deposit history
           </h2>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded p-1 text-[#9ca3af] transition hover:bg-white/5 hover:text-white"
+            className="btn-press focus-ring rounded-md p-1 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
             aria-label="Close"
           >
             <X className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>
-        <div className="px-3 py-2">
-          <div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
+        <div className="px-4 py-3">
+          <div className={cn('flex items-center gap-1.5', EX.muted)}>
             <History className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-            <span>Cross-chain Deposits</span>
+            <span>Cross-chain deposits</span>
           </div>
-          <div className="mt-2 rounded-lg border border-[#1b1f2a] bg-[#12141b] px-4 py-10 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-[#1b1f2a] text-[#4b5563]">
+          <div className={cn('mt-2 px-4 py-10 text-center', EX.inset)}>
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-bg-hover text-fg-muted">
               <ImageIcon className="h-5 w-5" strokeWidth={1.5} />
             </div>
-            <p className="mt-3 text-[13px] font-medium text-[#9ca3af]">No deposits yet</p>
+            <p className="mt-3 text-[13px] font-medium text-fg-secondary">No deposits yet</p>
           </div>
         </div>
-        <div className="border-t border-[#1b1f2a] p-3">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="btn-press focus-ring w-full rounded-xl bg-accent-primary py-2.5 text-[13px] font-semibold text-fg-inverse transition hover:bg-accent-primary/95"
-          >
+        <div className={EX.footer}>
+          <button type="button" onClick={() => onOpenChange(false)} className={EX.cta}>
             Done
           </button>
         </div>

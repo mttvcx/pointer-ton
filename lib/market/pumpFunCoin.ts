@@ -11,6 +11,8 @@ export type PumpFunCoinRow = {
   creator: string | null;
   description: string | null;
   image_uri: string | null;
+  /** Bonding curve complete — token migrated off pump.fun. */
+  complete: boolean;
 };
 
 const BASE = 'https://frontend-api-v3.pump.fun/coins';
@@ -43,6 +45,7 @@ export async function fetchPumpFunCoin(mint: string): Promise<PumpFunCoinRow | n
       creator: pickString(json.creator),
       description: pickString(json.description),
       image_uri: pickString(json.image_uri),
+      complete: json.complete === true,
     };
   } catch {
     return null;

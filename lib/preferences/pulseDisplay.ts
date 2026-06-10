@@ -14,6 +14,10 @@ export type QuickBuyClickBehavior = z.infer<typeof QuickBuyClickBehaviorSchema>;
 export const PulseSecondButtonModeSchema = z.enum(['off', 'buy', 'sell']);
 export type PulseSecondButtonMode = z.infer<typeof PulseSecondButtonModeSchema>;
 
+/** Ultra quick-buy surface: outline border, solid fill, or no border (Axiom-style). */
+export const QuickBuyUltraChromeSchema = z.enum(['outline', 'filled', 'borderless']);
+export type QuickBuyUltraChrome = z.infer<typeof QuickBuyUltraChromeSchema>;
+
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 export const MetricBandColorsSchema = z.tuple([HexColorSchema, HexColorSchema, HexColorSchema]);
@@ -77,6 +81,7 @@ export const PulseDisplayPrefsSchema = z.object({
   walletGroupsInHeader: z.boolean(),
   secondButtonMode: PulseSecondButtonModeSchema,
   accentHex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  quickBuyUltraChrome: QuickBuyUltraChromeSchema,
 });
 
 export type PulseDisplayPrefs = z.infer<typeof PulseDisplayPrefsSchema>;
@@ -149,6 +154,7 @@ export const DEFAULT_PULSE_DISPLAY_PREFS: PulseDisplayPrefs = {
   walletGroupsInHeader: true,
   secondButtonMode: 'off',
   accentHex: '#34D399',
+  quickBuyUltraChrome: 'outline',
 };
 
 export function withPulseDisplayDefaults(
@@ -225,6 +231,7 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     walletGroupsInHeader,
     secondButtonMode,
     accentHex,
+    quickBuyUltraChrome,
   } = state;
   return withPulseDisplayDefaults({
     activeTab,
@@ -246,5 +253,6 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     walletGroupsInHeader,
     secondButtonMode,
     accentHex,
+    quickBuyUltraChrome,
   });
 }

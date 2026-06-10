@@ -89,8 +89,8 @@ export async function ensureTokenRowFromGeckoEvm(mintParam: string): Promise<Tok
       bonding_progress: null,
       raw,
     };
-    await ingestLaunchpadDiscovery(ev, { alertSource: 'gecko_terminal' });
-    return getTokenByMint(mint);
+    const ingested = await ingestLaunchpadDiscovery(ev, { alertSource: 'gecko_terminal' });
+    return ingested.row ?? getTokenByMint(mint);
   }
 
   return null;
@@ -179,7 +179,8 @@ export async function pollGeckoNewPools(network: GeckoPulseNetwork): Promise<num
       bonding_progress: null,
       raw,
     };
-    inserted += await ingestLaunchpadDiscovery(ev, { alertSource: 'gecko_terminal' });
+    const ingested = await ingestLaunchpadDiscovery(ev, { alertSource: 'gecko_terminal' });
+    inserted += ingested.created;
   }
 
   return inserted;

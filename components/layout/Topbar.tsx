@@ -75,6 +75,8 @@ import { formatNumber, parseLamportsStringToSol, rawToUi } from '@/lib/utils/for
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshListener';
+import { useWalletBalancesPoll } from '@/lib/hooks/useWalletBalancesPoll';
+import { useWalletNativeBalance } from '@/lib/hooks/useWalletNativeBalance';
 import { fetchPortfolioJson, portfolioQueryKey } from '@/lib/portfolio/portfolioQuery';
 import { toggleSquadsOnPulse, closeSquadsRail } from '@/lib/squads/openSquadsOnPulse';
 import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
@@ -126,11 +128,53 @@ export function Topbar() {
       return res.json() as Promise<{ wallets: MyWalletRow[] }>;
     },
     enabled: authenticated,
-    staleTime: 30_000,
+    staleTime: 15_000,
   });
+
+  const walletPollIds = useMemo(
+    () =>
+      (myWalletsQ.data?.wallets ?? [])
+        .filter(
+          (w) =>
+            w.is_active &&
+            !w.is_archived &&
+            mintMatchesAppChain(w.wallet_address, activeChain),
+        )
+        .map((w) => w.id),
+    [myWalletsQ.data?.wallets, activeChain],
+  );
 
   const { activeAddress, ready: walletsReady } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
   const walletAddress = activeAddress;
+
+  const activeWalletRow = useMemo(
+    () =>
+      walletAddress
+        ? myWalletsQ.data?.wallets?.find((w) => w.wallet_address === walletAddress) ?? null
+        : null,
+    [myWalletsQ.data?.wallets, walletAddress],
+  );
+
+  const onPortfolioPage = Boolean(pathname?.startsWith('/portfolio'));
+
+  useWalletBalancesPoll({
+    enabled: authenticated && activeChain === 'sol' && walletPollIds.length > 0,
+    walletIds: walletPollIds,
+    getAccessToken,
+    queryClient,
+    intervalMs: onPortfolioPage ? undefined : 15_000,
+    priorityWalletId: activeWalletRow?.id ?? null,
+  });
+
+  const activeNativeBalQ = useWalletNativeBalance({
+    enabled:
+      authenticated &&
+      Boolean(activeWalletRow?.id) &&
+      (activeChain === 'sol' || activeChain === 'ton'),
+    walletId: activeWalletRow?.id,
+    fallbackLamports: activeWalletRow?.balance_lamports,
+    getAccessToken,
+  });
   const spendAsset = useTradingStore((s) => s.spendAsset);
   const setSpendAsset = useTradingStore((s) => s.setSpendAsset);
 
@@ -172,8 +216,10 @@ export function Topbar() {
         mintMatchesAppChain(walletAddress, 'sol') &&
         needsFullPortfolio,
     ),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    staleTime: 15_000,
+    refetchInterval: needsFullPortfolio ? 15_000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const tickersQ = useQuery({
@@ -222,16 +268,20 @@ export function Topbar() {
     return parseLamportsStringToSol(row?.balance_lamports ?? null);
   }, [myWalletsQ.data?.wallets, walletAddress]);
 
+  const liveNativeUi = activeNativeBalQ.data?.ui ?? null;
+
   const solUi =
-    portfolioQ.data?.solLamports != null
+    liveNativeUi ??
+    (portfolioQ.data?.solLamports != null
       ? parseLamportsStringToSol(portfolioQ.data.solLamports)
-      : walletRowSolUi;
+      : walletRowSolUi);
 
   const tonBalanceUi = useMemo(() => {
     if (activeChain !== 'ton' || !walletAddress) return null;
+    if (liveNativeUi != null) return liveNativeUi;
     const row = myWalletsQ.data?.wallets?.find((w) => w.wallet_address === walletAddress);
     return parseLamportsStringToSol(row?.balance_lamports ?? null) ?? 0;
-  }, [activeChain, walletAddress, myWalletsQ.data?.wallets]);
+  }, [activeChain, walletAddress, liveNativeUi, myWalletsQ.data?.wallets]);
 
   const headerNativeUi = activeChain === 'sol' ? solUi : activeChain === 'ton' ? tonBalanceUi : null;
 

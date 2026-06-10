@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Droplets, Lock } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
@@ -18,6 +19,7 @@ import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import { useUIStore } from '@/store/ui';
 
 import { WalletIdentityBadges } from '@/components/wallet/identity/WalletIdentityBadges';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { WalletCompactTooltipPanel } from '@/components/wallet/identity/WalletCompactTooltipPanel';
 import { WalletIdentityDossier } from '@/components/wallet/identity/WalletIdentityDossier';
 import { WalletMintTradesFilterButton } from '@/components/tokens/cells/WalletMintTradesFilterButton';
@@ -59,6 +61,9 @@ export function WalletIdentityAnchor({
   tradesFilterActive,
   addressNoTruncate = false,
   maxBadges = 3,
+  forcedLabel,
+  deskSystemRole = null,
+  lockedVaultTooltip = null,
 }: {
   address: string;
   mint?: string;
@@ -92,6 +97,12 @@ export function WalletIdentityAnchor({
   addressNoTruncate?: boolean;
   /** Cap badge icons before/after the address. */
   maxBadges?: number;
+  /** Override address text — e.g. LIQUIDITY POOL for LP vault rows. */
+  forcedLabel?: string | null;
+  /** Desk system account role — LP droplet / locked lock indicator. */
+  deskSystemRole?: 'lp' | 'locked_vault' | null;
+  /** On-chain locked vault tooltip (owner program + supply %). */
+  lockedVaultTooltip?: string | null;
 }) {
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const dossierWrapRef = useRef<HTMLDivElement | null>(null);
@@ -172,7 +183,9 @@ export function WalletIdentityAnchor({
   const tokenSurface = tokenCtxFromRow ?? hoverTokenCtx ?? null;
 
   const displayText =
-    labelDisp?.labeled === true
+    forcedLabel?.trim()
+      ? forcedLabel.trim()
+      : labelDisp?.labeled === true
       ? labelDisp.label + (labelDisp.emoji ? ` ${labelDisp.emoji}` : '')
       : addressFormat === 'axiom-ticker' && address.length >= 3
         ? address.slice(-3)
@@ -349,6 +362,31 @@ export function WalletIdentityAnchor({
       />
     ) : null;
 
+  const systemRoleIcon =
+    deskSystemRole === 'lp' ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex shrink-0 items-center">
+            <Droplets className="h-3 w-3 shrink-0 text-signal-info" strokeWidth={2.25} aria-hidden />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-[10px]">
+          Liquidity pool
+        </TooltipContent>
+      </Tooltip>
+    ) : deskSystemRole === 'locked_vault' ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex shrink-0 items-center">
+            <Lock className="h-3 w-3 shrink-0 text-signal-bear" strokeWidth={2.25} aria-hidden />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[280px] text-[10px]">
+          {lockedVaultTooltip ?? `Locked supply · ${address}`}
+        </TooltipContent>
+      </Tooltip>
+    ) : null;
+
   return (
     <>
       <span
@@ -369,7 +407,12 @@ export function WalletIdentityAnchor({
           openLabelModal(address);
         }}
       >
-        {badgeBeforeAddress ? badgeRow : null}
+        {badgeBeforeAddress ? (
+          <>
+            {systemRoleIcon}
+            {badgeRow}
+          </>
+        ) : null}
         {mint && onFilterMintTrades && !suppressFilterButton ? (
           <WalletMintTradesFilterButton
             active={tradesFilterActive}

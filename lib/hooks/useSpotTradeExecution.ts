@@ -31,6 +31,10 @@ import {
 import { USDC_MINT } from '@/lib/utils/addresses';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import {
+  founderBetaMobileTradeMessage,
+  isFounderBetaMobileTradeBlocked,
+} from '@/lib/beta/founderBetaClient';
+import {
   addInstantTradeCostBasisTon,
   clearInstantTradeCostBasisTon,
   readInstantTradeCostBasisTon,
@@ -191,6 +195,10 @@ export function useSpotTradeExecution(mint: string) {
 
   const runBuy = useCallback(
     async (amount: number, spendAssetOverride?: SolSpendAsset) => {
+      if (isFounderBetaMobileTradeBlocked()) {
+        toast.error('Desktop-only beta', { description: founderBetaMobileTradeMessage() });
+        return;
+      }
       // SANDBOX: route to the fake executor before ANY live quote/sign/execute.
       if (isSandboxMode()) {
         const res = sandboxBuy({ mint, amountSol: amount });
@@ -337,6 +345,10 @@ export function useSpotTradeExecution(mint: string) {
 
   const runSell = useCallback(
     async (sellPct: number) => {
+      if (isFounderBetaMobileTradeBlocked()) {
+        toast.error('Desktop-only beta', { description: founderBetaMobileTradeMessage() });
+        return;
+      }
       if (isSandboxMode()) {
         const res = sandboxSellPct({ mint, pct: sellPct });
         if (res.ok) {
@@ -486,6 +498,10 @@ export function useSpotTradeExecution(mint: string) {
 
   const runSellSolOut = useCallback(
     async (amountSolOut: number, opts?: { clearCostBasis?: boolean }) => {
+      if (isFounderBetaMobileTradeBlocked()) {
+        toast.error('Desktop-only beta', { description: founderBetaMobileTradeMessage() });
+        return;
+      }
       if (isSandboxMode()) {
         const res = sandboxSellSolOut({ mint, amountSolOut });
         if (res.ok) {

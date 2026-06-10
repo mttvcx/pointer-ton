@@ -74,6 +74,18 @@ export function getAxiomSpriteMetrics(bundle: PulseTokenBundle): AxiomSpriteMetr
     return null;
   };
 
+  const extPct = (keys: string[]): number | null => {
+    for (const root of roots) {
+      if (!root || typeof root !== 'object' || Array.isArray(root)) continue;
+      const r = root as Record<string, unknown>;
+      for (const k of keys) {
+        const n = coercePctLike(r[k]);
+        if (n != null) return n;
+      }
+    }
+    return null;
+  };
+
   const top10 =
     snap?.top10_holder_pct != null && Number.isFinite(snap.top10_holder_pct)
       ? snap.top10_holder_pct
@@ -86,8 +98,8 @@ export function getAxiomSpriteMetrics(bundle: PulseTokenBundle): AxiomSpriteMetr
   return {
     top10Pct: top10,
     devPct: dev,
-    sniperPct: walk([/sniper|snipe/i]),
-    bundlePct: walk([/bundle|bundled/i]),
+    sniperPct: extPct(['sniperHolderPct', 'sniper_pct', 'sniperPct']) ?? walk([/sniper|snipe/i]),
+    bundlePct: extPct(['bundlersPct', 'bundle_pct', 'bundlePct']) ?? walk([/bundle|bundled/i]),
     clusterPct: walk([/cluster|linked|insider|fresh|related|hive/i]),
   };
 }

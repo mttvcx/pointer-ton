@@ -8,8 +8,11 @@ import { AppToaster } from '@/components/providers/AppToaster';
 import { WalletTrackerToaster } from '@/components/providers/WalletTrackerToaster';
 import { ProvisionServerSigner } from '@/components/auth/ProvisionServerSigner';
 import { AuthSyncGate } from '@/components/auth/AuthSyncGate';
+import { PrivyOAuthReturnCleanup } from '@/components/auth/PrivyOAuthReturnCleanup';
+import { PointerSignInHost } from '@/components/auth/PointerSignInHost';
 import { SandboxProvider } from '@/components/sandbox/SandboxProvider';
 import { PointerAuthProvider } from '@/lib/auth/pointerAuth';
+import { FounderBetaDesktopGate } from '@/components/beta/FounderBetaDesktopGate';
 import { PRIVY_APP_ID, privyClientConfig } from '@/lib/privy/publicConfig';
 
 /**
@@ -83,9 +86,11 @@ export function Providers({ children }: { children: ReactNode }) {
       <PrivyProvider appId={PRIVY_APP_ID} config={privyClientConfig}>
         <PointerAuthProvider>
           <AuthSyncGate />
+          <PrivyOAuthReturnCleanup />
+          <PointerSignInHost />
           <ProvisionServerSigner />
           <SandboxProvider />
-          {children}
+          <FounderBetaDesktopGate>{children}</FounderBetaDesktopGate>
           <WalletTrackerToaster />
           <AppToaster />
         </PointerAuthProvider>

@@ -28,6 +28,7 @@
     "backfill:qa-swaps": "node --import tsx scripts/backfill-qa-mint-swaps.ts",
     "replay:qa-swaps": "node --import tsx scripts/replay-qa-mint-swaps.ts",
     "verify:qa-indexer": "node --import tsx scripts/verify-qa-indexer.ts",
+    "migrate:mint-swaps-event": "node scripts/apply-mint-swaps-event-kind.mjs",
     "verify:founder-beta": "node --import tsx scripts/founder-beta-sprint2-verify.ts",
     "test:packs": "node --import tsx --test lib/packs/pricing.test.ts",
     "test": "node --import tsx --test \"lib/**/*.test.ts\" \"tests/**/*.test.ts\""

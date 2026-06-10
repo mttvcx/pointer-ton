@@ -53,8 +53,8 @@ function luminanceMaskStyle(src: string, size: number): CSSProperties {
 
 /**
  * Mono strip icons: PNG black plate must never be painted. Luminance mask + `bg-current`
- * inherits the parent's text color so the row's `text-fg-muted` → `hover:text-fg-secondary`
- * cascade drives icon color uniformly (per Pulse polish spec D).
+ * inherits the parent's text color — Pulse first-row strip uses solid `text-fg-secondary`
+ * (100% opaque gray, Axiom parity; not alpha-muted white).
  */
 export function PulseLuminanceGlyph({
   src,

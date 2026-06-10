@@ -39,6 +39,7 @@ import { syntheticPulseFeedItems, pulseSocialShowcaseBundles } from '@/lib/dev/d
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
+import { usePulseMetricsHydration } from '@/lib/hooks/usePulseMetricsHydration';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { usePulseHiddenMintsStore, normalizePulseTwitterHandle } from '@/store/pulseHiddenMints';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
@@ -183,6 +184,14 @@ function PulseColumnBody({
 
     return items;
   }, [column, query.data?.items, uiDemo, activeChain]);
+
+  usePulseMetricsHydration({
+    qc,
+    column,
+    chain: activeChain,
+    items: feedItems,
+    enabled: !uiDemo && feedItems.length > 0,
+  });
 
   const flashTrackPulseMint = useUIStore((s) => s.flashTrackPulseMint);
 
@@ -675,14 +684,20 @@ function PulseColumnBody({
                 ? 'No matches'
                 : columnFiltered.length === 0 && searchFiltered.length > 0
                   ? 'No tokens match filters'
-                  : 'Quiet on this column'
+                  : column === 'new'
+                    ? 'Waiting for new launches'
+                    : column === 'stretch'
+                      ? 'No stretch tokens yet'
+                      : 'No migrated tokens yet'
             }
             description={
               search.trim()
                 ? 'Try a different query or clear search.'
                 : columnFiltered.length === 0 && searchFiltered.length > 0
                   ? 'Open filters and relax criteria, or reset the preset.'
-                  : 'New mints stream in here as they hit the indexed launchpads. Hold tight.'
+                  : column === 'new'
+                    ? 'Qualified new mints stream in here as Helius indexes launchpads. Empty is normal when the feed is quiet.'
+                    : 'Waiting for live qualified tokens — stretch and migrated columns fill as tokens bond and graduate.'
             }
           />
         ) : (

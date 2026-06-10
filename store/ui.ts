@@ -120,6 +120,11 @@ interface UIState {
   setSearchOpen: (open: boolean) => void;
   setActiveChain: (chain: AppChainId) => void;
 
+  /** Pointer-branded sign-in overlay (Google/X use popup OAuth). */
+  signInModalOpen: boolean;
+  setSignInModalOpen: (open: boolean) => void;
+  openSignInModal: () => void;
+
   /** Automation / Track: flash a Pulse row by mint (non-persisted). */
   trackPulseHighlightMint: string | null;
   flashTrackPulseMint: (mint: string, ms?: number) => void;
@@ -216,6 +221,7 @@ export const useUIStore = create<UIState>()(
       alertRulesDockWidth: ALERT_DOCK_DEFAULT_W,
       searchQuery: '',
       searchOpen: false,
+      signInModalOpen: false,
       activeChain: DEFAULT_APP_CHAIN,
       trackPulseHighlightMint: null,
       copilotTopStripActive: false,
@@ -330,6 +336,8 @@ export const useUIStore = create<UIState>()(
         }),
       setSearchQuery: (q) => set({ searchQuery: q }),
       setSearchOpen: (open) => set({ searchOpen: open }),
+      setSignInModalOpen: (open) => set({ signInModalOpen: open }),
+      openSignInModal: () => set({ signInModalOpen: true }),
       setActiveChain: (chain) => set({ activeChain: chain }),
 
       flashTrackPulseMint: (mint, ms = 12_000) => {

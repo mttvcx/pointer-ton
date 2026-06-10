@@ -42,20 +42,57 @@ describe('parseSwapFromEnhancedTx', () => {
 
     assert.equal(parsed.ok, true);
     if (!parsed.ok) return;
+    assert.equal(parsed.swap.eventKind, 'swap');
     assert.equal(parsed.swap.side, 'sell');
     assert.equal(parsed.swap.wallet, tx.feePayer);
     assert.ok(parsed.swap.solAmount > 0);
     assert.ok(parsed.swap.tokenAmountUi > 0);
   });
 
-  it('skips non-swap types', () => {
+  it('parses remove liquidity WITHDRAW with large SOL out', () => {
     const tx: HeliusEnhancedTx = {
       signature: 'withdraw1',
-      feePayer: 'wallet',
+      timestamp: 1_780_964_900,
+      feePayer: 'DevWalletRemoveLiq1111111111111111111',
       type: 'WITHDRAW',
-      tokenTransfers: [{ mint: MINT, tokenAmount: 100, fromUserAccount: 'a', toUserAccount: 'b' }],
+      source: 'PUMP_AMM',
+      tokenTransfers: [
+        {
+          mint: MINT,
+          tokenAmount: 500_000,
+          fromUserAccount: POOL,
+          toUserAccount: 'DevWalletRemoveLiq1111111111111111111',
+        },
+      ],
+      nativeTransfers: [
+        {
+          fromUserAccount: POOL,
+          toUserAccount: 'DevWalletRemoveLiq1111111111111111111',
+          amount: 338_100_000_000,
+        },
+      ],
     };
-    const parsed = parseSwapFromEnhancedTx({ tx, mint: MINT });
+    const parsed = parseSwapFromEnhancedTx({
+      tx,
+      mint: MINT,
+      poolHint: POOL,
+      lastKnownMcUsd: 33_200,
+    });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.swap.eventKind, 'remove_liq');
+    assert.equal(parsed.swap.marketCapUsd, 33_200);
+    assert.ok(parsed.swap.solAmount >= 300);
+  });
+
+  it('still skips unrelated non-swap types', () => {
+    const tx: HeliusEnhancedTx = {
+      signature: 'nft1',
+      feePayer: 'wallet',
+      type: 'NFT_SALE',
+      tokenTransfers: [{ mint: MINT, tokenAmount: 1, fromUserAccount: 'a', toUserAccount: 'b' }],
+    };
+    const parsed = parseSwapFromEnhancedTx({ tx, mint: MINT, poolHint: POOL });
     assert.equal(parsed.ok, false);
     if (parsed.ok) return;
     assert.match(parsed.reason, /skip_type/);

@@ -13,7 +13,7 @@ const BADGE_STYLES: Record<WalletIntelBadgeKind, string> = {
   top_trader: 'bg-accent-primary/15 text-accent-primary',
   insider: 'bg-signal-bear/15 text-signal-bear',
   dev: 'bg-fg-muted/15 text-fg-secondary',
-  fresh: 'bg-signal-warn/15 text-signal-warn',
+  fresh: 'bg-signal-bull/15 text-signal-bull',
   whale: 'bg-signal-info/15 text-signal-info',
   high_win_rate: 'bg-signal-bull/15 text-signal-bull',
   sniper: 'bg-signal-bear/15 text-signal-bear',

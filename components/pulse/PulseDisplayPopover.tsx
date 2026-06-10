@@ -29,7 +29,11 @@ import { BUY_BUTTON_STYLES } from '@/lib/tokens/columnPresetModel';
 import { MetricBandEditor } from '@/components/pulse/MetricBandEditor';
 import { ProtocolColorPicker } from '@/components/pulse/ProtocolColorPicker';
 import { ProtocolBrandIcon } from '@/components/tokens/ProtocolBrandIcon';
-import { DEFAULT_METRIC_BAND_COLORS, type PulseDisplayTab } from '@/lib/preferences/pulseDisplay';
+import {
+  DEFAULT_METRIC_BAND_COLORS,
+  type PulseDisplayTab,
+  type QuickBuyUltraChrome,
+} from '@/lib/preferences/pulseDisplay';
 import {
   getConsensusQuickBuyFromColumns,
   usePulseDisplayPrefsStore,
@@ -51,6 +55,12 @@ const QUICK_BUY_LABELS: Record<BuyButtonStyle, string> = {
   large: 'Mega',
   ultra: 'Ultra',
 };
+
+const QUICK_BUY_CHROME: { id: QuickBuyUltraChrome; label: string }[] = [
+  { id: 'outline', label: 'Border' },
+  { id: 'filled', label: 'Filled' },
+  { id: 'borderless', label: 'No border' },
+];
 
 const PANEL_SURFACE =
   'border border-white/[0.08] bg-bg-raised shadow-[0_32px_90px_-40px_rgba(0,0,0,0.9)]';
@@ -267,6 +277,35 @@ export function PulseDisplayPopover() {
                 color={prefs.accentHex}
                 onChange={(hex) => setPrefs({ accentHex: hex })}
               />
+
+              <div>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                  Quick buy style
+                </p>
+                <div className="grid grid-cols-3 gap-1">
+                  {QUICK_BUY_CHROME.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPrefs({ quickBuyUltraChrome: id })}
+                      className={cn(
+                        'flex items-center justify-center gap-1 rounded-md border py-1.5 text-[10px] font-semibold transition',
+                        prefs.quickBuyUltraChrome === id
+                          ? 'bg-bg-sunken/50 text-fg-primary'
+                          : CHIP_IDLE,
+                      )}
+                      style={
+                        prefs.quickBuyUltraChrome === id
+                          ? { borderColor: `${prefs.accentHex}66` }
+                          : undefined
+                      }
+                    >
+                      <Zap className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className={cn('flex shrink-0 gap-0.5 border-b bg-bg-base/30 px-2 py-1.5', PANEL_DIVIDER)}>

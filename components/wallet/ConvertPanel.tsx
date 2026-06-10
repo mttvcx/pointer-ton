@@ -19,6 +19,7 @@ import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 import { formatUsd } from '@/lib/utils/formatters';
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
+import { EX } from '@/components/wallet/exchangeModalUi';
 
 type QuotePayload = {
   provider: 'jupiter' | 'lifi';
@@ -64,14 +65,23 @@ function AssetSelect({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-sm border border-[#2e2e32] bg-[#1e1e22] px-2 py-1 text-[11px] font-semibold text-white transition hover:border-[#3d3d42]"
+        className={cn(
+          'inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-fg-primary',
+          EX.control,
+        )}
       >
         <img src={asset.iconSrc} alt="" className="h-4 w-4 rounded-full object-contain" draggable={false} />
         {asset.label}
-        <ChevronDown className={cn('h-3 w-3 text-[#888892]', open && 'rotate-180')} strokeWidth={2.25} />
+        <ChevronDown className={cn('h-3 w-3 text-fg-muted', open && 'rotate-180')} strokeWidth={2.25} />
       </button>
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+4px)] z-20 min-w-[7rem] overflow-hidden rounded-sm border border-[#2e2e32] bg-[#141414] py-1 shadow-xl">
+        <div
+          className={cn(
+            'absolute right-0 top-[calc(100%+4px)] z-20 min-w-[7rem] overflow-hidden py-1 shadow-panel',
+            EX.inset,
+            'bg-bg-raised',
+          )}
+        >
           {options.map((opt) => (
             <button
               key={opt.id}
@@ -82,7 +92,9 @@ function AssetSelect({
               }}
               className={cn(
                 'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-semibold transition',
-                opt.id === value ? 'bg-white/[0.08] text-white' : 'text-[#c4c4c8] hover:bg-white/[0.05]',
+                opt.id === value
+                  ? 'bg-bg-hover text-fg-primary'
+                  : 'text-fg-secondary hover:bg-bg-hover/70 hover:text-fg-primary',
               )}
             >
               <img src={opt.iconSrc} alt="" className="h-3.5 w-3.5 rounded-full object-contain" draggable={false} />
@@ -251,13 +263,13 @@ export function ConvertPanel({
 
   return (
     <div className="space-y-3 py-1">
-      <p className="text-[11px] text-[#6b7280]">
+      <p className={EX.muted}>
         Swap {convertAssetById(fromAsset).label} for {convertAssetById(toAsset).label}
         {quote?.provider === 'lifi' ? ' via bridge' : ' on Solana'}
       </p>
 
-      <div className="rounded-sm border border-[#2e2e32] bg-[#12141b] p-3">
-        <div className="flex items-center justify-between text-[10px] text-[#888892]">
+      <div className={cn('p-3', EX.inset)}>
+        <div className={cn('flex items-center justify-between', EX.label, 'normal-case tracking-normal')}>
           <span>Converting</span>
           <span className="tabular-nums">
             Balance:{' '}
@@ -275,12 +287,12 @@ export function ConvertPanel({
               setAmountIn(filterDecimalTyped(e.target.value, convertAssetById(fromAsset).decimals))
             }
             placeholder="0.0"
-            className="min-w-0 flex-1 bg-transparent text-lg font-semibold tabular-nums text-white outline-none placeholder:text-[#4b5563]"
+            className="min-w-0 flex-1 bg-transparent text-lg font-semibold tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/60"
           />
           <AssetSelect value={fromAsset} onChange={setFromAsset} exclude={toAsset} />
         </div>
         {usdHint ? (
-          <p className="mt-1 text-right text-[10px] tabular-nums text-[#6b7280]">({usdHint})</p>
+          <p className={cn('mt-1 text-right text-[10px] tabular-nums', EX.muted)}>({usdHint})</p>
         ) : null}
       </div>
 
@@ -288,15 +300,15 @@ export function ConvertPanel({
         <button
           type="button"
           onClick={swapDirection}
-          className="rounded-sm border border-[#2e2e32] bg-[#1e1e22] p-1.5 text-[#9ca3af] transition hover:border-[#3d3d42] hover:text-white"
+          className={cn('p-1.5 text-fg-muted transition hover:text-fg-primary', EX.control)}
           aria-label="Swap direction"
         >
           <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2.25} />
         </button>
       </div>
 
-      <div className="rounded-sm border border-[#2e2e32] bg-[#12141b] p-3">
-        <div className="flex items-center justify-between text-[10px] text-[#888892]">
+      <div className={cn('p-3', EX.inset)}>
+        <div className={cn('flex items-center justify-between', EX.label, 'normal-case tracking-normal')}>
           <span>Gaining</span>
           <span className="tabular-nums">
             Balance:{' '}
@@ -308,14 +320,14 @@ export function ConvertPanel({
           </span>
         </div>
         <div className="mt-2 flex items-center gap-2">
-          <span className="min-w-0 flex-1 text-lg font-semibold tabular-nums text-white">
+          <span className="min-w-0 flex-1 text-lg font-semibold tabular-nums text-fg-primary">
             {quoteQ.isFetching ? '…' : toDisplay > 0 ? toDisplay : '0.0'}
           </span>
           <AssetSelect value={toAsset} onChange={setToAsset} exclude={fromAsset} />
         </div>
       </div>
 
-      <p className="text-center text-[10px] tabular-nums text-[#6b7280]">
+      <p className={cn('text-center text-[10px] tabular-nums', EX.muted)}>
         {quoteQ.isError
           ? quoteQ.error instanceof Error
             ? quoteQ.error.message
@@ -327,7 +339,7 @@ export function ConvertPanel({
         type="button"
         disabled={confirming || !amountValid || quoteQ.isFetching || !quote?.transaction}
         onClick={() => void handleConfirm()}
-        className="btn-press focus-ring flex w-full items-center justify-center gap-2 rounded-sm bg-[#5865F2] py-2.5 text-[13px] font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        className={cn(EX.cta, 'flex items-center justify-center gap-2')}
       >
         {confirming || quoteQ.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         Confirm

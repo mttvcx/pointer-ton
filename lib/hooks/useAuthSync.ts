@@ -9,6 +9,30 @@ import { useAuthSyncStore } from '@/store/authSync';
 
 const SYNC_ENDPOINT = '/api/auth/sync';
 const SYNCED_USER_KEY = 'pointer_auth_synced_user';
+const SYNCED_WALLET_KEY = 'pointer_auth_synced_wallet';
+
+function isPlaceholderWallet(address: string | null | undefined): boolean {
+  return !address?.trim() || address.startsWith('privy:');
+}
+
+function readSyncedWalletAddress(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(SYNCED_WALLET_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeSyncedWalletAddress(address: string | null) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (address) sessionStorage.setItem(SYNCED_WALLET_KEY, address);
+    else sessionStorage.removeItem(SYNCED_WALLET_KEY);
+  } catch {
+    /* no-op */
+  }
+}
 
 interface SyncedUser {
   id: string;
@@ -24,7 +48,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function readSyncedUserId(): string | null {
+export function readSyncedUserId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
     return sessionStorage.getItem(SYNCED_USER_KEY);
@@ -38,6 +62,7 @@ function writeSyncedUserId(userId: string | null) {
   try {
     if (userId) sessionStorage.setItem(SYNCED_USER_KEY, userId);
     else sessionStorage.removeItem(SYNCED_USER_KEY);
+    if (!userId) writeSyncedWalletAddress(null);
   } catch {
     /* no-op */
   }
@@ -168,7 +193,14 @@ export function useAuthSync() {
   useEffect(() => {
     if (!ready || !authenticated || !userId) return;
 
-    if (readSyncedUserId() === userId) {
+    const syncedUser = readSyncedUserId();
+    const syncedWallet = readSyncedWalletAddress();
+    const needsWalletResync =
+      Boolean(wallet) &&
+      !isPlaceholderWallet(wallet) &&
+      (isPlaceholderWallet(syncedWallet) || syncedWallet !== wallet);
+
+    if (syncedUser === userId && !needsWalletResync) {
       lastSyncedUserRef.current = userId;
       setBackendReady(true);
       setSyncing(false);
@@ -176,7 +208,13 @@ export function useAuthSync() {
       return;
     }
 
-    if (lastSyncedUserRef.current === userId || syncInFlightRef.current === userId) return;
+    if (
+      lastSyncedUserRef.current === userId &&
+      syncInFlightRef.current === userId &&
+      !needsWalletResync
+    ) {
+      return;
+    }
 
     const runId = ++syncRunRef.current;
     let cancelled = false;
@@ -184,7 +222,7 @@ export function useAuthSync() {
     setSyncing(true);
     setLastError(null);
 
-    /** Brief delay so Privy embedded wallet address is usually available before verify. */
+    /** Brief delay so Privy wallet address is usually available before verify. */
     const kickoff = window.setTimeout(() => {
       void (async () => {
         try {
@@ -199,13 +237,14 @@ export function useAuthSync() {
 
           lastSyncedUserRef.current = userId;
           writeSyncedUserId(userId);
+          writeSyncedWalletAddress(profile.wallet);
           setBackendReady(true);
           setLastError(null);
           void queryClient.invalidateQueries({ queryKey: ['wallets-my'] });
           void queryClient.invalidateQueries({ queryKey: ['me'] });
           console.debug('[auth] synced user', synced.id);
 
-          if (!privyWalletSyncRef.current) {
+          if (!privyWalletSyncRef.current || needsWalletResync) {
             privyWalletSyncRef.current = true;
             const token = await getAccessToken();
             if (token) {
@@ -230,18 +269,19 @@ export function useAuthSync() {
           if (!cancelled && syncRunRef.current === runId) setSyncing(false);
         }
       })();
-    }, 200);
+    }, wallet ? 200 : 650);
 
     return () => {
       cancelled = true;
       window.clearTimeout(kickoff);
     };
-    // One Privy verify per user per session — not on every wallet/email change.
+    // Re-sync when Phantom/external wallet address arrives after email-only bootstrap.
   }, [
     ready,
     authenticated,
     getAccessToken,
     userId,
+    wallet,
     queryClient,
     setBackendReady,
     setSyncing,

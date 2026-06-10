@@ -43,7 +43,7 @@ export function PulseHeaderSocialIcon({
         height={s}
         viewBox="0 0 24 24"
         fill="none"
-        className={cn('shrink-0 text-white/92', className)}
+        className={cn('shrink-0 text-fg-secondary', className)}
         aria-hidden
       >
         <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="1.65" />
@@ -84,7 +84,7 @@ export function PulseHeaderSocialIcon({
       height={s}
       viewBox="0 0 24 24"
       fill="none"
-      className={cn('shrink-0 text-white/88', className)}
+      className={cn('shrink-0 text-fg-secondary', className)}
       aria-hidden
     >
       <circle cx="10.75" cy="10.75" r="6.5" stroke="currentColor" strokeWidth="1.75" />

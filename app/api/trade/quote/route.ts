@@ -10,7 +10,8 @@ import { getSwapTx, getDefaultSwapFeeParams, type SwapFeeParams } from '@/lib/ju
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { buildPointerStonSwapQuote } from '@/lib/stonfi/pointerSwap';
 import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
-import { BUY_PRESETS_SOL, BUY_PRESETS_USDC, USDC_DECIMALS } from '@/lib/utils/constants';
+import { BUY_PRESETS_USDC, USDC_DECIMALS } from '@/lib/utils/constants';
+import { resolveBuyPresetsSol } from '@/lib/beta/founderBeta';
 import { lamportsToSol, solToLamports, uiToRaw } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
@@ -204,7 +205,7 @@ export async function POST(req: NextRequest) {
           swapTransaction: swap?.swapTransaction ?? null,
           tonConnect: null,
           lastValidBlockHeight: swap?.lastValidBlockHeight,
-          presetsSol: [...BUY_PRESETS_SOL],
+          presetsSol: [...resolveBuyPresetsSol()],
           presetsUsdc: [...BUY_PRESETS_USDC],
           spendAsset: spendUsdc ? 'usdc' : 'sol',
           summary: {
@@ -252,7 +253,7 @@ export async function POST(req: NextRequest) {
         swapTransaction: swap?.swapTransaction ?? null,
         tonConnect: null,
         lastValidBlockHeight: swap?.lastValidBlockHeight,
-        presetsSol: [...BUY_PRESETS_SOL],
+        presetsSol: [...resolveBuyPresetsSol()],
         summary: {
           amountInRaw: inAmt,
           amountOutRaw: outAmt,
@@ -300,7 +301,7 @@ export async function POST(req: NextRequest) {
       quote: built.quote,
       swapTransaction: null,
       tonConnect: built.tonConnect,
-      presetsSol: [...BUY_PRESETS_SOL],
+      presetsSol: [...resolveBuyPresetsSol()],
       summary: {
         amountInRaw: built.summary.amountInRaw,
         amountOutRaw: built.summary.amountOutRaw,

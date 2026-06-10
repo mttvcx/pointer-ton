@@ -49,6 +49,7 @@ function syncPulseDisplaySideEffects(prefs: PulseDisplayPrefs) {
     root.setAttribute('data-pulse-circle-avatars', String(prefs.circleAvatars));
     root.setAttribute('data-pulse-no-decimals', String(prefs.noDecimals));
     root.setAttribute('data-pulse-color-row', String(prefs.colorRowByProtocol));
+    root.setAttribute('data-pulse-qb-chrome', prefs.quickBuyUltraChrome);
     applyPulseAccentToDocument(prefs.accentHex);
   }
 }
@@ -77,7 +78,7 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
     }),
     {
       name: 'pointer.pulse-display',
-      version: 4,
+      version: 5,
       partialize: (s) => pickPulseDisplayPrefs(s),
       migrate: (persisted, fromVersion) => {
         let base = withPulseDisplayDefaults(persisted as Partial<PulseDisplayPrefs> | undefined);
@@ -87,6 +88,9 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
         // Axiom parity — per-column ticker/name search stays visible in the header center.
         if (fromVersion < 4) {
           base = { ...base, hideColumnSearch: false };
+        }
+        if (fromVersion < 5 && base.quickBuyUltraChrome == null) {
+          base = { ...base, quickBuyUltraChrome: DEFAULT_PULSE_DISPLAY_PREFS.quickBuyUltraChrome };
         }
         return base;
       },

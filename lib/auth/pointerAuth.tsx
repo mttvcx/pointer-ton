@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,10 +13,10 @@ import {
 } from 'react';
 import { usePrivy, useConnectWallet } from '@privy-io/react-auth';
 import { TonConnectUIProvider, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
+import { useUIStore } from '@/store/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
-import { useUIStore } from '@/store/ui';
 import { useAuthSyncStore } from '@/store/authSync';
 import {
   toastAuthenticated,
@@ -191,12 +192,9 @@ function InnerAuth({ children }: { children: ReactNode }) {
 
   const [privyReadyTimedOut, setPrivyReadyTimedOut] = useState(false);
 
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setSessionToken(readSession());
-      setLocalReady(true);
-    });
-    return () => cancelAnimationFrame(raf);
+  useLayoutEffect(() => {
+    setSessionToken(readSession());
+    setLocalReady(true);
   }, []);
 
   useEffect(() => {
@@ -365,13 +363,8 @@ function InnerAuth({ children }: { children: ReactNode }) {
       });
       return;
     }
-    try {
-      privy.login();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not open sign-in';
-      toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
-    }
-  }, [privy.ready, privy.login, privyReadyTimedOut]);
+    useUIStore.getState().openSignInModal();
+  }, [privy.ready, privyReadyTimedOut]);
 
   const logout = useCallback(async () => {
     setLoggingOut(true);

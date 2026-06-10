@@ -26,7 +26,8 @@ import {
   ungroupedWalletAddresses,
 } from '@/lib/trade/walletGroups';
 import { useWalletGroupsStore } from '@/store/walletGroups';
-import { BUY_PRESETS_SOL, BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/utils/constants';
+import { BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/utils/constants';
+import { resolveBuyPresetsSol } from '@/lib/beta/founderBeta';
 import type { SolSpendAsset } from '@/lib/trading/spendAsset';
 import type { MevMode } from '@/lib/trading/mevMode';
 import { shortenAddress } from '@/lib/utils/addresses';
@@ -415,7 +416,7 @@ function fullPresetForSlot(list: TradingPresetApi[], slot: PresetSlot) {
   return {
     slot,
     name: `Preset ${slot}`,
-    buy_amounts_sol: eightBuyAmounts([...BUY_PRESETS_SOL]),
+    buy_amounts_sol: eightBuyAmounts([...resolveBuyPresetsSol()]),
     slippage_bps: DEFAULT_SLIPPAGE_BPS,
     dynamic_slippage: true,
     mev_mode: 'reduced' as MevMode,
@@ -793,7 +794,7 @@ export function CompactInstantTradePanel({
   const buyFromPreset = useMemo(() => {
     const from = activePreset?.buy_amounts_sol?.length
       ? activePreset.buy_amounts_sol
-      : [...BUY_PRESETS_SOL];
+      : [...resolveBuyPresetsSol()];
     return eightBuyAmounts(from);
   }, [activePreset]);
 

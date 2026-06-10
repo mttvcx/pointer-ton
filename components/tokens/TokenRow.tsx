@@ -27,12 +27,12 @@ import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { syntheticPulseVolMc } from '@/lib/dev/demoTokenFixtures';
+import type { QuickBuyUltraChrome } from '@/lib/preferences/pulseDisplay';
 import type { BuyButtonStyle, ColumnDisplayOptions } from '@/lib/tokens/columnPresetModel';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import {
   resolveLaunchpadAvatarChrome,
-  resolveLaunchpadAvatarChromeWithFallback,
 } from '@/lib/tokens/launchpadAvatarChrome';
 import { launchPadToProtocolId } from '@/lib/tokens/protocolBrand';
 import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
@@ -49,6 +49,10 @@ import type { PulseRowDensity } from '@/store/pulseColumns';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 type UltraActionKey = 'primaryBuy' | 'secondBuy' | 'secondSell';
+
+/** Blur V/MC behind the quick-buy dock on hover (metrics sit above the button in z-order). */
+const PULSE_DOCK_METRIC_HOVER_BLUR =
+  'transition-[filter,opacity] duration-200 ease-out group-hover/pulseDock:blur-[5px] group-hover/pulseDock:opacity-45';
 
 function TokenRowInner({
   bundle,
@@ -163,6 +167,7 @@ function TokenRowInner({
   const metricBands = usePulseDisplayPrefsStore((s) => s.metricBands);
   const protocolRowColors = usePulseDisplayPrefsStore((s) => s.protocolRowColors);
   const protocolColorHex = usePulseDisplayPrefsStore((s) => s.protocolColorHex);
+  const quickBuyUltraChrome = usePulseDisplayPrefsStore((s) => s.quickBuyUltraChrome);
   const heroMc = mcLayout === 'hero' && showMc && (slotHeight == null || showRowMc);
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
   const bond = useMemo(() => getPulseBondingRingState(bundle), [bundle]);
@@ -170,14 +175,12 @@ function TokenRowInner({
   const launchpadChrome = useMemo(() => {
     const opts = {
       showFrame: showPumpFrame,
-      isMigrated: isMigratedVisual,
+      isMigrated: bond.migrated || columnId === 'migrated',
       pumpFunOnBondingCurve: traits.pumpFunBonding,
       chain: activeChain,
     };
-    return isMigratedVisual
-      ? resolveLaunchpadAvatarChromeWithFallback(bundle, opts)
-      : resolveLaunchpadAvatarChrome(bundle, opts);
-  }, [bundle, showPumpFrame, isMigratedVisual, traits.pumpFunBonding, activeChain]);
+    return resolveLaunchpadAvatarChrome(bundle, opts);
+  }, [bundle, showPumpFrame, bond.migrated, columnId, traits.pumpFunBonding, activeChain]);
 
   /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
   const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
@@ -466,6 +469,9 @@ function TokenRowInner({
   }, [colorRowByProtocol, vol, mcUsd, metricBands, mcTone]);
   /** Ultra dock: outline when `ultra`, solid fill for small/medium/large on Pulse + elsewhere. */
   const filledDockButton = buyButtonStyle !== 'ultra';
+  /** Display panel can force solid ultra tiles (`filled`) or strip borders (`borderless`). */
+  const ultraFilledFromChrome = ultraChrome && quickBuyUltraChrome === 'filled';
+  const ultraDockFilled = filledDockButton || ultraFilledFromChrome;
 
   const hasRightActions = hasPrimaryBuy || showSecondBuy || showSecondSell;
   /** Pulse + Ultra: right dock with V/MC header + buy tiles (outline or filled). */
@@ -680,7 +686,7 @@ function TokenRowInner({
                    * gracefully when the Pulse column is narrow so the dock never forces
                    * column overflow at 100% Chrome zoom.
                    */
-                  'pointer-events-none relative z-[21] flex h-full min-h-0 min-w-0 shrink-0 flex-col gap-0.5',
+                  'group/pulseDock pointer-events-none relative z-[21] flex h-full min-h-0 min-w-0 shrink-0 flex-col gap-0.5',
                   dockWidthClass,
                 )}
               >
@@ -691,6 +697,7 @@ function TokenRowInner({
                       // `top-4` (~16px) gives the row-top breathing room Axiom uses; `pr-3`
                       // pulls the text in from the row's right edge instead of flush right.
                       'pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-end pl-0.5 pr-3',
+                      PULSE_DOCK_METRIC_HOVER_BLUR,
                     )}
                   >
                     <PulseRowVolMc
@@ -715,7 +722,12 @@ function TokenRowInner({
                     <>
                       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
                         {showVol ? (
-                          <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                          <div
+                            className={cn(
+                              'pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5',
+                              PULSE_DOCK_METRIC_HOVER_BLUR,
+                            )}
+                          >
                             <PulseRowVolMc
                               vol={vol}
                               mcUsd={mcUsd}
@@ -749,7 +761,8 @@ function TokenRowInner({
                               quickBuySol={secondBuySol}
                               quoteSymbol={quoteSymbol}
                               pulseGrid={pulseUltraCompact}
-                              filled={filledDockButton}
+                              filled={ultraDockFilled}
+                              ultraChromeStyle={quickBuyUltraChrome}
                               onBuy={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -765,7 +778,12 @@ function TokenRowInner({
                       </div>
                       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
                         {showMc ? (
-                          <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                          <div
+                            className={cn(
+                              'pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5',
+                              PULSE_DOCK_METRIC_HOVER_BLUR,
+                            )}
+                          >
                             <PulseRowVolMc
                               vol={vol}
                               mcUsd={mcUsd}
@@ -784,7 +802,8 @@ function TokenRowInner({
                               quickBuySol={quickBuySol}
                               quoteSymbol={quoteSymbol}
                               pulseGrid={pulseUltraCompact}
-                              filled={filledDockButton}
+                              filled={ultraDockFilled}
+                              ultraChromeStyle={quickBuyUltraChrome}
                               onBuy={onQuickBuy}
                               loading={false}
                               disabled={pulseBuyDisabled}
@@ -816,7 +835,8 @@ function TokenRowInner({
                           quickBuySol={secondBuySol}
                           quoteSymbol={quoteSymbol}
                           pulseGrid={pulseUltraCompact}
-                          filled={filledDockButton}
+                          filled={ultraDockFilled}
+                          ultraChromeStyle={quickBuyUltraChrome}
                           onBuy={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -833,7 +853,8 @@ function TokenRowInner({
                           quickBuySol={quickBuySol}
                           quoteSymbol={quoteSymbol}
                           pulseGrid={pulseUltraCompact}
-                          filled={filledDockButton}
+                          filled={ultraDockFilled}
+                          ultraChromeStyle={quickBuyUltraChrome}
                           onBuy={onQuickBuy}
                           loading={false}
                           disabled={pulseBuyDisabled}
@@ -854,7 +875,12 @@ function TokenRowInner({
                       <>
                         <div className="relative flex min-h-0 min-w-0 flex-col">
                           {showVol ? (
-                            <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                            <div
+                              className={cn(
+                                'pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5',
+                                PULSE_DOCK_METRIC_HOVER_BLUR,
+                              )}
+                            >
                               <PulseRowVolMc
                                 vol={vol}
                                 mcUsd={mcUsd}
@@ -903,7 +929,12 @@ function TokenRowInner({
                         </div>
                         <div className="relative flex min-h-0 min-w-0 flex-col">
                           {showMc ? (
-                            <div className="pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5">
+                            <div
+                              className={cn(
+                                'pointer-events-none absolute inset-x-0 top-4 z-[22] flex justify-center px-0.5',
+                                PULSE_DOCK_METRIC_HOVER_BLUR,
+                              )}
+                            >
                               <PulseRowVolMc
                                 vol={vol}
                                 mcUsd={mcUsd}
@@ -1286,6 +1317,7 @@ function UltraQuickBuyZone({
   disabled,
   pulseGrid: _pulseGrid = false,
   filled = false,
+  ultraChromeStyle = 'outline',
 }: {
   quickBuySol: number;
   quoteSymbol: string;
@@ -1296,8 +1328,11 @@ function UltraQuickBuyZone({
   pulseGrid?: boolean;
   /** Toggle solid fill (non-ultra buyButtonStyle). Default false keeps the Axiom outline look. */
   filled?: boolean;
+  ultraChromeStyle?: QuickBuyUltraChrome;
 }) {
   const labelAmount = formatSolDraft(quickBuySol) || String(quickBuySol);
+  const useFilled = filled || ultraChromeStyle === 'filled';
+  const borderless = ultraChromeStyle === 'borderless';
 
   return (
     <button
@@ -1314,8 +1349,9 @@ function UltraQuickBuyZone({
          *     not a flush slab. Chip centered, V/MC stays visible above.
          */
         'pulse-qb-ultra focus-ring pointer-events-auto relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-sans font-semibold tabular-nums tracking-normal',
-        filled ? 'pulse-qb-ultra--filled transition-[filter] duration-200' : 'pulse-qb-ultra--outline',
-        filled
+        useFilled ? 'pulse-qb-ultra--filled transition-[filter] duration-200' : 'pulse-qb-ultra--outline',
+        borderless && !useFilled && 'pulse-qb-ultra--borderless',
+        useFilled
           ? 'h-1/3 w-[calc(100%-0.625rem)] self-end mr-2.5 mb-2 items-center justify-center px-2 py-1'
           : 'h-full w-full flex-col items-end justify-end p-2 pb-2.5 pr-2.5',
         'disabled:pointer-events-none disabled:opacity-55',
@@ -1331,7 +1367,7 @@ function UltraQuickBuyZone({
         <Zap
           className={cn(
             'pulse-qb-icon h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5',
-            filled && 'pulse-qb-icon--on',
+            useFilled && 'pulse-qb-icon--on',
           )}
           aria-hidden
         />
@@ -1342,7 +1378,7 @@ function UltraQuickBuyZone({
           <Loader2
             className={cn(
               'pulse-qb-icon h-4 w-4 shrink-0 animate-spin',
-              filled && 'pulse-qb-icon--on',
+              useFilled && 'pulse-qb-icon--on',
             )}
           />
         </span>

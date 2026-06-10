@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
-import { Copy, ExternalLink, EyeOff, KeyRound, Pencil } from 'lucide-react';
+import { Copy, ExternalLink, EyeOff, KeyRound, Pencil, Rocket, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -11,6 +11,7 @@ import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
 import { WalletMonogram, WalletTableRowShell } from '@/components/portfolio/walletOs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 function HoldingsPill({ count }: { count: number }) {
   return (
@@ -29,21 +30,34 @@ function RowAction({
   label,
   onClick,
   children,
+  active,
 }: {
   label: string;
   onClick: (e: MouseEvent) => void;
   children: ReactNode;
+  active?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
-    >
-      {children}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          onClick={onClick}
+          className={cn(
+            'inline-flex h-7 w-7 items-center justify-center rounded-md transition',
+            active
+              ? 'text-accent-glow hover:bg-accent-primary/15'
+              : 'text-fg-muted hover:bg-white/[0.06] hover:text-fg-primary',
+          )}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-[11px] font-medium">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -59,6 +73,8 @@ export function PortfolioWalletTableRow({
   onSaveLabel,
   onArchive,
   onExportKey,
+  onSetPrimary,
+  onSetTrading,
   explorerUrl,
 }: {
   wallet: MyWalletRow;
@@ -72,6 +88,8 @@ export function PortfolioWalletTableRow({
   onSaveLabel: (label: string) => Promise<void>;
   onArchive: () => void;
   onExportKey: () => void;
+  onSetPrimary: () => void;
+  onSetTrading: () => void;
   explorerUrl: string;
 }) {
   const displayName = w.label?.trim() || `Wallet ${w.slot}`;
@@ -102,10 +120,13 @@ export function PortfolioWalletTableRow({
 
   return (
     <WalletTableRowShell selected={selected} onClick={onSelect} onDoubleClick={onOpenAnalytics}>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+      <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <div className="flex min-w-0 items-center gap-2">
           <WalletMonogram address={w.wallet_address} label={w.label} />
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            {w.is_primary ? (
+              <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" strokeWidth={2} aria-label="Primary wallet" />
+            ) : null}
             {editing ? (
               <input
                 ref={inputRef}
@@ -127,7 +148,6 @@ export function PortfolioWalletTableRow({
             ) : (
               <button
                 type="button"
-                title="Click to rename"
                 onClick={(e) => {
                   e.stopPropagation();
                   setEditing(true);
@@ -146,12 +166,12 @@ export function PortfolioWalletTableRow({
               </button>
             )}
             {w.is_primary ? (
-              <span className="rounded bg-white/[0.05] px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
+              <span className="rounded bg-[#2f3f8a]/25 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-[#c7d8ff]">
                 Primary
               </span>
             ) : null}
             {trading ? (
-              <span className="rounded bg-white/[0.05] px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-fg-secondary">
+              <span className="rounded bg-cyan-950/35 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-cyan-100/90">
                 Live
               </span>
             ) : null}
@@ -162,24 +182,31 @@ export function PortfolioWalletTableRow({
             ) : null}
             <span className="inline-flex items-center gap-1 font-mono text-[10px] text-fg-muted">
               {shortenAddress(w.wallet_address, 4)}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void navigator.clipboard.writeText(w.wallet_address);
-                  toast.success('Address copied');
-                }}
-                className="rounded p-0.5 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
-                title="Copy address"
-              >
-                <Copy className="h-3 w-3" strokeWidth={2} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void navigator.clipboard.writeText(w.wallet_address);
+                      toast.success('Address copied');
+                    }}
+                    className="rounded p-0.5 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
+                    aria-label="Copy address"
+                  >
+                    <Copy className="h-3 w-3" strokeWidth={2} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-[11px] font-medium">
+                  Copy address
+                </TooltipContent>
+              </Tooltip>
             </span>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-6">
-          <div className="flex items-center gap-6">
+        <div className="relative flex shrink-0 items-center gap-6">
+          <div className="flex items-center gap-6 transition-opacity duration-150 group-hover:opacity-30">
             <span className="inline-flex min-w-[4.5rem] items-center justify-end gap-1 tabular-nums">
               <SpotTickerIcon symbol={nativeTicker(activeChain)} />
               <TerminalNativeBalance amount={balanceSol} className="text-[11px] font-medium text-fg-primary" />
@@ -191,38 +218,62 @@ export function PortfolioWalletTableRow({
 
           <div
             className={cn(
-              'flex w-[5.5rem] shrink-0 items-center justify-end gap-0.5',
-              'opacity-0 transition-opacity duration-150 group-hover:opacity-100',
+              'pointer-events-none absolute inset-y-[-2px] right-0 flex items-center justify-end',
+              'bg-gradient-to-l from-bg-base via-bg-base/95 to-transparent pl-10',
+              'opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100',
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            <RowAction
-              label={w.is_archived ? 'Unarchive wallet' : 'Archive wallet'}
-              onClick={(e) => {
-                e.stopPropagation();
-                onArchive();
-              }}
-            >
-              <EyeOff className="h-3.5 w-3.5" strokeWidth={2} />
-            </RowAction>
-            <RowAction
-              label={`Open in ${activeChain === 'sol' ? 'Solscan' : 'explorer'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(explorerUrl, '_blank', 'noopener,noreferrer');
-              }}
-            >
-              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
-            </RowAction>
-            <RowAction
-              label="Export private keys"
-              onClick={(e) => {
-                e.stopPropagation();
-                onExportKey();
-              }}
-            >
-              <KeyRound className="h-3.5 w-3.5" strokeWidth={2} />
-            </RowAction>
+            <div className="flex items-center gap-0.5 rounded-lg border border-border-subtle/80 bg-bg-raised/95 px-1 py-0.5 shadow-panel backdrop-blur-sm">
+              <RowAction
+                label={trading ? 'Trading wallet' : 'Set as trading wallet'}
+                active={trading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetTrading();
+                }}
+              >
+                <Rocket className="h-3.5 w-3.5" strokeWidth={2} />
+              </RowAction>
+              <RowAction
+                label={w.is_archived ? 'Unarchive wallet' : 'Archive wallet'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onArchive();
+                }}
+              >
+                <EyeOff className="h-3.5 w-3.5" strokeWidth={2} />
+              </RowAction>
+              <RowAction
+                label={`Open in ${activeChain === 'sol' ? 'Solscan' : 'explorer'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(explorerUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+              </RowAction>
+              <RowAction
+                label="Export private key"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExportKey();
+                }}
+              >
+                <KeyRound className="h-3.5 w-3.5" strokeWidth={2} />
+              </RowAction>
+              {!w.is_primary ? (
+                <RowAction
+                  label="Make Primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSetPrimary();
+                  }}
+                >
+                  <Star className="h-3.5 w-3.5" strokeWidth={2} />
+                </RowAction>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

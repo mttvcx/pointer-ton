@@ -159,10 +159,11 @@ export async function insertQaMintSwap(
   supabase: SupabaseClient,
   swap: ParsedMintSwap,
 ): Promise<'inserted' | 'duplicate' | 'error'> {
-  const { error } = await supabase.from('mint_swaps').insert({
+  const row = {
     mint: swap.mint,
     signature: swap.signature,
     wallet: swap.wallet,
+    event_kind: swap.eventKind,
     side: swap.side,
     token_amount_raw: swap.tokenAmountRaw,
     token_amount_ui: swap.tokenAmountUi,
@@ -175,7 +176,12 @@ export async function insertQaMintSwap(
     program_id: swap.programId,
     pool_address: swap.poolAddress,
     source: swap.source,
-  });
+  };
+  let { error } = await supabase.from('mint_swaps').insert(row);
+  if (error?.message?.includes('event_kind')) {
+    const { event_kind: _drop, ...legacy } = row;
+    ({ error } = await supabase.from('mint_swaps').insert(legacy));
+  }
   if (!error) return 'inserted';
   if (error.code === '23505') return 'duplicate';
   throw new Error(`insertQaMintSwap failed: ${error.message}`);
@@ -249,8 +255,15 @@ export async function ingestQaSwapsFromEnhancedTxs(
   const ctx = opts?.context ?? (await loadQaMintIngestContext(supabase, opts?.mint));
   const report = emptyQaIngestReport(ctx.mint);
   const seenSigs = new Set<string>();
+  let lastKnownMcUsd: number | null = null;
 
-  for (const raw of txs) {
+  const ordered = [...txs].sort((a, b) => {
+    const ta = coerceHeliusEnhancedTx(a)?.timestamp ?? 0;
+    const tb = coerceHeliusEnhancedTx(b)?.timestamp ?? 0;
+    return ta - tb;
+  });
+
+  for (const raw of ordered) {
     const tx = coerceHeliusEnhancedTx(raw);
     if (!tx) continue;
     if (!txTouchesQaMint(tx, ctx.mint)) continue;
@@ -268,6 +281,7 @@ export async function ingestQaSwapsFromEnhancedTxs(
       solUsd: ctx.solUsd,
       supplyTokens: ctx.supplyTokens,
       decimals: ctx.decimals,
+      lastKnownMcUsd,
     });
 
     if (!parsed.ok) {
@@ -283,6 +297,10 @@ export async function ingestQaSwapsFromEnhancedTxs(
       ...parsed.swap,
       source: opts?.swapSource ?? parsed.swap.source,
     };
+
+    if (swap.eventKind === 'swap' && swap.marketCapUsd != null && Number.isFinite(swap.marketCapUsd)) {
+      lastKnownMcUsd = swap.marketCapUsd;
+    }
 
     const result = await insertQaMintSwap(supabase, swap);
     if (result === 'inserted') report.swapsInserted += 1;

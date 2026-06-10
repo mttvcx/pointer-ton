@@ -3,7 +3,8 @@ import 'server-only';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import type { PulseTokenBundle } from '@/types/tokens';
-import type { TablesInsert } from '@/lib/supabase/types';
+import type { TablesInsert, Json } from '@/lib/supabase/types';
+import { dexPairExtendedMetrics } from '@/lib/market/dexPairMeta';
 
 /** One DexScreener pair row — `/tokens/v1/{chain}/{addrs}` returns a flat array of these. */
 export type DexPairRow = {
@@ -12,7 +13,7 @@ export type DexPairRow = {
   baseToken?: { address?: string; name?: string; symbol?: string };
   pairAddress?: string;
   info?: { imageUrl?: string };
-  quoteToken?: { address?: string };
+  quoteToken?: { address?: string; name?: string; symbol?: string };
   priceUsd?: string | number | null;
   volume?: { h24?: number; h1?: number; m5?: number } | null;
   marketCap?: number | null;
@@ -31,6 +32,18 @@ const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   bnb: 'bsc',
   base: 'base',
 };
+
+function mergeDexExtendedMetrics(prev: Json | null | undefined, next: Json | null | undefined): Json {
+  const base =
+    prev && typeof prev === 'object' && !Array.isArray(prev)
+      ? { ...(prev as Record<string, unknown>) }
+      : ({} as Record<string, unknown>);
+  const add =
+    next && typeof next === 'object' && !Array.isArray(next)
+      ? (next as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
+  return { ...base, ...add } as Json;
+}
 
 function pickBestPair(pairs: DexPairRow[]): DexPairRow | null {
   if (pairs.length === 0) return null;
@@ -55,6 +68,9 @@ function txnCount(
   const total = buys + sells;
   return total > 0 ? total : null;
 }
+
+/** Pair quote / venue fields for Pulse header (USDC tier, migrated pumpswap, etc.). */
+export { dexPairExtendedMetrics } from '@/lib/market/dexPairMeta';
 
 function pairToSnapshot(mint: string, pair: DexPairRow): TablesInsert<'token_market_snapshots'> {
   const priceRaw = pair.priceUsd;
@@ -85,6 +101,7 @@ function pairToSnapshot(mint: string, pair: DexPairRow): TablesInsert<'token_mar
         : null,
     txns_5m: txnCount(pair.txns, 'm5'),
     txns_1h: txnCount(pair.txns, 'h1'),
+    extended_metrics: dexPairExtendedMetrics(pair) as TablesInsert<'token_market_snapshots'>['extended_metrics'],
     snapshot_at: new Date().toISOString(),
   };
 }
@@ -198,7 +215,10 @@ export async function enrichPulseBundlesWithDexScreener(
         holder_count: bundle.snapshot?.holder_count ?? null,
         top10_holder_pct: bundle.snapshot?.top10_holder_pct ?? null,
         dev_holding_pct: bundle.snapshot?.dev_holding_pct ?? null,
-        extended_metrics: bundle.snapshot?.extended_metrics ?? null,
+        extended_metrics: mergeDexExtendedMetrics(
+          bundle.snapshot?.extended_metrics,
+          snap.extended_metrics,
+        ),
         snapshot_at: snap.snapshot_at ?? new Date().toISOString(),
       },
     };

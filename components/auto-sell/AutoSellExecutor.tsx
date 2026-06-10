@@ -17,8 +17,7 @@ import type { AutoSellRule } from '@/lib/autoSell/types';
 import { useAutoSellStore } from '@/store/autoSell';
 import { useAutoSellToastStore } from '@/store/autoSellToasts';
 import { useTrackAutomationStore } from '@/store/trackAutomation';
-
-const SOL_MINT = 'So11111111111111111111111111111111111111112';
+import { isPortfolioFundingAsset } from '@/lib/portfolio/tradePositions';
 
 type PortfolioPosition = {
   mint: string;
@@ -36,8 +35,8 @@ function skipToast(title: string, mint?: string) {
   });
 }
 
-function ruleMatchesMint(rule: AutoSellRule, mint: string): boolean {
-  if (rule.tokenScope.kind === 'all_held') return mint !== SOL_MINT;
+function ruleMatchesMint(rule: AutoSellRule, mint: string, symbol: string | null = null): boolean {
+  if (rule.tokenScope.kind === 'all_held') return !isPortfolioFundingAsset(mint, symbol);
   return rule.tokenScope.mint.trim() === mint;
 }
 
@@ -169,7 +168,10 @@ export function AutoSellExecutor() {
       positions?: PortfolioPosition[];
     };
     const positions = (body.positions ?? []).filter(
-      (p) => p.mint && p.mint !== SOL_MINT && (p.valueUsd ?? 0) > 0,
+      (p) =>
+        p.mint &&
+        !isPortfolioFundingAsset(p.mint, p.symbol) &&
+        (p.valueUsd ?? 0) > 0,
     );
     if (positions.length === 0) return;
 
@@ -192,7 +194,7 @@ export function AutoSellExecutor() {
 
     for (const rule of activeRules) {
       for (const pos of positions) {
-        if (!ruleMatchesMint(rule, pos.mint)) continue;
+        if (!ruleMatchesMint(rule, pos.mint, pos.symbol)) continue;
 
         const evalInput: PositionEvalInput = {
           mint: pos.mint,

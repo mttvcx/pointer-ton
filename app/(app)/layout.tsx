@@ -64,7 +64,7 @@ function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { ready, authenticated, loggingOut, login, linkedTonAddress } = usePointerAuth();
+  const { ready, authenticated, loggingOut, signIn, linkedTonAddress } = usePointerAuth();
 
   const onSharePage = Boolean(pathname?.startsWith('/share/'));
   const onPulseRoute = Boolean(pathname?.startsWith('/pulse'));
@@ -145,7 +145,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <span className="text-[15px] font-semibold text-white">pointer.</span>
           <button
             type="button"
-            onClick={() => void login()}
+            onClick={() => void signIn()}
             className="btn-press rounded-md bg-[#5865F2] px-3 py-1.5 text-[12px] font-semibold text-white hover:brightness-110"
           >
             {linkedTonAddress ? 'Finish sign-in' : 'Connect wallet'}
@@ -154,12 +154,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
           <h1 className="text-lg font-semibold text-white">Sign in to Pointer</h1>
           <p className="mt-2 max-w-md text-sm text-fg-secondary">
-            Sign in with Privy (email, Google, X, or wallet). Then link your TON wallet via TonConnect for
-            on-chain actions and trading.
+            Sign in with email, Google, X, or Phantom wallet via Privy. Link TON via TonConnect when you trade on
+            TON.
           </p>
           <button
             type="button"
-            onClick={() => void login()}
+            onClick={() => void signIn()}
             className="btn-press mt-6 rounded-md bg-accent-primary px-5 py-2.5 text-sm font-semibold text-fg-inverse hover:bg-accent-glow"
           >
             {linkedTonAddress ? 'Finish TON link' : 'Sign in'}

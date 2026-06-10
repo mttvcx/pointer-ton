@@ -19,6 +19,7 @@ import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 import { formatUsd } from '@/lib/utils/formatters';
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
+import { EX } from '@/components/wallet/exchangeModalUi';
 
 function filterDecimalTyped(raw: string, maxFractionDigits: number): string {
   const cleaned = raw.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -131,15 +132,12 @@ export function BuyPanel({
   if (!walletAddress) {
     return (
       <div className="flex flex-col items-center gap-3 py-6 text-center">
-        <p className="max-w-xs text-[12px] leading-relaxed text-[#9ca3af]">
+        <p className={cn('max-w-xs leading-relaxed', EX.muted)}>
           Connect or create a{' '}
-          <span className="font-semibold text-white">{nativeSym}</span> wallet to buy crypto with
+          <span className="font-semibold text-fg-primary">{nativeSym}</span> wallet to buy crypto with
           card or bank transfer.
         </p>
-        <Link
-          href="/wallets"
-          className="inline-flex rounded-sm bg-[#5865F2] px-4 py-2 text-[12px] font-semibold text-white transition hover:brightness-110"
-        >
+        <Link href="/wallets" className={cn(EX.cta, 'w-auto px-5')}>
           Open Wallets
         </Link>
       </div>
@@ -148,8 +146,8 @@ export function BuyPanel({
 
   return (
     <div className="space-y-3 py-1">
-      <div className="flex items-center justify-between gap-2 rounded-sm border border-[#2e2e32] bg-[#12141b] px-3 py-2">
-        <span className="flex min-w-0 items-center gap-2 text-[12px] font-semibold text-white">
+      <div className={cn('flex items-center justify-between gap-2 px-3 py-2', EX.inset)}>
+        <span className="flex min-w-0 items-center gap-2 text-[12px] font-semibold text-fg-primary">
           <DepositAssetIcon
             src={depositChainIconSrc(activeChain)}
             label={nativeSym}
@@ -158,19 +156,19 @@ export function BuyPanel({
           />
           <span className="truncate">{chainLabel}</span>
         </span>
-        <span className="shrink-0 tabular-nums text-[11px] text-[#9ca3af]">
-          <TerminalNativeBalance amount={nativeBalance ?? 0} className="inline text-white" />{' '}
+        <span className="shrink-0 tabular-nums text-[11px] text-fg-muted">
+          <TerminalNativeBalance amount={nativeBalance ?? 0} className="inline text-fg-primary" />{' '}
           {nativeSym}
         </span>
       </div>
 
-      <div className="rounded-sm border border-[#2e2e32] bg-[#12141b] p-3">
-        <div className="flex items-center justify-between gap-2 text-[10px] text-[#888892]">
+      <div className={cn('p-3', EX.inset)}>
+        <div className={cn('flex items-center justify-between gap-2', EX.label, 'normal-case tracking-normal')}>
           <span className="font-semibold uppercase tracking-wide">Buying</span>
           {nativeUsd != null ? (
             <span className="tabular-nums">
               {nativeSym} Price:{' '}
-              <span className="font-semibold text-white">{nativeUsd.toFixed(2)}</span>
+              <span className="font-semibold text-fg-primary">{nativeUsd.toFixed(2)}</span>
             </span>
           ) : (
             <span>{tickerQ.isFetching ? 'Loading price…' : 'Price unavailable'}</span>
@@ -183,9 +181,9 @@ export function BuyPanel({
             onChange={(e) => setAmountIn(filterDecimalTyped(e.target.value, 6))}
             placeholder="0.0"
             inputMode="decimal"
-            className="min-w-0 flex-1 bg-transparent text-xl font-semibold tabular-nums text-white outline-none placeholder:text-[#4b5563]"
+            className="min-w-0 flex-1 bg-transparent text-xl font-semibold tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/60"
           />
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-[#2e2e32] bg-[#1e1e22] px-2 py-1 text-[11px] font-semibold text-white">
+          <span className={cn('inline-flex shrink-0 items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-fg-primary', EX.control)}>
             <DepositAssetIcon
               src={depositChainIconSrc(activeChain)}
               label={nativeSym}
@@ -196,7 +194,7 @@ export function BuyPanel({
           </span>
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[#6b7280]">
+        <div className={cn('mt-2 flex items-center justify-between gap-2 text-[10px]', EX.muted)}>
           <span>Minimum {ONRAMPER_MIN_USD} USD</span>
           {usdAmount != null ? (
             <span className="tabular-nums">
@@ -204,19 +202,19 @@ export function BuyPanel({
               <span
                 className={cn(
                   'font-semibold',
-                  meetsMin ? 'text-white' : 'text-amber-400/90',
+                  meetsMin ? 'text-fg-primary' : 'text-amber-400/90',
                 )}
               >
                 {formatUsd(usdAmount, { decimals: 1 })}
               </span>
             </span>
           ) : (
-            <span className="tabular-nums text-[#4b5563]">≈ —</span>
+            <span className="tabular-nums text-fg-muted/60">≈ —</span>
           )}
         </div>
 
-        <p className="mt-3 text-center text-[9px] font-medium uppercase tracking-[0.14em] text-[#4b5563]">
-          powered by <span className="text-[#9ca3af]">onramper</span>
+        <p className={cn('mt-3 text-center text-[9px] font-medium uppercase tracking-[0.14em]', EX.muted)}>
+          powered by <span className="text-fg-secondary">onramper</span>
         </p>
       </div>
 
@@ -225,30 +223,27 @@ export function BuyPanel({
         disabled={buyDisabled}
         onClick={() => void handleBuy()}
         className={cn(
-          'flex w-full items-center justify-center gap-2 rounded-sm py-2.5 text-[13px] font-semibold transition',
-          buyDisabled
-            ? 'cursor-not-allowed bg-[#2d3343] text-[#6b7280]'
-            : 'bg-[#5865F2] text-white hover:brightness-110',
+          EX.cta,
+          'flex items-center justify-center gap-2',
+          buyDisabled && 'cursor-not-allowed bg-bg-hover text-fg-muted shadow-none hover:brightness-100',
         )}
       >
         {launching ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
         Buy
       </button>
 
-      <div className="rounded-sm border border-[#2e2e32] bg-[#12141b] px-3 py-2.5">
+      <div className={cn('px-3 py-2.5', EX.inset)}>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
-            Your wallet address
-          </span>
+          <span className={EX.label}>Your wallet address</span>
           <CopyButton
             value={walletAddress}
             toastLabel="Address copied"
             label="Copy address"
             iconOnly
-            iconClassName="h-7 w-7 rounded-sm border border-[#2e2e32] text-[#9ca3af] hover:bg-white/5 hover:text-white"
+            iconClassName="h-7 w-7 rounded-md border border-border-subtle/60 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
           />
         </div>
-        <p className="mt-1.5 break-all font-mono text-[11px] leading-snug tabular-nums text-white">
+        <p className="mt-1.5 break-all font-mono text-[11px] leading-snug tabular-nums text-fg-primary">
           {walletAddress}
         </p>
       </div>

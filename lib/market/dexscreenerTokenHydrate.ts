@@ -9,7 +9,7 @@ import {
   fetchDexMetricsForMints,
   type DexPairRow,
 } from '@/lib/market/dexscreenerPulse';
-import { hydratePumpFunTokenRow } from '@/lib/market/hydratePumpFunTokenRow';
+import { hydratePumpFunTokenRow, tokenNeedsPumpFunHydrate } from '@/lib/market/hydratePumpFunTokenRow';
 
 const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   sol: 'solana',
@@ -44,7 +44,7 @@ export async function ensureTokenRowFromDexScreener(
   if (!chainPath) return null;
 
   let existing = await getTokenByMint(mint);
-  if (existing && !existing.creator_wallet?.trim()) {
+  if (existing && tokenNeedsPumpFunHydrate(existing, mint)) {
     existing = await hydratePumpFunTokenRow(mint, existing);
   }
   if (

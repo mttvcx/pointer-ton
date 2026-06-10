@@ -23,6 +23,17 @@ export interface UserUpsertInput {
 export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserRow> {
   const supabase = createAdminSupabase();
 
+  let walletAddress = input.walletAddress?.trim() || null;
+  if (!walletAddress) {
+    const existing = await getUserByPrivyId(input.privyId);
+    if (
+      existing?.wallet_address &&
+      !existing.wallet_address.startsWith('privy:')
+    ) {
+      walletAddress = existing.wallet_address;
+    }
+  }
+
   // Do not send `tier_id` in the JSON body. Reasons:
   // 1) The DB column has `DEFAULT 'default'` per the Phase 1 schema, so new rows
   //    pick up the tier without an extra round-trip.
@@ -32,7 +43,7 @@ export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserR
   //    Run `scripts/reload-postgrest-schema.sql` in the SQL editor after DDL.
   const insert: TablesInsert<'users'> = {
     privy_id: input.privyId,
-    wallet_address: input.walletAddress ?? `privy:${input.privyId}`,
+    wallet_address: walletAddress ?? `privy:${input.privyId}`,
     email: input.email ?? null,
     username: input.username ?? null,
   };

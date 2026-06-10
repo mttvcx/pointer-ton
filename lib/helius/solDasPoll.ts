@@ -155,7 +155,8 @@ export async function pollSolanaPulseFromDas(): Promise<number> {
         if (seen.has(ev0.mint)) continue;
         seen.add(ev0.mint);
         const ev = mergeLaunchpad(ev0, pad);
-        inserted += await ingestLaunchpadDiscovery(ev, { alertSource: 'das_authority', dasAuthorityPad: pad });
+        const ingested = await ingestLaunchpadDiscovery(ev, { alertSource: 'das_authority', dasAuthorityPad: pad });
+        inserted += ingested.created;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -175,7 +176,8 @@ export async function pollSolanaPulseFromDas(): Promise<number> {
       const preview = classifyLaunchEventForIngest(ev, 'das_search');
       if (!meetsPulseDiscoveryThreshold(preview)) continue;
       seen.add(ev.mint);
-      inserted += await ingestLaunchpadDiscovery(ev, { alertSource: 'das_search' });
+      const ingested = await ingestLaunchpadDiscovery(ev, { alertSource: 'das_search' });
+      inserted += ingested.created;
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

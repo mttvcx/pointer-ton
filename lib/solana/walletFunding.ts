@@ -1,6 +1,10 @@
 import 'server-only';
 
 import { PublicKey } from '@solana/web3.js';
+import {
+  fetchHeliusAddressTransactions,
+  type HeliusEnhancedTx,
+} from '@/lib/indexer/heliusEnhanced';
 import { getConnection } from '@/lib/solana/connection';
 import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 
@@ -12,23 +16,59 @@ export type WalletIncomingFunding = {
   blockTime: number | null;
 };
 
-/**
- * Find a recent transaction where the wallet's native SOL balance increased materially.
- * Used for “Funded” display + Solscan link (tx, not just the counterparty account).
- */
-export async function findRecentIncomingSolFunding(
-  walletAddress: string,
-  opts?: { scanLimit?: number },
-): Promise<WalletIncomingFunding | null> {
-  const scanLimit = opts?.scanLimit ?? 28;
-  const conn = getConnection();
-  let pk: PublicKey;
-  try {
-    pk = new PublicKey(walletAddress);
-  } catch {
-    return null;
-  }
+const MIN_INCOMING_LAMPORTS = 50_000;
 
+function isRateLimitError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('429') || msg.includes('rate limit') || msg.includes('-32429');
+}
+
+function pickIncomingFromEnhancedTx(
+  tx: HeliusEnhancedTx,
+  walletAddress: string,
+): { fromAddress: string; lamports: number } | null {
+  let best = 0;
+  let fromAddress: string | null = null;
+  for (const n of tx.nativeTransfers ?? []) {
+    const amt = n.amount ?? 0;
+    if (n.toUserAccount !== walletAddress || amt < MIN_INCOMING_LAMPORTS) continue;
+    if (amt > best) {
+      best = amt;
+      fromAddress = n.fromUserAccount?.trim() || null;
+    }
+  }
+  if (!fromAddress || best <= 0) return null;
+  return { fromAddress, lamports: best };
+}
+
+/** Helius enhanced history — 1 REST call per wallet (desk-safe). */
+async function findIncomingViaEnhanced(
+  walletAddress: string,
+  scanLimit: number,
+): Promise<WalletIncomingFunding | null> {
+  const { txs } = await fetchHeliusAddressTransactions(walletAddress, { limit: scanLimit });
+  for (const tx of txs) {
+    const sig = tx.signature?.trim();
+    if (!sig) continue;
+    const hit = pickIncomingFromEnhancedTx(tx, walletAddress);
+    if (!hit) continue;
+    return {
+      fromAddress: hit.fromAddress,
+      signature: sig,
+      lamportsReceived: hit.lamports,
+      blockTime: tx.timestamp ?? null,
+    };
+  }
+  return null;
+}
+
+/** Legacy RPC scan — only used when enhanced API fails for non-rate-limit reasons. */
+async function findIncomingViaRpc(
+  walletAddress: string,
+  scanLimit: number,
+): Promise<WalletIncomingFunding | null> {
+  const conn = getConnection();
+  const pk = new PublicKey(walletAddress);
   const sigs = await heliusCall('getSignaturesForAddress', HELIUS_CREDITS.RPC, () =>
     conn.getSignaturesForAddress(pk, { limit: scanLimit }),
   );
@@ -54,8 +94,7 @@ export async function findRecentIncomingSolFunding(
     const pre = tx.meta.preBalances[idx] ?? 0;
     const post = tx.meta.postBalances[idx] ?? 0;
     const delta = post - pre;
-    /** Ignore dust / rent-only noise; pick meaningful incoming SOL. */
-    if (delta < 50_000) continue;
+    if (delta < MIN_INCOMING_LAMPORTS) continue;
 
     let fromAddress = keys[0]!;
     for (let i = 0; i < keys.length; i++) {
@@ -75,6 +114,47 @@ export async function findRecentIncomingSolFunding(
       blockTime: s.blockTime ?? null,
     };
   }
-
   return null;
+}
+
+/**
+ * Find a recent transaction where the wallet's native SOL balance increased materially.
+ * Prefers Helius enhanced REST (1 call/wallet); RPC fallback is best-effort.
+ */
+export async function findRecentIncomingSolFunding(
+  walletAddress: string,
+  opts?: { scanLimit?: number },
+): Promise<WalletIncomingFunding | null> {
+  const scanLimit = Math.min(40, Math.max(8, opts?.scanLimit ?? 24));
+  try {
+    const pk = new PublicKey(walletAddress);
+    void pk;
+  } catch {
+    return null;
+  }
+
+  try {
+    const enhanced = await findIncomingViaEnhanced(walletAddress, scanLimit);
+    if (enhanced) return enhanced;
+  } catch (err) {
+    if (isRateLimitError(err)) return null;
+  }
+
+  try {
+    return await findIncomingViaRpc(walletAddress, Math.min(scanLimit, 12));
+  } catch (err) {
+    if (isRateLimitError(err)) return null;
+    throw err;
+  }
+}
+
+/** Approximate on-chain activity from enhanced history length (1 REST call). */
+export async function estimateWalletSignatureCount(walletAddress: string): Promise<number | null> {
+  try {
+    const { txs } = await fetchHeliusAddressTransactions(walletAddress, { limit: 100 });
+    return txs.length;
+  } catch (err) {
+    if (isRateLimitError(err)) return null;
+    return null;
+  }
 }

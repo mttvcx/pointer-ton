@@ -4,8 +4,13 @@ import {
   countUserWallets,
   getUserWalletByAddress,
   insertUserWallet,
+  setPrimaryUserWallet,
 } from '@/lib/db/userWallets';
 import { listPrivyEmbeddedWalletsFromUser } from '@/lib/privy/embeddedWallets';
+import {
+  labelForLinkedSolanaWallet,
+  listPrivyLinkedSolanaWalletsFromUser,
+} from '@/lib/privy/linkedWallets';
 import { getPrivyServerClient, verifyPrivyAccessToken } from '@/lib/privy/config';
 import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 
@@ -13,7 +18,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Upserts `user_wallets` rows for Privy embedded Solana + Ethereum wallets so every chain has a deposit address.
+ * Upserts `user_wallets` for Privy linked Solana + Ethereum wallets.
+ * External connectors (Phantom, …) are included so founder manual E2E can trade
+ * with the wallet used at login — not only embedded Pointer wallets.
  */
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -52,18 +59,47 @@ export async function POST(req: NextRequest) {
         /* Privy may already have provisioned wallets via dashboard / login */
       }
     }
-    let created = 0;
 
+    let created = 0;
     const n0 = await countUserWallets(user.id);
 
-    // Solana first so the SOL embedded wallet takes the primary slot off spawn
-    // (Pointer is SOL-first) and gets the "Pointer Wallet" name.
-    const ordered = [...embedded].sort((a, b) => {
-      if (a.chain === b.chain) return 0;
-      return a.chain === 'solana' ? -1 : 1;
+    const profileWalletRaw =
+      user.wallet_address && !user.wallet_address.startsWith('privy:')
+        ? user.wallet_address
+        : null;
+    const profileWallet = profileWalletRaw
+      ? normalizeWalletAddressForStorage(profileWalletRaw)
+      : null;
+
+    const linkedSol = listPrivyLinkedSolanaWalletsFromUser(pu);
+    const orderedSol = [...linkedSol].sort((a, b) => {
+      if (a.isEmbedded === b.isEmbedded) return 0;
+      return a.isEmbedded ? 1 : -1;
     });
 
-    for (const { address, chain } of ordered) {
+    for (const w of orderedSol) {
+      const normalized = normalizeWalletAddressForStorage(w.address);
+      if (!normalized) continue;
+      const dup = await getUserWalletByAddress(user.id, normalized);
+      if (dup) continue;
+
+      const totalBeforeThisRow = n0 + created;
+      const isProfileMatch = profileWallet != null && profileWallet === normalized;
+      const isPrimary = totalBeforeThisRow === 0 || isProfileMatch;
+      await insertUserWallet({
+        user_id: user.id,
+        wallet_address: normalized,
+        label: labelForLinkedSolanaWallet(w, isPrimary),
+        is_primary: isPrimary,
+        slot: n0 + created,
+        is_archived: false,
+        is_active: true,
+        is_imported: false,
+      });
+      created += 1;
+    }
+
+    for (const { address, chain } of embedded.filter((e) => e.chain === 'ethereum')) {
       const normalized = normalizeWalletAddressForStorage(address);
       if (!normalized) continue;
       const dup = await getUserWalletByAddress(user.id, normalized);
@@ -71,25 +107,24 @@ export async function POST(req: NextRequest) {
 
       const totalBeforeThisRow = n0 + created;
       const isPrimary = totalBeforeThisRow === 0;
-      // The user's main spawn wallet is the primary SOL embedded wallet.
-      const label =
-        chain === 'solana'
-          ? isPrimary
-            ? 'Pointer Wallet'
-            : 'Pointer Solana'
-          : 'Pointer EVM';
-      const slot = n0 + created;
       await insertUserWallet({
         user_id: user.id,
         wallet_address: normalized,
-        label,
+        label: 'Pointer EVM',
         is_primary: isPrimary,
-        slot,
+        slot: n0 + created,
         is_archived: false,
         is_active: true,
         is_imported: false,
       });
       created += 1;
+    }
+
+    if (profileWallet) {
+      const row = await getUserWalletByAddress(user.id, profileWallet);
+      if (row && !row.is_primary) {
+        await setPrimaryUserWallet(user.id, row.id);
+      }
     }
 
     return NextResponse.json({ ok: true, created });

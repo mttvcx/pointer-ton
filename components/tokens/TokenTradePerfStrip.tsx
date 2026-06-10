@@ -14,7 +14,7 @@ export function TokenTradePerfStrip({
   selected,
   onSelect,
 }: {
-  changes: Record<TokenTradePerfTf, number>;
+  changes: Record<TokenTradePerfTf, number | null>;
   selected: TokenTradePerfTf;
   onSelect: (tf: TokenTradePerfTf) => void;
 }) {
@@ -26,8 +26,8 @@ export function TokenTradePerfStrip({
         const pct = changes[tf];
         const isSelected = selected === tf;
         const isHovered = hovered === tf;
-        const showPct = isSelected || isHovered;
-        const pos = pct >= 0;
+        const showPct = (isSelected || isHovered) && pct != null;
+        const pos = (pct ?? 0) >= 0;
 
         return (
           <button

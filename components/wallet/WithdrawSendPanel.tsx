@@ -12,6 +12,7 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber } from '@/lib/utils/formatters';
+import { EX } from '@/components/wallet/exchangeModalUi';
 
 function filterDecimalTyped(raw: string, maxFractionDigits: number): string {
   const cleaned = raw.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -124,15 +125,11 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
   if (!walletAddress) {
     return (
       <div className="flex flex-col items-center gap-3 py-6 text-center">
-        <p className="max-w-xs text-[12px] leading-relaxed text-[#9ca3af]">
+        <p className={cn('max-w-xs leading-relaxed', EX.muted)}>
           You don&apos;t have an active{' '}
-          <span className="font-semibold text-white">{nativeSym}</span> wallet for this chain yet.
+          <span className="font-semibold text-fg-primary">{nativeSym}</span> wallet for this chain yet.
         </p>
-        <Link
-          href="/wallets"
-          onClick={onClose}
-          className="btn-press inline-flex rounded-full bg-[#5865F2] px-4 py-2 text-[12px] font-semibold text-[#0a0a0f] transition hover:brightness-105"
-        >
+        <Link href="/wallets" onClick={onClose} className={cn(EX.cta, 'w-auto px-5')}>
           Open Wallets
         </Link>
       </div>
@@ -141,7 +138,7 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
 
   return (
     <div className="space-y-3 py-1">
-      <div className="flex items-center gap-2 rounded-lg border border-[#1b1f2a] bg-[#12141b] px-2.5 py-2">
+      <div className={cn('flex items-center gap-2 px-2.5 py-2', EX.inset)}>
         <img
           src={CHAIN_ICON_PNG[activeChain]}
           alt=""
@@ -149,10 +146,8 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
           draggable={false}
         />
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
-            Available
-          </div>
-          <div className="tabular-nums text-[13px] font-semibold text-white">
+          <div className={EX.label}>Available</div>
+          <div className="tabular-nums text-[13px] font-semibold text-fg-primary">
             {formatNumber(available, { decimals: available > 0 && available < 0.01 ? 6 : 4 })}{' '}
             {nativeSym}
           </div>
@@ -160,9 +155,7 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
       </div>
 
       <div>
-        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
-          Amount
-        </label>
+        <label className={cn('mb-1 block', EX.label)}>Amount</label>
         <div className="flex gap-2">
           <input
             type="text"
@@ -170,12 +163,18 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
             value={amount}
             onChange={(e) => setAmount(filterDecimalTyped(e.target.value, 9))}
             placeholder="0.00"
-            className="h-9 min-w-0 flex-1 rounded-lg border border-[#1b1f2a] bg-[#12141b] px-2.5 text-[13px] tabular-nums text-white outline-none focus:border-[#5865F2]/60"
+            className={cn(
+              'h-9 min-w-0 flex-1 px-2.5 text-[13px] tabular-nums text-fg-primary outline-none focus:ring-1 focus:ring-accent-primary/40',
+              EX.control,
+            )}
           />
           <button
             type="button"
             onClick={setMax}
-            className="h-9 shrink-0 rounded-lg border border-[#1b1f2a] bg-[#12141b] px-2.5 text-[11px] font-semibold text-[#9ca3af] transition hover:border-[#2d3548] hover:text-white"
+            className={cn(
+              'h-9 shrink-0 font-semibold text-fg-secondary hover:text-fg-primary',
+              EX.control,
+            )}
           >
             Max
           </button>
@@ -183,30 +182,31 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
       </div>
 
       <div>
-        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">
-          Recipient address
-        </label>
+        <label className={cn('mb-1 block', EX.label)}>Recipient address</label>
         <input
           type="text"
           value={recipient}
           onChange={(e) => setRecipient(e.target.value)}
           placeholder={`${nativeSym} address`}
-          className="h-9 w-full rounded-lg border border-[#1b1f2a] bg-[#12141b] px-2.5 text-[12px] text-white outline-none focus:border-[#5865F2]/60"
+          className={cn(
+            'h-9 w-full px-2.5 text-[12px] text-fg-primary outline-none focus:ring-1 focus:ring-accent-primary/40',
+            EX.control,
+          )}
           spellCheck={false}
           autoComplete="off"
         />
       </div>
 
       {activeChain !== 'sol' ? (
-        <p className="text-[11px] leading-snug text-[#6b7280]">
+        <p className={EX.muted}>
           On-chain send for {nativeSym} is coming soon. Switch to Solana or use{' '}
-          <Link href="/wallets" className="font-semibold text-[#5865F2] hover:underline" onClick={onClose}>
+          <Link href="/wallets" className={EX.link} onClick={onClose}>
             Wallets
           </Link>{' '}
           to move funds.
         </p>
       ) : (
-        <p className="text-[11px] leading-snug text-[#6b7280]">
+        <p className={EX.muted}>
           Sends native {nativeSym} from your active Pointer wallet. A small network fee is reserved on Max.
         </p>
       )}
@@ -216,10 +216,8 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
         disabled={sending || activeChain !== 'sol'}
         onClick={() => void handleSend()}
         className={cn(
-          'btn-press focus-ring w-full rounded-full py-2.5 text-[13px] font-semibold transition',
-          activeChain === 'sol'
-            ? 'bg-[#5865F2] text-[#0a0a0f] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50'
-            : 'cursor-not-allowed bg-[#2d3343] text-[#6b7280]',
+          EX.cta,
+          activeChain !== 'sol' && 'cursor-not-allowed bg-bg-hover text-fg-muted shadow-none hover:brightness-100',
         )}
       >
         {sending ? 'Sending…' : `Send ${nativeSym}`}

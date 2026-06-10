@@ -12,6 +12,10 @@ import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import { addInstantTradeSellTon } from '@/lib/trading/instantTradeStats';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { isSandboxMode } from '@/lib/sandbox/mode';
+import {
+  founderBetaMobileTradeMessage,
+  isFounderBetaMobileTradeBlocked,
+} from '@/lib/beta/founderBetaClient';
 import { sandboxBuy, sandboxSellPct } from '@/lib/sandbox/trade';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { formatNumber } from '@/lib/utils/formatters';
@@ -146,6 +150,10 @@ export function usePulseQuickBuy() {
         }
         return { ok: false, error };
       };
+
+      if (isFounderBetaMobileTradeBlocked()) {
+        return fail(founderBetaMobileTradeMessage());
+      }
 
       // SANDBOX: fake fill before ANY live quote/sign/execute (covers manual
       // quick-buy AND silent auto-buy callers).

@@ -16,11 +16,15 @@ import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useUIStore } from '@/store/ui';
+import { dedupeTokenHolderRows } from '@/lib/onchain/dedupeTokenHolders';
 import { holderDeskFromWalletStats } from '@/lib/indexer/holderDeskFromStats';
 import type { MintWalletStatsRow } from '@/lib/db/mintWalletStats';
+import type { DeskWalletClassificationPayload } from '@/lib/indexer/deskWalletClassifications';
 import { buildHolderDeskSynth, EMPTY_HOLDER_DESK_SYNTH } from '@/lib/tokens/holderDeskSynth';
 import { HoldersDeskTable, type HolderDeskRow } from '@/components/tokens/HoldersDeskTable';
+import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 import { DESK_SCROLL_WELL_CLASS } from '@/components/tokens/cells/deskTokens';
+import { isQaDeskLiveModeClient } from '@/lib/qa/qaDeskLiveModeClient';
 import { cn } from '@/lib/utils/cn';
 
 type HoldersResponse = {
@@ -28,6 +32,7 @@ type HoldersResponse = {
   decimals: number;
   holders: HolderDeskRow[];
   walletStats?: Record<string, MintWalletStatsRow>;
+  walletClassifications?: Record<string, DeskWalletClassificationPayload>;
   indexerSource?: string | null;
 };
 
@@ -58,8 +63,9 @@ export function HoldersTable({
   const { resolveLabel } = useWalletLabels();
   const demoRows = useMemo(() => syntheticHoldersResponse(mint, 9), [mint]);
 
-  const tableDemoEnv = preferTokenTableDemoRows();
-  const demoTables = demoTablesEnabled(uiDemo);
+  const qaLive = isQaDeskLiveModeClient(mint);
+  const tableDemoEnv = qaLive ? false : preferTokenTableDemoRows();
+  const demoTables = qaLive ? false : demoTablesEnabled(uiDemo);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['token-holders', mint],
@@ -80,36 +86,58 @@ export function HoldersTable({
     if (isError || !data?.holders?.length) {
       return { mint, decimals, holders: [] as HolderDeskRow[] };
     }
-    return data;
+    return {
+      ...data,
+      holders: dedupeTokenHolderRows(data.holders) as HolderDeskRow[],
+    };
   }, [mint, data, isError, uiDemo, tableDemoEnv]);
 
   const sym = tokenSymbol ?? 'TOK';
   const decimals = filled?.decimals ?? 9;
 
   const visibleRows = useMemo(() => {
+    const statsMap = data?.walletStats ?? {};
+    const clsMap = data?.walletClassifications ?? {};
+
     const base =
       filled?.holders.filter((h) => {
         if (onlyTracked && !isTracked(h.wallet_address)) return false;
         if (deskFilter === 'all') return true;
         return holderRowMatchesFilter({
-          row: h,
+          row: {
+            ...h,
+            is_fresh: clsMap[h.wallet_address]?.isFresh ?? false,
+          },
           creatorWallet,
           tracked: isTracked(h.wallet_address),
           labelDisp: resolveLabel(h.wallet_address, 5),
           filter: deskFilter,
         });
       }) ?? [];
-
-    const statsMap = data?.walletStats ?? {};
     const enriched = base.map((h) => {
       const indexed = statsMap[h.wallet_address];
+      const cls = clsMap[h.wallet_address];
       const pctLine =
         h.pct_of_supply != null && Number.isFinite(h.pct_of_supply)
           ? Math.min(100, Math.max(0, h.pct_of_supply))
           : 0;
+      const deskMeta = {
+        displayLabel: cls?.displayLabel ?? null,
+        role: cls?.role ?? null,
+        inlineBadges: (cls?.badges ?? []) as WalletIntelBadgeKind[],
+        isSystemAccount: cls?.isSystemAccount ?? false,
+        isDev: cls?.isDev ?? !!h.is_dev,
+        isSniper: cls?.isSniper ?? !!h.is_sniper,
+        isFresh: cls?.isFresh ?? false,
+        funding: cls?.funding ?? null,
+        lockedVaultTooltip: cls?.lockedVaultTooltip ?? null,
+      };
       if (demoTables) {
         return {
           ...h,
+          is_dev: deskMeta.isDev,
+          is_sniper: deskMeta.isSniper,
+          deskMeta,
           synth: buildHolderDeskSynth({
             wallet: h.wallet_address,
             mint,
@@ -118,13 +146,31 @@ export function HoldersTable({
           }),
         };
       }
+      if (deskMeta.isSystemAccount) {
+        return {
+          ...h,
+          is_dev: deskMeta.isDev,
+          is_sniper: deskMeta.isSniper,
+          deskMeta,
+          synth: { ...EMPTY_HOLDER_DESK_SYNTH, pctLine, remainingUsd: pctLine > 0 ? EMPTY_HOLDER_DESK_SYNTH.remainingUsd : '\u2014' },
+        };
+      }
       if (indexed && (indexed.buy_usd > 0 || indexed.sell_usd > 0)) {
         return {
           ...h,
+          is_dev: deskMeta.isDev,
+          is_sniper: deskMeta.isSniper,
+          deskMeta,
           synth: holderDeskFromWalletStats(indexed, h.pct_of_supply, decimals),
         };
       }
-      return { ...h, synth: { ...EMPTY_HOLDER_DESK_SYNTH, pctLine } };
+      return {
+        ...h,
+        is_dev: deskMeta.isDev,
+        is_sniper: deskMeta.isSniper,
+        deskMeta,
+        synth: { ...EMPTY_HOLDER_DESK_SYNTH, pctLine },
+      };
     });
 
     if (!uPnlSortDir) return enriched;
@@ -144,6 +190,7 @@ export function HoldersTable({
     uPnlSortDir,
     demoTables,
     data?.walletStats,
+    data?.walletClassifications,
   ]);
 
   const filteredEmpty =

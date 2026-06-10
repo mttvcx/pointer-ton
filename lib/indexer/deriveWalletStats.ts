@@ -79,6 +79,8 @@ export function deriveWalletStatsFromSwaps(
     const legs: { side: 'buy' | 'sell'; qty: number; unitUsd: number; ts: string }[] = [];
 
     for (const r of rows) {
+      if (r.event_kind && r.event_kind !== 'swap') continue;
+
       const qtyUi = r.token_amount_ui;
       const qtyRaw = r.token_amount_raw;
       const px =

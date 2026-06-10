@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
+import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
 import { TokenHeaderNameHover } from '@/components/tokens/TokenHeaderNameHover';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
@@ -14,7 +15,11 @@ import { RiskFlags } from '@/components/tokens/RiskFlags';
 import { getPulseBondingRingState } from '@/lib/tokens/bondingProgress';
 import { getPulseRowTraitFlags } from '@/lib/tokens/pumpTokenSignals';
 import { enrichBundleTwitterFromSocialModel } from '@/lib/tokens/pulseSocialLinks';
-import { resolveLaunchpadAvatarChromeWithFallback } from '@/lib/tokens/launchpadAvatarChrome';
+import {
+  resolveLaunchpadAvatarChrome,
+  resolveLaunchpadAvatarChromeWithFallback,
+} from '@/lib/tokens/launchpadAvatarChrome';
+import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
 import {
   extractGlobalFeesSol,
   formatSupplyHint,
@@ -128,16 +133,21 @@ export function TokenHeader({
 
   const activeChain = useUIStore((s) => s.activeChain);
   const traits = useMemo(() => getPulseRowTraitFlags(bundle), [bundle]);
-  const launchpadChrome = useMemo(
-    () =>
-      resolveLaunchpadAvatarChromeWithFallback(bundle, {
-        showFrame: true,
-        isMigrated: bonding.migrated,
-        pumpFunOnBondingCurve: traits.pumpFunBonding,
-        chain: activeChain,
-      }),
-    [bundle, bonding.migrated, traits.pumpFunBonding, activeChain],
+  const alternateQuote = useMemo(
+    () => alternateQuotePairKind(bundle, activeChain),
+    [bundle, activeChain],
   );
+  const launchpadChrome = useMemo(() => {
+    const opts = {
+      showFrame: true,
+      isMigrated: bonding.migrated,
+      pumpFunOnBondingCurve: traits.pumpFunBonding,
+      chain: activeChain,
+    };
+    return bonding.migrated
+      ? resolveLaunchpadAvatarChromeWithFallback(bundle, opts)
+      : resolveLaunchpadAvatarChrome(bundle, opts);
+  }, [bundle, bonding.migrated, traits.pumpFunBonding, activeChain]);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
   const xMonitorOpen = usePulseTwitterRailStore((s) => s.side !== 'hidden');
   const watchlisted = useWatchlistStore((s) => s.items.some((i) => i.mint === mint));
@@ -294,10 +304,24 @@ export function TokenHeader({
               </button>
             </div>
 
-            <div className="flex min-w-0 items-center gap-1.5 overflow-visible">
+            <div className="flex min-w-0 items-center gap-2 overflow-visible">
               <span className="shrink-0 text-[11px] font-semibold tabular-nums leading-none text-signal-bull">
                 {formatAgeShort(token.created_at, now)}
               </span>
+              {alternateQuote != null ? (
+                <span
+                  className="inline-flex shrink-0 items-center"
+                  title={quotePairTooltip(alternateQuote, activeChain)}
+                  aria-label={quotePairTooltip(alternateQuote, activeChain)}
+                >
+                  <QuoteTokenIcon
+                    kind={alternateQuote}
+                    chain={activeChain}
+                    className="object-contain"
+                    style={{ width: HEADER_SOCIAL_GLYPH_PX, height: HEADER_SOCIAL_GLYPH_PX }}
+                  />
+                </span>
+              ) : null}
               <PulseRowSocialStrip
                 bundle={bundle}
                 compact
@@ -320,9 +344,9 @@ export function TokenHeader({
 
         <div className="mx-2.5 hidden h-9 w-px shrink-0 bg-white/[0.08] sm:block" aria-hidden />
 
-        <div className="scrollbar-thin flex min-w-0 flex-1 items-center overflow-x-auto py-2">
-          <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-            <div className="flex shrink-0 flex-col justify-center">
+        <div className="scrollbar-thin flex min-w-0 flex-1 items-end overflow-x-auto py-2">
+          <div className="flex shrink-0 items-end gap-3 sm:gap-4">
+            <div className="flex shrink-0 flex-col justify-end gap-1">
               <span className="text-[1.25rem] font-bold tabular-nums leading-none tracking-tight text-fg-primary sm:text-[1.375rem]">
                 {focalPrimary}
               </span>
@@ -341,7 +365,7 @@ export function TokenHeader({
 
             <div className="hidden h-5 w-px shrink-0 bg-white/[0.08] sm:block" aria-hidden />
 
-            <div className="flex shrink-0 items-start gap-x-3 sm:gap-x-4">
+            <div className="flex shrink-0 items-end gap-x-3 sm:gap-x-4">
             {stats.map((stat) => {
               const mutedBase =
                 stat.value === '\u2014' || stat.value === '\u2026' || stat.value === '';
@@ -375,8 +399,8 @@ export function TokenHeader({
               );
 
               return (
-                <div key={stat.label} className="flex min-w-[3.25rem] shrink-0 flex-col">
-                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted/85">
+                <div key={stat.label} className="flex min-w-[3.25rem] shrink-0 flex-col gap-1">
+                  <span className="inline-flex h-5 items-center gap-0.5 whitespace-nowrap text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-fg-muted/85">
                     {stat.label}
                     {stat.showRefresh ? (
                       <TokenSupplyRefreshControl mint={mint} lastRefreshedAt={snapshotAt} />
@@ -384,7 +408,7 @@ export function TokenHeader({
                   </span>
                   <span
                     className={cn(
-                      'mt-1 inline-flex items-baseline gap-1 whitespace-nowrap text-[13px] font-semibold tabular-nums leading-none sm:text-[14px]',
+                      'inline-flex min-h-[14px] items-baseline gap-1 whitespace-nowrap text-[13px] font-semibold tabular-nums leading-none sm:text-[14px]',
                       valueClassName,
                     )}
                   >

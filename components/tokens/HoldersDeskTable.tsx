@@ -20,7 +20,12 @@ import {
   CELL_MUTED_CLASS,
 } from './cells/deskTokens';
 import type { HolderDeskSynth } from '@/lib/tokens/holderDeskSynth';
+import { isKnownCexVenue } from '@/components/tokens/cells/VenueIcon';
 import { useHoldersTableSettingsStore } from '@/store/holdersTableSettings';
+import { DeskMissingValue } from '@/components/tokens/cells/DeskMissingValue';
+import { DESK_FIELD_TOOLTIPS } from '@/lib/tokens/deskFieldTooltips';
+
+import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 
 export type HolderDeskRow = {
   id: number;
@@ -34,7 +39,24 @@ export type HolderDeskRow = {
   computed_at: string;
 };
 
-type EnrichedHolderRow = HolderDeskRow & { synth: HolderDeskSynth };
+import type { HolderDeskSynthFunding } from '@/lib/tokens/holderDeskSynth';
+
+export type HolderDeskMeta = {
+  displayLabel: string | null;
+  role?: 'lp' | 'bonding_curve' | 'locked_vault' | null;
+  inlineBadges: WalletIntelBadgeKind[];
+  isSystemAccount: boolean;
+  isDev: boolean;
+  isSniper: boolean;
+  isFresh: boolean;
+  funding: HolderDeskSynthFunding | null;
+  lockedVaultTooltip?: string | null;
+};
+
+type EnrichedHolderRow = HolderDeskRow & {
+  synth: HolderDeskSynth;
+  deskMeta?: HolderDeskMeta;
+};
 
 type Props = {
   rows: EnrichedHolderRow[];
@@ -153,10 +175,17 @@ export function HoldersDeskTable({
       <tbody>
         {rows.map((row) => {
           const synth = row.synth;
+          const meta = row.deskMeta;
+          const systemAccount = meta?.isSystemAccount ?? false;
+          const indexedDesk = !systemAccount && synth.boughtUsd !== '\u2014';
           const pctRemain = row.pct_of_supply ?? synth.pctLine;
+          const dash = '\u2014';
+          const lpLabel = meta?.role === 'lp' ? 'LIQUIDITY POOL' : meta?.displayLabel ?? null;
+          const systemRole =
+            meta?.role === 'lp' ? ('lp' as const) : meta?.role === 'locked_vault' ? ('locked_vault' as const) : null;
 
           return (
-            <tr key={row.id} className={DESK_ROW_CLASS}>
+            <tr key={row.wallet_address} className={DESK_ROW_CLASS}>
               <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
                 <span className={CELL_MUTED_CLASS}>
                   {row.rank ?? '\u2014'}
@@ -170,79 +199,137 @@ export function HoldersDeskTable({
                   creatorWallet={creatorWallet}
                   href={`/wallet/${encodeURIComponent(row.wallet_address)}`}
                   preferIntelModal
-                  isDev={!!row.is_dev}
-                  isSniper={!!row.is_sniper}
+                  isDev={meta?.isDev ?? !!row.is_dev}
+                  isSniper={meta?.isSniper ?? !!row.is_sniper}
+                  inlineBadges={meta?.inlineBadges}
+                  forcedLabel={lpLabel}
+                  deskSystemRole={systemRole}
+                  lockedVaultTooltip={meta?.lockedVaultTooltip}
+                  addressFormat="axiom"
+                  badgeBeforeAddress
                   showInlineBadges
                   truncate={6}
                   onFilterMintTrades={onFilterMintTrades}
                   tradesFilterActive={tradesMakerFilter === row.wallet_address}
-                  className="text-[12px] font-normal text-fg-secondary hover:text-accent-primary"
+                  className={cn(
+                    'text-[12px] font-normal hover:text-accent-primary',
+                    meta?.role === 'lp' ? 'font-semibold text-signal-info' : 'text-fg-secondary',
+                  )}
                 />
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
-                <StackedNumericCell
-                  primary={`${synth.solBalance} ${nativeSym}`}
-                  secondary={col.lastActive && synth.lastActive ? `(${synth.lastActive})` : null}
-                />
+                {systemAccount || !indexedDesk || synth.solBalance <= 0 ? (
+                  <DeskMissingValue
+                    tooltip={
+                      systemAccount
+                        ? meta?.role === 'lp'
+                          ? DESK_FIELD_TOOLTIPS.lpPool
+                          : DESK_FIELD_TOOLTIPS.lockedVault
+                        : DESK_FIELD_TOOLTIPS.solBalance
+                    }
+                  />
+                ) : (
+                  <StackedNumericCell
+                    primary={`${synth.solBalance} ${nativeSym}`}
+                    secondary={
+                      col.lastActive && synth.lastActive && synth.lastActive !== dash
+                        ? `(${synth.lastActive})`
+                        : null
+                    }
+                  />
+                )}
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
-                <StackedNumericCell
-                  primary={synth.boughtUsd}
-                  secondary={
-                    col.totalTransactions && synth.boughtTokensCompact && synth.buyTxCount != null
-                      ? `${synth.boughtTokensCompact} / ${synth.buyTxCount}`
-                      : null
-                  }
-                  tertiary={col.averageEntry && synth.avgBuyUsd ? `(${synth.avgBuyUsd})` : null}
-                  tone={synth.boughtUsd === '$0' ? 'neutral' : 'buy'}
-                />
+                {!indexedDesk ? (
+                  <DeskMissingValue tooltip={DESK_FIELD_TOOLTIPS.bought} />
+                ) : (
+                  <StackedNumericCell
+                    primary={synth.boughtUsd}
+                    secondary={
+                      col.totalTransactions &&
+                      synth.boughtTokensCompact &&
+                      synth.buyTxCount != null
+                        ? `${synth.boughtTokensCompact} / ${synth.buyTxCount}`
+                        : null
+                    }
+                    tertiary={col.averageEntry && synth.avgBuyUsd ? `(${synth.avgBuyUsd})` : null}
+                    tone={synth.boughtUsd === '$0' ? 'neutral' : 'buy'}
+                  />
+                )}
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right')}>
-                <StackedNumericCell
-                  primary={synth.soldUsd}
-                  secondary={
-                    !col.totalTransactions
-                      ? null
-                      : synth.soldUsd === '$0'
-                        ? '0 / 0'
-                        : synth.soldTokensCompact && synth.sellTxCount != null
-                          ? `${synth.soldTokensCompact} / ${synth.sellTxCount}`
-                          : null
-                  }
-                  tertiary={col.averageExit && synth.avgSellUsd ? `(${synth.avgSellUsd})` : null}
-                  tone={synth.soldUsd === '$0' ? 'neutral' : 'sell'}
-                />
+                {!indexedDesk ? (
+                  <DeskMissingValue tooltip={DESK_FIELD_TOOLTIPS.sold} />
+                ) : (
+                  <StackedNumericCell
+                    primary={synth.soldUsd}
+                    secondary={
+                      !col.totalTransactions
+                        ? null
+                        : synth.soldUsd === '$0'
+                          ? '0 / 0'
+                          : synth.soldTokensCompact && synth.sellTxCount != null
+                            ? `${synth.soldTokensCompact} / ${synth.sellTxCount}`
+                            : null
+                    }
+                    tertiary={col.averageExit && synth.avgSellUsd ? `(${synth.avgSellUsd})` : null}
+                    tone={synth.soldUsd === '$0' ? 'neutral' : 'sell'}
+                  />
+                )}
               </td>
               <td className={cn(DESK_CELL_CLASS, 'text-right align-middle')}>
-                <PnlCell
-                  value={synth.uPnlUsdRaw}
-                  display={synth.uPnlUsd}
-                  size="hero"
-                />
+                {indexedDesk ? (
+                  <PnlCell value={synth.uPnlUsdRaw} display={synth.uPnlUsd} size="hero" />
+                ) : (
+                  <DeskMissingValue tooltip={DESK_FIELD_TOOLTIPS.uPnl} />
+                )}
               </td>
               <td className={cn(DESK_CELL_CLASS, 'h-9 overflow-hidden p-0')}>
-                <RemainingBarCell usdLabel={synth.remainingUsd} pct={pctRemain} />
+                {indexedDesk || (systemAccount && pctRemain > 0) ? (
+                  <RemainingBarCell
+                    usdLabel={indexedDesk ? synth.remainingUsd : dash}
+                    pct={pctRemain}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-end px-2">
+                    <span className={CELL_MUTED_CLASS}>{dash}</span>
+                  </div>
+                )}
               </td>
               <td className={DESK_CELL_CLASS}>
-                <FundingCell
-                  venue={synth.funding?.venue}
-                  ageSinceFund={synth.funding?.ageSinceFund}
-                  solFunding={synth.funding?.solFunding}
-                  txCount={col.fundingCount ? synth.funding?.txCount : null}
-                  sharedFundedCount={
-                    col.sharedWalletFunding ? synth.funding?.sharedFundedCount : null
+                {(() => {
+                  const fundRow = meta?.funding ?? (indexedDesk ? synth.funding : null);
+                  if (!fundRow?.venue) {
+                    return <DeskMissingValue tooltip={DESK_FIELD_TOOLTIPS.funding} />;
                   }
-                />
+                  const cex = isKnownCexVenue(fundRow.venue);
+                  return (
+                    <FundingCell
+                      venue={cex ? fundRow.venue : null}
+                      fundingWallet={cex ? null : fundRow.venue}
+                      ageSinceFund={fundRow.ageSinceFund}
+                      solFunding={fundRow.solFunding}
+                      txCount={col.fundingCount ? fundRow.txCount : null}
+                      sharedFundedCount={
+                        col.sharedWalletFunding ? fundRow.sharedFundedCount : null
+                      }
+                    />
+                  );
+                })()}
               </td>
               <td className={cn(DESK_CELL_LAST_CLASS, 'text-right')}>
-                <span
-                  className={cn(
-                    CELL_MUTED_CLASS,
-                    col.timeLinkedFunding && 'text-signal-info',
-                  )}
-                >
-                  {synth.heldAge}
-                </span>
+                {!indexedDesk || synth.heldAge === dash ? (
+                  <DeskMissingValue tooltip={DESK_FIELD_TOOLTIPS.held} />
+                ) : (
+                  <span
+                    className={cn(
+                      CELL_MUTED_CLASS,
+                      col.timeLinkedFunding && 'text-signal-info',
+                    )}
+                  >
+                    {synth.heldAge}
+                  </span>
+                )}
               </td>
               <td className="w-8 p-0" aria-hidden />
             </tr>

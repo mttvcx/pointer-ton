@@ -11,6 +11,7 @@ import {
   Coins,
   Copy,
   ExternalLink,
+  Eye,
   Lock,
   MapPin,
   Search,
@@ -32,8 +33,20 @@ import type { PulseTokenBundle } from '@/types/tokens';
 import { approxTweetCreatedAtMs, type PulseSocialModel } from '@/lib/tokens/pulseSocialLinks';
 import { agentBuybackPctFromMetadata } from '@/lib/tokens/pulseRichMetadata';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+  HOVER_CARD_POINTER_BRIDGE_MS,
+  hoverCardBridgeClass,
+} from '@/components/ui/hover-card';
 import { useTwitterProfile } from '@/lib/hooks/useTwitterProfile';
+
+export {
+  AXIOM_TWITTER_HOVER_PANEL_BG,
+  TwitterTweetHoverCard,
+  TwitterTweetHoverTrigger,
+} from '@/components/tokens/TwitterTweetHoverCard';
 
 function isTwitterishUrl(url: string): boolean {
   try {
@@ -49,13 +62,23 @@ type HoverPlacement = 'above' | 'below';
 /** Axiom-style micro tooltip enter/exit — fast enough to feel instant, smooth enough to not hard-cut. */
 const PULSE_PORTAL_HOVER_ANIM_MS = 90;
 
+type PortaledHoverAlign = 'center' | 'start' | 'end';
+
 function usePortaledHoverPosition(
   track: boolean,
   anchorRef: React.RefObject<HTMLElement | null>,
   placement: HoverPlacement,
   gapPx = 6,
+  opts?: {
+    align?: PortaledHoverAlign;
+    panelWidth?: number;
+    collisionPadding?: number;
+  },
 ) {
   const [pos, setPos] = useState<{ top: number; left: number; transform: string } | null>(null);
+  const align = opts?.align ?? 'center';
+  const panelWidth = opts?.panelWidth ?? 280;
+  const collisionPadding = opts?.collisionPadding ?? 12;
 
   useLayoutEffect(() => {
     if (!track || !anchorRef.current) return;
@@ -63,11 +86,34 @@ function usePortaledHoverPosition(
       const el = anchorRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const left = r.left + r.width / 2;
-      if (placement === 'below') {
-        setPos({ top: r.bottom + gapPx, left, transform: 'translate(-50%, 0)' });
+      const vw = window.innerWidth;
+      const pad = collisionPadding;
+      const half = panelWidth / 2;
+
+      let left = r.left + r.width / 2;
+      let transform = 'translate(-50%, 0)';
+
+      if (align === 'start') {
+        left = r.left;
+        transform = 'translate(0, 0)';
+        left = Math.max(pad, Math.min(left, vw - panelWidth - pad));
+      } else if (align === 'end') {
+        left = r.right;
+        transform = 'translate(-100%, 0)';
+        left = Math.max(pad + panelWidth, Math.min(left, vw - pad));
       } else {
-        setPos({ top: r.top - gapPx, left, transform: 'translate(-50%, -100%)' });
+        left = Math.max(pad + half, Math.min(left, vw - pad - half));
+      }
+
+      if (placement === 'below') {
+        setPos({ top: r.bottom + gapPx, left, transform });
+      } else {
+        const transformY = align === 'center' ? 'translate(-50%, -100%)' : transform.replace(', 0)', ', -100%)');
+        setPos({
+          top: r.top - gapPx,
+          left,
+          transform: align === 'center' ? 'translate(-50%, -100%)' : transformY,
+        });
       }
     };
     sync();
@@ -77,7 +123,7 @@ function usePortaledHoverPosition(
       window.removeEventListener('scroll', sync, true);
       window.removeEventListener('resize', sync);
     };
-  }, [track, placement, gapPx, anchorRef]);
+  }, [track, placement, gapPx, anchorRef, align, panelWidth, collisionPadding]);
 
   return pos;
 }
@@ -87,6 +133,9 @@ export function PulsePortaledHoverLayer({
   anchorRef,
   placement,
   gapPx,
+  align = 'center',
+  panelWidth = 280,
+  collisionPadding = 12,
   className,
   role,
   children,
@@ -97,6 +146,9 @@ export function PulsePortaledHoverLayer({
   anchorRef: React.RefObject<HTMLElement | null>;
   placement: HoverPlacement;
   gapPx?: number;
+  align?: PortaledHoverAlign;
+  panelWidth?: number;
+  collisionPadding?: number;
   className?: string;
   role?: string;
   children: ReactNode;
@@ -106,7 +158,11 @@ export function PulsePortaledHoverLayer({
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
   const [visible, setVisible] = useState(false);
-  const pos = usePortaledHoverPosition(shown, anchorRef, placement, gapPx);
+  const pos = usePortaledHoverPosition(shown, anchorRef, placement, gapPx, {
+    align,
+    panelWidth,
+    collisionPadding,
+  });
 
   useEffect(() => setMounted(true), []);
 
@@ -432,7 +488,7 @@ function XGlyph({ className }: { className?: string }) {
  * the ring punches the avatar visually out of the banner edge, and any drift
  * between the two creates a visible seam at the panel boundary.
  */
-const TWITTER_PROFILE_HOVER_PANEL_BG = '#0a0a0a';
+const TWITTER_PROFILE_HOVER_PANEL_BG = '#1e2732';
 
 /** Mini-profile preview surface — banner + avatar + identity + meta + stats + CTA. */
 export function TwitterProfileHoverCard({ handle }: { handle: string }) {
@@ -620,7 +676,7 @@ export function TwitterProfileHoverTrigger({
   children,
   side = 'right',
   align = 'start',
-  sideOffset = 8,
+  sideOffset = 0,
 }: {
   handle: string;
   children: ReactNode;
@@ -629,15 +685,19 @@ export function TwitterProfileHoverTrigger({
   sideOffset?: number;
 }) {
   return (
-    <HoverCard openDelay={200} closeDelay={100}>
+    <HoverCard openDelay={0} closeDelay={HOVER_CARD_POINTER_BRIDGE_MS}>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent
         side={side}
         align={align}
         sideOffset={sideOffset}
         collisionPadding={12}
+        instant
+        className="border-0 bg-transparent p-0 shadow-none"
       >
-        <TwitterProfileHoverCard handle={handle} />
+        <div className={hoverCardBridgeClass(side)}>
+          <TwitterProfileHoverCard handle={handle} />
+        </div>
       </HoverCardContent>
     </HoverCard>
   );

@@ -312,7 +312,18 @@ export function resolveLaunchpadAvatarChrome(
 ): LaunchpadAvatarChrome | null {
   if (opts.showFrame === false) return null;
 
-  const protocolId = resolveLaunchpadProtocolFromBundle(bundle, opts.chain ?? 'sol');
+  let protocolId = resolveLaunchpadProtocolFromBundle(bundle, opts.chain ?? 'sol');
+  if (
+    !protocolId &&
+    opts.isMigrated === true &&
+    (opts.chain ?? 'sol') === 'sol'
+  ) {
+    const mint = bundle.token.mint.toLowerCase();
+    const lp = bundle.token.launch_pad?.toLowerCase() ?? '';
+    if (mint.endsWith('pump') || lp.includes('pump')) {
+      protocolId = 'pump.fun';
+    }
+  }
   if (!protocolId || !LAUNCHPAD_AVATAR_PROTOCOLS.has(protocolId)) return null;
 
   const brand = protocolBrand(protocolId);

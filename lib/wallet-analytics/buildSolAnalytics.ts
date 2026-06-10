@@ -6,7 +6,8 @@ import { fetchUsdPricesForMints } from '@/lib/jupiter/priceTickers';
 import { getSolBalanceLamports } from '@/lib/solana/recent-activity';
 import { findRecentIncomingSolFunding } from '@/lib/solana/walletFunding';
 import { listNonZeroSplBalances } from '@/lib/solana/wallet-token-balances';
-import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
+import { SOL_MINT } from '@/lib/utils/addresses';
+import { isPortfolioFundingAsset } from '@/lib/portfolio/tradePositions';
 import { lamportsToSol } from '@/lib/utils/formatters';
 import type { WalletFundingInfo } from '@/lib/wallet-analytics/types';
 import type {
@@ -16,8 +17,6 @@ import type {
   WinLossBucket,
 } from '@/lib/wallet-analytics/types';
 import type { WalletAnalyticsPayload } from '@/lib/wallet-analytics/types';
-
-const USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 
 function fnv1a(str: string): number {
   let h = 2166136261;
@@ -114,12 +113,6 @@ export function buildWinLossBuckets(
   ];
 }
 
-function isStableMint(mint: string, symbol: string | null): boolean {
-  const u = symbol?.toUpperCase() ?? '';
-  if (mint === USDC_MINT || mint === USDT_MINT) return true;
-  return ['USDC', 'USDT', 'USD1', 'PYUSD', 'EURC'].includes(u);
-}
-
 export async function buildSolWalletAnalytics(params: {
   address: string;
   timeframe: WalletAnalyticsTimeframe;
@@ -161,8 +154,11 @@ export async function buildSolWalletAnalytics(params: {
     const ui = Number(raw) / 10 ** decimals;
     const px = prices.get(row.mint)?.usdPrice ?? null;
     const usd = px != null && Number.isFinite(px) && Number.isFinite(ui) ? ui * px : null;
+    if (isPortfolioFundingAsset(row.mint, t?.symbol ?? null)) {
+      if (usd != null && Number.isFinite(usd)) stableUsd += usd;
+      continue;
+    }
     if (usd != null && Number.isFinite(usd)) totalTokenUsd += usd;
-    if (usd != null && isStableMint(row.mint, t?.symbol ?? null)) stableUsd += usd;
 
     positions.push({
       mint: row.mint,

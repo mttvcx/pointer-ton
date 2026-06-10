@@ -76,6 +76,7 @@ function bundleMissingPumpMeta(bundle: PulseTokenBundle): boolean {
   return (
     !t.twitter_handle?.trim() ||
     !t.creator_wallet?.trim() ||
+    !t.migrated_at ||
     (!t.website_url?.trim() && !t.telegram_url?.trim())
   );
 }
@@ -94,6 +95,12 @@ function mergePumpIntoToken(
     telegram_url: t.telegram_url?.trim() ? t.telegram_url : pump.telegram ?? t.telegram_url,
     website_url: t.website_url?.trim() ? t.website_url : pump.website ?? t.website_url,
     creator_wallet: t.creator_wallet?.trim() ? t.creator_wallet : pump.creator ?? t.creator_wallet,
+    launch_pad: t.launch_pad?.trim() ? t.launch_pad : 'pump.fun',
+    migrated_at:
+      t.migrated_at ??
+      (pump.complete ? new Date().toISOString() : t.migrated_at),
+    bonding_progress:
+      pump.complete && t.bonding_progress == null ? 100 : t.bonding_progress,
   };
 }
 

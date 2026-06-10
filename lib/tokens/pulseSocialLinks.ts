@@ -438,7 +438,11 @@ export function getPulseSocialModel(bundle: PulseTokenBundle): PulseSocialModel 
   if (token.telegram_url) addToUrlSet(urls, token.telegram_url);
   if (token.twitter_handle) {
     const h = token.twitter_handle.replace(/^@/, '').trim();
-    if (h && !h.includes('/') && !h.startsWith('http')) addToUrlSet(urls, `https://x.com/${h}`);
+    if (h.startsWith('http://') || h.startsWith('https://')) {
+      addToUrlSet(urls, h);
+    } else if (h && !h.includes('/')) {
+      addToUrlSet(urls, `https://x.com/${h}`);
+    }
   }
 
   const twitterUrls = new Set<string>();

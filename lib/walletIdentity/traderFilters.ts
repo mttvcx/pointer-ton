@@ -75,6 +75,7 @@ export type HolderDeskPick = {
   pct_of_supply: number | null;
   is_dev: boolean | null;
   is_sniper: boolean | null;
+  is_fresh?: boolean;
 };
 
 export function holderRowMatchesFilter(params: {
@@ -100,7 +101,7 @@ export function holderRowMatchesFilter(params: {
     case 'smart_money':
       return Boolean(rec?.badges.includes('smart_money')) || rec?.category === 'smart_money';
     case 'fresh':
-      return false;
+      return Boolean(row.is_fresh);
     case 'snipers':
       return Boolean(row.is_sniper);
     case 'dev_linked':

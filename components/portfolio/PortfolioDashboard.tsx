@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useCreateWallet, useExportWallet } from '@/lib/auth/solanaShims';
+import { useCreateWallet } from '@/lib/auth/solanaShims';
 import { generateEmbeddedWalletForChain } from '@/lib/wallets/embeddedCreate';
 import { explorerAccountUrlForChain } from '@/lib/chains/explorer';
 import {
@@ -48,6 +48,7 @@ import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { usePnlTrackerStore } from '@/store/pnlTracker';
 import { usePnlCalendarStore } from '@/store/pnlCalendar';
 import { useAuthSyncStore } from '@/store/authSync';
+import { readSyncedUserId } from '@/lib/hooks/useAuthSync';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { xLiveSearchContractUrl } from '@/lib/utils/xSearch';
@@ -57,8 +58,11 @@ import {
   formatRelativeTime,
   formatUsd,
   lamportsToSol,
+  parseLamportsStringToSol,
 } from '@/lib/utils/formatters';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
+import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshListener';
+import { useWalletBalancesPoll } from '@/lib/hooks/useWalletBalancesPoll';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import {
@@ -68,13 +72,16 @@ import {
   PortfolioWalletSelector,
   WalletMonogram,
 } from '@/components/portfolio/walletOs';
+import { ExportPrivateKeyModal } from '@/components/portfolio/ExportPrivateKeyModal';
 import { PortfolioWalletTableRow } from '@/components/portfolio/PortfolioWalletTableRow';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   WalletGroupsSidebar,
   filterWalletsByGroup,
 } from '@/components/portfolio/WalletGroupsSidebar';
 import { useWalletGroupsStore } from '@/store/walletGroups';
 import { ChainIcon } from '@/components/squads/ChainIcon';
+import { filterTradeTokenPositions } from '@/lib/portfolio/tradePositions';
 
 type PositionRow = {
   mint: string;
@@ -227,7 +234,6 @@ export function PortfolioDashboard({
   const pnlPortfolioScope = usePnlTrackerStore((s) => s.portfolioScope);
   const qc = useQueryClient();
   const { createWallet } = useCreateWallet();
-  const { exportWallet } = useExportWallet();
   const [tab, setTab] = useState<PortfolioTab>(initialTab ?? 'spot');
   const [spotTableTab, setSpotTableTab] = useState<SpotTableTab>('active_positions');
   const [spotActivityTab, setSpotActivityTab] = useState<'activity' | 'transfers'>('activity');
@@ -252,6 +258,7 @@ export function PortfolioDashboard({
   const [privateTransferOpen, setPrivateTransferOpen] = useState(false);
   const [splitNowOpen, setSplitNowOpen] = useState(false);
   const [funderPickerOpen, setFunderPickerOpen] = useState(false);
+  const [exportKeyWallet, setExportKeyWallet] = useState<MyWalletRow | null>(null);
   const openPnlCalendar = usePnlCalendarStore((s) => s.openCalendar);
   const walletSelectorRef = useRef<HTMLDivElement>(null);
   const funderPickerRef = useRef<HTMLDivElement>(null);
@@ -271,7 +278,11 @@ export function PortfolioDashboard({
     staleTime: 30_000,
   });
 
-  const { ready: walletsReady, activeAddress: activeTradingAddress } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
+  const {
+    ready: walletsReady,
+    activeAddress: activeTradingAddress,
+    setActiveWalletAddress,
+  } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
 
   const allWallets = useMemo(() => myWalletsQ.data?.wallets ?? [], [myWalletsQ.data?.wallets]);
   const chainWallets = useMemo(
@@ -300,6 +311,21 @@ export function PortfolioDashboard({
     () => visibleWallets.reduce((sum, w) => sum + balanceLamportsToSol(w.balance_lamports), 0),
     [visibleWallets],
   );
+
+  const walletPollIds = useMemo(
+    () => visibleWallets.map((w) => w.id),
+    [visibleWallets],
+  );
+
+  useWalletBalancesPoll({
+    enabled: authenticated && activeChain === 'sol' && walletPollIds.length > 0,
+    walletIds: walletPollIds,
+    getAccessToken,
+    queryClient: qc,
+    intervalMs: 12_000,
+    priorityWalletId:
+      selectedPortfolioWalletId !== 'all' ? selectedPortfolioWalletId : null,
+  });
 
   /** Specific wallet chosen but `/api/wallets/my` hasn't returned yet — avoid false "missing" and BigInt work on empty rows. */
   const awaitingWalletListForSelection =
@@ -358,9 +384,17 @@ export function PortfolioDashboard({
     enabled: portfolioEnabled,
     retry: (count, err) => count < 2 && err instanceof Error && /sync/i.test(err.message),
     queryFn: () => fetchPortfolioJson<PortfolioJson>(getAccessToken, selectedWalletAddress),
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: portfolioEnabled ? 15_000 : false,
+    refetchIntervalInBackground: false,
     placeholderData: (prev) => prev,
   });
+
+  const refreshPortfolio = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: ['portfolio'] });
+  }, [qc]);
+
+  usePortfolioRefreshListener(refreshPortfolio, portfolioEnabled);
 
   const portfolioDataLoading =
     (authenticated && !backendReady && !authSyncError) ||
@@ -411,10 +445,21 @@ export function PortfolioDashboard({
     selectedPortfolioWalletId === 'all'
       ? 'All Wallets'
       : selectedPortfolioWallet?.label?.trim() || (selectedPortfolioWallet ? shortenAddress(selectedPortfolioWallet.wallet_address, 4) : 'Unavailable wallet');
+  const liveSelectedSol = useMemo(() => {
+    if (selectedPortfolioWalletId === 'all' || !selectedWalletAddress) return null;
+    if (query.data?.walletAddress !== selectedWalletAddress) return null;
+    return parseLamportsStringToSol(query.data.solLamports);
+  }, [
+    selectedPortfolioWalletId,
+    selectedWalletAddress,
+    query.data?.walletAddress,
+    query.data?.solLamports,
+  ]);
+
   const selectedNativeUi =
     selectedPortfolioWalletId === 'all'
       ? combinedNativeUi
-      : balanceLamportsToSol(selectedPortfolioWallet?.balance_lamports ?? null);
+      : liveSelectedSol ?? balanceLamportsToSol(selectedPortfolioWallet?.balance_lamports ?? null);
 
   /** Keep floating PNL in sync when Portfolio wallet selector changes while tracker is open. */
   useEffect(() => {
@@ -488,16 +533,30 @@ export function PortfolioDashboard({
       return;
     }
     if (activeChain === 'sol') {
-      void exportWallet({ address: w.wallet_address }).catch((e: unknown) => {
-        toast.error('Export failed', {
-          description: e instanceof Error ? e.message.slice(0, 200) : 'Unknown error',
-        });
-      });
+      setExportKeyWallet(w);
       return;
     }
     toast.info('Linked wallet', {
       description: 'Keys stay in your wallet app — Pointer never receives your phrase.',
     });
+  }
+
+  async function setPrimaryWallet(walletId: string) {
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const res = await authJson<{ wallet: MyWalletRow }>(token, `/api/wallets/${walletId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_primary: true }),
+      });
+      if (!res.ok) throw new Error(res.message);
+      void qc.invalidateQueries({ queryKey: ['wallets-my'] });
+      toast.success('Primary wallet updated');
+    } catch (e: unknown) {
+      toast.error('Could not set primary wallet', {
+        description: e instanceof Error ? e.message.slice(0, 200) : 'Unknown error',
+      });
+    }
   }
 
   async function persistImportedPointerRow(address: string) {
@@ -555,6 +614,7 @@ export function PortfolioDashboard({
 
   const portfolio = query.data ?? EMPTY_PORTFOLIO;
   const positions = portfolio.positions ?? EMPTY_POSITIONS;
+  const tokenPositions = useMemo(() => filterTradeTokenPositions(positions), [positions]);
   const closed = portfolio.closedSells ?? EMPTY_CLOSED_SELLS;
   const trades = portfolio.trades ?? EMPTY_TRADES;
   const solUsdRate = portfolio.solUsd != null && portfolio.solUsd > 0 ? portfolio.solUsd : null;
@@ -578,10 +638,10 @@ export function PortfolioDashboard({
   };
 
   const rowsForSpotTable = useMemo(() => {
-    if (spotTableTab === 'active_positions') return positions;
+    if (spotTableTab === 'active_positions') return tokenPositions;
     if (spotTableTab === 'history') return closed;
-    return [...positions].sort((a, b) => (b.valueUsd ?? 0) - (a.valueUsd ?? 0)).slice(0, 100);
-  }, [spotTableTab, positions, closed]);
+    return [...tokenPositions].sort((a, b) => (b.valueUsd ?? 0) - (a.valueUsd ?? 0)).slice(0, 100);
+  }, [spotTableTab, tokenPositions, closed]);
 
   const filteredRows = useMemo(() => {
     const q = searchTable.trim().toLowerCase();
@@ -622,6 +682,23 @@ export function PortfolioDashboard({
 
   if (awaitingWalletListForSelection) {
     return <PortfolioLoadingSkeleton className={className} />;
+  }
+
+  if (authenticated && !backendReady && !authSyncError && !readSyncedUserId()) {
+    return (
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col items-center justify-center gap-2 bg-bg-base px-6 py-16 text-sm text-fg-secondary',
+          className,
+        )}
+      >
+        <Loader2 className="h-5 w-5 animate-spin text-accent-primary" />
+        <span>Setting up your account…</span>
+        <span className="max-w-sm text-center text-[11px] text-fg-muted">
+          Syncing profile, wallets, and starter trackers. You stay signed in — no need to start over.
+        </span>
+      </div>
+    );
   }
 
   if (selectedWalletMissing) {
@@ -667,8 +744,14 @@ export function PortfolioDashboard({
       : null;
 
   return (
-    <div className={cn('flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden text-[12px] text-fg-primary', className)}>
-      <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-2 py-1">
+    <div
+      className={cn(
+        'flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden text-[12px] text-fg-primary',
+        OS.spotChrome,
+        className,
+      )}
+    >
+      <div className={cn('flex shrink-0 items-center gap-6 border-b px-4 pt-2', OS.spotChromeHairline)}>
         {([
           ['spot', 'Spot'],
           ['wallets', 'Wallets'],
@@ -679,20 +762,20 @@ export function PortfolioDashboard({
             type="button"
             onClick={() => setTab(id)}
             className={cn(
-              'relative pb-1 text-[13px] transition',
-              tab === id ? 'font-semibold text-fg-primary' : 'text-fg-secondary hover:text-fg-secondary',
+              'relative pb-2 text-[13px] transition',
+              tab === id ? 'font-semibold text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
             )}
           >
             {label}
             {tab === id ? (
-              <span className="absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-accent-primary" />
+              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-fg-primary" />
             ) : null}
           </button>
         ))}
       </div>
 
       {portfolioLoadError ? (
-        <div className="mx-2 mt-2 flex shrink-0 items-center justify-between gap-3 rounded-md border border-signal-bear/30 bg-signal-bear/10 px-3 py-2 text-[12px] text-signal-bear">
+        <div className="mx-4 mt-2 flex shrink-0 items-center justify-between gap-3 rounded-sm border border-signal-bear/30 bg-signal-bear/10 px-3 py-2 text-[12px] text-signal-bear">
           <span>
             Could not load portfolio
             <span className="ml-1.5 text-[11px] text-fg-secondary">{portfolioLoadError}</span>
@@ -707,7 +790,13 @@ export function PortfolioDashboard({
         </div>
       ) : null}
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-2 py-2">
+      <div
+        className={cn(
+          'flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2',
+          OS.spotChrome,
+          OS.spotChromeHairline,
+        )}
+      >
         <PortfolioWalletSelector
           containerRef={walletSelectorRef}
           open={walletSelectorOpen}
@@ -728,119 +817,125 @@ export function PortfolioDashboard({
             setWalletSelectorOpen(false);
           }}
           combinedNative={combinedNativeUi}
+          headerNativeBalance={selectedNativeUi}
           nativeSym={nativeSym}
           balanceOf={balanceLamportsToSol}
           selectedDisplayName={selectedDisplayName}
           selectedWallet={selectedPortfolioWallet}
           tradingWalletAddress={activeTradingAddress}
         />
-        <label
-          className={cn(
-            'flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-raised px-2 text-[10px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-secondary',
-            showHidden && 'border-accent-primary/35 text-fg-primary',
-          )}
-          title="Show archived / hidden wallets"
-        >
-          <input
-            type="checkbox"
-            checked={showHidden}
-            onChange={(e) => setShowHidden(e.target.checked)}
-            className="sr-only"
-          />
-          <EyeOff className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2} />
-          <span className="hidden sm:inline">Hidden</span>
-        </label>
+
+        {tab === 'wallets' ? (
+          <label
+            className={cn(
+              'flex h-7 cursor-pointer items-center gap-1.5 px-1 text-[10px] font-medium text-fg-muted transition hover:text-fg-secondary',
+              showHidden && 'text-fg-primary',
+            )}
+            title="Show archived / hidden wallets"
+          >
+            <input
+              type="checkbox"
+              checked={showHidden}
+              onChange={(e) => setShowHidden(e.target.checked)}
+              className="sr-only"
+            />
+            <EyeOff className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+            <span className="hidden sm:inline">Hidden</span>
+          </label>
+        ) : null}
+
         <div className="min-w-2 flex-1" />
-        <div className="flex h-8 min-w-[140px] max-w-[260px] flex-1 items-center gap-2 rounded-lg border border-border-subtle bg-bg-sunken px-3 transition focus-within:border-accent-primary/50 focus-within:outline-none focus-within:ring-1 focus-within:ring-accent-primary/20">
-          <Search className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2.2} />
-          <input
-            value={searchWallets}
-            onChange={(e) => setSearchWallets(e.target.value)}
-            placeholder="Search other wallets"
-            className="min-w-0 flex-1 border-0 bg-transparent text-xs text-fg-primary outline-none placeholder:text-fg-secondary"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (activeChain !== 'sol') {
-              toast.message('PNL tracker is available on Solana');
-              return;
-            }
-            openPnlFromPortfolio({
-              walletAddress: selectedWalletAddress,
-              label: selectedDisplayName,
-            });
-          }}
-          className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-bg-raised text-fg-secondary transition',
-            'hover:border-accent-primary/35 hover:bg-accent-primary/10 hover:text-accent-primary',
-            pnlTrackerOpen && pnlPortfolioScope !== null && 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
-          )}
-          aria-label="Open PNL tracker"
-          title={`Open PNL tracker — ${selectedDisplayName}`}
-        >
-          <ImageUp className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setUsdMode((v) => !v)}
-          className={cn(
-            'h-8 shrink-0 rounded-lg border border-border-subtle bg-bg-sunken px-2.5 text-xs font-semibold tabular-nums transition hover:bg-bg-hover',
-            usdMode ? 'text-fg-primary' : 'text-fg-secondary',
-          )}
-        >
-          {usdMode ? 'USD' : nativeSym}
-        </button>
-        <div className="flex shrink-0 items-center gap-0.5">
-          {(['1d', '7d', '30d', 'max'] as const).map((f) => (
+
+        {tab === 'spot' ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <button
-              key={f}
               type="button"
-              onClick={() => setTimeFilter(f)}
+              onClick={() => {
+                if (activeChain !== 'sol') {
+                  toast.message('PNL tracker is available on Solana');
+                  return;
+                }
+                openPnlFromPortfolio({
+                  walletAddress: selectedWalletAddress,
+                  label: selectedDisplayName,
+                });
+              }}
               className={cn(
-                'px-2 py-1 text-xs font-medium transition-colors',
-                timeFilter === f
-                  ? 'border-b-2 border-accent-primary font-semibold text-fg-primary'
-                  : 'text-fg-secondary hover:text-fg-secondary',
+                'flex h-7 w-7 shrink-0 items-center justify-center text-fg-muted transition hover:text-fg-primary',
+                pnlTrackerOpen && pnlPortfolioScope !== null && 'text-accent-primary',
+              )}
+              aria-label="Open PNL tracker"
+              title={`Open PNL tracker — ${selectedDisplayName}`}
+            >
+              <ImageUp className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setUsdMode((v) => !v)}
+              className={cn(
+                'inline-flex h-7 items-center gap-1 px-1 text-[10px] font-semibold uppercase tracking-wide tabular-nums transition',
+                usdMode ? 'text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
               )}
             >
-              {f}
+              {usdMode ? 'USD' : nativeSym}
+              <ArrowLeftRight className="h-2.5 w-2.5 opacity-60" strokeWidth={2.25} aria-hidden />
             </button>
-          ))}
-        </div>
+            <div className="flex items-center gap-3 pl-1">
+              {(['1d', '7d', '30d', 'max'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setTimeFilter(f)}
+                  className={cn(
+                    'text-[11px] font-medium uppercase tracking-wide transition',
+                    timeFilter === f
+                      ? 'text-fg-primary'
+                      : 'text-fg-muted hover:text-fg-secondary',
+                  )}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {tab === 'trackers' ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-1 sm:p-2">
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col overflow-hidden border-t',
+            OS.spotChromeHairline,
+            OS.spotSurface,
+          )}
+        >
           <TrackersPanel className="min-h-0 flex-1" prefillWallet={prefillTrackerWallet} />
         </div>
       ) : (
         <div
           className={cn(
-            'flex min-h-0 flex-1 flex-col',
-            tab === 'wallets' ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain',
+            'flex min-h-0 flex-1 flex-col overflow-hidden border-t',
+            OS.spotChromeHairline,
           )}
         >
           {tab === 'spot' ? (
         portfolioDataLoading ? (
           <PortfolioBodySkeleton />
         ) : (
-        <div className="flex flex-col gap-4 p-2 sm:p-3">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2.5fr_1fr]">
-            <div className="min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
+        <div className={cn('flex min-h-0 flex-1 flex-col', OS.spotSurface)}>
+          <div
+            className={cn(
+              'grid shrink-0 grid-cols-1 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_minmax(0,260px)]',
+              OS.spotDivideX,
+              OS.spotDivideY,
+              'border-b',
+              OS.spotHairline,
+            )}
+          >
+            <div className="min-w-0">
               <div className="flex flex-col gap-3 p-4">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-fg-primary">Balance</span>
-                  <button
-                    type="button"
-                    onClick={() => setUsdMode((v) => !v)}
-                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium uppercase tracking-wide text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary"
-                    title={`Switch to ${usdMode ? nativeSym : 'USD'}`}
-                  >
-                    {usdMode ? 'USD' : nativeSym}
-                    <ArrowLeftRight className="h-2.5 w-2.5 shrink-0 opacity-70" strokeWidth={2.25} aria-hidden />
-                  </button>
                 </div>
 
                 <div>
@@ -866,7 +961,7 @@ export function PortfolioDashboard({
                   </p>
                 </div>
 
-                <div className="flex items-start justify-between gap-2 border-t border-border-subtle pt-2">
+                <div className={cn('flex items-start justify-between gap-2 border-t pt-2', OS.spotHairline)}>
                   <div>
                     <p className="text-[10px] text-fg-secondary">Tradeable Balance</p>
                     <p className="mt-0.5 font-sans text-sm font-semibold tabular-nums text-fg-primary">
@@ -886,11 +981,11 @@ export function PortfolioDashboard({
               </div>
             </div>
 
-            <div className="relative min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
+            <div className="relative min-w-0">
               <div className="relative z-10 flex items-center justify-between px-4 pb-2 pt-4">
                 <span className="text-xs font-semibold text-fg-primary">Realized PNL</span>
                 <div className="pointer-events-auto relative z-10 flex items-center gap-2">
-                  <span className="text-[10px] text-fg-secondary">30d</span>
+                  <span className="text-[10px] uppercase tracking-wide text-fg-muted">{timeFilter}</span>
                   <button
                     type="button"
                     title="View PNL Calendar"
@@ -914,7 +1009,7 @@ export function PortfolioDashboard({
                         usdMode,
                       });
                     }}
-                    className="relative z-10 flex h-7 w-7 items-center justify-center rounded border border-border-subtle text-fg-secondary transition hover:border-accent-primary/35 hover:bg-bg-hover hover:text-fg-primary"
+                    className="relative z-10 flex h-7 w-7 items-center justify-center rounded-md text-fg-secondary transition hover:bg-bg-hover/80 hover:text-fg-primary"
                   >
                     <Calendar className="pointer-events-none h-3.5 w-3.5" strokeWidth={2} />
                   </button>
@@ -923,12 +1018,12 @@ export function PortfolioDashboard({
               <div className="px-4 pb-4">
                 <TinyLineChart
                   positive={portfolio.summary.realizedPnlUsd >= 0}
-                  empty={trades.length === 0 && positions.length === 0}
+                  empty={trades.length === 0 && tokenPositions.length === 0}
                 />
               </div>
             </div>
 
-            <div className="min-w-0 rounded-lg border border-border-subtle bg-bg-raised">
+            <div className="min-w-0">
               <div className="flex flex-col gap-2 p-4">
                 <span className="mb-1 text-xs font-semibold text-fg-primary">Performance</span>
 
@@ -968,7 +1063,7 @@ export function PortfolioDashboard({
                   </div>
                 ))}
 
-                <div className="mt-3 border-t border-border-subtle pt-3">
+                <div className={cn('mt-3 border-t pt-3', OS.spotHairline)}>
                   <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-fg-secondary">
                     Return Distribution
                   </p>
@@ -1026,10 +1121,16 @@ export function PortfolioDashboard({
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised">
-              <div className="flex flex-wrap items-center gap-4 border-b border-border-subtle px-4 py-2">
-                <div className="flex flex-wrap items-center gap-4">
+          <div
+            className={cn(
+              'grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]',
+              OS.spotDivideX,
+              OS.spotDivideY,
+            )}
+          >
+            <section className="flex min-w-0 flex-col overflow-hidden">
+              <div className={cn('flex flex-wrap items-center gap-4 border-b px-4 py-2', OS.spotHairline)}>
+                <div className="flex flex-wrap items-center gap-5">
                   {([
                     ['active_positions', 'Active Positions'],
                     ['history', 'History'],
@@ -1040,18 +1141,21 @@ export function PortfolioDashboard({
                       type="button"
                       onClick={() => setSpotTableTab(id)}
                       className={cn(
-                        'px-2 py-1 text-xs font-medium transition-colors',
+                        'relative pb-1 text-xs font-medium transition',
                         spotTableTab === id
-                          ? 'border-b-2 border-accent-primary font-semibold text-fg-primary'
-                          : 'text-fg-secondary hover:text-fg-secondary',
+                          ? 'font-semibold text-fg-primary'
+                          : 'text-fg-muted hover:text-fg-secondary',
                       )}
                     >
                       {label}
+                      {spotTableTab === id ? (
+                        <span className="absolute inset-x-0 -bottom-px h-0.5 bg-fg-primary" />
+                      ) : null}
                     </button>
                   ))}
                 </div>
                 <div className="ml-auto flex flex-wrap items-center gap-2">
-                  <div className="flex h-8 min-w-[140px] items-center gap-2 rounded-lg border border-border-subtle bg-bg-sunken px-3 transition focus-within:border-accent-primary/50 focus-within:outline-none focus-within:ring-1 focus-within:ring-accent-primary/20">
+                  <div className="flex h-8 min-w-[140px] items-center gap-2 border border-border-subtle/40 bg-bg-base/20 px-2.5 focus-within:border-border-subtle/70">
                     <Search className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2} />
                     <input
                       value={searchTable}
@@ -1072,16 +1176,16 @@ export function PortfolioDashboard({
                   <button
                     type="button"
                     onClick={() => setUsdMode((v) => !v)}
-                    className="h-8 rounded-lg border border-border-subtle bg-bg-sunken px-2 text-[10px] font-semibold tabular-nums text-fg-primary transition hover:bg-bg-hover"
+                    className="h-8 rounded-md px-2 text-[10px] font-semibold tabular-nums text-fg-primary transition hover:bg-bg-hover/80"
                   >
                     {usdMode ? 'USD' : nativeSym}
                   </button>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
                 <table className="w-full border-collapse text-left">
-                  <thead className="sticky top-0 bg-bg-sunken">
-                    <tr className="border-b border-border-subtle">
+                  <thead className="sticky top-0 z-[1] bg-bg-raised">
+                    <tr className={cn('border-b', OS.spotHairline)}>
                       <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-fg-secondary">
                         Token
                       </th>
@@ -1124,7 +1228,7 @@ export function PortfolioDashboard({
                       return (
                         <tr
                           key={`${mint}-${i}`}
-                          className="h-12 border-b border-border-subtle transition-colors hover:bg-bg-hover"
+                          className={cn('h-12 border-b transition-colors hover:bg-bg-hover/70', OS.spotHairline)}
                         >
                           <td className="px-4 align-middle">
                             <div className="flex items-center gap-2">
@@ -1210,8 +1314,8 @@ export function PortfolioDashboard({
               </div>
             </section>
 
-            <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised">
-              <div className="flex items-center gap-3 border-b border-border-subtle px-4 py-2">
+            <section className="flex min-w-0 flex-col overflow-hidden">
+              <div className={cn('flex items-center gap-3 border-b px-4 py-2', OS.spotHairline)}>
                 <button
                   type="button"
                   onClick={() => setSpotActivityTab('activity')}
@@ -1237,12 +1341,12 @@ export function PortfolioDashboard({
                   Transfers
                 </button>
               </div>
-              <div className="px-2 pb-3 pt-2 sm:px-3">
+              <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-2 sm:px-3">
                 {spotActivityTab === 'activity' ? (
                   trades.length > 0 ? (
                     <table className="w-full table-fixed border-separate border-spacing-0 text-left text-[11px]">
-                      <thead className="sticky top-0 z-[1] bg-bg-sunken">
-                        <tr className="border-b border-border-subtle">
+                      <thead className="sticky top-0 z-[1] bg-bg-raised">
+                        <tr className={cn('border-b', OS.spotHairline)}>
                           <th scope="col" className="w-[4.5rem] whitespace-nowrap px-2 py-2.5 text-left text-[10px] font-semibold tracking-tight text-fg-secondary">
                             Type
                           </th>
@@ -1268,7 +1372,7 @@ export function PortfolioDashboard({
                         {trades.map((t) => (
                           <tr
                             key={t.id}
-                            className="border-b border-border-subtle transition-colors hover:bg-bg-hover"
+                            className={cn('border-b transition-colors hover:bg-bg-hover/70', OS.spotHairline)}
                           >
                             <td className="px-2 py-2.5 align-middle">
                               <span
@@ -1353,30 +1457,24 @@ export function PortfolioDashboard({
       ) : null}
 
       {tab === 'wallets' ? (
-        <div className="grid min-h-0 flex-1 grid-cols-12 gap-2 overflow-hidden p-2 md:gap-3 md:p-3">
-          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
-            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-3 py-2">
-              <div
-                className={cn(
-                  'flex min-w-[140px] flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 transition focus-within:border-border-default focus-within:ring-1 focus-within:ring-accent-primary/25',
-                  OS.borderSoft,
-                  'bg-bg-sunken',
-                )}
-              >
-                <Search className="h-3.5 w-3.5 shrink-0 text-fg-secondary" strokeWidth={2.2} />
+        <div className={cn('grid min-h-0 flex-1 grid-cols-12 overflow-hidden md:divide-x', OS.spotSurface, OS.spotDivideX)}>
+          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden md:col-span-6">
+            <div className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2', OS.spotHairline)}>
+              <div className="flex min-w-[140px] flex-1 items-center gap-2 border border-border-subtle/40 bg-bg-sunken/30 px-2.5 py-1.5 focus-within:border-border-subtle/70">
+                <Search className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2.2} />
                 <input
                   value={searchWallets}
                   onChange={(e) => setSearchWallets(e.target.value)}
                   placeholder="Search by name or address…"
-                  className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-secondary"
+                  className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setShowHidden((v) => !v)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-sunken px-2.5 py-1.5 text-[10px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary',
-                  showHidden && 'border-accent-primary/35 text-fg-primary',
+                  'inline-flex h-8 items-center gap-1.5 border border-border-subtle/40 px-2.5 text-[10px] font-medium text-fg-muted transition hover:text-fg-primary',
+                  showHidden && 'border-border-subtle text-fg-primary',
                 )}
               >
                 {showHidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={2} /> : <Eye className="h-3.5 w-3.5" strokeWidth={2} />}
@@ -1385,11 +1483,7 @@ export function PortfolioDashboard({
               <button
                 type="button"
                 onClick={() => setImportOpen(true)}
-                className={cn(
-                  'rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold text-fg-secondary transition hover:border-border-default hover:bg-bg-hover hover:text-fg-primary',
-                  OS.borderSoft,
-                  'bg-bg-sunken',
-                )}
+                className="inline-flex h-8 items-center border border-border-subtle/40 px-2.5 text-[10px] font-semibold text-fg-muted transition hover:border-border-subtle hover:text-fg-primary"
               >
                 Import
               </button>
@@ -1398,7 +1492,7 @@ export function PortfolioDashboard({
                   type="button"
                   onClick={() => setCreateMenuOpen((v) => !v)}
                   disabled={creating}
-                  className="inline-flex items-center gap-1 rounded-lg bg-accent-primary px-2.5 py-1.5 text-[10px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
+                  className="inline-flex h-8 items-center gap-1 bg-accent-primary px-2.5 text-[10px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
                 >
                   {creating ? 'Creating' : 'Create'}{' '}
                   <ChevronDown className="h-3 w-3 opacity-90" />
@@ -1429,38 +1523,44 @@ export function PortfolioDashboard({
               onSelectGroup={setSelectedWalletGroupId}
             />
 
-            <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-secondary">
+            <div className={cn('flex shrink-0 items-center gap-3 border-b px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-secondary', OS.spotHairline)}>
               <span className="min-w-0 flex-1">Wallet</span>
-              <span className="flex shrink-0 items-center gap-6 pr-[5.5rem]">
+              <span className="flex shrink-0 items-center gap-6 pr-[9.5rem]">
                 <span className="min-w-[4.5rem] text-right">Balance</span>
                 <span className="min-w-[2.5rem] text-right">Holdings</span>
               </span>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 py-1.5 [scrollbar-width:thin]">
-              {walletRows.map((w) => {
-                const trading = activeTradingAddress === w.wallet_address;
-                return (
-                  <PortfolioWalletTableRow
-                    key={w.id}
-                    wallet={w}
-                    activeChain={activeChain}
-                    trading={trading}
-                    selected={selectedPortfolioWalletId === w.id}
-                    balanceSol={balanceLamportsToSol(w.balance_lamports)}
-                    holdingsCount={0}
-                    onSelect={() => {
-                      setSelectedPortfolioWalletId(w.id);
-                      setFunderWalletId(w.id);
-                    }}
-                    onOpenAnalytics={() => openWalletAnalytics(w.wallet_address)}
-                    onSaveLabel={(label) => saveWalletLabel(w.id, label)}
-                    onArchive={() => void archiveWallet(w.id, w.is_archived)}
-                    onExportKey={() => onExportWalletKey(w)}
-                    explorerUrl={explorerAccountUrlForChain(w.wallet_address, activeChain)}
-                  />
-                );
-              })}
+            <TooltipProvider delayDuration={120}>
+              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 py-1.5 [scrollbar-width:thin]">
+                {walletRows.map((w) => {
+                  const trading = activeTradingAddress === w.wallet_address;
+                  return (
+                    <PortfolioWalletTableRow
+                      key={w.id}
+                      wallet={w}
+                      activeChain={activeChain}
+                      trading={trading}
+                      selected={selectedPortfolioWalletId === w.id}
+                      balanceSol={balanceLamportsToSol(w.balance_lamports)}
+                      holdingsCount={0}
+                      onSelect={() => {
+                        setSelectedPortfolioWalletId(w.id);
+                        setFunderWalletId(w.id);
+                      }}
+                      onOpenAnalytics={() => openWalletAnalytics(w.wallet_address)}
+                      onSaveLabel={(label) => saveWalletLabel(w.id, label)}
+                      onArchive={() => void archiveWallet(w.id, w.is_archived)}
+                      onExportKey={() => onExportWalletKey(w)}
+                      onSetPrimary={() => void setPrimaryWallet(w.id)}
+                      onSetTrading={() => {
+                        setActiveWalletAddress(w.wallet_address);
+                        toast.success('Trading wallet updated');
+                      }}
+                      explorerUrl={explorerAccountUrlForChain(w.wallet_address, activeChain)}
+                    />
+                  );
+                })}
 
               {walletRows.length === 0 ? (
                 <div
@@ -1480,11 +1580,12 @@ export function PortfolioDashboard({
                   </p>
                 </div>
               ) : null}
-            </div>
+              </div>
+            </TooltipProvider>
           </section>
 
-          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-raised md:col-span-6">
-            <div className="border-b border-border-subtle bg-bg-base/40 px-3 py-2.5">
+          <section className="col-span-12 flex min-h-0 flex-col overflow-hidden md:col-span-6">
+            <div className={cn('border-b px-3 py-2.5', OS.spotHairline, 'bg-bg-base/20')}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-fg-secondary">Capital routing</h3>
@@ -1644,7 +1745,7 @@ export function PortfolioDashboard({
         </div>
       )}
 
-      <div className="flex shrink-0 items-center justify-between border-t border-border-subtle px-2 py-1 text-[10px] text-fg-secondary">
+      <div className={cn('flex shrink-0 items-center justify-between border-t px-4 py-1 text-[10px] text-fg-muted', OS.spotChromeHairline, OS.spotChrome)}>
         <div className="flex items-center gap-2">
           <span>BTC</span>
           <span className="tabular-nums text-fg-primary">{btc?.usdPrice != null ? `$${formatNumber(btc.usdPrice, { decimals: 2 })}` : '—'}</span>
@@ -1717,6 +1818,12 @@ export function PortfolioDashboard({
           onBack={() => setSplitNowOpen(false)}
         />
       ) : null}
+
+      <ExportPrivateKeyModal
+        open={exportKeyWallet != null}
+        wallet={exportKeyWallet}
+        onClose={() => setExportKeyWallet(null)}
+      />
 
     </div>
   );

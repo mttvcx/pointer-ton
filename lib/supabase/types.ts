@@ -268,6 +268,7 @@ export interface Database {
           mint: string;
           signature: string;
           wallet: string;
+          event_kind: 'swap' | 'remove_liq' | 'add_liq';
           side: TradeSide;
           token_amount_raw: number;
           token_amount_ui: number;
@@ -287,6 +288,7 @@ export interface Database {
           mint: string;
           signature: string;
           wallet: string;
+          event_kind?: 'swap' | 'remove_liq' | 'add_liq';
           side: TradeSide;
           token_amount_raw: number;
           token_amount_ui: number;

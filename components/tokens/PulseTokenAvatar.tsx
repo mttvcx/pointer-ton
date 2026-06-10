@@ -213,7 +213,7 @@ function LaunchpadCornerBadge({
         rel="noopener noreferrer"
         title={chrome.cornerTitle}
         aria-label={chrome.cornerTitle}
-        className={cn(pos, 'transition hover:scale-105')}
+        className={cn(pos, 'cursor-pointer transition hover:scale-105')}
         onClick={(e) => e.stopPropagation()}
       >
         {wrap}

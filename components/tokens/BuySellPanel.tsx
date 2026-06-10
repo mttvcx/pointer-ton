@@ -10,7 +10,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import {
-  AlertTriangle,
   ArrowBigUp,
   ArrowDownRight,
   ArrowUpRight,
@@ -27,7 +26,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
-import { BUY_PRESETS_SOL, BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/utils/constants';
+import { BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/utils/constants';
+import { resolveBuyPresetsSol, resolveDefaultBuyPresetSol } from '@/lib/beta/founderBeta';
 import { buyQuoteAmountFields, spendAssetLabel } from '@/lib/trading/spendAsset';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import { USDC_MINT } from '@/lib/utils/addresses';
@@ -58,9 +58,9 @@ import type { Tables } from '@/lib/supabase/types';
 import { mevModeToLanding, type MevMode } from '@/lib/trading/mevMode';
 import { PresetTradePanel, type PresetTradeRow } from '@/components/trading/PresetTradePanel';
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
-import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
-import { TokenInfoTaxBanner, hasTokenTax } from '@/components/tokens/TokenInfoTaxBanner';
+import { TokenInfoPanel } from '@/components/tokens/TokenInfoPanel';
 import { TokenTradeDeskStrip } from '@/components/tokens/TokenTradeDeskStrip';
+import { isQaDeskLiveModeClient } from '@/lib/qa/qaDeskLiveModeClient';
 import {
   pickTokenTradePerfChanges,
   type TokenTradePerfTf,
@@ -129,95 +129,6 @@ function TradeAmountInput({
         className="focus-ring min-w-0 flex-1 border-0 bg-transparent py-0.5 text-right font-sans text-sm font-medium tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/80 placeholder:italic"
       />
     </div>
-  );
-}
-
-function TokenInfoGrid({ m }: { m: TokenExtendedMetrics | null | undefined }) {
-  const pct = (n: number | null | undefined) =>
-    `${formatNumber(n ?? 0, { decimals: 2 })}%`;
-
-  const dexLabel = m?.dexPaid == null ? 'Unpaid' : m.dexPaid ? 'Paid' : 'Unpaid';
-  const dexCls = tokenMetricValueClass('dex', 0, m?.dexPaid);
-
-  const cells: { label: string; value: ReactNode; valueClass: string }[] = [
-    {
-      label: 'Top 10 H.',
-      value: pct(m?.top10HolderPct),
-      valueClass: tokenMetricValueClass('top10', m?.top10HolderPct ?? 0),
-    },
-    {
-      label: 'Dev H.',
-      value: pct(m?.devHoldingPct),
-      valueClass: tokenMetricValueClass('devh', m?.devHoldingPct ?? 0),
-    },
-    {
-      label: 'Snipers H.',
-      value: pct(m?.sniperHolderPct),
-      valueClass: tokenMetricValueClass('sniper', m?.sniperHolderPct ?? 0),
-    },
-    {
-      label: 'Insiders',
-      value: pct(m?.insidersPct),
-      valueClass: tokenMetricValueClass('insider', m?.insidersPct ?? 0),
-    },
-    {
-      label: 'Bundlers',
-      value: pct(m?.bundlersPct),
-      valueClass: tokenMetricValueClass('bundler', m?.bundlersPct ?? 0),
-    },
-    {
-      label: 'LP Burned',
-      value: pct(m?.lpBurnedPct),
-      valueClass: tokenMetricValueClass('lp', m?.lpBurnedPct ?? 0),
-    },
-    {
-      label: 'Holders',
-      value: formatNumber(m?.holders ?? 0, { decimals: 0 }),
-      valueClass: tokenMetricValueClass('holders', m?.holders ?? 0),
-    },
-    {
-      label: 'Pro Traders',
-      value: formatNumber(m?.proTraders ?? 0, { decimals: 0 }),
-      valueClass: tokenMetricValueClass('pro', m?.proTraders ?? 0),
-    },
-    {
-      label: 'Dex Paid',
-      value:
-        m?.dexPaid === false || m?.dexPaid == null ? (
-          <span className="inline-flex items-center justify-center gap-0.5">
-            <AlertTriangle className="inline h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-            {dexLabel}
-          </span>
-        ) : (
-          dexLabel
-        ),
-      valueClass: dexCls,
-    },
-  ];
-
-  return (
-    <section>
-      <div className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-muted">Token Info</div>
-      <div className="overflow-hidden rounded-lg bg-border-subtle">
-        {hasTokenTax(m?.taxPct) ? <TokenInfoTaxBanner taxPct={m.taxPct} /> : null}
-        <div className="grid grid-cols-3 gap-px">
-        {cells.map((item) => (
-          <div
-            key={item.label}
-            className={cn(
-              'flex flex-col items-center justify-center px-1 py-2',
-              tokenMetricCellSurface(item.valueClass),
-            )}
-          >
-            <div className={cn(item.valueClass, item.label !== 'Dex Paid' && 'truncate')}>
-              {item.value}
-            </div>
-            <div className="mt-0.5 text-[10px] uppercase tracking-wide text-fg-muted">{item.label}</div>
-          </div>
-        ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -323,7 +234,7 @@ export function BuySellPanel({
 
   const [tab, setTab] = useState<TradeSide>(initialTradeSide);
   const [perfTf, setPerfTf] = useState<TokenTradePerfTf>('6h');
-  const [activePresetSol, setActivePresetSol] = useState<number | null>(BUY_PRESETS_SOL[0] ?? 0.1);
+  const [activePresetSol, setActivePresetSol] = useState<number | null>(resolveDefaultBuyPresetSol());
   const [buyCustomSol, setBuyCustomSol] = useState('');
   const [sellPct, setSellPct] = useState<(typeof SELL_PCTS)[number]>(100);
   const [sellCustomUi, setSellCustomUi] = useState('');
@@ -375,7 +286,10 @@ export function BuySellPanel({
   } = useTokenExtendedMetrics(mint);
 
   const perfChanges = useMemo(
-    () => pickTokenTradePerfChanges(marketSnapshot?.extended_metrics, mint),
+    () =>
+      pickTokenTradePerfChanges(marketSnapshot?.extended_metrics, mint, {
+        allowSynthetic: !isQaDeskLiveModeClient(mint),
+      }),
     [marketSnapshot?.extended_metrics, mint],
   );
 
@@ -548,13 +462,13 @@ export function BuySellPanel({
     }
     const fromPreset = activePreset?.buy_amounts_sol;
     if (fromPreset && fromPreset.length > 0) return fromPreset;
-    return [...BUY_PRESETS_SOL];
+    return [...resolveBuyPresetsSol()];
   }, [activePreset?.buy_amounts_sol, activeChain, spendAsset]);
 
   const buyRowChips = useMemo(() => {
     const chips = buyChipAmounts.slice(0, 4);
     while (chips.length < 4) {
-      chips.push(BUY_PRESETS_SOL[chips.length] ?? BUY_PRESETS_SOL[0] ?? 0.1);
+      chips.push(resolveBuyPresetsSol()[chips.length] ?? resolveDefaultBuyPresetSol());
     }
     return chips;
   }, [buyChipAmounts]);
@@ -1026,7 +940,7 @@ export function BuySellPanel({
     return ([1, 2, 3] as const).map((slot, i) => ({
       slot,
       name: fallbackNames[i] ?? `Preset ${slot}`,
-      buy_amounts_sol: [...BUY_PRESETS_SOL],
+      buy_amounts_sol: [...resolveBuyPresetsSol()],
       slippage_bps: DEFAULT_SLIPPAGE_BPS,
       dynamic_slippage: true,
       mev_mode: 'reduced' as MevMode,
@@ -1462,7 +1376,7 @@ export function BuySellPanel({
         {wallet && authenticated ? (
           <PresetTradePanel presets={presetTradeRows} disabled={!authenticated} />
         ) : null}
-        <TokenInfoGrid m={effectiveExtendedTape} />
+        <TokenInfoPanel mint={mint} compactGrid />
         <div className="border-t border-border-subtle pt-2">
           <div className="flex items-center gap-1.5 py-1">
             <span className="shrink-0 text-[10px] uppercase tracking-wider text-fg-muted">CA:</span>
