@@ -12,6 +12,7 @@ import { demoFixturesEnabledServer } from '@/lib/dev/demoPolicy';
 import { PULSE_X_HOVER_QA_MINT } from '@/lib/utils/solDemoMints';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 import { ensureTokenDexSnapshot } from '@/lib/market/ensureTokenDexSnapshot';
+import { hydratePumpFunTokenRow } from '@/lib/market/hydratePumpFunTokenRow';
 import { resolveTokenSupplyUi } from '@/lib/tokens/supplyUi';
 
 /** Compact USD market-cap label (e.g. "$121M" / "$1.4B" / "$640K"). */
@@ -70,11 +71,15 @@ export default async function TokenDetailPage({
   if (process.env.NODE_ENV !== 'production') {
     console.log('[token-hydrate] page call', mint);
   }
-  const token = await cachedEnsureTokenRowFromDas(mint);
+  let token = await cachedEnsureTokenRowFromDas(mint);
+  if (token && !token.creator_wallet?.trim()) {
+    token = await hydratePumpFunTokenRow(mint, token);
+  }
   if (process.env.NODE_ENV !== 'production') {
     console.log('[token-hydrate] page result', mint, {
       rowMint: token?.mint ?? null,
       symbol: token?.symbol ?? null,
+      creatorWallet: token?.creator_wallet ?? null,
       returnValue: token ? 'row' : 'null',
     });
   }

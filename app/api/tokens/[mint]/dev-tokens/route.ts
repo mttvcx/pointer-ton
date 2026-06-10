@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getLatestSnapshotsForMints, getTokenByMint, listTokensByCreatorWallet } from '@/lib/db/tokens';
+import { ensureTokenRowFromDas } from '@/lib/helius/feed';
+import { hydratePumpFunTokenRow } from '@/lib/market/hydratePumpFunTokenRow';
 import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
 import { isValidPublicKey } from '@/lib/utils/addresses';
 
@@ -19,7 +21,10 @@ export async function GET(
     return NextResponse.json({ tokens: [], qaOnly: true });
   }
 
-  const token = await getTokenByMint(mint);
+  let token = (await getTokenByMint(mint)) ?? (await ensureTokenRowFromDas(mint));
+  if (token && !token.creator_wallet?.trim()) {
+    token = await hydratePumpFunTokenRow(mint, token);
+  }
   const creator = token?.creator_wallet?.trim();
   if (!creator) {
     return NextResponse.json({ tokens: [], creator: null });

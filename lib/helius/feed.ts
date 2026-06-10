@@ -473,15 +473,15 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
     return pulseTwitterProfileHoverTestTokenRow();
   }
 
-  const existing = await getTokenByMint(canonical);
+  let existing = await getTokenByMint(canonical);
+  if (existing && !existing.creator_wallet?.trim()) {
+    existing = await hydratePumpFunTokenRow(canonical, existing);
+  }
   if (
     existing?.name?.trim() &&
     existing?.symbol?.trim() &&
     existing?.image_url?.trim()
   ) {
-    if (!existing.creator_wallet?.trim()) {
-      return hydratePumpFunTokenRow(canonical, existing);
-    }
     return existing;
   }
 
@@ -495,14 +495,16 @@ export async function ensureTokenRowFromSolanaMint(mint: string): Promise<TokenR
   }
 
   if (!heliusOk) {
-    return ensureTokenRowFromDexScreener(canonical, 'sol');
+    const row = await ensureTokenRowFromDexScreener(canonical, 'sol');
+    return row ? hydratePumpFunTokenRow(canonical, row) : null;
   }
 
   try {
     const asset = await heliusDasRpc<Asset>('getAsset', { id: canonical });
     const ev = launchpadEventFromDasAsset(asset);
     if (!ev) {
-      return ensureTokenRowFromDexScreener(canonical, 'sol');
+      const row = await ensureTokenRowFromDexScreener(canonical, 'sol');
+      return row ? hydratePumpFunTokenRow(canonical, row) : null;
     }
     if (!existing) {
       const preview = classifyLaunchEventForIngest(ev, 'das_hydrate');

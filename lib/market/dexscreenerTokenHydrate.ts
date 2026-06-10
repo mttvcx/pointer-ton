@@ -9,6 +9,7 @@ import {
   fetchDexMetricsForMints,
   type DexPairRow,
 } from '@/lib/market/dexscreenerPulse';
+import { hydratePumpFunTokenRow } from '@/lib/market/hydratePumpFunTokenRow';
 
 const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   sol: 'solana',
@@ -42,7 +43,10 @@ export async function ensureTokenRowFromDexScreener(
   const chainPath = CHAIN_PATH[chain];
   if (!chainPath) return null;
 
-  const existing = await getTokenByMint(mint);
+  let existing = await getTokenByMint(mint);
+  if (existing && !existing.creator_wallet?.trim()) {
+    existing = await hydratePumpFunTokenRow(mint, existing);
+  }
   if (
     existing?.name?.trim() &&
     existing?.symbol?.trim() &&
@@ -133,6 +137,6 @@ export async function ensureTokenRowFromDexScreener(
     }
   }
 
-  if (saved) return saved;
-  return getTokenByMint(mint);
+  const row = saved ?? (await getTokenByMint(mint));
+  return row ? hydratePumpFunTokenRow(mint, row) : null;
 }
