@@ -48,7 +48,7 @@ export function DevTokenStatsPanel({ tokens, lastLaunchAgo, className }: Props) 
               <div className="text-[10.5px] uppercase tracking-wide text-fg-muted">Top MCAP</div>
               <div className="mt-0.5 flex items-baseline gap-1.5">
                 <span className="text-[12px] font-medium text-fg-primary">
-                  {topByMcap.symbol.toLowerCase()}.tech
+                  {topByMcap.symbol}
                 </span>
                 <span className="text-[11px] font-mono tabular-nums text-fg-muted">
                   ({formatCompactUsd(topByMcap.mcUsd)})

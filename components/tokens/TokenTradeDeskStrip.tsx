@@ -54,10 +54,29 @@ export function TokenTradeDeskStrip({
   const showStats = !hovering;
   const tape = tapeMetricsForTf(metrics, selected, mint);
   const indexedTape = tape != null;
-  const volTotal = tape ? tape.buyVolUsd + tape.sellVolUsd : 0;
-  const buyRatio = volTotal > 0 && tape ? tape.buyVolUsd / volTotal : 0.5;
   const dash = '\u2014';
-  const hasActivity = indexedTape && tape && (tape.volUsd > 0 || tape.buys > 0 || tape.sells > 0);
+
+  /**
+   * Dex aggregate windows: vol + txn counts are real, USD side-split is not.
+   * Counts of 0/0 under dexAggregate mean "split unreported" — render `—`,
+   * never a fake green zero.
+   */
+  const dexAggregate = tape?.dexAggregate === true;
+  const countsKnown = !dexAggregate || (tape != null && tape.buys + tape.sells > 0);
+  const usdSplitKnown = !dexAggregate;
+
+  const volTotal = tape && usdSplitKnown ? tape.buyVolUsd + tape.sellVolUsd : 0;
+  const buyRatio =
+    tape == null
+      ? 0.5
+      : usdSplitKnown && volTotal > 0
+        ? tape.buyVolUsd / volTotal
+        : countsKnown && tape.buys + tape.sells > 0
+          ? tape.buys / (tape.buys + tape.sells)
+          : 0.5;
+  const hasActivity =
+    indexedTape && tape != null && (tape.volUsd > 0 || tape.buys > 0 || tape.sells > 0);
+  const showRatioBar = hasActivity && (usdSplitKnown ? volTotal > 0 : countsKnown);
 
   const pickTf = (tf: TokenTradePerfTf) => {
     onSelect(tf);
@@ -85,8 +104,10 @@ export function TokenTradeDeskStrip({
                 Buys
               </p>
               <p className="mt-1.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bull">
-                {indexedTape
-                  ? `${formatTapeCount(tape.buys)} / ${formatTapeUsd(tape.buyVolUsd)}`
+                {indexedTape && countsKnown
+                  ? usdSplitKnown
+                    ? `${formatTapeCount(tape.buys)} / ${formatTapeUsd(tape.buyVolUsd)}`
+                    : formatTapeCount(tape.buys)
                   : dash}
               </p>
             </div>
@@ -95,8 +116,10 @@ export function TokenTradeDeskStrip({
                 Sells
               </p>
               <p className="mt-1.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bear">
-                {indexedTape && tape
-                  ? `${formatTapeCount(tape.sells)} / ${formatTapeUsd(tape.sellVolUsd)}`
+                {indexedTape && countsKnown
+                  ? usdSplitKnown
+                    ? `${formatTapeCount(tape.sells)} / ${formatTapeUsd(tape.sellVolUsd)}`
+                    : formatTapeCount(tape.sells)
                   : dash}
               </p>
             </div>
@@ -107,14 +130,14 @@ export function TokenTradeDeskStrip({
               <p
                 className={cn(
                   'mt-1.5 whitespace-nowrap text-[12px] font-semibold tabular-nums leading-none',
-                  !indexedTape
+                  !indexedTape || !usdSplitKnown
                     ? 'text-fg-muted'
                     : tape && tape.netVolUsd < 0
                       ? 'text-signal-bear'
                       : 'text-signal-bull',
                 )}
               >
-                {indexedTape && tape ? (
+                {indexedTape && tape && usdSplitKnown ? (
                   <>
                     {tape.netVolUsd >= 0 ? '+' : ''}
                     {formatCompactUsd(tape.netVolUsd)}
@@ -126,7 +149,7 @@ export function TokenTradeDeskStrip({
             </div>
           </div>
 
-          {hasActivity ? (
+          {showRatioBar ? (
             <div className="mt-3 flex h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06]">
               <div
                 className="h-full bg-signal-bull/90"

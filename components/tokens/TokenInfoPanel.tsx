@@ -163,8 +163,11 @@ function TokenInfoMetricGrid({
     },
     {
       label: 'Dex Paid',
+      /** `null` = paid status not ingested — render `—`, never assert Unpaid. */
       value:
-        m.dexPaid === false || m.dexPaid == null ? (
+        m.dexPaid == null ? (
+          '\u2014'
+        ) : m.dexPaid === false ? (
           <span className="inline-flex items-center justify-center gap-0.5">
             <AlertTriangle className="inline h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
             Unpaid

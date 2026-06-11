@@ -8,6 +8,8 @@ export type TokenTradeTapeWindow = {
   buyVolUsd: number;
   sellVolUsd: number;
   netVolUsd: number;
+  /** Dex-aggregate source: USD side-split unknown — UI renders `—` not $0. */
+  dexAggregate?: boolean;
 };
 
 const EMPTY_TAPE: TokenTradeTapeWindow = {

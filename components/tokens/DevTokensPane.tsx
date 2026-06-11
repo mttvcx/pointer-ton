@@ -120,7 +120,7 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
     | 'mcUsd'
     | 'athUsd'
     | 'liquidityUsd'
-    | 'volume1hUsd'
+    | 'volume24hUsd'
     | 'balanceUsd'
     | 'pnlUsd';
 
@@ -152,6 +152,7 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
       );
     }
     const dir = sortDir === 'asc' ? 1 : -1;
+    const n = (v: number | null) => v ?? Number.NEGATIVE_INFINITY;
     copy.sort((a, b) => {
       let diff = 0;
       switch (sortKey) {
@@ -162,19 +163,19 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
           diff = a.mcUsd - b.mcUsd;
           break;
         case 'athUsd':
-          diff = a.athUsd - b.athUsd;
+          diff = n(a.athUsd) - n(b.athUsd);
           break;
         case 'liquidityUsd':
-          diff = a.liquidityUsd - b.liquidityUsd;
+          diff = n(a.liquidityUsd) - n(b.liquidityUsd);
           break;
-        case 'volume1hUsd':
-          diff = a.volume1hUsd - b.volume1hUsd;
+        case 'volume24hUsd':
+          diff = n(a.volume24hUsd) - n(b.volume24hUsd);
           break;
         case 'balanceUsd':
-          diff = a.balanceUsd - b.balanceUsd;
+          diff = n(a.balanceUsd) - n(b.balanceUsd);
           break;
         case 'pnlUsd':
-          diff = a.pnlUsd - b.pnlUsd;
+          diff = n(a.pnlUsd) - n(b.pnlUsd);
           break;
         default:
           break;
@@ -227,10 +228,10 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
             onSort={() => cycleSort('liquidityUsd')}
           />
           <SortableTh
-            label="1h Volume"
+            label="24h Volume"
             align="right"
-            sortDir={colSort('volume1hUsd')}
-            onSort={() => cycleSort('volume1hUsd')}
+            sortDir={colSort('volume24hUsd')}
+            onSort={() => cycleSort('volume24hUsd')}
           />
           <SortableTh
             label="Bal."
@@ -285,30 +286,34 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
             </td>
             <td className={cn(DESK_CELL_CLASS, 'text-right')}>
               <span className={CELL_MUTED_CLASS}>
-                {formatCompactUsd(t.athUsd)}
+                {t.athUsd != null ? formatCompactUsd(t.athUsd) : '\u2014'}
               </span>
             </td>
             <td className={cn(DESK_CELL_CLASS, 'text-right')}>
               <span className={CELL_MUTED_CLASS}>
-                {formatCompactUsd(t.liquidityUsd)}
+                {t.liquidityUsd != null ? formatCompactUsd(t.liquidityUsd) : '\u2014'}
               </span>
             </td>
             <td className={cn(DESK_CELL_CLASS, 'text-right')}>
               <span className={CELL_MUTED_CLASS}>
-                {formatCompactUsd(t.volume1hUsd)}
+                {t.volume24hUsd != null ? formatCompactUsd(t.volume24hUsd) : '\u2014'}
               </span>
             </td>
             <td className={cn(DESK_CELL_CLASS, 'text-right')}>
               <span className={CELL_MUTED_CLASS}>
-                {formatCompactUsd(t.balanceUsd)}
+                {t.balanceUsd != null ? formatCompactUsd(t.balanceUsd) : '\u2014'}
               </span>
             </td>
             <td className={cn(DESK_CELL_LAST_CLASS, 'text-right')}>
-              <PnlCell
-                value={t.pnlUsd}
-                display={`${t.pnlUsd >= 0 ? '+' : ''}${formatCompactUsd(t.pnlUsd)}`}
-                size="hero"
-              />
+              {t.pnlUsd != null ? (
+                <PnlCell
+                  value={t.pnlUsd}
+                  display={`${t.pnlUsd >= 0 ? '+' : ''}${formatCompactUsd(t.pnlUsd)}`}
+                  size="hero"
+                />
+              ) : (
+                <span className={CELL_MUTED_CLASS}>{'\u2014'}</span>
+              )}
             </td>
             <td className="w-8 p-0" aria-hidden />
           </tr>

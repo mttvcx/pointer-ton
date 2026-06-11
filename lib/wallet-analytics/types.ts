@@ -34,7 +34,10 @@ export type WinLossBucketId =
   | '200to500'
   | '0to200'
   | '0toNeg50'
-  | 'ltNeg50';
+  | 'ltNeg50'
+  /** Honest aggregate buckets when only win-rate totals are indexed. */
+  | 'wins'
+  | 'losses';
 
 export type WinLossBucket = {
   id: WinLossBucketId;

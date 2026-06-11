@@ -7,6 +7,12 @@ export type TokenTapeWindowMetrics = {
   buyVolUsd: number;
   sellVolUsd: number;
   netVolUsd: number;
+  /**
+   * DexScreener aggregate source: vol (and txn counts when >0) are real, but
+   * the per-side USD split is unknown — UI must render `—` for buy/sell USD
+   * and net vol instead of fake zeros.
+   */
+  dexAggregate?: boolean;
 };
 
 /** Shared shape for `getTokenExtendedMetrics` API responses (client-safe). */

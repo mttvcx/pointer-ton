@@ -6,6 +6,7 @@ import { Activity, BarChart3, ChevronUp, LayoutPanelTop, Settings, Table2, Zap }
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd } from '@/lib/format';
+import { formatNumber } from '@/lib/utils/formatters';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { buildDeskFundingSynth, EMPTY_DESK_FUNDING } from '@/lib/tokens/holderDeskSynth';
 import {
@@ -454,7 +455,10 @@ export function TokenActivityTabs({
     queryFn: async () => {
       const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}/holders`);
       if (!r.ok) throw new Error('holders_failed');
-      return r.json() as Promise<{ holders: { id: number }[] }>;
+      return r.json() as Promise<{
+        holders: { id: number }[];
+        holderCountTotal?: number | null;
+      }>;
     },
     enabled: tab === 'holders',
     placeholderData: demoTables ? demoHolders : undefined,
@@ -600,16 +604,20 @@ export function TokenActivityTabs({
 
   const devTokensForPane = useMemo(() => {
     if (qaMint && devTokensLiveQ.data?.tokens?.length) {
+      /** Live rows: unknown metrics are null (render `—`), never recycled MC/zeros. */
       return devTokensLiveQ.data.tokens.map((t) => ({
         mint: t.mint,
         symbol: t.symbol ?? '—',
         name: t.name ?? t.symbol ?? 'Token',
         mcUsd: Number(t.market_cap_usd) || 0,
-        athUsd: Number(t.market_cap_usd) || 0,
-        liquidityUsd: 0,
-        volume1hUsd: Number(t.volume_24h_usd) || 0,
-        balanceUsd: 0,
-        pnlUsd: 0,
+        athUsd: null,
+        liquidityUsd: null,
+        volume24hUsd:
+          t.volume_24h_usd != null && Number.isFinite(Number(t.volume_24h_usd))
+            ? Number(t.volume_24h_usd)
+            : null,
+        balanceUsd: null,
+        pnlUsd: null,
         migrated: Boolean(t.migrated_at),
         dex: t.migrated_at ? 'raydium' : null,
         status: (t.migrated_at ? 'mooned' : 'active') as 'active' | 'mooned' | 'rugged',
@@ -632,8 +640,9 @@ export function TokenActivityTabs({
 
   const tabLabel = (t: (typeof TABS)[number]) => {
     if (t.id === 'holders') {
-      const n = holdersQ.data?.holders?.length;
-      if (n != null && n > 0) return `Holders (${n})`;
+      /** Total holders (Moralis/GPA), never the top-N rows loaded for the table. */
+      const total = holdersQ.data?.holderCountTotal;
+      if (total != null && total > 0) return `Holders (${formatNumber(total, { compact: total >= 10_000 })})`;
       return 'Holders';
     }
     if (t.id === 'traders') {
@@ -888,8 +897,18 @@ export function TokenActivityTabs({
           tradeRowsForTable.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-1 p-8 text-center text-[11px] font-sans text-fg-muted">
               <p className="font-medium text-fg-secondary">
-                {demoTables ? 'No transactions found' : 'No trades yet'}
+                {demoTables
+                  ? 'No transactions found'
+                  : qaMint
+                    ? 'No trades yet'
+                    : 'No indexed chain trades for this token yet'}
               </p>
+              {!demoTables && !qaMint ? (
+                <p className="max-w-[26rem] text-fg-muted">
+                  Pointer indexes the chain tape per token. Until this mint is indexed,
+                  only trades executed through Pointer appear here.
+                </p>
+              ) : null}
             </div>
           ) : (
             <MintTradesScroll
@@ -938,7 +957,9 @@ export function TokenActivityTabs({
                       ? 'No tracked traders here'
                       : demoTables
                         ? 'No ranked traders'
-                        : 'No top traders yet'
+                        : qaMint
+                          ? 'No top traders yet'
+                          : 'Chain trader ranking not indexed yet'
                 }
                 description={
                   tradersLensEmpty
@@ -947,12 +968,20 @@ export function TokenActivityTabs({
                       ? 'Add wallets in Trackers, then filter this table to them.'
                       : demoTables
                         ? 'Demo ranks — not live chain data.'
-                        : undefined
+                        : qaMint
+                          ? undefined
+                          : 'Ranks below only include trades executed through Pointer until this mint is chain-indexed.'
                 }
               />
             </div>
           ) : (
             <div className={cn('desk-scroll-well', DESK_SCROLL_WELL_CLASS)}>
+                {!qaMint && !demoTables ? (
+                  <p className="border-b border-border-subtle/40 px-3 py-1.5 text-[10px] leading-snug text-fg-muted">
+                    Pointer platform trades only — chain-wide trader ranking is not indexed
+                    for this token yet.
+                  </p>
+                ) : null}
                 <TopTradersTable
                   rows={sortedTraders}
                   mint={mint}

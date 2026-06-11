@@ -269,11 +269,12 @@ export type SyntheticDevTokenRow = {
   symbol: string;
   name: string;
   mcUsd: number;
-  athUsd: number;
-  liquidityUsd: number;
-  volume1hUsd: number;
-  balanceUsd: number;
-  pnlUsd: number;
+  /** Null on live rows when the metric is not ingested — render `—`. */
+  athUsd: number | null;
+  liquidityUsd: number | null;
+  volume24hUsd: number | null;
+  balanceUsd: number | null;
+  pnlUsd: number | null;
   migrated: boolean;
   dex: string | null;
   status: 'active' | 'mooned' | 'rugged';
@@ -314,7 +315,7 @@ export function syntheticDevTokensForCreator(
     const athMultiplier = 1.4 + rng() * 3.2;
     const athUsd = Math.round(mcUsd * athMultiplier);
     const liquidityUsd = Math.round(mcUsd * (0.05 + rng() * 0.15));
-    const volume1hUsd = Math.round(mcUsd * (0.02 + rng() * 0.4));
+    const volume24hUsd = Math.round(mcUsd * (0.02 + rng() * 0.4));
     const balanceUsd = Math.round(mcUsd * (0.001 + rng() * 0.15));
     const pnlUsd = Math.round((rng() - 0.3) * mcUsd * 0.5);
     const status = statuses[i]!;
@@ -328,7 +329,7 @@ export function syntheticDevTokensForCreator(
       mcUsd,
       athUsd,
       liquidityUsd,
-      volume1hUsd,
+      volume24hUsd,
       balanceUsd,
       pnlUsd,
       migrated,
