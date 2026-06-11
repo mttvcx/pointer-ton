@@ -109,10 +109,11 @@ export async function lookupEthosByKey(
     return null;
   }
 
-  let profile: EthosProfileSnapshot | null = await fetchLiveProfile(userkey);
-  if (!profile) {
-    profile = mockEthosSnapshot(userkey);
-  }
+  /**
+   * Live-only: no API key or no Ethos profile → null (UI hides the badge).
+   * Mock snapshots are opt-in for demos/tests via `mockEthosSnapshot` directly.
+   */
+  const profile: EthosProfileSnapshot | null = await fetchLiveProfile(userkey);
 
   memory.set(key, { at: now, profile });
   return profile;

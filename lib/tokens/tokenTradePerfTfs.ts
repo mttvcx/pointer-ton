@@ -34,20 +34,24 @@ function hashSeed(input: string): number {
   return h >>> 0;
 }
 
-/** Deterministic demo % when Dex / snapshot fields are missing. */
+/** Demo-only deterministic % — never rendered in live mode (default off). */
 function syntheticPct(mint: string, tf: TokenTradePerfTf): number {
   const seed = hashSeed(`${mint}:perf:${tf}`);
   const base = ((seed % 4000) / 100 - 20) * (tf === '5m' ? 0.35 : tf === '1h' ? 0.65 : tf === '6h' ? 1 : 1.35);
   return Math.round(base * 100) / 100;
 }
 
-/** Parse multi-window price change % from snapshot extended_metrics (DexScreener shape). */
+/**
+ * Parse multi-window price change % from snapshot extended_metrics (DexScreener shape).
+ * Missing windows are `null` (render as `—`). `allowSynthetic` is demo-mode only
+ * and must be explicitly opted into — live token desks never fabricate %.
+ */
 export function pickTokenTradePerfChanges(
   ext: unknown,
   mint: string,
   opts?: { allowSynthetic?: boolean },
 ): Record<TokenTradePerfTf, number | null> {
-  const allowSynthetic = opts?.allowSynthetic !== false;
+  const allowSynthetic = opts?.allowSynthetic === true;
   const out: Record<TokenTradePerfTf, number | null> = {
     '5m': allowSynthetic ? syntheticPct(mint, '5m') : null,
     '1h': allowSynthetic ? syntheticPct(mint, '1h') : null,

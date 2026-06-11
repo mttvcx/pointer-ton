@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Loader2, Sparkles, X } from 'lucide-react';import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
+import { Loader2, Sparkles, X } from 'lucide-react';
+import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
+import { isUiDemoMode } from '@/lib/dev/uiDemoMode';
 import {
   tweetInputFromAlertPayload,
   type TwitterListenAlertPayload,
@@ -213,23 +215,27 @@ export function XMonitorPanel({
       .filter(Boolean) as ListenRow[];
   }, [data]);
 
+  const uiDemo = isUiDemoMode();
   const { rows, mock, banner } = useMemo(() => {
     if (activeChain !== 'sol') {
       return {
-        rows: MOCK_ROWS,
-        mock: true,
-        banner: 'Preview feed · switch to SOL for live X listens.',
+        rows: uiDemo ? MOCK_ROWS : [],
+        mock: uiDemo,
+        banner: 'Live X listens are Solana-only — switch chain to SOL.',
       };
     }
     if (serverRows.length === 0) {
+      /** Live mode: honest empty feed — samples only in explicit demo mode. */
       return {
-        rows: MOCK_ROWS,
-        mock: true,
-        banner: 'No live hits yet · showing samples. Add @ rules in Rules tab.',
+        rows: uiDemo ? MOCK_ROWS : [],
+        mock: uiDemo,
+        banner: uiDemo
+          ? 'No live hits yet · showing samples. Add @ rules in Rules tab.'
+          : 'No live hits yet. Add @ rules in the Rules tab to start monitoring.',
       };
     }
     return { rows: serverRows, mock: false, banner: null as string | null };
-  }, [activeChain, serverRows]);
+  }, [activeChain, serverRows, uiDemo]);
 
   const tweets = useMemo(() => rows.map((r) => r.tweet), [rows]);
   const {
@@ -427,16 +433,21 @@ export function XMonitorPanel({
 
                           <button
                             type="button"
+                            disabled={row.isMock}
                             onClick={() => {
+                              if (row.isMock) return;
                               if (launchMode === 'ai' && !pkg?.shouldLaunch) {
                                 void openDeployForTweetAsync(row.subject, row.tweet, true);
                                 return;
                               }
                               openDeployForTweet(row.subject, row.tweet, pkg, 0);
                             }}
-                            className="btn-press shrink-0 rounded-sm bg-accent-primary px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-fg-inverse hover:bg-accent-glow"
+                            className={cn(
+                              'btn-press shrink-0 rounded-sm bg-accent-primary px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-fg-inverse hover:bg-accent-glow',
+                              row.isMock && 'cursor-not-allowed opacity-40 hover:bg-accent-primary',
+                            )}
                           >
-                            {launchMode === 'ai' ? 'Deploy AI' : 'Deploy'}
+                            {row.isMock ? 'Sample' : launchMode === 'ai' ? 'Deploy AI' : 'Deploy'}
                           </button>
                         </div>
 

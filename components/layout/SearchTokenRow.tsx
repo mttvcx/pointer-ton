@@ -22,10 +22,11 @@ export type SearchRowModel = {
   symbol: string | null;
   name: string | null;
   image_url: string | null;
-  mockMc: number;
-  mockVol: number;
-  mockLiq: number;
-  mockAgeMs: number;
+  /** Live metrics only — `null` renders as `—`. */
+  mcUsd: number | null;
+  volUsd: number | null;
+  liqUsd: number | null;
+  ageMs: number | null;
   dexLabel: string;
 };
 
@@ -103,9 +104,10 @@ export function SearchTokenRow({
   const symbolTitle = sym || shortenAddress(row.mint, 4);
   const nameMuted =
     name && name.toLowerCase() !== symbolTitle.toLowerCase() ? name : shortenAddress(row.mint, 5);
-  const ageLabel = formatDistanceToNowStrict(subMilliseconds(new Date(), row.mockAgeMs), {
-    addSuffix: false,
-  });
+  const ageLabel =
+    row.ageMs != null
+      ? formatDistanceToNowStrict(subMilliseconds(new Date(), row.ageMs), { addSuffix: false })
+      : null;
   const spend: 'sol' | 'usdc' = spendAsset === 'usdc' ? 'usdc' : 'sol';
   const quote = activeChain === 'sol' ? spendAssetLabel(spend) : spendAssetLabel('sol');
   const buyLabel = formatBuyAmount(quickBuyAmount);
@@ -206,7 +208,7 @@ export function SearchTokenRow({
             <span className="truncate text-[11px] text-fg-muted sm:text-xs">{nameMuted}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px]">
-            <span className="font-medium text-fg-secondary">{ageLabel}</span>
+            {ageLabel ? <span className="font-medium text-fg-secondary">{ageLabel}</span> : null}
             <span className="text-fg-muted">{row.dexLabel}</span>
             <span className="flex items-center gap-1 text-fg-muted">
               <Globe className="h-3 w-3 shrink-0" aria-hidden />
@@ -216,9 +218,9 @@ export function SearchTokenRow({
         </div>
 
         <div className="hidden shrink-0 items-center gap-6 sm:flex lg:gap-10">
-          <SearchStatCell label="MC" value={formatCompactUsd(row.mockMc)} />
-          <SearchStatCell label="V" value={formatCompactUsd(row.mockVol)} />
-          <SearchStatCell label="L" value={formatCompactUsd(row.mockLiq)} />
+          <SearchStatCell label="MC" value={row.mcUsd != null ? formatCompactUsd(row.mcUsd) : '—'} />
+          <SearchStatCell label="V" value={row.volUsd != null ? formatCompactUsd(row.volUsd) : '—'} />
+          <SearchStatCell label="L" value={row.liqUsd != null ? formatCompactUsd(row.liqUsd) : '—'} />
         </div>
       </Link>
 

@@ -60,7 +60,6 @@ import { PresetTradePanel, type PresetTradeRow } from '@/components/trading/Pres
 import { recordUserTradeActivity } from '@/lib/alerts/recordUserTradeActivity';
 import { TokenInfoPanel } from '@/components/tokens/TokenInfoPanel';
 import { TokenTradeDeskStrip } from '@/components/tokens/TokenTradeDeskStrip';
-import { isQaDeskLiveModeClient } from '@/lib/qa/qaDeskLiveModeClient';
 import {
   pickTokenTradePerfChanges,
   type TokenTradePerfTf,
@@ -285,11 +284,9 @@ export function BuySellPanel({
     isLoading: extendedTapeLoading,
   } = useTokenExtendedMetrics(mint);
 
+  /** Live desks never fabricate TF % — missing Dex windows render as `—`. */
   const perfChanges = useMemo(
-    () =>
-      pickTokenTradePerfChanges(marketSnapshot?.extended_metrics, mint, {
-        allowSynthetic: !isQaDeskLiveModeClient(mint),
-      }),
+    () => pickTokenTradePerfChanges(marketSnapshot?.extended_metrics, mint),
     [marketSnapshot?.extended_metrics, mint],
   );
 

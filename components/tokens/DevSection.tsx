@@ -8,6 +8,8 @@ import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { formatDuration, formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import type { DevWalletStatsRow } from '@/lib/db/wallets';
 import { syntheticCreatorDev } from '@/lib/dev/demoTokenFixtures';
+import { demoTablesEnabled } from '@/lib/dev/demoPolicy';
+import { isUiDemoMode } from '@/lib/dev/uiDemoMode';
 
 export function DevSection({
   creatorWallet,
@@ -20,9 +22,12 @@ export function DevSection({
   mint?: string;
   tokenSymbol?: string | null;
 }) {
+  /** Demo fixtures only — live mode shows honest "indexer pending" copy instead. */
   const effectiveDev = useMemo(() => {
     if (dev) return dev;
-    if (creatorWallet) return syntheticCreatorDev(creatorWallet);
+    if (creatorWallet && demoTablesEnabled(isUiDemoMode())) {
+      return syntheticCreatorDev(creatorWallet);
+    }
     return null;
   }, [creatorWallet, dev]);
 

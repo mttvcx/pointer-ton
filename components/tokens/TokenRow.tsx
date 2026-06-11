@@ -22,7 +22,7 @@ import { PulseTokenAvatarHover } from '@/components/tokens/PulseTokenAvatarHover
 import { PulseTokenTitleRow } from '@/components/tokens/PulseTokenTitleRow';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
-import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
+import { QuotePairBadge } from '@/components/tokens/QuotePairBadge';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
@@ -35,7 +35,7 @@ import {
   resolveLaunchpadAvatarChrome,
 } from '@/lib/tokens/launchpadAvatarChrome';
 import { launchPadToProtocolId } from '@/lib/tokens/protocolBrand';
-import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
+import { alternateQuotePairKind } from '@/lib/tokens/quoteToken';
 import { metricBandColorForValue } from '@/lib/pulse/metricBandColor';
 import { resolveProtocolRowTint } from '@/lib/pulse/protocolRowTint';
 import { resolvePulseTranslationGloss } from '@/lib/translate/pulseTranslationGloss';
@@ -207,13 +207,13 @@ function TokenRowInner({
    */
   const socialGlyphSize = useMemo(() => {
     if (slotHeight != null) {
-      if (slotHeight >= 112) return 29;
-      if (slotHeight >= 96) return 26;
-      return 24;
+      if (slotHeight >= 112) return 27;
+      if (slotHeight >= 96) return 24;
+      return 22;
     }
-    if (layoutDensity === 'expanded') return 31;
-    if (layoutDensity === 'compact') return 24;
-    return 26;
+    if (layoutDensity === 'expanded') return 28;
+    if (layoutDensity === 'compact') return 22;
+    return 24;
   }, [slotHeight, layoutDensity]);
 
   const rowMinH =
@@ -404,24 +404,12 @@ function TokenRowInner({
     () => alternateQuotePairKind(bundle, activeChain),
     [bundle, activeChain],
   );
-  const quoteIconPx = slotHeight != null ? 14 : 13;
   const ageBadge = (
     <PulseRowAgeLabel createdAt={token.created_at} compact={slotHeight != null} />
   );
   const ageQuotePairBadge =
     alternateQuote != null ? (
-      <span
-        className="inline-flex shrink-0 items-center"
-        title={quotePairTooltip(alternateQuote, activeChain)}
-        aria-label={quotePairTooltip(alternateQuote, activeChain)}
-      >
-        <QuoteTokenIcon
-          kind={alternateQuote}
-          chain={activeChain}
-          className="object-contain"
-          style={{ width: quoteIconPx, height: quoteIconPx }}
-        />
-      </span>
+      <QuotePairBadge kind={alternateQuote} chain={activeChain} variant="row" />
     ) : null;
   const ageCluster = (
     <div className="inline-flex shrink-0 items-center gap-1">

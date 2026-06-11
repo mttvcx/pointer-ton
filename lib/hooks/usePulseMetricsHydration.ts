@@ -5,16 +5,23 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { AppChainId } from '@/lib/chains/appChain';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import { mergePartialSnapshotIntoPulseCache } from '@/lib/pulse/realtimeCache';
+import {
+  devMigrateFractionFromBundle,
+  proTradersCountFromBundle,
+} from '@/lib/tokens/pulseStripHoverMetrics';
 import type { PulseTokenBundle } from '@/types/tokens';
 
 function bundleNeedsMetrics(b: PulseTokenBundle): boolean {
   const s = b.snapshot;
-  return (
+  const holdersMissing =
     !s ||
     s.top10_holder_pct == null ||
     s.dev_holding_pct == null ||
-    s.holder_count == null
-  );
+    s.holder_count == null;
+  const stripMissing =
+    proTradersCountFromBundle(b) == null ||
+    devMigrateFractionFromBundle(b).denominator == null;
+  return holdersMissing || stripMissing;
 }
 
 /**
@@ -61,6 +68,9 @@ export function usePulseMetricsHydration(opts: {
               top10_holder_pct: number | null;
               dev_holding_pct: number | null;
               sniperHolderPct: number | null;
+              pro_traders: number | null;
+              dev_deploy_migrated: number | null;
+              dev_deploy_total: number | null;
             }
           >;
         };
@@ -69,14 +79,16 @@ export function usePulseMetricsHydration(opts: {
           const row = metrics[mint];
           if (!row) continue;
           doneRef.current.add(mint);
+          const ext: Record<string, unknown> = {};
+          if (row.sniperHolderPct != null) ext.sniperHolderPct = row.sniperHolderPct;
+          if (row.pro_traders != null) ext.pro_traders = row.pro_traders;
+          if (row.dev_deploy_migrated != null) ext.dev_deploy_migrated = row.dev_deploy_migrated;
+          if (row.dev_deploy_total != null) ext.dev_deploy_total = row.dev_deploy_total;
           mergePartialSnapshotIntoPulseCache(qc, column, chain, mint, {
             holder_count: row.holder_count,
             top10_holder_pct: row.top10_holder_pct,
             dev_holding_pct: row.dev_holding_pct,
-            extended_metrics:
-              row.sniperHolderPct != null
-                ? { sniperHolderPct: row.sniperHolderPct }
-                : undefined,
+            extended_metrics: Object.keys(ext).length > 0 ? ext : undefined,
           });
         }
       } catch {

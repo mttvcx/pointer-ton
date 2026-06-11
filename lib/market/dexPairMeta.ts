@@ -4,7 +4,26 @@ export type DexPairQuoteMeta = {
   pairAddress?: string;
   baseToken?: { symbol?: string };
   quoteToken?: { address?: string; symbol?: string };
+  volume?: { m5?: number; h1?: number; h6?: number; h24?: number } | null;
+  txns?: {
+    m5?: { buys?: number; sells?: number } | null;
+    h1?: { buys?: number; sells?: number } | null;
+    h6?: { buys?: number; sells?: number } | null;
+    h24?: { buys?: number; sells?: number } | null;
+  } | null;
 };
+
+function txnSplit(
+  txns: DexPairQuoteMeta['txns'],
+  window: 'm5' | 'h1' | 'h6' | 'h24',
+): { buys: number; sells: number } | null {
+  const bucket = txns?.[window];
+  if (!bucket) return null;
+  const buys = Number(bucket.buys) || 0;
+  const sells = Number(bucket.sells) || 0;
+  if (buys + sells <= 0) return null;
+  return { buys, sells };
+}
 
 /** Pair quote / venue fields for Pulse header (USDC tier, migrated pumpswap, etc.). */
 export function dexPairExtendedMetrics(pair: DexPairQuoteMeta): Record<string, unknown> {
@@ -21,5 +40,17 @@ export function dexPairExtendedMetrics(pair: DexPairQuoteMeta): Record<string, u
     out.poolName = `${base.symbol.trim()}/${quote.symbol.trim()}`;
   }
   if (dexId === 'pumpswap' || dexId === 'raydium') out.dexMigrated = true;
+
+  const vol = pair.volume;
+  if (vol?.h6 != null && Number.isFinite(Number(vol.h6))) out.volumeH6 = Number(vol.h6);
+  if (vol?.h24 != null && Number.isFinite(Number(vol.h24))) out.volumeH24 = Number(vol.h24);
+
+  for (const w of ['m5', 'h1', 'h6', 'h24'] as const) {
+    const split = txnSplit(pair.txns, w);
+    if (!split) continue;
+    out[`txns${w.toUpperCase()}Buys`] = split.buys;
+    out[`txns${w.toUpperCase()}Sells`] = split.sells;
+  }
+
   return out;
 }

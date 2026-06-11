@@ -18,20 +18,6 @@ import type {
 } from '@/lib/wallet-analytics/types';
 import type { WalletAnalyticsPayload } from '@/lib/wallet-analytics/types';
 
-function fnv1a(str: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function noise(i: number, seed: number): number {
-  const x = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453;
-  return x - Math.floor(x);
-}
-
 export function pickTimeframePnlUsd(
   stats: WalletStatsRow | null,
   tf: WalletAnalyticsTimeframe,
@@ -50,66 +36,46 @@ export function pickTimeframePnlUsd(
   }
 }
 
-/** Cumulative PnL curve (indexed aggregates — illustrative when per-trade history is unavailable). */
+/**
+ * Cumulative PnL curve — live mode only renders a real series. Until per-trade
+ * history is indexed for arbitrary wallets, return empty (UI shows an honest
+ * "no chart data" state) instead of a fabricated curve.
+ */
 export function buildChartSeries(
-  walletAddress: string,
-  stats: WalletStatsRow | null,
-  tf: WalletAnalyticsTimeframe,
+  _walletAddress: string,
+  _stats: WalletStatsRow | null,
+  _tf: WalletAnalyticsTimeframe,
 ): WalletAnalyticsChartPoint[] {
-  const endVal = pickTimeframePnlUsd(stats, tf);
-  const now = Date.now();
-  const points = 56;
-  const seed = fnv1a(walletAddress);
-  if (endVal == null || !Number.isFinite(endVal)) {
-    return Array.from({ length: points }, (_, i) => ({
-      t: now - (points - 1 - i) * 3_600_000,
-      v: noise(i, seed) * 400 - 200,
-    }));
-  }
-  return Array.from({ length: points }, (_, i) => {
-    const t = i / (points - 1);
-    const ease = t * t * (3 - 2 * t);
-    const wobble = (noise(i, seed) - 0.5) * Math.min(800, Math.abs(endVal) * 0.08);
-    return {
-      t: now - (points - 1 - i) * 3_600_000,
-      v: endVal * ease + wobble,
-    };
-  });
+  return [];
 }
 
+/**
+ * Win/loss distribution from real stats only. Without `wallet_stats` rows the
+ * list is empty; with stats we show real win/loss totals (no fabricated %-band
+ * split — that needs per-trade history).
+ */
 export function buildWinLossBuckets(
-  walletAddress: string,
+  _walletAddress: string,
   stats: WalletStatsRow | null,
 ): WinLossBucket[] {
   const trades = stats?.trades_30d;
   const winRate = stats?.win_rate_30d;
-  const seed = fnv1a(walletAddress);
+  if (
+    trades == null ||
+    winRate == null ||
+    !Number.isFinite(trades) ||
+    !Number.isFinite(winRate) ||
+    trades <= 0
+  ) {
+    return [];
+  }
 
-  const t =
-    trades != null && Number.isFinite(trades) && trades > 0
-      ? Math.min(5000, Math.max(12, Math.round(trades)))
-      : 120;
-  const wr =
-    winRate != null && Number.isFinite(winRate)
-      ? Math.min(95, Math.max(8, winRate))
-      : 48;
-
-  const wins = Math.max(1, Math.round((t * wr) / 100));
-  const losses = Math.max(1, t - wins);
-
-  const w1 = Math.max(1, Math.round(wins * (0.06 + noise(1, seed) * 0.05)));
-  const w2 = Math.max(1, Math.round(wins * (0.18 + noise(2, seed) * 0.06)));
-  const w3 = Math.max(1, wins - w1 - w2);
-
-  const l1 = Math.max(1, Math.round(losses * (0.42 + noise(3, seed) * 0.08)));
-  const l2 = Math.max(1, losses - l1);
+  const wins = Math.max(0, Math.round((trades * Math.min(100, Math.max(0, winRate))) / 100));
+  const losses = Math.max(0, Math.round(trades) - wins);
 
   return [
-    { id: 'gt500', label: '>500%', count: w1, tone: 'bull' },
-    { id: '200to500', label: '200% ~ 500%', count: w2, tone: 'bull' },
-    { id: '0to200', label: '0% ~ 200%', count: w3, tone: 'bull' },
-    { id: '0toNeg50', label: '0% ~ -50%', count: l1, tone: 'bear' },
-    { id: 'ltNeg50', label: '< -50%', count: l2, tone: 'bear' },
+    { id: 'wins', label: 'Wins (30d)', count: wins, tone: 'bull' },
+    { id: 'losses', label: 'Losses (30d)', count: losses, tone: 'bear' },
   ];
 }
 
@@ -187,8 +153,8 @@ export async function buildSolWalletAnalytics(params: {
   const buckets = buildWinLossBuckets(address, stats);
 
   const totalPnlUsd = pickTimeframePnlUsd(stats, timeframe);
-  /** Placeholder split when realized not stored separately */
-  const realizedPnlUsd = totalPnlUsd != null ? totalPnlUsd * 0.42 : null;
+  /** Realized split needs per-trade history — never approximate in live mode. */
+  const realizedPnlUsd: number | null = null;
 
   let funding: WalletFundingInfo | null = null;
   try {

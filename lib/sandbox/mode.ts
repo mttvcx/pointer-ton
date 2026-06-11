@@ -17,12 +17,19 @@ export const SANDBOX_LEDGER_KEY = 'pointer-sandbox-v1';
 /** Custom event so UI can react instantly to runtime enable/disable. */
 export const SANDBOX_MODE_EVENT = 'pointer:sandbox-mode-changed';
 
+/** Founder beta is the live-money cohort — sandbox execution must never engage. */
+function sandboxHardLocked(): boolean {
+  return process.env.NEXT_PUBLIC_FOUNDER_BETA === '1';
+}
+
 function envFlagOn(): boolean {
+  if (sandboxHardLocked()) return false;
   return process.env.NEXT_PUBLIC_POINTER_SANDBOX_MODE === '1';
 }
 
 function localFlagOn(): boolean {
   if (typeof window === 'undefined') return false;
+  if (sandboxHardLocked()) return false;
   try {
     return window.localStorage.getItem(SANDBOX_LOCALSTORAGE_KEY) === '1';
   } catch {

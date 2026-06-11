@@ -82,7 +82,8 @@ export function WalletAnalyticsModal() {
     if (open) setUsdMode(true);
   }, [open, walletAddress]);
 
-  const walletRowDemo = displayWallet?.rowDemo ?? false;
+  /** Demo positions merge only in explicit UI demo mode — never in live/founder beta. */
+  const walletRowDemo = (displayWallet?.rowDemo ?? false) && uiDemo;
   const labelDraft =
     walletAddress && labelDraftState.address === walletAddress
       ? labelDraftState.value

@@ -80,8 +80,20 @@ export const mockTwitterProvider: TwitterProfileProvider = {
   },
 };
 
-/** Active provider — flip to TweetScout / SocialData / official X by reassigning here. */
-let activeProvider: TwitterProfileProvider = mockTwitterProvider;
+import { fetchFxTwitterProfile } from '@/lib/twitter/fxTwitterProfile';
+
+/**
+ * Active provider — FixTweet live profiles only. When the API fails the lookup
+ * throws (route returns 502, UI renders `—`); live mode never fabricates
+ * follower counts. Tests/demo can swap in `mockTwitterProvider` explicitly.
+ */
+let activeProvider: TwitterProfileProvider = {
+  async getProfile(handle: string): Promise<TwitterProfile> {
+    const live = await fetchFxTwitterProfile(handle);
+    if (live) return live;
+    throw new Error(`twitter_profile_unavailable:${handle.replace(/^@/, '')}`);
+  },
+};
 
 export function setTwitterProfileProvider(p: TwitterProfileProvider): void {
   activeProvider = p;

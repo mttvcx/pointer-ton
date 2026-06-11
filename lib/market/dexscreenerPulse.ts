@@ -15,13 +15,14 @@ export type DexPairRow = {
   info?: { imageUrl?: string };
   quoteToken?: { address?: string; name?: string; symbol?: string };
   priceUsd?: string | number | null;
-  volume?: { h24?: number; h1?: number; m5?: number } | null;
+  volume?: { h24?: number; h6?: number; h1?: number; m5?: number } | null;
   marketCap?: number | null;
   fdv?: number | null;
   liquidity?: { usd?: number | null } | null;
   txns?: {
     m5?: { buys?: number; sells?: number } | null;
     h1?: { buys?: number; sells?: number } | null;
+    h6?: { buys?: number; sells?: number } | null;
     h24?: { buys?: number; sells?: number } | null;
   } | null;
 };

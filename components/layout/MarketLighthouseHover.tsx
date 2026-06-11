@@ -24,11 +24,12 @@ import { cn } from '@/lib/utils/cn';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import {
-  getMarketLighthouseSnapshot,
+  emptyMarketLighthouseSnapshot,
   marketLighthouseHasData,
   type LighthouseTf,
   type LighthouseVenueRow,
 } from '@/lib/market/marketLighthouseSnapshot';
+import { useMarketLighthouse } from '@/lib/hooks/useMarketLighthouse';
 
 const TF_ORDER: LighthouseTf[] = ['5m', '1h', '6h', '24h'];
 
@@ -78,8 +79,8 @@ export function MarketLighthouseHover({
     bottom: number | null;
   }>({ left: 0, top: null, bottom: null });
 
-  const snap = useMemo(() => getMarketLighthouseSnapshot(activeChain, tf), [activeChain, tf]);
-  const hasData = useMemo(() => marketLighthouseHasData(snap), [snap]);
+  const { data: snap = emptyMarketLighthouseSnapshot(), isPending } = useMarketLighthouse(activeChain, tf);
+  const hasData = useMemo(() => !isPending && marketLighthouseHasData(snap), [isPending, snap]);
 
   const hiddenSlideY = placement === 'below' ? -6 : 8;
 
@@ -219,7 +220,9 @@ export function MarketLighthouseHover({
         </div>
 
         {!hasData ? (
-          <p className="py-6 text-center text-[11px] text-[#666]">No market data for this chain.</p>
+          <p className="py-6 text-center text-[11px] text-[#666]">
+            {isPending ? 'Loading market stats…' : 'No market data for this chain.'}
+          </p>
         ) : (
           <div className="space-y-2">
             {/* Trades + Traders */}
@@ -406,6 +409,9 @@ function StatCell({
 
 function VenueIcon({ row }: { row: LighthouseVenueRow }) {
   const cls = 'h-[18px] w-[18px] shrink-0';
+  if (row.protocolId) {
+    return <ProtocolBrandIcon protocolId={row.protocolId} dotClassName={cls} />;
+  }
   switch (row.icon) {
     case 'pump-fun':
       return <ProtocolBrandIcon protocolId="pump.fun" dotClassName={cls} />;

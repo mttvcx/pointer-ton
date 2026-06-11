@@ -69,13 +69,13 @@ type SummaryRow = {
 };
 
 type EnrichedSummary = SummaryRow & {
-  mockMc: number;
-  mockVol: number;
-  mockLiq: number;
-  mockAgeMs: number;
-  mockSafety: number;
-  /** Whether this token's primary pair is quoted in USDC (drives the USDC filter). */
-  quoteIsUsdc: boolean;
+  /** Live metrics only — `null` renders as `—`. Never hash-fabricated. */
+  mcUsd: number | null;
+  volUsd: number | null;
+  liqUsd: number | null;
+  ageMs: number | null;
+  /** Pair quote known to be USDC; `null` = unknown (kept by the USDC filter). */
+  quoteIsUsdc: boolean | null;
   dexLabel: string;
 };
 
@@ -85,31 +85,14 @@ const DEMO_SEARCH_RECENTS: SummaryRow[] = [
   { mint: TON_DEMO_JETTON_B, symbol: 'ADDR', name: 'Demo address', image_url: null },
 ];
 
-function fnv1aHex(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
 function enrichSummary(row: SummaryRow): EnrichedSummary {
-  const h = fnv1aHex(row.mint);
-  const mockSafety = (h >>> 20) % 101;
-  const mockMc = 2_500 + (h % 998_500);
-  const mockVol = (h >>> 8) % 420_000;
-  const mockLiq = 1_200 + ((h >>> 16) % 520_000);
-  const mockAgeMs = ((h >>> 4) % 21) * 86_400_000 + ((h >>> 12) % 12) * 3_600_000;
-  const quoteIsUsdc = ((h >>> 24) & 1) === 0;
   return {
     ...row,
-    mockMc,
-    mockVol,
-    mockLiq,
-    mockAgeMs,
-    mockSafety,
-    quoteIsUsdc,
+    mcUsd: null,
+    volUsd: null,
+    liqUsd: null,
+    ageMs: null,
+    quoteIsUsdc: null,
     dexLabel: 'Market',
   };
 }
@@ -121,26 +104,33 @@ function enrichSummaryWithLive(row: SummaryRow, live: LiveSearchMetrics | null):
   if (!live) return base;
   return {
     ...base,
-    mockMc: live.mc > 0 ? live.mc : base.mockMc,
-    mockVol: live.vol > 0 ? live.vol : base.mockVol,
-    mockLiq: live.liq > 0 ? live.liq : base.mockLiq,
+    mcUsd: live.mc > 0 ? live.mc : null,
+    volUsd: live.vol > 0 ? live.vol : null,
+    liqUsd: live.liq > 0 ? live.liq : null,
     dexLabel: 'DexScreener',
   };
+}
+
+/** Nulls sort last so live rows surface first under any sort mode. */
+function byDescNullsLast(a: number | null, b: number | null): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return b - a;
 }
 
 function sortEnrichedRows(rows: EnrichedSummary[], sortMode: SortMode): EnrichedSummary[] {
   const copy = [...rows];
   switch (sortMode) {
     case 'time':
-      return copy.sort((a, b) => a.mockAgeMs - b.mockAgeMs);
+      return copy.sort((a, b) => byDescNullsLast(b.ageMs, a.ageMs));
     case 'volume':
-      return copy.sort((a, b) => b.mockVol - a.mockVol);
+      return copy.sort((a, b) => byDescNullsLast(a.volUsd, b.volUsd));
     case 'liquidity':
-      return copy.sort((a, b) => b.mockLiq - a.mockLiq);
+      return copy.sort((a, b) => byDescNullsLast(a.liqUsd, b.liqUsd));
     case 'chart':
-      return copy.sort((a, b) => b.mockMc - a.mockMc);
     case 'safety':
-      return copy.sort((a, b) => b.mockSafety - a.mockSafety);
+      return copy.sort((a, b) => byDescNullsLast(a.mcUsd, b.mcUsd));
     default:
       return copy;
   }
@@ -384,7 +374,7 @@ export function GlobalSearchModal() {
 
   const searchSorted = useMemo(() => {
     let filtered = searchEnriched;
-    if (usdcOnly) filtered = filtered.filter((r) => r.quoteIsUsdc);
+    if (usdcOnly) filtered = filtered.filter((r) => r.quoteIsUsdc !== false);
     return sortEnrichedRows(filtered, sortMode);
   }, [searchEnriched, usdcOnly, sortMode]);
 
@@ -585,7 +575,6 @@ export function GlobalSearchModal() {
                       quickBuyChrome={quickBuyChrome}
                       quickBuyAmount={quickBuyAmount}
                       onCloseSearch={closeSearch}
-                      showBadgeDot={fnv1aHex(row.mint) % 5 !== 0}
                     />
                   ))}
                 </ul>
@@ -619,7 +608,6 @@ export function GlobalSearchModal() {
                   quickBuyChrome={quickBuyChrome}
                   quickBuyAmount={quickBuyAmount}
                   onCloseSearch={closeSearch}
-                  showBadgeDot={fnv1aHex(row.mint) % 5 !== 0}
                 />
               ))}
             </ul>

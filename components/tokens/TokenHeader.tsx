@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
-import { QuoteTokenIcon } from '@/components/tokens/ProtocolBrandIcon';
+import { QuotePairBadge } from '@/components/tokens/QuotePairBadge';
 import { TokenHeaderNameHover } from '@/components/tokens/TokenHeaderNameHover';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
@@ -19,7 +19,7 @@ import {
   resolveLaunchpadAvatarChrome,
   resolveLaunchpadAvatarChromeWithFallback,
 } from '@/lib/tokens/launchpadAvatarChrome';
-import { alternateQuotePairKind, quotePairTooltip } from '@/lib/tokens/quoteToken';
+import { alternateQuotePairKind } from '@/lib/tokens/quoteToken';
 import {
   extractGlobalFeesSol,
   formatSupplyHint,
@@ -57,8 +57,8 @@ const iconRow =
 
 /** Axiom-scale identity column on token detail header. */
 const HEADER_AVATAR_PX = 48;
-const HEADER_SOCIAL_GLYPH_PX = 24;
-const HEADER_PROFILE_GLYPH_PX = 28;
+const HEADER_SOCIAL_GLYPH_PX = 21;
+const HEADER_PROFILE_GLYPH_PX = 25;
 
 function pickPriceChange24hPct(ext: unknown): number | null {
   if (ext == null || typeof ext !== 'object' || Array.isArray(ext)) return null;
@@ -273,7 +273,6 @@ export function TokenHeader({
                 type="button"
                 className={cn(iconRow, 'rounded-sm')}
                 aria-label="Share token"
-                title="Share"
                 onClick={() => void shareTokenLink()}
               >
                 <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -282,7 +281,6 @@ export function TokenHeader({
                 type="button"
                 className={cn(iconRow, watchlisted && 'text-accent-primary')}
                 aria-label={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
-                title={watchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
                 onClick={() => {
                   const wasWatchlisted = watchlisted;
                   toggleWatchlist({
@@ -309,18 +307,7 @@ export function TokenHeader({
                 {formatAgeShort(token.created_at, now)}
               </span>
               {alternateQuote != null ? (
-                <span
-                  className="inline-flex shrink-0 items-center"
-                  title={quotePairTooltip(alternateQuote, activeChain)}
-                  aria-label={quotePairTooltip(alternateQuote, activeChain)}
-                >
-                  <QuoteTokenIcon
-                    kind={alternateQuote}
-                    chain={activeChain}
-                    className="object-contain"
-                    style={{ width: HEADER_SOCIAL_GLYPH_PX, height: HEADER_SOCIAL_GLYPH_PX }}
-                  />
-                </span>
+                <QuotePairBadge kind={alternateQuote} chain={activeChain} variant="header" />
               ) : null}
               <PulseRowSocialStrip
                 bundle={bundle}
@@ -437,7 +424,6 @@ export function TokenHeader({
             type="button"
             className={cn(iconRow, 'rounded-sm')}
             aria-label="Search token"
-            title="Search"
             onClick={() => setSearchOpen(true)}
           >
             <Search className="h-3.5 w-3.5" strokeWidth={2} />
@@ -445,7 +431,6 @@ export function TokenHeader({
           <button
             type="button"
             onClick={() => openAlertRulesModal()}
-            title="Pulse alerts"
             className={cn(
               iconRow,
               'rounded-sm',

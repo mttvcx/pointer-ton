@@ -494,7 +494,7 @@ export function TrackersPanel({
   const isWalletView = viewTab === 'wallet_manager';
   const showSocialColumn = surface === 'track_hub' || socialsOpen;
   const openWallet = useCallback(
-    (walletAddress: string) => openWalletIntel({ address: walletAddress, chain: activeChain, rowDemo: true }),
+    (walletAddress: string) => openWalletIntel({ address: walletAddress, chain: activeChain }),
     [activeChain, openWalletIntel],
   );
 

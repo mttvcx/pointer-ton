@@ -129,6 +129,11 @@ export function WalletPerformancePanel({
       <p className="mt-3 border-t border-border-subtle pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
         Win / Loss distribution
       </p>
+      {buckets.length === 0 ? (
+        <p className="mt-1.5 text-[11px] text-fg-muted">
+          No trade stats indexed for this wallet yet.
+        </p>
+      ) : null}
       <ul className="mt-1.5 space-y-0.5">
         {buckets.map((b) => (
           <li key={b.id} className="flex items-center justify-between gap-2 text-xs">

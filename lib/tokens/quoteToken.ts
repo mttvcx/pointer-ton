@@ -137,7 +137,13 @@ export function quoteTokenLabel(kind: QuoteTokenKind, chain: AppChainId = 'sol')
 }
 
 export function quotePairTooltip(kind: QuoteTokenKind, chain: AppChainId = 'sol'): string {
-  return `Trading pair: ${quoteTokenLabel(kind, chain)}`;
+  return quotePairHoverLabel(kind, chain);
+}
+
+/** Short hover label for quote pair chips (Axiom: "USDC pair"). */
+export function quotePairHoverLabel(kind: QuoteTokenKind, chain: AppChainId = 'sol'): string {
+  const label = quoteTokenLabel(kind, chain);
+  return `${label} pair`;
 }
 
 /** Non-native pair quotes shown beside the row age chip (USDC / USD1 — not default SOL). */

@@ -6,8 +6,9 @@ import { useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils/cn';
 import { extractTwitterHandle } from '@/lib/utils/extractTwitterHandle';
-import { getPulseSocialModel, isTweetOlderThan, ensureBrowserUrl, resolveDisplayWebsite, twitterHandleFromProfileUrl } from '@/lib/tokens/pulseSocialLinks';
+import { getPulseSocialModel, tweetAgeBand, tweetFeatherColorClass, ensureBrowserUrl, resolveDisplayWebsite, twitterHandleFromProfileUrl } from '@/lib/tokens/pulseSocialLinks';
 import { usePrefetchTwitterProfileOnVisible } from '@/lib/hooks/usePrefetchTwitterProfileOnVisible';
+import { useTwitterProfile } from '@/lib/hooks/useTwitterProfile';
 import { useCoinCommunity } from '@/lib/hooks/useCoinCommunity';
 import { usePrefetchCoinCommunityOnVisible } from '@/lib/hooks/usePrefetchCoinCommunityOnVisible';
 import { enqueueCoinCommunityPrefetch } from '@/lib/communities/coinCommunityPrefetchQueue';
@@ -62,32 +63,41 @@ function twitterProfileUrlFromHandleField(tokenHandle: string | null | undefined
   return `https://x.com/${encodeURIComponent(h)}`;
 }
 
-const MS_PER_DAY = 86_400_000;
-
 /** Linked X post — Axiom feather glyph + standard tweet HoverCard. */
 function TweetStripLink({
   url,
   sx,
   linkClassName,
-  stale,
 }: {
   url: string;
   sx: number;
   linkClassName?: string;
-  stale?: boolean | null;
 }) {
+  const leafSize = Math.max(12, Math.round(sx * 0.72));
+  const ageBand = tweetAgeBand(url);
+  const ariaBand =
+    ageBand === 'fresh'
+      ? 'within the past hour'
+      : ageBand === 'warm'
+        ? '1–3 hours old'
+        : ageBand === 'stale'
+          ? 'over 3 hours old'
+          : 'unknown age';
+
   return (
     <TwitterTweetHoverTrigger url={url}>
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={stale === true ? 'Post on X (over 24h old)' : 'Post on X'}
+        aria-label={`Post on X (${ariaBand})`}
         className={cn(iconHit, linkClassName)}
       >
-        <StripGlyph>
-          <PulseLuminanceGlyph src={PULSE_GLYPH.feather} size={sx} />
-        </StripGlyph>
+        <PulseLuminanceGlyph
+          src={PULSE_GLYPH.feather}
+          size={leafSize}
+          className={tweetFeatherColorClass(url)}
+        />
       </a>
     </TwitterTweetHoverTrigger>
   );
@@ -361,7 +371,7 @@ export function PulseRowSocialStrip({
 }) {
   // Default ~25% larger than the previous 20/24 to match Axiom's icon weight.
   // Token detail header uses explicit glyphSize (28px) for Axiom parity.
-  const sx = glyphSize ?? (inlineHeader ? 22 : 26);
+  const sx = glyphSize ?? (inlineHeader ? 20 : 24);
   const profileSx = profileGlyphSize ?? (inlineHeader ? sx + 4 : sx);
   const hit = cn(
     iconHit,
@@ -394,6 +404,11 @@ export function PulseRowSocialStrip({
     (profile?.url ? twitterHandleFromProfileUrl(profile.url) ?? null : null) ||
     (twitterProfileUrl ? twitterHandleFromProfileUrl(twitterProfileUrl) ?? null : null);
 
+  const { data: twitterProfile } = useTwitterProfile(twitterDisplayHandle, {
+    enabled: Boolean(twitterDisplayHandle),
+  });
+  const followerCount = twFollowers ?? twitterProfile?.followerCount ?? null;
+
   const prefetchTwitterRef = usePrefetchTwitterProfileOnVisible(twitterDisplayHandle);
   const prefetchCommunityRef = usePrefetchCoinCommunityOnVisible(
     showHoldersCommunity ? bundle.token.mint : null,
@@ -406,11 +421,17 @@ export function PulseRowSocialStrip({
     [prefetchTwitterRef, prefetchCommunityRef],
   );
 
-  const showFollowerRow =
-    twitterDisplayHandle &&
-    twitterProfileUrl &&
-    twFollowers != null &&
-    twFollowers > 0;
+  const showHandleFooter =
+    showTwitterFooter &&
+    Boolean(twitterDisplayHandle) &&
+    Boolean(twitterProfileUrl) &&
+    (!pulseBoard || rowFields.twitterHandle);
+
+  const showFollowersInFooter =
+    showHandleFooter &&
+    followerCount != null &&
+    followerCount > 0 &&
+    (!pulseBoard || rowFields.twitterFollowers);
 
   const txLabel = txns != null ? formatNumber(txns, { decimals: 0 }) : '—';
   const devMigrateFrac = useMemo(() => devMigrateFractionFromBundle(bundle), [bundle]);
@@ -420,7 +441,6 @@ export function PulseRowSocialStrip({
     proTradersCount != null ? formatNumber(proTradersCount, { decimals: 0, compact: proTradersCount >= 1000 }) : '—';
 
   const tweetUrl = model.twitterTweet?.url;
-  const tweetStale = tweetUrl ? isTweetOlderThan(tweetUrl, MS_PER_DAY) : null;
   const fallbackXSearch =
     fallbackXSearchQuery?.trim() &&
     `https://x.com/search?q=${encodeURIComponent(fallbackXSearchQuery.trim())}`;
@@ -459,7 +479,7 @@ export function PulseRowSocialStrip({
           ) : null}
 
           {tweetUrl ? (
-            <TweetStripLink url={tweetUrl} sx={sx} linkClassName={hit} stale={tweetStale} />
+            <TweetStripLink url={tweetUrl} sx={sx} linkClassName={hit} />
           ) : null}
 
           {model.telegram ? (
@@ -562,7 +582,7 @@ export function PulseRowSocialStrip({
         ) : null}
 
         {tweetUrl ? (
-          <TweetStripLink url={tweetUrl} sx={sx} linkClassName={hit} stale={tweetStale} />
+          <TweetStripLink url={tweetUrl} sx={sx} linkClassName={hit} />
         ) : null}
 
         {model.twitterSearch?.url ? (
@@ -672,7 +692,11 @@ export function PulseRowSocialStrip({
         {agent ? (
           <PulseRichHover wide panel={<AgentHoverPanel bundle={bundle} />}>
             <Link href={tokenPath} aria-label="Pump agent mode — hover for controls" className={hit}>
-              <PulseGlyphMask name="agent" size={sx} variant="natural" />
+              <PulseLuminanceGlyph
+                src={PULSE_GLYPH.agent}
+                size={sx}
+                className="text-signal-positive"
+              />
             </Link>
           </PulseRichHover>
         ) : null}
@@ -779,11 +803,7 @@ export function PulseRowSocialStrip({
         ) : null}
       </div>
 
-      {showTwitterFooter &&
-      (!pulseBoard || rowFields.twitterHandle) &&
-      showFollowerRow &&
-      (!pulseBoard || rowFields.twitterFollowers) &&
-      twitterDisplayHandle ? (
+      {showFollowersInFooter && twitterDisplayHandle ? (
         <div
           className={cn(
             /** Single line — scroll inside the text column when handle + stats are wide. */
@@ -808,17 +828,14 @@ export function PulseRowSocialStrip({
               <PulseHeaderSocialIcon kind="profile" size={followerGlyph} />
             </span>
             <span className="shrink-0 tabular-nums text-[#5ebbff]">
-              {formatNumber(twFollowers, { compact: true })}
+              {formatNumber(followerCount!, { compact: true })}
             </span>
           </span>
         </div>
-      ) : showTwitterFooter &&
-        (!pulseBoard || rowFields.twitterHandle) &&
-        twitterDisplayHandle &&
-        twitterProfileUrl ? (
+      ) : showHandleFooter && twitterDisplayHandle ? (
         <TwitterProfileHoverTrigger handle={twitterDisplayHandle}>
           <a
-            href={twitterProfileUrl}
+            href={twitterProfileUrl!}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(

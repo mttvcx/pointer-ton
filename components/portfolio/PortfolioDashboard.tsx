@@ -497,7 +497,7 @@ export function PortfolioDashboard({
   }
 
   function openWalletAnalytics(walletAddress: string) {
-    openWalletIntel({ address: walletAddress, chain: activeChain, rowDemo: true });
+    openWalletIntel({ address: walletAddress, chain: activeChain });
   }
 
   async function saveWalletLabel(walletId: string, label: string) {

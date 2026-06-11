@@ -281,7 +281,7 @@ export function WalletIdentityAnchor({
   }, [dossier]);
 
   const onIntel = () => {
-    openIntel({ address, chain: walletChain, rowDemo: true });
+    openIntel({ address, chain: walletChain });
     setDossier(false);
     setXyDossier(null);
   };

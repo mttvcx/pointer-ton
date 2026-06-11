@@ -2,8 +2,9 @@ import 'server-only';
 
 import type { AppChainId } from '@/lib/chains/appChain';
 import { inferMintKind } from '@/lib/chains/mintKind';
-import { insertMarketSnapshot, updateToken } from '@/lib/db/tokens';
+import { insertMarketSnapshot, updateToken, getTokenByMint, listTokensByCreatorWallet } from '@/lib/db/tokens';
 import { resolveTokenHolders } from '@/lib/onchain/resolveTokenHolders';
+import { countProTraders } from '@/lib/onchain/countProTraders';
 import {
   fetchPumpFunCoin,
   isLikelyPumpFunMint,
@@ -104,30 +105,64 @@ function mergePumpIntoToken(
   };
 }
 
+function bundleMissingStripMetrics(bundle: PulseTokenBundle): boolean {
+  const ext = bundle.snapshot?.extended_metrics;
+  if (!ext || typeof ext !== 'object' || Array.isArray(ext)) return true;
+  const r = ext as Record<string, unknown>;
+  return r.pro_traders == null && r.dev_deploy_total == null && r.dev_deploy_migrated == null;
+}
+
+async function devDeployStatsForCreator(
+  creatorWallet: string,
+): Promise<{ migrated: number; total: number } | null> {
+  try {
+    const rows = await listTokensByCreatorWallet(creatorWallet, 80);
+    if (rows.length === 0) return null;
+    const migrated = rows.filter((t) => t.migrated_at != null).length;
+    return { migrated, total: rows.length };
+  } catch {
+    return null;
+  }
+}
+
 function mergeHolderMetrics(
   bundle: PulseTokenBundle,
   resolved: Awaited<ReturnType<typeof resolveTokenHolders>>,
+  extras?: {
+    proTraders?: number | null;
+    devDeploy?: { migrated: number; total: number } | null;
+  },
 ): PulseTokenBundle {
-  if (!resolved) return bundle;
+  if (!resolved && !extras?.proTraders && !extras?.devDeploy) return bundle;
   const base = snapshotBase(bundle);
   const ext =
     base.extended_metrics && typeof base.extended_metrics === 'object' && !Array.isArray(base.extended_metrics)
       ? { ...(base.extended_metrics as Record<string, unknown>) }
       : ({} as Record<string, unknown>);
 
-  let sniperPct = 0;
-  for (const h of resolved.holders) {
-    if (h.is_sniper && h.pct_of_supply != null) sniperPct += h.pct_of_supply;
+  if (resolved) {
+    let sniperPct = 0;
+    for (const h of resolved.holders) {
+      if (h.is_sniper && h.pct_of_supply != null) sniperPct += h.pct_of_supply;
+    }
+    if (sniperPct > 0) ext.sniperHolderPct = sniperPct;
   }
-  if (sniperPct > 0) ext.sniperHolderPct = sniperPct;
+
+  if (extras?.proTraders != null && extras.proTraders >= 0) {
+    ext.pro_traders = extras.proTraders;
+  }
+  if (extras?.devDeploy) {
+    ext.dev_deploy_migrated = extras.devDeploy.migrated;
+    ext.dev_deploy_total = extras.devDeploy.total;
+  }
 
   return {
     ...bundle,
     snapshot: {
       ...base,
-      holder_count: resolved.holderCountTotal ?? base.holder_count,
-      top10_holder_pct: resolved.top10HolderPct ?? base.top10_holder_pct,
-      dev_holding_pct: resolved.devHoldingPct ?? base.dev_holding_pct,
+      holder_count: resolved?.holderCountTotal ?? base.holder_count,
+      top10_holder_pct: resolved?.top10HolderPct ?? base.top10_holder_pct,
+      dev_holding_pct: resolved?.devHoldingPct ?? base.dev_holding_pct,
       extended_metrics: (Object.keys(ext).length > 0 ? ext : base.extended_metrics) as Json,
       snapshot_at: new Date().toISOString(),
     },
@@ -190,7 +225,10 @@ export async function enrichPulseBundlesWithMetrics(
   const holderTargets = bundles
     .filter((b) => {
       if (pointerQaMintOnly() && !isPointerQaMint(b.token.mint)) return false;
-      return inferMintKind(b.token.mint) === 'sol' && bundleMissingHolderMetrics(b);
+      return (
+        inferMintKind(b.token.mint) === 'sol' &&
+        (bundleMissingHolderMetrics(b) || bundleMissingStripMetrics(b))
+      );
     })
     .slice(0, MAX_HOLDER_ENRICH);
 
@@ -204,19 +242,35 @@ export async function enrichPulseBundlesWithMetrics(
   const [holderResults, pumpResults] = await Promise.all([
     mapPool(holderTargets, HOLDER_POOL, async (bundle) => {
       try {
-        const resolved = await withTimeout(
-          resolveTokenHolders(bundle.token.mint, {
-            limit: 20,
-            forceLive: bundle.token.created_at
-              ? Date.now() - new Date(bundle.token.created_at).getTime() < 30 * 60_000
-              : false,
-          }),
-          8_000,
-          'pulse_holder_enrich',
-        );
-        return { mint: bundle.token.mint, resolved };
+        const needsHolders = bundleMissingHolderMetrics(bundle);
+        const needsStrip = bundleMissingStripMetrics(bundle);
+        const resolved = needsHolders || needsStrip
+          ? await withTimeout(
+              resolveTokenHolders(bundle.token.mint, {
+                limit: 20,
+                forceLive: bundle.token.created_at
+                  ? Date.now() - new Date(bundle.token.created_at).getTime() < 30 * 60_000
+                  : false,
+              }),
+              8_000,
+              'pulse_holder_enrich',
+            )
+          : null;
+
+        let proTraders: number | null = null;
+        if (needsStrip && resolved?.holders.length) {
+          proTraders = await countProTraders(resolved.holders);
+        }
+
+        let devDeploy: { migrated: number; total: number } | null = null;
+        const creator = bundle.token.creator_wallet?.trim();
+        if (needsStrip && creator) {
+          devDeploy = await devDeployStatsForCreator(creator);
+        }
+
+        return { mint: bundle.token.mint, resolved, proTraders, devDeploy };
       } catch {
-        return { mint: bundle.token.mint, resolved: null };
+        return { mint: bundle.token.mint, resolved: null, proTraders: null, devDeploy: null };
       }
     }),
     mapPool(pumpTargets, PUMP_POOL, async (bundle) => {
@@ -225,11 +279,11 @@ export async function enrichPulseBundlesWithMetrics(
     }),
   ]);
 
-  for (const { mint, resolved } of holderResults) {
-    if (!resolved) continue;
+  for (const { mint, resolved, proTraders, devDeploy } of holderResults) {
+    if (!resolved && proTraders == null && !devDeploy) continue;
     const prev = byMint.get(mint);
     if (!prev) continue;
-    const next = mergeHolderMetrics(prev, resolved);
+    const next = mergeHolderMetrics(prev, resolved, { proTraders, devDeploy });
     byMint.set(mint, next);
     persistMetricsAsync(next, false);
   }
@@ -263,6 +317,9 @@ export async function fetchPulseMetricsForMints(
       top10_holder_pct: number | null;
       dev_holding_pct: number | null;
       sniperHolderPct: number | null;
+      pro_traders: number | null;
+      dev_deploy_migrated: number | null;
+      dev_deploy_total: number | null;
     }
   >
 > {
@@ -276,17 +333,19 @@ export async function fetchPulseMetricsForMints(
       top10_holder_pct: number | null;
       dev_holding_pct: number | null;
       sniperHolderPct: number | null;
+      pro_traders: number | null;
+      dev_deploy_migrated: number | null;
+      dev_deploy_total: number | null;
     }
   > = {};
 
   await mapPool(uniq, 5, async (mint) => {
     if (inferMintKind(mint) !== 'sol') return;
     try {
-      const resolved = await withTimeout(
-        resolveTokenHolders(mint, { limit: 20 }),
-        9_000,
-        'pulse_metrics_batch',
-      );
+      const [resolved, token] = await Promise.all([
+        withTimeout(resolveTokenHolders(mint, { limit: 20 }), 9_000, 'pulse_metrics_batch'),
+        getTokenByMint(mint),
+      ]);
       if (!resolved) return;
       let sniperPct: number | null = null;
       let sniperSum = 0;
@@ -294,11 +353,19 @@ export async function fetchPulseMetricsForMints(
         if (h.is_sniper && h.pct_of_supply != null) sniperSum += h.pct_of_supply;
       }
       if (sniperSum > 0) sniperPct = sniperSum;
+
+      const proTraders = await countProTraders(resolved.holders);
+      const creator = token?.creator_wallet?.trim();
+      const devDeploy = creator ? await devDeployStatsForCreator(creator) : null;
+
       out[mint] = {
         holder_count: resolved.holderCountTotal,
         top10_holder_pct: resolved.top10HolderPct,
         dev_holding_pct: resolved.devHoldingPct,
         sniperHolderPct: sniperPct,
+        pro_traders: proTraders,
+        dev_deploy_migrated: devDeploy?.migrated ?? null,
+        dev_deploy_total: devDeploy?.total ?? null,
       };
     } catch {
       /* skip mint */

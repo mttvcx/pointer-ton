@@ -161,6 +161,13 @@ export function WalletPnlChart({
   return (
     <div className={cn('relative min-h-[174px] flex-1', className)}>
       <div ref={wrapRef} className="absolute inset-0" />
+      {displayPoints.length === 0 ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <p className="text-center text-[11px] leading-snug text-fg-muted">
+            No PnL history indexed for this wallet yet.
+          </p>
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute bottom-2 left-2.5 flex items-center gap-1.5">
         <PointerBirdMark size={16} className="opacity-45" />
         <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-fg-muted/45">

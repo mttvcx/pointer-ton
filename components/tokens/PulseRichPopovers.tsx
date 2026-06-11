@@ -41,6 +41,7 @@ import {
   hoverCardBridgeClass,
 } from '@/components/ui/hover-card';
 import { useTwitterProfile } from '@/lib/hooks/useTwitterProfile';
+import { useSolUsdSpot } from '@/lib/hooks/useSolUsdSpot';
 
 export {
   AXIOM_TWITTER_HOVER_PANEL_BG,
@@ -1040,12 +1041,9 @@ export function PumpFunHoverPanel({ bundle, pumpUrl }: { bundle: PulseTokenBundl
 }
 
 /**
- * Dev / funding hover panel — three-section layout that mirrors the reference design
- * the user attached in chat: header (mint short + copy + search), two stat cards
- * (native seeded with USD subline, funded age), and a footer wallet pill.
- *
- * Mock numbers are kept lightweight (no oracle wiring yet); replace stub USD
- * conversion once a price service is plumbed.
+ * Dev / funding hover panel — three-section layout: header (mint short + copy +
+ * search), two stat cards (native seeded with USD subline, funded age), and a
+ * footer wallet pill. USD uses live SOL spot; shows `—` while price loads.
  */
 export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
   const { token } = bundle;
@@ -1054,9 +1052,9 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
   const at = token.initial_liquidity_at;
   const creator = token.creator_wallet;
 
-  /** Stubbed conversion until a price oracle is wired — order-of-magnitude only. */
-  const STUB_SOL_USD = 85.3;
-  const usdValue = sol != null && Number.isFinite(sol) ? sol * STUB_SOL_USD : null;
+  const solUsd = useSolUsdSpot();
+  const usdValue =
+    sol != null && Number.isFinite(sol) && solUsd != null ? sol * solUsd : null;
   const usdLabel =
     usdValue != null
       ? `$${formatNumber(usdValue, { decimals: usdValue >= 1000 ? 0 : 3, compact: usdValue >= 10_000 })}`
@@ -1213,7 +1211,6 @@ export function DevWalletIntelHoverPanel({ bundle }: { bundle: PulseTokenBundle 
             openWallet({
               address: dev,
               chain: appChainForWalletAddress(dev),
-              rowDemo: true,
             })
           }
           className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 text-[10px] font-semibold text-[#d1d5db] transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"

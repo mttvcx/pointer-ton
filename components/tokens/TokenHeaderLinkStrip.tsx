@@ -13,7 +13,7 @@ import {
 } from '@/components/tokens/PulseGlyphMask';
 import type { PulseTokenBundle } from '@/types/tokens';
 
-const ICON = 14;
+const ICON = 13;
 
 const hit =
   'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-fg-muted/85 transition-colors hover:text-fg-primary';
@@ -122,15 +122,15 @@ export function TokenHeaderLinkStrip({ bundle }: { bundle: PulseTokenBundle }) {
 
   if (traits.agent) {
     nodes.push(
-      <span key="agent" className={cn(hit, 'cursor-default')} title="Pump agent" aria-label="Agent">
-        <PulseGlyphMask name="agent" size={ICON} variant="natural" />
+      <span key="agent" className={cn(hit, 'cursor-default')} aria-label="Pump agent" role="img">
+        <PulseLuminanceGlyph src={PULSE_GLYPH.agent} size={ICON} className="text-signal-positive" />
       </span>,
     );
   }
 
   if (traits.cashback) {
     nodes.push(
-      <span key="cashback" className={cn(hit, 'cursor-default')} title="Cashback" aria-label="Cashback">
+      <span key="cashback" className={cn(hit, 'cursor-default')} aria-label="Cashback" role="img">
         <PulseGlyphMask name="cashback" size={ICON} variant="mono" />
       </span>,
     );
@@ -138,7 +138,7 @@ export function TokenHeaderLinkStrip({ bundle }: { bundle: PulseTokenBundle }) {
 
   if (traits.feeShare) {
     nodes.push(
-      <span key="fee-share" className={cn(hit, 'cursor-default')} title="Fee share" aria-label="Fee share">
+      <span key="fee-share" className={cn(hit, 'cursor-default')} aria-label="Fee share" role="img">
         <PulseGlyphMask name="feeShare" size={ICON} variant="mono" />
       </span>,
     );

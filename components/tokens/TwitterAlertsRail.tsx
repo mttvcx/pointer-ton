@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { X } from 'lucide-react';
 import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
+import { isUiDemoMode } from '@/lib/dev/uiDemoMode';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { shortenAddress } from '@/lib/utils/addresses';
@@ -81,25 +82,27 @@ export function TwitterAlertsRail({ dock }: { dock: 'left' | 'right' }) {
     return list.filter((a) => a.type === ALERT_TYPE_TWITTER_LISTEN);
   }, [data]);
 
+  const uiDemo = isUiDemoMode();
   const { rows, banner, mock } = useMemo(() => {
     if (activeChain !== 'sol') {
       return {
-        rows: MOCK_TWITTER_ALERTS,
-        banner:
-          'Preview · layout & tester (e.g. Alert builder → Demo flash). Live twitter_listen ingest is wired for Solana — switch chain to SOL for real hits.',
-        mock: true,
+        rows: uiDemo ? MOCK_TWITTER_ALERTS : [],
+        banner: 'Live X listens are wired for Solana — switch chain to SOL for real hits.',
+        mock: uiDemo,
       };
     }
     if (serverRows.length === 0) {
+      /** Live mode: honest empty state — sample rows only in explicit demo mode. */
       return {
-        rows: MOCK_TWITTER_ALERTS,
-        banner:
-          'No live X listens yet · showing samples. Create rules under Co-pilot → Alert Builder → X listens.',
-        mock: true,
+        rows: uiDemo ? MOCK_TWITTER_ALERTS : [],
+        banner: uiDemo
+          ? 'No live X listens yet · showing samples. Create rules under Co-pilot → Alert Builder → X listens.'
+          : 'No live X listens yet. Create rules under Co-pilot → Alert Builder → X listens.',
+        mock: uiDemo,
       };
     }
     return { rows: serverRows, banner: null as string | null, mock: false };
-  }, [activeChain, serverRows]);
+  }, [activeChain, serverRows, uiDemo]);
 
   return (
     <section

@@ -55,6 +55,32 @@ export function isTweetOlderThan(statusUrl: string, maxAgeMs: number): boolean |
   return Date.now() - ts > maxAgeMs;
 }
 
+export const TWEET_AGE_MS = {
+  fresh: 3_600_000,
+  warm: 3 * 3_600_000,
+} as const;
+
+export type TweetAgeBand = 'fresh' | 'warm' | 'stale';
+
+/** Green <1h, yellow 1–3h, red >3h (Axiom feather semantics). */
+export function tweetAgeBand(statusUrl: string): TweetAgeBand | null {
+  const ts = approxTweetCreatedAtMs(statusUrl);
+  if (ts == null) return null;
+  const ageMs = Date.now() - ts;
+  if (ageMs < TWEET_AGE_MS.fresh) return 'fresh';
+  if (ageMs < TWEET_AGE_MS.warm) return 'warm';
+  return 'stale';
+}
+
+/** Tailwind text color for the feather glyph in the Pulse strip. */
+export function tweetFeatherColorClass(statusUrl: string): string {
+  const band = tweetAgeBand(statusUrl);
+  if (band === 'fresh') return 'text-[#00C27A]';
+  if (band === 'warm') return 'text-[#F7931A]';
+  if (band === 'stale') return 'text-[#EF4444]';
+  return 'text-fg-secondary';
+}
+
 const URL_IN_STRING = /https?:\/\/[^\s"'<>)\]]+/gi;
 
 function stripTrailingJunk(url: string): string {

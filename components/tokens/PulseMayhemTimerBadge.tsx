@@ -40,7 +40,8 @@ function PulseMayhemTimerBadgeLive({
         'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium tabular-nums leading-none text-[#ff4d6a]',
         className,
       )}
-      title="Mayhem Mode — 24h agent window"
+      aria-label="Mayhem Mode — 24h agent window"
+      role="img"
     >
       <Flame className="h-3 w-3 shrink-0" strokeWidth={2.25} aria-hidden />
       {formatMayhemCountdown(remainingMs)}
