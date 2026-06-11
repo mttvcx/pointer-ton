@@ -16,6 +16,7 @@ import {
 import type { Json, TablesInsert } from '@/lib/supabase/types';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 import { extractChainObservedAt } from '@/lib/helius/chainTimestamp';
+import { extractSocialUrlsFromRaw } from '@/lib/tokens/pulseSocialLinks';
 
 function inferDecimalsFromRaw(raw: Json): number {
   try {
@@ -46,6 +47,8 @@ export function launchEventToTokenInsert(
 ): TablesInsert<'tokens'> {
   const now = new Date().toISOString();
   const chainAt = extractChainObservedAt(ev.raw);
+  /** Socials persisted at ingest so Pulse strips show real icons from row one. */
+  const socials = extractSocialUrlsFromRaw(ev.raw);
   const base: TablesInsert<'tokens'> = {
     mint: ev.mint,
     symbol: ev.symbol,
@@ -58,6 +61,9 @@ export function launchEventToTokenInsert(
     bonding_progress: ev.bonding_progress,
     initial_liquidity_sol: ev.initial_liquidity_sol,
     initial_liquidity_at: ev.initial_liquidity_sol != null ? now : null,
+    website_url: socials.website_url,
+    telegram_url: socials.telegram_url,
+    twitter_handle: socials.twitter_handle,
     created_at: chainAt ?? now,
     last_seen_at: now,
   };
@@ -105,6 +111,9 @@ export async function ingestLaunchpadDiscovery(
       das_authority_pad: opts.dasAuthorityPad ?? null,
     });
 
+    /** Backfill social columns when previous ingest didn't extract them. */
+    const socials = extractSocialUrlsFromRaw(rawWithSource);
+
     const row = await updateToken(enrichedEv.mint, {
       last_seen_at: now,
       raw_metadata: rawWithSource,
@@ -112,6 +121,15 @@ export async function ingestLaunchpadDiscovery(
       name: enrichedEv.name ?? existing.name,
       image_url: enrichedEv.image_url ?? existing.image_url,
       creator_wallet: enrichedEv.creator_wallet ?? existing.creator_wallet,
+      ...(!existing.website_url?.trim() && socials.website_url
+        ? { website_url: socials.website_url }
+        : {}),
+      ...(!existing.telegram_url?.trim() && socials.telegram_url
+        ? { telegram_url: socials.telegram_url }
+        : {}),
+      ...(!existing.twitter_handle?.trim() && socials.twitter_handle
+        ? { twitter_handle: socials.twitter_handle }
+        : {}),
       ...(bonding_progress != null ? { bonding_progress } : {}),
       ...(launch_pad != null ? { launch_pad } : {}),
       ...(classPatch ?? {}),

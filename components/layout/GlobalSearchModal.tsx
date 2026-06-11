@@ -66,6 +66,11 @@ type SummaryRow = {
   symbol: string | null;
   name: string | null;
   image_url: string | null;
+  /** Latest DB snapshot metrics from /api/tokens/summary (null = never snapshotted). */
+  market_cap_usd?: number | null;
+  volume_24h_usd?: number | null;
+  liquidity_usd?: number | null;
+  created_at?: string | null;
 };
 
 type EnrichedSummary = SummaryRow & {
@@ -86,12 +91,17 @@ const DEMO_SEARCH_RECENTS: SummaryRow[] = [
 ];
 
 function enrichSummary(row: SummaryRow): EnrichedSummary {
+  const createdMs = row.created_at ? new Date(row.created_at).getTime() : NaN;
+  const ageMs =
+    Number.isFinite(createdMs) && createdMs > 0 ? Math.max(0, Date.now() - createdMs) : null;
+  const liveNum = (v: number | null | undefined) =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
   return {
     ...row,
-    mcUsd: null,
-    volUsd: null,
-    liqUsd: null,
-    ageMs: null,
+    mcUsd: liveNum(row.market_cap_usd),
+    volUsd: liveNum(row.volume_24h_usd),
+    liqUsd: liveNum(row.liquidity_usd),
+    ageMs,
     quoteIsUsdc: null,
     dexLabel: 'Market',
   };

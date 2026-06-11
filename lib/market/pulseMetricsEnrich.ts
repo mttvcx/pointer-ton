@@ -11,6 +11,12 @@ import {
   type PumpFunCoinRow,
 } from '@/lib/market/pumpFunCoin';
 import { withTimeout } from '@/lib/utils/withTimeout';
+import {
+  fetchOffchainTokenMetadata,
+  jsonUriFromRawMetadata,
+  tokenHasAnySocial,
+} from '@/lib/market/offchainTokenMetadata';
+import { extractSocialUrlsFromRaw } from '@/lib/tokens/pulseSocialLinks';
 import { isPointerQaMint, pointerQaMintOnly } from '@/lib/qa/pointerQaMint';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { TablesInsert } from '@/lib/supabase/types';
@@ -18,8 +24,10 @@ import type { Json } from '@/lib/supabase/types';
 
 const MAX_HOLDER_ENRICH = 28;
 const MAX_PUMP_META_ENRICH = 20;
+const MAX_JSON_META_ENRICH = 16;
 const HOLDER_POOL = 6;
 const PUMP_POOL = 8;
+const JSON_META_POOL = 6;
 
 async function mapPool<T, R>(
   items: T[],
@@ -239,7 +247,20 @@ export async function enrichPulseBundlesWithMetrics(
     })
     .slice(0, MAX_PUMP_META_ENRICH);
 
-  const [holderResults, pumpResults] = await Promise.all([
+  /**
+   * Off-chain json_uri socials (any launchpad): pump.fun-style launches put
+   * twitter/telegram/website in the off-chain JSON only — without this the
+   * strip shows just a globe + search icon.
+   */
+  const jsonMetaTargets = bundles
+    .filter((b) => {
+      if (pointerQaMintOnly() && !isPointerQaMint(b.token.mint)) return false;
+      if (tokenHasAnySocial(b.token)) return false;
+      return jsonUriFromRawMetadata(b.token.raw_metadata) != null;
+    })
+    .slice(0, MAX_JSON_META_ENRICH);
+
+  const [holderResults, pumpResults, jsonMetaResults] = await Promise.all([
     mapPool(holderTargets, HOLDER_POOL, async (bundle) => {
       try {
         const needsHolders = bundleMissingHolderMetrics(bundle);
@@ -277,6 +298,13 @@ export async function enrichPulseBundlesWithMetrics(
       const pump = await fetchPumpFunCoin(bundle.token.mint);
       return { mint: bundle.token.mint, pump };
     }),
+    mapPool(jsonMetaTargets, JSON_META_POOL, async (bundle) => {
+      const uri = jsonUriFromRawMetadata(bundle.token.raw_metadata);
+      if (!uri) return { mint: bundle.token.mint, socials: null };
+      const json = await fetchOffchainTokenMetadata(uri);
+      if (!json) return { mint: bundle.token.mint, socials: null };
+      return { mint: bundle.token.mint, socials: extractSocialUrlsFromRaw(json) };
+    }),
   ]);
 
   for (const { mint, resolved, proTraders, devDeploy } of holderResults) {
@@ -301,6 +329,27 @@ export async function enrichPulseBundlesWithMetrics(
     const next = { ...prev, token };
     byMint.set(mint, next);
     if (tokenDirty) persistMetricsAsync(next, true);
+  }
+
+  for (const { mint, socials } of jsonMetaResults) {
+    if (!socials) continue;
+    const prev = byMint.get(mint);
+    if (!prev) continue;
+    const t = prev.token;
+    const token = {
+      ...t,
+      twitter_handle: t.twitter_handle?.trim() ? t.twitter_handle : socials.twitter_handle,
+      telegram_url: t.telegram_url?.trim() ? t.telegram_url : socials.telegram_url,
+      website_url: t.website_url?.trim() ? t.website_url : socials.website_url,
+    };
+    const tokenDirty =
+      token.twitter_handle !== t.twitter_handle ||
+      token.telegram_url !== t.telegram_url ||
+      token.website_url !== t.website_url;
+    if (!tokenDirty) continue;
+    const next = { ...prev, token };
+    byMint.set(mint, next);
+    persistMetricsAsync(next, true);
   }
 
   return bundles.map((b) => byMint.get(b.token.mint) ?? b);

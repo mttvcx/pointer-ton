@@ -157,16 +157,33 @@ function isTiktokHost(hostname: string): boolean {
   return h === 'tiktok.com' || h === 'www.tiktok.com';
 }
 
-/** IPFS / storage gateways are not user-facing websites for the globe icon. */
+/**
+ * IPFS / storage gateways / CDN asset hosts / metadata blobs are not
+ * user-facing websites for the globe icon. The globe must only render for a
+ * trusted, token-specific website — never the token's own image or json_uri.
+ */
 export function isNonWebsiteInfrastructureUrl(url: string): boolean {
   try {
-    const h = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+    const u = new URL(url);
+    const h = u.hostname.replace(/^www\./, '').toLowerCase();
+    const path = u.pathname.toLowerCase();
+
     if (h.includes('ipfs')) return true;
     if (h.includes('arweave')) return true;
     if (h === 'nftstorage.link') return true;
     if (h.endsWith('.ipfs.dweb.link')) return true;
     if (h.endsWith('.ipfs.nftstorage.link')) return true;
+    if (h === 'dweb.link' || h.endsWith('.dweb.link')) return true;
     if (h === 'gateway.pinata.cloud') return true;
+    if (h.endsWith('.mypinata.cloud')) return true;
+    if (h.includes('helius')) return true;
+    if (h.endsWith('shdw-drive.genesysgo.net')) return true;
+    if (h === 'irys.xyz' || h.endsWith('.irys.xyz')) return true;
+    if (h === 'metadata.jito.network') return true;
+
+    /** Direct asset / metadata blobs are never websites. */
+    if (/\.(png|jpe?g|gif|webp|svg|avif|mp4|webm|json)$/.test(path)) return true;
+
     return false;
   } catch {
     return false;
@@ -611,6 +628,39 @@ export function extractSocialUrlsFromAsset(asset: Asset): {
   const handle = profile?.handle;
   return {
     website_url: website ? ensureBrowserUrl(website) : null,
+    telegram_url: telegram ? ensureBrowserUrl(telegram) : null,
+    twitter_handle: handle ? `@${handle.replace(/^@/, '')}` : null,
+  };
+}
+
+/**
+ * Persistable social columns from any opaque raw metadata blob (serialized
+ * DAS asset, off-chain json, webhook payload). Same trust rules as the Pulse
+ * strip: website excludes IPFS/CDN/asset URLs, twitter must be a profile link.
+ */
+export function extractSocialUrlsFromRaw(raw: unknown): {
+  website_url: string | null;
+  telegram_url: string | null;
+  twitter_handle: string | null;
+} {
+  const urls = collectUrlsFromUnknown(raw);
+
+  const twitterUrls = new Set<string>();
+  for (const u of urls) {
+    try {
+      if (isTwitterHost(new URL(u).hostname)) twitterUrls.add(u);
+    } catch {
+      /* skip */
+    }
+  }
+
+  const { profile } = partitionTwitterLinks(twitterUrls);
+  const { website, telegram } = pickWebsiteTelegram(urls, twitterUrls);
+  const trustedWebsite = website ? resolveDisplayWebsite(website) : null;
+
+  const handle = profile?.handle;
+  return {
+    website_url: trustedWebsite,
     telegram_url: telegram ? ensureBrowserUrl(telegram) : null,
     twitter_handle: handle ? `@${handle.replace(/^@/, '')}` : null,
   };
