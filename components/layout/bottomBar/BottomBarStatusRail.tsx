@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, BookOpen, LayoutPanelTop, Palette } from 'lucide-react';
+import { Bell, LayoutPanelTop, Palette } from 'lucide-react';
 import { DiscordLogo } from '@/components/icons/DiscordLogo';
 import { DiagnosticsTriggerButton } from '@/components/reports/BugReportDrawer';
 import {
@@ -136,14 +136,7 @@ export function BottomBarStatusRail({
         >
           <XIcon className="h-3.5 w-3.5" />
         </a>
-        <a
-          href="/pulse"
-          title="Docs"
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] font-medium text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-        >
-          <BookOpen className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-          <span className="hidden lg:inline">Docs</span>
-        </a>
+        {/* Docs link removed until real documentation exists — never point Docs at /pulse. */}
       </div>
 
       <BottomBarThemeModal open={themeOpen} onClose={() => setThemeOpen(false)} />

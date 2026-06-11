@@ -4,8 +4,7 @@ import { useMemo, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ChartLine, Link2, Settings, Star, Zap } from 'lucide-react';
-import { toast } from 'sonner';
+import { Settings, Star, Zap } from 'lucide-react';
 import { TokenImage } from '@/components/shared/TokenImage';
 import { appChainForMintNavigation } from '@/lib/chains/mintKind';
 import { formatCompactUsd } from '@/lib/utils/formatters';
@@ -207,24 +206,7 @@ export function WatchlistTickerBar() {
         >
           <Star className="h-3.5 w-3.5" strokeWidth={2} />
         </Link>
-        <button
-          type="button"
-          onClick={() => toast.message('Chart overlays', { description: 'Coming soon.' })}
-          className="btn-press flex h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors duration-200 hover:bg-white/[0.06] hover:text-fg-primary"
-          aria-label="Charts"
-          title="Charts"
-        >
-          <ChartLine className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          onClick={() => toast.message('Linked tokens', { description: 'Coming soon.' })}
-          className="btn-press hidden h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors duration-200 hover:bg-white/[0.06] hover:text-fg-primary sm:flex"
-          aria-label="Linked"
-          title="Linked"
-        >
-          <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
+        {/* Chart overlays / linked tokens buttons removed until implemented — no toast-only icons. */}
       </div>
 
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

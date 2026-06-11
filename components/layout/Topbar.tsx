@@ -608,7 +608,10 @@ export function Topbar() {
                     <button
                       type="button"
                       role="menuitem"
-                      onClick={() => setAvatarMenuOpen(false)}
+                      onClick={() => {
+                        setAvatarMenuOpen(false);
+                        setFeatureUpdatesOpen(true);
+                      }}
                       className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] transition-colors hover:bg-bg-hover hover:text-fg-primary"
                     >
                       <Rocket className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />

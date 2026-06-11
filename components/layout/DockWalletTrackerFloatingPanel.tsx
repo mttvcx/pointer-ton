@@ -623,31 +623,34 @@ export function DockWalletTrackerFloatingPanel() {
           )}
         </div>
 
-        <footer className="flex shrink-0 items-start gap-2 border-t border-rose-500/15 bg-gradient-to-r from-rose-500/[0.07] via-transparent px-3 py-2">
-          <div className="min-w-0 flex-1 pb-px">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-200/95">Tester</p>
-            <p className="text-[9px] leading-snug text-fg-muted">Fires the wallet-tracker toast channel.</p>
-          </div>
-          <div className="flex shrink-0 flex-col gap-1">
-            <button
-              type="button"
-              data-no-drag
-              onClick={() => toastWalletTrackedTradeDemo('buy')}
-              className="btn-press inline-flex items-center gap-1.5 rounded-md border border-rose-400/35 bg-rose-500/12 px-2.5 py-1.5 text-[10px] font-bold text-rose-100 shadow-sm transition hover:bg-rose-500/20"
-            >
-              <BellRing className="h-3.5 w-3.5" strokeWidth={2} />
-              Demo buy toast
-            </button>
-            <button
-              type="button"
-              data-no-drag
-              onClick={() => toastWalletTrackedTradeDemo('sell')}
-              className="btn-press rounded-md border border-white/[0.08] bg-bg-sunken/40 px-2 py-1 text-[9px] font-semibold text-fg-secondary hover:bg-bg-hover"
-            >
-              Demo sell toast
-            </button>
-          </div>
-        </footer>
+        {/* Tester toasts are a dev tool — never shown to founders/production users. */}
+        {process.env.NODE_ENV === 'development' ? (
+          <footer className="flex shrink-0 items-start gap-2 border-t border-rose-500/15 bg-gradient-to-r from-rose-500/[0.07] via-transparent px-3 py-2">
+            <div className="min-w-0 flex-1 pb-px">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-200/95">Tester</p>
+              <p className="text-[9px] leading-snug text-fg-muted">Fires the wallet-tracker toast channel.</p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-1">
+              <button
+                type="button"
+                data-no-drag
+                onClick={() => toastWalletTrackedTradeDemo('buy')}
+                className="btn-press inline-flex items-center gap-1.5 rounded-md border border-rose-400/35 bg-rose-500/12 px-2.5 py-1.5 text-[10px] font-bold text-rose-100 shadow-sm transition hover:bg-rose-500/20"
+              >
+                <BellRing className="h-3.5 w-3.5" strokeWidth={2} />
+                Demo buy toast
+              </button>
+              <button
+                type="button"
+                data-no-drag
+                onClick={() => toastWalletTrackedTradeDemo('sell')}
+                className="btn-press rounded-md border border-white/[0.08] bg-bg-sunken/40 px-2 py-1 text-[9px] font-semibold text-fg-secondary hover:bg-bg-hover"
+              >
+                Demo sell toast
+              </button>
+            </div>
+          </footer>
+        ) : null}
 
         {!dockSnap ? (
           <>

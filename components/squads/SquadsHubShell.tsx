@@ -30,6 +30,15 @@ export function SquadsHubShell({ children }: { children: ReactNode }) {
 
       <SquadsSubnav />
 
+      {/* Squads backend lands in a later drop — never present sample rooms as live. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-amber-300/[0.13] bg-amber-300/[0.04] px-3 py-1.5 sm:px-4">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300/70" aria-hidden />
+        <p className="text-[10.5px] font-medium leading-none text-amber-100/75">
+          <span className="font-semibold text-amber-100/90">Preview</span> · Squads is in
+          early access — discovery and rooms show sample data until squad backend ships.
+        </p>
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4">
         {children}
       </div>

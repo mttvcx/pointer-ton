@@ -149,14 +149,19 @@ export async function fetchJupiterTickerQuotes(): Promise<TickerQuote[]> {
   return [...jupiterRows, tonRow, bnbRow];
 }
 
-/** Spot USD price for arbitrary Solana mints (e.g. limit-alert cron, charts). */
-export async function fetchUsdPricesForMints(
-  mints: string[],
-): Promise<Map<string, { usdPrice: number | null; priceChange24h: number | null }>> {
-  const uniq = [...new Set(mints.filter(Boolean))];
-  const out = new Map<string, { usdPrice: number | null; priceChange24h: number | null }>();
-  if (uniq.length === 0) return out;
+type CachedPrice = {
+  at: number;
+  usdPrice: number | null;
+  priceChange24h: number | null;
+};
 
+/** Last-good prices per mint — served stale when Jupiter rate-limits (429) or errors. */
+const PRICE_STALE_CACHE = new Map<string, CachedPrice>();
+const PRICE_STALE_TTL_MS = 10 * 60_000;
+
+async function fetchJupiterPriceBatch(
+  uniq: string[],
+): Promise<Record<string, PriceRow>> {
   const url = `${JUPITER_PRICE_V3_BASE}?ids=${encodeURIComponent(uniq.join(','))}`;
   const headers: HeadersInit = { Accept: 'application/json' };
   const key = process.env.JUPITER_API_KEY?.trim();
@@ -166,17 +171,63 @@ export async function fetchUsdPricesForMints(
   if (!res.ok) {
     throw new Error(`jupiter_price_http_${res.status}`);
   }
+  return (await res.json()) as Record<string, PriceRow>;
+}
 
-  const json = (await res.json()) as Record<string, PriceRow>;
+/**
+ * Spot USD price for arbitrary Solana mints (portfolio, limit-alert cron, charts).
+ *
+ * Resilience: one retry with backoff on 429/5xx, then last-good stale cache
+ * (≤10 min) per mint, then null prices. Never throws — portfolio degrades to
+ * SOL-only / `—` marks instead of a full-page failure.
+ */
+export async function fetchUsdPricesForMints(
+  mints: string[],
+): Promise<Map<string, { usdPrice: number | null; priceChange24h: number | null }>> {
+  const uniq = [...new Set(mints.filter(Boolean))];
+  const out = new Map<string, { usdPrice: number | null; priceChange24h: number | null }>();
+  if (uniq.length === 0) return out;
+
+  let json: Record<string, PriceRow> | null = null;
+  try {
+    json = await fetchJupiterPriceBatch(uniq);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '';
+    const retryable = /jupiter_price_http_(429|5\d\d)/.test(msg) || !/jupiter_price_http_/.test(msg);
+    if (retryable) {
+      await new Promise((r) => setTimeout(r, 600));
+      try {
+        json = await fetchJupiterPriceBatch(uniq);
+      } catch {
+        json = null;
+      }
+    }
+  }
+
+  const now = Date.now();
   for (const m of uniq) {
-    const row = json[m];
-    out.set(m, {
-      usdPrice: typeof row?.usdPrice === 'number' ? row.usdPrice : null,
-      priceChange24h:
-        row?.priceChange24h != null && Number.isFinite(row.priceChange24h)
-          ? row.priceChange24h
-          : null,
-    });
+    const row = json?.[m];
+    const livePrice = typeof row?.usdPrice === 'number' && Number.isFinite(row.usdPrice)
+      ? row.usdPrice
+      : null;
+    const liveChange =
+      row?.priceChange24h != null && Number.isFinite(row.priceChange24h)
+        ? row.priceChange24h
+        : null;
+
+    if (livePrice != null) {
+      PRICE_STALE_CACHE.set(m, { at: now, usdPrice: livePrice, priceChange24h: liveChange });
+      out.set(m, { usdPrice: livePrice, priceChange24h: liveChange });
+      continue;
+    }
+
+    const stale = PRICE_STALE_CACHE.get(m);
+    if (stale && now - stale.at <= PRICE_STALE_TTL_MS) {
+      out.set(m, { usdPrice: stale.usdPrice, priceChange24h: stale.priceChange24h });
+      continue;
+    }
+
+    out.set(m, { usdPrice: null, priceChange24h: null });
   }
   return out;
 }

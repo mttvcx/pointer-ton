@@ -9,7 +9,8 @@ const TABS: { key: string; href: string; label: string; count?: number }[] = [
   { key: 'recruit', href: '/squads/recruit', label: 'Recruit' },
   { key: 'looking', href: '/squads/looking', label: 'Looking' },
   { key: 'my', href: '/squads/my', label: 'My squads' },
-  { key: 'inbox', href: '/squads/inbox', label: 'Invites', count: 3 },
+  /** No hardcoded invite counts — badge returns when invites are API-backed. */
+  { key: 'inbox', href: '/squads/inbox', label: 'Invites' },
   { key: 'reputation', href: '/squads/reputation', label: 'Reputation' },
 ];
 

@@ -1042,7 +1042,7 @@ export function PointsDashboard({ className }: { className?: string }) {
               description="Pulse and routed venue volume counts."
               accent="var(--signal-info)"
               button="Trade"
-              href="/"
+              href="/pulse"
             />
             </div>
           </div>

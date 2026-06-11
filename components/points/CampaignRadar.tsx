@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowRight, ChevronRight } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowRight } from 'lucide-react';
 import { ChainGlyph } from '@/components/points/ChainGlyph';
 import { GlassPanel } from '@/components/points/missionControlPrimitives';
 import {
@@ -75,33 +74,10 @@ function OpportunityCard({ row }: { row: DemoOpportunity }) {
           <span className="tabular-nums text-[11px] font-semibold text-accent-glow">{row.timeLabel}</span>
         </div>
       </dl>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="focus-ring btn-press inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-white/12 bg-bg-hover/80 px-3 py-2 text-[11px] font-semibold text-fg-primary transition hover:border-cyan-400/35 hover:text-accent-glow min-[420px]:flex-none"
-          onClick={() => toast.message('Campaign detail drawer ships with partner integrations.')}
-        >
-          View details
-          <ChevronRight className="h-3.5 w-3.5 opacity-70" />
-        </button>
-        {row.showVerify ? (
-          <button
-            type="button"
-            className="focus-ring btn-press inline-flex flex-1 items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-100 ring-1 ring-cyan-400/25 transition hover:bg-cyan-500/15 min-[420px]:flex-none"
-            onClick={() => toast.message('Wallet verification opens when campaign contracts go live.')}
-          >
-            Verify wallet
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="focus-ring btn-press inline-flex flex-1 items-center justify-center rounded-lg border border-border-subtle px-3 py-2 text-[11px] font-medium text-fg-secondary transition hover:border-border-default hover:text-fg-primary min-[420px]:flex-none"
-            onClick={() => toast.message('Coming soon.')}
-          >
-            Connect
-          </button>
-        )}
-      </div>
+      {/* CTAs intentionally hidden until partner integrations exist — no toast-only buttons. */}
+      <p className="mt-4 text-[10px] font-medium uppercase tracking-wide text-fg-muted">
+        Opens with partner integrations
+      </p>
     </GlassPanel>
   );
 }
@@ -118,8 +94,11 @@ export function CampaignRadarSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-2">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-fg-muted">Campaign radar</h2>
+          <span className="rounded-full border border-amber-300/25 bg-amber-300/[0.07] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-100/80">
+            Preview
+          </span>
         </div>
       </div>
 

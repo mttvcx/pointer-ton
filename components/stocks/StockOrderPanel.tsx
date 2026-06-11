@@ -28,6 +28,8 @@ export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
   const needsFunds = authenticated && availableMargin <= 0;
   const markDec = stockPriceDecimals(market.priceUsd);
   const markLabel = formatNumber(market.priceUsd, { decimals: markDec });
+  /** HIP-3 / TradeXYZ signing not wired — CTA never pretends to execute. */
+  const executionUnavailable = authenticated && !needsFunds;
 
   function onPrimaryAction() {
     if (!authenticated) {
@@ -38,7 +40,7 @@ export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
       setExchangeOpen(true);
       return;
     }
-    // TODO Phase 2: HIP-3 / TradeXYZ order signing
+    // TODO Phase 2: HIP-3 / TradeXYZ order signing — button disabled until then.
   }
 
   return (
@@ -238,17 +240,27 @@ export function StockOrderPanel({ market }: { market: SyntheticStockMarket }) {
           <button
             type="button"
             onClick={onPrimaryAction}
+            disabled={executionUnavailable}
             className={cn(
               'w-full rounded-lg py-3 text-[14px] font-semibold transition active:scale-[0.99]',
-              isLong ? 'bg-signal-bull text-[#03100b] hover:brightness-105' : 'bg-signal-bear text-white hover:brightness-105',
+              executionUnavailable
+                ? 'cursor-not-allowed bg-bg-hover text-fg-muted'
+                : isLong
+                  ? 'bg-signal-bull text-[#03100b] hover:brightness-105'
+                  : 'bg-signal-bear text-white hover:brightness-105',
             )}
           >
             {!authenticated
               ? 'Connect wallet to trade'
               : needsFunds
                 ? 'Add More Funds'
-                : `${isLong ? 'Long' : 'Short'} ${market.symbol}`}
+                : 'Stock execution coming soon'}
           </button>
+          {executionUnavailable ? (
+            <p className="text-center text-[10px] leading-snug text-fg-muted">
+              Equity perp execution is in development — markets are preview only.
+            </p>
+          ) : null}
 
           <div className="space-y-1.5 border-t border-border-subtle/80 pt-2.5 text-[11px]">
             <div className="flex items-center justify-between">

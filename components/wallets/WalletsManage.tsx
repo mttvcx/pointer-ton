@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { ArrowRightLeft, Copy, Eye, EyeOff, KeyRound, Loader2, MoreHorizontal, Pencil, Shield, Star, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Copy, Eye, EyeOff, KeyRound, Loader2, MoreHorizontal, Pencil, Shield, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useWalletBalancesPoll } from '@/lib/hooks/useWalletBalancesPoll';
@@ -432,7 +432,7 @@ export function WalletsManage({ className }: { className?: string }) {
                             <button type="button" onClick={() => { toast.info('Click the wallet name to rename'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Pencil className="h-3.5 w-3.5" /> Rename</button>
                             <button type="button" onClick={() => { onExportKeyInfo(w); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><KeyRound className="h-3.5 w-3.5" /> Export key</button>
                             <button type="button" disabled={patchMutation.isPending} onClick={() => { patchMutation.mutate({ id: w.id, body: { is_archived: !w.is_archived } }); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Shield className="h-3.5 w-3.5" /> {w.is_archived ? 'Unarchive' : 'Archive'}</button>
-                            <button type="button" onClick={() => { toast.info('Delete wallet is not available yet'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#fb7185] hover:bg-white/[0.06]"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                            {/* Delete intentionally omitted — archive is the supported removal path. */}
                           </div>
                         ) : null}
                       </div>
