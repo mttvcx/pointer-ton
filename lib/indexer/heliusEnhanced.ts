@@ -68,6 +68,32 @@ export async function fetchHeliusAddressTransactions(
   return { txs, calls: 1, credits: HELIUS_REST_CREDITS_EST };
 }
 
+/** Fetch parsed enhanced txs by signature (Helius REST — 1 credit per batch). */
+export async function fetchHeliusTransactionsBySignatures(
+  signatures: string[],
+): Promise<{ txs: HeliusEnhancedTx[]; calls: number; credits: number }> {
+  const unique = [...new Set(signatures.map((s) => s.trim()).filter(Boolean))];
+  if (unique.length === 0) return { txs: [], calls: 0, credits: 0 };
+
+  const url = new URL(`${heliusRestBase()}/transactions`);
+  url.searchParams.set('api-key', getHeliusApiKey());
+
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ transactions: unique }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`helius_tx_by_sig ${res.status}: ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as unknown;
+  const txs = Array.isArray(json) ? (json as HeliusEnhancedTx[]) : [];
+
+  return { txs, calls: 1, credits: HELIUS_REST_CREDITS_EST };
+}
+
 /** Net SOL delta for a wallet from native transfers (lamports → SOL). */
 export function nativeSolDelta(tx: HeliusEnhancedTx, wallet: string): number {
   let lamports = 0;

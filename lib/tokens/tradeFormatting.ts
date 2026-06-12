@@ -1,3 +1,4 @@
+import { PublicKey } from '@solana/web3.js';
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 import { demoWalletAt } from '@/lib/dev/demoTokenFixtures';
 import { formatCompactUsd } from '@/lib/format';
@@ -92,6 +93,22 @@ export function tradeRowDemoIndex(t: TradeRow): number | null {
 
 export type TradesDeskFilter = 'all' | 'dev' | 'tracked' | 'you';
 
+/** Case-insensitive base58 compare (handles mixed-case stored wallets). */
+export function walletsMatch(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  if (!a || !b) return false;
+  const ta = a.trim();
+  const tb = b.trim();
+  if (!ta || !tb) return false;
+  try {
+    return new PublicKey(ta).toBase58() === new PublicKey(tb).toBase58();
+  } catch {
+    return ta === tb;
+  }
+}
+
 export function tradeRowMatchesDeskFilter(params: {
   wallet: string | null;
   creatorWallet: string | null;
@@ -108,7 +125,7 @@ export function tradeRowMatchesDeskFilter(params: {
     case 'tracked':
       return tracked;
     case 'you':
-      return Boolean(userWallet && userWallet === wallet);
+      return walletsMatch(userWallet, wallet);
     default:
       return true;
   }

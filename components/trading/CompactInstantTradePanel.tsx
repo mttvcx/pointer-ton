@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import {
   ArrowLeftRight,
   Check,
@@ -32,6 +32,7 @@ import type { SolSpendAsset } from '@/lib/trading/spendAsset';
 import type { MevMode } from '@/lib/trading/mevMode';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
+import { balanceRawFromQueryData } from '@/lib/trading/tradeBalanceQuery';
 import { useSpotTradeExecution } from '@/lib/hooks/useSpotTradeExecution';
 import { useTradingStore, type PresetSlot, INSTANT_TRADE_WALLET_CAP } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
@@ -534,6 +535,7 @@ type Props = {
   mint: string;
   symbol: string | null;
   decimals: number;
+  priceUsd?: number | null;
   open: boolean;
   onClose: () => void;
   onOpenFullTradeSettings?: () => void;
@@ -543,6 +545,7 @@ export function CompactInstantTradePanel({
   mint,
   symbol,
   decimals,
+  priceUsd = null,
   open,
   onClose,
   onOpenFullTradeSettings,
@@ -648,7 +651,7 @@ export function CompactInstantTradePanel({
     runSellSolOut,
     runSellInitial,
     costBasisTonSol,
-    lifetimeStats,
+    tradeDeskStats,
     spendAsset,
     setSpendAsset,
     usdcBalanceRaw,
@@ -656,7 +659,38 @@ export function CompactInstantTradePanel({
     activeWalletAddress,
     setActiveWalletAddress,
     signingWalletAddresses,
-  } = useSpotTradeExecution(mint);
+  } = useSpotTradeExecution(mint, { decimals, priceUsd });
+
+  const walletTokenBalanceQueries = useQueries({
+    queries: (walletRows ?? []).map((w) => ({
+      queryKey: ['trade-balance', mint, w.wallet_address] as const,
+      queryFn: async (): Promise<{ rawAmount: string }> => {
+        const token = await getAccessToken();
+        if (!token) return { rawAmount: '0' };
+        const res = await fetch(
+          `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(w.wallet_address)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) return { rawAmount: '0' };
+        const json: unknown = await res.json();
+        const raw =
+          typeof json === 'object' && json && 'rawAmount' in json
+            ? String((json as { rawAmount: unknown }).rawAmount)
+            : '0';
+        return { rawAmount: raw };
+      },
+      enabled: walletMenuOpen && Boolean(mint && authenticated),
+      staleTime: 15_000,
+    })),
+  });
+
+  const walletTokenBalanceByAddress = useMemo(() => {
+    const map = new Map<string, string>();
+    (walletRows ?? []).forEach((w, i) => {
+      map.set(w.wallet_address, balanceRawFromQueryData(walletTokenBalanceQueries[i]?.data));
+    });
+    return map;
+  }, [walletRows, walletTokenBalanceQueries]);
 
   const activeChain = useUIStore((s) => s.activeChain);
 
@@ -1026,10 +1060,9 @@ export function CompactInstantTradePanel({
   const sellChips =
     editSlots || !presetLayout.topRowOnlyCompact ? sellValues : sellValues.slice(0, 4);
 
-  const netSessionPnl = lifetimeStats.sellTon - lifetimeStats.buyTon;
-  const netPctForTitle =
-    lifetimeStats.buyTon > 0 ? (netSessionPnl / lifetimeStats.buyTon) * 100 : null;
-  const remainingTon = Math.max(0, lifetimeStats.buyTon - lifetimeStats.sellTon);
+  const netSessionPnl = tradeDeskStats.netPnlSol;
+  const netPctForTitle = tradeDeskStats.netPnlPct;
+  const remainingTon = tradeDeskStats.holdingSol;
 
   const spendAssetOptions = useMemo(() => {
     const t = nativeTicker(activeChain);
@@ -1759,7 +1792,7 @@ export function CompactInstantTradePanel({
                       className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {fmtInstantFooterAmount(lifetimeStats.buyTon)}
+                    {fmtInstantFooterAmount(tradeDeskStats.buyTon)}
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
@@ -1776,7 +1809,7 @@ export function CompactInstantTradePanel({
                       className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {fmtInstantFooterAmount(lifetimeStats.sellTon)}
+                    {fmtInstantFooterAmount(tradeDeskStats.sellTon)}
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
@@ -1892,6 +1925,11 @@ export function CompactInstantTradePanel({
                   w.balance_lamports != null && w.balance_lamports !== ''
                     ? lamportsToSol(BigInt(w.balance_lamports))
                     : null;
+                const tokenRaw = walletTokenBalanceByAddress.get(w.wallet_address) ?? '0';
+                const tokenUi =
+                  tokenRaw && tokenRaw !== '0'
+                    ? rawToUi(tokenRaw, decimals)
+                    : null;
                 const label = w.label?.trim() || `Wallet ${w.slot ?? ''}`.trim();
                 return (
                   <button
@@ -1959,11 +1997,22 @@ export function CompactInstantTradePanel({
                         <span className="truncate font-mono">{shortenAddress(w.wallet_address, 4)}</span>
                       </div>
                     </div>
-                    <WalletMenuNativeBalance
-                      amount={solUi}
-                      activeChain={activeChain}
-                      className="shrink-0"
-                    />
+                    <div className="flex shrink-0 flex-col items-end gap-0.5">
+                      <WalletMenuNativeBalance
+                        amount={solUi}
+                        activeChain={activeChain}
+                        className="shrink-0"
+                      />
+                      {tokenUi != null && tokenUi > 0 ? (
+                        <span className="font-mono text-[10px] tabular-nums text-fg-secondary">
+                          {formatNumber(tokenUi, {
+                            decimals: tokenUi >= 1000 ? 1 : 2,
+                            compact: true,
+                          })}{' '}
+                          {symbol?.trim() || 'TKN'}
+                        </span>
+                      ) : null}
+                    </div>
                   </button>
                 );
               })}

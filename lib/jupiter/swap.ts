@@ -1,7 +1,20 @@
 import 'server-only';
 
+import { jupiterRequestHeaders, wrapJupiterFetchError } from '@/lib/jupiter/httpHeaders';
+import {
+  deriveJupiterFeeTokenAccount,
+  isInvalidFeeTokenAccountSimError,
+  isJupiterSimulationRpcNoise,
+  jupiterFeeOwnerPubkey,
+  jupiterFeeRouteFromQuote,
+  jupiterQuoteHasPlatformFee,
+  jupiterFeeTokenAccountReady,
+  resolveJupiterFeeMint,
+} from '@/lib/jupiter/referralFee';
+import { prependAtaCreationToVersionedSwap } from '@/lib/solana/prependSwapInstructions';
 import { DEFAULT_JITO_TIP_LAMPORTS, JUPITER_SWAP_URL } from '@/lib/utils/constants';
 import { solToLamports } from '@/lib/utils/formatters';
+import { PublicKey } from '@solana/web3.js';
 
 export type SwapLanding = 'jito' | 'rpc';
 
@@ -90,7 +103,7 @@ export async function getSwapTx(
     ? buildPrioritizationFeeLamports(landing, opts.fees)
     : defaultPrioritizationPayload(landing);
 
-  const body = {
+  const body: Record<string, unknown> = {
     quoteResponse,
     userPublicKey,
     wrapAndUnwrapSol: true,
@@ -100,11 +113,27 @@ export async function getSwapTx(
     prioritizationFeeLamports,
   };
 
-  const res = await fetch(JUPITER_SWAP_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  if (jupiterQuoteHasPlatformFee(quoteResponse)) {
+    const route = jupiterFeeRouteFromQuote(quoteResponse);
+    const feeAccount = route ? deriveJupiterFeeTokenAccount(route) : null;
+    if (!feeAccount) {
+      throw new Error(
+        'Jupiter swap: feeAccount required for platform fee — set JUPITER_REFERRAL_ACCOUNT',
+      );
+    }
+    body.feeAccount = feeAccount;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(JUPITER_SWAP_URL, {
+      method: 'POST',
+      headers: jupiterRequestHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw wrapJupiterFetchError(err, 'swap');
+  }
 
   const json = (await res.json().catch(() => ({}))) as JupiterSwapResponse & {
     error?: string;
@@ -118,7 +147,38 @@ export async function getSwapTx(
   if (!json.swapTransaction || typeof json.swapTransaction !== 'string') {
     throw new Error('Jupiter swap: missing swapTransaction');
   }
-  if (json.simulationError) {
+
+  const route = jupiterFeeRouteFromQuote(quoteResponse);
+  const feeAccount =
+    jupiterQuoteHasPlatformFee(quoteResponse) && route
+      ? deriveJupiterFeeTokenAccount(route)
+      : null;
+  const feeOwner = jupiterFeeOwnerPubkey();
+
+  if (feeAccount && feeOwner && route && !(await jupiterFeeTokenAccountReady(feeAccount))) {
+    json.swapTransaction = await prependAtaCreationToVersionedSwap(
+      json.swapTransaction,
+      new PublicKey(userPublicKey),
+      feeOwner,
+      new PublicKey(resolveJupiterFeeMint(route)),
+    );
+    return json;
+  }
+
+  if (json.simulationError && isInvalidFeeTokenAccountSimError(json.simulationError)) {
+    if (feeAccount && feeOwner && route) {
+      json.swapTransaction = await prependAtaCreationToVersionedSwap(
+        json.swapTransaction,
+        new PublicKey(userPublicKey),
+        feeOwner,
+        new PublicKey(resolveJupiterFeeMint(route)),
+      );
+      return json;
+    }
+    throw new Error(`Jupiter swap simulation: ${JSON.stringify(json.simulationError)}`);
+  }
+
+  if (json.simulationError && !isJupiterSimulationRpcNoise(json.simulationError)) {
     throw new Error(`Jupiter swap simulation: ${JSON.stringify(json.simulationError)}`);
   }
 

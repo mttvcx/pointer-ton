@@ -217,10 +217,11 @@ export const LAUNCHPAD_AUTHORITIES: Record<LaunchpadId, string | null> = {
 export const HELIUS_SENDER_URL =
   process.env.HELIUS_SENDER_URL ?? 'https://sender.helius-rpc.com/fast';
 
+/** Jupiter swap API v1 (quote-api.jup.ag/v6 DNS is dead — use lite or api.jup.ag). */
 export const JUPITER_QUOTE_URL =
-  process.env.JUPITER_QUOTE_URL ?? 'https://quote-api.jup.ag/v6/quote';
+  process.env.JUPITER_QUOTE_URL ?? 'https://lite-api.jup.ag/swap/v1/quote';
 export const JUPITER_SWAP_URL =
-  process.env.JUPITER_SWAP_URL ?? 'https://quote-api.jup.ag/v6/swap';
+  process.env.JUPITER_SWAP_URL ?? 'https://lite-api.jup.ag/swap/v1/swap';
 
 /** Legacy Solana JSON-RPC (Helius) for Pulse / webhooks / ingest only — not the primary TON RPC. */
 export function getHeliusRpcUrl(): string {

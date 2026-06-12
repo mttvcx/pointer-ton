@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import { PublicKey } from '@solana/web3.js';
+import { useWallets as usePrivySolWallets } from '@privy-io/react-auth/solana';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -29,7 +31,9 @@ import {
   type SolSpendAsset,
 } from '@/lib/trading/spendAsset';
 import { USDC_MINT } from '@/lib/utils/addresses';
-import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
+import { invalidateTokenDeskAfterTrade } from '@/lib/client/tokenDeskRefresh';
+import { useDeskWalletStats } from '@/lib/hooks/useDeskWalletStats';
+import { computeDeskWalletDisplayStats } from '@/lib/trading/deskWalletDisplayStats';
 import {
   founderBetaMobileTradeMessage,
   isFounderBetaMobileTradeBlocked,
@@ -73,7 +77,10 @@ export function tokenRawForSellPct(balanceRaw: string, pct: number): string | nu
   return String(portion);
 }
 
-export function useSpotTradeExecution(mint: string) {
+export function useSpotTradeExecution(
+  mint: string,
+  opts?: { decimals?: number; priceUsd?: number | null },
+) {
   const activeChain = useUIStore((s) => s.activeChain);
   const { getAccessToken, authenticated } = usePointerAuth();
   const qc = useQueryClient();
@@ -101,10 +108,30 @@ export function useSpotTradeExecution(mint: string) {
   const { wallet, wallets, ready: walletsReady, activeAddress, setActiveWalletAddress } =
     useActiveSolanaWallet(myWalletsQ.data?.wallets);
 
-  const signingWalletAddresses = useMemo(
-    () => new Set(wallets.map((w) => w.address)),
-    [wallets],
-  );
+  const { wallets: privySolWallets } = usePrivySolWallets();
+
+  const signingWalletAddresses = useMemo(() => {
+    if (activeChain === 'sol') {
+      const s = new Set<string>();
+      for (const pw of privySolWallets) {
+        try {
+          s.add(new PublicKey(pw.address).toBase58());
+        } catch {
+          s.add(pw.address);
+        }
+      }
+      for (const row of myWalletsQ.data?.wallets ?? []) {
+        if (row.is_imported || !row.is_active || row.is_archived) continue;
+        try {
+          s.add(new PublicKey(row.wallet_address.trim()).toBase58());
+        } catch {
+          /* skip invalid */
+        }
+      }
+      return s;
+    }
+    return new Set(wallets.map((w) => w.address));
+  }, [activeChain, privySolWallets, myWalletsQ.data?.wallets, wallets]);
 
   const activeWalletRow = useMemo(
     () => myWalletsQ.data?.wallets.find((w) => w.wallet_address === wallet?.address),
@@ -170,6 +197,45 @@ export function useSpotTradeExecution(mint: string) {
     if (!wallet?.address) return { buyTon: 0, sellTon: 0 };
     return readInstantTradeLifetimeStats(mint, wallet.address);
   }, [mint, wallet?.address, balanceRaw]);
+
+  const { data: deskStats } = useDeskWalletStats(mint, wallet?.address);
+
+  const { data: solUsdRate } = useQuery({
+    queryKey: ['portfolio-sol-usd'],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) return null;
+      const res = await fetch('/api/portfolio?tradesLimit=0&fifoLimit=0', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { solUsd?: number | null };
+      const px = json.solUsd;
+      return typeof px === 'number' && Number.isFinite(px) && px > 0 ? px : null;
+    },
+    enabled: authenticated,
+    staleTime: 60_000,
+  });
+
+  const tradeDeskStats = useMemo(
+    () =>
+      computeDeskWalletDisplayStats({
+        session: lifetimeStats,
+        desk: deskStats,
+        solUsdRate: solUsdRate ?? null,
+        priceUsd: opts?.priceUsd,
+        balanceRaw,
+        decimals: opts?.decimals,
+      }),
+    [
+      lifetimeStats,
+      deskStats,
+      solUsdRate,
+      opts?.priceUsd,
+      balanceRaw,
+      opts?.decimals,
+    ],
+  );
 
   const { data: presetsPayload } = useQuery({
     queryKey: ['trading-presets'],
@@ -318,7 +384,10 @@ export function useSpotTradeExecution(mint: string) {
         void refetchBalance();
         void refetchUsdcBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
-        dispatchSolanaAccountRefresh('spot_trade');
+        invalidateTokenDeskAfterTrade(qc, mint, {
+          walletAddress: wallet.address,
+          reason: 'spot_trade',
+        });
       } catch (e) {
         toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
@@ -472,7 +541,10 @@ export function useSpotTradeExecution(mint: string) {
         if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
-        dispatchSolanaAccountRefresh('spot_trade');
+        invalidateTokenDeskAfterTrade(qc, mint, {
+          walletAddress: wallet.address,
+          reason: 'spot_trade',
+        });
       } catch (e) {
         toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
@@ -625,7 +697,10 @@ export function useSpotTradeExecution(mint: string) {
         }
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
-        dispatchSolanaAccountRefresh('spot_trade');
+        invalidateTokenDeskAfterTrade(qc, mint, {
+          walletAddress: wallet.address,
+          reason: 'spot_trade',
+        });
       } catch (e) {
         toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
@@ -683,6 +758,7 @@ export function useSpotTradeExecution(mint: string) {
     runSellInitial,
     costBasisTonSol,
     lifetimeStats,
+    tradeDeskStats,
     spendAsset,
     setSpendAsset,
     usdcBalanceRaw,

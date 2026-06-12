@@ -16,6 +16,7 @@ import {
   tradeTraderHint,
   tradeWalletDeskExtras,
   tradeRowDemoIndex,
+  walletsMatch,
 } from '@/lib/tokens/tradeFormatting';
 import {
   DESK_CELL_CLASS,
@@ -31,6 +32,7 @@ import {
 import { InlineBarCell } from './cells/InlineBarCell';
 import { SortableTh, SortIndicator } from './cells/SortableTh';
 import { DeskHeaderSettings } from './cells/DeskHeaderSettings';
+import { TradeDeskYouLabel } from '@/components/tokens/cells/TradeDeskYouLabel';
 import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
 import { WalletMintTradesFilterButton } from './cells/WalletMintTradesFilterButton';
 import { ChainIcon } from '@/components/squads/ChainIcon';
@@ -60,6 +62,7 @@ type Props = {
   onAgeSortDirChange: (dir: 'asc' | 'desc') => void;
   ageDisplay: 'age' | 'time';
   onAgeDisplayChange: (mode: 'age' | 'time') => void;
+  viewerWallet?: string | null;
 };
 
 export function MintTradesTable({
@@ -78,6 +81,7 @@ export function MintTradesTable({
   onAgeSortDirChange,
   ageDisplay,
   onAgeDisplayChange,
+  viewerWallet = null,
 }: Props) {
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -275,7 +279,10 @@ export function MintTradesTable({
               <td className={cn(DESK_CELL_CLASS, 'min-w-[200px] text-right')}>
                 <div className="flex items-center justify-end gap-1.5">
                   {wallet && deskExtras ? (
-                    <>
+                    walletsMatch(wallet, viewerWallet) ? (
+                      <TradeDeskYouLabel />
+                    ) : (
+                      <>
                       <WalletIdentityAnchor
                         address={wallet}
                         mint={mint}
@@ -332,6 +339,7 @@ export function MintTradesTable({
                         ) : null}
                       </div>
                     </>
+                    )
                   ) : (
                     <span className={cn('truncate', CELL_WALLET_CLASS)}>
                       {traderHint.shortLabel}

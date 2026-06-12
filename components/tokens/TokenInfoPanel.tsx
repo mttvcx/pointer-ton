@@ -9,7 +9,7 @@ import { syntheticTokenExtendedMetrics } from '@/lib/dev/demoTokenFixtures';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { isQaDeskLiveModeClient } from '@/lib/qa/qaDeskLiveModeClient';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
-import { tokenMetricCellSurface, tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
+import { tokenMetricValueClass } from '@/lib/tokens/tokenInfoMetricColors';
 import { DESK_FIELD_TOOLTIPS } from '@/lib/tokens/deskFieldTooltips';
 import { TokenInfoTaxBanner, hasTokenTax } from '@/components/tokens/TokenInfoTaxBanner';
 import {
@@ -183,15 +183,14 @@ function TokenInfoMetricGrid({
   return (
     <>
       <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-muted">Token Info</h3>
-      <div className="overflow-hidden rounded-lg border border-border-subtle/70 bg-bg-hover/40">
+      <div className="overflow-hidden rounded-lg border border-border-subtle/50 bg-transparent">
         {hasTokenTax(m.taxPct) ? <TokenInfoTaxBanner taxPct={m.taxPct} /> : null}
-        <div className="grid grid-cols-3 gap-px">
+        <div className="grid grid-cols-3 gap-1.5 p-1">
           {cells.map((item) => (
             <div
               key={item.label}
               className={cn(
-                'flex flex-col items-center justify-center px-1 py-2',
-                tokenMetricCellSurface(item.valueClass),
+                'flex flex-col items-center justify-center rounded-md border border-border-subtle/50 bg-transparent px-1 py-2',
               )}
             >
               <MetricValue
@@ -240,7 +239,7 @@ export function TokenInfoPanel({ mint, compactGrid }: { mint: string; compactGri
 
   if (compactGrid) {
     return (
-      <div className="w-full min-w-0 bg-bg-raised p-2">
+      <div className="w-full min-w-0 p-2">
         <TokenInfoMetricGrid m={m} loading={metricsLoading} />
       </div>
     );

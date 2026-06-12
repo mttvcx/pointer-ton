@@ -98,6 +98,7 @@ function MintTradesScroll({
   onAgeSortDirChange,
   ageDisplay,
   onAgeDisplayChange,
+  viewerWallet = null,
 }: {
   rows: TradeRow[];
   mint: string;
@@ -115,6 +116,7 @@ function MintTradesScroll({
   onAgeSortDirChange: (dir: 'asc' | 'desc') => void;
   ageDisplay: 'age' | 'time';
   onAgeDisplayChange: (mode: 'age' | 'time') => void;
+  viewerWallet?: string | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showBackTop, setShowBackTop] = useState(false);
@@ -152,6 +154,7 @@ function MintTradesScroll({
           onAgeSortDirChange={onAgeSortDirChange}
           ageDisplay={ageDisplay}
           onAgeDisplayChange={onAgeDisplayChange}
+          viewerWallet={viewerWallet}
         />
       </div>
       {showBackTop ? (
@@ -928,6 +931,7 @@ export function TokenActivityTabs({
               onAgeSortDirChange={onTradesAgeSortDirChange}
               ageDisplay={tradesAgeDisplay}
               onAgeDisplayChange={onTradesAgeDisplayChange}
+              viewerWallet={activeWalletAddress}
             />
           )
         ) : null}

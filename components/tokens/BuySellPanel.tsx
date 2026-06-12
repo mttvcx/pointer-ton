@@ -30,6 +30,8 @@ import { BUY_PRESETS_USDC, DEFAULT_SLIPPAGE_BPS, USDC_DECIMALS } from '@/lib/uti
 import { resolveBuyPresetsSol, resolveDefaultBuyPresetSol } from '@/lib/beta/founderBeta';
 import { buyQuoteAmountFields, spendAssetLabel } from '@/lib/trading/spendAsset';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
+import { invalidateTokenDeskAfterTrade } from '@/lib/client/tokenDeskRefresh';
+import { deskWalletStatsQueryKey, useDeskWalletStats } from '@/lib/hooks/useDeskWalletStats';
 import { USDC_MINT } from '@/lib/utils/addresses';
 import {
   formatCompactUsd,
@@ -68,10 +70,12 @@ import { buildBlitzAwareFees, isBlitzWallet } from '@/lib/trading/blitz';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import { computeDeskWalletDisplayStats } from '@/lib/trading/deskWalletDisplayStats';
 import {
   addInstantTradeBuyTon,
   addInstantTradeSellTon,
   readInstantTradeLifetimeStats,
+  INSTANT_TRADE_STATS_EVT,
 } from '@/lib/trading/instantTradeStats';
 import { WalletCurrencyToggle } from '@/components/wallet/analytics/WalletCurrencyToggle';
 import { TradingWalletPickerPopover } from '@/components/trading/TradingWalletPickerPopover';
@@ -253,6 +257,18 @@ export function BuySellPanel({
   const [statsRevision, setStatsRevision] = useState(0);
 
   useEffect(() => {
+    const onStats = (e: Event) => {
+      const d = (e as CustomEvent<{ mint?: string; wallet?: string }>).detail;
+      if (d?.mint === mint && d?.wallet === wallet?.address) {
+        setStatsRevision((r) => r + 1);
+        void qc.invalidateQueries({ queryKey: deskWalletStatsQueryKey(mint, wallet?.address) });
+      }
+    };
+    window.addEventListener(INSTANT_TRADE_STATS_EVT, onStats);
+    return () => window.removeEventListener(INSTANT_TRADE_STATS_EVT, onStats);
+  }, [mint, wallet?.address, qc]);
+
+  useEffect(() => {
     setTab(initialTradeSide);
   }, [initialTradeSide, mint]);
 
@@ -374,23 +390,60 @@ export function BuySellPanel({
     return readInstantTradeLifetimeStats(mint, wallet.address);
   }, [mint, wallet?.address, balanceRaw, statsRevision]);
 
-  const netSessionPnlSol = lifetimeStats.sellTon - lifetimeStats.buyTon;
-  const holdingSol = Math.max(0, lifetimeStats.buyTon - lifetimeStats.sellTon);
-  const netPnlPct =
-    lifetimeStats.buyTon > 0 ? (netSessionPnlSol / lifetimeStats.buyTon) * 100 : null;
+  const { data: deskStats } = useDeskWalletStats(mint, wallet?.address);
 
-  const formatSessionStat = useCallback(
-    (solAmount: number) => {
-      if (statsUsdMode) {
-        if (solUsdRate == null) return '$0';
-        const usd = solAmount * solUsdRate;
-        return Math.abs(usd) >= 1000
-          ? formatCompactUsd(usd)
-          : formatUsd(usd, { decimals: 2 });
-      }
-      return formatSol(solAmount);
-    },
-    [statsUsdMode, solUsdRate],
+  const tradeDeskStats = useMemo(
+    () =>
+      computeDeskWalletDisplayStats({
+        session: lifetimeStats,
+        desk: deskStats,
+        solUsdRate: solUsdRate ?? null,
+        priceUsd: marketSnapshot?.price_usd,
+        balanceRaw,
+        decimals,
+      }),
+    [
+      lifetimeStats,
+      deskStats,
+      solUsdRate,
+      marketSnapshot?.price_usd,
+      balanceRaw,
+      decimals,
+    ],
+  );
+
+  const netSessionPnlSol = tradeDeskStats.netPnlSol;
+  const holdingSol = tradeDeskStats.holdingSol;
+  const netPnlPct = tradeDeskStats.netPnlPct;
+  const displayBuyTon = tradeDeskStats.buyTon;
+  const displaySellTon = tradeDeskStats.sellTon;
+  const displayBuyUsd = tradeDeskStats.buyUsd;
+  const displaySellUsd = tradeDeskStats.sellUsd;
+  const displayHoldingUsd = tradeDeskStats.holdingUsd;
+  const netPnlUsd = tradeDeskStats.netPnlUsd;
+
+  const formatStatSol = useCallback((solAmount: number) => formatSol(solAmount), []);
+
+  const formatStatUsd = useCallback((usdAmount: number) => {
+    if (!Number.isFinite(usdAmount)) return '$0';
+    return Math.abs(usdAmount) >= 1000
+      ? formatCompactUsd(usdAmount)
+      : formatUsd(usdAmount, { decimals: 2 });
+  }, []);
+
+  const formatBoughtStat = useCallback(
+    () => (statsUsdMode ? formatStatUsd(displayBuyUsd) : formatStatSol(displayBuyTon)),
+    [statsUsdMode, formatStatUsd, formatStatSol, displayBuyUsd, displayBuyTon],
+  );
+
+  const formatSoldStat = useCallback(
+    () => (statsUsdMode ? formatStatUsd(displaySellUsd) : formatStatSol(displaySellTon)),
+    [statsUsdMode, formatStatUsd, formatStatSol, displaySellUsd, displaySellTon],
+  );
+
+  const formatHoldingStat = useCallback(
+    () => (statsUsdMode ? formatStatUsd(displayHoldingUsd) : formatStatSol(holdingSol)),
+    [statsUsdMode, formatStatUsd, formatStatSol, displayHoldingUsd, holdingSol],
   );
 
   const ctaSym = useMemo(() => tradeCtaLabel(symbol, tokenName), [symbol, tokenName]);
@@ -895,6 +948,10 @@ export function BuySellPanel({
       setQuoteWallet(null);
       setStatsRevision((n) => n + 1);
       void refetchBalance();
+      invalidateTokenDeskAfterTrade(qc, mint, {
+        walletAddress: wallet?.address,
+        reason: 'buy_sell_panel',
+      });
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       dispatchSolanaAccountRefresh('buy_sell_panel');
     } catch (e) {
@@ -1272,7 +1329,7 @@ export function BuySellPanel({
           </button>
         </div>
 
-        <div className="flex overflow-hidden rounded-md border border-border-subtle/50 bg-bg-hover/20">
+        <div className="flex overflow-hidden rounded-md border border-border-subtle/50 bg-transparent">
           <WalletCurrencyToggle
             usdMode={statsUsdMode}
             nativeSym={nativeSym}
@@ -1293,7 +1350,7 @@ export function BuySellPanel({
                     draggable={false}
                   />
                 ) : null}
-                {formatSessionStat(lifetimeStats.buyTon)}
+                {formatBoughtStat()}
               </span>
             </div>
             <div className="flex min-w-0 flex-col items-center gap-1 px-1">
@@ -1309,7 +1366,7 @@ export function BuySellPanel({
                     draggable={false}
                   />
                 ) : null}
-                {formatSessionStat(lifetimeStats.sellTon)}
+                {formatSoldStat()}
               </span>
             </div>
             <div className="flex min-w-0 flex-col items-center gap-1 px-1">
@@ -1325,7 +1382,7 @@ export function BuySellPanel({
                     draggable={false}
                   />
                 ) : null}
-                {formatSessionStat(holdingSol)}
+                {formatHoldingStat()}
               </span>
             </div>
             <div className="flex min-w-0 flex-col items-center gap-1 px-1">
@@ -1333,11 +1390,13 @@ export function BuySellPanel({
               <span
                 className={cn(
                   'inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold tabular-nums',
-                  netSessionPnlSol >= 0 ? 'text-signal-bull' : 'text-signal-bear',
+                  (statsUsdMode ? netPnlUsd : netSessionPnlSol) >= 0
+                    ? 'text-signal-bull'
+                    : 'text-signal-bear',
                 )}
                 title={
                   statsUsdMode
-                    ? formatSessionStat(netSessionPnlSol)
+                    ? formatStatUsd(netPnlUsd)
                     : formatNativeTradePnl(netSessionPnlSol, netPnlPct)
                 }
               >
@@ -1353,8 +1412,8 @@ export function BuySellPanel({
                 ) : null}
                 {statsUsdMode ? (
                   <>
-                    {netSessionPnlSol >= 0 ? '+' : ''}
-                    {formatSessionStat(netSessionPnlSol)}
+                    {netPnlUsd >= 0 ? '+' : ''}
+                    {formatStatUsd(netPnlUsd)}
                     {netPnlPct != null ? (
                       <span className="text-[11px] font-medium opacity-90">
                         ({netPnlPct >= 0 ? '+' : ''}

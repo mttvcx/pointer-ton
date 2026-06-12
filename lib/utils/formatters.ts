@@ -105,12 +105,30 @@ export function formatPercent(
 /* ------------------------------ token amounts ------------------------------- */
 
 /** Convert a raw on-chain amount (string/bigint) into a UI float using decimals. */
+export function normalizeRawAmount(
+  raw: string | bigint | number | { rawAmount?: unknown } | null | undefined,
+): string {
+  if (raw == null) return '0';
+  if (typeof raw === 'bigint') return raw.toString();
+  if (typeof raw === 'number' && Number.isFinite(raw)) return String(Math.trunc(raw));
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    return s.length > 0 ? s : '0';
+  }
+  if (typeof raw === 'object' && 'rawAmount' in raw) {
+    return normalizeRawAmount((raw as { rawAmount: unknown }).rawAmount as never);
+  }
+  return '0';
+}
+
 export function rawToUi(
-  raw: string | bigint | number,
+  raw: string | bigint | number | { rawAmount?: unknown },
   decimals: number,
 ): number {
   if (decimals < 0) return 0;
-  const big = typeof raw === 'bigint' ? raw : BigInt(String(raw));
+  const normalized = normalizeRawAmount(raw);
+  if (!/^\d+$/.test(normalized)) return 0;
+  const big = BigInt(normalized);
   const divisor = 10n ** BigInt(decimals);
   const whole = big / divisor;
   const frac = big % divisor;

@@ -26,8 +26,13 @@ export function TokenInstantTradeHost() {
       if (!res.ok) throw new Error('token_meta');
       const json = (await res.json()) as {
         token: { symbol: string | null; decimals: number };
+        snapshot: { price_usd: number | null } | null;
       };
-      return json.token;
+      return {
+        symbol: json.token.symbol,
+        decimals: json.token.decimals,
+        priceUsd: json.snapshot?.price_usd ?? null,
+      };
     },
     // Only resolve symbol/decimals when the instant-trade overlay is open.
     // Closed overlay needs nothing; quick-buy still works because the panel
@@ -43,6 +48,7 @@ export function TokenInstantTradeHost() {
       mint={mint}
       symbol={metaQ.data?.symbol ?? null}
       decimals={metaQ.data?.decimals ?? 6}
+      priceUsd={metaQ.data?.priceUsd ?? null}
       open={open}
       onClose={() => setOpen(false)}
       onOpenFullTradeSettings={() => {

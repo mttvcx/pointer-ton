@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { getFeeBpsForUser } from '@/lib/db/tiers';
-import { isValidPublicKey } from '@/lib/utils/addresses';
+import { jupiterRequestHeaders, wrapJupiterFetchError } from '@/lib/jupiter/httpHeaders';
+import { resolveJupiterFeeAccountForSwap } from '@/lib/jupiter/referralFee';
 import { JUPITER_QUOTE_URL } from '@/lib/utils/constants';
 
 export type JupiterQuoteInput = {
@@ -26,20 +27,19 @@ export type JupiterQuoteResponse = Record<string, unknown> & {
   error?: string;
 };
 
-function referralFeeAccount(): string | null {
-  const a =
-    process.env.JUPITER_REFERRAL_ACCOUNT?.trim() ||
-    process.env.JUPITER_FEE_ACCOUNT?.trim();
-  if (!a || !isValidPublicKey(a)) return null;
-  return a;
-}
-
 /**
- * Jupiter v6 quote with optional referral `platformFeeBps` from {@link getFeeBpsForUser}.
+ * Jupiter swap quote with optional referral `platformFeeBps` from {@link getFeeBpsForUser}.
  */
 export async function getQuote(input: JupiterQuoteInput): Promise<JupiterQuoteResponse> {
   const platformFeeBps = await getFeeBpsForUser(input.userId);
-  const feeAccount = referralFeeAccount();
+  const feeAccount =
+    platformFeeBps > 0
+      ? await resolveJupiterFeeAccountForSwap({
+          inputMint: input.inputMint,
+          outputMint: input.outputMint,
+          swapMode: input.swapMode,
+        })
+      : null;
 
   const params = new URLSearchParams({
     inputMint: input.inputMint,
@@ -53,13 +53,21 @@ export async function getQuote(input: JupiterQuoteInput): Promise<JupiterQuoteRe
     params.set('dynamicSlippage', 'true');
   }
 
+  // Required for platform fees on Token-2022 pairs (pump.fun graduates) and future Jupiter features.
+  params.set('instructionVersion', 'V2');
+
   if (platformFeeBps > 0 && feeAccount) {
     params.set('platformFeeBps', String(platformFeeBps));
     params.set('feeAccount', feeAccount);
   }
 
   const url = `${JUPITER_QUOTE_URL}?${params.toString()}`;
-  const res = await fetch(url, { cache: 'no-store' });
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: 'no-store', headers: jupiterRequestHeaders() });
+  } catch (err) {
+    throw wrapJupiterFetchError(err, 'quote');
+  }
   const json = (await res.json().catch(() => ({}))) as JupiterQuoteResponse;
 
   if (!res.ok) {

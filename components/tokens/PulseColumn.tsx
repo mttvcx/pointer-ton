@@ -400,8 +400,8 @@ function PulseColumnBody({
     if (!activePresetRow || !authenticated) return;
     const disp = normalizeColumnDisplayOptions(activePresetRow.display_options);
     setBuyButtonStyle(column, disp.buyButtonStyle);
-    setQuickBuySol(column, disp.quickBuySol);
-  }, [column, presetSlot, displayOptionsSig, activePresetRow, authenticated, setBuyButtonStyle, setQuickBuySol]);
+    // quickBuySol stays in local column store — server presets must not clobber user input on refresh.
+  }, [column, presetSlot, displayOptionsSig, activePresetRow, authenticated, setBuyButtonStyle]);
 
   const sortBy: ColumnSortKey = useMemo(() => {
     const raw = activePresetRow?.sort_by;

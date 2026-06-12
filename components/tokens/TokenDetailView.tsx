@@ -27,8 +27,10 @@ import {
   tradeRowDemoIndex,
   tradeTraderHint,
   tradeWalletDeskExtras,
+  walletsMatch,
   type TradesDeskFilter,
 } from '@/lib/tokens/tradeFormatting';
+import { TradeDeskYouLabel } from '@/components/tokens/cells/TradeDeskYouLabel';
 import { preferTokenTableDemoRows } from '@/lib/dev/uiDemoMode';
 import { isPointerQaMintClient } from '@/lib/qa/pointerQaMintClient';
 import { formatRelativeShort } from '@/lib/format';
@@ -361,6 +363,9 @@ function TokenLiveTradesSidePanel({
                 </span>
                 <div className="flex min-w-0 flex-1 items-center gap-0.5">
                   {wallet && deskExtras ? (
+                    walletsMatch(wallet, activeWalletAddress) ? (
+                      <TradeDeskYouLabel />
+                    ) : (
                     <WalletIdentityAnchor
                       address={wallet}
                       mint={mint}
@@ -381,6 +386,7 @@ function TokenLiveTradesSidePanel({
                       showInlineBadges
                       className="cursor-pointer font-mono text-[11px] text-fg-secondary hover:text-fg-primary"
                     />
+                    )
                   ) : (
                     <>
                       <span className="truncate font-mono text-[11px] text-fg-secondary" title={t.user_id}>

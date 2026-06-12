@@ -39,9 +39,7 @@ export function getConsensusQuickBuyFromColumns(
 function syncPulseDisplaySideEffects(prefs: PulseDisplayPrefs) {
   const col = usePulseColumnStore.getState();
   col.setBuyButtonStyleAll(prefs.quickBuyButtonSize);
-  for (const id of COLUMN_IDS) {
-    col.setQuickBuySol(id, prefs.displayQuickBuySol);
-  }
+  // Quick-buy SOL amounts are owned by pointer-pulse-columns-ton — do not reset on display prefs rehydrate.
 
   if (typeof document !== 'undefined') {
     const root = document.documentElement;
@@ -62,6 +60,15 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
         set((s) => {
           const next = withPulseDisplayDefaults({ ...pickPulseDisplayPrefs(s), ...patch });
           syncPulseDisplaySideEffects(next);
+          if (
+            patch.displayQuickBuySol != null &&
+            Number.isFinite(patch.displayQuickBuySol) &&
+            patch.displayQuickBuySol > 0
+          ) {
+            for (const id of COLUMN_IDS) {
+              usePulseColumnStore.getState().setQuickBuySol(id, patch.displayQuickBuySol);
+            }
+          }
           return { ...s, ...next };
         }),
       resetPrefs: () => {

@@ -178,6 +178,10 @@ export const usePulseColumnStore = create<PulseColumnsState>()(
               ...current.byColumn[col],
               ...row,
               localFiltersBySlot: row.localFiltersBySlot ?? current.byColumn[col].localFiltersBySlot ?? {},
+              quickBuySol:
+                typeof row.quickBuySol === 'number' && Number.isFinite(row.quickBuySol)
+                  ? row.quickBuySol
+                  : current.byColumn[col].quickBuySol,
               quickBuyUsdc:
                 typeof row.quickBuyUsdc === 'number' && Number.isFinite(row.quickBuyUsdc)
                   ? row.quickBuyUsdc

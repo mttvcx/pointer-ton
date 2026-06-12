@@ -1,6 +1,10 @@
 import type { PrivyClientConfig } from '@privy-io/react-auth';
 import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
+import { createSolanaRpc, createSolanaRpcSubscriptions } from '@solana/kit';
 import { PRIVY_APP_ID } from '@/lib/privy/appId';
+import { getClientSolanaRpcUrls } from '@/lib/solana/clientRpcUrl';
+
+const solanaRpcUrls = getClientSolanaRpcUrls();
 
 export { PRIVY_APP_ID };
 /** Required for Phantom / Solflare / Backpack to connect — undefined breaks wallet login. */
@@ -38,6 +42,15 @@ export const privyClientConfig: PrivyClientConfig = {
   externalWallets: {
     solana: {
       connectors: solanaConnectors,
+    },
+  },
+  /** Required for embedded-wallet `signAndSendTransaction` (Privy UI hooks). */
+  solana: {
+    rpcs: {
+      'solana:mainnet': {
+        rpc: createSolanaRpc(solanaRpcUrls.http),
+        rpcSubscriptions: createSolanaRpcSubscriptions(solanaRpcUrls.ws),
+      },
     },
   },
 };

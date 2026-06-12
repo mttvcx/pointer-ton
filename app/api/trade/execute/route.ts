@@ -13,6 +13,7 @@ import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { recordReferralEarningFromTrade } from '@/lib/referrals/earnings';
 import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
+import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -152,6 +153,13 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       /* best-effort */
+    }
+
+    // Best-effort desk sync so trades tape / holders update without waiting on webhook.
+    try {
+      await ingestExecutedSolSwap({ mint: mintCanon, txSignature: body.txSignature });
+    } catch {
+      /* client refetch still runs */
     }
 
     return NextResponse.json({

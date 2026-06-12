@@ -10,6 +10,15 @@ function storageKey(mint: string, wallet: string): string {
 
 export type InstantTradeLifetimeStats = { buyTon: number; sellTon: number };
 
+export const INSTANT_TRADE_STATS_EVT = 'pointer:instant-trade-stats';
+
+function notifyInstantTradeStats(mint: string, wallet: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(INSTANT_TRADE_STATS_EVT, { detail: { mint, wallet } }),
+  );
+}
+
 export function readInstantTradeLifetimeStats(mint: string, wallet: string): InstantTradeLifetimeStats {
   if (typeof window === 'undefined') return { buyTon: 0, sellTon: 0 };
   try {
@@ -35,6 +44,7 @@ export function addInstantTradeBuyTon(mint: string, wallet: string, ton: number)
       storageKey(mint, wallet),
       JSON.stringify({ ...cur, buyTon: cur.buyTon + ton }),
     );
+    notifyInstantTradeStats(mint, wallet);
   } catch {
     /* quota */
   }
@@ -50,6 +60,7 @@ export function addInstantTradeSellTon(mint: string, wallet: string, ton: number
       storageKey(mint, wallet),
       JSON.stringify({ ...cur, sellTon: cur.sellTon + ton }),
     );
+    notifyInstantTradeStats(mint, wallet);
   } catch {
     /* quota */
   }

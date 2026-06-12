@@ -17,6 +17,7 @@ import {
   isFounderBetaMobileTradeBlocked,
 } from '@/lib/beta/founderBetaClient';
 import { sandboxBuy, sandboxSellPct } from '@/lib/sandbox/trade';
+import { addInstantTradeBuyTon } from '@/lib/trading/instantTradeStats';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/utils/constants';
 import { formatNumber } from '@/lib/utils/formatters';
 import { buildBlitzAwareFees, isBlitzWallet } from '@/lib/trading/blitz';
@@ -30,7 +31,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/store/ui';
-import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
+import { invalidateTokenDeskAfterTrade } from '@/lib/client/tokenDeskRefresh';
 import {
   buyQuoteAmountFields,
   spendAssetLabel,
@@ -274,7 +275,13 @@ export function usePulseQuickBuy() {
           if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
         })();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
-        dispatchSolanaAccountRefresh('pulse_quick_buy');
+        invalidateTokenDeskAfterTrade(qc, mint, {
+          walletAddress: wallet.address,
+          reason: silent ? 'pulse_auto_buy' : 'pulse_quick_buy',
+        });
+        if (asset === 'sol') {
+          addInstantTradeBuyTon(mint, wallet.address, amount);
+        }
         if (silent) return { ok: true, signature: sig ?? null };
       } catch (e) {
         if (!silent && toastId) toast.dismiss(toastId);
@@ -465,7 +472,10 @@ export function usePulseQuickBuy() {
             : 0;
         if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
-        dispatchSolanaAccountRefresh('pulse_quick_buy');
+        invalidateTokenDeskAfterTrade(qc, mint, {
+          walletAddress: wallet.address,
+          reason: 'pulse_quick_sell',
+        });
         if (silent) return { ok: true, signature: sig ?? null };
       } catch (e) {
         if (!silent && toastId) toast.dismiss(toastId);

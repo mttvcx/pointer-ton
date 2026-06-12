@@ -1,6 +1,9 @@
 import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { deriveWalletStatsFromSwaps } from '@/lib/indexer/deriveWalletStats';
+import { listMintSwapsForMintAsc } from '@/lib/db/mintSwaps';
+import { canonicalSolAddress, solAddressesMatch } from '@/lib/solana/canonicalAddress';
 
 export type MintWalletStatsRow = {
   mint: string;
@@ -56,6 +59,29 @@ export async function getMintWalletStats(
     .maybeSingle();
   if (error) throw new Error(`getMintWalletStats failed: ${error.message}`);
   return (data as MintWalletStatsRow | null) ?? null;
+}
+
+/** DB row, or derive live from indexed `mint_swaps` when stats table is stale. */
+export async function resolveMintWalletStatsForDesk(
+  mint: string,
+  wallet: string,
+  opts?: { currentPriceUsd?: number | null; decimals?: number },
+): Promise<MintWalletStatsRow | null> {
+  const canon = canonicalSolAddress(wallet);
+  if (!canon) return null;
+
+  let stats = await getMintWalletStats(mint, canon);
+  if (!stats && wallet.trim() !== canon) {
+    stats = await getMintWalletStats(mint, wallet.trim());
+  }
+  if (stats) return stats;
+
+  const swaps = await listMintSwapsForMintAsc(mint);
+  const walletSwaps = swaps.filter((s) => solAddressesMatch(s.wallet, canon));
+  if (walletSwaps.length === 0) return null;
+
+  const derived = deriveWalletStatsFromSwaps(walletSwaps, opts);
+  return derived.find((r) => solAddressesMatch(r.wallet, canon)) ?? derived[0] ?? null;
 }
 
 export async function listMintWalletStatsForMint(
