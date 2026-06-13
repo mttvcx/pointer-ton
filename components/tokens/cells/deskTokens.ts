@@ -3,8 +3,19 @@
  * Typography: system-ui condensed + tabular-nums (Axiom parity — light weights).
  */
 
-export const DESK_ROW_CLASS =
-  'group h-8 border-b border-border-subtle/40 bg-transparent transition-colors hover:bg-bg-hover/60';
+import { cn } from '@/lib/utils/cn';
+
+/** Alternating desk rows — checkered grey/black (Axiom parity). */
+export function deskRowClass(index: number, extra?: string) {
+  return cn(
+    'group h-8 w-full border-b border-border-subtle/25 transition-colors',
+    index % 2 === 0 ? 'bg-desk-a hover:bg-bg-hover/55' : 'bg-desk-b hover:bg-bg-hover/55',
+    extra,
+  );
+}
+
+/** @deprecated Prefer `deskRowClass(index)` for zebra striping. */
+export const DESK_ROW_CLASS = deskRowClass(0);
 
 export const DESK_CELL_CLASS = 'px-2.5 py-1.5 align-middle';
 export const DESK_CELL_FIRST_CLASS = 'pl-3 pr-2 py-1.5 align-middle';
@@ -48,7 +59,7 @@ export const CELL_HERO_CLASS =
 
 /** Sticky thead — flat on desk panel, hairline separator only (Axiom parity). */
 export const DESK_STICKY_HEAD_CLASS =
-  'sticky top-0 z-20 bg-bg-raised shadow-[0_1px_0_rgb(var(--border-subtle-rgb)/0.28)]';
+  'sticky top-0 z-20 bg-desk-panel shadow-[0_1px_0_rgb(var(--border-subtle-rgb)/0.28)]';
 
 /** Scroll region — no nested border/inset; inherits desk panel background. */
 export const DESK_SCROLL_WELL_CLASS =

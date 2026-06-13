@@ -1,4 +1,5 @@
 import { formatDistanceToNowStrict } from 'date-fns';
+import { formatTerminalNativeString } from '@/lib/utils/terminalNativeFormat';
 
 const DEFAULT_LOCALE = 'en-US';
 
@@ -56,8 +57,7 @@ export function formatPriceUsd(value: number | null | undefined): string {
 export function formatSol(amount: number): string {
   if (amount === 0) return '0';
   if (amount >= 100) return amount.toFixed(1).replace(/\.0$/, '');
-  if (amount >= 1) return amount.toFixed(2).replace(/\.?0+$/, '');
-  return parseFloat(amount.toPrecision(4)).toString();
+  return formatTerminalNativeString(amount);
 }
 
 /** Session trade PnL footer — `+0(+0%)` style (Axiom parity). */

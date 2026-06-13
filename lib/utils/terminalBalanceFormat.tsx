@@ -1,47 +1,14 @@
 'use client';
 
 import { cn } from '@/lib/utils/cn';
+import {
+  parseTerminalNativeBalance,
+  toSubscript,
+  type TerminalBalanceParts,
+} from '@/lib/utils/terminalNativeFormat';
 
-const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
-
-function toSubscript(n: number): string {
-  return String(n)
-    .split('')
-    .map((d) => SUBSCRIPT_DIGITS[Number(d)] ?? d)
-    .join('');
-}
-
-export type TerminalBalanceParts =
-  | { kind: 'plain'; text: string }
-  | { kind: 'subscript'; leading: string; zeroCount: number; tail: string };
-
-/** Axiom / MEVX-style tiny native balances — e.g. 0.0₂8 for 0.008 SOL. */
-export function parseTerminalNativeBalance(amount: number | null | undefined): TerminalBalanceParts {
-  if (amount == null || !Number.isFinite(amount)) return { kind: 'plain', text: '0' };
-  if (amount === 0) return { kind: 'plain', text: '0' };
-
-  const abs = Math.abs(amount);
-  if (abs >= 1) {
-    const t = amount.toFixed(2).replace(/\.?0+$/, '');
-    return { kind: 'plain', text: t };
-  }
-  if (abs >= 0.01) {
-    const t = amount.toFixed(2).replace(/\.?0+$/, '');
-    return { kind: 'plain', text: t };
-  }
-
-  const str = abs.toFixed(12);
-  const match = str.match(/^0\.(0*)([1-9]\d*)/);
-  if (!match) return { kind: 'plain', text: String(amount) };
-
-  const zeroCount = match[1]?.length ?? 0;
-  const tail = match[2]?.slice(0, 2) ?? '';
-  if (zeroCount < 2) {
-    return { kind: 'plain', text: parseFloat(amount.toPrecision(3)).toString() };
-  }
-
-  return { kind: 'subscript', leading: '0.0', zeroCount, tail };
-}
+export type { TerminalBalanceParts };
+export { parseTerminalNativeBalance };
 
 export function TerminalNativeBalance({
   amount,
@@ -59,7 +26,7 @@ export function TerminalNativeBalance({
   return (
     <span className={cn('tabular-nums', className)}>
       {parts.leading}
-      <sub className={cn('relative -bottom-px text-[0.72em] font-normal', subClassName)}>
+      <sub className={cn('relative -bottom-[0.05em] text-[0.62em] font-normal leading-none', subClassName)}>
         {toSubscript(parts.zeroCount)}
       </sub>
       {parts.tail}
@@ -84,10 +51,68 @@ export function TerminalUsdPrice({
   return (
     <span className={cn('tabular-nums', className)}>
       ${parts.leading}
-      <sub className={cn('relative -bottom-px text-[0.72em] font-normal', subClassName)}>
+      <sub className={cn('relative -bottom-[0.05em] text-[0.62em] font-normal leading-none', subClassName)}>
         {toSubscript(parts.zeroCount)}
       </sub>
       {parts.tail}
+    </span>
+  );
+}
+
+/** Session PnL cell — subscript native amount + rounded percent (Axiom parity). */
+export function TerminalNativeTradePnl({
+  pnl,
+  pct,
+  className,
+  subClassName,
+  pctClassName,
+}: {
+  pnl: number;
+  pct: number | null;
+  className?: string;
+  subClassName?: string;
+  pctClassName?: string;
+}) {
+  const pctRounded =
+    pct == null || !Number.isFinite(pct) ? 0 : Math.abs(pct) < 0.05 ? 0 : Math.round(pct);
+  const pctSign = pctRounded >= 0 ? '+' : '';
+  return (
+    <span className={cn('inline-flex items-baseline whitespace-nowrap tabular-nums', className)}>
+      {pnl >= 0 ? '+' : null}
+      <TerminalNativeBalance amount={pnl} className="inline" subClassName={subClassName} />
+      <span className={cn('ml-px self-baseline', pctClassName)}>
+        ({pctSign}
+        {pctRounded}%)
+      </span>
+    </span>
+  );
+}
+
+/** USD PnL cell — subscript when tiny + percent (Axiom parity). */
+export function TerminalUsdTradePnl({
+  pnl,
+  pct,
+  className,
+  subClassName,
+  pctClassName,
+}: {
+  pnl: number;
+  pct: number | null;
+  className?: string;
+  subClassName?: string;
+  pctClassName?: string;
+}) {
+  const pctRounded =
+    pct == null || !Number.isFinite(pct) ? 0 : Math.abs(pct) < 0.05 ? 0 : Math.round(pct);
+  const pctSign = pctRounded >= 0 ? '+' : '';
+  return (
+    <span className={cn('inline-flex items-baseline whitespace-nowrap tabular-nums', className)}>
+      {pnl >= 0 ? '+' : '-'}
+      <TerminalUsdPrice price={Math.abs(pnl)} subClassName={subClassName} />
+      <span className={cn('ml-px self-baseline', pctClassName)}>
+        ({pctSign}
+        {pctRounded}%)
+      </span>
     </span>
   );
 }

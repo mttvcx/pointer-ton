@@ -73,7 +73,7 @@ export function StocksPulseColumn({
   const title = STOCK_CATEGORY_LABEL[category];
 
   return (
-    <section className="pulse-column flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised">
+    <section className="pulse-column flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-t-0 border-border-subtle bg-bg-raised">
       <header className="sticky top-0 z-[40] shrink-0 border-b border-white/[0.1] bg-bg-hover px-3 py-2 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05),0_6px_12px_-8px_rgba(0,0,0,0.85)]">
         <div className="flex min-h-[2.125rem] items-center gap-2">
           <div className="flex shrink-0 items-center gap-2">

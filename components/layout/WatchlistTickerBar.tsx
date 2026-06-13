@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, type MouseEvent } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Settings, Star, Zap } from 'lucide-react';
@@ -198,23 +197,26 @@ export function WatchlistTickerBar() {
         >
           <Settings className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
-        <Link
-          href="/pulse"
-          className="btn-press flex h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors duration-200 hover:bg-white/[0.06] hover:text-accent-primary"
-          aria-label="Pulse"
-          title="Pulse"
+        <button
+          type="button"
+          onClick={() => openSettings('watchlist')}
+          className={cn(
+            'btn-press flex h-6 items-center gap-1 rounded-md px-1.5 text-accent-primary transition-colors duration-200',
+            'hover:bg-white/[0.06]',
+          )}
+          aria-label="Watchlist"
+          title="Watchlist"
         >
-          <Star className="h-3.5 w-3.5" strokeWidth={2} />
-        </Link>
+          <Star className="h-3.5 w-3.5" strokeWidth={2} fill="currentColor" />
+          <span className="hidden text-[10px] font-semibold uppercase tracking-wide sm:inline">
+            Watchlist
+          </span>
+        </button>
         {/* Chart overlays / linked tokens buttons removed until implemented — no toast-only icons. */}
       </div>
 
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {sorted.length === 0 ? (
-          <p className="truncate px-1 text-[11px] text-fg-muted">
-            Star a token on its page to pin it here — open Settings → Watchlist to configure.
-          </p>
-        ) : (
+        {sorted.length === 0 ? null : (
           sorted.map((item) => (
             <WatchlistTickerPill
               key={item.mint}

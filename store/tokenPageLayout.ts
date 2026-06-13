@@ -19,7 +19,9 @@ type TokenPageLayoutState = {
   setTradesAgeDisplay: (d: 'age' | 'time') => void;
 };
 
-const DEFAULT_RIGHT_STACK_W = 340;
+const DEFAULT_RIGHT_STACK_W = 420;
+/** Legacy default — bump on rehydrate so PnL strip isn't squished. */
+const LEGACY_RIGHT_STACK_W = 340;
 
 export const useTokenPageLayoutStore = create<TokenPageLayoutState>()(
   persist(
@@ -47,6 +49,15 @@ export const useTokenPageLayoutStore = create<TokenPageLayoutState>()(
         tradesAgeSortDir: s.tradesAgeSortDir,
         tradesAgeDisplay: s.tradesAgeDisplay,
       }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<TokenPageLayoutState> | undefined;
+        const savedW = p?.rightStackW;
+        const rightStackW =
+          savedW == null || savedW <= LEGACY_RIGHT_STACK_W
+            ? DEFAULT_RIGHT_STACK_W
+            : savedW;
+        return { ...current, ...p, rightStackW };
+      },
     },
   ),
 );

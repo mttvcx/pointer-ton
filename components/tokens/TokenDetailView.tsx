@@ -70,8 +70,8 @@ type LimitOrderRow = Tables<'limit_orders'>;
 type MintTradeRow = Tables<'trades'>;
 
 const MIN_LEFT_COL = 380;
-const MIN_RIGHT_STACK = 300;
-const MAX_RIGHT_STACK = 580;
+const MIN_RIGHT_STACK = 320;
+const MAX_RIGHT_STACK = 640;
 const H_GRIP = 4;
 const MIN_CHART = 200;
 const MIN_TABS = 160;

@@ -14,7 +14,7 @@ import {
   DESK_CELL_LAST_CLASS,
   DESK_HEADER_CLASS,
   DESK_HEADER_NUM_CLASS,
-  DESK_ROW_CLASS,
+  deskRowClass,
   DESK_STICKY_HEAD_CLASS,
   DESK_TABLE_CLASS,
   CELL_MUTED_CLASS,
@@ -140,7 +140,7 @@ export function TopTradersTable({
               : `${realizedPnl >= 0 ? '+' : ''}${formatCompactUsd(realizedPnl)}`;
 
           return (
-            <tr key={row.wallet_address} className={DESK_ROW_CLASS}>
+            <tr key={row.wallet_address} className={deskRowClass(i)}>
               <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
                 <span className={CELL_MUTED_CLASS}>{i + 1}</span>
               </td>

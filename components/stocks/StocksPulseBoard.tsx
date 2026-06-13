@@ -25,7 +25,7 @@ export function StocksPulseBoard() {
         {COLUMNS.map((cat) => (
           <section
             key={cat}
-            className="pulse-column flex h-full min-h-0 min-w-0 flex-1 animate-pulse flex-col rounded-lg border border-border-subtle bg-bg-raised"
+            className="pulse-column flex h-full min-h-0 min-w-0 flex-1 animate-pulse flex-col rounded-lg border border-t-0 border-border-subtle bg-bg-raised"
           >
             <div className="h-14 bg-bg-hover" />
             <div className="flex-1 bg-bg-raised/50" />

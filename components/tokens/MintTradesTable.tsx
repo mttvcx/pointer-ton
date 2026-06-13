@@ -21,9 +21,10 @@ import {
 import {
   DESK_CELL_CLASS,
   DESK_CELL_FIRST_CLASS,
+  DESK_CELL_LAST_CLASS,
   DESK_HEADER_CLASS,
   DESK_HEADER_NUM_CLASS,
-  DESK_ROW_CLASS,
+  deskRowClass,
   DESK_STICKY_HEAD_CLASS,
   DESK_TABLE_CLASS,
   CELL_MUTED_CLASS,
@@ -105,15 +106,17 @@ export function MintTradesTable({
   }, [rows]);
 
   return (
-    <table className={cn('w-full table-fixed border-collapse', DESK_TABLE_CLASS)}>
+    <table className={cn('w-full min-w-[760px] table-fixed border-collapse', DESK_TABLE_CLASS)}>
       <colgroup>
-        <col className="w-[56px]" />
-        <col className="w-[60px]" />
-        <col className="w-[80px]" />
-        <col className="w-[100px]" />
-        <col className="w-[140px]" />
-        <col className="w-[1%]" />
-        <col className="w-[28px]" />
+        <col style={{ width: '5.4%' }} />
+        <col style={{ width: '4.7%' }} />
+        <col style={{ width: '7.1%' }} />
+        <col style={{ width: '7.8%' }} />
+        {/* Bar — flexible, takes all remaining space */}
+        <col style={{ width: 'auto' }} />
+        {/* Trader — fixed strip at the right */}
+        <col style={{ width: '19%' }} />
+        <col style={{ width: '28px' }} />
       </colgroup>
       <thead className={DESK_STICKY_HEAD_CLASS}>
         <tr>
@@ -178,19 +181,8 @@ export function MintTradesTable({
             }
             align="right"
           />
-          <th className={DESK_HEADER_NUM_CLASS}>
-            <span className="ml-auto inline-flex items-center gap-1">
-              {displayMode === 'SOL' ? (
-                <>
-                  Total {nativeSym}
-                  <ChainIcon chain="sol" size={12} />
-                </>
-              ) : (
-                'Total USD'
-              )}
-            </span>
-          </th>
-          <th className={cn(DESK_HEADER_CLASS, 'min-w-[200px] text-right')}>Trader</th>
+          <th className={cn(DESK_HEADER_CLASS, 'pl-1')} aria-hidden />
+          <th className={cn(DESK_HEADER_CLASS, 'pr-3 text-right')}>Trader</th>
           <DeskHeaderSettings />
         </tr>
       </thead>
@@ -224,7 +216,7 @@ export function MintTradesTable({
           return (
             <tr
               key={row.id}
-              className={cn(DESK_ROW_CLASS, liqEvent && 'bg-signal-bear/10')}
+              className={deskRowClass(i, liqEvent ? '!bg-signal-bear/10' : undefined)}
             >
               <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
                 <span className={CELL_MUTED_CLASS}>
@@ -259,7 +251,7 @@ export function MintTradesTable({
                   {formatCompactNumber(tokens)}
                 </span>
               </td>
-              <td className="relative h-7 w-[140px] max-w-[140px] overflow-hidden bg-bg-hover/35 p-0 align-middle [contain:paint] pointer-events-none">
+              <td className="relative h-7 min-w-[140px] overflow-hidden p-0 align-middle [contain:paint] pointer-events-none">
                 <InlineBarCell
                   className="h-full w-full"
                   value={totalBarValue}
@@ -276,8 +268,8 @@ export function MintTradesTable({
                   )}
                 </InlineBarCell>
               </td>
-              <td className={cn(DESK_CELL_CLASS, 'min-w-[200px] text-right')}>
-                <div className="flex items-center justify-end gap-1.5">
+              <td className={cn(DESK_CELL_LAST_CLASS, 'text-right')}>
+                <div className="flex w-full items-center justify-end gap-1.5 overflow-hidden">
                   {wallet && deskExtras ? (
                     walletsMatch(wallet, viewerWallet) ? (
                       <TradeDeskYouLabel />

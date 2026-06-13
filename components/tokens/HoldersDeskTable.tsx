@@ -14,10 +14,11 @@ import {
   DESK_CELL_LAST_CLASS,
   DESK_HEADER_CLASS,
   DESK_HEADER_NUM_CLASS,
-  DESK_ROW_CLASS,
+  deskRowClass,
   DESK_STICKY_HEAD_CLASS,
   DESK_TABLE_CLASS,
   CELL_MUTED_CLASS,
+  CELL_PRIMARY_CLASS,
 } from './cells/deskTokens';
 import type { HolderDeskSynth } from '@/lib/tokens/holderDeskSynth';
 import { isKnownCexVenue } from '@/components/tokens/cells/VenueIcon';
@@ -173,7 +174,7 @@ export function HoldersDeskTable({
       </thead>
 
       <tbody>
-        {rows.map((row) => {
+        {rows.map((row, i) => {
           const synth = row.synth;
           const meta = row.deskMeta;
           const systemAccount = meta?.isSystemAccount ?? false;
@@ -185,7 +186,7 @@ export function HoldersDeskTable({
             meta?.role === 'lp' ? ('lp' as const) : meta?.role === 'locked_vault' ? ('locked_vault' as const) : null;
 
           return (
-            <tr key={row.wallet_address} className={DESK_ROW_CLASS}>
+            <tr key={row.wallet_address} className={deskRowClass(i)}>
               <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
                 <span className={CELL_MUTED_CLASS}>
                   {row.rank ?? '\u2014'}

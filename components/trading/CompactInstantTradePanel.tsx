@@ -41,7 +41,9 @@ import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { formatNumber, lamportsToSol, rawToUi } from '@/lib/utils/formatters';
 import { BlitzWalletChip } from '@/components/trading/BlitzWalletChip';
 import { WalletMenuNativeBalance } from '@/components/wallets/WalletMenuNativeBalance';
-import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
+import { WalletMenuTokenBalance } from '@/components/wallets/WalletMenuTokenBalance';
+import { TerminalNativeBalance, TerminalNativeTradePnl } from '@/lib/utils/terminalBalanceFormat';
+import { formatTerminalNativeString } from '@/lib/utils/terminalNativeFormat';
 import { InstantTradeSettingsModal } from '@/components/trading/InstantTradeSettingsModal';
 import { PresetEditorModal } from '@/components/trading/PresetEditorModal';
 import {
@@ -75,6 +77,8 @@ const ONE_ROW_GRID_H = 32;
 const INSTANT_TOOLBAR_ROW = 'flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-raised px-2 py-1.5';
 const INSTANT_TOOLBAR_BTN =
   'btn-press focus-ring flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary';
+const INSTANT_CLOSE_BTN =
+  'btn-press focus-ring flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border-subtle/80 bg-bg-sunken text-fg-secondary transition-colors hover:border-border-default hover:bg-bg-hover hover:text-fg-primary';
 
 /** Keep toolbar buttons from bubbling pointerdown to drag spacers / row chrome. */
 function blockToolbarDrag(e: React.PointerEvent) {
@@ -375,22 +379,15 @@ function fmtSolChip(n: number): string {
   return t || String(n);
 }
 
-/** PnL footer — `0` at rest, trim trailing zeros (Axiom parity). */
-function fmtInstantFooterAmount(n: number): string {
-  if (!Number.isFinite(n) || n === 0) return '0';
-  const sign = n < 0 ? '-' : '';
-  const t = Math.abs(n).toFixed(4).replace(/\.?0+$/, '');
-  return `${sign}${t || '0'}`;
-}
-
-function fmtInstantPnlCell(pnl: number, pct: number | null): string {
+/** PnL footer title — subscript native string (Axiom parity). */
+function fmtInstantPnlTitle(pnl: number, pct: number | null): string {
   const pctRounded =
     pct == null || !Number.isFinite(pct) ? 0 : Math.abs(pct) < 0.05 ? 0 : Math.round(pct);
   const pctSign = pctRounded >= 0 ? '+' : '';
   if (pnl < 0) {
-    return `${fmtInstantFooterAmount(pnl)}(${pctSign}${pctRounded}%)`;
+    return `${formatTerminalNativeString(pnl)}(${pctSign}${pctRounded}%)`;
   }
-  return `+${fmtInstantFooterAmount(pnl)}(${pctSign}${pctRounded}%)`;
+  return `+${formatTerminalNativeString(pnl)}(${pctSign}${pctRounded}%)`;
 }
 
 function fmtPctChip(n: number): string {
@@ -789,6 +786,15 @@ export function CompactInstantTradePanel({
   }, [open, wallet?.address]);
 
   useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
     if (open) return;
     const raf = requestAnimationFrame(() => setWalletMenuOpen(false));
     return () => cancelAnimationFrame(raf);
@@ -976,8 +982,8 @@ export function CompactInstantTradePanel({
   );
 
   const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '').slice(0, 8) || 'TOKEN';
-  const uiBal = fmtInstantFooterAmount(rawToUi(balanceRaw, decimals));
-  const uiUsdcBal = fmtInstantFooterAmount(rawToUi(usdcBalanceRaw, USDC_DECIMALS));
+  const uiBal = formatTerminalNativeString(rawToUi(balanceRaw, decimals));
+  const uiUsdcBal = formatTerminalNativeString(rawToUi(usdcBalanceRaw, USDC_DECIMALS));
   const nativeSym = nativeTicker(activeChain);
 
   const presetLayout = useMemo(() => {
@@ -1360,15 +1366,17 @@ export function CompactInstantTradePanel({
       </div>
       ) : null}
 
-      <div className={cn(INSTANT_TOOLBAR_ROW, 'relative z-50 min-h-[38px] pl-2')}>
+      <div className={cn(INSTANT_TOOLBAR_ROW, 'relative z-50 min-h-[38px] pl-2 pr-1')}>
         <div
           className={cn('absolute inset-0', panelDragSurfaceClass)}
           onPointerDown={onMoveDown}
           aria-hidden
         />
         <div className="relative z-10 flex w-full min-w-0 items-center gap-1 pointer-events-none">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
         <button
           type="button"
+          onPointerDown={blockToolbarDrag}
           onClick={() => toggleHotkeys()}
           className={cn(
             INSTANT_TOOLBAR_BTN,
@@ -1390,6 +1398,7 @@ export function CompactInstantTradePanel({
           <button
             key={slot}
             type="button"
+            onPointerDown={blockToolbarDrag}
             title="Select preset · Shift+click: priority & tip · Ctrl+click: slippage & MEV"
             onClick={(e) => {
               if (e.shiftKey) {
@@ -1417,6 +1426,7 @@ export function CompactInstantTradePanel({
         ))}
         <button
           type="button"
+          onPointerDown={blockToolbarDrag}
           onClick={() => toggleSlotEdit()}
           className={cn(
             INSTANT_TOOLBAR_BTN,
@@ -1432,23 +1442,27 @@ export function CompactInstantTradePanel({
           <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
         <div
-          className="pointer-events-none mx-1 flex min-h-8 min-w-[1.5rem] flex-1 items-center justify-center py-1"
+          className="pointer-events-none mx-0.5 flex min-h-8 min-w-[1.25rem] max-w-[2.5rem] flex-1 items-center justify-center py-1"
           aria-hidden
         >
           <GripVertical className="h-3.5 w-3.5 text-fg-muted/50" strokeWidth={2} />
         </div>
         <button
           type="button"
+          onPointerDown={blockToolbarDrag}
           onClick={() => setInstantSettingsOpen(true)}
-          className={cn(INSTANT_TOOLBAR_BTN, 'pointer-events-auto')}
+          className={cn(INSTANT_TOOLBAR_BTN, 'pointer-events-auto shrink-0')}
           aria-label="Instant trade settings"
           title="Instant trade settings"
         >
           <Settings2 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5 border-l border-border-subtle/60 pl-1 pointer-events-auto">
         <div className="relative shrink-0" ref={walletMenuRef}>
           <button
             type="button"
+            onPointerDown={blockToolbarDrag}
             onClick={() => setWalletMenuOpen((o) => !o)}
             disabled={!authenticated || !(walletRows?.length)}
             className={cn(
@@ -1471,12 +1485,15 @@ export function CompactInstantTradePanel({
         </div>
         <button
           type="button"
+          onPointerDown={blockToolbarDrag}
           onClick={onClose}
-          className={cn(INSTANT_TOOLBAR_BTN, 'pointer-events-auto hover:text-signal-bear')}
+          className={cn(INSTANT_CLOSE_BTN, 'relative z-[70]')}
           aria-label="Close instant trade"
+          title="Close (Esc)"
         >
-          <X className="h-3.5 w-3.5" strokeWidth={2} />
+          <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
         </button>
+        </div>
         </div>
       </div>
 
@@ -1778,76 +1795,82 @@ export function CompactInstantTradePanel({
                   role="group"
                   aria-label={`Instant trade stats · ${nativeSym}`}
                 >
-                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                <div className="flex min-w-0 flex-col items-center justify-center px-1 py-px">
                   <span
-                    className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-400"
-                    title="Bought"
+                    className="inline-flex max-w-full min-w-0 items-center gap-1 tabular-nums font-semibold text-emerald-400"
+                    title={`Bought — ${formatTerminalNativeString(tradeDeskStats.buyTon)}`}
                   >
                     <span className="sr-only">Bought </span>
                     <img
                       src={CHAIN_ICON_PNG[activeChain]}
                       alt=""
-                      width={14}
-                      height={14}
-                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      width={12}
+                      height={12}
+                      className="h-3 w-3 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {fmtInstantFooterAmount(tradeDeskStats.buyTon)}
+                    <span className="min-w-0 truncate">
+                      <TerminalNativeBalance amount={tradeDeskStats.buyTon} />
+                    </span>
                   </span>
                 </div>
-                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                <div className="flex min-w-0 flex-col items-center justify-center px-1 py-px">
                   <span
-                    className="inline-flex items-center gap-1 tabular-nums font-semibold text-rose-400"
-                    title="Sold"
+                    className="inline-flex max-w-full min-w-0 items-center gap-1 tabular-nums font-semibold text-rose-400"
+                    title={`Sold — ${formatTerminalNativeString(tradeDeskStats.sellTon)}`}
                   >
                     <span className="sr-only">Sold </span>
                     <img
                       src={CHAIN_ICON_PNG[activeChain]}
                       alt=""
-                      width={14}
-                      height={14}
-                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      width={12}
+                      height={12}
+                      className="h-3 w-3 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {fmtInstantFooterAmount(tradeDeskStats.sellTon)}
+                    <span className="min-w-0 truncate">
+                      <TerminalNativeBalance amount={tradeDeskStats.sellTon} />
+                    </span>
                   </span>
                 </div>
-                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                <div className="flex min-w-0 flex-col items-center justify-center px-1 py-px">
                   <span
-                    className="inline-flex items-center gap-1 tabular-nums font-semibold text-amber-400"
-                    title="Remaining"
+                    className="inline-flex max-w-full min-w-0 items-center gap-1 tabular-nums font-semibold text-amber-400"
+                    title={`Remaining — ${formatTerminalNativeString(remainingTon)}`}
                   >
                     <span className="sr-only">Remaining </span>
                     <img
                       src={CHAIN_ICON_PNG[activeChain]}
                       alt=""
-                      width={14}
-                      height={14}
-                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      width={12}
+                      height={12}
+                      className="h-3 w-3 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
-                    {fmtInstantFooterAmount(remainingTon)}
+                    <span className="min-w-0 truncate">
+                      <TerminalNativeBalance amount={remainingTon} />
+                    </span>
                   </span>
                 </div>
-                <div className="flex min-w-0 flex-col items-center justify-center px-1.5 py-px">
+                <div className="flex min-w-0 flex-col items-center justify-center px-1 py-px">
                   <span
                     className={cn(
                       'inline-flex min-w-0 max-w-full items-center justify-center gap-1 truncate tabular-nums font-semibold',
                       netSessionPnl >= 0 ? 'text-emerald-400' : 'text-rose-400',
                     )}
-                    title={`PnL — ${fmtInstantPnlCell(netSessionPnl, netPctForTitle)}`}
+                    title={`PnL — ${fmtInstantPnlTitle(netSessionPnl, netPctForTitle)}`}
                   >
                     <span className="sr-only">PnL </span>
                     <img
                       src={CHAIN_ICON_PNG[activeChain]}
                       alt=""
-                      width={14}
-                      height={14}
-                      className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
+                      width={12}
+                      height={12}
+                      className="h-3 w-3 shrink-0 object-contain opacity-95"
                       draggable={false}
                     />
                     <span className="min-w-0 truncate tracking-tight">
-                      {fmtInstantPnlCell(netSessionPnl, netPctForTitle)}
+                      <TerminalNativeTradePnl pnl={netSessionPnl} pct={netPctForTitle} />
                     </span>
                   </span>
                 </div>
@@ -1997,21 +2020,22 @@ export function CompactInstantTradePanel({
                         <span className="truncate font-mono">{shortenAddress(w.wallet_address, 4)}</span>
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-0.5">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <WalletMenuNativeBalance
                         amount={solUi}
                         activeChain={activeChain}
-                        className="shrink-0"
+                        amountClassName="text-[11px] text-fg-primary"
+                        className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-1"
                       />
-                      {tokenUi != null && tokenUi > 0 ? (
-                        <span className="font-mono text-[10px] tabular-nums text-fg-secondary">
-                          {formatNumber(tokenUi, {
-                            decimals: tokenUi >= 1000 ? 1 : 2,
-                            compact: true,
-                          })}{' '}
-                          {symbol?.trim() || 'TKN'}
-                        </span>
-                      ) : null}
+                      <WalletMenuTokenBalance
+                        amount={tokenUi ?? 0}
+                        symbol={symbol}
+                        amountClassName="text-[11px] text-fg-primary"
+                        className={cn(
+                          'rounded-md border border-border-subtle bg-bg-sunken px-2 py-1',
+                          (tokenUi == null || tokenUi <= 0) && 'opacity-40',
+                        )}
+                      />
                     </div>
                   </button>
                 );

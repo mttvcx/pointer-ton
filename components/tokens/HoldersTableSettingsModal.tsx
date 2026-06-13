@@ -15,7 +15,7 @@ import {
   DESK_CELL_LAST_CLASS,
   DESK_HEADER_CLASS,
   DESK_HEADER_NUM_CLASS,
-  DESK_ROW_CLASS,
+  deskRowClass,
   DESK_TABLE_CLASS,
 } from '@/components/tokens/cells/deskTokens';
 import {
@@ -176,8 +176,8 @@ function SettingsPreviewTable({ draft }: { draft: HoldersTableSettings }) {
           </tr>
         </thead>
         <tbody>
-          {PREVIEW_ROWS.map((row) => (
-            <tr key={row.rank} className={cn(DESK_ROW_CLASS, 'last:border-b-0')}>
+          {PREVIEW_ROWS.map((row, i) => (
+            <tr key={row.rank} className={cn(deskRowClass(i), 'last:border-b-0')}>
               <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
                 <span className={CELL_MUTED_CLASS}>{row.rank}</span>
               </td>

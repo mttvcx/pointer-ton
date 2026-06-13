@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { deriveWalletStatsFromSwaps } from '@/lib/indexer/deriveWalletStats';
-import { listMintSwapsForMintAsc } from '@/lib/db/mintSwaps';
+import { listMintSwapsForMintAsc, listMintSwapsForWallet } from '@/lib/db/mintSwaps';
 import { canonicalSolAddress, solAddressesMatch } from '@/lib/solana/canonicalAddress';
 
 export type MintWalletStatsRow = {
@@ -76,8 +76,14 @@ export async function resolveMintWalletStatsForDesk(
   }
   if (stats) return stats;
 
-  const swaps = await listMintSwapsForMintAsc(mint);
-  const walletSwaps = swaps.filter((s) => solAddressesMatch(s.wallet, canon));
+  let walletSwaps = await listMintSwapsForWallet(mint, canon);
+  if (walletSwaps.length === 0 && wallet.trim() !== canon) {
+    walletSwaps = await listMintSwapsForWallet(mint, wallet.trim());
+  }
+  if (walletSwaps.length === 0) {
+    const swaps = await listMintSwapsForMintAsc(mint);
+    walletSwaps = swaps.filter((s) => solAddressesMatch(s.wallet, canon));
+  }
   if (walletSwaps.length === 0) return null;
 
   const derived = deriveWalletStatsFromSwaps(walletSwaps, opts);

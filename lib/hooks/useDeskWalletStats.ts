@@ -15,7 +15,12 @@ export function useDeskWalletStats(mint: string, wallet: string | null | undefin
       const res = await fetch(
         `/api/tokens/${encodeURIComponent(mint)}/desk-wallet-stats?wallet=${encodeURIComponent(wallet!)}`,
       );
-      if (!res.ok) throw new Error('desk_wallet_stats');
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[desk-wallet-stats]', res.status, mint, wallet);
+        }
+        return null;
+      }
       const json = (await res.json()) as { stats: MintWalletStatsRow | null };
       return json.stats ?? null;
     },

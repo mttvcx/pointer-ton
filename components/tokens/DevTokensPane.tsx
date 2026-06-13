@@ -9,7 +9,7 @@ import {
   DESK_CELL_FIRST_CLASS,
   DESK_CELL_LAST_CLASS,
   DESK_HEADER_CLASS,
-  DESK_ROW_CLASS,
+  deskRowClass,
   DESK_STICKY_HEAD_CLASS,
   CELL_PRIMARY_CLASS,
   CELL_MUTED_CLASS,
@@ -250,8 +250,8 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
         </tr>
       </thead>
       <tbody>
-        {sortedTokens.map((t) => (
-          <tr key={t.mint} className={DESK_ROW_CLASS}>
+        {sortedTokens.map((t, i) => (
+          <tr key={t.mint} className={deskRowClass(i)}>
             <td className={DESK_CELL_FIRST_CLASS}>
               <div className="flex items-center gap-2">
                 <div className="h-5 w-5 shrink-0 rounded-full bg-fg-muted/20" />
@@ -272,13 +272,13 @@ function DevTokensTable({ tokens }: { tokens: SyntheticDevTokenRow[] }) {
                 <span className="text-fg-muted/40">{'\u2014'}</span>
               )}
             </td>
-            <td className={DESK_CELL_CLASS}>
-              {t.dex ? (
-                <span className="text-[11px] text-fg-secondary">{t.dex}</span>
-              ) : (
-                <span className="text-fg-muted/40">{'\u2014'}</span>
-              )}
-            </td>
+              <td className={DESK_CELL_CLASS}>
+                {t.dex ? (
+                  <span className="text-[11px] text-fg-secondary">{t.dex}</span>
+                ) : (
+                  <span className="text-fg-muted/40">{'\u2014'}</span>
+                )}
+              </td>
             <td className={cn(DESK_CELL_CLASS, 'text-right')}>
               <span className={CELL_PRIMARY_CLASS}>
                 {formatCompactUsd(t.mcUsd)}

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import {
@@ -35,9 +35,7 @@ import { deskWalletStatsQueryKey, useDeskWalletStats } from '@/lib/hooks/useDesk
 import { USDC_MINT } from '@/lib/utils/addresses';
 import {
   formatCompactUsd,
-  formatNativeTradePnl,
   formatNumber,
-  formatSol,
   formatUsd,
   lamportsToSol,
   rawToUi,
@@ -69,7 +67,6 @@ import {
 import { buildBlitzAwareFees, isBlitzWallet } from '@/lib/trading/blitz';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
-import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { computeDeskWalletDisplayStats } from '@/lib/trading/deskWalletDisplayStats';
 import {
   addInstantTradeBuyTon,
@@ -77,8 +74,9 @@ import {
   readInstantTradeLifetimeStats,
   INSTANT_TRADE_STATS_EVT,
 } from '@/lib/trading/instantTradeStats';
-import { WalletCurrencyToggle } from '@/components/wallet/analytics/WalletCurrencyToggle';
 import { TradingWalletPickerPopover } from '@/components/trading/TradingWalletPickerPopover';
+import { balanceRawFromQueryData } from '@/lib/trading/tradeBalanceQuery';
+import { TradeDeskStatsStrip } from '@/components/trading/TradeDeskStatsStrip';
 import { MultiWalletBuySettingsModal } from '@/components/trading/MultiWalletBuySettingsModal';
 
 type LimitOrderRow = Tables<'limit_orders'>;
@@ -421,30 +419,6 @@ export function BuySellPanel({
   const displaySellUsd = tradeDeskStats.sellUsd;
   const displayHoldingUsd = tradeDeskStats.holdingUsd;
   const netPnlUsd = tradeDeskStats.netPnlUsd;
-
-  const formatStatSol = useCallback((solAmount: number) => formatSol(solAmount), []);
-
-  const formatStatUsd = useCallback((usdAmount: number) => {
-    if (!Number.isFinite(usdAmount)) return '$0';
-    return Math.abs(usdAmount) >= 1000
-      ? formatCompactUsd(usdAmount)
-      : formatUsd(usdAmount, { decimals: 2 });
-  }, []);
-
-  const formatBoughtStat = useCallback(
-    () => (statsUsdMode ? formatStatUsd(displayBuyUsd) : formatStatSol(displayBuyTon)),
-    [statsUsdMode, formatStatUsd, formatStatSol, displayBuyUsd, displayBuyTon],
-  );
-
-  const formatSoldStat = useCallback(
-    () => (statsUsdMode ? formatStatUsd(displaySellUsd) : formatStatSol(displaySellTon)),
-    [statsUsdMode, formatStatUsd, formatStatSol, displaySellUsd, displaySellTon],
-  );
-
-  const formatHoldingStat = useCallback(
-    () => (statsUsdMode ? formatStatUsd(displayHoldingUsd) : formatStatSol(holdingSol)),
-    [statsUsdMode, formatStatUsd, formatStatSol, displayHoldingUsd, holdingSol],
-  );
 
   const ctaSym = useMemo(() => tradeCtaLabel(symbol, tokenName), [symbol, tokenName]);
 
@@ -1029,6 +1003,37 @@ export function BuySellPanel({
     return lamportsToSol(total);
   }, [walletMenuRows, selectedWalletAddresses]);
 
+  const walletTokenBalanceQueries = useQueries({
+    queries: walletMenuRows.map((w) => ({
+      queryKey: ['trade-balance', mint, w.wallet_address] as const,
+      queryFn: async (): Promise<{ rawAmount: string }> => {
+        const token = await getAccessToken();
+        if (!token) return { rawAmount: '0' };
+        const res = await fetch(
+          `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(w.wallet_address)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) return { rawAmount: '0' };
+        const json: unknown = await res.json();
+        const raw =
+          typeof json === 'object' && json && 'rawAmount' in json
+            ? String((json as { rawAmount: unknown }).rawAmount)
+            : '0';
+        return { rawAmount: raw };
+      },
+      enabled: walletMenuOpen && Boolean(mint && authenticated),
+      staleTime: 15_000,
+    })),
+  });
+
+  const walletTokenBalanceByAddress = useMemo(() => {
+    const map = new Map<string, string>();
+    walletMenuRows.forEach((w, i) => {
+      map.set(w.wallet_address, balanceRawFromQueryData(walletTokenBalanceQueries[i]?.data));
+    });
+    return map;
+  }, [walletMenuRows, walletTokenBalanceQueries]);
+
   const toggleWalletSelection = (address: string) => {
     setSelectedWalletAddresses((current) =>
       current.includes(address) ? current.filter((addr) => addr !== address) : [...current, address],
@@ -1120,6 +1125,10 @@ export function BuySellPanel({
             triggerBalanceSol={selectedCombinedSol}
             activeChain={activeChain}
             disabled={!walletsReady || walletMenuRows.length === 0}
+            tokenSymbol={symbol}
+            tokenImageUrl={marketSnapshot?.image_url ?? null}
+            tokenDecimals={decimals}
+            tokenBalanceRawByAddress={walletTokenBalanceByAddress}
             onSettingsClick={() => {
               setWalletMenuOpen(false);
               setMultiWalletBuySettingsOpen(true);
@@ -1329,105 +1338,20 @@ export function BuySellPanel({
           </button>
         </div>
 
-        <div className="flex overflow-hidden rounded-md border border-border-subtle/50 bg-transparent">
-          <WalletCurrencyToggle
-            usdMode={statsUsdMode}
-            nativeSym={nativeSym}
-            onToggle={() => setStatsUsdMode((m) => !m)}
-            className="h-auto shrink-0 flex-col gap-0.5 rounded-none border-0 border-r border-border-subtle/50 px-2 py-3"
-          />
-          <div className="grid min-w-0 flex-1 grid-cols-4 divide-x divide-border-subtle/40 py-3">
-            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Bought</span>
-              <span className="inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums text-signal-bull">
-                {!statsUsdMode ? (
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                ) : null}
-                {formatBoughtStat()}
-              </span>
-            </div>
-            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Sold</span>
-              <span className="inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums text-signal-bear">
-                {!statsUsdMode ? (
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                ) : null}
-                {formatSoldStat()}
-              </span>
-            </div>
-            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Holding</span>
-              <span className="inline-flex items-center gap-1 text-[13px] font-semibold tabular-nums text-fg-primary">
-                {!statsUsdMode ? (
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                ) : null}
-                {formatHoldingStat()}
-              </span>
-            </div>
-            <div className="flex min-w-0 flex-col items-center gap-1 px-1">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">PnL</span>
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold tabular-nums',
-                  (statsUsdMode ? netPnlUsd : netSessionPnlSol) >= 0
-                    ? 'text-signal-bull'
-                    : 'text-signal-bear',
-                )}
-                title={
-                  statsUsdMode
-                    ? formatStatUsd(netPnlUsd)
-                    : formatNativeTradePnl(netSessionPnlSol, netPnlPct)
-                }
-              >
-                {!statsUsdMode ? (
-                  <img
-                    src={CHAIN_ICON_PNG[activeChain]}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className="h-3.5 w-3.5 shrink-0 object-contain opacity-95"
-                    draggable={false}
-                  />
-                ) : null}
-                {statsUsdMode ? (
-                  <>
-                    {netPnlUsd >= 0 ? '+' : ''}
-                    {formatStatUsd(netPnlUsd)}
-                    {netPnlPct != null ? (
-                      <span className="text-[11px] font-medium opacity-90">
-                        ({netPnlPct >= 0 ? '+' : ''}
-                        {formatNumber(netPnlPct, { decimals: 1 })}%)
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  formatNativeTradePnl(netSessionPnlSol, netPnlPct)
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
+      <div className="-mx-3 w-[calc(100%+1.5rem)]">
+        <TradeDeskStatsStrip
+          activeChain={activeChain}
+          nativeSym={nativeSym}
+          usdMode={statsUsdMode}
+          onToggleUsd={() => setStatsUsdMode((m) => !m)}
+          bought={statsUsdMode ? displayBuyUsd : displayBuyTon}
+          sold={statsUsdMode ? displaySellUsd : displaySellTon}
+          holding={statsUsdMode ? displayHoldingUsd : holdingSol}
+          pnl={statsUsdMode ? netPnlUsd : netSessionPnlSol}
+          pnlPct={netPnlPct}
+          className="rounded-none border-x-0"
+        />
+      </div>
 
         {wallet && authenticated ? (
           <PresetTradePanel presets={presetTradeRows} disabled={!authenticated} />

@@ -16,7 +16,7 @@ export function PulseColumnSkeleton({ column }: { column: PulseColumnId }) {
   return (
     <section
       className={cn(
-        'pulse-column flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-raised',
+        'pulse-column flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-t-0 border-border-subtle bg-bg-raised',
       )}
       aria-busy
       aria-label={`Loading ${title} column`}

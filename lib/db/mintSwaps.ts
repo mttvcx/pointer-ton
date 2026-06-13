@@ -88,6 +88,24 @@ export async function listMintSwapsForMintAsc(
   return (data ?? []) as MintSwapRow[];
 }
 
+/** Swaps for one wallet on a mint (indexed tape / desk stats). */
+export async function listMintSwapsForWallet(
+  mint: string,
+  wallet: string,
+  limit = 5_000,
+): Promise<MintSwapRow[]> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('mint_swaps')
+    .select('*')
+    .eq('mint', mint)
+    .eq('wallet', wallet)
+    .order('block_time', { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`listMintSwapsForWallet failed: ${error.message}`);
+  return (data ?? []) as MintSwapRow[];
+}
+
 export async function countMintSwaps(mint: string): Promise<number> {
   const supabase = createAdminSupabase();
   const { count, error } = await supabase

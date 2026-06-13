@@ -1,15 +1,11 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { PerpsMarketHeader } from '@/components/perps/PerpsMarketHeader';
 import { PerpsChartPanel, TIMEFRAMES } from '@/components/perps/PerpsChartPanel';
 import { PerpsOrderBook } from '@/components/perps/PerpsOrderBook';
 import { PerpsOrderPanel } from '@/components/perps/PerpsOrderPanel';
 import { PerpsBottomPanel } from '@/components/perps/PerpsBottomPanel';
-import { PredictionMarketTicker } from '@/components/perps/PredictionMarketTicker';
-import { PredictionMarketDetailModal } from '@/components/perps/PredictionMarketDetailModal';
-import { DEMO_PREDICTION_MARKETS } from '@/lib/perps/predictionMarketsDemo';
 import { usePerpsL2Book, usePerpsMarkets } from '@/lib/hooks/usePerpsMarkets';
 import { PERPS_PINNED_COINS } from '@/lib/hyperliquid/constants';
 import { perpMarketId } from '@/lib/perps/coinMeta';
@@ -19,9 +15,7 @@ import { Skeleton } from '@/components/shared/Skeleton';
 export function PerpsTerminal() {
   const marketsQ = usePerpsMarkets();
   const [pairId, setPairId] = useState<string | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
   const [tf, setTf] = useState<(typeof TIMEFRAMES)[number]>('15m');
-  const [predictionsOpen, setPredictionsOpen] = useState(false);
   const [bottomSplit, setBottomSplit] = useState(0.22);
   const splitRef = useRef<HTMLDivElement>(null);
   const vertDrag = useRef(false);
@@ -69,11 +63,6 @@ export function PerpsTerminal() {
     }
   }, []);
 
-  const detailMarket = useMemo(
-    () => DEMO_PREDICTION_MARKETS.find((m) => m.id === detailId) ?? null,
-    [detailId],
-  );
-
   if (marketsQ.isPending && !markets.length) {
     return <PerpsTerminalSkeleton />;
   }
@@ -104,24 +93,6 @@ export function PerpsTerminal() {
         pairId={resolvedPairId!}
         onSelectPair={setPairId}
       />
-
-      <div className="shrink-0 border-b border-border-subtle bg-bg-base">
-        <button
-          type="button"
-          onClick={() => setPredictionsOpen((v) => !v)}
-          className="flex w-full items-center justify-between px-2 py-1 text-left hover:bg-bg-hover/50"
-        >
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-            Prediction markets · Polymarket
-          </span>
-          {predictionsOpen ? (
-            <ChevronUp className="h-3.5 w-3.5 text-fg-muted" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5 text-fg-muted" />
-          )}
-        </button>
-        {predictionsOpen ? <PredictionMarketTicker compact onOpenMarket={setDetailId} /> : null}
-      </div>
 
       <div ref={splitRef} className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
         <div
@@ -155,12 +126,6 @@ export function PerpsTerminal() {
           <PerpsBottomPanel />
         </div>
       </div>
-
-      <PredictionMarketDetailModal
-        open={Boolean(detailId && detailMarket)}
-        market={detailMarket}
-        onClose={() => setDetailId(null)}
-      />
     </div>
   );
 }

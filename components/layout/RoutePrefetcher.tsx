@@ -7,6 +7,7 @@ const PREFETCH_ROUTES = [
   '/pulse',
   '/portfolio',
   '/perps',
+  '/predictions',
   '/explore',
   '/wallets',
   '/points',

@@ -52,7 +52,7 @@ import {
   DESK_CELL_FIRST_CLASS,
   DESK_HEADER_CLASS,
   DESK_HEADER_NUM_CLASS,
-  DESK_ROW_CLASS,
+  deskRowClass,
   DESK_SCROLL_WELL_CLASS,
   DESK_STICKY_HEAD_CLASS,
   DESK_TABLE_CLASS,
@@ -131,10 +131,10 @@ function MintTradesScroll({
   }, [rows.length]);
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col bg-desk-panel">
       <div
         ref={scrollRef}
-        className={cn('desk-scroll-well', DESK_SCROLL_WELL_CLASS)}
+        className={cn('desk-scroll-well w-full min-w-0 bg-desk-panel', DESK_SCROLL_WELL_CLASS)}
         onPointerEnter={() => onHoverChange(true)}
         onPointerLeave={() => onHoverChange(false)}
       >
@@ -226,7 +226,7 @@ function PositionsDesk({ sym, mint, demoTables }: { sym: string; mint: string; d
             const pnlTone =
               row.pnlUsd > 0 ? 'text-signal-bull' : row.pnlUsd < 0 ? 'text-signal-bear' : 'text-fg-muted';
             return (
-              <tr key={i} className={DESK_ROW_CLASS}>
+              <tr key={i} className={deskRowClass(i)}>
                 <td className={cn(DESK_CELL_FIRST_CLASS, 'text-[12px] font-semibold text-fg-primary')}>
                   {row.token}
                 </td>
@@ -290,7 +290,7 @@ function OrdersDesk({ sym, demoTables }: { sym: string; demoTables: boolean }) {
           {Array.from({ length: 14 }, (_, i) => {
             const side = i % 2 === 0 ? 'Buy' : 'Sell';
             return (
-              <tr key={i} className={DESK_ROW_CLASS}>
+              <tr key={i} className={deskRowClass(i)}>
                 <td className={cn(DESK_CELL_FIRST_CLASS, 'text-[12px] font-semibold text-fg-primary')}>
                   {sym}
                 </td>
@@ -666,7 +666,7 @@ export function TokenActivityTabs({
     tab === 'holders' ? setHolderDeskFilter : setTraderDeskFilter;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg-raised font-sans text-[12px] leading-snug text-fg-primary antialiased">
+    <div className="flex min-h-0 flex-1 flex-col bg-desk-panel font-sans text-[12px] leading-snug text-fg-primary antialiased">
       <div className="flex shrink-0 items-center gap-1 border-b border-border-subtle/25 px-2 py-0.5">
         <nav className="flex shrink-0 items-center gap-0" aria-label="Token activity">
           {visibleTabs.map((t) => {

@@ -11,8 +11,9 @@ import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
 import { BlitzWalletChip } from '@/components/trading/BlitzWalletChip';
 import { WalletMenuNativeBalance } from '@/components/wallets/WalletMenuNativeBalance';
+import { WalletMenuTokenBalance } from '@/components/wallets/WalletMenuTokenBalance';
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
-import { lamportsToSol } from '@/lib/utils/formatters';
+import { lamportsToSol, rawToUi } from '@/lib/utils/formatters';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
@@ -32,6 +33,12 @@ export type TradingWalletPickerPopoverProps = {
   className?: string;
   /** Demo amount on Enable Blitz modal buy chip. */
   demoBuyAmount?: number;
+  /** Desk token — secondary balance column (Axiom parity). */
+  tokenSymbol?: string | null;
+  tokenImageUrl?: string | null;
+  tokenDecimals?: number;
+  /** wallet address → raw token amount */
+  tokenBalanceRawByAddress?: ReadonlyMap<string, string>;
 };
 
 function walletSolUi(w: MyWalletRow): number {
@@ -52,6 +59,20 @@ function hasPositiveBalance(w: MyWalletRow): boolean {
   }
 }
 
+function walletTokenUi(
+  address: string,
+  tokenBalanceRawByAddress: ReadonlyMap<string, string> | undefined,
+  tokenDecimals: number,
+): number {
+  const raw = tokenBalanceRawByAddress?.get(address) ?? '0';
+  if (!raw || raw === '0') return 0;
+  try {
+    return rawToUi(raw, tokenDecimals);
+  } catch {
+    return 0;
+  }
+}
+
 /** Trade-panel multi-wallet picker — Pointer grey theme, dim scrim, subscript balances. */
 export function TradingWalletPickerPopover({
   open,
@@ -66,6 +87,10 @@ export function TradingWalletPickerPopover({
   disabled,
   className,
   demoBuyAmount,
+  tokenSymbol,
+  tokenImageUrl,
+  tokenDecimals = 6,
+  tokenBalanceRawByAddress,
 }: TradingWalletPickerPopoverProps) {
   const { mounted, visible } = useOverlayPresence(open, SETTINGS_POPOVER_ANIM_CLOSE_MS);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +101,8 @@ export function TradingWalletPickerPopover({
   const allSelected =
     wallets.length > 0 &&
     wallets.every((w) => !w.is_archived && w.is_active && selectedAddresses.includes(w.wallet_address));
+
+  const showTokenColumn = Boolean(tokenSymbol && tokenBalanceRawByAddress);
 
   function updatePosition() {
     const el = buttonRef.current;
@@ -189,13 +216,21 @@ export function TradingWalletPickerPopover({
           {wallets.map((w, i) => {
             const selected = selectedAddresses.includes(w.wallet_address);
             const sol = walletSolUi(w);
+            const tokenUi = showTokenColumn
+              ? walletTokenUi(w.wallet_address, tokenBalanceRawByAddress, tokenDecimals)
+              : 0;
             const label = w.label?.trim() || `Wallet ${i + 1}`;
             return (
               <button
                 key={w.id}
                 type="button"
                 onClick={() => onToggleWallet(w.wallet_address)}
-                className="grid w-full grid-cols-[1.75rem_1fr_auto] items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-bg-hover"
+                className={cn(
+                  'grid w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-bg-hover',
+                  showTokenColumn
+                    ? 'grid-cols-[1.75rem_1fr_auto]'
+                    : 'grid-cols-[1.75rem_1fr_auto]',
+                )}
               >
                 <span
                   className={cn(
@@ -240,12 +275,26 @@ export function TradingWalletPickerPopover({
                   </span>
                 </span>
 
-                <WalletMenuNativeBalance
-                  amount={sol}
-                  activeChain={activeChain}
-                  amountClassName="text-[11px] text-fg-primary"
-                  className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-1"
-                />
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <WalletMenuNativeBalance
+                    amount={sol}
+                    activeChain={activeChain}
+                    amountClassName="text-[11px] text-fg-primary"
+                    className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-1"
+                  />
+                  {showTokenColumn ? (
+                    <WalletMenuTokenBalance
+                      amount={tokenUi}
+                      symbol={tokenSymbol}
+                      imageUrl={tokenImageUrl}
+                      amountClassName="text-[11px] text-fg-primary"
+                      className={cn(
+                        'rounded-md border border-border-subtle bg-bg-sunken px-2 py-1',
+                        tokenUi <= 0 && 'opacity-40',
+                      )}
+                    />
+                  ) : null}
+                </span>
               </button>
             );
           })}
