@@ -31,6 +31,10 @@ const METRIC_TOOLTIPS: Partial<Record<string, string>> = {
   Insiders: DESK_FIELD_TOOLTIPS.insiders,
   'LP Burned': DESK_FIELD_TOOLTIPS.lpBurned,
   'Dex Paid': DESK_FIELD_TOOLTIPS.dexPaid,
+  Holders:
+    'Top holders from Helius DAS. For tokens with >10k holders we cap at the most recent 10k page — full counts require a paid holder source (e.g. Moralis).',
+  'Pro Traders':
+    'Top-N pro-trader proxy from wallet history. Exact count needs full wallet classification across all indexed mints.',
 };
 
 function MetricValue({
@@ -45,13 +49,22 @@ function MetricValue({
   missing?: boolean;
 }) {
   const tip = METRIC_TOOLTIPS[label];
-  if (!missing || !tip) {
+  if (!tip) {
     return <div className={cn(valueClass, label !== 'Dex Paid' && 'truncate')}>{value}</div>;
   }
+  // Tooltip is shown for both missing (`—`) and present values when the cell
+  // has a long-form explanation to share (e.g. Holders 10k cap, Pro Traders
+  // top-N proxy). For `—` cells we also add a dotted underline as a hint.
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className={cn(valueClass, 'cursor-help truncate border-b border-dotted border-fg-muted/30')}>
+        <div
+          className={cn(
+            valueClass,
+            'cursor-help truncate',
+            missing && 'border-b border-dotted border-fg-muted/30',
+          )}
+        >
           {value}
         </div>
       </TooltipTrigger>

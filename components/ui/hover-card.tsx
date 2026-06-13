@@ -35,7 +35,10 @@ const HoverCardContent = React.forwardRef<
       side={side}
       sideOffset={sideOffset}
       className={cn(
-        'z-[260] outline-none',
+        // Sit above the sticky topbar (z-100) and any other app chrome.
+        // The Radix portal already renders to <body> so this is the only
+        // stacking layer that matters.
+        'z-[400] outline-none',
         instant
           ? 'duration-0 animate-none data-[state=open]:animate-none data-[state=closed]:animate-none'
           : [

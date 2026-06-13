@@ -18,6 +18,7 @@ import {
 } from '@/lib/market/offchainTokenMetadata';
 import { extractSocialUrlsFromRaw } from '@/lib/tokens/pulseSocialLinks';
 import { isPointerQaMint, pointerQaMintOnly } from '@/lib/qa/pointerQaMint';
+import { fetchDexScreenerPaidFlag } from '@/lib/dex/dexScreenerOrders';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { TablesInsert } from '@/lib/supabase/types';
 import type { Json } from '@/lib/supabase/types';
@@ -111,6 +112,21 @@ function mergePumpIntoToken(
     bonding_progress:
       pump.complete && t.bonding_progress == null ? 100 : t.bonding_progress,
   };
+}
+
+/**
+ * Merge a DexScreener paid-flag result into the token row. Only overwrites
+ * an existing `null`; never demotes `true` back to `false` because DexScreener
+ * occasionally 404s for tokens it doesn't track. `null` (unknown) is treated
+ * as "do not touch".
+ */
+function mergeDexPaid(
+  bundle: PulseTokenBundle,
+  isPaid: boolean | null,
+): PulseTokenBundle['token'] {
+  if (isPaid == null) return bundle.token;
+  if (bundle.token.is_paid === true) return bundle.token;
+  return { ...bundle.token, is_paid: isPaid };
 }
 
 function bundleMissingStripMetrics(bundle: PulseTokenBundle): boolean {
@@ -210,6 +226,7 @@ function persistMetricsAsync(bundle: PulseTokenBundle, tokenDirty: boolean) {
           name: t.name,
           symbol: t.symbol,
           image_url: t.image_url,
+          is_paid: t.is_paid,
         });
       }
     } catch {
@@ -260,7 +277,20 @@ export async function enrichPulseBundlesWithMetrics(
     })
     .slice(0, MAX_JSON_META_ENRICH);
 
-  const [holderResults, pumpResults, jsonMetaResults] = await Promise.all([
+  /**
+   * DexScreener paid-orders status — only enrich when DB value is `null`
+   * (honest "unknown"). DexScreener is a free public endpoint; this is what
+   * powers the "Dex Paid" pill in Token Info and the LP-locked / Dex-paid
+   * sub-badges in the launchpad chrome.
+   */
+  const dexPaidTargets = bundles
+    .filter((b) => {
+      if (pointerQaMintOnly() && !isPointerQaMint(b.token.mint)) return false;
+      return b.token.is_paid == null;
+    })
+    .slice(0, MAX_HOLDER_ENRICH);
+
+  const [holderResults, pumpResults, jsonMetaResults, dexPaidResults] = await Promise.all([
     mapPool(holderTargets, HOLDER_POOL, async (bundle) => {
       try {
         const needsHolders = bundleMissingHolderMetrics(bundle);
@@ -305,6 +335,10 @@ export async function enrichPulseBundlesWithMetrics(
       if (!json) return { mint: bundle.token.mint, socials: null };
       return { mint: bundle.token.mint, socials: extractSocialUrlsFromRaw(json) };
     }),
+    mapPool(dexPaidTargets, HOLDER_POOL, async (bundle) => {
+      const isPaid = await fetchDexScreenerPaidFlag(bundle.token.mint);
+      return { mint: bundle.token.mint, isPaid };
+    }),
   ]);
 
   for (const { mint, resolved, proTraders, devDeploy } of holderResults) {
@@ -347,6 +381,17 @@ export async function enrichPulseBundlesWithMetrics(
       token.telegram_url !== t.telegram_url ||
       token.website_url !== t.website_url;
     if (!tokenDirty) continue;
+    const next = { ...prev, token };
+    byMint.set(mint, next);
+    persistMetricsAsync(next, true);
+  }
+
+  for (const { mint, isPaid } of dexPaidResults) {
+    if (isPaid == null) continue;
+    const prev = byMint.get(mint);
+    if (!prev) continue;
+    const token = mergeDexPaid(prev, isPaid);
+    if (token === prev.token) continue;
     const next = { ...prev, token };
     byMint.set(mint, next);
     persistMetricsAsync(next, true);

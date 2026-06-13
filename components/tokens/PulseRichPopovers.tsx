@@ -184,7 +184,7 @@ export function PulsePortaledHoverLayer({
 
   return createPortal(
     <div
-      className="pointer-events-none fixed z-[280]"
+      className="pointer-events-none fixed z-[400]"
       style={{ top: pos.top, left: pos.left, transform: pos.transform }}
       role={role}
     >

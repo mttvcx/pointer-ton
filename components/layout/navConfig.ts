@@ -7,16 +7,15 @@ export interface AppNavItem {
 
 export const APP_NAV: AppNavItem[] = [
   { label: 'Pulse', href: '/pulse' },
+  { label: 'Perps', href: '/perps', badge: 'Preview' },
   { label: 'Packs', href: '/packs' },
   { label: 'Portfolio', href: '/portfolio' },
   { label: 'Track', href: '/track' },
   { label: 'Squads', href: '/squads' },
   { label: 'Championship', href: '/championship' },
   { label: '$PTR', href: '/points' },
+  { label: 'Predictions', href: '/predictions', badge: 'Preview' },
 ];
 
-/** Hidden in main nav for founder beta — preserved as Preview surfaces for later phases. */
-export const DISABLED_NAV: AppNavItem[] = [
-  { label: 'Perps', href: '/perps', disabled: true, badge: 'Preview' },
-  { label: 'Predictions', href: '/predictions', disabled: true, badge: 'Preview' },
-];
+/** Items retained for nav-routing fallback but not shown in the topbar. */
+export const HIDDEN_NAV: AppNavItem[] = [];
