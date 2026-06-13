@@ -197,9 +197,12 @@ async function listPulseStretchBySnapshotHeuristic(
     if (!snap) return false;
     const holders = snap.holder_count ?? 0;
     const liq = Number(snap.liquidity_usd) || 0;
+    // Stretch is "active pre-migration" — accept either enough holders OR
+    // enough liquidity (the two pre-migration signals DexScreener exposes).
+    // Moralis holder counts are often null in dev; don't gate solely on them.
     return (
-      holders >= PULSE_THRESHOLDS.stretchMinHolders &&
-      liq >= PULSE_THRESHOLDS.stretchMinLiquidityUsd
+      liq >= PULSE_THRESHOLDS.stretchMinLiquidityUsd ||
+      holders >= PULSE_THRESHOLDS.stretchMinHolders
     );
   });
 

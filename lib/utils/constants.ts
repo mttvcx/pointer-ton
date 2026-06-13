@@ -116,11 +116,14 @@ export const PULSE_COLUMN_ACCENT_DOT: Record<PulseColumnId, string> = {
 
 /** Heuristics defining each Pulse column. */
 export const PULSE_THRESHOLDS = {
-  newMaxAgeMinutes: 30,
+  /** Wider than the original 30m — so a Pulse without cron activity still
+   *  shows fresh tokens. The original narrow window assumed continuous
+   *  production ingestion; founder beta runs without cron. */
+  newMaxAgeMinutes: 240,
   /** Stretch column: tokens younger than this with bonding curve ≥ {@link PULSE_NEAR_MIGRATE_PCT}. */
-  stretchMaxAgeHours: 24,
-  stretchMinHolders: 100,
-  stretchMinLiquidityUsd: 5_000,
+  stretchMaxAgeHours: 48,
+  stretchMinHolders: 50,
+  stretchMinLiquidityUsd: 2_000,
   migratedFromPad: ['pump.fun'] as const,
 } as const;
 
