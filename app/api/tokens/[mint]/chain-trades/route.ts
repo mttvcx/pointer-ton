@@ -7,13 +7,16 @@ import { dedupeMintSwapsForTradeDesk } from '@/lib/indexer/deskTradeSwaps';
 import { classifyWalletForDesk } from '@/lib/onchain/walletDeskClassification';
 import { resolveKnownPoolAddresses } from '@/lib/onchain/resolveKnownPoolAddresses';
 import { resolveDeskWalletFundingBatch } from '@/lib/solana/deskWalletFunding';
-import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
 import { isValidPublicKey } from '@/lib/utils/addresses';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Indexed chain swaps for QA mint desk tape. */
+/**
+ * Indexed chain swaps for any mint with mint_swaps rows. Returns 200 with an
+ * empty array (label "indexer_pending") when no rows exist — the desk UI then
+ * shows honest "indexer pending" copy instead of a 403.
+ */
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ mint: string }> },
@@ -22,9 +25,6 @@ export async function GET(
   if (!isValidPublicKey(mint)) {
     return NextResponse.json({ error: 'invalid_mint' }, { status: 400 });
   }
-  if (!isPointerQaMint(mint)) {
-    return NextResponse.json({ error: 'qa_mint_only' }, { status: 403 });
-  }
 
   const limit = Math.min(200, Math.max(1, Number(req.nextUrl.searchParams.get('limit')) || 80));
   try {
@@ -32,6 +32,16 @@ export async function GET(
       listMintSwapsForMint(mint, limit * 3),
       getTokenByMint(mint),
     ]);
+
+    if (rawSwaps.length === 0) {
+      return NextResponse.json({
+        trades: [],
+        source: 'chain_indexer',
+        label: 'indexer_pending',
+        message: 'No indexed chain trades yet for this mint.',
+      });
+    }
+
     const swaps = dedupeMintSwapsForTradeDesk(rawSwaps).slice(0, limit);
     const wallets = [...new Set(swaps.map((s) => s.wallet).filter(Boolean))];
     const statsMap = await listMintWalletStatsByWallets(mint, wallets);

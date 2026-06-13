@@ -6,7 +6,7 @@ import { resolveKnownPoolAddresses } from '@/lib/onchain/resolveKnownPoolAddress
 import { dedupeTokenHolderRows } from '@/lib/onchain/dedupeTokenHolders';
 import { resolveTokenHolders } from '@/lib/onchain/resolveTokenHolders';
 import { isValidTokenMintParam } from '@/lib/chains/mintKind';
-import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
+import { countMintSwaps } from '@/lib/db/mintSwaps';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,15 +35,14 @@ export async function GET(
 
     const holders = dedupeTokenHolderRows(resolved.holders);
 
-    const walletStats =
-      isPointerQaMint(mint)
-        ? await listMintWalletStatsByWallets(
-            mint,
-            holders.map((h) => h.wallet_address),
-          )
-        : new Map();
+    // Try mint_wallet_stats for any indexed mint (no QA-only gate). Empty
+    // map when the mint has no indexer data — desk falls back to "—".
+    const walletStats = await listMintWalletStatsByWallets(
+      mint,
+      holders.map((h) => h.wallet_address),
+    ).catch(() => new Map());
 
-    const [poolCtx, walletClassifications] = await Promise.all([
+    const [poolCtx, walletClassifications, indexerSwapCount] = await Promise.all([
       resolveKnownPoolAddresses(mint),
       buildDeskWalletClassifications({
         mint,
@@ -52,6 +51,7 @@ export async function GET(
         creatorWallet: token.creator_wallet,
         tokenCreatedAt: token.created_at,
       }),
+      countMintSwaps(mint),
     ]);
 
     const holdersEnriched = holders.map((h) => {
@@ -78,7 +78,8 @@ export async function GET(
       walletStats: Object.fromEntries(walletStats),
       walletClassifications,
       poolAddresses: [...poolCtx.addresses],
-      indexerSource: isPointerQaMint(mint) ? 'chain_indexer' : null,
+      indexerSource: indexerSwapCount > 0 ? 'chain_indexer' : null,
+      indexerSwapCount,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'holders_failed';

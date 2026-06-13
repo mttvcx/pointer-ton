@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { MintWalletStatsRow } from '@/lib/db/mintWalletStats';
-import { isPointerQaMintClient } from '@/lib/qa/pointerQaMintClient';
 
 export function deskWalletStatsQueryKey(mint: string, wallet: string | null | undefined) {
   return ['desk-wallet-stats', mint, wallet ?? ''] as const;
@@ -24,7 +23,7 @@ export function useDeskWalletStats(mint: string, wallet: string | null | undefin
       const json = (await res.json()) as { stats: MintWalletStatsRow | null };
       return json.stats ?? null;
     },
-    enabled: Boolean(mint && wallet && isPointerQaMintClient(mint)),
+    enabled: Boolean(mint && wallet),
     staleTime: 5_000,
     refetchOnWindowFocus: true,
   });

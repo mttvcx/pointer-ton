@@ -1126,7 +1126,7 @@ export function BuySellPanel({
             activeChain={activeChain}
             disabled={!walletsReady || walletMenuRows.length === 0}
             tokenSymbol={symbol}
-            tokenImageUrl={marketSnapshot?.image_url ?? null}
+            tokenImageUrl={(marketSnapshot as { image_url?: string | null } | null)?.image_url ?? null}
             tokenDecimals={decimals}
             tokenBalanceRawByAddress={walletTokenBalanceByAddress}
             onSettingsClick={() => {

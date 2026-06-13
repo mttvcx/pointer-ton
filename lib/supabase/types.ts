@@ -1639,6 +1639,37 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['championship_finalizations']['Insert']>;
         Relationships: [];
       };
+
+      mint_index_status: {
+        Row: {
+          mint: string;
+          status: string;
+          last_started_at: string | null;
+          last_indexed_at: string | null;
+          swap_count: number | null;
+          signature_count: number | null;
+          wallet_count: number | null;
+          top_trader_count: number | null;
+          primary_pool: string | null;
+          last_error: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          mint: string;
+          status?: string;
+          last_started_at?: string | null;
+          last_indexed_at?: string | null;
+          swap_count?: number | null;
+          signature_count?: number | null;
+          wallet_count?: number | null;
+          top_trader_count?: number | null;
+          primary_pool?: string | null;
+          last_error?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['mint_index_status']['Insert']>;
+        Relationships: [];
+      };
     };
 
     Views: {

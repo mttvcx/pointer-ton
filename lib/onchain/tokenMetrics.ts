@@ -16,6 +16,7 @@ import {
 } from '@/lib/indexer/mintSwapWindowMetrics';
 import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
 import { resolveTokenHolders } from '@/lib/onchain/resolveTokenHolders';
+import { countMintSwaps } from '@/lib/db/mintSwaps';
 import { fetchCreatorDevHoldingPct } from '@/lib/onchain/creatorDevHolding';
 import { dexTapeFromSnapshot } from '@/lib/market/dexTapeFromSnapshot';
 
@@ -77,11 +78,13 @@ export async function getTokenExtendedMetrics(
     return { metrics: cached, token };
   }
 
-  const [token, snap, holderDesk] = await Promise.all([
+  const [token, snap, holderDesk, indexerSwapCount] = await Promise.all([
     getTokenByMint(mint),
     getLatestSnapshotForMint(mint),
     loadHolders(mint, { forceLive: isPointerQaMint(mint) }),
+    countMintSwaps(mint).catch(() => 0),
   ]);
+  const hasIndexerData = indexerSwapCount > 0;
 
   const holders = holderDesk.rows;
 
@@ -106,7 +109,7 @@ export async function getTokenExtendedMetrics(
   let tapeByTf: TokenExtendedMetrics['tapeByTf'] = null;
   let indexedVolPartial: TokenExtendedMetrics['indexedVolPartial'] = null;
 
-  if (isPointerQaMint(mint)) {
+  if (isPointerQaMint(mint) || hasIndexerData) {
     try {
       const swaps = await listMintSwapsForMintAsc(mint, 5_000);
       const byTf = aggregateMintSwapTapeByTf(swaps);

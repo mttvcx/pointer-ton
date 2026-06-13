@@ -439,17 +439,38 @@ export function TokenActivityTabs({
   });
 
   const tradersQ = useQuery({
-    queryKey: ['mint-top-traders', mint, isPointerQaMintClient(mint) ? 'chain' : 'pointer'],
+    queryKey: ['mint-top-traders', mint, 'chain'],
     queryFn: async () => {
-      const path = isPointerQaMintClient(mint)
-        ? `/api/tokens/${encodeURIComponent(mint)}/chain-top-traders?limit=25`
-        : `/api/tokens/${encodeURIComponent(mint)}/top-traders?limit=25`;
-      const r = await fetch(path);
+      // Always read from the chain-top-traders endpoint — it returns empty
+      // + label "indexer_pending" for mints without indexed swaps. Desk
+      // surfaces an honest "no indexer data" message in that case.
+      const r = await fetch(
+        `/api/tokens/${encodeURIComponent(mint)}/chain-top-traders?limit=25`,
+      );
       if (!r.ok) throw new Error('traders');
-      return r.json() as Promise<{ traders: MintTopTraderRow[]; source?: string }>;
+      return r.json() as Promise<{
+        traders: MintTopTraderRow[];
+        source?: string;
+        label?: string;
+      }>;
     },
     enabled: tab === 'traders',
     placeholderData: demoTables ? { traders: demoTraders } : undefined,
+    staleTime: 30_000,
+  });
+
+  const indexerStatusQ = useQuery({
+    queryKey: ['mint-index-status', mint],
+    queryFn: async () => {
+      const r = await fetch(
+        `/api/indexer/mint-status?mint=${encodeURIComponent(mint)}`,
+      );
+      if (!r.ok) return null;
+      return r.json() as Promise<{
+        status: { status: string; swap_count: number | null } | null;
+      }>;
+    },
+    enabled: Boolean(mint),
     staleTime: 30_000,
   });
 
@@ -520,6 +541,12 @@ export function TokenActivityTabs({
   }, [tradesPanel, tab]);
 
   const displayMode: 'USD' | 'SOL' = tableUsd ? 'USD' : 'SOL';
+
+  /** True when the chain indexer has no rows for this mint yet. */
+  const indexerPending =
+    (tradersQ.data?.label === 'indexer_pending' || tradesQ.data?.label === 'indexer_pending') &&
+    (tradersQ.data?.traders?.length ?? 0) === 0 &&
+    (tradesQ.data?.trades?.length ?? 0) === 0;
 
   const traderRowsAfterTrack = useMemo((): MintTopTraderRow[] => {
     const raw = tradersQ.data?.traders ?? [];
@@ -898,18 +925,21 @@ export function TokenActivityTabs({
         ) : null}
         {tab === 'trades' ? (
           tradeRowsForTable.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-1 p-8 text-center text-[11px] font-sans text-fg-muted">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-[11px] font-sans text-fg-muted">
               <p className="font-medium text-fg-secondary">
                 {demoTables
                   ? 'No transactions found'
-                  : qaMint
-                    ? 'No trades yet'
-                    : 'No indexed chain trades for this token yet'}
+                  : indexerPending
+                    ? 'No indexed chain trades for this token yet'
+                    : qaMint
+                      ? 'No trades yet'
+                      : 'No trades yet'}
               </p>
-              {!demoTables && !qaMint ? (
+              {!demoTables && indexerPending ? (
                 <p className="max-w-[26rem] text-fg-muted">
-                  Pointer indexes the chain tape per token. Until this mint is indexed,
-                  only trades executed through Pointer appear here.
+                  Pointer indexes the chain tape per token. Trigger an index backfill
+                  to populate this view — recent Dex activity will appear as swaps are
+                  parsed and stored.
                 </p>
               ) : null}
             </div>
@@ -961,9 +991,9 @@ export function TokenActivityTabs({
                       ? 'No tracked traders here'
                       : demoTables
                         ? 'No ranked traders'
-                        : qaMint
-                          ? 'No top traders yet'
-                          : 'Chain trader ranking not indexed yet'
+                        : indexerPending
+                          ? 'Chain trader ranking not indexed yet'
+                          : 'No top traders yet'
                 }
                 description={
                   tradersLensEmpty
@@ -972,15 +1002,15 @@ export function TokenActivityTabs({
                       ? 'Add wallets in Trackers, then filter this table to them.'
                       : demoTables
                         ? 'Demo ranks — not live chain data.'
-                        : qaMint
-                          ? undefined
-                          : 'Ranks below only include trades executed through Pointer until this mint is chain-indexed.'
+                        : indexerPending
+                          ? 'Ranks below only include trades executed through Pointer until this mint is chain-indexed.'
+                          : undefined
                 }
               />
             </div>
           ) : (
             <div className={cn('desk-scroll-well', DESK_SCROLL_WELL_CLASS)}>
-                {!qaMint && !demoTables ? (
+                {indexerPending && !demoTables ? (
                   <p className="border-b border-border-subtle/40 px-3 py-1.5 text-[10px] leading-snug text-fg-muted">
                     Pointer platform trades only — chain-wide trader ranking is not indexed
                     for this token yet.

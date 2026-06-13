@@ -2,13 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getLatestSnapshotsForMints, getTokenByMint, listTokensByCreatorWallet } from '@/lib/db/tokens';
 import { ensureTokenRowFromDas } from '@/lib/helius/feed';
 import { hydratePumpFunTokenRow } from '@/lib/market/hydratePumpFunTokenRow';
-import { isPointerQaMint } from '@/lib/qa/pointerQaMint';
 import { isValidPublicKey } from '@/lib/utils/addresses';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Live dev-token list for QA mint only — avoids demo fixtures + limits DB blast radius. */
+/**
+ * Dev-token list for any mint with a known creator. Returns `tokens: []` (no
+ * qaOnly gate) when the creator is unknown — the desk renders an honest
+ * "creator not found" empty state.
+ */
 export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ mint: string }> },
@@ -16,9 +19,6 @@ export async function GET(
   const { mint } = await ctx.params;
   if (!isValidPublicKey(mint)) {
     return NextResponse.json({ error: 'invalid_mint' }, { status: 400 });
-  }
-  if (!isPointerQaMint(mint)) {
-    return NextResponse.json({ tokens: [], qaOnly: true });
   }
 
   let token = (await getTokenByMint(mint)) ?? (await ensureTokenRowFromDas(mint));
