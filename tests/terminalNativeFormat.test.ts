@@ -7,10 +7,10 @@ test('parseTerminalNativeBalance subscript for tiny SOL amounts', () => {
   assert.equal(p.kind, 'subscript');
   if (p.kind === 'subscript') {
     assert.equal(p.zeroCount, 2);
-    assert.equal(p.tail, '42');
+    assert.equal(p.tail, '4');
   }
-  assert.equal(formatTerminalNativeString(0.004218), '0.0₂42');
-  assert.equal(formatTerminalNativeString(0.0000923), '0.0₄92');
+  assert.equal(formatTerminalNativeString(0.004218), '0.0₂4');
+  assert.equal(formatTerminalNativeString(0.0000923), '0.0₄9');
 });
 
 test('parseTerminalNativeBalance plain for >= 0.01', () => {
@@ -20,5 +20,5 @@ test('parseTerminalNativeBalance plain for >= 0.01', () => {
 
 test('parseTerminalNativeBalance zero and negative', () => {
   assert.equal(formatTerminalNativeString(0), '0');
-  assert.equal(formatTerminalNativeString(-0.004218), '-0.0₂42');
+  assert.equal(formatTerminalNativeString(-0.004218), '-0.0₂4');
 });

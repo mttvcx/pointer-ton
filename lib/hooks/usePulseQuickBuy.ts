@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
+import type { AppChainId } from '@/lib/chains/appChain';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import { tokenRawForSellPct } from '@/lib/hooks/useSpotTradeExecution';
@@ -27,7 +28,7 @@ import {
   walletConnectRequiredMessage,
   walletConnectRequiredTitle,
 } from '@/lib/trading/walletConnectCopy';
-import type { AppChainId } from '@/lib/chains/appChain';
+import { isTradableAppChain } from '@/lib/chains/mintKind';
 import { useTradingStore, type PresetSlot } from '@/store/trading';
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/store/ui';
@@ -555,6 +556,10 @@ export function usePulseQuickBuy() {
     busyMint: activeMint,
     queueSize,
     walletReady: walletsReady && !!wallet,
-    canTrade: Boolean(wallet && !activeWalletRow?.is_imported),
+    canTrade: Boolean(
+      wallet && !activeWalletRow?.is_imported && isTradableAppChain(activeChain),
+    ),
+    /** True when header chain has no swap backend (ETH/BNB/Base browse-only). */
+    chainTradable: isTradableAppChain(activeChain),
   };
 }

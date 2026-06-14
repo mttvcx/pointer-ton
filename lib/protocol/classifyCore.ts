@@ -1,4 +1,4 @@
-﻿import type { AppChainId } from '@/lib/chains/appChain';
+import type { AppChainId } from '@/lib/chains/appChain';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import {
   LAUNCH_PAD_TO_PROTOCOL_ID,
@@ -6,6 +6,9 @@ import {
   protocolFamilyFor,
   solLaunchProtocolFromProgram,
 } from '@/lib/protocol/registry';
+import {
+  canonicalProtocolFromDexscreenerId,
+} from '@/lib/protocol/dexProtocolMap';
 import type {
   CanonicalProtocolId,
   ClassificationSource,
@@ -279,8 +282,27 @@ export function classifyTokenProtocol(input: ClassifierInput): TokenClassificati
     }, input);
   }
 
-  if (input.dexscreener_dex_id === 'pumpfun') {
-    return buildResult({ protocol_id: 'pump_fun', classification_source: 'dexscreener_dex', source_confidence: CONF.DEXSCREENER }, input);
+  if (input.dexscreener_dex_id) {
+    const dexId = input.dexscreener_dex_id.trim().toLowerCase();
+    if (dexId === 'pumpfun') {
+      return buildResult({
+        protocol_id: 'pump_fun',
+        classification_source: 'dexscreener_dex',
+        source_confidence: CONF.DEXSCREENER,
+      }, input);
+    }
+    const mapped = canonicalProtocolFromDexscreenerId(input.dexscreener_dex_id, chain_id);
+    if (mapped) {
+      return buildResult({
+        protocol_id: mapped,
+        dex_id: input.dexscreener_dex_id,
+        classification_source: 'dexscreener_dex',
+        source_confidence: CONF.DEXSCREENER,
+        token_kind: chain_id === 'sol' ? 'bonding_curve' : 'erc20',
+        launch_type: chain_id === 'sol' ? 'bonding_curve' : 'dex_pool',
+        migration_state: 'unknown',
+      }, input);
+    }
   }
 
   const raw = asRecord(input.raw_metadata);

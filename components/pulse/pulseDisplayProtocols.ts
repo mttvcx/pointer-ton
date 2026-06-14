@@ -1,46 +1,12 @@
 import type { AppChainId } from '@/lib/chains/appChain';
+import { PULSE_SUPPORTED_FILTER_IDS } from '@/lib/protocol/registry';
 import { protocolBrand, type ProtocolBrandId } from '@/lib/tokens/protocolBrand';
 
 /** Launchpads shown in Display → Row protocol color grid, scoped to header chain. */
-export const PULSE_DISPLAY_PROTOCOL_IDS_BY_CHAIN: Record<AppChainId, readonly ProtocolBrandId[]> = {
-  sol: [
-    'pump.fun',
-    'bonk',
-    'moonshot',
-    'moonit',
-    'bags',
-    'bonkers',
-    'printr',
-    'liquid',
-    'surge',
-    'soar',
-    'mayhem',
-    'heaven',
-    'believe',
-    'boop',
-    'dynamic-bc',
-    'daos.fun',
-    'jupiter-studio',
-    'raydium',
-    'launchlab',
-    'orca',
-    'meteora',
-  ],
-  ton: ['uranus', 'groypad', 'blum', 'tonfun'],
-  eth: ['uniswap-v2', 'uniswap-v3', 'uniswap-v4', 'clanker', 'virtuals', 'eth'],
-  bnb: ['four.meme', 'flap', 'pancakeswap', 'uniswap'],
-  base: [
-    'clanker',
-    'bankr',
-    'flaunch',
-    'zora-content',
-    'zora-creator',
-    'baseapp',
-    'basememe',
-    'virtuals',
-    'klik',
-  ],
-} as const;
+export const PULSE_DISPLAY_PROTOCOL_IDS_BY_CHAIN: Record<
+  AppChainId,
+  readonly ProtocolBrandId[]
+> = PULSE_SUPPORTED_FILTER_IDS as Record<AppChainId, readonly ProtocolBrandId[]>;
 
 export function pulseDisplayProtocolIdsForChain(chain: AppChainId): readonly ProtocolBrandId[] {
   return PULSE_DISPLAY_PROTOCOL_IDS_BY_CHAIN[chain];

@@ -33,12 +33,9 @@ type GeckoResponse = {
   }>;
 };
 
-export function normalizeEvmMint(addr: string): string | null {
-  const a = addr.trim().toLowerCase();
-  if (!/^0x[a-f0-9]{40}$/.test(a)) return null;
-  if (a === '0x0000000000000000000000000000000000000000') return null;
-  return a;
-}
+import { normalizeEvmAddress } from '@/lib/chains/evmAddress';
+
+export { normalizeEvmAddress as normalizeEvmMint } from '@/lib/chains/evmAddress';
 
 type GeckoSingleTokenResponse = {
   data?: { attributes?: GeckoTokenAttrs };
@@ -48,7 +45,7 @@ type GeckoSingleTokenResponse = {
  * On-demand EVM token row from Gecko Terminal when opening `/token/0x…`.
  */
 export async function ensureTokenRowFromGeckoEvm(mintParam: string): Promise<TokenRow | null> {
-  const mint = normalizeEvmMint(mintParam);
+  const mint = normalizeEvmAddress(mintParam);
   if (!mint) return null;
 
   const existing = await getTokenByMint(mint);
@@ -144,7 +141,7 @@ export async function pollGeckoNewPools(network: GeckoPulseNetwork): Promise<num
       : baseId.startsWith(`${network}_`)
         ? baseId.slice(network.length + 1)
         : baseId;
-    const mint = normalizeEvmMint(mintRaw);
+    const mint = normalizeEvmAddress(mintRaw);
     if (!mint || seen.has(mint)) continue;
     seen.add(mint);
 

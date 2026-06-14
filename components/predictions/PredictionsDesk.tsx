@@ -13,22 +13,25 @@ import {
 import {
   ALL_PREDICTION_TAGS,
   filterPredictionMarkets,
-  KALSHI_PREDICTION_MARKETS,
   type PredictionDeskCategory,
   type PredictionSort,
   type PredictionView,
 } from '@/lib/predictions/marketsDemo';
+import type { PredictionMarket } from '@/lib/predictions/types';
 import {
   PredictionMarketCard,
-  PredictionsFeaturedCard,
   PredictionsTableRow,
   type PredictionQuickTradeHandler,
 } from '@/components/predictions/PredictionMarketCells';
+import { PredictionCardGridItem } from '@/components/predictions/PredictionEventCard';
+import { groupMarketsForCards } from '@/lib/predictions/groupMarkets';
+import { PredictionsHeroCarousel } from '@/components/predictions/PredictionsHeroCarousel';
 import { PredictionQuickTradeModal } from '@/components/predictions/PredictionQuickTradeModal';
 import { PredictionMarketIcon } from '@/components/predictions/PredictionMarketIcon';
 import { PredictionTradePanel } from '@/components/predictions/PredictionTradePanel';
 import { PredictionsHelpButton } from '@/components/predictions/PredictionsHelpButton';
 import { usePredictionsTourOptional } from '@/components/predictions/PredictionsTourContext';
+import { usePredictionMarket, usePredictionMarkets } from '@/lib/hooks/usePredictionMarkets';
 import { cn } from '@/lib/utils/cn';
 
 const DESK_TABS: PredictionDeskCategory[] = [
@@ -49,10 +52,20 @@ export function PredictionsDesk() {
   const [tag, setTag] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [quickTrade, setQuickTrade] = useState<{
-    market: (typeof KALSHI_PREDICTION_MARKETS)[number];
+    market: PredictionMarket;
     outcome: 'yes' | 'no';
   } | null>(null);
   const tour = usePredictionsTourOptional();
+
+  const marketsQ = usePredictionMarkets({
+    deskCategory,
+    tag: deskCategory === 'All' ? tag : null,
+    query,
+    sort,
+  });
+
+  const allMarkets = marketsQ.data?.markets ?? [];
+  const live = marketsQ.data?.live ?? false;
 
   const openQuickTrade: PredictionQuickTradeHandler = (market, outcome) => {
     setQuickTrade({ market, outcome });
@@ -65,20 +78,23 @@ export function PredictionsDesk() {
   }, [tour, setDeskCategory, setView]);
 
   const featured = useMemo(
-    () => KALSHI_PREDICTION_MARKETS.filter((m) => m.featured).slice(0, 3),
-    [],
+    () => allMarkets.filter((m) => m.featured).slice(0, 5),
+    [allMarkets],
   );
 
   const rows = useMemo(
     () =>
       filterPredictionMarkets({
+        markets: allMarkets,
         deskCategory,
         tag: deskCategory === 'All' ? tag : null,
         query,
         sort,
       }),
-    [deskCategory, tag, query, sort],
+    [allMarkets, deskCategory, tag, query, sort],
   );
+
+  const cardItems = useMemo(() => groupMarketsForCards(rows), [rows]);
 
   const tableOnly = deskCategory === 'Trending';
 
@@ -110,6 +126,15 @@ export function PredictionsDesk() {
                 </button>
               ))}
             </nav>
+            {live ? (
+              <span className="rounded-sm bg-signal-bull/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-signal-bull ring-1 ring-signal-bull/25">
+                Live · Kalshi
+              </span>
+            ) : (
+              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">
+                Demo feed
+              </span>
+            )}
           </div>
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2 max-w-md">
             <div
@@ -131,13 +156,11 @@ export function PredictionsDesk() {
       </div>
 
       {deskCategory === 'Trending' && featured.length > 0 ? (
-        <div className="shrink-0 border-b border-border-subtle/40 px-4 py-3">
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {featured.map((m) => (
-              <PredictionsFeaturedCard key={m.id} market={m} onQuickTrade={openQuickTrade} />
-            ))}
-          </div>
-        </div>
+        <PredictionsHeroCarousel
+          markets={featured}
+          allMarkets={allMarkets}
+          onQuickTrade={openQuickTrade}
+        />
       ) : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -229,6 +252,14 @@ export function PredictionsDesk() {
         </aside>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-bg-raised p-4" data-predictions-tour="markets">
+          {marketsQ.isLoading && allMarkets.length === 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-44 animate-pulse rounded-lg bg-bg-hover/40" />
+              ))}
+            </div>
+          ) : null}
+
           {view === 'table' || tableOnly ? (
             <div className="overflow-x-auto rounded-lg border border-border-subtle/60 bg-bg-hover/25">
               <table className="w-full min-w-[720px] border-collapse text-left">
@@ -236,12 +267,12 @@ export function PredictionsDesk() {
                   <tr className="border-b border-border-subtle/50 bg-bg-hover/40 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                     <th className="px-3 py-2">Market</th>
                     <th className="px-2 py-2">Chance</th>
-                    <th className="hidden px-2 py-2 text-right lg:table-cell">Volume</th>
+                    <th className="hidden px-2 py-2 text-right lg:table-cell">24H Vol</th>
                     <th className="hidden px-2 py-2 text-right md:table-cell">Liquidity</th>
                     <th className="hidden px-2 py-2 text-right xl:table-cell">Txns</th>
                     <th className="hidden px-2 py-2 text-right lg:table-cell">Traders</th>
-                    <th className="px-2 py-2 text-right">Ends</th>
-                    <th className="px-3 py-2 text-right">Action</th>
+                    <th className="px-2 py-2 text-right">Closes</th>
+                    <th className="px-3 py-2 text-right">Trade</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,13 +284,17 @@ export function PredictionsDesk() {
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {rows.map((m) => (
-                <PredictionMarketCard key={m.id} market={m} onQuickTrade={openQuickTrade} />
+              {cardItems.map((item) => (
+                <PredictionCardGridItem
+                  key={item.kind === 'event' ? item.id : item.market.id}
+                  item={item}
+                  onQuickTrade={openQuickTrade}
+                />
               ))}
             </div>
           )}
 
-          {rows.length === 0 ? (
+          {!marketsQ.isLoading && rows.length === 0 ? (
             <p className="py-12 text-center text-sm text-fg-muted">No markets match your filters.</p>
           ) : null}
         </div>
@@ -277,8 +312,24 @@ export function PredictionsDesk() {
 }
 
 export function PredictionsDetailDesk({ marketId }: { marketId: string }) {
-  const market = KALSHI_PREDICTION_MARKETS.find((m) => m.id === marketId);
+  const marketQ = usePredictionMarket(marketId);
+  const market = marketQ.data?.market;
+  const outcomes = marketQ.data?.outcomes ?? (market ? [market] : []);
+  const [tradeMarket, setTradeMarket] = useState<PredictionMarket | null>(null);
   const [tradeOutcome, setTradeOutcome] = useState<'yes' | 'no'>('yes');
+
+  useEffect(() => {
+    if (market && !tradeMarket) setTradeMarket(market);
+  }, [market, tradeMarket]);
+
+  if (marketQ.isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8">
+        <div className="h-8 w-48 animate-pulse rounded bg-bg-hover/50" />
+      </div>
+    );
+  }
+
   if (!market) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
@@ -309,24 +360,8 @@ export function PredictionsDetailDesk({ marketId }: { marketId: string }) {
               <PredictionMarketIcon market={market} size="lg" />
               <div className="min-w-0 flex-1">
                 <h1 className="text-base font-semibold text-fg-primary">{market.title}</h1>
-                <p className="mt-1 text-[12px] text-fg-muted">
-                  Live · {market.endsIn} left · Vol {market.volumeUsd.toLocaleString()} · Liq{' '}
-                  {market.liquidityUsd.toLocaleString()}
-                </p>
+                <p className="mt-1 text-[12px] text-fg-muted">{market.outcomeLabel}</p>
               </div>
-            </div>
-            <div className="mt-3 flex gap-2 text-[11px]">
-              {(['Overview', 'Compare', 'Market'] as const).map((t, i) => (
-                <span
-                  key={t}
-                  className={cn(
-                    'rounded-sm px-2.5 py-1 font-medium',
-                    i === 0 ? 'bg-bg-hover text-fg-primary' : 'text-fg-muted',
-                  )}
-                >
-                  {t}
-                </span>
-              ))}
             </div>
           </div>
 
@@ -346,37 +381,40 @@ export function PredictionsDetailDesk({ marketId }: { marketId: string }) {
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
               Outcomes
             </h2>
-            <div className="space-y-2">
-              {[market.outcomeLabel, 'Other'].map((label, i) => (
+            <div className="pred-outcome-scroll max-h-[min(420px,50vh)] space-y-2 rounded-lg border border-border-subtle/40 bg-bg-sunken/30 p-2">
+              {outcomes.map((row) => (
                 <div
-                  key={label}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle/50 bg-bg-hover/30 px-3 py-2.5"
-                >
-                  {i === 0 ? (
-                    <PredictionMarketIcon market={market} size="sm" />
-                  ) : (
-                    <span className="text-lg">—</span>
+                  key={row.id}
+                  className={cn(
+                    'pred-market-card flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle/50 bg-bg-hover/30 px-3 py-2.5 transition',
+                    tradeMarket?.id === row.id && 'border-accent-primary/40 ring-1 ring-accent-primary/20',
                   )}
+                >
+                  <PredictionMarketIcon market={row} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-medium text-fg-primary">{label}</p>
+                    <p className="text-[12px] font-medium text-fg-primary">{row.outcomeLabel}</p>
                   </div>
-                  <span className="font-mono text-lg font-semibold tabular-nums">
-                    {i === 0 ? market.yesPct : 0}%
-                  </span>
+                  <span className="font-mono text-lg font-semibold tabular-nums">{row.yesPct}%</span>
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setTradeOutcome('yes')}
-                      className="btn-press rounded-sm bg-signal-bull/12 px-2.5 py-1 text-[11px] font-semibold text-signal-bull ring-1 ring-signal-bull/25 hover:bg-signal-bull/20"
+                      onClick={() => {
+                        setTradeMarket(row);
+                        setTradeOutcome('yes');
+                      }}
+                      className="btn-press rounded-md bg-signal-bull/18 px-2.5 py-1.5 text-[11px] font-semibold text-signal-bull ring-1 ring-signal-bull/30 hover:bg-signal-bull/28"
                     >
-                      Yes {i === 0 ? market.yesPriceCents : 0}¢
+                      Yes {row.yesPriceCents}¢
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTradeOutcome('no')}
-                      className="btn-press rounded-sm bg-signal-bear/10 px-2.5 py-1 text-[11px] font-semibold text-signal-bear ring-1 ring-signal-bear/20 hover:bg-signal-bear/16"
+                      onClick={() => {
+                        setTradeMarket(row);
+                        setTradeOutcome('no');
+                      }}
+                      className="btn-press rounded-md bg-signal-bear/16 px-2.5 py-1.5 text-[11px] font-semibold text-signal-bear ring-1 ring-signal-bear/28 hover:bg-signal-bear/24"
                     >
-                      No {i === 0 ? market.noPriceCents : 100}¢
+                      No {row.noPriceCents}¢
                     </button>
                   </div>
                 </div>
@@ -385,7 +423,12 @@ export function PredictionsDetailDesk({ marketId }: { marketId: string }) {
           </div>
         </div>
 
-        <PredictionTradePanel market={market} initialOutcome={tradeOutcome} />
+        {market ? (
+          <PredictionTradePanel
+            market={tradeMarket ?? market}
+            initialOutcome={tradeOutcome}
+          />
+        ) : null}
       </div>
     </div>
   );

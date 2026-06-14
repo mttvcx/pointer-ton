@@ -4,6 +4,7 @@ import { listMintWalletStatsByWallets } from '@/lib/db/mintWalletStats';
 import { listMintSwapsForMint } from '@/lib/db/mintSwaps';
 import { mintSwapToDeskTrade } from '@/lib/indexer/chainTradeAdapter';
 import { dedupeMintSwapsForTradeDesk } from '@/lib/indexer/deskTradeSwaps';
+import { kickoffMintIndexIfEmpty } from '@/lib/indexer/kickoffMintIndex';
 import { classifyWalletForDesk } from '@/lib/onchain/walletDeskClassification';
 import { resolveKnownPoolAddresses } from '@/lib/onchain/resolveKnownPoolAddresses';
 import { resolveDeskWalletFundingBatch } from '@/lib/solana/deskWalletFunding';
@@ -34,6 +35,7 @@ export async function GET(
     ]);
 
     if (rawSwaps.length === 0) {
+      kickoffMintIndexIfEmpty(mint);
       return NextResponse.json({
         trades: [],
         source: 'chain_indexer',

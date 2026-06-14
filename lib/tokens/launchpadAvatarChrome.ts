@@ -8,7 +8,18 @@ import {
   protocolLogoSrc,
   type ProtocolBrandId,
 } from '@/lib/tokens/protocolBrand';
+import {
+  isChainBucketAvatarProtocol,
+  protocolBrandIdFromDexId,
+  CHAIN_BUCKET_AVATAR_PROTOCOLS,
+} from '@/lib/protocol/dexProtocolMap';
 import type { PulseTokenBundle } from '@/types/tokens';
+
+export {
+  isChainBucketAvatarProtocol,
+  protocolBrandIdFromDexId,
+  CHAIN_BUCKET_AVATAR_PROTOCOLS,
+} from '@/lib/protocol/dexProtocolMap';
 
 /** Raydium LaunchLab program (Bonk / LaunchLab bonding curve). */
 const RAYDIUM_LAUNCHLAB_PROGRAM = 'LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj';
@@ -51,6 +62,8 @@ export const LAUNCHPAD_AVATAR_PROTOCOLS = new Set<ProtocolBrandId>([
   'groypad',
   'blum',
   'tonfun',
+  'dedust',
+  'stonfi',
 ]);
 
 /** `launch_pad` values that show bonding-curve progress rings pre-migration. */
@@ -287,17 +300,72 @@ function inferProtocolFromMetadata(raw: unknown): ProtocolBrandId | null {
   return null;
 }
 
-/** Resolve canonical launchpad protocol from `launch_pad` column + raw metadata. */
+function protocolFromLaunchPadField(
+  launchPad: string | null | undefined,
+  chain: AppChainId,
+): ProtocolBrandId | null {
+  const fromPad = launchPadToProtocolId(launchPad, chain);
+  if (fromPad && LAUNCHPAD_AVATAR_PROTOCOLS.has(fromPad as ProtocolBrandId)) {
+    return fromPad as ProtocolBrandId;
+  }
+  return null;
+}
+
+/** Resolve canonical launchpad protocol from launch_pad, metadata, Dex id — not chain logos. */
 export function resolveLaunchpadProtocolFromBundle(
   bundle: PulseTokenBundle,
   chain: AppChainId = 'sol',
 ): ProtocolBrandId | null {
+  const fromPad = protocolFromLaunchPadField(bundle.token.launch_pad, chain);
+  if (fromPad) return fromPad;
+
+  const fromMeta = inferProtocolFromMetadata(bundle.token.raw_metadata);
+  if (fromMeta && LAUNCHPAD_AVATAR_PROTOCOLS.has(fromMeta)) return fromMeta;
+
+  const fromSnapMeta = inferProtocolFromMetadata(bundle.snapshot?.extended_metrics);
+  if (fromSnapMeta && LAUNCHPAD_AVATAR_PROTOCOLS.has(fromSnapMeta)) return fromSnapMeta;
+
+  const dexId = extractDexIdFromBundle(bundle);
+  if (dexId) {
+    const fromDex = protocolBrandIdFromDexId(dexId, chain);
+    if (fromDex && LAUNCHPAD_AVATAR_PROTOCOLS.has(fromDex)) return fromDex;
+  }
+
   const fromDb = protocolBrandIdFromToken(bundle.token);
-  if (fromDb) return fromDb;
+  if (
+    fromDb &&
+    !isChainBucketAvatarProtocol(fromDb) &&
+    LAUNCHPAD_AVATAR_PROTOCOLS.has(fromDb)
+  ) {
+    return fromDb;
+  }
 
   if (bundle.token.protocol_id === 'pump_fun_mayhem') return 'mayhem';
   if (isPulseMayhemToken(bundle) && (bundle.token.source_confidence ?? 0) >= 0.85) return 'mayhem';
 
+  if (chain === 'sol') {
+    const mint = bundle.token.mint.toLowerCase();
+    const lp = bundle.token.launch_pad?.toLowerCase() ?? '';
+    if (mint.endsWith('pump') || lp.includes('pump')) return 'pump.fun';
+  }
+
+  return null;
+}
+
+export function extractDexIdFromBundle(bundle: PulseTokenBundle): string | null {
+  const em = bundle.snapshot?.extended_metrics;
+  if (em != null && typeof em === 'object' && !Array.isArray(em)) {
+    const dex = (em as Record<string, unknown>).dexId;
+    if (typeof dex === 'string' && dex.trim()) return dex.trim();
+  }
+  const raw = bundle.token.raw_metadata;
+  if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>;
+    const dex = r.dexId ?? r.dex_id;
+    if (typeof dex === 'string' && dex.trim()) return dex.trim();
+  }
+  const tokenDex = (bundle.token as { dex_id?: string | null }).dex_id;
+  if (typeof tokenDex === 'string' && tokenDex.trim()) return tokenDex.trim();
   return null;
 }
 
@@ -333,7 +401,10 @@ export function resolveLaunchpadAvatarChrome(
   const lp = bundle.token.launch_pad?.toLowerCase() ?? '';
   const onBondingCurve =
     !isMigrated &&
-    (opts.pumpFunOnBondingCurve === true || isPulseMayhemToken(bundle) || BONDING_LAUNCH_PADS.has(lp));
+    (opts.pumpFunOnBondingCurve === true ||
+      isPulseMayhemToken(bundle) ||
+      BONDING_LAUNCH_PADS.has(lp) ||
+      LAUNCHPAD_AVATAR_PROTOCOLS.has(protocolId));
 
   /** Thin SVG arc tints — protocol brand color; gold when migrated. */
   const ringStrokeRgba = isMigrated

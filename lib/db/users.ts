@@ -59,16 +59,12 @@ export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserR
   const [
     presetsResult,
     columnPresetsResult,
-    trackerGroupsResult,
   ] = await Promise.allSettled([
     import('@/lib/db/presets').then(({ ensureDefaultTradingPresets }) =>
       ensureDefaultTradingPresets(data.id),
     ),
     import('@/lib/db/columnPresets').then(({ ensureDefaultColumnPresets }) =>
       ensureDefaultColumnPresets(data.id),
-    ),
-    import('@/lib/db/trackerGroups').then(({ ensureStarterTrackerGroups }) =>
-      ensureStarterTrackerGroups(data.id),
     ),
   ]);
 
@@ -84,14 +80,6 @@ export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserR
       columnPresetsResult.reason instanceof Error
         ? columnPresetsResult.reason.message
         : columnPresetsResult.reason,
-    );
-  }
-  if (trackerGroupsResult.status === 'rejected') {
-    console.warn(
-      '[users] ensureStarterTrackerGroups:',
-      trackerGroupsResult.reason instanceof Error
-        ? trackerGroupsResult.reason.message
-        : trackerGroupsResult.reason,
     );
   }
 

@@ -3319,3 +3319,97 @@
   box-shadow: 0 0 14px 4px rgba(255, 255, 255, 0.75);
   animation: packFifaSparkPop 1.2s ease-out infinite;
 }
+
+/* ── Predictions / Kalshi desk ───────────────────────────────────────────── */
+@keyframes predPriceFlashUp {
+  0% {
+    background-color: rgb(52 211 153 / 0.28);
+    color: rgb(167 243 208);
+  }
+  100% {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+@keyframes predPriceFlashDown {
+  0% {
+    background-color: rgb(244 63 94 / 0.24);
+    color: rgb(253 164 175);
+  }
+  100% {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+.pred-price-flash-up {
+  animation: predPriceFlashUp 720ms ease-out;
+}
+
+.pred-price-flash-down {
+  animation: predPriceFlashDown 720ms ease-out;
+}
+
+.pred-hero-card {
+  position: relative;
+}
+
+.pred-hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-primary-rgb) / 0.08);
+}
+
+.pred-hero-card--hover::before,
+.pred-market-card:hover::before {
+  opacity: 1;
+}
+
+.pred-market-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  background: linear-gradient(
+    135deg,
+    rgb(var(--accent-primary-rgb) / 0.06) 0%,
+    transparent 55%
+  );
+}
+
+.pred-alpha-scroll {
+  min-height: 4.5rem;
+}
+
+.pred-outcome-scroll {
+  max-height: 7.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--accent-primary-rgb) / 0.35) transparent;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 10px,
+    #000 calc(100% - 10px),
+    transparent 100%
+  );
+}
+
+.pred-outcome-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pred-outcome-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(var(--accent-primary-rgb) / 0.35);
+}

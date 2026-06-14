@@ -1,12 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { PublicKey } from '@solana/web3.js';
-import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { userCanViewWalletPortfolio } from '@/lib/db/userWallets';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
-import { getConnection } from '@/lib/solana/connection';
-import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
+import { getSplBalanceRaw } from '@/lib/solana/wallet-token-balances';
 import { fetchWalletJettonBalanceRaw } from '@/lib/ton/jettonWalletBalance';
 import { normalizeWalletAddressForStorage } from '@/lib/wallets/addressNormalize';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
@@ -67,15 +64,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (mintKind === 'sol') {
-      const conn = getConnection();
-      const mintPk = new PublicKey(mint.trim());
-      const ownerPk = new PublicKey(wallet.trim());
-      const ata = getAssociatedTokenAddressSync(mintPk, ownerPk);
-      const bal = await heliusCall('getTokenAccountBalance', HELIUS_CREDITS.RPC, () =>
-        conn.getTokenAccountBalance(ata),
-      ).catch(() => null);
-      const rawAmount = bal?.value?.amount ?? '0';
-      return NextResponse.json({ mint: mintPk.toBase58(), wallet: ownerPk.toBase58(), rawAmount });
+      const raw = await getSplBalanceRaw(wallet.trim(), mint.trim());
+      return NextResponse.json({
+        mint: mint.trim(),
+        wallet: wallet.trim(),
+        rawAmount: raw ?? '0',
+      });
     }
 
     return NextResponse.json({ error: 'unsupported_chain' }, { status: 400 });

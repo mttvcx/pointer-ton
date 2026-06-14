@@ -1,9 +1,18 @@
 'use client';
 
-import { ArrowDownUp, Tag } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowDownUp, Check, ChevronDown, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import type { WatchlistQuickbuyMode } from '@/lib/watchlist/watchlistModel';
+import type { WatchlistQuickbuyMode, WatchlistSortKey } from '@/lib/watchlist/watchlistModel';
+import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
+import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 import { useWatchlistStore } from '@/store/watchlist';
+
+const WATCHLIST_SORT_OPTIONS: { id: WatchlistSortKey; label: string }[] = [
+  { id: 'price', label: 'Price' },
+  { id: 'added', label: 'Date added' },
+  { id: 'symbol', label: 'Symbol' },
+];
 
 function ToggleRow({
   label,
@@ -63,6 +72,97 @@ function QuickbuyPreview({ mode }: { mode: WatchlistQuickbuyMode }) {
         <span className="rounded-full bg-accent-primary/20 px-1.5 py-0.5 text-[8px] font-bold text-accent-primary">
           ⚡ 0.1
         </span>
+      ) : null}
+    </div>
+  );
+}
+
+function WatchlistSortSelect({
+  value,
+  onChange,
+}: {
+  value: WatchlistSortKey;
+  onChange: (key: WatchlistSortKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const { mounted: menuMounted, visible: menuVisible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
+  const current = WATCHLIST_SORT_OPTIONS.find((o) => o.id === value) ?? WATCHLIST_SORT_OPTIONS[1]!;
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (wrapRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'flex h-9 w-full items-center gap-2 rounded-lg border border-border-subtle bg-bg-base px-2.5 text-[12px] text-fg-primary outline-none transition-colors',
+          'hover:border-border-default hover:bg-bg-hover/30',
+          'focus-visible:ring-2 focus-visible:ring-accent-primary/35',
+          open && 'border-border-default bg-bg-hover/20',
+        )}
+      >
+        <Tag className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-left font-medium">{current.label}</span>
+        <ChevronDown
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 text-fg-muted transition-transform duration-200',
+            open && 'rotate-180',
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {menuMounted ? (
+        <div
+          role="listbox"
+          aria-label="Sort watchlist by"
+          className={cn(
+            'absolute inset-x-0 top-[calc(100%+4px)] z-[140] overflow-hidden rounded-lg border border-border-subtle bg-bg-raised p-1 shadow-panel fill-mode-forwards',
+            popoverPanelClasses(menuVisible),
+          )}
+        >
+          {WATCHLIST_SORT_OPTIONS.map((opt) => {
+            const selected = opt.id === value;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onChange(opt.id);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[12px] transition-colors',
+                  selected
+                    ? 'bg-bg-hover font-medium text-fg-primary'
+                    : 'text-fg-secondary hover:bg-bg-hover/70 hover:text-fg-primary',
+                )}
+              >
+                <Tag className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                {selected ? (
+                  <Check className="h-3.5 w-3.5 shrink-0 text-accent-primary" strokeWidth={2.5} aria-hidden />
+                ) : (
+                  <span className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                )}
+              </button>
+            );
+          })}
+        </div>
       ) : null}
     </div>
   );
@@ -135,20 +235,10 @@ export function WatchlistSettingsSection() {
       <div>
         <p className="mb-2 text-[12px] font-medium text-fg-primary">Sort watchlist by</p>
         <div className="flex items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Tag className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
-            <select
-              value={settings.sortKey}
-              onChange={(e) =>
-                setSort(e.target.value as typeof settings.sortKey, settings.sortDir)
-              }
-              className="h-9 w-full appearance-none rounded-lg border border-border-subtle bg-bg-base pl-8 pr-3 text-[12px] text-fg-primary outline-none focus:border-accent-primary/45"
-            >
-              <option value="price">Price</option>
-              <option value="added">Date added</option>
-              <option value="symbol">Symbol</option>
-            </select>
-          </div>
+          <WatchlistSortSelect
+            value={settings.sortKey}
+            onChange={(sortKey) => setSort(sortKey, settings.sortDir)}
+          />
           <button
             type="button"
             title={settings.sortDir === 'desc' ? 'Descending' : 'Ascending'}

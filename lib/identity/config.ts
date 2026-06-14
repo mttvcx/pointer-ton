@@ -4,6 +4,7 @@ export const IDENTITY_SOURCE_PRIORITY: Record<string, number> = {
   pointer: 100,
   manual: 80,
   kolscan: 60,
+  axiom: 58,
   gmgn: 55,
 };
 

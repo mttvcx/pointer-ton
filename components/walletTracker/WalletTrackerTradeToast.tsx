@@ -44,14 +44,20 @@ export function WalletTrackerTradeToast({
     >
       <div className="flex items-start gap-2.5 p-2.5">
         <div className="relative h-10 w-10 shrink-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={payload.tokenImageUrl}
-            alt=""
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-md border border-white/[0.08] object-cover"
-          />
+          {payload.tokenImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={payload.tokenImageUrl}
+              alt=""
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-md border border-white/[0.08] object-cover"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-white/[0.08] bg-bg-sunken">
+              <ChainIcon chain="sol" size={20} />
+            </div>
+          )}
           <span
             className={cn(
               'absolute -bottom-1 left-0 rounded border px-1 py-px font-mono text-[9px] font-semibold leading-none tabular-nums',

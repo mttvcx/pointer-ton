@@ -7,14 +7,14 @@ export interface AppNavItem {
 
 export const APP_NAV: AppNavItem[] = [
   { label: 'Pulse', href: '/pulse' },
-  { label: 'Perps', href: '/perps', badge: 'Preview' },
+  { label: 'Perps', href: '/perps' },
   { label: 'Packs', href: '/packs' },
   { label: 'Portfolio', href: '/portfolio' },
   { label: 'Track', href: '/track' },
   { label: 'Squads', href: '/squads' },
   { label: 'Championship', href: '/championship' },
   { label: '$PTR', href: '/points' },
-  { label: 'Predictions', href: '/predictions', badge: 'Preview' },
+  { label: 'Predictions', href: '/predictions' },
 ];
 
 /** Items retained for nav-routing fallback but not shown in the topbar. */

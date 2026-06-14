@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
-import { filterIdsFromTokenBundle } from '@/lib/protocol/tokenProtocolDisplay';
+import { filterIdsFromTokenBundle } from '@/lib/protocol/filterIds';
 import { launchpadToAlertFilterIds } from '@/lib/protocol/alertProtocolMatch';
 import {
   ALL_PULSE_PROTOCOL_FILTER_IDS,
@@ -33,22 +33,39 @@ const LEGACY_TO_SUPPORTED: Record<string, string> = {
   bags: 'bags',
   printr: 'printr',
   moonshot: 'moonshot',
+  moonit: 'moonit',
   heaven: 'heaven',
   'dynamic-bc': 'dynamic-bc',
   mayhem: 'mayhem',
   raydium: 'raydium',
   meteora: 'meteora',
+  launchlab: 'launchlab',
+  orca: 'orca',
+  'four.meme': 'four.meme',
+  fourmeme: 'four.meme',
+  flap: 'flap',
+  pancakeswap: 'pancakeswap',
+  clanker: 'clanker',
+  bankr: 'bankr',
+  flaunch: 'flaunch',
+  'zora-content': 'zora-content',
+  'zora-creator': 'zora-creator',
+  baseapp: 'baseapp',
+  basememe: 'basememe',
+  virtuals: 'virtuals',
+  klik: 'klik',
   ton: 'ton',
+  tonfun: 'tonfun',
   dedust: 'ton',
   stonfi: 'ton',
   megaton: 'ton',
   bsc: 'bsc',
   base: 'base',
   eth: 'eth',
-  pancakeswap: 'pancakeswap',
   'uniswap-v2': 'uniswap-v2',
   'uniswap-v3': 'uniswap-v3',
   'uniswap-v4': 'uniswap-v4',
+  uniswap: 'uniswap',
 };
 
 export function migrateLegacyPulseProtocols(raw: unknown): string[] | undefined {
@@ -229,6 +246,20 @@ function expandPresetProtocolCandidates(raw: unknown): Set<string> {
   return candidates;
 }
 
+/** When a preset was saved during a broken registry that only exposed the chain bucket. */
+const CHAIN_BUCKET_FILTER_ID: Partial<Record<AppChainId, string>> = {
+  base: 'base',
+  bnb: 'bsc',
+  eth: 'eth',
+  ton: 'ton',
+};
+
+function isStaleChainBucketOnlyPreset(intersect: readonly string[], chain: AppChainId): boolean {
+  const bucket = CHAIN_BUCKET_FILTER_ID[chain];
+  if (!bucket || intersect.length !== 1) return false;
+  return intersect[0] === bucket;
+}
+
 /**
  * Intersect stored preset protocol ids with what's valid for the active header chain.
  * When nothing matches (cross-chain preset), default to all preset ids for that chain.
@@ -241,7 +272,11 @@ export function sanitizePresetProtocols(raw: unknown, chain?: AppChainId): strin
   }
   const allowedChain = pulseProtocolPresetIdsForChain(chain);
   const intersect = allowedChain.filter((id) => candidates.has(id));
-  return intersect.length > 0 ? [...intersect] : defaultProtocolsForChain(chain);
+  if (intersect.length === 0) return defaultProtocolsForChain(chain);
+  if (allowedChain.length > 1 && isStaleChainBucketOnlyPreset(intersect, chain)) {
+    return defaultProtocolsForChain(chain);
+  }
+  return [...intersect];
 }
 
 export function defaultColumnFiltersForChain(chain: AppChainId): ColumnFilters {
@@ -325,8 +360,7 @@ export function padToProtocols(pad: string | null): string[] {
 }
 
 export function tokenProtocolIdsForChain(bundle: PulseTokenBundle, chain: AppChainId): Set<string> {
-  void chain;
-  return new Set(filterIdsFromTokenBundle(bundle.token));
+  return new Set(filterIdsFromTokenBundle(bundle, chain));
 }
 
 /** @deprecated use {@link tokenProtocolIdsForChain} */

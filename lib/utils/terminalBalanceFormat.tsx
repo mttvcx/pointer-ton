@@ -80,7 +80,7 @@ export function TerminalNativeTradePnl({
     <span className={cn('inline-flex items-baseline whitespace-nowrap tabular-nums', className)}>
       {pnl >= 0 ? '+' : null}
       <TerminalNativeBalance amount={pnl} className="inline" subClassName={subClassName} />
-      <span className={cn('ml-px self-baseline', pctClassName)}>
+      <span className={cn('shrink-0 self-baseline text-[10px] font-normal leading-none', pctClassName)}>
         ({pctSign}
         {pctRounded}%)
       </span>
@@ -109,7 +109,7 @@ export function TerminalUsdTradePnl({
     <span className={cn('inline-flex items-baseline whitespace-nowrap tabular-nums', className)}>
       {pnl >= 0 ? '+' : '-'}
       <TerminalUsdPrice price={Math.abs(pnl)} subClassName={subClassName} />
-      <span className={cn('ml-px self-baseline', pctClassName)}>
+      <span className={cn('shrink-0 self-baseline text-[10px] font-normal leading-none', pctClassName)}>
         ({pctSign}
         {pctRounded}%)
       </span>

@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LAUNCHPAD_PROGRAM_IDS } from '@/lib/utils/constants';
 import { classifyTokenProtocol, parseGeckoDexProtocol } from '@/lib/protocol/classifyTokenProtocol';
-import { filterIdsFromTokenRow } from '@/lib/protocol/filterIds';
+import { filterIdsFromTokenRow, filterIdsFromTokenBundle } from '@/lib/protocol/filterIds';
 import { shouldApplyClassification } from '@/lib/protocol/classifyCore';
 import { ingestHintFromSource } from '@/lib/protocol/buildClassifierInput';
+import { supportedFilterIdsForChain } from '@/lib/protocol/registry';
+import {
+  resolveLaunchpadProtocolFromBundle,
+  resolveLaunchpadAvatarChrome,
+} from '@/lib/tokens/launchpadAvatarChrome';
 
 test('classify pump.fun from program id', () => {
   const c = classifyTokenProtocol({
@@ -54,6 +59,130 @@ test('filter ids require confidence threshold', () => {
     ['pump.fun'],
   );
   assert.deepEqual(filterIdsFromTokenRow({ protocol_id: 'pump_fun', source_confidence: 0.2 }), []);
+});
+
+test('filter bundle resolves heaven from launch_pad without db protocol_id', () => {
+  const ids = filterIdsFromTokenBundle(
+    {
+      token: {
+        mint: 'So11111111111111111111111111111111111111112',
+        launch_pad: 'heaven',
+        created_at: new Date().toISOString(),
+      },
+      snapshot: null,
+    },
+    'sol',
+  );
+  assert.ok(ids.includes('heaven'));
+});
+
+test('filter bundle resolves pancakeswap from dexId on bnb', () => {
+  const ids = filterIdsFromTokenBundle(
+    {
+      token: {
+        mint: '0xabc123',
+        launch_pad: null,
+        created_at: new Date().toISOString(),
+      },
+      snapshot: {
+        extended_metrics: { dexId: 'pancakeswap' },
+      } as never,
+    },
+    'bnb',
+  );
+  assert.ok(ids.includes('pancakeswap'));
+});
+
+test('supported filter ids include base launch venues', () => {
+  const base = supportedFilterIdsForChain('base');
+  assert.ok(base.includes('clanker'));
+  assert.ok(base.includes('bankr'));
+  assert.ok(base.includes('zora-content'));
+});
+
+test('avatar ring uses clanker not base when launch_pad is set', () => {
+  const id = resolveLaunchpadProtocolFromBundle(
+    {
+      token: {
+        mint: '0xabc',
+        launch_pad: 'clanker',
+        protocol_id: 'base',
+        source_confidence: 0.65,
+        created_at: new Date().toISOString(),
+      },
+      snapshot: null,
+    },
+    'base',
+  );
+  assert.equal(id, 'clanker');
+});
+
+test('avatar ring uses pancakeswap from dexId over generic bsc protocol_id', () => {
+  const id = resolveLaunchpadProtocolFromBundle(
+    {
+      token: {
+        mint: '0xabc',
+        launch_pad: null,
+        protocol_id: 'bsc',
+        source_confidence: 0.65,
+        created_at: new Date().toISOString(),
+      },
+      snapshot: {
+        extended_metrics: { dexId: 'pancakeswap' },
+      } as never,
+    },
+    'bnb',
+  );
+  assert.equal(id, 'pancakeswap');
+});
+
+test('avatar ring never falls back to chain bucket', () => {
+  const id = resolveLaunchpadProtocolFromBundle(
+    {
+      token: {
+        mint: '0xabc',
+        launch_pad: null,
+        protocol_id: 'eth',
+        source_confidence: 0.65,
+        created_at: new Date().toISOString(),
+      },
+      snapshot: null,
+    },
+    'eth',
+  );
+  assert.equal(id, null);
+  const chrome = resolveLaunchpadAvatarChrome(
+    {
+      token: {
+        mint: '0xabc',
+        launch_pad: null,
+        protocol_id: 'eth',
+        source_confidence: 0.65,
+        created_at: new Date().toISOString(),
+      },
+      snapshot: null,
+    },
+    { chain: 'eth' },
+  );
+  assert.equal(chrome, null);
+});
+
+test('avatar ring resolves four.meme from metadata source', () => {
+  const id = resolveLaunchpadProtocolFromBundle(
+    {
+      token: {
+        mint: '0xabc',
+        launch_pad: null,
+        protocol_id: 'bsc',
+        source_confidence: 0.65,
+        raw_metadata: { source: 'four.meme', F: 12 },
+        created_at: new Date().toISOString(),
+      },
+      snapshot: null,
+    },
+    'bnb',
+  );
+  assert.equal(id, 'four.meme');
 });
 
 test('should not overwrite higher confidence', () => {

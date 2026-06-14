@@ -1,57 +1,26 @@
 /**
- * Demo prediction market fixtures — Kalshi partnership preview.
- * Replace with API integration when partnership ships; not used in execution paths.
+ * Demo prediction market fixtures — fallback when Kalshi API is unavailable.
  */
 
-export type PredictionCategory =
-  | 'Crypto'
-  | 'Macro'
-  | 'Politics'
-  | 'AI'
-  | 'Stocks'
-  | 'Sports'
-  | 'ETFs';
+export type {
+  PredictionAlphaItem,
+  PredictionCategory,
+  PredictionDeskCategory,
+  PredictionMarket,
+  PredictionMarketsResponse,
+  PredictionRecentTrade,
+  PredictionSort,
+  PredictionTrend,
+  PredictionView,
+} from '@/lib/predictions/types';
 
-export type PredictionTrend = 'up' | 'down' | 'flat';
-
-export type PredictionDeskCategory =
-  | 'Trending'
-  | 'All'
-  | 'Crypto'
-  | 'Sports'
-  | 'Politics'
-  | 'Watchlist';
-
-export type PredictionSort = 'volume' | 'liquidity' | 'newest';
-
-export type PredictionView = 'table' | 'cards';
-
-export interface PredictionMarket {
-  id: string;
-  title: string;
-  /** Primary outcome label shown under title (e.g. "Yes", "Spain"). */
-  outcomeLabel: string;
-  yesPct: number;
-  yesPriceCents: number;
-  noPriceCents: number;
-  changePct24h: number;
-  trend: PredictionTrend;
-  category: PredictionCategory;
-  /** Tag chips for All-view sidebar (Politics, Trump, etc.). */
-  tags: string[];
-  volumeUsd: number;
-  liquidityUsd: number;
-  txns: number;
-  txnBuys: number;
-  txnSells: number;
-  traders: number;
-  endsIn: string;
-  spark: number[];
-  featured?: boolean;
-  emoji: string;
-  /** Optional explicit icon URL (crypto logos, etc.). */
-  iconUrl?: string;
-}
+import type {
+  PredictionDeskCategory,
+  PredictionMarket,
+  PredictionSort,
+  PredictionTrend,
+} from '@/lib/predictions/types';
+import { isCryptoPredictionMarket } from '@/lib/predictions/groupMarkets';
 
 function sparkFor(yes: number, trend: PredictionTrend): number[] {
   const n = 12;
@@ -81,11 +50,13 @@ function mk(
 export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
   mk({
     id: 'world-cup-winner',
+    ticker: 'world-cup-winner',
     title: 'World Cup Winner',
     outcomeLabel: 'Spain',
     yesPct: 17,
     yesPriceCents: 16.9,
     changePct24h: 0.3,
+    changeCents24h: 0.3,
     trend: 'up',
     category: 'Sports',
     tags: ['Sports', 'World Cup'],
@@ -101,11 +72,13 @@ export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
   }),
   mk({
     id: 'pres-2028',
+    ticker: 'pres-2028',
     title: 'Presidential Election Winner 2028',
     outcomeLabel: 'Gavin Newsom',
     yesPct: 15,
     yesPriceCents: 15.2,
     changePct24h: -0.4,
+    changeCents24h: -0.2,
     trend: 'down',
     category: 'Politics',
     tags: ['Politics', 'Trump', '2028'],
@@ -121,11 +94,14 @@ export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
   }),
   mk({
     id: 'eth-2026-high',
+    ticker: 'eth-2026-high',
+    eventTicker: 'demo-eth-2026-price',
     title: 'What price will Ethereum hit in 2026?',
     outcomeLabel: '↑ $1,500',
     yesPct: 85,
     yesPriceCents: 84.8,
     changePct24h: 1.2,
+    changeCents24h: 0.8,
     trend: 'up',
     category: 'Crypto',
     tags: ['Crypto', 'ETH'],
@@ -141,12 +117,38 @@ export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
     iconUrl: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
   }),
   mk({
+    id: 'sol-2026-high',
+    ticker: 'sol-2026-high',
+    eventTicker: 'demo-sol-2026-price',
+    title: 'What price will Solana hit in 2026?',
+    outcomeLabel: '↑ $200',
+    yesPct: 42,
+    yesPriceCents: 41.5,
+    changePct24h: 0.7,
+    changeCents24h: 0.7,
+    trend: 'up',
+    category: 'Crypto',
+    tags: ['Crypto', 'SOL'],
+    volumeUsd: 915_000,
+    liquidityUsd: 158_000,
+    txns: 210,
+    txnBuys: 130,
+    txnSells: 80,
+    traders: 142,
+    endsIn: '10mo',
+    featured: true,
+    emoji: '◎',
+    iconUrl: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+  }),
+  mk({
     id: 'paraguay-win',
+    ticker: 'paraguay-win',
     title: 'Will Paraguay win on 2026-06-12?',
     outcomeLabel: 'Yes',
     yesPct: 24,
     yesPriceCents: 24.0,
     changePct24h: 8.0,
+    changeCents24h: 1.5,
     trend: 'up',
     category: 'Sports',
     tags: ['Sports', 'Soccer'],
@@ -160,50 +162,15 @@ export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
     emoji: '⚽',
   }),
   mk({
-    id: 'tigers-guardians',
-    title: 'Detroit Tigers vs. Cleveland Guardians',
-    outcomeLabel: 'Yes',
-    yesPct: 54,
-    yesPriceCents: 54.0,
-    changePct24h: 0,
-    trend: 'flat',
-    category: 'Sports',
-    tags: ['Sports', 'MLB'],
-    volumeUsd: 37_500,
-    liquidityUsd: 404_000,
-    txns: 9,
-    txnBuys: 9,
-    txnSells: 0,
-    traders: 9,
-    endsIn: '7d',
-    emoji: '⚾',
-  }),
-  mk({
-    id: 'trump-iran',
-    title: 'Will Donald Trump visit Iran in 2026?',
-    outcomeLabel: 'Yes',
-    yesPct: 8,
-    yesPriceCents: 8.2,
-    changePct24h: -8.8,
-    trend: 'down',
-    category: 'Politics',
-    tags: ['Politics', 'Trump', 'Iran'],
-    volumeUsd: 128_000,
-    liquidityUsd: 890_000,
-    txns: 44,
-    txnBuys: 12,
-    txnSells: 32,
-    traders: 38,
-    endsIn: '12m',
-    emoji: '🌐',
-  }),
-  mk({
     id: 'btc-120k',
-    title: 'BTC above $120k this year',
-    outcomeLabel: 'Yes',
+    ticker: 'btc-120k',
+    eventTicker: 'demo-btc-2026-price',
+    title: 'What price will Bitcoin hit in 2026?',
+    outcomeLabel: '↑ $120,000',
     yesPct: 62,
     yesPriceCents: 61.5,
     changePct24h: 2.1,
+    changeCents24h: 1.1,
     trend: 'up',
     category: 'Crypto',
     tags: ['Crypto', 'BTC'],
@@ -218,12 +185,62 @@ export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
     iconUrl: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
   }),
   mk({
+    id: 'btc-500k',
+    ticker: 'btc-500k',
+    eventTicker: 'demo-btc-2026-price',
+    title: 'What price will Bitcoin hit in 2026?',
+    outcomeLabel: '↑ $500,000',
+    yesPct: 2,
+    yesPriceCents: 1.5,
+    changePct24h: 0.1,
+    changeCents24h: 0.1,
+    trend: 'flat',
+    category: 'Crypto',
+    tags: ['Crypto', 'BTC'],
+    volumeUsd: 42_500_000,
+    liquidityUsd: 1_990_000,
+    txns: 1204,
+    txnBuys: 701,
+    txnSells: 503,
+    traders: 890,
+    endsIn: '6mo',
+    featured: true,
+    emoji: '₿',
+    iconUrl: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+  }),
+  mk({
+    id: 'btc-250k',
+    ticker: 'btc-250k',
+    eventTicker: 'demo-btc-2026-price',
+    title: 'What price will Bitcoin hit in 2026?',
+    outcomeLabel: '↑ $250,000',
+    yesPct: 2,
+    yesPriceCents: 2.1,
+    changePct24h: 0.2,
+    changeCents24h: 0.2,
+    trend: 'up',
+    category: 'Crypto',
+    tags: ['Crypto', 'BTC'],
+    volumeUsd: 38_200_000,
+    liquidityUsd: 1_720_000,
+    txns: 980,
+    txnBuys: 560,
+    txnSells: 420,
+    traders: 720,
+    endsIn: '6mo',
+    featured: true,
+    emoji: '₿',
+    iconUrl: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+  }),
+  mk({
     id: 'fed-june',
+    ticker: 'fed-june',
     title: 'Fed cuts in June',
     outcomeLabel: 'Yes',
     yesPct: 74,
     yesPriceCents: 73.8,
     changePct24h: 0.6,
+    changeCents24h: 0.4,
     trend: 'up',
     category: 'Macro',
     tags: ['Macro', 'Fed'],
@@ -238,11 +255,13 @@ export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
   }),
   mk({
     id: 'sol-etf',
+    ticker: 'sol-etf',
     title: 'SOL ETF approved in 2026',
     outcomeLabel: 'Yes',
     yesPct: 41,
     yesPriceCents: 40.8,
     changePct24h: -1.4,
+    changeCents24h: -0.6,
     trend: 'down',
     category: 'ETFs',
     tags: ['Crypto', 'SOL', 'ETFs'],
@@ -256,101 +275,6 @@ export const KALSHI_PREDICTION_MARKETS: PredictionMarket[] = [
     emoji: '◎',
     iconUrl: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
   }),
-  mk({
-    id: 'spain-world-cup',
-    title: 'Will Spain win the 2026 FIFA World Cup?',
-    outcomeLabel: 'Yes',
-    yesPct: 17,
-    yesPriceCents: 16.8,
-    changePct24h: 0.2,
-    trend: 'up',
-    category: 'Sports',
-    tags: ['Sports', 'World Cup'],
-    volumeUsd: 2_150_000,
-    liquidityUsd: 429_000,
-    txns: 310,
-    txnBuys: 198,
-    txnSells: 112,
-    traders: 240,
-    endsIn: '37d',
-    emoji: '🇪🇸',
-  }),
-  mk({
-    id: 'nvda-green',
-    title: 'Nvidia closes green this week',
-    outcomeLabel: 'Yes',
-    yesPct: 66,
-    yesPriceCents: 65.5,
-    changePct24h: 3.2,
-    trend: 'up',
-    category: 'Stocks',
-    tags: ['Stocks', 'NVDA'],
-    volumeUsd: 2_100_000,
-    liquidityUsd: 540_000,
-    txns: 88,
-    txnBuys: 61,
-    txnSells: 27,
-    traders: 64,
-    endsIn: '4d',
-    emoji: '📈',
-  }),
-  mk({
-    id: 'ai-benchmark',
-    title: 'Frontier model hits public benchmark >90% by Q4',
-    outcomeLabel: 'Yes',
-    yesPct: 34,
-    yesPriceCents: 33.6,
-    changePct24h: 4.5,
-    trend: 'up',
-    category: 'AI',
-    tags: ['AI', 'Anthropic'],
-    volumeUsd: 1_400_000,
-    liquidityUsd: 320_000,
-    txns: 42,
-    txnBuys: 30,
-    txnSells: 12,
-    traders: 36,
-    endsIn: '5mo',
-    emoji: '🤖',
-  }),
-  mk({
-    id: 'super-bowl-total',
-    title: 'Super Bowl total points over 47.5',
-    outcomeLabel: 'Yes',
-    yesPct: 52,
-    yesPriceCents: 51.8,
-    changePct24h: -0.3,
-    trend: 'flat',
-    category: 'Sports',
-    tags: ['Sports', 'NFL'],
-    volumeUsd: 6_800_000,
-    liquidityUsd: 1_100_000,
-    txns: 204,
-    txnBuys: 110,
-    txnSells: 94,
-    traders: 156,
-    endsIn: '3mo',
-    emoji: '🏈',
-  }),
-  mk({
-    id: 'dem-nom-2028',
-    title: 'Democratic Presidential Nominee 2028',
-    outcomeLabel: 'Gavin Newsom',
-    yesPct: 23,
-    yesPriceCents: 22.8,
-    changePct24h: 1.1,
-    trend: 'up',
-    category: 'Politics',
-    tags: ['Politics', '2028'],
-    volumeUsd: 45_000_000,
-    liquidityUsd: 8_200_000,
-    txns: 1802,
-    txnBuys: 1100,
-    txnSells: 702,
-    traders: 920,
-    endsIn: '2y',
-    emoji: '🗳️',
-  }),
 ];
 
 export function noPct(yes: number): number {
@@ -358,22 +282,23 @@ export function noPct(yes: number): number {
 }
 
 export function getPredictionMarket(id: string): PredictionMarket | null {
-  return KALSHI_PREDICTION_MARKETS.find((m) => m.id === id) ?? null;
+  return KALSHI_PREDICTION_MARKETS.find((m) => m.id === id || m.ticker === id) ?? null;
 }
 
 export function filterPredictionMarkets(params: {
+  markets?: PredictionMarket[];
   deskCategory: PredictionDeskCategory;
   tag?: string | null;
   query?: string;
   sort: PredictionSort;
 }): PredictionMarket[] {
-  let rows = [...KALSHI_PREDICTION_MARKETS];
+  let rows = [...(params.markets ?? KALSHI_PREDICTION_MARKETS)];
   const q = params.query?.trim().toLowerCase();
 
   if (params.deskCategory === 'Trending') {
-    rows = rows.filter((m) => m.featured || m.volumeUsd >= 1_000_000);
+    rows = rows.filter((m) => m.featured || m.volumeUsd >= 50_000);
   } else if (params.deskCategory === 'Crypto') {
-    rows = rows.filter((m) => m.category === 'Crypto' || m.category === 'ETFs');
+    rows = rows.filter(isCryptoPredictionMarket);
   } else if (params.deskCategory === 'Sports') {
     rows = rows.filter((m) => m.category === 'Sports');
   } else if (params.deskCategory === 'Politics') {
@@ -412,7 +337,6 @@ export function filterPredictionMarkets(params: {
 export const ALL_PREDICTION_TAGS = [
   'All',
   'Trump',
-  'Iran',
   'Crypto',
   'Sports',
   'Politics',
@@ -420,4 +344,6 @@ export const ALL_PREDICTION_TAGS = [
   'World Cup',
   'Fed',
   'AI',
+  'SOL',
+  'BTC',
 ] as const;

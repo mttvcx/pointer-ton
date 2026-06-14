@@ -83,18 +83,25 @@ export function StocksPulseColumn({
             </h2>
           </div>
           <div className="flex min-w-0 flex-1 items-center justify-center px-1">
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by ticker or name"
+            <div
               className={cn(
-                'h-[2.125rem] w-full min-w-0 rounded-full border border-transparent px-3 text-[12px] text-fg-primary outline-none transition-colors duration-150',
-                'bg-white/5 placeholder:text-fg-muted/50 focus:border-transparent focus:bg-white/[0.08] focus:ring-1 focus:ring-accent-primary/25',
-                'hover:border-white/15',
+                'flex h-[2.125rem] w-full min-w-0 items-center rounded-full border border-transparent bg-white/5 px-3 transition-colors duration-150',
+                'hover:border-white/15 focus-within:border-transparent focus-within:bg-white/[0.08] focus-within:ring-1 focus-within:ring-accent-primary/25',
               )}
-              aria-label={`Search ${title}`}
-            />
+            >
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by ticker or name"
+                className={cn(
+                  'min-w-0 w-full bg-transparent text-[12px] leading-none text-fg-primary outline-none',
+                  'placeholder:text-fg-muted/50',
+                  '[appearance:textfield] [&::-webkit-search-cancel-button]:appearance-none',
+                )}
+                aria-label={`Search ${title}`}
+              />
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
           <label

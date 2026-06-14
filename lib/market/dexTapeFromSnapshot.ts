@@ -27,8 +27,8 @@ const TF_TXN_KEY: Record<TokenTradePerfTf, string> = {
 };
 
 /**
- * Build a Dex-aggregate window: real vol, real txn counts when DexScreener
- * provided them, USD side-split honestly unknown (`dexAggregate: true`).
+ * Build a Dex-aggregate window: vol + txn counts from DexScreener.
+ * When txn counts exist, allocate vol proportionally (same as lighthouse aggregate).
  */
 function dexWindow(
   volUsd: number | null,
@@ -39,10 +39,27 @@ function dexWindow(
   const key = TF_TXN_KEY[tf];
   const buys = ext ? num(ext[`txns${key}Buys`]) : null;
   const sells = ext ? num(ext[`txns${key}Sells`]) : null;
+  const buyCount = buys != null && buys >= 0 ? buys : 0;
+  const sellCount = sells != null && sells >= 0 ? sells : 0;
+  const txnTotal = buyCount + sellCount;
+
+  if (txnTotal > 0) {
+    const buyVolUsd = volUsd * (buyCount / txnTotal);
+    const sellVolUsd = volUsd * (sellCount / txnTotal);
+    return {
+      volUsd,
+      buys: buyCount,
+      sells: sellCount,
+      buyVolUsd,
+      sellVolUsd,
+      netVolUsd: buyVolUsd - sellVolUsd,
+    };
+  }
+
   return {
     volUsd,
-    buys: buys != null && buys >= 0 ? buys : 0,
-    sells: sells != null && sells >= 0 ? sells : 0,
+    buys: buyCount,
+    sells: sellCount,
     buyVolUsd: 0,
     sellVolUsd: 0,
     netVolUsd: 0,

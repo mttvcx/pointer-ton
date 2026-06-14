@@ -1,18 +1,32 @@
 'use client';
 
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Settings, Star, Zap } from 'lucide-react';
+import { History, LineChart, Settings, Star, Zap } from 'lucide-react';
 import { TokenImage } from '@/components/shared/TokenImage';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { appChainForMintNavigation } from '@/lib/chains/mintKind';
+import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { formatCompactUsd } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import type { TickerBarMode } from '@/lib/watchlist/watchlistModel';
 import type { WatchlistItem } from '@/lib/watchlist/watchlistModel';
+import { filterTradeTokenPositions } from '@/lib/portfolio/tradePositions';
+import { fetchPortfolioJson } from '@/lib/portfolio/portfolioQuery';
 import { useWatchlistStore } from '@/store/watchlist';
+import { useRecentTokenVisitsStore } from '@/store/recentTokenVisits';
 import { useUIStore } from '@/store/ui';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
 import { useDeferredMount } from '@/lib/hooks/useDeferredMount';
+
+type TickerRowItem = {
+  mint: string;
+  symbol: string | null;
+  name: string | null;
+  imageUrl: string | null;
+  marketCapUsd: number | null;
+};
 
 function sortWatchlistItems(
   items: WatchlistItem[],
@@ -37,18 +51,21 @@ function sortWatchlistItems(
   return copy;
 }
 
-function WatchlistTickerPill({
+function TickerBarPill({
   item,
   quickbuyMode,
   quickBuySol,
+  onRemove,
+  showRemove,
 }: {
-  item: WatchlistItem;
+  item: TickerRowItem;
   quickbuyMode: 'never' | 'always' | 'hover';
   quickBuySol: number;
+  onRemove?: () => void;
+  showRemove?: boolean;
 }) {
   const router = useRouter();
   const activeChain = useUIStore((s) => s.activeChain);
-  const removeItem = useWatchlistStore((s) => s.removeItem);
   const [hovered, setHovered] = useState(false);
 
   const label = item.symbol?.trim() || item.name?.trim() || item.mint.slice(0, 4);
@@ -121,16 +138,61 @@ function WatchlistTickerPill({
           </span>
         ) : null}
       </button>
-      <button
-        type="button"
-        onClick={() => removeItem(item.mint)}
-        className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full border border-border-subtle bg-bg-raised text-[9px] text-fg-muted group-hover/pill:flex hover:text-signal-bear"
-        aria-label={`Remove ${label} from watchlist`}
-        title="Remove from watchlist"
-      >
-        ×
-      </button>
+      {showRemove && onRemove ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full border border-border-subtle bg-bg-raised text-[9px] text-fg-muted group-hover/pill:flex hover:text-signal-bear"
+          aria-label={`Remove ${label} from watchlist`}
+          title="Remove from watchlist"
+        >
+          ×
+        </button>
+      ) : null}
     </div>
+  );
+}
+
+function TickerModeButton({
+  active,
+  onClick,
+  tooltip,
+  label,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  tooltip: string;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          className={cn(
+            'btn-press flex h-6 items-center gap-1 rounded-md px-1.5 transition-colors duration-200',
+            active
+              ? 'text-accent-primary hover:bg-white/[0.06]'
+              : 'text-fg-muted hover:bg-white/[0.06] hover:text-fg-primary',
+          )}
+          aria-label={tooltip}
+          aria-pressed={active}
+        >
+          {children}
+          {active ? (
+            <span className="hidden text-[10px] font-semibold uppercase tracking-wide sm:inline">
+              {label}
+            </span>
+          ) : null}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-[11px]">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -139,21 +201,73 @@ export function WatchlistTickerBar() {
   const items = useWatchlistStore((s) => s.items);
   const settings = useWatchlistStore((s) => s.settings);
   const updateItemMarketCap = useWatchlistStore((s) => s.updateItemMarketCap);
+  const removeItem = useWatchlistStore((s) => s.removeItem);
+  const setTickerMode = useWatchlistStore((s) => s.setTickerMode);
+  const recentVisits = useRecentTokenVisitsStore((s) => s.visits);
   const openSettings = useUIStore((s) => s.openSettings);
+  const { authenticated, getAccessToken } = usePointerAuth();
 
-  const sorted = useMemo(
+  const tickerMode: TickerBarMode = settings.tickerMode ?? 'watchlist';
+
+  const sortedWatchlist = useMemo(
     () => sortWatchlistItems(items, settings.sortKey, settings.sortDir),
     [items, settings.sortKey, settings.sortDir],
   );
 
-  const mintsKey = useMemo(() => sorted.map((i) => i.mint).join(','), [sorted]);
+  const positionsQ = useQuery({
+    queryKey: ['ticker-bar-positions'],
+    queryFn: async () => {
+      const json = await fetchPortfolioJson<{
+        positions?: Array<{
+          mint: string;
+          symbol?: string | null;
+          imageUrl?: string | null;
+          valueUsd?: number | null;
+        }>;
+      }>(getAccessToken, null, { tradesLimit: 0, fifoLimit: 0 });
+      return filterTradeTokenPositions(json.positions ?? []);
+    },
+    enabled: authenticated && tickerMode === 'active_positions',
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const rowItems = useMemo((): TickerRowItem[] => {
+    if (tickerMode === 'watchlist') {
+      return sortedWatchlist.map((item) => ({
+        mint: item.mint,
+        symbol: item.symbol,
+        name: item.name,
+        imageUrl: item.imageUrl,
+        marketCapUsd: item.marketCapUsd,
+      }));
+    }
+    if (tickerMode === 'recent_pairs') {
+      return recentVisits.map((v) => ({
+        mint: v.mint,
+        symbol: v.symbol,
+        name: v.name,
+        imageUrl: v.imageUrl,
+        marketCapUsd: v.marketCapUsd,
+      }));
+    }
+    return (positionsQ.data ?? []).map((p) => ({
+      mint: p.mint,
+      symbol: p.symbol ?? null,
+      name: null,
+      imageUrl: p.imageUrl ?? null,
+      marketCapUsd: p.valueUsd ?? null,
+    }));
+  }, [tickerMode, sortedWatchlist, recentVisits, positionsQ.data]);
+
+  const mintsKey = useMemo(() => rowItems.map((i) => i.mint).join(','), [rowItems]);
   const mcRefreshReady = useDeferredMount(2_500);
 
   useQuery({
-    queryKey: ['watchlist-mc-refresh', mintsKey],
+    queryKey: ['watchlist-mc-refresh', tickerMode, mintsKey],
     queryFn: async () => {
       await Promise.all(
-        sorted.slice(0, 8).map(async (item) => {
+        rowItems.slice(0, 8).map(async (item) => {
           try {
             const res = await fetch(`/api/tokens/${encodeURIComponent(item.mint)}`);
             if (!res.ok) return;
@@ -162,7 +276,9 @@ export function WatchlistTickerBar() {
             };
             const mc = json.snapshot?.market_cap_usd ?? null;
             if (mc != null && Number.isFinite(mc)) {
-              updateItemMarketCap(item.mint, mc);
+              if (tickerMode === 'watchlist') {
+                updateItemMarketCap(item.mint, mc);
+              }
             }
           } catch {
             /* ignore refresh errors */
@@ -171,7 +287,7 @@ export function WatchlistTickerBar() {
       );
       return true;
     },
-    enabled: sorted.length > 0 && mcRefreshReady,
+    enabled: rowItems.length > 0 && mcRefreshReady && tickerMode === 'watchlist',
     staleTime: 60_000,
     refetchInterval: 90_000,
   });
@@ -197,32 +313,59 @@ export function WatchlistTickerBar() {
         >
           <Settings className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
-        <button
-          type="button"
-          onClick={() => openSettings('watchlist')}
-          className={cn(
-            'btn-press flex h-6 items-center gap-1 rounded-md px-1.5 text-accent-primary transition-colors duration-200',
-            'hover:bg-white/[0.06]',
-          )}
-          aria-label="Watchlist"
-          title="Watchlist"
+
+        <TickerModeButton
+          active={tickerMode === 'watchlist'}
+          onClick={() => setTickerMode('watchlist')}
+          tooltip="Watchlist"
+          label="Watchlist"
         >
-          <Star className="h-3.5 w-3.5" strokeWidth={2} fill="currentColor" />
-          <span className="hidden text-[10px] font-semibold uppercase tracking-wide sm:inline">
-            Watchlist
-          </span>
-        </button>
-        {/* Chart overlays / linked tokens buttons removed until implemented — no toast-only icons. */}
+          <Star
+            className="h-3.5 w-3.5"
+            strokeWidth={2}
+            fill={tickerMode === 'watchlist' ? 'currentColor' : 'none'}
+          />
+        </TickerModeButton>
+
+        <TickerModeButton
+          active={tickerMode === 'active_positions'}
+          onClick={() => setTickerMode('active_positions')}
+          tooltip="Active Positions"
+          label="Active Positions"
+        >
+          <LineChart className="h-3.5 w-3.5" strokeWidth={2} />
+        </TickerModeButton>
+
+        <TickerModeButton
+          active={tickerMode === 'recent_pairs'}
+          onClick={() => setTickerMode('recent_pairs')}
+          tooltip="Recent Pairs"
+          label="Recent Pairs"
+        >
+          <History className="h-3.5 w-3.5" strokeWidth={2} />
+        </TickerModeButton>
       </div>
 
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {sorted.length === 0 ? null : (
-          sorted.map((item) => (
-            <WatchlistTickerPill
+        {rowItems.length === 0 ? (
+          <span className="shrink-0 px-1 text-[11px] text-fg-muted">
+            {tickerMode === 'watchlist'
+              ? 'Star tokens on the desk to pin them here'
+              : tickerMode === 'active_positions'
+                ? authenticated
+                  ? 'No open positions'
+                  : 'Connect wallet to see positions'
+                : 'Open tokens to see recent pairs'}
+          </span>
+        ) : (
+          rowItems.map((item) => (
+            <TickerBarPill
               key={item.mint}
               item={item}
               quickbuyMode={settings.quickbuyMode}
               quickBuySol={quickBuySol}
+              showRemove={tickerMode === 'watchlist'}
+              onRemove={tickerMode === 'watchlist' ? () => removeItem(item.mint) : undefined}
             />
           ))
         )}

@@ -17,6 +17,7 @@ import { parseRuleCondition } from '@/lib/trackers/ruleCondition';
 import type { Json } from '@/lib/supabase/types';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { processTrackedWalletTradeAlerts } from '@/lib/helius/trackedWalletTradeAlerts';
 import {
   ingestQaSwapsFromEnhancedTxs,
   qaIndexerEnabled,
@@ -64,6 +65,7 @@ export async function processHeliusWebhookBody(
   tokensUpserted: number;
   alerts: number;
   migrations: number;
+  trackedTrades: number;
   qaSwaps: QaIngestReport | null;
 }> {
   await upsertWebhookEvent({
@@ -78,8 +80,15 @@ export async function processHeliusWebhookBody(
   let tokensUpserted = 0;
   let alerts = 0;
   let migrations = 0;
+  let trackedTrades = 0;
 
   for (const tx of txs) {
+    const txSignature = extractTxSignature(tx) ?? meta.signature;
+
+    const tradeReport = await processTrackedWalletTradeAlerts(tx, txSignature);
+    trackedTrades += tradeReport.alerts;
+    alerts += tradeReport.alerts;
+
     const migration = parseMigrationTransaction(tx);
     if (migration) {
       migrations += 1;
@@ -91,7 +100,6 @@ export async function processHeliusWebhookBody(
     if (!ev) continue;
     events += 1;
 
-    const txSignature = extractTxSignature(tx) ?? meta.signature;
     const upserted = await ingestWebhookMintFromPayload(ev, {
       alertSource: 'helius_webhook',
       txSignature,
@@ -191,5 +199,5 @@ export async function processHeliusWebhookBody(
     revalidatePulseFeedCache();
   }
 
-  return { events, tokensUpserted, alerts, migrations, qaSwaps };
+  return { events, tokensUpserted, alerts, migrations, trackedTrades, qaSwaps };
 }

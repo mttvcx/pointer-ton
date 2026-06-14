@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import type { ReactNode } from 'react';
 import * as HoverCardPrimitive from '@radix-ui/react-hover-card';
 import { cn } from '@/lib/utils/cn';
 
@@ -16,6 +17,25 @@ export function hoverCardBridgeClass(side: 'top' | 'right' | 'bottom' | 'left'):
     case 'left':
       return 'pr-3 -mr-3';
   }
+}
+
+/**
+ * Bridge padding overlaps the trigger via negative margin. The bridge shell is
+ * pointer-events-none so clicks still reach the trigger anchor; only the panel
+ * body receives pointer events for hover / scroll inside the card.
+ */
+export function HoverCardBridge({
+  side,
+  children,
+}: {
+  side: 'top' | 'right' | 'bottom' | 'left';
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn(hoverCardBridgeClass(side), 'pointer-events-none')}>
+      <div className="pointer-events-auto">{children}</div>
+    </div>
+  );
 }
 
 export const HOVER_CARD_POINTER_BRIDGE_MS = 400;

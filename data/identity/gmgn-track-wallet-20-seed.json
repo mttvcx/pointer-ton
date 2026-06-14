@@ -1,0 +1,222 @@
+[
+  {
+    "chain": "solana",
+    "address": "2kv8X2a9bxnBM8NKLc6BBTX2z13GFNRL4oRotMUJRva9",
+    "displayName": "GHOSTER",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.78,
+    "rank": 1
+  },
+  {
+    "chain": "solana",
+    "address": "Bi4rd5FH5bYEN8scZ7wevxNZyNmKHdaBcvewdPFxYdLt",
+    "displayName": "theo",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.78,
+    "rank": 2
+  },
+  {
+    "chain": "solana",
+    "address": "CyaE1VxvBrahnPWkqm5VsdCvyS2QmNht2UFrKJHga54o",
+    "displayName": "Cented",
+    "category": "kol",
+    "badges": ["KOL", "Smart Money"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.82,
+    "rank": 3
+  },
+  {
+    "chain": "solana",
+    "address": "4vw54BmAogeRV3vPKWyFet5yf8DTLcREzdSzx4rw9Ud9",
+    "displayName": "decu",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.76,
+    "rank": 4
+  },
+  {
+    "chain": "solana",
+    "address": "ardinRsN1mNYVeoJWTBsWeYeXvuR9UUDGMsCDKpb6AT",
+    "displayName": "trunoest",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.76,
+    "rank": 5
+  },
+  {
+    "chain": "solana",
+    "address": "5B52w1ZW9tuwUduueP5J7HXz5AcGfruGoX6YoAudvyxG",
+    "displayName": "Yenni",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.75,
+    "rank": 6
+  },
+  {
+    "chain": "solana",
+    "address": "BQVz7fQ1WsQmSTMY3umdPEPPTm1sdcBcX9sP7o6kPRmB",
+    "displayName": "Limfork.eth",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.75,
+    "rank": 7
+  },
+  {
+    "chain": "solana",
+    "address": "9yYya3F5EJoLnBNKW6z4bZvyQytMXzDcpU5D6yYr4jqL",
+    "displayName": "Loopierr",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.75,
+    "rank": 8
+  },
+  {
+    "chain": "solana",
+    "address": "9iaawVBEsFG35PSwd4PahwT8fYNQe9XYuRdWm872dUqY",
+    "displayName": "meechie",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.74,
+    "rank": 9
+  },
+  {
+    "chain": "solana",
+    "address": "78N177fzNJpp8pG49xDv1efYcTMSzo9tPTKEA9mAVkh2",
+    "displayName": "Sheep",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.8,
+    "rank": 10
+  },
+  {
+    "chain": "solana",
+    "address": "4BdKaxN8G6ka4GYtQQWk4G4dZRUTX2vQH9GcXdBREFUk",
+    "displayName": "jijo",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.74,
+    "rank": 11
+  },
+  {
+    "chain": "solana",
+    "address": "DYAn4XpAkN5mhiXkRB7dGq4Jadnx6XYgu8L5b3WGhbrt",
+    "displayName": "Doc",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.74,
+    "rank": 12
+  },
+  {
+    "chain": "solana",
+    "address": "5XVKfruE4Zzeoz3aqBQfFMb5aSscY5nSyc6VwtQwNiid",
+    "displayName": "lly",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.73,
+    "rank": 13
+  },
+  {
+    "chain": "solana",
+    "address": "99i9uVA7Q56bY22ajKKUfTZTgTeP5yCtVGsrG9J4pDYQ",
+    "displayName": "Zrool",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.73,
+    "rank": 14
+  },
+  {
+    "chain": "solana",
+    "address": "4fZFcK8ms3bFMpo1ACzEUz8bH741fQW4zhAMGd5yZMHu",
+    "displayName": "Rilsio",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.73,
+    "rank": 15
+  },
+  {
+    "chain": "solana",
+    "address": "AVjEtg2ECYKXYeqdRQXvaaAZBjfTjYuSMTR4WLhKoeQN",
+    "displayName": "Putrick",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.73,
+    "rank": 16
+  },
+  {
+    "chain": "solana",
+    "address": "FAicXNV5FVqtfbpn4Zccs71XcfGeyxBSGbqLDyDJZjke",
+    "displayName": "radiance",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.72,
+    "rank": 17
+  },
+  {
+    "chain": "solana",
+    "address": "GgSni7JWRCvzTDd7FhCUdNMb5HqfrhDxHzoXtj9E7wpw",
+    "displayName": "thundr",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.72,
+    "rank": 18
+  },
+  {
+    "chain": "solana",
+    "address": "7pDhG6NqfzQzw5KvtGXJbVRUh4iTBgYAn68BSKjdMNC1",
+    "displayName": "Degenerate",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.72,
+    "rank": 19
+  },
+  {
+    "chain": "solana",
+    "address": "FpD6n8gfoZNxyAN6QqNH4TFQdV9vZEgcv5W4H2YL8k4X",
+    "displayName": "Shadow Stalk",
+    "category": "kol",
+    "badges": ["KOL"],
+    "source": "gmgn",
+    "sourceUrl": "https://gmgn.ai/track",
+    "confidence": 0.72,
+    "rank": 20
+  }
+]

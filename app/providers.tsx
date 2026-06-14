@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AppToaster } from '@/components/providers/AppToaster';
 import { WalletTrackerToaster } from '@/components/providers/WalletTrackerToaster';
+import { WalletTrackerAlertBridge } from '@/components/providers/WalletTrackerAlertBridge';
 import { ProvisionServerSigner } from '@/components/auth/ProvisionServerSigner';
 import { AuthSyncGate } from '@/components/auth/AuthSyncGate';
 import { PrivyOAuthReturnCleanup } from '@/components/auth/PrivyOAuthReturnCleanup';
@@ -91,6 +92,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <ProvisionServerSigner />
           <SandboxProvider />
           <FounderBetaDesktopGate>{children}</FounderBetaDesktopGate>
+          <WalletTrackerAlertBridge />
           <WalletTrackerToaster />
           <AppToaster />
         </PointerAuthProvider>

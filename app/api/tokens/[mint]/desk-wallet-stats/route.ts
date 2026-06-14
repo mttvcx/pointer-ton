@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getLatestSnapshotForMint, getTokenByMint } from '@/lib/db/tokens';
 import { resolveMintWalletStatsForDesk } from '@/lib/db/mintWalletStats';
+import { kickoffMintIndexIfEmpty } from '@/lib/indexer/kickoffMintIndex';
 import { canonicalSolAddress } from '@/lib/solana/canonicalAddress';
 import { isValidPublicKey } from '@/lib/utils/addresses';
 
@@ -32,6 +33,9 @@ export async function GET(
       currentPriceUsd: snapshot?.price_usd ?? null,
       decimals: token?.decimals ?? 6,
     });
+    if (!stats) {
+      kickoffMintIndexIfEmpty(mint);
+    }
     return NextResponse.json({
       stats,
       source: stats ? 'chain_indexer' : 'none',

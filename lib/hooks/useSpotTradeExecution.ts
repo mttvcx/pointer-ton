@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PublicKey } from '@solana/web3.js';
 import { useWallets as usePrivySolWallets } from '@privy-io/react-auth/solana';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
@@ -46,6 +46,7 @@ import {
 import {
   addInstantTradeBuyTon,
   addInstantTradeSellTon,
+  INSTANT_TRADE_STATS_EVT,
   readInstantTradeLifetimeStats,
 } from '@/lib/trading/instantTradeStats';
 
@@ -89,6 +90,7 @@ export function useSpotTradeExecution(
   const spendAsset = useTradingStore((s) => s.spendAsset);
   const setSpendAsset = useTradingStore((s) => s.setSpendAsset);
   const blitzWalletAddresses = useTradingStore((s) => s.blitzWalletAddresses);
+  const [statsRevision, setStatsRevision] = useState(0);
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -196,7 +198,13 @@ export function useSpotTradeExecution(
   const lifetimeStats = useMemo(() => {
     if (!wallet?.address) return { buyTon: 0, sellTon: 0 };
     return readInstantTradeLifetimeStats(mint, wallet.address);
-  }, [mint, wallet?.address, balanceRaw]);
+  }, [mint, wallet?.address, balanceRaw, statsRevision]);
+
+  useEffect(() => {
+    const onStats = () => setStatsRevision((n) => n + 1);
+    window.addEventListener(INSTANT_TRADE_STATS_EVT, onStats);
+    return () => window.removeEventListener(INSTANT_TRADE_STATS_EVT, onStats);
+  }, []);
 
   const { data: deskStats } = useDeskWalletStats(mint, wallet?.address);
 

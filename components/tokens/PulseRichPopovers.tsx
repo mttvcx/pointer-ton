@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUpRight,
@@ -37,11 +37,11 @@ import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-  HOVER_CARD_POINTER_BRIDGE_MS,
-  hoverCardBridgeClass,
+  HoverCardBridge,
 } from '@/components/ui/hover-card';
 import { useTwitterProfile } from '@/lib/hooks/useTwitterProfile';
 import { useSolUsdSpot } from '@/lib/hooks/useSolUsdSpot';
+import { useTwitterProfileHoverStore } from '@/store/twitterProfileHover';
 
 export {
   AXIOM_TWITTER_HOVER_PANEL_BG,
@@ -505,7 +505,7 @@ export function TwitterProfileHoverCard({ handle }: { handle: string }) {
 function TwitterProfileHoverShell({ children }: { children: ReactNode }) {
   return (
     <div
-      className="w-[300px] overflow-hidden rounded-xl border border-white/[0.06] shadow-2xl shadow-black/60"
+      className="w-[300px] overflow-visible rounded-xl border border-white/[0.06] shadow-2xl shadow-black/60"
       style={{ backgroundColor: TWITTER_PROFILE_HOVER_PANEL_BG }}
     >
       {children}
@@ -523,7 +523,7 @@ function TwitterProfileBanner({
   return (
     <div
       className={cn(
-        'relative h-[96px] w-full bg-cover bg-center',
+        'relative z-0 h-[96px] w-full overflow-hidden rounded-t-xl bg-cover bg-center',
         !bannerUrl && 'bg-gradient-to-br from-indigo-500/40 to-purple-500/40',
       )}
       style={bannerUrl ? { backgroundImage: `url("${bannerUrl}")` } : undefined}
@@ -555,9 +555,9 @@ function TwitterProfileHoverBody({
       <TwitterProfileBanner bannerUrl={data.bannerUrl} profileUrl={profileUrl} />
 
       {/* Avatar + identity — negative margin lifts the avatar over the banner edge. */}
-      <div className="-mt-8 px-3 pb-3">
+      <div className="relative z-10 -mt-8 px-3 pb-3">
         <div
-          className="h-16 w-16 overflow-hidden rounded-full bg-white/[0.06] ring-4"
+          className="relative z-10 h-16 w-16 overflow-hidden rounded-full bg-white/[0.06] ring-4 ring-[#1e2732]"
           style={{ ['--tw-ring-color' as string]: TWITTER_PROFILE_HOVER_PANEL_BG }}
         >
           {data.avatarUrl ? (
@@ -638,10 +638,10 @@ function TwitterProfileHoverBody({
 function TwitterProfileHoverSkeleton() {
   return (
     <TwitterProfileHoverShell>
-      <div className="h-[96px] w-full animate-pulse bg-white/[0.04]" />
-      <div className="-mt-8 px-3 pb-3">
+      <div className="relative z-0 h-[96px] w-full overflow-hidden rounded-t-xl animate-pulse bg-white/[0.04]" />
+      <div className="relative z-10 -mt-8 px-3 pb-3">
         <div
-          className="h-16 w-16 animate-pulse rounded-full bg-white/[0.06] ring-4"
+          className="relative z-10 h-16 w-16 animate-pulse rounded-full bg-white/[0.06] ring-4 ring-[#1e2732]"
           style={{ ['--tw-ring-color' as string]: TWITTER_PROFILE_HOVER_PANEL_BG }}
         />
         <div className="mt-2 h-3 w-36 animate-pulse rounded bg-white/[0.06]" />
@@ -685,8 +685,22 @@ export function TwitterProfileHoverTrigger({
   align?: 'start' | 'center' | 'end';
   sideOffset?: number;
 }) {
+  const triggerId = useId();
+  const activeTriggerId = useTwitterProfileHoverStore((s) => s.activeTriggerId);
+  const claim = useTwitterProfileHoverStore((s) => s.claim);
+  const release = useTwitterProfileHoverStore((s) => s.release);
+  const isOpen = activeTriggerId === triggerId;
+
   return (
-    <HoverCard openDelay={0} closeDelay={HOVER_CARD_POINTER_BRIDGE_MS}>
+    <HoverCard
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (open) claim(triggerId);
+        else release(triggerId);
+      }}
+      openDelay={0}
+      closeDelay={0}
+    >
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent
         side={side}
@@ -696,9 +710,9 @@ export function TwitterProfileHoverTrigger({
         instant
         className="border-0 bg-transparent p-0 shadow-none"
       >
-        <div className={hoverCardBridgeClass(side)}>
+        <HoverCardBridge side={side}>
           <TwitterProfileHoverCard handle={handle} />
-        </div>
+        </HoverCardBridge>
       </HoverCardContent>
     </HoverCard>
   );

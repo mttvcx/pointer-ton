@@ -96,6 +96,9 @@ export function PulseTokenAvatarHover({
   columnId,
   className,
   avatarImagePriority = false,
+  ringPresentation,
+  cornerBadgeEmphasis,
+  showHoverActions = true,
 }: {
   bundle: PulseTokenBundle;
   size: number;
@@ -104,6 +107,10 @@ export function PulseTokenAvatarHover({
   columnId?: PulseColumnId;
   className?: string;
   avatarImagePriority?: boolean;
+  ringPresentation?: 'progress' | 'brand-full';
+  cornerBadgeEmphasis?: 'default' | 'header';
+  /** Pulse row hide/blacklist chips — off on compact surfaces if needed. */
+  showHoverActions?: boolean;
 }) {
   const router = useRouter();
   const nowMs = useLiveClock();
@@ -310,10 +317,11 @@ export function PulseTokenAvatarHover({
       <div
         className={cn(
           'flex shrink-0 flex-col gap-0.5 transition-all duration-150',
-          hovered ? 'mr-0.5 w-[18px] opacity-100' : 'mr-0 w-0 opacity-0',
+          showHoverActions && hovered ? 'mr-0.5 w-[18px] opacity-100' : 'mr-0 w-0 opacity-0',
         )}
       >
-        {actions.map((action) => (
+        {showHoverActions
+          ? actions.map((action) => (
           <Tooltip key={action.key} delayDuration={120}>
             <TooltipTrigger asChild>
               <button
@@ -347,7 +355,8 @@ export function PulseTokenAvatarHover({
               {action.title}
             </TooltipContent>
           </Tooltip>
-        ))}
+            ))
+          : null}
       </div>
 
       <div className="relative shrink-0">
@@ -357,6 +366,8 @@ export function PulseTokenAvatarHover({
           showRing={showRing}
           launchpadChrome={launchpadChrome}
           columnId={columnId}
+          ringPresentation={ringPresentation}
+          cornerBadgeEmphasis={cornerBadgeEmphasis}
           imagePriority={avatarImagePriority}
         />
 

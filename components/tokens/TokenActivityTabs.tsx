@@ -90,10 +90,12 @@ function MintTradesScroll({
   marketCapUsd,
   nativeSym,
   displayMode,
+  mcDisplay,
   onHoverChange,
   onFilterMintTrades,
   tradesMakerFilter,
-  onToggleDisplayMode,
+  onToggleTotalDisplayMode,
+  onToggleMcDisplay,
   ageSortDir,
   onAgeSortDirChange,
   ageDisplay,
@@ -108,10 +110,12 @@ function MintTradesScroll({
   marketCapUsd?: number | null;
   nativeSym: string;
   displayMode: 'USD' | 'SOL';
+  mcDisplay: 'mc' | 'price';
   onHoverChange: (paused: boolean) => void;
   onFilterMintTrades?: (address: string) => void;
   tradesMakerFilter?: string | null;
-  onToggleDisplayMode?: () => void;
+  onToggleTotalDisplayMode?: () => void;
+  onToggleMcDisplay?: () => void;
   ageSortDir: 'asc' | 'desc';
   onAgeSortDirChange: (dir: 'asc' | 'desc') => void;
   ageDisplay: 'age' | 'time';
@@ -145,11 +149,13 @@ function MintTradesScroll({
           creatorWallet={creatorWallet}
           supplyTokens={supplyTokens}
           marketCapUsd={marketCapUsd}
-          displayMode={displayMode}
+          totalDisplayMode={displayMode}
+          mcDisplay={mcDisplay}
           nativeSym={nativeSym}
           onFilterMintTrades={onFilterMintTrades}
           tradesMakerFilter={tradesMakerFilter}
-          onToggleDisplayMode={onToggleDisplayMode}
+          onToggleTotalDisplayMode={onToggleTotalDisplayMode}
+          onToggleMcDisplay={onToggleMcDisplay}
           ageSortDir={ageSortDir}
           onAgeSortDirChange={onAgeSortDirChange}
           ageDisplay={ageDisplay}
@@ -376,7 +382,8 @@ export function TokenActivityTabs({
   const [onlyTracked, setOnlyTracked] = useState(false);
   const [traderDeskFilter, setTraderDeskFilter] = useState<TraderDeskFilter>('all');
   const [holderDeskFilter, setHolderDeskFilter] = useState<TraderDeskFilter>('all');
-  const [tableUsd, setTableUsd] = useState(true);
+  const [tableUsd, setTableUsd] = useState(false);
+  const [tradesMcDisplay, setTradesMcDisplay] = useState<'mc' | 'price'>('mc');
   const uiDemo = useUiDemoMode();
   const { isTracked } = useTrackedWalletsLookup();
   const { resolveLabel } = useWalletLabels();
@@ -566,15 +573,18 @@ export function TokenActivityTabs({
   ]);
 
   const filteredTraders = useMemo((): MintTopTraderRow[] => {
+    const allowDemo = tableDemoEnv || demoTables;
     return traderDeskFilter === 'all'
       ? traderRowsAfterTrack
       : traderRowsAfterTrack.filter((w) =>
           traderRowMatchesFilter({
             row: w,
+            chain: activeChain,
             creatorWallet,
             tracked: isTracked(w.wallet_address),
             labelDisp: resolveLabel(w.wallet_address, 5),
             filter: traderDeskFilter,
+            allowDemoDirectory: allowDemo,
           }),
         );
   }, [
@@ -583,6 +593,9 @@ export function TokenActivityTabs({
     creatorWallet,
     resolveLabel,
     isTracked,
+    activeChain,
+    tableDemoEnv,
+    demoTables,
   ]);
 
   const sortedTraders = useMemo(() => {
@@ -815,7 +828,7 @@ export function TokenActivityTabs({
               )}
             </button>
           ) : null}
-          {showTableControls ? (
+          {showTableControls && tab !== 'trades' ? (
             <>
               <button
                 type="button"
@@ -953,10 +966,12 @@ export function TokenActivityTabs({
               marketCapUsd={marketCapUsd}
               nativeSym={nativeSym}
               displayMode={displayMode}
+              mcDisplay={tradesMcDisplay}
               onHoverChange={setTradesFeedHoverPause}
               onFilterMintTrades={handleFilterMintTrades}
               tradesMakerFilter={tradesMakerFilter}
-              onToggleDisplayMode={() => setTableUsd((u) => !u)}
+              onToggleTotalDisplayMode={() => setTableUsd((u) => !u)}
+              onToggleMcDisplay={() => setTradesMcDisplay((m) => (m === 'mc' ? 'price' : 'mc'))}
               ageSortDir={tradesAgeSortDir}
               onAgeSortDirChange={onTradesAgeSortDirChange}
               ageDisplay={tradesAgeDisplay}

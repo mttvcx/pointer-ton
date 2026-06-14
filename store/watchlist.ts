@@ -11,6 +11,7 @@ import {
   type WatchlistSettings,
   type WatchlistSortDir,
   type WatchlistSortKey,
+  type TickerBarMode,
 } from '@/lib/watchlist/watchlistModel';
 
 type AddWatchlistInput = {
@@ -32,6 +33,7 @@ type WatchlistState = {
   setShowTicker: (show: boolean) => void;
   setQuickbuyMode: (mode: WatchlistQuickbuyMode) => void;
   setShowActivePositionMc: (show: boolean) => void;
+  setTickerMode: (mode: TickerBarMode) => void;
   setSort: (key: WatchlistSortKey, dir: WatchlistSortDir) => void;
   resetSettings: () => void;
 };
@@ -105,6 +107,9 @@ export const useWatchlistStore = create<WatchlistState>()(
 
       setShowActivePositionMc: (showActivePositionMc) =>
         set({ settings: { ...get().settings, showActivePositionMc } }),
+
+      setTickerMode: (tickerMode) =>
+        set({ settings: { ...get().settings, tickerMode, showTicker: true } }),
 
       setSort: (sortKey, sortDir) =>
         set({ settings: { ...get().settings, sortKey, sortDir } }),

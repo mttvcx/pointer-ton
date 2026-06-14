@@ -42,11 +42,11 @@ export function InlineBarCell({
       />
       <div
         className={cn(
-          'pointer-events-auto relative z-10 flex h-full items-center gap-0.5 pl-2 pr-1',
+          'pointer-events-auto relative z-10 flex h-full items-center gap-1.5',
           textToneClass[tone],
         )}
       >
-        <span className="inline-flex items-center gap-0.5 text-[11px] font-normal font-mono tabular-nums leading-none">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-normal font-mono tabular-nums leading-none">
           {children}
         </span>
       </div>

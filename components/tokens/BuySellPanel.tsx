@@ -51,7 +51,7 @@ import {
   walletConnectRequiredTitle,
 } from '@/lib/trading/walletConnectCopy';
 import { cn } from '@/lib/utils/cn';
-import { explorerTokenAriaLabel, explorerTokenHrefFromMint, mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { explorerTokenAriaLabel, explorerTokenHrefFromMint, isTradableMint, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import type { AppChainId } from '@/lib/chains/appChain';
 import type { Tables } from '@/lib/supabase/types';
@@ -211,6 +211,9 @@ export function BuySellPanel({
     }
   }, [activeWalletRow?.balance_lamports]);
   const tradingBlockedImported = activeWalletRow?.is_imported === true;
+  const mintTradable = isTradableMint(mint);
+  const chainMatchesMint = mintMatchesAppChain(mint, activeChain);
+  const tradingUnavailable = !mintTradable || !chainMatchesMint;
   const { submitFromQuote } = usePointerTradeSubmit();
   const activePresetSlot = useTradingStore((s) => s.activePresetSlot);
   const spendAsset = useTradingStore((s) => s.spendAsset);
@@ -234,7 +237,7 @@ export function BuySellPanel({
   const [dcaMaxMc, setDcaMaxMc] = useState('');
 
   const [tab, setTab] = useState<TradeSide>(initialTradeSide);
-  const [perfTf, setPerfTf] = useState<TokenTradePerfTf>('6h');
+  const [perfTf, setPerfTf] = useState<TokenTradePerfTf>('24h');
   const [activePresetSol, setActivePresetSol] = useState<number | null>(resolveDefaultBuyPresetSol());
   const [buyCustomSol, setBuyCustomSol] = useState('');
   const [sellPct, setSellPct] = useState<(typeof SELL_PCTS)[number]>(100);
@@ -412,6 +415,7 @@ export function BuySellPanel({
 
   const netSessionPnlSol = tradeDeskStats.netPnlSol;
   const holdingSol = tradeDeskStats.holdingSol;
+  const holdingTokenUi = tradeDeskStats.holdingTokenUi;
   const netPnlPct = tradeDeskStats.netPnlPct;
   const displayBuyTon = tradeDeskStats.buyTon;
   const displaySellTon = tradeDeskStats.sellTon;
@@ -1315,11 +1319,18 @@ export function BuySellPanel({
         {quote && !quoteStale ? <div className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px]"><div className="flex justify-between gap-2 text-fg-secondary"><span>You pay</span><span className="tabular-nums text-fg-primary">{formattedPay ?? '-'}</span></div><div className="mt-0.5 flex justify-between gap-2 text-fg-secondary"><span>You receive</span><span className="tabular-nums text-fg-primary">{formattedReceive ?? '-'}</span></div></div> : null}
         {quoteStale ? <p className="text-[10px] text-signal-warn">Settings changed. Tap the action button for a fresh quote.</p> : null}
         {tradingBlockedImported ? <p className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[10px] leading-snug text-fg-secondary">Imported wallets are view-only for swaps right now. Switch to an embedded Pointer wallet to trade.</p> : null}
+        {tradingUnavailable && !tradingBlockedImported ? (
+          <p className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[10px] leading-snug text-fg-secondary">
+            {!mintTradable
+              ? 'Swaps on this chain are browse-only in Phase 1. Switch to Solana or TON to trade.'
+              : 'Token chain does not match the header chain. Switch chain in the top bar to trade.'}
+          </p>
+        ) : null}
 
         <div className="pt-0.5">
           <button
             type="button"
-            disabled={!wallet || tradingBlockedImported || (panelMode === 'limit_mcap' && targetMcUsd == null)}
+            disabled={!wallet || tradingBlockedImported || tradingUnavailable || (panelMode === 'limit_mcap' && targetMcUsd == null)}
             onClick={() => {
               if (panelMode === 'limit_mcap') {
                 toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' });
@@ -1347,6 +1358,10 @@ export function BuySellPanel({
           bought={statsUsdMode ? displayBuyUsd : displayBuyTon}
           sold={statsUsdMode ? displaySellUsd : displaySellTon}
           holding={statsUsdMode ? displayHoldingUsd : holdingSol}
+          holdingSol={holdingSol}
+          holdingUsd={displayHoldingUsd}
+          holdingTokenUi={holdingTokenUi}
+          tokenSymbol={sym}
           pnl={statsUsdMode ? netPnlUsd : netSessionPnlSol}
           pnlPct={netPnlPct}
           className="rounded-none border-x-0"

@@ -1,7 +1,9 @@
 import 'server-only';
 
 import type { AppChainId } from '@/lib/chains/appChain';
+import { normalizeEvmAddress, resolveCanonicalEvmMint } from '@/lib/chains/evmAddress';
 import { inferMintKind } from '@/lib/chains/mintKind';
+import { insertMarketSnapshot } from '@/lib/db/tokens';
 import type { PulseTokenBundle } from '@/types/tokens';
 import type { TablesInsert, Json } from '@/lib/supabase/types';
 import { dexPairExtendedMetrics } from '@/lib/market/dexPairMeta';
@@ -107,15 +109,28 @@ function pairToSnapshot(mint: string, pair: DexPairRow): TablesInsert<'token_mar
   };
 }
 
-function groupPairsByMint(rows: DexPairRow[], mintSet: Set<string>): Map<string, DexPairRow[]> {
+function groupPairsByMint(rows: DexPairRow[], mints: string[]): Map<string, DexPairRow[]> {
   const grouped = new Map<string, DexPairRow[]>();
+  const mintSet = new Set(mints);
+
+  const addPair = (rawAddr: string | undefined, row: DexPairRow) => {
+    const trimmed = rawAddr?.trim();
+    if (!trimmed) return;
+    const canonical =
+      inferMintKind(trimmed) === 'evm'
+        ? resolveCanonicalEvmMint(trimmed, mintSet)
+        : mintSet.has(trimmed)
+          ? trimmed
+          : null;
+    if (!canonical) return;
+    const list = grouped.get(canonical) ?? [];
+    list.push(row);
+    grouped.set(canonical, list);
+  };
+
   for (const row of rows) {
-    const base = row.baseToken?.address?.trim();
-    if (base && mintSet.has(base)) {
-      const list = grouped.get(base) ?? [];
-      list.push(row);
-      grouped.set(base, list);
-    }
+    addPair(row.baseToken?.address, row);
+    addPair(row.quoteToken?.address, row);
   }
   return grouped;
 }
@@ -126,8 +141,6 @@ export async function fetchDexMetricsForMints(
 ): Promise<Map<string, TablesInsert<'token_market_snapshots'>>> {
   const out = new Map<string, TablesInsert<'token_market_snapshots'>>();
   if (mints.length === 0) return out;
-
-  const mintSet = new Set(mints);
 
   for (let i = 0; i < mints.length; i += 30) {
     const batch = mints.slice(i, i + 30);
@@ -149,7 +162,7 @@ export async function fetchDexMetricsForMints(
         rows = [json as DexPairRow];
       }
 
-      const grouped = groupPairsByMint(rows, mintSet);
+      const grouped = groupPairsByMint(rows, mints);
       for (const [mint, pairs] of grouped) {
         const best = pickBestPair(pairs);
         if (!best) continue;
@@ -224,4 +237,44 @@ export async function enrichPulseBundlesWithDexScreener(
       },
     };
   });
+}
+
+/** Persist DexScreener overlay snapshots so Pulse refetches show real V/MC. */
+export async function persistPulseDexSnapshots(bundles: PulseTokenBundle[]): Promise<number> {
+  let n = 0;
+  for (const bundle of bundles) {
+    const snap = bundle.snapshot;
+    if (!snap) continue;
+    const hasMetrics =
+      snap.market_cap_usd != null ||
+      snap.volume_24h_usd != null ||
+      snap.volume_1h_usd != null ||
+      snap.volume_5m_usd != null ||
+      snap.price_usd != null ||
+      snap.liquidity_usd != null;
+    if (!hasMetrics) continue;
+    try {
+      const row: TablesInsert<'token_market_snapshots'> = {
+        mint: snap.mint,
+        market_cap_usd: snap.market_cap_usd,
+        liquidity_usd: snap.liquidity_usd,
+        price_usd: snap.price_usd,
+        volume_5m_usd: snap.volume_5m_usd,
+        volume_1h_usd: snap.volume_1h_usd,
+        volume_24h_usd: snap.volume_24h_usd,
+        txns_5m: snap.txns_5m,
+        txns_1h: snap.txns_1h,
+        holder_count: snap.holder_count,
+        top10_holder_pct: snap.top10_holder_pct,
+        dev_holding_pct: snap.dev_holding_pct,
+        extended_metrics: snap.extended_metrics,
+        snapshot_at: snap.snapshot_at,
+      };
+      await insertMarketSnapshot(row);
+      n += 1;
+    } catch {
+      /* best-effort cron persist */
+    }
+  }
+  return n;
 }

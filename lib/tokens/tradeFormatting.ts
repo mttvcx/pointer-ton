@@ -2,6 +2,7 @@ import { PublicKey } from '@solana/web3.js';
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 import { demoWalletAt } from '@/lib/dev/demoTokenFixtures';
 import { formatCompactUsd } from '@/lib/format';
+import { formatPriceUsd } from '@/lib/utils/formatters';
 import { tradeRowEventKind } from '@/lib/indexer/parseSwapFromEnhancedTx';
 import type { MintSwapEventKind } from '@/lib/indexer/types';
 import type { Tables } from '@/lib/supabase/types';
@@ -58,6 +59,11 @@ export function tradeWalletDeskExtras(
 
 export function tradeRowEventKindFromRow(t: TradeRow): MintSwapEventKind {
   return tradeRowEventKind(t);
+}
+
+/** Token price at fill (MC column toggle). */
+export function tradePriceAtFillLabel(t: TradeRow): string {
+  return formatPriceUsd(t.price_usd_at_fill);
 }
 
 /** MC column label — REMOVE for liquidity events (Axiom parity). */

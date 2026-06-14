@@ -91,7 +91,8 @@ function TweetStripLink({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Post on X (${ariaBand})`}
-        className={cn(iconHit, linkClassName)}
+        className={cn(iconHit, 'relative z-[2] min-w-6', linkClassName)}
+        onClick={(e) => e.stopPropagation()}
       >
         <PulseLuminanceGlyph
           src={PULSE_GLYPH.feather}
@@ -107,8 +108,8 @@ function TweetStripLink({
  * Row icon hit targets — Axiom-style tight cluster (no per-icon hover fill).
  */
 const iconHit = cn(
-  'group inline-flex shrink-0 items-center justify-center gap-1',
-  'border-0 bg-transparent px-0.5 py-px shadow-none outline-none ring-0',
+  'group inline-flex h-6 shrink-0 items-center justify-center gap-1',
+  'border-0 bg-transparent px-0.5 shadow-none outline-none ring-0',
   'rounded-md',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40 focus-visible:ring-offset-0',
 );
@@ -557,8 +558,8 @@ export function PulseRowSocialStrip({
     >
       <div
         className={cn(
-          'flex min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-visible overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-          'gap-1 py-px',
+          'relative z-[2] flex h-6 min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-visible overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          'gap-1',
         )}
       >
         {twitterProfileUrl && twitterDisplayHandle ? (

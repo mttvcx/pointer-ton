@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { APP_CHAIN_IDS, isAppChainId } from '@/lib/chains/appChain';
 import { resolveWalletIdentities } from '@/lib/identity/identityService';
+import { prepareIdentityRegistry } from '@/lib/identity/importPersisted';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { getWalletLabelsForUser } from '@/lib/db/walletLabels';
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest) {
   if (!isAppChainId(body.chain)) {
     return NextResponse.json({ error: 'invalid_chain' }, { status: 400 });
   }
+
+  await prepareIdentityRegistry();
 
   const identities = resolveWalletIdentities({
     chain: body.chain,

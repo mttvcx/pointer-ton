@@ -15,9 +15,9 @@ import {
 } from 'lucide-react';
 import {
   HoverCard,
+  HoverCardBridge,
   HoverCardContent,
   HoverCardTrigger,
-  hoverCardBridgeClass,
 } from '@/components/ui/hover-card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePulseHiddenMintsStore } from '@/store/pulseHiddenMints';
@@ -644,9 +644,9 @@ export function TwitterTweetHoverTrigger({
         instant
         className="w-auto border-0 bg-transparent p-0 shadow-none"
       >
-        <div className={hoverCardBridgeClass(side)}>
+        <HoverCardBridge side={side}>
           <TwitterTweetHoverCard url={url} />
-        </div>
+        </HoverCardBridge>
       </HoverCardContent>
     </HoverCard>
   );

@@ -52,6 +52,17 @@ export function appChainForMintNavigation(mint: string, activeChain: AppChainId)
   return activeChain;
 }
 
+/** Phase 1 swap execution is live on Solana + TON only. */
+export function isTradableAppChain(chain: AppChainId): boolean {
+  return chain === 'sol' || chain === 'ton';
+}
+
+/** Whether quote/sign/execute is wired for this mint shape. */
+export function isTradableMint(mint: string): boolean {
+  const k = inferMintKind(mint.trim());
+  return k === 'sol' || k === 'ton';
+}
+
 /** Tracker watchlist addresses must match the selected header chain (TON / Solana / EVM). */
 export function isValidTrackedWalletAddress(addr: string, chain: AppChainId): boolean {
   return mintMatchesAppChain(addr.trim(), chain);

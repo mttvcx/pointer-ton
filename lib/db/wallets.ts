@@ -92,6 +92,17 @@ export async function listUserIdsTrackingWallet(
   return [...new Set((data ?? []).map((r) => r.user_id))];
 }
 
+/** Distinct tracked wallet addresses (cron poll fallback). */
+export async function listDistinctTrackedWalletAddresses(limit = 500): Promise<string[]> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('tracked_wallets')
+    .select('wallet_address')
+    .limit(limit);
+  if (error) throw new Error(`listDistinctTrackedWalletAddresses failed: ${error.message}`);
+  return [...new Set((data ?? []).map((r) => r.wallet_address).filter(Boolean))];
+}
+
 export async function deleteAllTrackedWalletsForUser(userId: string): Promise<void> {
   const supabase = createAdminSupabase();
   const { error } = await supabase.from('tracked_wallets').delete().eq('user_id', userId);

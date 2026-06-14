@@ -16,7 +16,7 @@ function formatTapeCount(n: number): string {
   return formatNumber(n, { decimals: 0 });
 }
 
-/** Shorter $ for tight tape columns — one decimal on K/M/B. */
+/** Axiom-style $ — one decimal on K/M/B, two decimals under $1K. */
 function formatTapeUsd(value: number): string {
   if (!Number.isFinite(value)) return '\u2014';
   const abs = Math.abs(value);
@@ -50,20 +50,14 @@ export function TokenTradeDeskStrip({
 }) {
   const [hovering, setHovering] = useState(false);
 
-  // Stats are the resting state; the TF picker only appears on hover.
   const showStats = !hovering;
   const tape = tapeMetricsForTf(metrics, selected, mint);
   const indexedTape = tape != null;
   const dash = '\u2014';
 
-  /**
-   * Dex aggregate windows: vol + txn counts are real, USD side-split is not.
-   * Counts of 0/0 under dexAggregate mean "split unreported" — render `—`,
-   * never a fake green zero.
-   */
   const dexAggregate = tape?.dexAggregate === true;
-  const countsKnown = !dexAggregate || (tape != null && tape.buys + tape.sells > 0);
-  const usdSplitKnown = !dexAggregate;
+  const txnTotal = tape != null ? tape.buys + tape.sells : 0;
+  const usdSplitKnown = tape != null && !dexAggregate && txnTotal > 0;
 
   const volTotal = tape && usdSplitKnown ? tape.buyVolUsd + tape.sellVolUsd : 0;
   const buyRatio =
@@ -71,16 +65,18 @@ export function TokenTradeDeskStrip({
       ? 0.5
       : usdSplitKnown && volTotal > 0
         ? tape.buyVolUsd / volTotal
-        : countsKnown && tape.buys + tape.sells > 0
-          ? tape.buys / (tape.buys + tape.sells)
+        : txnTotal > 0
+          ? tape.buys / txnTotal
           : 0.5;
   const hasActivity =
     indexedTape && tape != null && (tape.volUsd > 0 || tape.buys > 0 || tape.sells > 0);
-  const showRatioBar = hasActivity && (usdSplitKnown ? volTotal > 0 : countsKnown);
+  const showRatioBar = hasActivity && (usdSplitKnown ? volTotal > 0 : txnTotal > 0);
 
   const pickTf = (tf: TokenTradePerfTf) => {
     onSelect(tf);
   };
+
+  const volLabel = selected === '24h' ? '24h Vol' : `${selected} Vol`;
 
   return (
     <div
@@ -89,13 +85,13 @@ export function TokenTradeDeskStrip({
       onMouseLeave={() => setHovering(false)}
     >
       {showStats ? (
-        <div className="min-h-[4.25rem] py-1">
-          <div className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,0.85fr)] gap-x-1">
+        <div className="min-h-[3.75rem] py-0.5">
+          <div className="grid grid-cols-4 gap-x-2">
             <div className="min-w-0">
-              <p className="whitespace-nowrap text-[11px] font-medium leading-none text-fg-primary">
-                {selected} Vol
+              <p className="whitespace-nowrap text-[11px] font-medium leading-none text-fg-muted/80">
+                {volLabel}
               </p>
-              <p className="mt-1.5 whitespace-nowrap text-[12px] font-semibold tabular-nums leading-none text-fg-primary">
+              <p className="mt-1 whitespace-nowrap text-[12px] font-semibold tabular-nums leading-none text-fg-primary">
                 {indexedTape && tape ? formatCompactUsd(tape.volUsd) : dash}
               </p>
             </div>
@@ -103,8 +99,8 @@ export function TokenTradeDeskStrip({
               <p className="whitespace-nowrap text-[11px] font-medium leading-none text-fg-muted/80">
                 Buys
               </p>
-              <p className="mt-1.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bull">
-                {indexedTape && countsKnown
+              <p className="mt-1 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bull">
+                {indexedTape && tape && txnTotal > 0
                   ? usdSplitKnown
                     ? `${formatTapeCount(tape.buys)} / ${formatTapeUsd(tape.buyVolUsd)}`
                     : formatTapeCount(tape.buys)
@@ -115,8 +111,8 @@ export function TokenTradeDeskStrip({
               <p className="whitespace-nowrap text-[11px] font-medium leading-none text-fg-muted/80">
                 Sells
               </p>
-              <p className="mt-1.5 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bear">
-                {indexedTape && countsKnown
+              <p className="mt-1 whitespace-nowrap text-[11px] font-semibold tabular-nums leading-none text-signal-bear">
+                {indexedTape && tape && txnTotal > 0
                   ? usdSplitKnown
                     ? `${formatTapeCount(tape.sells)} / ${formatTapeUsd(tape.sellVolUsd)}`
                     : formatTapeCount(tape.sells)
@@ -129,38 +125,31 @@ export function TokenTradeDeskStrip({
               </p>
               <p
                 className={cn(
-                  'mt-1.5 whitespace-nowrap text-[12px] font-semibold tabular-nums leading-none',
-                  !indexedTape || !usdSplitKnown
+                  'mt-1 whitespace-nowrap text-[12px] font-semibold tabular-nums leading-none',
+                  !usdSplitKnown
                     ? 'text-fg-muted'
                     : tape && tape.netVolUsd < 0
                       ? 'text-signal-bear'
                       : 'text-signal-bull',
                 )}
               >
-                {indexedTape && tape && usdSplitKnown ? (
-                  <>
-                    {tape.netVolUsd >= 0 ? '+' : ''}
-                    {formatCompactUsd(tape.netVolUsd)}
-                  </>
-                ) : (
-                  dash
-                )}
+                {usdSplitKnown && tape ? formatTapeUsd(tape.netVolUsd) : dash}
               </p>
             </div>
           </div>
 
           {showRatioBar ? (
-            <div className="mt-3 flex h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="mt-2 flex h-[2px] w-full overflow-hidden">
               <div
-                className="h-full bg-signal-bull/90"
+                className="h-full bg-signal-bull"
                 style={{ width: `${Math.max(0, Math.min(100, buyRatio * 100))}%` }}
               />
-              <div className="h-full flex-1 bg-signal-bear/90" />
+              <div className="h-full flex-1 bg-signal-bear" />
             </div>
           ) : null}
         </div>
       ) : (
-        <div className="grid min-h-[4.25rem] grid-cols-4 gap-px rounded-md bg-border-subtle/20 p-px py-0.5">
+        <div className="grid min-h-[3.75rem] grid-cols-4 gap-0">
           {TOKEN_TRADE_PERF_TFS.map((tf) => {
             const pct = changes[tf];
             const isSelected = selected === tf;
@@ -173,17 +162,24 @@ export function TokenTradeDeskStrip({
                 aria-pressed={isSelected}
                 onClick={() => pickTf(tf)}
                 className={cn(
-                  'focus-ring flex min-h-[3.75rem] flex-col items-center justify-center rounded-[5px] px-1 py-2.5',
+                  'focus-ring flex min-h-[3.75rem] flex-col items-center justify-center rounded-md px-1 py-2',
                   'transition-colors duration-150',
                   isSelected
-                    ? 'bg-bg-hover text-fg-primary'
-                    : 'bg-bg-raised text-fg-muted hover:bg-bg-hover/80 hover:text-fg-secondary',
+                    ? 'bg-white/[0.05] text-fg-primary'
+                    : 'text-fg-muted hover:bg-white/[0.03] hover:text-fg-secondary',
                 )}
               >
                 <span className="text-[11px] font-semibold leading-none">{tf}</span>
                 <span
                   className={cn(
-                    'mt-1.5 text-[10px] font-medium tabular-nums leading-none',
+                    'mt-1 h-[2px] w-5 rounded-full',
+                    isSelected ? 'bg-signal-bull' : 'bg-transparent',
+                  )}
+                  aria-hidden
+                />
+                <span
+                  className={cn(
+                    'mt-1 text-[10px] font-medium tabular-nums leading-none',
                     pos ? 'text-signal-bull' : 'text-signal-bear',
                   )}
                 >

@@ -98,6 +98,7 @@ export function HoldersTable({
   const visibleRows = useMemo(() => {
     const statsMap = data?.walletStats ?? {};
     const clsMap = data?.walletClassifications ?? {};
+    const allowDemo = tableDemoEnv || (uiDemo && demoTablesEnabled(uiDemo));
 
     const base =
       filled?.holders.filter((h) => {
@@ -108,10 +109,12 @@ export function HoldersTable({
             ...h,
             is_fresh: clsMap[h.wallet_address]?.isFresh ?? false,
           },
+          chain: activeChain,
           creatorWallet,
           tracked: isTracked(h.wallet_address),
           labelDisp: resolveLabel(h.wallet_address, 5),
           filter: deskFilter,
+          allowDemoDirectory: allowDemo,
         });
       }) ?? [];
     const enriched = base.map((h) => {
@@ -191,6 +194,9 @@ export function HoldersTable({
     demoTables,
     data?.walletStats,
     data?.walletClassifications,
+    activeChain,
+    tableDemoEnv,
+    uiDemo,
   ]);
 
   const filteredEmpty =

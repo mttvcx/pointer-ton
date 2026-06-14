@@ -40,11 +40,9 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import {
-  modalBackdropClass,
   modalBtnPrimaryClass,
   modalBtnSecondaryClass,
   modalCloseBtnClass,
-  modalPanelClass,
 } from '@/lib/ui/modalChrome';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
@@ -385,7 +383,11 @@ export function PnlShareComposer() {
     <div className="fixed inset-0 z-[570] flex items-center justify-center p-3 sm:p-5">
       <button
         type="button"
-        className={cn(modalBackdropClass, overlayBackdropClasses(overlayVisible), 'fill-mode-forwards')}
+        className={cn(
+          'absolute inset-0 cursor-default bg-black/40 backdrop-blur-[3px]',
+          overlayBackdropClasses(overlayVisible),
+          'fill-mode-forwards',
+        )}
         onClick={() => close()}
         aria-label="Close share composer"
       />
@@ -394,15 +396,14 @@ export function PnlShareComposer() {
         aria-modal="true"
         aria-labelledby="pnl-share-title"
         className={cn(
-          modalPanelClass,
-          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col fill-mode-forwards',
+          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#080a0e]/90 fill-mode-forwards shadow-2xl backdrop-blur-xl',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-5">
+        <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-3 sm:px-5">
           <div className="min-w-0">
-            <h2 id="pnl-share-title" className="text-[15px] font-semibold text-fg-primary">
+            <h2 id="pnl-share-title" className="text-[14px] font-medium text-fg-primary">
               {shareKind === 'monthly' ? 'Share monthly PNL' : 'Share PNL'}
             </h2>
             <p className="mt-0.5 truncate text-[12px] text-fg-muted">

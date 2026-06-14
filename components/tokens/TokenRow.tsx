@@ -404,15 +404,21 @@ function TokenRowInner({
     () => alternateQuotePairKind(bundle, activeChain),
     [bundle, activeChain],
   );
+  const quoteIconPx = Math.max(13, Math.round(socialGlyphSize * 0.54));
   const ageBadge = (
-    <PulseRowAgeLabel createdAt={token.created_at} compact={slotHeight != null} />
+    <PulseRowAgeLabel createdAt={token.created_at} compact={slotHeight != null} rowAlign />
   );
   const ageQuotePairBadge =
     alternateQuote != null ? (
-      <QuotePairBadge kind={alternateQuote} chain={activeChain} variant="row" />
+      <QuotePairBadge
+        kind={alternateQuote}
+        chain={activeChain}
+        variant="icon"
+        iconPx={quoteIconPx}
+      />
     ) : null;
   const ageCluster = (
-    <div className="inline-flex shrink-0 items-center gap-1">
+    <div className="inline-flex h-6 shrink-0 items-center gap-1">
       {ageBadge}
       {ageQuotePairBadge}
     </div>
@@ -590,8 +596,8 @@ function TokenRowInner({
                  * handle / follower row is rendered (Axiom-style consistency).
                  */
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 overflow-visible">
-                  <div className="flex min-h-0 min-w-0 flex-nowrap items-start gap-2 overflow-visible">
-                    <div className="shrink-0 self-start pt-px">{ageCluster}</div>
+                  <div className="flex min-h-0 min-w-0 flex-nowrap items-center gap-1 overflow-visible">
+                    {ageCluster}
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
                       <PulseRowSocialStrip
                         bundle={bundle}
@@ -628,7 +634,7 @@ function TokenRowInner({
                 </div>
               ) : (
                 <div className={cn('min-w-0 space-y-0.5', 'mt-0.5 pt-1')}>
-                  <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
+                  <div className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
                     {ageCluster}
                     <PulseRowSocialStrip
                       bundle={bundle}

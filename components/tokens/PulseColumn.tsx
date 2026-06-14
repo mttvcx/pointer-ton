@@ -22,6 +22,7 @@ import {
   mergeSnapshotIntoPulseCache,
   mergeTokenIntoPulseCache,
 } from '@/lib/pulse/realtimeCache';
+import { bundleMatchesPulseColumn } from '@/lib/pulse/columnGates';
 import {
   DEFAULT_COLUMN_DISPLAY_OPTIONS,
   type ColumnDisplayOptions,
@@ -180,6 +181,10 @@ function PulseColumnBody({
       items = raw;
     } else {
       items = raw;
+    }
+
+    if (column === 'new' && !uiDemo) {
+      items = items.filter((b) => bundleMatchesPulseColumn(b, column, activeChain));
     }
 
     return items;
@@ -527,18 +532,25 @@ function PulseColumnBody({
 
           <div className="flex min-h-[2.125rem] min-w-0 flex-1 items-center justify-center px-1">
             {!hideColumnSearch ? (
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by ticker or name"
+              <div
                 className={cn(
-                  'h-[2.125rem] w-full min-w-[7.5rem] max-w-[13.5rem] rounded-full border border-white/[0.14] px-3 text-[12px] text-fg-primary outline-none transition-colors duration-150',
-                  'bg-black/25 placeholder:text-fg-muted/65 focus:border-white/20 focus:bg-black/35 focus:ring-1 focus:ring-accent-primary/30',
-                  'hover:border-white/20',
+                  'flex h-[2.125rem] w-full min-w-[7.5rem] max-w-[13.5rem] items-center rounded-full border border-white/[0.14] bg-black/25 px-3 transition-colors duration-150',
+                  'hover:border-white/20 focus-within:border-white/20 focus-within:bg-black/35 focus-within:ring-1 focus-within:ring-accent-primary/30',
                 )}
-                aria-label={`Search ${title}`}
-              />
+              >
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by ticker or name"
+                  className={cn(
+                    'min-w-0 w-full bg-transparent text-[12px] leading-none text-fg-primary outline-none',
+                    'placeholder:text-fg-muted/65',
+                    '[appearance:textfield] [&::-webkit-search-cancel-button]:appearance-none',
+                  )}
+                  aria-label={`Search ${title}`}
+                />
+              </div>
             ) : (
               <span className="sr-only">Column search hidden — enable in Display → Layout</span>
             )}

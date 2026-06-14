@@ -115,10 +115,13 @@ export async function listPulseNewTokens(limit: number): Promise<TokenRow[]> {
     .from('tokens')
     .select('*')
     .gte('created_at', since)
+    .is('migrated_at', null)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw new Error(`listPulseNewTokens failed: ${error.message}`);
-  return data ?? [];
+  return (data ?? []).filter(
+    (t) => t.bonding_progress == null || t.bonding_progress < 100,
+  );
 }
 
 export async function listPulseMigratedTokens(limit: number): Promise<TokenRow[]> {
@@ -261,7 +264,13 @@ export async function listPulseFeedTokens(
     const recent = await listRecentTokens(PULSE_FEED_SCAN_DEPTH);
     return dedupeTokenRowsByMint(
       recent
-        .filter((t) => t.created_at >= since && tokenMatchesAppChain(t, chain))
+        .filter(
+          (t) =>
+            t.created_at >= since &&
+            t.migrated_at == null &&
+            (t.bonding_progress == null || t.bonding_progress < 100) &&
+            tokenMatchesAppChain(t, chain),
+        )
         .sort((a, b) => b.created_at.localeCompare(a.created_at)),
     ).slice(0, limit);
   }

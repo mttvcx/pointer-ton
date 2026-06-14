@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { isAppChainId } from '@/lib/chains/appChain';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { evmAddressesMatch } from '@/lib/chains/evmAddress';
 import { isValidGlobalSearchQuery } from '@/lib/ethereum/EthereumSearch';
 import type { DexPairRow } from '@/lib/market/dexscreenerPulse';
 
@@ -51,7 +52,11 @@ export async function GET(req: NextRequest) {
     );
     if (!res.ok) return NextResponse.json({ token: null });
     const json = (await res.json()) as { pairs?: DexPairRow[] };
-    const pairs = (json.pairs ?? []).filter((p) => p.baseToken?.address?.trim() === q);
+    const pairs = (json.pairs ?? []).filter((p) => {
+      const base = p.baseToken?.address?.trim();
+      if (!base) return false;
+      return evmAddressesMatch(base, q) || base === q;
+    });
     if (pairs.length === 0) return NextResponse.json({ token: null });
     const best = [...pairs].sort(
       (a, b) => (Number(b.liquidity?.usd) || 0) - (Number(a.liquidity?.usd) || 0),

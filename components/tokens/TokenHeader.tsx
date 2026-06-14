@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { Bell, ExternalLink, Search, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
-import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
+import { PulseTokenAvatarHover } from '@/components/tokens/PulseTokenAvatarHover';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
 import { QuotePairBadge } from '@/components/tokens/QuotePairBadge';
 import { TokenHeaderNameHover } from '@/components/tokens/TokenHeaderNameHover';
@@ -51,6 +51,9 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
 import { useWatchlistStore } from '@/store/watchlist';
+import { noteRecentTokenVisit } from '@/store/recentTokenVisits';
+import { TokenSharePnlButton } from '@/components/tokens/TokenSharePnlButton';
+import { useTokenDeskSharePnl } from '@/lib/hooks/useTokenDeskSharePnl';
 
 const iconRow =
   'inline-flex h-4 w-4 shrink-0 cursor-pointer text-fg-muted transition-colors hover:text-fg-primary';
@@ -153,7 +156,28 @@ export function TokenHeader({
   const watchlisted = useWatchlistStore((s) => s.items.some((i) => i.mint === mint));
   const toggleWatchlist = useWatchlistStore((s) => s.toggleItem);
   const setShowTicker = useWatchlistStore((s) => s.setShowTicker);
+  const setTickerMode = useWatchlistStore((s) => s.setTickerMode);
   const nativeSym = nativeTicker(activeChain);
+
+  const { canShare: canSharePnl, openShareComposer } = useTokenDeskSharePnl({
+    mint,
+    decimals: token.decimals ?? 6,
+    tokenTicker: ticker,
+    tokenName: name,
+    tokenIconUrl: token.image_url,
+    chain: activeChain,
+    priceUsd: snapshot?.price_usd,
+  });
+
+  useEffect(() => {
+    noteRecentTokenVisit({
+      mint,
+      symbol: token.symbol,
+      name: token.name,
+      imageUrl: token.image_url,
+      marketCapUsd: snapshot?.market_cap_usd ?? null,
+    });
+  }, [mint, token.symbol, token.name, token.image_url, snapshot?.market_cap_usd]);
 
   const priceChangePct = pickPriceChange24hPct(extJson);
   const athUsd = pickAthUsd(extJson);
@@ -248,13 +272,14 @@ export function TokenHeader({
       <div className="flex min-w-0 items-center overflow-visible px-2.5 sm:px-3">
         <div className="flex shrink-0 items-center gap-2 py-2.5">
           <div className="relative shrink-0 overflow-visible pr-1.5 pb-1.5">
-            <PulseTokenAvatar
+            <PulseTokenAvatarHover
               bundle={bundle}
               size={HEADER_AVATAR_PX}
               showRing
               launchpadChrome={launchpadChrome}
               ringPresentation="brand-full"
               cornerBadgeEmphasis="header"
+              avatarImagePriority
               className="shrink-0"
             />
           </div>
@@ -292,6 +317,7 @@ export function TokenHeader({
                   });
                   if (!wasWatchlisted) {
                     setShowTicker(true);
+                    setTickerMode('watchlist');
                     toast.success('Added to watchlist');
                   } else {
                     toast.message('Removed from watchlist');
@@ -325,6 +351,12 @@ export function TokenHeader({
                 traits={traits}
                 chain={activeChain}
               />
+              {canSharePnl ? (
+                <>
+                  <span className="h-3 w-px shrink-0 bg-white/[0.08]" aria-hidden />
+                  <TokenSharePnlButton onClick={openShareComposer} />
+                </>
+              ) : null}
             </div>
           </div>
         </div>

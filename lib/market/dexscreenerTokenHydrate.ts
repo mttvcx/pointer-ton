@@ -1,6 +1,8 @@
 import 'server-only';
 
 import type { AppChainId } from '@/lib/chains/appChain';
+import { evmAddressesMatch } from '@/lib/chains/evmAddress';
+import { inferMintKind } from '@/lib/chains/mintKind';
 import { classificationUpdateFromLaunchEvent, enrichTokenInsertFromLaunchEvent } from '@/lib/protocol/enrichTokenRow';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import { getTokenByMint, insertMarketSnapshot, updateToken, upsertToken, type TokenRow } from '@/lib/db/tokens';
@@ -10,6 +12,7 @@ import {
   type DexPairRow,
 } from '@/lib/market/dexscreenerPulse';
 import { hydratePumpFunTokenRow, tokenNeedsPumpFunHydrate } from '@/lib/market/hydratePumpFunTokenRow';
+import { protocolBrandIdFromDexId } from '@/lib/protocol/dexProtocolMap';
 
 const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   sol: 'solana',
@@ -69,7 +72,13 @@ export async function ensureTokenRowFromDexScreener(
     /* best-effort */
   }
 
-  const best = pickBestPair(pairs.filter((p) => p.baseToken?.address?.trim() === mint));
+  const best = pickBestPair(
+    pairs.filter((p) => {
+      const base = p.baseToken?.address?.trim();
+      if (!base) return false;
+      return inferMintKind(mint) === 'evm' ? evmAddressesMatch(base, mint) : base === mint;
+    }),
+  );
   let saved: TokenRow | null =
     existing?.name?.trim() && existing?.symbol?.trim() && existing?.image_url?.trim()
       ? existing
@@ -87,8 +96,13 @@ export async function ensureTokenRowFromDexScreener(
       pairAddress: best.pairAddress ?? null,
     } as unknown as Json;
 
+    const dexLaunch =
+      best.dexId != null ? protocolBrandIdFromDexId(best.dexId, chain) : null;
+    const launchpad =
+      best.dexId === 'pumpfun' ? 'pump.fun' : dexLaunch ?? 'unknown';
+
     const ev: LaunchpadEvent = {
-      launchpad: best.dexId === 'pumpfun' ? 'pump.fun' : 'unknown',
+      launchpad,
       mint,
       creator_wallet: null,
       symbol,

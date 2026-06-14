@@ -49,6 +49,7 @@ import { heliusDasRpc, pollSolanaPulseFromDas } from '@/lib/helius/solDasPoll';
 import { hydratePumpFunTokenRow } from '@/lib/market/hydratePumpFunTokenRow';
 import { enrichPulseBundlesWithDexScreener } from '@/lib/market/dexscreenerPulse';
 import { enrichPulseBundlesWithMetrics } from '@/lib/market/pulseMetricsEnrich';
+import { bundleMatchesPulseColumn } from '@/lib/pulse/columnGates';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { withTimeout } from '@/lib/utils/withTimeout';
 import { PublicKey } from '@solana/web3.js';
@@ -218,7 +219,12 @@ async function widenChainBackfill(column: PulseColumnId, chain: AppChainId): Pro
   let pool = recent.filter((t) => tokenMatchesAppChain(t, chain));
   if (column === 'new') {
     const since = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
-    pool = pool.filter((t) => t.created_at >= since);
+    pool = pool.filter(
+      (t) =>
+        t.created_at >= since &&
+        t.migrated_at == null &&
+        (t.bonding_progress == null || t.bonding_progress < 100),
+    );
   } else if (column === 'migrated') {
     pool = pool.filter((t) => t.migrated_at != null);
     pool.sort((a, b) => (b.migrated_at ?? '').localeCompare(a.migrated_at ?? ''));
@@ -381,11 +387,19 @@ export async function getPulseFeed(
     }
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
-    // DAS / Gecko backfill runs on cron — not on every 2s Pulse refetch (was blocking 20s+).
-    // For Sol we additionally fire-and-forget the DAS poll so the NEW column
-    // fills in local dev (no cron) without blocking the current request.
     if (chain === 'sol') {
-      maybeKickSolDasPollAsync();
+      try {
+        const inserted = await withTimeout(
+          pollSolanaPulseFromDas(),
+          12_000,
+          'pulse_sol_cold_poll',
+        );
+        debugTon('getPulseFeed: sync Sol DAS poll', { insertedNewMints: inserted });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('[pointer][pulse DAS] cold-start sync poll failed:', msg);
+        maybeKickSolDasPollAsync();
+      }
     } else {
       const geckoNet = geckoNetworkForAppChain(chain);
       if (geckoNet) maybeKickGeckoPollAsync(geckoNet);
@@ -414,12 +428,19 @@ export async function getPulseFeed(
       6_000,
       'pulse_dex_enrich',
     );
-    return await withTimeout(
+    const metricsEnriched = await withTimeout(
       enrichPulseBundlesWithMetrics(dexEnriched, chain),
       9_000,
       'pulse_metrics_enrich',
     );
+    if (column === 'new') {
+      return metricsEnriched.filter((b) => bundleMatchesPulseColumn(b, column, chain));
+    }
+    return metricsEnriched;
   } catch {
+    if (column === 'new') {
+      return deduped.filter((b) => bundleMatchesPulseColumn(b, column, chain));
+    }
     return deduped;
   }
 }

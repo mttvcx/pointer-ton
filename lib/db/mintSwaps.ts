@@ -115,3 +115,19 @@ export async function countMintSwaps(mint: string): Promise<number> {
   if (error) throw new Error(`countMintSwaps failed: ${error.message}`);
   return count ?? 0;
 }
+
+/** Swaps since ISO timestamp (for global wallet_stats aggregation). */
+export async function listMintSwapsSince(
+  sinceIso: string,
+  limit = 100_000,
+): Promise<MintSwapRow[]> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('mint_swaps')
+    .select('*')
+    .gte('block_time', sinceIso)
+    .order('block_time', { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`listMintSwapsSince failed: ${error.message}`);
+  return (data ?? []) as MintSwapRow[];
+}

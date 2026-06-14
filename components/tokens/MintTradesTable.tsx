@@ -10,29 +10,26 @@ import {
   formatCompactNumber,
 } from '@/lib/format';
 import {
-  tradeFillMarketCapUsdLabel,
   tradeIsLiquidityEvent,
   tradeMcColumnLabel,
+  tradePriceAtFillLabel,
   tradeTraderHint,
   tradeWalletDeskExtras,
   tradeRowDemoIndex,
   walletsMatch,
 } from '@/lib/tokens/tradeFormatting';
 import {
-  DESK_CELL_CLASS,
-  DESK_CELL_FIRST_CLASS,
-  DESK_CELL_LAST_CLASS,
-  DESK_HEADER_CLASS,
-  DESK_HEADER_NUM_CLASS,
   deskRowClass,
   DESK_STICKY_HEAD_CLASS,
   DESK_TABLE_CLASS,
   CELL_MUTED_CLASS,
   CELL_WALLET_CLASS,
+  TRADES_DESK_GRID_COLS,
+  TRADES_DESK_HEADER_CELL,
+  TRADES_DESK_BODY_CELL,
 } from './cells/deskTokens';
 import { InlineBarCell } from './cells/InlineBarCell';
-import { SortableTh, SortIndicator } from './cells/SortableTh';
-import { DeskHeaderSettings } from './cells/DeskHeaderSettings';
+import { SortIndicator } from './cells/SortableTh';
 import { TradeDeskYouLabel } from '@/components/tokens/cells/TradeDeskYouLabel';
 import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
 import { WalletMintTradesFilterButton } from './cells/WalletMintTradesFilterButton';
@@ -43,9 +40,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { explorerAddressUrl } from '@/lib/utils/addresses';
+import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
 import type { Tables } from '@/lib/supabase/types';
 
 type TradeRow = Tables<'trades'>;
+
+const TRADES_GRID_STYLE = { gridTemplateColumns: TRADES_DESK_GRID_COLS } as const;
 
 type Props = {
   rows: TradeRow[];
@@ -54,17 +54,44 @@ type Props = {
   creatorWallet?: string | null;
   supplyTokens?: number | null;
   marketCapUsd?: number | null;
-  displayMode: 'USD' | 'SOL';
+  totalDisplayMode: 'USD' | 'SOL';
+  mcDisplay: 'mc' | 'price';
   nativeSym?: string;
   onFilterMintTrades?: (address: string) => void;
   tradesMakerFilter?: string | null;
-  onToggleDisplayMode?: () => void;
+  onToggleTotalDisplayMode?: () => void;
+  onToggleMcDisplay?: () => void;
   ageSortDir: 'asc' | 'desc';
   onAgeSortDirChange: (dir: 'asc' | 'desc') => void;
   ageDisplay: 'age' | 'time';
   onAgeDisplayChange: (mode: 'age' | 'time') => void;
   viewerWallet?: string | null;
 };
+
+function HeaderToggle({
+  label,
+  onClick,
+  title,
+}: {
+  label: string;
+  onClick?: () => void;
+  title: string;
+}) {
+  if (!onClick) {
+    return <span>{label}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="inline-flex items-center gap-1 rounded-sm transition-colors hover:text-fg-primary"
+    >
+      <span>{label}</span>
+      <ArrowLeftRight className="h-2.5 w-2.5 shrink-0 text-fg-muted/45" strokeWidth={2} aria-hidden />
+    </button>
+  );
+}
 
 export function MintTradesTable({
   rows,
@@ -73,11 +100,13 @@ export function MintTradesTable({
   creatorWallet = null,
   supplyTokens = null,
   marketCapUsd = null,
-  displayMode,
+  totalDisplayMode,
+  mcDisplay,
   nativeSym = 'SOL',
   onFilterMintTrades,
   tradesMakerFilter,
-  onToggleDisplayMode,
+  onToggleTotalDisplayMode,
+  onToggleMcDisplay,
   ageSortDir,
   onAgeSortDirChange,
   ageDisplay,
@@ -106,87 +135,84 @@ export function MintTradesTable({
   }, [rows]);
 
   return (
-    <table className={cn('w-full min-w-[760px] table-fixed border-collapse', DESK_TABLE_CLASS)}>
-      <colgroup>
-        <col style={{ width: '5.4%' }} />
-        <col style={{ width: '4.7%' }} />
-        <col style={{ width: '7.1%' }} />
-        <col style={{ width: '7.8%' }} />
-        {/* Bar — flexible, takes all remaining space */}
-        <col style={{ width: 'auto' }} />
-        {/* Trader — fixed strip at the right */}
-        <col style={{ width: '19%' }} />
-        <col style={{ width: '28px' }} />
-      </colgroup>
-      <thead className={DESK_STICKY_HEAD_CLASS}>
-        <tr>
-          <th className={cn(DESK_HEADER_CLASS, 'text-right pl-3')}>
-            <span className="inline-flex items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => onAgeDisplayChange('age')}
-                className={cn(
-                  'rounded px-0.5 transition-colors',
-                  ageDisplay === 'age' ? 'text-fg-primary' : 'text-fg-muted/60 hover:text-fg-secondary',
-                )}
-              >
-                Age
-              </button>
+    <div className={cn('w-full min-w-0', DESK_TABLE_CLASS)} role="table" aria-label="Token trades">
+      <div
+        className={cn('grid w-full', DESK_STICKY_HEAD_CLASS)}
+        style={TRADES_GRID_STYLE}
+        role="rowgroup"
+      >
+        <div className={cn(TRADES_DESK_HEADER_CELL, 'whitespace-nowrap')} role="columnheader">
+          <span className="inline-flex items-center gap-0.5 normal-case tracking-normal">
+            <button
+              type="button"
+              onClick={() => onAgeDisplayChange('age')}
+              className={cn(
+                'rounded-sm px-0.5 transition-colors',
+                ageDisplay === 'age' ? 'text-fg-primary' : 'text-fg-muted/60 hover:text-fg-secondary',
+              )}
+            >
+              Age
+            </button>
+            {ageDisplay === 'age' ? (
               <button
                 type="button"
                 onClick={() => onAgeSortDirChange(ageSortDir === 'desc' ? 'asc' : 'desc')}
-                className="inline-flex items-center rounded px-0.5 text-fg-muted/60 transition-colors hover:text-fg-primary"
+                className="inline-flex items-center rounded-sm px-0.5 text-fg-muted/70 transition-colors hover:text-fg-primary"
                 aria-label={`Sort trades by time, ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
                 title={`Sort ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
               >
                 <SortIndicator sortDir={ageSortDir} />
               </button>
-              <span className="text-fg-muted/40">/</span>
+            ) : null}
+            <span className="text-fg-muted/35">/</span>
+            <button
+              type="button"
+              onClick={() => onAgeDisplayChange('time')}
+              className={cn(
+                'rounded-sm px-0.5 transition-colors',
+                ageDisplay === 'time' ? 'text-fg-primary' : 'text-fg-muted/60 hover:text-fg-secondary',
+              )}
+            >
+              Time
+            </button>
+            {ageDisplay === 'time' ? (
               <button
                 type="button"
-                onClick={() => onAgeDisplayChange('time')}
-                className={cn(
-                  'rounded px-0.5 transition-colors',
-                  ageDisplay === 'time' ? 'text-fg-primary' : 'text-fg-muted/60 hover:text-fg-secondary',
-                )}
+                onClick={() => onAgeSortDirChange(ageSortDir === 'desc' ? 'asc' : 'desc')}
+                className="inline-flex items-center rounded-sm px-0.5 text-fg-muted/70 transition-colors hover:text-fg-primary"
+                aria-label={`Sort trades by time, ${ageSortDir === 'desc' ? 'newest first' : 'oldest first'}`}
               >
-                Time
+                <SortIndicator sortDir={ageSortDir} />
               </button>
-            </span>
-          </th>
-          <th className={DESK_HEADER_CLASS}>Type</th>
-          <SortableTh label="MC" align="right" />
-          <SortableTh
-            label={
-              <span className="flex flex-col items-end gap-0 leading-none">
-                <span>Amount</span>
-                {onToggleDisplayMode ? (
-                  <button
-                    type="button"
-                    onClick={onToggleDisplayMode}
-                    className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-normal normal-case tracking-normal text-fg-muted/60 transition hover:text-fg-primary"
-                    title="Toggle USD / SOL"
-                  >
-                    {displayMode === 'SOL' ? nativeSym : 'USD'}
-                    <span className="inline-flex h-3 w-3 items-center justify-center rounded-full bg-signal-bull/15 text-signal-bull">
-                      <ArrowLeftRight className="h-2 w-2" strokeWidth={2.5} aria-hidden />
-                    </span>
-                  </button>
-                ) : (
-                  <span className="mt-0.5 text-[9px] font-normal normal-case tracking-normal text-fg-muted/60">
-                    {displayMode === 'SOL' ? nativeSym : 'USD'}
-                  </span>
-                )}
-              </span>
-            }
-            align="right"
+            ) : null}
+          </span>
+        </div>
+        <div className={TRADES_DESK_HEADER_CELL} role="columnheader">
+          Type
+        </div>
+        <div className={TRADES_DESK_HEADER_CELL} role="columnheader">
+          <HeaderToggle
+            label={mcDisplay === 'mc' ? 'MC' : 'Price'}
+            onClick={onToggleMcDisplay}
+            title={mcDisplay === 'mc' ? 'Show price at fill' : 'Show market cap'}
           />
-          <th className={cn(DESK_HEADER_CLASS, 'pl-1')} aria-hidden />
-          <th className={cn(DESK_HEADER_CLASS, 'pr-3 text-right')}>Trader</th>
-          <DeskHeaderSettings />
-        </tr>
-      </thead>
-      <tbody>
+        </div>
+        <div className={TRADES_DESK_HEADER_CELL} role="columnheader">
+          Amount
+        </div>
+        <div className={TRADES_DESK_HEADER_CELL} role="columnheader">
+          <HeaderToggle
+            label={totalDisplayMode === 'SOL' ? `Total ${nativeSym}` : 'Total USD'}
+            onClick={onToggleTotalDisplayMode}
+            title={totalDisplayMode === 'SOL' ? 'Show USD notional' : `Show ${nativeSym} notional`}
+          />
+        </div>
+        <div className={cn(TRADES_DESK_HEADER_CELL, 'justify-end')} role="columnheader">
+          Trader
+        </div>
+      </div>
+
+      <div role="rowgroup">
         {sortedRows.map((row, i) => {
           const liqEvent = tradeIsLiquidityEvent(row);
           const tone = liqEvent ? 'sell' : row.side === 'buy' ? 'buy' : 'sell';
@@ -194,17 +220,8 @@ export function MintTradesTable({
           const tokens = row.amount_token ?? 0;
           const traderHint = tradeTraderHint(row, i);
           const usdValue = Math.abs(sol * (row.price_usd_at_fill ?? 0));
-          const totalBarValue = displayMode === 'SOL' ? Math.abs(sol) : usdValue;
-          const totalBarMax = displayMode === 'SOL' ? maxSol : maxUsd;
-          const solDisplay = sol.toFixed(Math.abs(sol) < 1 ? 3 : 2);
-          const sizeClass =
-            usdValue >= 50_000
-              ? 'text-[14px] font-bold'
-              : usdValue >= 10_000
-                ? 'text-[13px] font-semibold'
-                : usdValue >= 1_000
-                  ? 'text-[12px] font-medium'
-                  : 'text-[11px] font-normal';
+          const totalBarValue = totalDisplayMode === 'SOL' ? Math.abs(sol) : usdValue;
+          const totalBarMax = totalDisplayMode === 'SOL' ? maxSol : maxUsd;
 
           const wallet = traderHint.fullAddress;
           const demoIdx = tradeRowDemoIndex(row);
@@ -213,68 +230,72 @@ export function MintTradesTable({
             ? tradeWalletDeskExtras(wallet, demoIdx, creatorWallet, chainBadges as never)
             : null;
 
+          const sideLabel = liqEvent ? 'Remove' : row.side === 'buy' ? 'Buy' : 'Sell';
+
           return (
-            <tr
+            <div
               key={row.id}
-              className={deskRowClass(i, liqEvent ? '!bg-signal-bear/10' : undefined)}
+              className={cn('grid w-full', deskRowClass(i, liqEvent ? '!bg-signal-bear/10' : undefined))}
+              style={TRADES_GRID_STYLE}
+              role="row"
             >
-              <td className={cn(DESK_CELL_FIRST_CLASS, 'text-right')}>
+              <div className={TRADES_DESK_BODY_CELL} role="cell">
                 <span className={CELL_MUTED_CLASS}>
                   {ageDisplay === 'time'
                     ? formatTradeClockTime(row.submitted_at)
                     : formatRelativeShort(row.submitted_at)}
                 </span>
-              </td>
-              <td className={DESK_CELL_CLASS}>
+              </div>
+              <div className={TRADES_DESK_BODY_CELL} role="cell">
                 <span
                   className={cn(
-                    sizeClass,
-                    'uppercase tracking-wide',
-                    liqEvent ? 'font-semibold text-signal-bear' : tone === 'buy' ? 'text-signal-bull' : 'text-signal-bear',
+                    'text-[11px] font-medium capitalize',
+                    liqEvent ? 'text-signal-bear' : tone === 'buy' ? 'text-signal-bull' : 'text-signal-bear',
                   )}
                 >
-                  {liqEvent ? 'Remove' : row.side === 'buy' ? 'Buy' : 'Sell'}
+                  {sideLabel}
                 </span>
-              </td>
-              <td className={cn(DESK_CELL_CLASS, 'text-right')}>
+              </div>
+              <div className={TRADES_DESK_BODY_CELL} role="cell">
                 <span
                   className={cn(
-                    'text-[12px] font-medium font-sans tabular-nums',
-                    liqEvent ? 'font-semibold uppercase text-fg-primary' : 'text-fg-primary',
+                    'text-[12px] font-normal font-sans tabular-nums',
+                    liqEvent ? 'font-medium uppercase text-fg-primary' : 'text-fg-primary',
                   )}
                 >
-                  {tradeMcColumnLabel(row, supplyTokens, marketCapUsd)}
+                  {mcDisplay === 'price'
+                    ? tradePriceAtFillLabel(row)
+                    : tradeMcColumnLabel(row, supplyTokens, marketCapUsd)}
                 </span>
-              </td>
-              <td className={cn(DESK_CELL_CLASS, 'text-right')}>
-                <span className="text-[11px] font-normal font-mono tabular-nums text-fg-primary">
+              </div>
+              <div className={TRADES_DESK_BODY_CELL} role="cell">
+                <span className="text-[11px] font-normal font-sans tabular-nums text-fg-primary">
                   {formatCompactNumber(tokens)}
                 </span>
-              </td>
-              <td className="relative h-7 min-w-[140px] overflow-hidden p-0 align-middle [contain:paint] pointer-events-none">
+              </div>
+              <div className={cn(TRADES_DESK_BODY_CELL, 'relative min-w-0 overflow-hidden pr-2')} role="cell">
                 <InlineBarCell
-                  className="h-full w-full"
+                  className="h-full w-full min-h-0"
                   value={totalBarValue}
                   max={totalBarMax}
                   tone={tone}
                 >
-                  {displayMode === 'SOL' ? (
+                  {totalDisplayMode === 'SOL' ? (
                     <>
                       <ChainIcon chain="sol" size={12} />
-                      {solDisplay}
+                      <TerminalNativeBalance amount={sol} />
                     </>
                   ) : (
                     formatCompactUsd(usdValue)
                   )}
                 </InlineBarCell>
-              </td>
-              <td className={cn(DESK_CELL_LAST_CLASS, 'text-right')}>
-                <div className="flex w-full items-center justify-end gap-1.5 overflow-hidden">
-                  {wallet && deskExtras ? (
-                    walletsMatch(wallet, viewerWallet) ? (
-                      <TradeDeskYouLabel />
-                    ) : (
-                      <>
+              </div>
+              <div className={cn(TRADES_DESK_BODY_CELL, 'justify-end pl-1 pr-3')} role="cell">
+                {wallet && deskExtras ? (
+                  walletsMatch(wallet, viewerWallet) ? (
+                    <TradeDeskYouLabel />
+                  ) : (
+                    <div className="flex min-w-0 max-w-full items-center justify-end gap-1.5">
                       <WalletIdentityAnchor
                         address={wallet}
                         mint={mint}
@@ -304,7 +325,7 @@ export function MintTradesTable({
                           {traderHint.tradeCountForMint}
                         </span>
                       ) : null}
-                      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <a
@@ -330,20 +351,16 @@ export function MintTradesTable({
                           />
                         ) : null}
                       </div>
-                    </>
-                    )
-                  ) : (
-                    <span className={cn('truncate', CELL_WALLET_CLASS)}>
-                      {traderHint.shortLabel}
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td className="w-8 p-0" aria-hidden />
-            </tr>
+                    </div>
+                  )
+                ) : (
+                  <span className={cn('truncate', CELL_WALLET_CLASS)}>{traderHint.shortLabel}</span>
+                )}
+              </div>
+            </div>
           );
         })}
-      </tbody>
-    </table>
+      </div>
+    </div>
   );
 }

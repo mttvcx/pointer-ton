@@ -57,6 +57,27 @@ export async function getMintIndexStatus(
   return (data as MintIndexStatusRow | null) ?? null;
 }
 
+/** Failed mints eligible for cron retry (older than `minAgeMinutes`). */
+export async function listRetryableFailedMints(
+  limit: number,
+  minAgeMinutes = 15,
+): Promise<string[]> {
+  const supabase = createAdminSupabase();
+  const cutoff = new Date(Date.now() - minAgeMinutes * 60_000).toISOString();
+  const { data, error } = await supabase
+    .from('mint_index_status')
+    .select('mint, updated_at')
+    .eq('status', 'failed')
+    .lte('updated_at', cutoff)
+    .order('updated_at', { ascending: true })
+    .limit(Math.max(1, Math.min(50, limit)));
+  if (error) {
+    if (error.message?.includes('does not exist')) return [];
+    return [];
+  }
+  return ((data ?? []) as { mint: string }[]).map((r) => r.mint);
+}
+
 export async function listMintIndexStatuses(
   mints: string[],
 ): Promise<Map<string, MintIndexStatusRow>> {

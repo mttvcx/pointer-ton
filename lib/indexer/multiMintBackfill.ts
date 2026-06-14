@@ -1,6 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { config as loadDotenv } from 'dotenv';
+import { subMinutes } from 'date-fns';
 import { backfillMintSwaps, type GeneralBackfillReport } from '@/lib/indexer/backfillMintSwaps';
+import { inferMintKind } from '@/lib/chains/mintKind';
+import { PULSE_NEAR_MIGRATE_PCT } from '@/lib/tokens/bondingProgress';
+import { PULSE_THRESHOLDS } from '@/lib/utils/constants';
 import type { Tables } from '@/lib/supabase/types';
 type TokenMarketSnapshotRow = Tables<'token_market_snapshots'>;
 
@@ -78,30 +82,100 @@ async function listActivePulseMints(
   if (source === 'manual') {
     return { mints: [], reason: 'manual — must pass opts.mints' };
   }
-  const column = source === 'pulse_active' ? 'migrated' : source === 'pulse_migrated' ? 'migrated' : 'new';
-  void column;
-  // The /api/pulse/feed already aggregates by DexScreener volume. We mirror
-  // the same query: order tokens by latest snapshot volume_24h, only those
-  // with non-null latest snapshot.
-  const { data, error } = await supabase
-    .from('tokens')
-    .select('mint, last_seen_at')
-    .order('last_seen_at', { ascending: false })
-    .limit(400);
-  if (error) throw new Error(`listActivePulseMints failed: ${error.message}`);
 
-  const mints = (data ?? []).map((r) => r.mint).filter(Boolean) as string[];
-  const snaps = await getLatestSnapshotsForMints(supabase, mints);
+  const solOnly = (mints: string[]) =>
+    [...new Set(mints.filter((m) => inferMintKind(m) === 'sol'))];
 
-  // Sort by 24h volume desc, only keep ones with a snapshot.
-  const ranked = mints
+  if (source === 'pulse_new') {
+    const since = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
+    const { data, error } = await supabase
+      .from('tokens')
+      .select('mint, created_at')
+      .gte('created_at', since)
+      .is('migrated_at', null)
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (error) throw new Error(`listActivePulseMints(new) failed: ${error.message}`);
+    const mints = solOnly((data ?? []).map((r) => r.mint)).slice(0, maxMints);
+    return { mints, reason: `pulse_new sol mints (${mints.length})` };
+  }
+
+  if (source === 'pulse_migrated') {
+    const { data, error } = await supabase
+      .from('tokens')
+      .select('mint, migrated_at')
+      .not('migrated_at', 'is', null)
+      .order('migrated_at', { ascending: false })
+      .limit(300);
+    if (error) throw new Error(`listActivePulseMints(migrated) failed: ${error.message}`);
+    const mints = solOnly((data ?? []).map((r) => r.mint)).slice(0, maxMints);
+    return { mints, reason: `pulse_migrated sol mints (${mints.length})` };
+  }
+
+  // pulse_active: union NEW + STRETCH + MIGRATED candidates, rank by 24h volume.
+  const sinceNew = subMinutes(new Date(), PULSE_THRESHOLDS.newMaxAgeMinutes).toISOString();
+  const sinceStretch = subMinutes(
+    new Date(),
+    PULSE_THRESHOLDS.stretchMaxAgeHours * 60,
+  ).toISOString();
+
+  const [newRows, stretchRows, migratedRows] = await Promise.all([
+    supabase
+      .from('tokens')
+      .select('mint')
+      .gte('created_at', sinceNew)
+      .is('migrated_at', null)
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase
+      .from('tokens')
+      .select('mint, bonding_progress, created_at')
+      .gte('created_at', sinceStretch)
+      .is('migrated_at', null)
+      .gte('bonding_progress', PULSE_NEAR_MIGRATE_PCT)
+      .lt('bonding_progress', 100)
+      .order('bonding_progress', { ascending: false })
+      .limit(120),
+    supabase
+      .from('tokens')
+      .select('mint')
+      .not('migrated_at', 'is', null)
+      .order('migrated_at', { ascending: false })
+      .limit(200),
+  ]);
+
+  if (newRows.error) throw new Error(`listActivePulseMints(active/new) failed: ${newRows.error.message}`);
+  if (stretchRows.error && !stretchRows.error.message.includes('bonding_progress')) {
+    throw new Error(`listActivePulseMints(active/stretch) failed: ${stretchRows.error.message}`);
+  }
+  if (migratedRows.error) {
+    throw new Error(`listActivePulseMints(active/migrated) failed: ${migratedRows.error.message}`);
+  }
+
+  const candidateList = solOnly([
+    ...((newRows.data ?? []).map((r) => r.mint) as string[]),
+    ...((stretchRows.data ?? []).map((r) => r.mint) as string[]),
+    ...((migratedRows.data ?? []).map((r) => r.mint) as string[]),
+  ]);
+
+  const snaps = await getLatestSnapshotsForMints(supabase, candidateList);
+  const ranked = candidateList
     .map((m) => ({ mint: m, snap: snaps.get(m) ?? null }))
-    .filter((r) => r.snap)
-    .sort((a, b) => (b.snap?.volume_24h_usd ?? 0) - (a.snap?.volume_24h_usd ?? 0))
+    .sort((a, b) => {
+      const vb = b.snap?.volume_24h_usd ?? 0;
+      const va = a.snap?.volume_24h_usd ?? 0;
+      if (vb !== va) return vb - va;
+      const mb = b.snap?.market_cap_usd ?? 0;
+      const ma = a.snap?.market_cap_usd ?? 0;
+      return mb - ma;
+    })
     .slice(0, maxMints)
     .map((r) => r.mint);
 
-  return { mints: ranked, reason: `top ${ranked.length} by Dex 24h volume` };
+  return {
+    mints: ranked,
+    reason: `pulse_active top ${ranked.length} sol by Dex volume/MC`,
+  };
 }
 
 async function listAlreadyIndexedMints(

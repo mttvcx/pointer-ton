@@ -24,7 +24,7 @@ import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 
 const VOL_WINDOW_MS = 6 * 60 * 60_000;
 
-const CACHE_PREFIX = 'token:extended_metrics:v4:';
+const CACHE_PREFIX = 'token:extended_metrics:v5:';
 const CACHE_TTL_SEC = 60;
 
 async function loadHolders(

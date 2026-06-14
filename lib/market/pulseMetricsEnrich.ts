@@ -16,7 +16,7 @@ import {
   jsonUriFromRawMetadata,
   tokenHasAnySocial,
 } from '@/lib/market/offchainTokenMetadata';
-import { extractSocialUrlsFromRaw } from '@/lib/tokens/pulseSocialLinks';
+import { extractSocialUrlsFromRaw, resolveDisplayWebsite } from '@/lib/tokens/pulseSocialLinks';
 import { isPointerQaMint, pointerQaMintOnly } from '@/lib/qa/pointerQaMint';
 import { fetchDexScreenerPaidFlag } from '@/lib/dex/dexScreenerOrders';
 import type { PulseTokenBundle } from '@/types/tokens';
@@ -103,7 +103,9 @@ function mergePumpIntoToken(
     image_url: t.image_url?.trim() ? t.image_url : pump.image_uri ?? t.image_url,
     twitter_handle: t.twitter_handle?.trim() ? t.twitter_handle : pump.twitter ?? t.twitter_handle,
     telegram_url: t.telegram_url?.trim() ? t.telegram_url : pump.telegram ?? t.telegram_url,
-    website_url: t.website_url?.trim() ? t.website_url : pump.website ?? t.website_url,
+    website_url: t.website_url?.trim()
+      ? resolveDisplayWebsite(t.website_url) ?? t.website_url
+      : resolveDisplayWebsite(pump.website) ?? pump.website ?? t.website_url,
     creator_wallet: t.creator_wallet?.trim() ? t.creator_wallet : pump.creator ?? t.creator_wallet,
     launch_pad: t.launch_pad?.trim() ? t.launch_pad : 'pump.fun',
     migrated_at:
@@ -194,45 +196,52 @@ function mergeHolderMetrics(
 }
 
 function persistMetricsAsync(bundle: PulseTokenBundle, tokenDirty: boolean) {
-  void (async () => {
-    try {
-      const snap = bundle.snapshot;
-      if (snap) {
-        const row: TablesInsert<'token_market_snapshots'> = {
-          mint: snap.mint,
-          market_cap_usd: snap.market_cap_usd,
-          liquidity_usd: snap.liquidity_usd,
-          price_usd: snap.price_usd,
-          volume_5m_usd: snap.volume_5m_usd,
-          volume_1h_usd: snap.volume_1h_usd,
-          volume_24h_usd: snap.volume_24h_usd,
-          txns_5m: snap.txns_5m,
-          txns_1h: snap.txns_1h,
-          holder_count: snap.holder_count,
-          top10_holder_pct: snap.top10_holder_pct,
-          dev_holding_pct: snap.dev_holding_pct,
-          extended_metrics: snap.extended_metrics,
-          snapshot_at: snap.snapshot_at,
-        };
-        await insertMarketSnapshot(row);
-      }
-      if (tokenDirty) {
-        const t = bundle.token;
-        await updateToken(t.mint, {
-          twitter_handle: t.twitter_handle,
-          telegram_url: t.telegram_url,
-          website_url: t.website_url,
-          creator_wallet: t.creator_wallet,
-          name: t.name,
-          symbol: t.symbol,
-          image_url: t.image_url,
-          is_paid: t.is_paid,
-        });
-      }
-    } catch {
-      /* best-effort cache warm */
-    }
-  })();
+  void persistPulseBundle(bundle, tokenDirty).catch(() => {
+    /* best-effort cache warm */
+  });
+}
+
+/** Awaitable persist for cron enrichment (Dex holders + social patches). */
+export async function persistPulseBundle(
+  bundle: PulseTokenBundle,
+  tokenDirty: boolean,
+): Promise<void> {
+  const snap = bundle.snapshot;
+  if (snap) {
+    const row: TablesInsert<'token_market_snapshots'> = {
+      mint: snap.mint,
+      market_cap_usd: snap.market_cap_usd,
+      liquidity_usd: snap.liquidity_usd,
+      price_usd: snap.price_usd,
+      volume_5m_usd: snap.volume_5m_usd,
+      volume_1h_usd: snap.volume_1h_usd,
+      volume_24h_usd: snap.volume_24h_usd,
+      txns_5m: snap.txns_5m,
+      txns_1h: snap.txns_1h,
+      holder_count: snap.holder_count,
+      top10_holder_pct: snap.top10_holder_pct,
+      dev_holding_pct: snap.dev_holding_pct,
+      extended_metrics: snap.extended_metrics,
+      snapshot_at: snap.snapshot_at,
+    };
+    await insertMarketSnapshot(row);
+  }
+  if (tokenDirty) {
+    const t = bundle.token;
+    await updateToken(t.mint, {
+      twitter_handle: t.twitter_handle,
+      telegram_url: t.telegram_url,
+      website_url: resolveDisplayWebsite(t.website_url) ?? t.website_url,
+      creator_wallet: t.creator_wallet,
+      name: t.name,
+      symbol: t.symbol,
+      image_url: t.image_url,
+      is_paid: t.is_paid,
+      launch_pad: t.launch_pad,
+      migrated_at: t.migrated_at,
+      bonding_progress: t.bonding_progress,
+    });
+  }
 }
 
 /**

@@ -8,8 +8,28 @@
   },
   "crons": [
     {
-      "path": "/api/cron/pulse-poll",
+      "path": "/api/cron/discover-tokens",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/enrich-pulse",
+      "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/cron/index-active-mints",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/retry-failed-indexes",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/aggregate-wallet-stats",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/poll-tracked-wallets",
+      "schedule": "*/7 * * * *"
     }
   ]
 }

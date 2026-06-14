@@ -14,7 +14,7 @@ export function protocolBrandIdFromToken(token: {
   return protocolBrand(filterId)?.id ?? (filterId as ProtocolBrandId);
 }
 
-export function filterIdsFromTokenBundle(token: {
+export function filterIdsFromTokenRow(token: {
   protocol_id?: string | null;
   source_confidence?: number | null;
 }): string[] {

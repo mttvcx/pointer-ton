@@ -13,10 +13,10 @@ import type { PulseColumnId } from '@/lib/utils/constants';
 /** Popular launch venues per chain — only backend-supported classifier ids. */
 export const RECOMMENDED_PROTOCOL_IDS: Record<AppChainId, readonly string[]> = {
   sol: ['pump.fun', 'bonk', 'moonshot', 'bags', 'mayhem', 'heaven', 'dynamic-bc'],
-  ton: ['ton'],
-  eth: ['eth', 'uniswap-v3'],
-  bnb: ['bsc', 'pancakeswap'],
-  base: ['base'],
+  ton: ['ton', 'tonfun'],
+  eth: ['eth', 'uniswap-v3', 'uniswap-v4', 'clanker'],
+  bnb: ['bsc', 'four.meme', 'flap', 'pancakeswap'],
+  base: ['base', 'clanker', 'bankr', 'zora-content', 'virtuals'],
 };
 
 export const PULSE_RECOMMENDED_CHECKLIST = [

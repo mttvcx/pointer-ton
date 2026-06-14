@@ -33,7 +33,7 @@ export function parseTerminalNativeBalance(amount: number | null | undefined): T
   if (!match) return { kind: 'plain', text: String(amount) };
 
   const zeroCount = match[1]?.length ?? 0;
-  const tail = match[2]?.slice(0, 2) ?? '';
+  const tail = match[2]?.slice(0, 1) ?? '';
   if (zeroCount < 2) {
     return { kind: 'plain', text: `${sign}${parseFloat(abs.toPrecision(3)).toString()}` };
   }

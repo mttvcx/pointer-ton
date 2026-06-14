@@ -7,6 +7,8 @@ export type DeskWalletDisplayStats = {
   buyTon: number;
   sellTon: number;
   holdingSol: number;
+  /** Live wallet token balance (UI units) for the desk holding column. */
+  holdingTokenUi: number;
   netPnlSol: number;
   netPnlPct: number | null;
   buyUsd: number;
@@ -14,6 +16,8 @@ export type DeskWalletDisplayStats = {
   holdingUsd: number;
   netPnlUsd: number;
 };
+
+const EPS = 1e-9;
 
 /** Merge localStorage session stats with chain-indexed `mint_wallet_stats`. */
 export function computeDeskWalletDisplayStats(params: {
@@ -54,29 +58,50 @@ export function computeDeskWalletDisplayStats(params: {
     holdingUsd = desk.remaining_token_ui * desk.avg_buy_usd;
   }
 
-  let holdingSol = Math.max(0, buyTon - sellTon);
+  let holdingSol = 0;
   if (solUsdRate != null && solUsdRate > 0 && holdingUsd > 0) {
     holdingSol = holdingUsd / solUsdRate;
+  } else {
+    holdingSol = Math.max(0, buyTon - sellTon);
   }
 
-  let netPnlUsd = sellUsd - buyUsd;
-  if (desk) {
+  /** Axiom-style: proceeds (sells + current position mark) minus cost basis. */
+  const liveNetPnlUsd = sellUsd + holdingUsd - buyUsd;
+
+  let netPnlUsd: number;
+  const hasLiveMark = priceUsd != null && priceUsd > 0 && tokenUi > EPS && buyUsd > EPS;
+  if (hasLiveMark) {
+    netPnlUsd = liveNetPnlUsd;
+  } else if (desk) {
     const realized = desk.realized_pnl_usd ?? 0;
     const unrealized = desk.unrealized_pnl_usd ?? 0;
-    netPnlUsd = realized + (unrealized ?? 0);
+    netPnlUsd =
+      unrealized != null && (realized !== 0 || unrealized !== 0)
+        ? realized + unrealized
+        : liveNetPnlUsd;
+  } else {
+    netPnlUsd = liveNetPnlUsd;
   }
 
-  let netPnlSol = sellTon - buyTon;
+  let netPnlSol: number;
   if (solUsdRate != null && solUsdRate > 0) {
     netPnlSol = netPnlUsd / solUsdRate;
+  } else {
+    netPnlSol = sellTon + holdingSol - buyTon;
   }
 
-  const netPnlPct = buyUsd > 0 ? (netPnlUsd / buyUsd) * 100 : buyTon > 0 ? (netPnlSol / buyTon) * 100 : null;
+  const netPnlPct =
+    buyUsd > EPS
+      ? (netPnlUsd / buyUsd) * 100
+      : buyTon > EPS
+        ? (netPnlSol / buyTon) * 100
+        : null;
 
   return {
     buyTon,
     sellTon,
     holdingSol,
+    holdingTokenUi: tokenUi,
     netPnlSol,
     netPnlPct,
     buyUsd,

@@ -20,6 +20,10 @@ import solKolscanSeed from '@/data/identity/solana-kolscan-seed.json';
 import ethGmgnSeed from '@/data/identity/eth-gmgn-seed.json';
 import baseGmgnSeed from '@/data/identity/base-gmgn-seed.json';
 import bnbGmgnSeed from '@/data/identity/bnb-gmgn-seed.json';
+import gmgnTrackWallet20Seed from '@/data/identity/gmgn-track-wallet-20-seed.json';
+import gmgnTrackEvmWallet20Seed from '@/data/identity/gmgn-track-evm-wallet-20-seed.json';
+import axiomKolSolSeed from '@/data/identity/axiom-kol-sol-seed.json';
+import kolscanPartialOverrides from '@/data/identity/kolscan-partial-overrides.json';
 
 type WalletEntry = {
   wallet: IdentityWallet;
@@ -171,6 +175,9 @@ function bootstrap(): void {
     ...(ethGmgnSeed as IdentitySeedRow[]),
     ...(baseGmgnSeed as IdentitySeedRow[]),
     ...(bnbGmgnSeed as IdentitySeedRow[]),
+    ...(gmgnTrackWallet20Seed as IdentitySeedRow[]),
+    ...(gmgnTrackEvmWallet20Seed as IdentitySeedRow[]),
+    ...(axiomKolSolSeed as IdentitySeedRow[]),
     ...runtimeRows,
   ];
   for (const row of seeds) upsertSeedRow(row, { allowWeaker: true });
@@ -208,6 +215,18 @@ export function getWalletEntryAnyChain(address: string): WalletEntry | null {
     if (hit) return hit;
   }
   return null;
+}
+
+export function listSolanaRegistryAddresses(): string[] {
+  bootstrap();
+  return [...walletsByKey.values()]
+    .filter(({ wallet }) => wallet.chain === 'sol')
+    .map(({ wallet }) => wallet.address);
+}
+
+/** Committed Kolscan/Axiom partial → full overrides for paste import. */
+export function getKolscanPartialOverrides(): Record<string, string> {
+  return kolscanPartialOverrides as Record<string, string>;
 }
 
 export function listRegistryStats(): {

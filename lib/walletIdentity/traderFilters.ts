@@ -1,5 +1,8 @@
+import type { AppChainId } from '@/lib/chains/appChain';
 import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
+import { recognizedWalletFromRegistry } from '@/lib/identity/bridgeWalletIntel';
 import { getRecognizedWallet } from '@/lib/walletIdentity/mockRecognizedWallets';
+import type { RecognizedWalletRecord } from '@/lib/walletIdentity/types';
 import type { ResolvedWalletDisplay } from '@/lib/hooks/useWalletLabels';
 
 export type TraderDeskFilter =
@@ -29,17 +32,37 @@ export const TRADER_FILTER_OPTIONS: { id: TraderDeskFilter; label: string }[] = 
 
 const EPS = 1e-6;
 
+/** Resolve KOL/smart/sniper badges for desk filters — registry first, demo fixtures gated. */
+export function resolveRecognizedForTraderFilter(params: {
+  chain: AppChainId;
+  address: string;
+  allowDemoDirectory?: boolean;
+}): RecognizedWalletRecord | null {
+  const { chain, address, allowDemoDirectory = false } = params;
+  return (
+    recognizedWalletFromRegistry(chain, address) ??
+    getRecognizedWallet(address, { demo: allowDemoDirectory })
+  );
+}
+
 export function traderRowMatchesFilter(params: {
   row: MintTopTraderRow;
+  chain: AppChainId;
   creatorWallet: string | null;
   tracked: boolean;
   labelDisp: ResolvedWalletDisplay | null;
   filter: TraderDeskFilter;
+  allowDemoDirectory?: boolean;
 }): boolean {
-  const { row, creatorWallet, tracked, labelDisp, filter } = params;
+  const { row, chain, creatorWallet, tracked, labelDisp, filter, allowDemoDirectory = false } =
+    params;
   if (filter === 'all') return true;
 
-  const rec = getRecognizedWallet(row.wallet_address);
+  const rec = resolveRecognizedForTraderFilter({
+    chain,
+    address: row.wallet_address,
+    allowDemoDirectory,
+  });
   const renamed = Boolean(labelDisp?.labeled);
 
   switch (filter) {
@@ -80,15 +103,22 @@ export type HolderDeskPick = {
 
 export function holderRowMatchesFilter(params: {
   row: HolderDeskPick;
+  chain: AppChainId;
   creatorWallet: string | null;
   tracked: boolean;
   labelDisp: ResolvedWalletDisplay | null;
   filter: TraderDeskFilter;
+  allowDemoDirectory?: boolean;
 }): boolean {
-  const { row, creatorWallet, tracked, labelDisp, filter } = params;
+  const { row, chain, creatorWallet, tracked, labelDisp, filter, allowDemoDirectory = false } =
+    params;
   if (filter === 'all') return true;
 
-  const rec = getRecognizedWallet(row.wallet_address);
+  const rec = resolveRecognizedForTraderFilter({
+    chain,
+    address: row.wallet_address,
+    allowDemoDirectory,
+  });
   const renamed = Boolean(labelDisp?.labeled);
 
   switch (filter) {
@@ -103,7 +133,7 @@ export function holderRowMatchesFilter(params: {
     case 'fresh':
       return Boolean(row.is_fresh);
     case 'snipers':
-      return Boolean(row.is_sniper);
+      return Boolean(row.is_sniper) || Boolean(rec?.badges.includes('sniper'));
     case 'dev_linked':
       return Boolean(row.is_dev) || Boolean(creatorWallet && creatorWallet === row.wallet_address);
     case 'high_pnl':

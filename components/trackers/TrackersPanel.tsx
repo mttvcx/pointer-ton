@@ -38,7 +38,16 @@ import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useActiveWalletStore } from '@/store/activeWallet';
 import { generateEmbeddedWalletForChain } from '@/lib/wallets/embeddedCreate';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
-import { kolStorageKey, readStoredKolRows, type KolHandleRow as KolRow } from '@/lib/track/kolHandlesLocal';
+import {
+  kolStorageKey,
+  readStoredKolRows,
+  writeStoredKolRows,
+  type KolHandleRow as KolRow,
+} from '@/lib/track/kolHandlesLocal';
+import {
+  chainSupportsStarterKolMint,
+  starterKolEntriesForChain,
+} from '@/lib/track/starterKolPacks';
 import { xProfileUrl } from '@/lib/utils/xSearch';
 import Link from 'next/link';
 import { ConfirmModal, GlassModal } from '@/components/ui/GlassModal';
@@ -453,6 +462,62 @@ export function TrackersPanel({
       if (!res.ok) throw new Error('notify update failed');
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['trackers'] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const mintStarterKolsMutation = useMutation({
+    mutationFn: async () => {
+      const rows = starterKolEntriesForChain(activeChain);
+      if (rows.length === 0) throw new Error('No starter KOL pack for this chain');
+
+      const token = await getAccessToken();
+      if (token) {
+        const res = await fetch('/api/trackers/mint-starter-kols', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ appChain: activeChain }),
+        });
+        const json: unknown = await res.json();
+        if (!res.ok) {
+          throw new Error(
+            typeof json === 'object' && json && 'message' in json
+              ? String((json as { message: unknown }).message)
+              : 'Mint failed',
+          );
+        }
+        const kolRowsFromApi =
+          typeof json === 'object' &&
+          json &&
+          'kolRows' in json &&
+          Array.isArray((json as { kolRows: unknown }).kolRows)
+            ? ((json as { kolRows: KolRow[] }).kolRows)
+            : rows;
+        return kolRowsFromApi;
+      }
+
+      writeStoredKolRows(activeChain, rows);
+      return rows;
+    },
+    onSuccess: (rows) => {
+      kolHydratingRef.current = true;
+      setKolRows(rows);
+      writeStoredKolRows(activeChain, rows);
+      void queryClient.invalidateQueries({ queryKey: ['trackers'] });
+      const label =
+        activeChain === 'sol'
+          ? 'SOL'
+          : activeChain === 'eth'
+            ? 'ETH'
+            : activeChain === 'bnb'
+              ? 'BNB'
+              : 'Base';
+      toast.success(`Starter KOL list loaded (${label})`, {
+        description: `${rows.length} wallets added to track + KOL labels.`,
+      });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -933,12 +998,16 @@ export function TrackersPanel({
               ) : viewTab === 'kols' ? (
                 <KolsManagerTable
                   rows={kolRows}
+                  activeChain={activeChain}
+                  canMintStarter={chainSupportsStarterKolMint(activeChain)}
+                  mintPending={mintStarterKolsMutation.isPending}
+                  starterCount={starterKolEntriesForChain(activeChain).length}
+                  onMintStarter={() => mintStarterKolsMutation.mutate()}
                   onRemove={(id) => {
                     setKolRows((prev) => prev.filter((r) => r.id !== id));
                     toast.success('Removed from list');
                   }}
                   onWalletClick={openWallet}
-                  activeChain={activeChain}
                 />
               ) : null}
             </div>
@@ -1356,13 +1425,31 @@ function KolsManagerTable({
   onRemove,
   onWalletClick,
   activeChain,
+  canMintStarter,
+  mintPending,
+  starterCount,
+  onMintStarter,
 }: {
   rows: KolRow[];
   onRemove: (id: string) => void;
   onWalletClick: (walletAddress: string) => void;
   activeChain: AppChainId;
+  canMintStarter: boolean;
+  mintPending: boolean;
+  starterCount: number;
+  onMintStarter: () => void;
 }) {
   const nativeSym = nativeTicker(activeChain);
+  const chainLabel =
+    activeChain === 'sol'
+      ? 'SOL'
+      : activeChain === 'eth'
+        ? 'ETH'
+        : activeChain === 'bnb'
+          ? 'BNB'
+          : activeChain === 'base'
+            ? 'Base'
+            : activeChain.toUpperCase();
   const [kolSearch, setKolSearch] = useState('');
   const filtered = useMemo(() => {
     const s = kolSearch.trim().toLowerCase();
@@ -1375,21 +1462,35 @@ function KolsManagerTable({
     );
   }, [rows, kolSearch]);
 
+  const mintButton =
+    canMintStarter && starterCount > 0 ? (
+      <button
+        type="button"
+        disabled={mintPending}
+        onClick={onMintStarter}
+        className="btn-press rounded bg-accent-primary px-4 py-2 text-xs font-semibold text-fg-inverse hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {mintPending
+          ? 'Loading…'
+          : rows.length > 0
+            ? `Refresh starter KOLs (${chainLabel})`
+            : `Mint starter KOLs (${chainLabel})`}
+      </button>
+    ) : null;
+
   if (rows.length === 0) {
     return (
       <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-8 text-center">
         <Layers className="mb-3 h-8 w-8 text-fg-muted" strokeWidth={2} aria-hidden />
         <p className="text-sm text-fg-secondary">No KOLs in your list yet</p>
-        <p className="mt-1 text-xs text-fg-muted">
-          Seed KOL handles from Track or add wallets that map to influencer alerts.
+        <p className="mt-1 max-w-sm text-xs text-fg-muted">
+          {canMintStarter
+            ? activeChain === 'sol'
+              ? `Load ${starterCount} curated Solana KOL wallets (GMGN + Axiom + Kolscan seeds).`
+              : `Load ${starterCount} curated EVM KOL wallets — same list on ETH, BNB, and Base.`
+            : 'Switch to SOL, ETH, BNB, or Base in the header to mint a starter KOL list.'}
         </p>
-        <Link
-          href="/track"
-          prefetch
-          className="btn-press mt-4 rounded bg-accent-primary px-4 py-2 text-xs font-semibold text-fg-inverse hover:bg-accent-glow"
-        >
-          Add KOL
-        </Link>
+        {mintButton ? <div className="mt-4">{mintButton}</div> : null}
       </div>
     );
   }
@@ -1405,14 +1506,17 @@ function KolsManagerTable({
 
   return (
     <div className="flex min-h-0 flex-col gap-2 p-2">
-      <div className="flex max-w-md items-center gap-2 rounded border border-border-subtle bg-bg-sunken px-2 py-1">
-        <Search className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2} />
-        <input
-          value={kolSearch}
-          onChange={(e) => setKolSearch(e.target.value)}
-          placeholder="Search KOLs…"
-          className="min-w-0 flex-1 border-0 bg-transparent py-0.5 text-xs text-fg-primary outline-none placeholder:text-fg-muted"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 max-w-md flex-1 items-center gap-2 rounded border border-border-subtle bg-bg-sunken px-2 py-1">
+          <Search className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2} />
+          <input
+            value={kolSearch}
+            onChange={(e) => setKolSearch(e.target.value)}
+            placeholder="Search KOLs…"
+            className="min-w-0 flex-1 border-0 bg-transparent py-0.5 text-xs text-fg-primary outline-none placeholder:text-fg-muted"
+          />
+        </div>
+        {mintButton}
       </div>
       <table className="w-full border-collapse overflow-hidden rounded border border-border-subtle">
         <thead className="border-b border-border-subtle bg-bg-sunken">

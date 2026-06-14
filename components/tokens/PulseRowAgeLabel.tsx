@@ -9,9 +9,12 @@ import { cn } from '@/lib/utils/cn';
 export const PulseRowAgeLabel = memo(function PulseRowAgeLabel({
   createdAt,
   compact,
+  rowAlign,
 }: {
   createdAt: string;
   compact?: boolean;
+  /** Pulse icon strip — lock to the same 24px row height as sibling glyphs. */
+  rowAlign?: boolean;
 }) {
   const now = useLiveClock();
   const ageLabel = formatAgeShort(createdAt, now);
@@ -22,6 +25,7 @@ export const PulseRowAgeLabel = memo(function PulseRowAgeLabel({
     <span
       className={cn(
         'shrink-0 whitespace-nowrap leading-none',
+        rowAlign && 'inline-flex h-6 items-center',
         compact ? 'text-[13px]' : 'text-xs',
         isFreshListing ? 'font-medium text-signal-bull' : 'text-fg-muted',
       )}
