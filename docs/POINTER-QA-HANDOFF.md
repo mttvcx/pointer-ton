@@ -1,5 +1,8 @@
 # Pointer QA Handoff — G7anch Token Desk (for ChatGPT review)
 
+> **Superseded for current state:** see [`HANDOFF.md`](../HANDOFF.md) and [`AXIOM_READY_EXECUTION_REPORT.md`](../AXIOM_READY_EXECUTION_REPORT.md).  
+> This file is kept for historical G7anch QA context (2026-06-09). Chain indexer, Token-2022 balances, and wallet intelligence shipped after this doc was written.
+
 **Date:** 2026-06-09  
 **Repo:** `pointer-ton` (Next.js 16, port 3001)  
 **QA mint:** `GZQFCZjfzQyFSkA4jBuEeh5eKTLNzju7PZrEWxMvpump` (G7 Anchor / G7anch, pump.fun)

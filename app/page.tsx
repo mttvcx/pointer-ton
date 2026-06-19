@@ -16,7 +16,8 @@ import {
 import { usePointerAuth, readLandingEnterPending, clearLandingEnterPending, readLandingRequireSignIn, clearLandingRequireSignIn, setLandingEnterPending } from '@/lib/auth/pointerAuth';
 import { LandingSignInModal } from '@/components/auth/LandingSignInModal';
 import { LandingAmbientBackdrop } from '@/components/landing/LandingAmbientBackdrop';
-import { toastAuthenticating } from '@/lib/auth/authToasts';
+import { toast } from 'sonner';
+import { dismissAuthToast, toastAuthenticated, toastAuthenticating } from '@/lib/auth/authToasts';
 import { usePrivy } from '@privy-io/react-auth';
 import { cn } from '@/lib/utils/cn';
 import { APP_NAME } from '@/lib/utils/constants';
@@ -157,8 +158,23 @@ export default function LandingPage() {
     clearLandingEnterPending();
     clearLandingRequireSignIn();
     setSignInOpen(false);
+    dismissAuthToast();
+    toastAuthenticated();
     router.push('/pulse');
   }, [privyReady, privyAuthenticated, router]);
+
+  /** OAuth hung — dismiss spinner toast after 45s so user isn't stuck forever. */
+  useEffect(() => {
+    if (!readLandingEnterPending()) return;
+    const t = window.setTimeout(() => {
+      if (!privyAuthenticated) {
+        toast.error('Sign-in timed out', {
+          description: 'Close any OAuth popup, refresh, and try Google again.',
+        });
+      }
+    }, 45_000);
+    return () => window.clearTimeout(t);
+  }, [privyAuthenticated]);
 
   const handlePrimaryCta = useCallback(() => {
     if (privyAuthenticated) {
@@ -338,7 +354,7 @@ function Hero({
         </h1>
 
         <p className="mt-6 max-w-2xl text-balance text-[20px] leading-snug text-fg-secondary sm:text-[26px]">
-          50% cashback, the highest in the market.
+          30% cashback, among the highest in the market.
         </p>
 
         <button

@@ -1,8 +1,26 @@
 # Pointer
 
-Solana memecoin trading terminal with a built-in AI co-pilot.
-**Phase 1 — internal alpha.** Token discovery (Pulse), token detail with buy/sell,
-wallet tracking, AI co-pilot panel.
+Solana memecoin trading terminal with a built-in AI co-pilot.  
+**Phase 1 — founder beta / internal alpha.**
+
+> **New agent or Claude Code?** Read **[`HANDOFF.md`](./HANDOFF.md)** first (full project state as of 2026-06-13).  
+> **Full QA vs Axiom:** copy-paste prompt in **[`docs/CLAUDE_CODE_QA_PROMPT.md`](./docs/CLAUDE_CODE_QA_PROMPT.md)**.
+
+## What ships today
+
+| Area | Status |
+|------|--------|
+| Pulse discovery (NEW / STRETCH / MIGRATED) | Live |
+| Token desk + buy/sell (Jupiter / Pump) | Live |
+| Chain trades / top traders / desk PnL (indexed mints) | Live |
+| Token-2022 balances (pump tokens) | Live |
+| Wallet tracking + KOL import + starter packs | Live |
+| Portfolio | Live |
+| Predictions desk (Kalshi markets) | Live data, preview trading |
+| Perps / stock perps / packs commerce | Preview / simulated |
+| AI co-pilot | Live (rate + cost capped) |
+
+**Benchmark:** [axiom.trade](https://axiom.trade) — Pointer matches *behavior* and data honesty, not a pixel clone.
 
 ## Stack
 
@@ -22,68 +40,65 @@ wallet tracking, AI co-pilot panel.
 
 ```bash
 npm install
-cp .env.example .env.local       # fill in keys — see Helius, Anthropic, SocialData sections
+cp .env.example .env.local       # fill in keys — see Helius, Privy, Supabase sections
 npm run gen:types                # one-time: generate Supabase types
 npm run dev
 ```
 
-Open **http://127.0.0.1:3001** — dev is pinned to port **3001** in `package.json` (not :3000). Set `NEXT_PUBLIC_APP_URL` in `.env.local` to the same origin. Use `npm run dev:3000` if you prefer port 3000 and update `.env.local` accordingly.
+Open **http://127.0.0.1:3001** — dev is pinned to port **3001** in `package.json`. Set `NEXT_PUBLIC_APP_URL` in `.env.local` to match.
 
-**Required for Solana features:** `HELIUS_API_KEY` (all RPC via `mainnet.helius-rpc.com`). **AI co-pilot:** `ANTHROPIC_API_KEY` (+ optional Gemini/OpenAI keys). **Twitter hover cards:** `SOCIALDATA_API_KEY` or `TWITTER_BEARER_TOKEN`. Full list: `.env.example`.
+**Founder beta QA:** set `NEXT_PUBLIC_FOUNDER_BETA=1` for **0.001 SOL** min buy presets (smallest reliable Jupiter size).
+
+**Required for Solana:** `HELIUS_API_KEY`, Supabase, Privy. Full list: `.env.example`.
 
 ## Scripts
 
-| script               | purpose                                  |
-| -------------------- | ---------------------------------------- |
-| `npm run dev`        | Start Next.js dev server on port **3001** |
-| `npm run dev:3000`   | Same, on port **3000**                   |
-| `npm run build`      | Production build                         |
-| `npm run start`      | Run production build                     |
-| `npm run lint`       | ESLint                                   |
-| `npm run typecheck`  | `tsc --noEmit`                           |
-| `npm run format`     | Prettier write                           |
-| `npm run gen:types`  | Regenerate `lib/supabase/types.ts`       |
+| script | purpose |
+| ------ | ------- |
+| `npm run dev` | Start Next.js dev server on port **3001** |
+| `npm run dev:3000` | Same, on port **3000** |
+| `npm run build` | Production build |
+| `npm run test` | Unit tests (237+) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run gen:types` | Regenerate `lib/supabase/types.ts` |
+| `npm run backfill:active-mints` | Manual chain indexer backfill |
+| `npm run cron:loop` | Local ingest loop (discover → enrich → index) |
+| `npm run setup:webhooks` | Register Helius webhook (needs public HTTPS URL) |
 
-## Helius Pulse webhook (local dev)
+## Documentation map
 
-Solana Pulse columns (NEW / STRETCH / MIGRATED) ingest via an enhanced Helius webhook → `POST /api/webhooks/helius`.
-
-1. Run the DB migration in Supabase: `scripts/pulse-token-columns.sql`
-2. Register the webhook (requires a **public HTTPS** origin — Helius rejects localhost):
-   - Production: `npm run setup:webhooks` (uses `NEXT_PUBLIC_APP_URL`)
-   - Local dev: start ngrok first, then `npm run setup:webhooks -- https://YOUR-NGROK-URL`
-3. For local dev after the first register:
-   - `./scripts/dev-tunnel.sh` (requires [ngrok](https://ngrok.com/download))
-   - Each ngrok session: `npm run update:webhook-url -- https://YOUR-NGROK-URL`
-4. Restart `npm run dev` if needed — webhook deliveries require your server to be reachable at the ngrok URL.
-
-Production: set `NEXT_PUBLIC_APP_URL` to your public origin and re-run `setup-helius-webhooks.ts` (or `update-webhook-url.ts`).
+| File | Use when |
+|------|----------|
+| [`HANDOFF.md`](./HANDOFF.md) | **Start here** — routes, status, env, recent fixes |
+| [`AGENTS.md`](./AGENTS.md) | Coding rules for agents |
+| [`docs/CLAUDE_CODE_QA_PROMPT.md`](./docs/CLAUDE_CODE_QA_PROMPT.md) | Full QA run vs Axiom (copy-paste for Claude Code) |
+| [`AXIOM_READY_EXECUTION_REPORT.md`](./AXIOM_READY_EXECUTION_REPORT.md) | Indexer verification matrix |
+| [`REALTIME_INGESTION_REPORT.md`](./REALTIME_INGESTION_REPORT.md) | Cron + webhook ingest runbook |
+| [`WALLET_INTELLIGENCE_IMPLEMENTATION_REPORT.md`](./WALLET_INTELLIGENCE_IMPLEMENTATION_REPORT.md) | KOL registry & tracked wallets |
 
 ## Project structure
 
-See `PHASE-1-PROMPT.md` for the canonical structure. Highlights:
+- `app/` — App Router pages and API routes
+- `components/` — UI by feature (tokens, layout, predictions, …)
+- `lib/{db,helius,solana,jupiter,indexer,identity,predictions}/` — all external boundaries
+- `lib/db/*.ts` — typed DB access (**no raw SQL in routes**)
+- `lib/ai/cascade.ts` — single LLM chokepoint
 
-- `app/` — App Router pages and API routes.
-- `components/{layout,tokens,wallets,ai,shared}/` — feature components.
-- `lib/{privy,supabase,db,helius,solana,jupiter,ai,onchain,social,utils}/` —
-  every external boundary lives here. **API routes never call SDKs directly.**
-- `lib/db/*.ts` — typed wrappers for every table. **No raw SQL in routes.**
-- `lib/ai/cascade.ts` — single chokepoint for every LLM call. Cache, quota,
-  rate limit, model selection, cost recording.
-- `lib/db/tiers.ts` — `getFeeBpsForUser`, `getAIQuotaForUser`. Phase 1 returns
-  the single `default` tier; Phase 5 swaps the function body to read token
-  holdings without touching feature code.
+See `PHASE-1-PROMPT.md` (parent workspace) for the original Phase 1 spec.
 
-## Phase-1 boundaries
+## Phase-1 boundaries (out of scope)
 
-Things explicitly **out of scope** (leave `// TODO Phase 2` markers):
+Mobile app, copy-trading, leaderboards UI, referral payouts, our token / TGE, mainnet custom fee program, advanced charting, full perps signing.
 
-- Mobile app, multi-chain (no Base/BNB), perps, copy-trading, leaderboards UI,
-  referral system, our own token / TGE, custom on-chain fee program.
+Mark with `// TODO Phase 2` — do not scope-creep.
+
+## Helius Pulse webhook (local dev)
+
+Solana Pulse ingests via `POST /api/webhooks/helius`. Requires **public HTTPS** (ngrok) for local registration — see `.env.example` and `npm run setup:webhooks`.
+
+Production: set `NEXT_PUBLIC_APP_URL` + `CRON_SECRET`; Vercel crons run discover/enrich/index automatically (`REALTIME_INGESTION_REPORT.md`).
 
 ## Notes
 
-- Tooling: this repo uses **npm**. The Phase 1 prompt mentions `pnpm`; switch
-  by running `corepack enable pnpm` and committing a lockfile.
-- Tailwind is v3 to match the `tailwind.config.ts` design-token shape in the
-  prompt. Migrate to v4 only after shadcn primitives are stable in v4.
+- Tooling: **npm** (not pnpm unless you migrate the lockfile).
+- Tailwind v3 matches `tailwind.config.ts` design tokens — do not invent ad-hoc colors in components.

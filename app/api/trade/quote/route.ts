@@ -12,6 +12,7 @@ import { buildPointerStonSwapQuote } from '@/lib/stonfi/pointerSwap';
 import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
 import { BUY_PRESETS_USDC, USDC_DECIMALS } from '@/lib/utils/constants';
 import { resolveBuyPresetsSol } from '@/lib/beta/founderBeta';
+import { getSolUsdPrice } from '@/lib/packs/pricing';
 import { lamportsToSol, solToLamports, uiToRaw } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
@@ -197,6 +198,15 @@ export async function POST(req: NextRequest) {
         const outAmt =
           typeof jq.outAmount === 'string' ? jq.outAmount : String(jq.outAmount ?? '0');
 
+        // SOL-equivalent notional. For USDC-funded buys this MUST be non-zero so the
+        // execute route records platform_fee_lamports + referral cashback + points
+        // (Jupiter still charges the 1% on-chain fee regardless of spend asset).
+        let amountSolEstimate = body.amountSol ?? 0;
+        if (spendUsdc) {
+          const { solUsd } = await getSolUsdPrice();
+          amountSolEstimate = solUsd > 0 ? body.amountUsdc! / solUsd : 0;
+        }
+
         return NextResponse.json({
           chain: 'sol',
           side: body.side,
@@ -211,7 +221,7 @@ export async function POST(req: NextRequest) {
           summary: {
             amountInRaw: inAmt,
             amountOutRaw: outAmt,
-            amountSolEstimate: spendUsdc ? 0 : body.amountSol!,
+            amountSolEstimate,
             amountUsdcEstimate: spendUsdc ? body.amountUsdc! : undefined,
           },
         });

@@ -654,16 +654,30 @@ export function PortfolioDashboard({
     });
   }, [rowsForSpotTable, searchTable, showHidden]);
 
-  const spotReturnBuckets = useMemo(
-    () => ({
-      gt500: 0,
-      pct200_500: 0,
-      pct0_200: Math.floor(trades.length / 2),
-      pct0_neg50: Math.floor(trades.length / 3),
-      ltNeg50: Math.floor(trades.length / 6),
-    }),
-    [trades.length],
-  );
+  const spotReturnBuckets = useMemo(() => {
+    // Real per-trade return distribution from closed FIFO sells (not a trade-count proxy).
+    const b = { gt500: 0, pct200_500: 0, pct0_200: 0, pct0_neg50: 0, ltNeg50: 0 };
+    for (const c of closed) {
+      if (!(c.costBasisSol > 0)) continue;
+      const ret = ((c.solProceeds - c.costBasisSol) / c.costBasisSol) * 100;
+      if (ret > 500) b.gt500++;
+      else if (ret >= 200) b.pct200_500++;
+      else if (ret >= 0) b.pct0_200++;
+      else if (ret >= -50) b.pct0_neg50++;
+      else b.ltNeg50++;
+    }
+    return b;
+  }, [closed]);
+
+  // Real cumulative realized-PnL series for the Realized PNL chart (chronological).
+  const realizedPnlSeries = useMemo(() => {
+    const sorted = [...closed].sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
+    let run = 0;
+    return sorted.map((c) => {
+      run += c.realizedPnlUsd;
+      return run;
+    });
+  }, [closed]);
 
   const btc = tickersQ.data?.find((t) => t.symbol === 'BTC');
 
@@ -1019,6 +1033,7 @@ export function PortfolioDashboard({
                 <TinyLineChart
                   positive={portfolio.summary.realizedPnlUsd >= 0}
                   empty={trades.length === 0 && tokenPositions.length === 0}
+                  values={realizedPnlSeries}
                 />
               </div>
             </div>
@@ -1952,35 +1967,44 @@ function TransferModal({
   );
 }
 
-function TinyLineChart({ positive = true, empty = false }: { positive?: boolean; empty?: boolean }) {
+function TinyLineChart({
+  positive = true,
+  empty = false,
+  values,
+}: {
+  positive?: boolean;
+  empty?: boolean;
+  /** Real chronological series (e.g. cumulative realized PnL). Plotted as-is. */
+  values?: number[];
+}) {
   const lineColor = positive ? '#3DDC97' : '#FF5E78';
   const w = 320;
   const h = 96;
   const baseline = 48;
+  const top = 8;
   const bottom = h - 8;
-  const pts: [number, number][] = positive
-    ? [
-        [0, 58],
-        [64, 52],
-        [128, 46],
-        [192, 40],
-        [256, 34],
-        [320, 30],
-      ]
-    : [
-        [0, 34],
-        [64, 40],
-        [128, 46],
-        [192, 52],
-        [256, 56],
-        [320, 60],
-      ];
+  // Only draw when we have a real series of ≥2 points; otherwise show the honest
+  // empty state instead of synthesizing a curve.
+  const hasSeries = Array.isArray(values) && values.length >= 2;
+  const showEmpty = empty || !hasSeries;
+  let pts: [number, number][] = [];
+  if (hasSeries) {
+    const n = values!.length;
+    const min = Math.min(...values!);
+    const max = Math.max(...values!);
+    const span = max - min;
+    pts = values!.map((v, i) => {
+      const x = (i / (n - 1)) * w;
+      const y = span > 0 ? top + (1 - (v - min) / span) * (bottom - top) : baseline;
+      return [x, y];
+    });
+  }
   const linePath = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
-  const fillPath = `${linePath} L ${w} ${bottom} L 0 ${bottom} Z`;
+  const fillPath = pts.length ? `${linePath} L ${w} ${bottom} L 0 ${bottom} Z` : '';
 
   return (
     <div className="relative h-[96px] w-full overflow-hidden rounded-lg border border-border-subtle bg-bg-sunken">
-      {empty ? (
+      {showEmpty ? (
         <div className="flex h-full flex-col items-center justify-center px-4 text-center">
           <p className="text-xs font-semibold text-fg-secondary">No PNL history yet</p>
           <p className="mt-1 text-[10px] text-fg-secondary">

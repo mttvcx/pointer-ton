@@ -16,7 +16,7 @@ import {
   setLandingEnterPending,
 } from '@/lib/auth/pointerAuth';
 import { dismissAuthToast, toastAuthenticated, toastAuthenticating } from '@/lib/auth/authToasts';
-import { loginWithOAuthPopup } from '@/lib/auth/oauthPopup';
+import { loginWithOAuthRedirect } from '@/lib/auth/oauthPopup';
 import { cn } from '@/lib/utils/cn';
 
 type Step = 'methods' | 'otp';
@@ -226,17 +226,9 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
       /* no-op */
     }
     try {
-      await loginWithOAuthPopup('google');
-      onLoginComplete();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '';
-      if (msg === 'popup_blocked') {
-        toast.error('Allow popups to sign in with Google', {
-          description: 'Or use email / Phantom below.',
-        });
-      } else {
-        toast.error('Google sign-in failed', { description: 'Try again or use another method.' });
-      }
+      loginWithOAuthRedirect('google');
+    } catch {
+      toast.error('Google sign-in failed', { description: 'Try again or use another method.' });
       setBusy(null);
       clearLandingEnterPending();
       dismissAuthToast();
@@ -254,17 +246,9 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
       /* no-op */
     }
     try {
-      await loginWithOAuthPopup('twitter');
-      onLoginComplete();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '';
-      if (msg === 'popup_blocked') {
-        toast.error('Allow popups to sign in with X', {
-          description: 'Or use email / Phantom below.',
-        });
-      } else {
-        toast.error('X sign-in failed', { description: 'Try again or use another method.' });
-      }
+      loginWithOAuthRedirect('twitter');
+    } catch {
+      toast.error('X sign-in failed', { description: 'Try again or use another method.' });
       setBusy(null);
       clearLandingEnterPending();
       dismissAuthToast();

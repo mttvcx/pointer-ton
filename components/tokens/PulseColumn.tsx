@@ -35,7 +35,7 @@ import {
   pulseBundleMatchesFilters,
   sortPulseBundles,
 } from '@/lib/tokens/columnPresetModel';
-import { PULSE_COLUMN_ACCENT_DOT, type PulseColumnId } from '@/lib/utils/constants';
+import { PULSE_COLUMN_ACCENT_DOT, PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import { syntheticPulseFeedItems, pulseSocialShowcaseBundles } from '@/lib/dev/demoPulseBundles';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
@@ -526,7 +526,12 @@ function PulseColumnBody({
               {title}
             </h2>
             {column === 'new' ? (
-              <span className="whitespace-nowrap text-[9px] tabular-nums text-fg-muted/80">&lt; 30m</span>
+              <span className="whitespace-nowrap text-[9px] tabular-nums text-fg-muted/80">
+                &lt;{' '}
+                {PULSE_THRESHOLDS.newMaxAgeMinutes >= 60
+                  ? `${PULSE_THRESHOLDS.newMaxAgeMinutes / 60}h`
+                  : `${PULSE_THRESHOLDS.newMaxAgeMinutes}m`}
+              </span>
             ) : null}
           </div>
 

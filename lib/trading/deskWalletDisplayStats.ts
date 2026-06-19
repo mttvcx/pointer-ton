@@ -56,6 +56,10 @@ export function computeDeskWalletDisplayStats(params: {
     holdingUsd = tokenUi * priceUsd;
   } else if (desk?.remaining_token_ui && desk.avg_buy_usd) {
     holdingUsd = desk.remaining_token_ui * desk.avg_buy_usd;
+  } else if (!desk && tokenUi > 0 && buyUsd > 0) {
+    // No desk row and no usable live price: mark the still-held position at cost
+    // basis so an unsold holding shows ~break-even, not a false -100% total loss.
+    holdingUsd = Math.max(0, buyUsd - sellUsd);
   }
 
   let holdingSol = 0;

@@ -132,7 +132,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
   const shareUrl = codeData?.code ? buildReferralInviteUrl(codeData.code) : '';
 
   const xShareMessage = codeData?.code
-    ? `50% cashback. Forever.\nUse my referral code: "${codeData.code}"`
+    ? `${sharePct}% cashback. Forever.\nUse my referral code: "${codeData.code}"`
     : '';
 
   const loading = codeLoading || earnLoading;

@@ -24,21 +24,29 @@ function OAuthBridgeInner() {
   };
 
   const { initOAuth } = useLoginWithOAuth({
-    onComplete: () => notifyOpener(true),
+    onComplete: () => {
+      notifyOpener(true);
+      if (!window.opener) window.location.assign('/');
+    },
     onError: () => notifyOpener(false),
   });
 
   useEffect(() => {
     if (!ready || !authenticated) return;
     notifyOpener(true);
+    // Full-page OAuth (no opener): send user back to landing so `/` redirect picks up session.
+    if (!window.opener) {
+      window.location.assign('/');
+    }
   }, [ready, authenticated]);
 
   useEffect(() => {
     if (!ready || startedRef.current || returning) return;
     if (provider !== 'google' && provider !== 'twitter') return;
     startedRef.current = true;
+    // Only start the flow — calling initOAuth again on return restarts Google (account chooser loop).
     void initOAuth({ provider }).catch(() => notifyOpener(false));
-  }, [ready, returning, provider, initOAuth]);
+  }, [ready, provider, returning, initOAuth]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-bg-base px-6 text-center text-sm text-fg-muted">

@@ -1,297 +1,197 @@
-# Pointer TON — Agent Handoff
+# Pointer TON — Project State & Agent Handoff
 
-> **Last updated:** 2026-05-30 (end of long Cursor session — **many changes uncommitted on `main`**)
-> **GitHub:** https://github.com/mttvcx/pointer-ton
-> **Read this file first in every new chat.** Also skim `AGENTS.md` + `README.md`.
-
----
-
-## Copy-paste prompt for a new chat
-
-```
-You are continuing work on Pointer (pointer-ton). Before doing anything:
-
-1. Read HANDOFF.md at the repo root in full — it is the session continuity doc.
-2. Read AGENTS.md for hard rules (no raw SQL in routes, Zod at API boundaries, theme tokens, etc.).
-3. Check `git status` — there is a large uncommitted working tree on main from the prior session; do NOT assume everything is committed or pushed.
-4. Dev: `npm run dev` from pointer-ton root, port 3001. Primary QA: http://127.0.0.1:3001/pulse
-
-The prior session shipped UX fixes across Pulse quick-buy, search modal, token rows, bottom bar, wallet toasts, topbar nav reorder, deposit icons, and stock detail → perps layout. See HANDOFF.md sections "Session 2026-05-30" and "Uncommitted work" for exact files and bugs fixed.
-
-Do not revert working buy/sell, auth, or demo gating. Minimize diff scope. Use Pointer theme tokens, not hardcoded Axiom clone colors. Only commit when the user explicitly asks.
-```
+> **Last updated:** 2026-06-13  
+> **GitHub:** https://github.com/mttvcx/pointer-ton  
+> **Latest commit on `main`:** `5104d56` — Token-2022 balances, wallet intelligence, predictions, ingest crons  
+> **Read this file first.** Then `AGENTS.md` (hard rules). For full QA vs Axiom, use `docs/CLAUDE_CODE_QA_PROMPT.md`.
 
 ---
 
-## What is Pointer? (read this so you're not lost)
+## What is Pointer?
 
-**Pointer** is a **dark-themed crypto trading terminal** — Axiom/Photon-*inspired* UX with Pointer's own design system and **AI Co-pilot**. Tagline: *"Where the sharpest traders are."*
+**Pointer** is an Axiom/Photon-*inspired* Solana-first trading terminal with Pointer’s own dark design system, **AI co-pilot**, wallet tracking, Pulse discovery, and founder-beta live trading. Tagline: *"Where the sharpest traders are."*
 
-| Surface | Route | What it is |
-|---------|-------|------------|
-| **Pulse** | `/pulse` | Live token board — **New / Stretch / Migrated** columns, quick-buy, presets, stocks board (`StocksPulseBoard`), X Monitor, Squads rail. **Primary QA surface.** |
-| **Token detail** | `/token/[mint]` | Sol/TON token page — chart, buy/sell, activity tabs, AI. |
-| **Stock perp detail** | `/stock/[symbol]` | Synthetic equity perps (OPENAI, TSLA, etc.) — **now uses same terminal shell as `/perps`**, not Pulse token desk. |
-| **Perps** | `/perps` | Hyperliquid-style perps terminal — chart, L2 book, trade panel, positions tabs. **Reference layout for stock detail.** |
-| **Explore** | `/explore` | Discovery — table + Mindshare bubbles. |
-| **Track** | `/track` | Wallet tracking. |
-| **Squads** | `/squads/*` + Pulse rail | Squad chat panel (float/dock). |
-| **Portfolio** | `/portfolio` | Holdings / PnL. |
-| **Points** | `/points` | Campaign UI. |
+**Local dev:** `C:\Users\moust\Downloads\pointer-ton` (or clone from GitHub) · **Port:** `3001` · **`npm run dev`**
 
-**Stack:** Next.js 16 App Router, React 19, TS strict, Tailwind, Zustand, TanStack Query, Supabase, Helius, Jupiter, Privy-style auth.
-
-**Local path:** `C:\Users\moust\Downloads\pointer-ton` · **Port:** 3001 · **Branch:** `main` (at time of handoff)
+**Benchmark competitor:** [axiom.trade](https://axiom.trade) — compare layout, load times, desk data, buy/sell UX. Pointer is **not** a pixel clone; match *behavior* and *data honesty*, use Pointer theme tokens.
 
 ---
 
-## Session 2026-05-30 — What we shipped (this chat)
+## Surfaces (every route)
 
-### 1. Pulse quick-buy queue (FIFO)
+| Surface | Route | Status | Notes |
+|---------|-------|--------|-------|
+| **Pulse** | `/pulse` | ✅ Live | NEW / STRETCH / MIGRATED columns, quick-buy queue, stocks board, X Monitor, Squads rail. **Primary QA surface.** |
+| **Token desk** | `/token/[mint]` | ✅ Live | Chart, buy/sell, activity tabs (Trades, Holders, Top Traders, Dev), PnL strip, AI panel. Chain indexer when `mint_swaps` populated. |
+| **Explore** | `/explore` | ✅ Live | Table + Mindshare bubbles. |
+| **Track / Trackers** | `/track`, `/trackers` | ✅ Live | Wallet tracking, KOL tab, **Mint starter KOLs** (opt-in SOL/EVM packs), paste import (Kolscan/Axiom/GMGN). |
+| **Portfolio** | `/portfolio` | ✅ Live | Holdings, FIFO PnL; Jupiter 429 → SOL-only fallback. |
+| **Points / $PTR** | `/points` | ⚠️ UI | Campaign UI; token mechanics Phase 5. |
+| **Predictions** | `/predictions`, `/predictions/[marketId]` | ⚠️ Live data | Kalshi-backed markets API + desk UI. Orders/trades may be preview. |
+| **Packs** | `/packs` | ⚠️ Simulated | Demo/simulated open ledger — not live commerce. |
+| **Perps** | `/perps` | 🔒 Preview | Terminal shell; order signing Phase 2. |
+| **Stock perps** | `/stock/[symbol]` | 🔒 Preview | Same shell as perps (OPENAI, TSLA, etc.). |
+| **Squads** | `/squads/*` | ⚠️ Partial | Chat-first UI; some actions toast “Phase 2”. |
+| **Championship** | `/championship` | ⚠️ Partial | PTCS scoring logic exists; full live loop TBD. |
+| **Wallet profile** | `/wallet/[address]` | ✅ Live | On-chain analytics when indexed. |
+| **Wallets** | `/wallets` | ✅ Live | Multi-wallet management (Privy). |
+| **Referral** | `/referral` | ⚠️ UI | Phase 2 referral system. |
+| **Leaderboard** | `/leaderboard` | ⚠️ UI | Phase 2. |
+| **Sandbox** | `/sandbox` | Dev only | Isolated simulated trading (`POINTER_SANDBOX=1`). |
+| **Admin** | `/admin/*` | Founder | RBAC control room. |
 
-**Problem:** Quick-buy blocked the whole row with spinners; user wanted spam-click queue like Axiom.
-
-**Fix:**
-- `lib/hooks/usePulseQuickBuy.ts` — FIFO queue: `buyToken` / `sellTokenPct` enqueue instantly, drain serially. No global `busyMint` blocking other rows.
-- `components/tokens/TokenRow.tsx` — buy buttons stay clickable (`loading={false}`); spinner centered via `absolute inset-0 flex` wrapper so `animate-spin` doesn't override translate.
-
-### 2. Wallet-tracker toasts not showing
-
-**Root cause:** `app/globals.css` hid all `[data-title]` inside wallet-tracker toaster; Sonner puts custom toast JSX inside `[data-title]`.
-
-**Fix:**
-- Only hide chrome on `[data-styled='true']` toasts.
-- `lib/walletTracker/walletTrackerToast.tsx` — demo toasts bypass mute store.
-
-### 3. Bottom bar regions glitched
-
-**Fix:** `components/layout/BottomBar.tsx`, `bottomBar/BottomBarStatusRail.tsx`, `bottomBar/BottomBarRegionMenu.tsx`
-- `justify-between` + `ml-auto` right cluster, fixed height, `z-[100]`, `overflow-visible`.
-- Region menu portals to `document.body` with fixed positioning.
-- Theme tokens: `border-border-subtle`, `bg-bg-hover`, `text-signal-bull` (not hardcoded hex whites/greens).
-
-### 4. Global search modal
-
-**Width & rows:**
-- `GlobalSearchModal.tsx` — `max-w` **640px → 1080px**, taller rows, more padding.
-- `SearchTokenRow.tsx` — identity `flex-1`, fixed-width MC/V/L columns, horizontal buy pill on right.
-
-**Filter chips (Axiom-style):**
-- New: `components/layout/SearchProtocolFilterChip.tsx`
-- `lib/ui/searchModalChrome.ts` — `searchModalFilterChipIdleClass` / `ActiveClass`
-- Chips: **Pump, Bonk, Bags** (replaced Printr), OG Mode (Flame), Graduated, Dex Paid (Shield)
-- Real protocol logos at ~18px via `ProtocolBrandIcon`; meta icons grey-filled in bordered circles.
-
-### 5. Token row — clickability + MC/V + button sizes
-
-**Critical bugs fixed in `components/tokens/TokenRow.tsx`:**
-
-| Bug | Cause | Fix |
-|-----|-------|-----|
-| V/MC area not clickable to open token | `ultraChrome` was true for *all* Pulse rows (`slotHeight != null`), rendering full-height Ultra dock with `pointer-events-auto` on entire right column | Split concepts: `ultraChrome = buyButtonStyle === 'ultra'` only; `pulseRow = slotHeight != null`; `useActionDock = hasRightActions && (pulseRow \|\| ultraChrome)` |
-| V/MC disappeared on normal (small/medium/large) preset | Action dock branch gated on `ultraChrome` only — normal preset skipped dock (where V/MC live) but still reserved padding and hid inline V/MC | Outer dock condition changed to `useActionDock` (was wrongly still `ultraChrome &&` at one point — **must be `useActionDock`**) |
-| Small/medium/large all looked identical | `QuickBuyPill` ignored `style` prop, uniform `h-5` | `quickBuyPillSizeClasses()` — small `h-6` tint, medium `h-8` semi-fill, large `h-11` solid green bar full dock width |
-
-**Pointer-events:** Dock wrapper `pointer-events-none`; only buttons `pointer-events-auto` (Ultra zones too).
-
-**Helpers at bottom of TokenRow.tsx:** `pulseDockWidthClass`, `pulseDockReservePadding`, `quickBuyPillSizeClasses`.
-
-### 6. Topbar nav reorder (Display settings)
-
-Like dock tracker reorder in `DockTrackersSettingsModal.tsx`:
-
-- `store/topbarNav.ts` — persisted order (`pointer.topbar-nav.v1`), `moveItem`, `resetOrder`
-- `lib/layout/topbarNav.ts` — `normalizeTopbarNavOrder`, `resolveTopbarNav`
-- `components/preferences/TopbarNavReorderRow.tsx` — drag chips in **Display** popover + Settings → Display
-- `components/layout/Topbar.tsx` — renders `navItems` from store, not static `APP_NAV` order
-
-Default order: Pulse → Perps → Packs → Portfolio → Track → Squads → Championship → $PTR (`components/layout/navConfig.ts`).
-
-### 7. Deposit modal — PYUSD logo
-
-**Problem:** `public/logos/protocols/pyusd.png` was a wrong placeholder (generic blue “P”, not PayPal USD).
-
-**Fix:** Replaced with official PayPal PYUSD brand asset. PYUSD is real (PayPal USD stablecoin by Paxos). `lib/wallet/depositAssetIcons.ts` + `ExchangeModal.tsx` Accepting chips slightly larger (`h-4`).
-
-### 8. Stock detail → Perps terminal layout
-
-**Problem:** `/stock/[symbol]` still used Pulse token UI (`TokenActivityTabs`, `TokenTradeDeskStrip`, token-style `StockHeader` with MC/liquidity/Pulse alerts).
-
-**Fix — stock pages are perp contracts, same shell as `/perps`:**
-
-| New / updated | Role |
-|---------------|------|
-| `components/stocks/StockTerminal.tsx` | Main layout: header + 3-col grid + bottom panel + resize split |
-| `components/stocks/StockMarketHeader.tsx` | Mark, Oracle, 24h, Funding, OI, Volume, Max lev (not MC/liquidity) |
-| `components/stocks/StockOrderPanel.tsx` | Mirrors `PerpsOrderPanel` — Long/Short, Market/Limit, leverage, limit price, TP/SL expand, margin footer |
-| `lib/stocks/stockPerpUi.ts` | `stockOrderbookToL2`, funding helpers, `STOCK_MAX_LEVERAGE = 20` |
-| `components/stocks/StockDetailView.tsx` | Thin wrapper → `StockTerminal` |
-| `app/(app)/stock/[symbol]/page.tsx` | Full-height layout like perps page; removed `StockHeader` |
-
-Reuses: `PerpsOrderBook`, `PerpsBottomPanel` (Positions / Open orders / Trades).
-
-**Stocks list** still on Pulse via `StocksPulseBoard` → click row → `/stock/SYMBOL`.
-
-**Legacy file (unused on stock page now):** `components/stocks/StockHeader.tsx` — token-style header; do not wire back without user ask.
+**Hidden / legacy nav:** Perps may appear in user-customized topbar order (`store/topbarNav.ts`). Default nav in `components/layout/navConfig.ts`.
 
 ---
 
-## Uncommitted work (git status snapshot 2026-05-30)
+## What works today (June 2026)
 
-**Nothing from this session was committed** unless the user committed separately after handoff. Expect a large dirty tree on `main`.
+### Trading & balances
+- **Live buy/sell** via Jupiter v6 (+ Pump direct route when applicable) on Solana mainnet through Helius RPC + Sender + Jito.
+- **Platform fee:** 1% (100 bps) default tier; Jupiter referral account wired.
+- **Founder beta presets:** `0.001, 0.01, 0.1, 0.5` SOL when `NEXT_PUBLIC_FOUNDER_BETA=1`. **Use 0.001 SOL for E2E tests** (~$0.15–0.25); Jupiter rejects sub-0.001.
+- **Token-2022 balances:** Pump/migrated tokens (e.g. ISLANDS `yoA2…pump`) — `getSplBalanceRaw` scans Token + Token-2022 programs. Fixes zero balance / −100% PnL on desk.
+- **Desk PnL:** Axiom-style `sold + holding mark − bought` when live price + balance available (`lib/trading/deskWalletDisplayStats.ts`).
 
-### New files (untracked `??`)
+### Token desk & indexer
+- **Chain trades tape** from `mint_swaps` (Helius enhanced tx backfill) — any indexed mint, not QA-only.
+- **On-demand index kickoff:** Empty trades/stats → background `backfillMintSwaps` via `lib/indexer/kickoffMintIndex.ts`.
+- **Scheduled crons** (Vercel + `CRON_SECRET`): discover, enrich-pulse, index-active-mints, retry-failed-indexes, poll-tracked-wallets, aggregate-wallet-stats. See `REALTIME_INGESTION_REPORT.md`.
+- **Indexed mints (example):** Islands 160 swaps, WIF 53, JPYCRB 38 — see `AXIOM_READY_EXECUTION_REPORT.md`.
+- **Honest empty states:** `indexer_pending` label, not fake numbers (unless `NEXT_PUBLIC_UI_DEMO_MODE=1`).
 
-```
-components/layout/SearchProtocolFilterChip.tsx
-components/preferences/TopbarNavReorderRow.tsx
-components/stocks/StockMarketHeader.tsx
-components/stocks/StockTerminal.tsx
-lib/layout/topbarNav.ts
-lib/stocks/stockPerpUi.ts
-store/topbarNav.ts
-app/(app)/portfolio/PortfolioPageClient.tsx
-lib/share/pnlShareLayout.ts
-lib/share/shareCardTheme.ts
-public/branding/pnl-share-card-purple.png
-public/branding/pnl-share-reference.png
+### Pulse & discovery
+- Helius DAS + DexScreener + pump.fun enrich; NEW column 240m window; cold-start sync poll.
+- Quick-buy **FIFO queue** (`usePulseQuickBuy`) — spam-click without row lock.
+- Protocol filters, launchpad avatars, Twitter hover cards (SocialData or syndication fallback).
+
+### Wallet intelligence
+- **KOL registry:** Postgres-backed `identity_profiles` + JSON seeds; Kolscan/Axiom/GMGN paste import (`POST /api/identity/import`).
+- **Starter KOL packs:** Opt-in **Mint starter KOLs** button (SOL ~46 wallets, EVM 20 shared on eth/bnb/base) — no auto-seed on signup.
+- **Tracked wallet alerts:** Helius webhook + cron poll → real toasts (`WalletTrackerAlertBridge`).
+- **wallet_stats** aggregation cron from `mint_swaps`.
+
+### Predictions
+- `GET /api/predictions/markets` — Kalshi live markets (crypto category). Desk UI at `/predictions`.
+
+### Auth & infra
+- Privy embedded wallets + Google/X OAuth popup.
+- Supabase Postgres, Upstash Redis, Zod at API boundaries, `lib/db/*` only for DB writes.
+
+---
+
+## Known gaps vs Axiom (honest)
+
+| Axiom has | Pointer today | Gap |
+|-----------|---------------|-----|
+| Instant chain tape for every mint | Indexed mints only; others show “indexer pending” until cron/backfill | Indexer coverage + Helius credits |
+| Holder bought/avg/PnL per wallet | Real when `mint_wallet_stats` indexed; synth/`—` otherwise | Indexer + wallet stats |
+| Snipers / insiders / bundlers | Mostly `null` / Phase 2 | Paid indexer or custom heuristics |
+| Sub-second tape updates | Cron 2–5 min lag unless Helius webhook registered | Webhook + deploy URL |
+| Total holder count | Moralis when keyed; else `—` | Optional `MORALIS_API_KEY` |
+| Perps / copy-trade | Preview shells only | Phase 2+ |
+
+---
+
+## Recent fixes (do not regress)
+
+1. **Token-2022 SPL balance** — `lib/solana/wallet-token-balances.ts`, `app/api/trade/balance/route.ts`.
+2. **Desk PnL −100% on held positions** — live mark in `deskWalletDisplayStats.ts`.
+3. **TokenRow Pulse dock** — `ultraChrome` vs `pulseRow` vs `useActionDock`; V/MC click zone + button sizes.
+4. **Indexer generalized** — no `isPointerQaMint` gates on chain-trades/holders/dev-tokens.
+5. **KOL import + starter packs** — opt-in, not auto on auth sync.
+
+---
+
+## Environment (minimum for full QA)
+
+Copy `.env.example` → `.env.local`. Critical keys:
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `NEXT_PUBLIC_APP_URL` | yes | `http://127.0.0.1:3001` |
+| `HELIUS_API_KEY` | yes (Sol) | RPC, DAS, indexer, webhooks |
+| `NEXT_PUBLIC_SUPABASE_*` + `SUPABASE_SERVICE_ROLE_KEY` | yes | DB |
+| `NEXT_PUBLIC_PRIVY_APP_ID` + `PRIVY_APP_SECRET` | yes | Auth + wallets |
+| `UPSTASH_*` | yes | Cache / rate limits |
+| `NEXT_PUBLIC_FOUNDER_BETA=1` | QA | 0.001 SOL presets, desktop gate |
+| `CRON_SECRET` | prod | Cron route auth |
+| `MORALIS_API_KEY` | optional | Total holder count |
+| `JUPITER_API_KEY` | optional | Reduces 429 on quotes |
+| Kalshi keys | predictions | See `.env.example` Kalshi section |
+
+**Do not commit `.env.local`.**
+
+---
+
+## Scripts & verification
+
+```bash
+npm install
+npm run dev              # http://127.0.0.1:3001
+npm run typecheck
+npm test                 # 237+ tests
+npm run backfill:active-mints -- --source=pulse_migrated --max=8
+npm run cron:loop        # local ingest loop (optional)
 ```
 
-### Modified (high-signal `M`)
+**Quick smoke:** `/pulse` → open ISLANDS or WIF → Trades tab has rows if indexed → buy panel shows real balance → PnL strip not −100% when holding.
+
+---
+
+## Architecture rules (summary)
+
+Full rules: **`AGENTS.md`**
+
+1. No raw SQL in API routes → `lib/db/*.ts`
+2. No direct LLM in features → `lib/ai/cascade.ts`
+3. Zod at every API boundary
+4. Theme tokens in `tailwind.config.ts` / `globals.css` — no ad-hoc hex
+5. Phase 5 abstractions: `getFeeBpsForUser`, `getAIQuotaForUser` in `lib/db/tiers.ts`
+6. **dex-trader** is a different repo — do not edit unless user names it
+7. Commits/push only when user asks
+
+---
+
+## Documentation index
+
+| Doc | Purpose |
+|-----|---------|
+| **`HANDOFF.md`** (this file) | Current project state |
+| **`AGENTS.md`** | Agent hard rules |
+| **`README.md`** | Setup & stack |
+| **`docs/CLAUDE_CODE_QA_PROMPT.md`** | Copy-paste full QA vs Axiom prompt |
+| **`AXIOM_READY_EXECUTION_REPORT.md`** | Indexer generalization + verification matrix |
+| **`WALLET_INTELLIGENCE_IMPLEMENTATION_REPORT.md`** | KOL registry, imports, tracked alerts |
+| **`REALTIME_INGESTION_REPORT.md`** | Cron schedule, webhooks, ingest runbook |
+| **`WALLET_DATA_INVENTORY_REPORT.md`** | DB table counts & data inventory |
+| **`WALLET_INTELLIGENCE_MORALIS_AUDIT.md`** | Moralis scope audit |
+| **`docs/POINTER-QA-HANDOFF.md`** | Legacy G7anch QA notes (partially superseded) |
+| **`DATA_GAP_AND_API_BLOCKERS.md`** | Paid API gaps |
+| **`FOUNDER_BETA_READINESS_REPORT.md`** | Founder beta checklist |
+
+---
+
+## Copy-paste prompt (short — new agent)
 
 ```
-components/tokens/TokenRow.tsx          ← Pulse row dock / click / button sizes
-components/layout/GlobalSearchModal.tsx
-components/layout/SearchTokenRow.tsx
-lib/ui/searchModalChrome.ts
-lib/hooks/usePulseQuickBuy.ts
-components/layout/BottomBar.tsx + bottomBar/*
-app/globals.css
-lib/walletTracker/walletTrackerToast.tsx
-components/layout/Topbar.tsx
-components/preferences/DisplayPopover.tsx
-components/preferences/DisplayPreferences.tsx
-components/stocks/StockDetailView.tsx
-components/stocks/StockOrderPanel.tsx
-app/(app)/stock/[symbol]/page.tsx
-components/wallet/ExchangeModal.tsx
-lib/wallet/depositAssetIcons.ts
-public/logos/protocols/pyusd.png
+You are working on Pointer (pointer-ton). Read HANDOFF.md and AGENTS.md first.
+
+Repo: https://github.com/mttvcx/pointer-ton · Dev: npm run dev → http://127.0.0.1:3001
+
+Current focus: Axiom-parity QA, token desk accuracy (Token-2022 balances, indexer, PnL), wallet intelligence, predictions desk.
+
+Rules: minimal diff, theme tokens, no scope creep, no commit unless asked. Trading tests: 0.001 SOL max. Compare behavior to axiom.trade when validating UX.
+
+For full screen-by-screen QA, follow docs/CLAUDE_CODE_QA_PROMPT.md.
 ```
 
-### Other modified areas (earlier in same session / parallel)
-
-Portfolio client split, PnL share composer/cards, Explore table/bubble, RoutePrefetcher, auth sync, pulse feed cache, MintTradesTable, ColumnFilterModal, WalletBalancePopover, etc. — see full `git status` and `git diff`.
-
 ---
 
-## Key files map (quick reference)
+## Suggested next work
 
-| Area | Files |
-|------|--------|
-| Pulse quick-buy queue | `lib/hooks/usePulseQuickBuy.ts`, `components/tokens/PulseColumn.tsx` |
-| Token row layout | `components/tokens/TokenRow.tsx` |
-| Search modal | `GlobalSearchModal.tsx`, `SearchTokenRow.tsx`, `SearchProtocolFilterChip.tsx`, `searchModalChrome.ts` |
-| Bottom bar | `BottomBar.tsx`, `bottomBar/*` |
-| Wallet toasts | `app/globals.css`, `walletTrackerToast.tsx` |
-| Topbar nav order | `store/topbarNav.ts`, `lib/layout/topbarNav.ts`, `TopbarNavReorderRow.tsx`, `Topbar.tsx`, `navConfig.ts` |
-| Dock reorder (reference) | `store/dockTrackers.ts`, `DockTrackersSettingsModal.tsx` |
-| Perps terminal (reference) | `PerpsTerminal.tsx`, `PerpsOrderPanel.tsx`, `PerpsBottomPanel.tsx`, `PerpsMarketHeader.tsx` |
-| Stock perp terminal | `StockTerminal.tsx`, `StockMarketHeader.tsx`, `StockOrderPanel.tsx`, `stockPerpUi.ts` |
-| Deposit icons | `depositAssetIcons.ts`, `ExchangeModal.tsx` |
-| Stocks on Pulse | `StocksPulseBoard.tsx`, `StockRow.tsx`, `StocksPulseColumn.tsx` |
-
----
-
-## Architecture notes agents must not break
-
-1. **No raw SQL in API routes** — use `lib/db/*.ts`
-2. **No direct LLM calls in features** — use `lib/ai/cascade.ts`
-3. **Zod at API boundaries**
-4. **Theme tokens** in `tailwind.config.ts` + `globals.css` — no ad-hoc `#5865F2` / random greens unless matching existing pattern
-5. **`ultraChrome` vs `pulseRow` vs `useActionDock`** in TokenRow — do not conflate; regression causes missing V/MC and dead click zones
-6. **Phase 2 TODOs** stay behind abstractions (`getFeeBpsForUser`, etc.)
-7. **dex-trader** is a different project — don't edit unless user names it
-8. **Commits / push** only when user explicitly asks
-
----
-
-## Known issues / follow-ups
-
-| Item | Status |
-|------|--------|
-| Large uncommitted diff on `main` | User may want commit + push in new chat |
-| `user_tiers` DB error in screenshots | Migration/schema issue — unrelated to UI work; run `scripts/reload-postgrest-schema.sql` after DDL |
-| PerpsBottomPanel column headers | Simplified vs Axiom reference (Positions vs Trades columns differ in reference imgs) — perps page deemed OK; could align later |
-| Stock order execution | `StockOrderPanel` → TODO Phase 2 HIP-3 / TradeXYZ signing |
-| `StockHeader.tsx` | Orphaned token-style header — stock page uses `StockMarketHeader` |
-| Mobile search row MC/V/L | `SearchTokenRow` stats may be `hidden sm:flex` — optional follow-up |
-| Hydration `ontouchstart` on body | Often extension/Cursor browser — optional `suppressHydrationWarning` |
-
----
-
-## How to verify quickly (QA checklist)
-
-1. `npm run dev` → http://127.0.0.1:3001/pulse
-2. **Quick-buy** — spam-click buy on Pulse row; queue drains FIFO; no row-wide spinner lock
-3. **Token row click** — on **medium/large** preset (not Ultra), click V/MC area above buy button → opens token page
-4. **Button sizes** — column display preset small vs medium vs large → visibly different buy pills
-5. **Search** — open global search → filter chips sized with real logos; Bags not Printr
-6. **Display** → drag reorder topbar nav links → order persists refresh
-7. **Deposit modal** → Accepting → PYUSD shows PayPal-style logo
-8. **Stock** — Pulse stocks column → click OPENAI/TSLA → perps-style terminal (chart | book | trade | positions tabs), no holders/top traders tabs
-9. **Bottom bar** — Stable/US-E cluster aligned; region menu works
-10. **Wallet tracker** — demo toasts visible
-
----
-
-## Prior session work (still relevant)
-
-### Squads — chat-first UI + float/dock
-
-- `SquadsAsidePanel.tsx`, `SquadSwitcherStrip.tsx`, `squadsChatUi.ts`, `DockSquadsFloatingPanel.tsx`, `tokenDockPeek.ts`
-
-### Pulse — filters & visuals
-
-- `columnPresetModel.ts` — full protocol preset filter fix
-- `PulseTokenAvatar.tsx` — migrated gold ring fix
-
-### Performance (partial)
-
-- `protocolPreload.ts`, `DeferredAppShellHosts.tsx`, `RoutePrefetcher.tsx`, dynamic Topbar modals, parallel token page fetches, pulse `staleTime`, portfolio route lightening
-
-### Explore mindshare hover
-
-- `ExploreTokenBubble.tsx` tooltip layout fix
-
----
-
-## User preferences (carry forward)
-
-- Blunt feedback expected — fix root cause, minimal diff
-- Axiom-*inspired* layout OK; not a violet/emerald clone theme
-- Don't scope-creep Phase 2 features without `// TODO Phase 2`
-- Real shell access — run commands, don't give up after one failure
-- **Do not commit** unless explicitly asked
-
----
-
-## Recent commits (may be behind working tree)
-
-```
-3ec5080 Add HANDOFF.md for agent session continuity across chats.
-3fdb761 Squads chat UX, Pulse filters, perf, and Explore hover polish.
-```
-
-Everything in **Session 2026-05-30** above is likely **not** in these commits.
-
----
-
-## Suggested next work (if user asks)
-
-- Commit + push session changes with a clean message after user review
-- PerpsBottomPanel tab-specific column headers (match Axiom reference)
-- TP/SL + limit price parity on main `PerpsOrderPanel` (stock panel has them; perps may not)
-- Theme-token pass on remaining `searchModalChrome.ts` hardcoded `white/[0.xx]`
-- Mobile search row stats full width
-- Real stock/perp order signing (Phase 2)
+- Full Claude Code QA pass (`docs/CLAUDE_CODE_QA_PROMPT.md`) → prioritized fix list
+- Register Helius webhook on deployed URL for sub-minute tape
+- Wire `prependSwapInstructions` / ATA for Token-2022 on new buys
+- Predictions order flow (if Kalshi keys present)
+- Stretch column: populate `bonding_progress` in enrich cron

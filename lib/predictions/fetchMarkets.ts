@@ -93,7 +93,7 @@ async function loadKalshiMarkets(limit = 200): Promise<PredictionMarket[]> {
             eventCategoryByTicker.set(m.event_ticker, cat);
           }
           const mapped = mapKalshiMarket(m, title, cat);
-          if (evLooksCrypto(title ?? '', cat)) {
+          if (eventLooksCrypto(title ?? '', cat)) {
             mapped.tags = [...new Set([...mapped.tags, 'Crypto'])];
             if (mapped.category === 'Politics') mapped.category = 'Crypto';
           }
@@ -125,6 +125,12 @@ async function loadKalshiMarkets(limit = 200): Promise<PredictionMarket[]> {
     }
 
     let rows = dedupeMarkets(markets);
+    if (rows.length === 0) {
+      // No real Kalshi rows (missing keys / API down): return empty so the caller
+      // serves the demo set honestly (source:'demo', live:false) instead of merging
+      // demo supplements and labeling them as live Kalshi data.
+      return [];
+    }
     rows.sort((a, b) => b.volumeUsd - a.volumeUsd);
     rows = markFeatured(rows.slice(0, limit));
     rows = mergeDemoSupplements(rows);

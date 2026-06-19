@@ -151,6 +151,22 @@ export async function getSocialAccountById(id: string): Promise<CreatorSocialAcc
   return (data as CreatorSocialAccountRow | null) ?? null;
 }
 
+export async function markCreatorAccountVerified(
+  accountId: string,
+  opts: { tier: CreatorTier; tier1AudiencePct: number },
+): Promise<void> {
+  const { error } = await from('creator_social_accounts')
+    .update({
+      verification_status: 'verified',
+      tier: opts.tier,
+      tier1_audience_pct: opts.tier1AudiencePct,
+      verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', accountId);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateCreatorPayout(
   creatorId: string,
   payout: { method: 'crypto' | 'paypal'; address: string },

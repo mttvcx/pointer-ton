@@ -1,6 +1,8 @@
 # AGENTS — Pointer
 
 > Source of truth for agents working on this repo. Read this before editing.
+> **Project state (routes, what works, gaps):** [`HANDOFF.md`](./HANDOFF.md) — updated 2026-06-13.
+> **Full QA vs Axiom (Claude Code):** [`docs/CLAUDE_CODE_QA_PROMPT.md`](./docs/CLAUDE_CODE_QA_PROMPT.md).
 > The full Phase 1 spec lives in `PHASE-1-PROMPT.md` at the workspace root
 > (one level above this project).
 
@@ -38,6 +40,9 @@
 ## Solana specifics
 
 - Connection: `lib/solana/connection.ts` (Helius RPC).
+- **Token-2022 (pump tokens):** Balance reads must use both Token and Token-2022
+  programs — `lib/solana/wallet-token-balances.ts` + `getSplBalanceRaw`. Do not
+  assume legacy `TOKEN_PROGRAM_ID` only.
 - **Devnet fee program (Step 8):** Anchor sources in `anchor/` (`pointer_fee`).
   TS helpers: `lib/solana/pointerFee.ts`. Env: `POINTER_FEE_PROGRAM_ID`.
 - Submission: `submitTransaction` posts to **Helius Sender + Jito bundle in

@@ -8,6 +8,7 @@ import {
   addCreatorSocialAccount,
   getCreatorByDiscordId,
   listCreatorAccounts,
+  markCreatorAccountVerified,
   upsertCreatorFromDiscord,
 } from '@/lib/db/creators';
 import {
@@ -31,19 +32,7 @@ async function bootstrapVerifiedAccount(creatorId: string) {
     profileUrl: 'https://www.tiktok.com/@devclip',
   });
 
-  const { createAdminSupabase } = await import('@/lib/supabase/server');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = createAdminSupabase() as any;
-  await db
-    .from('creator_social_accounts')
-    .update({
-      verification_status: 'verified',
-      tier: 'basic',
-      tier1_audience_pct: 25,
-      verified_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', account.id);
+  await markCreatorAccountVerified(account.id, { tier: 'basic', tier1AudiencePct: 25 });
 
   return account;
 }

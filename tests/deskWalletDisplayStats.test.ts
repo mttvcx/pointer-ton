@@ -74,4 +74,20 @@ describe('deskWalletDisplayStats', () => {
     assert.ok(stats.netPnlPct != null);
     assert.ok(stats.netPnlPct! > 0);
   });
+
+  it('does not show -100% when held position has no desk row and no live price', () => {
+    const stats = computeDeskWalletDisplayStats({
+      session: { buyTon: 0.1, sellTon: 0 },
+      desk: null,
+      solUsdRate: 150,
+      priceUsd: null,
+      balanceRaw: { rawAmount: '100000000000' },
+      decimals: 6,
+    });
+    // Still holding the full position with no price snapshot: should mark to
+    // ~break-even (cost basis), never a false -100% total loss.
+    assert.ok(stats.netPnlPct != null);
+    assert.ok(stats.netPnlPct! > -100);
+    assert.ok(Math.abs(stats.netPnlPct!) < 1);
+  });
 });

@@ -8,6 +8,7 @@ import { PackCard } from '@/components/packs/PackCard';
 import { PackDetailsModal } from '@/components/packs/PackDetailsModal';
 import { PackOpenFlow } from '@/components/packs/PackOpenFlow';
 import { listPublicPackConfigsSync } from '@/lib/packs/packConfig';
+import { PACKS_OPEN_USES_SIMULATED_LEDGER } from '@/lib/packs/mode';
 import { cn } from '@/lib/utils/cn';
 
 type OpenTarget = {
@@ -88,6 +89,12 @@ export function PacksTerminal({ className }: { className?: string }) {
           ) : null}
         </div>
       </header>
+
+      {PACKS_OPEN_USES_SIMULATED_LEDGER ? (
+        <p className="border-b border-border-subtle bg-bg-raised/40 px-4 py-2 text-center text-[11px] font-medium text-amber-300/90 sm:px-6">
+          Simulated mode — no real SOL is spent and rewards are not credited to your wallet.
+        </p>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
