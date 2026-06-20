@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/poll-tracked-wallets",
       "schedule": "*/7 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-kol-stats",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
