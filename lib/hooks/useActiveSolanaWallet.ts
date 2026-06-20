@@ -48,6 +48,7 @@ export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
   const activeChain = useUIStore((s) => s.activeChain);
   const { linkedTonAddress, ready: authReady } = usePointerAuth();
   const activeAddr = useActiveWalletStore((s) => s.activeWalletAddress);
+  const manuallyPicked = useActiveWalletStore((s) => s.manuallyPicked);
   const setActive = useActiveWalletStore((s) => s.setActiveWalletAddress);
 
   const wallets = useMemo(
@@ -125,6 +126,21 @@ export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
 
     const activeKey = activeAddr ? canonicalWalletKey(activeAddr, activeChain) : null;
     if (activeKey && eligibleKeyToRaw.has(activeKey)) {
+      // Keep a deliberate user pick, or the primary itself. Otherwise prefer the
+      // primary so the header/top-right defaults to the main funded wallet (a
+      // non-primary that was only auto-selected — e.g. while primary was
+      // archived — should not stay sticky).
+      const activeRow = eligibleRows.find(
+        (r) => canonicalWalletKey(r.wallet_address, activeChain) === activeKey,
+      );
+      if (manuallyPicked || activeRow?.is_primary) return;
+      const primaryRow = eligibleRows.find((r) => r.is_primary);
+      if (
+        primaryRow &&
+        canonicalWalletKey(primaryRow.wallet_address, activeChain) !== activeKey
+      ) {
+        setActive(primaryRow.wallet_address);
+      }
       return;
     }
 
@@ -136,6 +152,7 @@ export function useActiveSolanaWallet(myWallets: MyWalletRow[] | undefined) {
     eligibleRows,
     eligibleKeyToRaw,
     activeAddr,
+    manuallyPicked,
     setActive,
     linkedTonAddress,
     activeChain,

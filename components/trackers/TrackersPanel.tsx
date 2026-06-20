@@ -596,7 +596,7 @@ export function TrackersPanel({
       setNewWalletAddress(createdAddress);
       setNewWalletPrivateKey(privateKeyDisplay);
       setRevealPrivateKey(false);
-      setActiveWalletAddress(createdAddress);
+      setActiveWalletAddress(createdAddress, true);
       void queryClient.invalidateQueries({ queryKey: ['wallets-my'] });
       void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       dispatchSolanaAccountRefresh('tracker_wallet_create');

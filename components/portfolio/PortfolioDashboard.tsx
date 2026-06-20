@@ -1569,7 +1569,7 @@ export function PortfolioDashboard({
                       onExportKey={() => onExportWalletKey(w)}
                       onSetPrimary={() => void setPrimaryWallet(w.id)}
                       onSetTrading={() => {
-                        setActiveWalletAddress(w.wallet_address);
+                        setActiveWalletAddress(w.wallet_address, true);
                         toast.success('Trading wallet updated');
                       }}
                       explorerUrl={explorerAccountUrlForChain(w.wallet_address, activeChain)}

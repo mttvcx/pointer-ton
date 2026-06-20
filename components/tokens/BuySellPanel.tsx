@@ -991,7 +991,7 @@ export function BuySellPanel({
   const selectWallets = (rows: MyWalletRow[]) => {
     const addresses = rows.map((w) => w.wallet_address);
     setSelectedWalletAddresses(addresses);
-    if (addresses[0]) setActiveWalletAddress(addresses[0]);
+    if (addresses[0]) setActiveWalletAddress(addresses[0], true);
   };
 
   const selectedCombinedSol = useMemo(() => {

@@ -166,7 +166,7 @@ export function WalletsManage({ className }: { className?: string }) {
       setNewWalletAddress(address);
       setNewWalletPrivateKey(privateKeyDisplay);
       setRevealPrivateKey(false);
-      setActiveWalletAddress(address);
+      setActiveWalletAddress(address, true);
       toast.success('Wallet created — save your private key offline');
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       void qc.invalidateQueries({ queryKey: ['portfolio'] });
@@ -428,7 +428,7 @@ export function WalletsManage({ className }: { className?: string }) {
                             OS.glass,
                           )}
                           >
-                            <button type="button" onClick={() => { setActiveWalletAddress(w.wallet_address); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Star className="h-3.5 w-3.5" /> Set primary</button>
+                            <button type="button" onClick={() => { setActiveWalletAddress(w.wallet_address, true); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Star className="h-3.5 w-3.5" /> Set primary</button>
                             <button type="button" onClick={() => { toast.info('Click the wallet name to rename'); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Pencil className="h-3.5 w-3.5" /> Rename</button>
                             <button type="button" onClick={() => { onExportKeyInfo(w); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><KeyRound className="h-3.5 w-3.5" /> Export key</button>
                             <button type="button" disabled={patchMutation.isPending} onClick={() => { patchMutation.mutate({ id: w.id, body: { is_archived: !w.is_archived } }); setActionOpenId(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-[#d1d5db] hover:bg-white/[0.06]"><Shield className="h-3.5 w-3.5" /> {w.is_archived ? 'Unarchive' : 'Archive'}</button>

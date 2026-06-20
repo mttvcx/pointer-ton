@@ -731,7 +731,7 @@ export function CompactInstantTradePanel({
       if (groupId !== UNGROUPED_GROUP_ID) touchWalletGroup(groupId);
       const addrs = addressesForGroupSelection(groupId, walletGroups, tradableWalletAddresses);
       setInstantTradeWalletShortlist(addrs);
-      if (addrs[0]) setActiveWalletAddress(addrs[0]);
+      if (addrs[0]) setActiveWalletAddress(addrs[0], true);
     },
     [
       walletGroups,
@@ -1963,7 +1963,7 @@ export function CompactInstantTradePanel({
                     disabled={unusable && !isActive}
                     onClick={() => {
                       if (unusable && !isActive) return;
-                      setActiveWalletAddress(w.wallet_address);
+                      setActiveWalletAddress(w.wallet_address, true);
                       setWalletMenuOpen(false);
                     }}
                     className={cn(
