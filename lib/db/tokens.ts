@@ -30,12 +30,21 @@ export async function getTokenByMint(mint: string): Promise<TokenRow | null> {
 
 export async function getTokensByMints(mints: string[]): Promise<Map<string, TokenRow>> {
   const map = new Map<string, TokenRow>();
-  if (mints.length === 0) return map;
+  const unique = [...new Set(mints.filter(Boolean))];
+  if (unique.length === 0) return map;
   const supabase = createAdminSupabase();
-  const { data, error } = await supabase.from('tokens').select('*').in('mint', mints);
-  if (error) throw new Error(`getTokensByMints failed: ${error.message}`);
-  for (const row of data ?? []) {
-    map.set(row.mint, row);
+  // Chunk the IN() list — a large `.in('mint', [...])` becomes a GET with every
+  // mint in the query string and blows PostgREST's URL length limit (~400+
+  // mints -> "fetch failed"/"Bad Request"). Bot/whale wallets hold hundreds of
+  // tokens, which 500'd the wallet-analytics endpoint.
+  const CHUNK = 150;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const slice = unique.slice(i, i + CHUNK);
+    const { data, error } = await supabase.from('tokens').select('*').in('mint', slice);
+    if (error) throw new Error(`getTokensByMints failed: ${error.message}`);
+    for (const row of data ?? []) {
+      map.set(row.mint, row);
+    }
   }
   return map;
 }

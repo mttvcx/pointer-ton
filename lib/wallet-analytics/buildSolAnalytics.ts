@@ -97,7 +97,9 @@ export async function buildSolWalletAnalytics(params: {
   }
 
   const mints = [SOL_MINT, ...spl.map((s) => s.mint)];
-  const meta = await getTokensByMints(mints);
+  // Degrade gracefully — never 500 the whole modal because token metadata or
+  // prices couldn't load (e.g. a whale wallet with hundreds of positions).
+  const meta = await getTokensByMints(mints).catch(() => new Map<string, never>());
   const prices = await fetchUsdPricesForMints(mints).catch(() => new Map());
 
   const solPrice = prices.get(SOL_MINT)?.usdPrice ?? null;
