@@ -69,10 +69,24 @@ export async function fetchWalletSwapHistory(
   let reachedWindowEdge = false;
 
   for (let page = 0; page < maxPages; page++) {
-    const { txs, calls, credits } = await fetchHeliusAddressTransactions(address, {
-      before,
-      limit: 100,
-    });
+    // Retry on 429 with exponential backoff — Free plan shares 10 req/s with
+    // live ingestion, so the rate budget is often saturated; wait for a gap.
+    let result: Awaited<ReturnType<typeof fetchHeliusAddressTransactions>> | null = null;
+    for (let attempt = 0; attempt <= 6; attempt++) {
+      try {
+        result = await fetchHeliusAddressTransactions(address, { before, limit: 100 });
+        break;
+      } catch (err) {
+        const is429 = err instanceof Error && err.message.includes('429');
+        if (is429 && attempt < 6) {
+          await new Promise((r) => setTimeout(r, 800 * 2 ** attempt)); // 0.8s…51s
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!result) break;
+    const { txs, calls, credits } = result;
     pagesFetched += 1;
     heliusCalls += calls;
     creditsEstimated += credits;

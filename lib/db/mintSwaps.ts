@@ -131,3 +131,26 @@ export async function listMintSwapsSince(
   if (error) throw new Error(`listMintSwapsSince failed: ${error.message}`);
   return (data ?? []) as MintSwapRow[];
 }
+
+/**
+ * All swaps since `sinceIso`, paginated past PostgREST's 1000-row cap.
+ * Orders by `id` (stable/unique) so range pagination can't skip or dupe rows.
+ */
+export async function listAllMintSwapsSince(sinceIso: string): Promise<MintSwapRow[]> {
+  const supabase = createAdminSupabase();
+  const PAGE = 1000;
+  const out: MintSwapRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('mint_swaps')
+      .select('*')
+      .gte('block_time', sinceIso)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`listAllMintSwapsSince failed: ${error.message}`);
+    const rows = (data ?? []) as MintSwapRow[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}

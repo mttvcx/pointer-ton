@@ -26,7 +26,7 @@ config({ path: path.join(process.cwd(), '.env') });
 
 import { starterKolEntriesForChain } from '../lib/track/starterKolPacks';
 import { fetchWalletSwapHistory } from '../lib/indexer/fetchWalletSwapHistory';
-import { insertMintSwap, listMintSwapsSince } from '../lib/db/mintSwaps';
+import { insertMintSwap, listAllMintSwapsSince } from '../lib/db/mintSwaps';
 import { aggregateGlobalWalletStats } from '../lib/indexer/aggregateGlobalWalletStats';
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -66,7 +66,10 @@ async function pool<T>(items: T[], n: number, fn: (item: T) => Promise<void>): P
 }
 
 async function main() {
-  const apply = flag('apply') && !flag('dry-run');
+  // --aggregate-only: skip Helius fetch entirely, just (re)compute wallet_stats
+  // from swaps already in mint_swaps. Zero Helius credits.
+  const aggregateOnly = flag('aggregate-only');
+  const apply = (flag('apply') && !flag('dry-run')) || aggregateOnly;
   const days = Number(arg('days') ?? 30);
   const maxPages = Number(arg('max-pages') ?? 40);
   const pageDelayMs = Number(arg('delay') ?? 150);
@@ -100,7 +103,7 @@ async function main() {
   let totalCredits = 0;
   let totalPages = 0;
 
-  for (let i = 0; i < wallets.length; i++) {
+  for (let i = 0; i < wallets.length && !aggregateOnly; i++) {
     const w = wallets[i]!;
     const label = `${String(i + 1).padStart(2)}/${wallets.length} ${w.slice(0, 6)}…${w.slice(-4)}`;
     try {
@@ -131,6 +134,9 @@ async function main() {
     } catch (err) {
       console.log(`${label}  ERROR ${err instanceof Error ? err.message : String(err)}`);
     }
+    // Breathe between wallets so we don't starve the shared 10 req/s budget
+    // that live ingestion is also using.
+    if (i < wallets.length - 1) await new Promise((r) => setTimeout(r, 400));
   }
 
   console.log('─'.repeat(64));
@@ -139,9 +145,11 @@ async function main() {
   );
 
   if (apply) {
-    console.log(`Inserted ${totalInserted} new, ${totalDuplicate} duplicates skipped.`);
-    console.log('Aggregating wallet_stats…');
-    const swaps = await listMintSwapsSince(sinceIso, 200_000);
+    if (!aggregateOnly) {
+      console.log(`Inserted ${totalInserted} new, ${totalDuplicate} duplicates skipped.`);
+    }
+    console.log('Aggregating wallet_stats (paginated read of full window)…');
+    const swaps = await listAllMintSwapsSince(sinceIso);
     const { upserted } = await aggregateGlobalWalletStats(swaps);
     console.log(`✅ wallet_stats upserted: ${upserted} wallets (from ${swaps.length} swaps in window)`);
   } else {
