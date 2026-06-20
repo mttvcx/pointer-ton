@@ -6,10 +6,11 @@ import {
   outcomeRequiresApproval,
   type ForcedOutcome,
 } from '@/lib/packs/overridePolicy';
-import type { Json, Tables } from '@/lib/supabase/types';
+import type { Json, Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 
 export type PackOpenRow = Tables<'pack_opens'>;
 export type PackOverrideRow = Tables<'pack_overrides'>;
+export type PackPaymentRow = Tables<'pack_payments'>;
 
 export { FORCED_OUTCOMES, HIGH_VALUE_OUTCOMES, outcomeRequiresApproval };
 export type { ForcedOutcome };
@@ -56,6 +57,56 @@ export async function listPackOpens(opts: { userId?: string; limit?: number } = 
   const { data, error } = await q;
   if (error) throw new Error(`listPackOpens failed: ${error.message}`);
   return data ?? [];
+}
+
+/* ------------------------------ payments ------------------------------- */
+
+/**
+ * Claim a pack payment signature exactly once. Returns `{ created: true, row }`
+ * on first use and `{ created: false }` if the signature was already recorded
+ * (the UNIQUE(payment_tx) constraint is the replay guard).
+ */
+export async function claimPackPayment(input: {
+  paymentTx: string;
+  userId: string | null;
+  packType: string;
+  amountLamports: number;
+  metadata?: Json;
+}): Promise<{ created: boolean; row?: PackPaymentRow }> {
+  const supabase = createAdminSupabase();
+  const insert: TablesInsert<'pack_payments'> = {
+    payment_tx: input.paymentTx,
+    user_id: input.userId,
+    pack_type: input.packType,
+    amount_lamports: input.amountLamports,
+    status: 'verified',
+    metadata: input.metadata ?? {},
+  };
+  const { data, error } = await supabase
+    .from('pack_payments')
+    .insert(insert)
+    .select('*')
+    .single();
+  if (error) {
+    const dup = error.code === '23505' || /duplicate|unique/i.test(error.message);
+    if (dup) return { created: false };
+    throw new Error(`claimPackPayment: ${error.message}`);
+  }
+  return { created: true, row: data };
+}
+
+export async function markPackPaymentStatus(input: {
+  id: string;
+  status: 'verified' | 'fulfilled' | 'refunded' | 'failed';
+  openId?: string | null;
+  metadata?: Json;
+}): Promise<void> {
+  const supabase = createAdminSupabase();
+  const patch: TablesUpdate<'pack_payments'> = { status: input.status };
+  if (input.openId !== undefined) patch.open_id = input.openId;
+  if (input.metadata !== undefined) patch.metadata = input.metadata;
+  const { error } = await supabase.from('pack_payments').update(patch).eq('id', input.id);
+  if (error) throw new Error(`markPackPaymentStatus: ${error.message}`);
 }
 
 /* ------------------------------ overrides ------------------------------ */

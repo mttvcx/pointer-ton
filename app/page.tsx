@@ -354,7 +354,7 @@ function Hero({
         </h1>
 
         <p className="mt-6 max-w-2xl text-balance text-[20px] leading-snug text-fg-secondary sm:text-[26px]">
-          30% cashback, among the highest in the market.
+          50% cashback, among the highest in the market.
         </p>
 
         <button

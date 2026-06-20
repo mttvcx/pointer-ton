@@ -15,8 +15,20 @@ import {
   resolvePackConfigAtMarket,
 } from '@/lib/packs/packConfig';
 import { approximateUsdFromSol } from '@/lib/packs/pricing';
-import { PACKS_LIVE_COMMERCE_ENABLED, PACKS_OPEN_USES_SIMULATED_LEDGER } from '@/lib/packs/mode';
-import { findActiveOverride, consumeOverride, recordPackOpen, type ForcedOutcome } from '@/lib/db/packs';
+import {
+  findActiveOverride,
+  consumeOverride,
+  recordPackOpen,
+  claimPackPayment,
+  markPackPaymentStatus,
+  type ForcedOutcome,
+} from '@/lib/db/packs';
+import { recordPackInventory } from '@/lib/db/packInventory';
+import { liveCommerceActive } from '@/lib/packs/commerce';
+import { verifyPackPayment } from '@/lib/packs/verifyPackPayment';
+import { buildRewardFulfillmentPlan } from '@/lib/packs/rewardFulfillmentPlan';
+import { fulfillPackRewards } from '@/lib/packs/fulfillRewards';
+import { solToLamports } from '@/lib/utils/formatters';
 import type { Json } from '@/lib/supabase/types';
 import type { PackType } from '@/types/pack';
 
@@ -30,6 +42,10 @@ const TestCelebrationSchema = z.enum(['jackpot', 'legendary_elite', 'epic_surge'
 const OpenBodySchema = z
   .object({
     packType: PackTypeSchema,
+    /** Live commerce: the SOL-transfer signature paying the pack price to treasury. */
+    paymentTx: z.string().min(64).max(128).optional(),
+    /** Live commerce: the wallet that signed the payment (also receives winnings). */
+    userWallet: z.string().min(32).max(64).optional(),
     /** Dev-only — forces celebration QA pulls. */
     testCelebration: TestCelebrationSchema.optional(),
     /** @deprecated use testCelebration: 'jackpot' */
@@ -37,11 +53,8 @@ const OpenBodySchema = z
   })
   .strict();
 
-// TODO(compliance): enforce region + age gate before live commerce.
+// TODO(compliance): enforce region + age gate before live commerce ships broadly.
 function complianceGate(_userId: string | null): { ok: true } | { ok: false; reason: string } {
-  if (PACKS_LIVE_COMMERCE_ENABLED) {
-    return { ok: false, reason: 'live_commerce_not_enabled' };
-  }
   return { ok: true };
 }
 
@@ -111,8 +124,43 @@ export async function POST(req: NextRequest) {
     fullOpenEvSol: economics.fullOpenEvSol,
   };
 
-  // TODO(commerce): charge primary wallet when PACKS_LIVE_COMMERCE_ENABLED.
-  // TODO(commerce): reserve rewardPoolBudget + swap route for token_reward kinds.
+  // Live commerce: charge the user before rolling. Requires an authenticated
+  // user, the paying wallet, and a verified, single-use on-chain payment of the
+  // pack price to the treasury. A failed/absent payment never rolls a pack.
+  const live = liveCommerceActive();
+  let paymentRowId: string | null = null;
+  if (live) {
+    if (!userId) {
+      return NextResponse.json({ error: 'auth_required' }, { status: 401 });
+    }
+    if (!body.paymentTx || !body.userWallet) {
+      return NextResponse.json({ error: 'payment_required' }, { status: 402 });
+    }
+    const expectedLamports = Number(solToLamports(config.packPriceSol));
+    const verify = await verifyPackPayment({
+      signature: body.paymentTx,
+      payer: body.userWallet,
+      expectedLamports,
+    });
+    if (!verify.ok) {
+      return NextResponse.json(
+        { error: 'payment_unverified', reason: verify.reason },
+        { status: 402 },
+      );
+    }
+    const claim = await claimPackPayment({
+      paymentTx: body.paymentTx,
+      userId,
+      packType: body.packType,
+      amountLamports: verify.creditedLamports,
+      metadata: { wallet: body.userWallet },
+    });
+    if (!claim.created) {
+      return NextResponse.json({ error: 'payment_already_used' }, { status: 409 });
+    }
+    paymentRowId = claim.row?.id ?? null;
+  }
+
   const isDev = process.env.NODE_ENV === 'development';
   const devTestMode: ForcedOutcome | null =
     isDev && body.testCelebration
@@ -182,11 +230,47 @@ export async function POST(req: NextRequest) {
       houseEdgeBps: economics.houseEdgeBps,
       isOverride: Boolean(appliedOverrideId),
       overrideId: appliedOverrideId,
-      simulated: PACKS_OPEN_USES_SIMULATED_LEDGER,
+      simulated: !live,
       result: finalResult as unknown as Json,
     });
   } catch (err) {
     console.error('[packs/open] history write failed', err);
+  }
+
+  // Live commerce: deliver the won tokens on-chain (treasury buys + transfers),
+  // then record them as pack inventory so SELLING charges 2% and earns no
+  // cashback. Per-reward failures are isolated and reported for reconciliation.
+  let fulfillment: Awaited<ReturnType<typeof fulfillPackRewards>> | null = null;
+  if (live && userId && body.userWallet) {
+    const plan = buildRewardFulfillmentPlan(finalResult, { maxPayoutSol: config.maxPayoutSol });
+    fulfillment = await fulfillPackRewards({ userWallet: body.userWallet, intents: plan.intents });
+    for (const r of fulfillment.results) {
+      if (r.ok && r.deliveredRaw) {
+        try {
+          await recordPackInventory({
+            userId,
+            mint: r.mint,
+            openId: finalResult.openId,
+            rewardId: r.rewardId,
+            amountRaw: r.deliveredRaw,
+            acquiredTx: r.transferTx ?? r.buyTx ?? null,
+          });
+        } catch (err) {
+          console.error('[packs/open] inventory write failed', err);
+        }
+      }
+    }
+    if (paymentRowId) {
+      try {
+        await markPackPaymentStatus({
+          id: paymentRowId,
+          status: 'fulfilled',
+          openId: finalResult.openId,
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
   }
 
   return NextResponse.json({
@@ -195,6 +279,7 @@ export async function POST(req: NextRequest) {
     solUsd: quote.solUsd,
     solUsdSource: quote.source,
     economics,
-    ledger: PACKS_OPEN_USES_SIMULATED_LEDGER ? 'simulated' : 'live',
+    ledger: live ? 'live' : 'simulated',
+    fulfillment: fulfillment?.results ?? null,
   });
 }

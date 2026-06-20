@@ -1264,6 +1264,64 @@ export interface Database {
         Relationships: [];
       };
 
+      pack_inventory: {
+        Row: {
+          id: string;
+          user_id: string;
+          mint: string;
+          open_id: string | null;
+          reward_id: string | null;
+          amount_raw: string;
+          amount_remaining_raw: string;
+          acquired_tx: string | null;
+          status: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          mint: string;
+          open_id?: string | null;
+          reward_id?: string | null;
+          amount_raw: string;
+          amount_remaining_raw: string;
+          acquired_tx?: string | null;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['pack_inventory']['Insert']>;
+        Relationships: [];
+      };
+
+      pack_payments: {
+        Row: {
+          id: string;
+          payment_tx: string;
+          user_id: string | null;
+          pack_type: string;
+          amount_lamports: number;
+          open_id: string | null;
+          status: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          payment_tx: string;
+          user_id?: string | null;
+          pack_type: string;
+          amount_lamports: number;
+          open_id?: string | null;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['pack_payments']['Insert']>;
+        Relationships: [];
+      };
+
       admin_campaigns: {
         Row: {
           id: string;

@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils/cn';
 import { APP_NAME } from '@/lib/utils/constants';
 import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
 import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
+import { cashbackSharePct } from '@/lib/cashback/constants';
 
 function displayInviteName(user: {
   twitter?: { username?: string };
@@ -127,12 +128,15 @@ export function ReferralDashboard({ className }: { className?: string }) {
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not claim code'),
   });
 
+  // Referrer's cut of referee fees (30%). Drives the dashboard fee-share stats.
   const sharePct =
     codeData?.feeShareBps != null ? (codeData.feeShareBps / 100).toFixed(0) : '30';
+  // Trader cashback the *recruit* earns (50%) — the marketing hook on the invite.
+  const cashbackPct = cashbackSharePct();
   const shareUrl = codeData?.code ? buildReferralInviteUrl(codeData.code) : '';
 
   const xShareMessage = codeData?.code
-    ? `${sharePct}% cashback. Forever.\nUse my referral code: "${codeData.code}"`
+    ? `${cashbackPct}% cashback. Forever.\nUse my referral code: "${codeData.code}"`
     : '';
 
   const loading = codeLoading || earnLoading;

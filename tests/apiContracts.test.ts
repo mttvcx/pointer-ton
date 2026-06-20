@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import { z } from 'zod';
-import {
-  PACKS_LIVE_COMMERCE_ENABLED,
-  PACKS_OPEN_USES_SIMULATED_LEDGER,
-} from '@/lib/packs/mode';
+import { PACKS_LIVE_COMMERCE_ENABLED } from '@/lib/packs/mode';
 import { computePackEconomics, resolvePackConfig } from '@/lib/packs/packConfig';
 import { computeDynamicPackPrice } from '@/lib/packs/pricing';
 import type { PackType } from '@/types/pack';
@@ -24,11 +21,12 @@ afterEach(() => {
 /* --------------------------- /api/packs/open ----------------------------- */
 
 describe('/api/packs/open — demo / simulated contract', () => {
-  it('live commerce is OFF and the open ledger is simulated', () => {
-    // The route returns 403 unless live commerce is enabled, and always opens
-    // against a simulated ledger (no real swap / transfer) pre-beta.
-    assert.equal(PACKS_LIVE_COMMERCE_ENABLED, false);
-    assert.equal(PACKS_OPEN_USES_SIMULATED_LEDGER, true);
+  it('live commerce is armed, but only active with a configured treasury', () => {
+    // Live commerce is ON in code, yet `liveCommerceActive()` still requires a
+    // treasury signer to be configured — so the open route stays on the
+    // simulated ledger anywhere the treasury key is absent (e.g. local dev),
+    // and only charges + delivers on-chain where the treasury is set (prod).
+    assert.equal(PACKS_LIVE_COMMERCE_ENABLED, true);
   });
 
   it('accepts exactly the four public pack types', () => {

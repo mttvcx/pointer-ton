@@ -8,7 +8,6 @@ import { PackCard } from '@/components/packs/PackCard';
 import { PackDetailsModal } from '@/components/packs/PackDetailsModal';
 import { PackOpenFlow } from '@/components/packs/PackOpenFlow';
 import { listPublicPackConfigsSync } from '@/lib/packs/packConfig';
-import { PACKS_OPEN_USES_SIMULATED_LEDGER } from '@/lib/packs/mode';
 import { cn } from '@/lib/utils/cn';
 
 type OpenTarget = {
@@ -20,6 +19,9 @@ type PacksApiResponse = {
   packs: PackPublicConfig[];
   solUsd: number;
   solUsdSource: 'live' | 'fallback';
+  /** Real commerce active (charges SOL, delivers tokens on-chain). */
+  live?: boolean;
+  treasury?: string | null;
 };
 
 export function PacksTerminal({ className }: { className?: string }) {
@@ -40,6 +42,9 @@ export function PacksTerminal({ className }: { className?: string }) {
   });
 
   const packs = packsQuery.data?.packs ?? fallbackPacks;
+  // Default to simulated until the catalog confirms live commerce — never
+  // imply real charging before the server says so.
+  const live = packsQuery.data?.live ?? false;
   const [openTarget, setOpenTarget] = useState<OpenTarget | null>(null);
   const [detailsPack, setDetailsPack] = useState<PackPublicConfig | null>(null);
   const isDev = process.env.NODE_ENV === 'development';
@@ -90,11 +95,15 @@ export function PacksTerminal({ className }: { className?: string }) {
         </div>
       </header>
 
-      {PACKS_OPEN_USES_SIMULATED_LEDGER ? (
+      {live ? (
+        <p className="border-b border-border-subtle bg-bg-raised/40 px-4 py-2 text-center text-[11px] font-medium text-signal-bull/90 sm:px-6">
+          Live mode — opening a pack spends real SOL and delivers won tokens to your wallet on-chain.
+        </p>
+      ) : (
         <p className="border-b border-border-subtle bg-bg-raised/40 px-4 py-2 text-center text-[11px] font-medium text-amber-300/90 sm:px-6">
           Simulated mode — no real SOL is spent and rewards are not credited to your wallet.
         </p>
-      ) : null}
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -113,6 +122,7 @@ export function PacksTerminal({ className }: { className?: string }) {
         <PackOpenFlow
           config={openTarget.pack}
           testCelebration={openTarget.testCelebration}
+          live={live}
           onClose={() => setOpenTarget(null)}
         />
       ) : null}

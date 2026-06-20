@@ -5,6 +5,7 @@ import { Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PackOpenResult, PackPublicConfig, PackType } from '@/types/pack';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { usePackPurchase } from '@/lib/packs/usePackPurchase';
 import {
   celebrationFromTestMode,
   JACKPOT_STING_MS,
@@ -55,6 +56,8 @@ type PackOpenFlowProps = {
   onClose: () => void;
   /** Dev-only — forces a specific celebration test pull. */
   testCelebration?: PackTestCelebration;
+  /** Live commerce — charge the user (real SOL → treasury) before opening. */
+  live?: boolean;
 };
 
 function openTimings(packType: PackType) {
@@ -85,8 +88,9 @@ function stageFromCelebration(c: PackCelebration): FlowStage {
   return 'reveal';
 }
 
-export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowProps) {
+export function PackOpenFlow({ config, onClose, testCelebration, live = false }: PackOpenFlowProps) {
   const { getAccessToken } = usePointerAuth();
+  const { payForPack } = usePackPurchase();
   const [stage, setStage] = useState<FlowStage>('confirm');
   const [openPhase, setOpenPhase] = useState<OpenPhase>('float');
   const [result, setResult] = useState<PackOpenResult | null>(null);
@@ -108,6 +112,21 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
   const runOpen = useCallback(async () => {
     if (!config || opening) return;
     setOpening(true);
+
+    // Live commerce: charge the user (real SOL → treasury) BEFORE the cinematic,
+    // so the box never "opens" until payment is signed + sent.
+    let payment: { paymentTx: string; userWallet: string } | null = null;
+    if (live) {
+      try {
+        payment = await payForPack({ packType: config.type, getAccessToken });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Payment failed';
+        toast.error('Pack payment failed', { description: msg.slice(0, 160) });
+        setOpening(false);
+        return;
+      }
+    }
+
     setStage('opening');
     setOpenPhase('float');
 
@@ -129,6 +148,7 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
         body: JSON.stringify({
           packType: config.type,
           ...(testCelebration ? { testCelebration } : {}),
+          ...(payment ? { paymentTx: payment.paymentTx, userWallet: payment.userWallet } : {}),
         }),
       });
       const json = (await res.json()) as { result?: PackOpenResult; error?: string; message?: string };
@@ -160,7 +180,7 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
       setStage('confirm');
       setOpenPhase('float');
     }
-  }, [config, getAccessToken, opening, testCelebration]);
+  }, [config, getAccessToken, opening, testCelebration, live, payForPack]);
 
   /** Hero card was already shown during the cinematic (vault / candle / showcase). */
   const onCelebrationDone = useCallback(() => {
@@ -398,7 +418,7 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
                     )}
                   >
                     {opening ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Open pack
+                    {live ? 'Buy & open' : 'Open pack'}
                   </button>
                 </div>
               </div>
@@ -474,10 +494,19 @@ export function PackOpenFlow({ config, onClose, testCelebration }: PackOpenFlowP
                   <button
                     type="button"
                     disabled
-                    title="Wallet delivery coming with live pack commerce"
-                    className="rounded-sm border border-border-subtle px-5 py-2.5 text-sm font-medium text-fg-muted opacity-45"
+                    title={
+                      live
+                        ? 'Winnings were delivered to your wallet on-chain'
+                        : 'Wallet delivery coming with live pack commerce'
+                    }
+                    className={cn(
+                      'rounded-sm border px-5 py-2.5 text-sm font-medium',
+                      live
+                        ? 'border-signal-bull/30 text-signal-bull opacity-90'
+                        : 'border-border-subtle text-fg-muted opacity-45',
+                    )}
                   >
-                    Add to wallet
+                    {live ? 'Delivered to wallet' : 'Add to wallet'}
                   </button>
                   <button
                     type="button"

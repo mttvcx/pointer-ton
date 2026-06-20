@@ -6,6 +6,7 @@ import { inferMintKind } from '@/lib/chains/mintKind';
 import { classificationUpdateFromLaunchEvent, enrichTokenInsertFromLaunchEvent } from '@/lib/protocol/enrichTokenRow';
 import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import { getTokenByMint, insertMarketSnapshot, updateToken, upsertToken, type TokenRow } from '@/lib/db/tokens';
+import { LAUNCHPAD_LABELS, type LaunchpadId } from '@/lib/utils/constants';
 import type { Json } from '@/lib/supabase/types';
 import {
   fetchDexMetricsForMints,
@@ -98,8 +99,15 @@ export async function ensureTokenRowFromDexScreener(
 
     const dexLaunch =
       best.dexId != null ? protocolBrandIdFromDexId(best.dexId, chain) : null;
-    const launchpad =
-      best.dexId === 'pumpfun' ? 'pump.fun' : dexLaunch ?? 'unknown';
+    // `protocolBrandIdFromDexId` returns the full ProtocolBrandId union (incl.
+    // ton/raydium/orca/meteora/…); LaunchpadEvent.launchpad is the narrower
+    // LaunchpadId. Coerce anything that isn't a real LaunchpadId to 'unknown'.
+    const launchpad: LaunchpadId =
+      best.dexId === 'pumpfun'
+        ? 'pump.fun'
+        : dexLaunch != null && dexLaunch in LAUNCHPAD_LABELS
+          ? (dexLaunch as LaunchpadId)
+          : 'unknown';
 
     const ev: LaunchpadEvent = {
       launchpad,

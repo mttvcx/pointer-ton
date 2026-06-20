@@ -96,6 +96,11 @@ export function usePulseQuickBuy() {
 
   const queueRef = useRef<QueueJob[]>([]);
   const drainingRef = useRef(false);
+  // Depth-1 quote prefetch: while one buy signs, the next queued buy's quote is
+  // warmed here so spam-buys don't each pay the ~300-800ms quote round-trip.
+  // Keyed by mint:amount:asset; short TTL; falls back to a fresh fetch on miss.
+  const quoteCacheRef = useRef<Map<string, { quote: TradeQuoteApiOk; at: number }>>(new Map());
+  const QUOTE_PREFETCH_TTL_MS = 8_000;
 
   const myWalletsQ = useQuery({
     queryKey: ['wallets-my'],
@@ -136,6 +141,115 @@ export function usePulseQuickBuy() {
     const list = presetsPayload?.presets ?? [];
     return list.find((p) => p.slot === activePresetSlot) ?? null;
   }, [presetsPayload?.presets, activePresetSlot]);
+
+  const quoteKey = useCallback(
+    (mint: string, amount: number, asset: SolSpendAsset) => `${mint}:${amount}:${asset}`,
+    [],
+  );
+
+  /**
+   * Build + fetch a buy quote (with the active preset's slippage / landing /
+   * fees). Identical logic for the live path and the prefetch, so a prefetched
+   * quote is byte-for-byte what an on-demand fetch would have produced.
+   */
+  const fetchBuyQuote = useCallback(
+    async (
+      mint: string,
+      amount: number,
+      asset: SolSpendAsset,
+      token: string,
+    ): Promise<TradeQuoteApiOk> => {
+      const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
+      const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
+      const baseLanding = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
+      const blitzOn = isBlitzWallet(wallet!.address, blitzWalletAddresses);
+      const presetFees =
+        activePreset != null
+          ? {
+              jitoTipLamports: activePreset.jito_tip_lamports,
+              priorityFeeLamports: activePreset.priority_fee_lamports,
+              autoFee: activePreset.auto_fee,
+              maxFeeSol: activePreset.max_fee_sol,
+              landing: baseLanding,
+            }
+          : { landing: baseLanding };
+      const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
+      const tradeLanding = blitzLanding ?? baseLanding;
+
+      const res = await fetch('/api/trade/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          mint,
+          side: 'buy' as const,
+          userPublicKey: wallet!.address,
+          ...buyQuoteAmountFields(asset, amount),
+          slippageBps,
+          dynamicSlippage,
+          landing: tradeLanding,
+          includeSwapTx: true,
+          ...feeExtra,
+        }),
+      });
+      const json: unknown = await res.json();
+      if (!res.ok) {
+        const msg =
+          typeof json === 'object' && json && 'message' in json
+            ? String((json as { message: unknown }).message)
+            : `Quote failed (${res.status})`;
+        throw new Error(msg);
+      }
+      const ok = json as TradeQuoteApiOk;
+      const executable =
+        ok.chain === 'sol'
+          ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+          : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+      if (!executable) throw new Error('No swap transaction from quote');
+      return ok;
+    },
+    [activePreset, wallet, blitzWalletAddresses],
+  );
+
+  /** Use a fresh, matching prefetched quote if present; otherwise fetch fresh. */
+  const getOrFetchBuyQuote = useCallback(
+    async (
+      mint: string,
+      amount: number,
+      asset: SolSpendAsset,
+      token: string,
+    ): Promise<TradeQuoteApiOk> => {
+      const key = quoteKey(mint, amount, asset);
+      const cached = quoteCacheRef.current.get(key);
+      quoteCacheRef.current.delete(key);
+      if (
+        cached &&
+        Date.now() - cached.at < QUOTE_PREFETCH_TTL_MS &&
+        cached.quote.mint === mint
+      ) {
+        return cached.quote;
+      }
+      return fetchBuyQuote(mint, amount, asset, token);
+    },
+    [fetchBuyQuote, quoteKey],
+  );
+
+  /** Best-effort warm the next queued buy's quote while the current one signs. */
+  const prefetchBuyQuote = useCallback(
+    async (mint: string, amount: number, asset: SolSpendAsset) => {
+      if (!wallet || !Number.isFinite(amount) || amount <= 0) return;
+      const key = quoteKey(mint, amount, asset);
+      if (quoteCacheRef.current.has(key)) return;
+      try {
+        const token = await getAccessToken();
+        if (!token) return;
+        const quote = await fetchBuyQuote(mint, amount, asset, token);
+        quoteCacheRef.current.set(key, { quote, at: Date.now() });
+      } catch {
+        /* prefetch is best-effort — the live fetch will retry on demand */
+      }
+    },
+    [wallet, getAccessToken, fetchBuyQuote, quoteKey],
+  );
 
   const executeBuy = useCallback(
     async (
@@ -188,61 +302,10 @@ export function usePulseQuickBuy() {
         return fail('Sign in required.');
       }
 
-      const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
-      const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
-      const baseLanding = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
-      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
-      const presetFees =
-        activePreset != null
-          ? {
-              jitoTipLamports: activePreset.jito_tip_lamports,
-              priorityFeeLamports: activePreset.priority_fee_lamports,
-              autoFee: activePreset.auto_fee,
-              maxFeeSol: activePreset.max_fee_sol,
-              landing: baseLanding,
-            }
-          : { landing: baseLanding };
-      const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
-      const tradeLanding = blitzLanding ?? baseLanding;
-
       const toastId = silent ? undefined : toast.loading('Getting quote...');
       try {
-        const body = {
-          mint,
-          side: 'buy' as const,
-          userPublicKey: wallet.address,
-          ...buyQuoteAmountFields(asset, amount),
-          slippageBps,
-          dynamicSlippage,
-          landing: tradeLanding,
-          includeSwapTx: true,
-          ...feeExtra,
-        };
-
-        const res = await fetch('/api/trade/quote', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(body),
-        });
-        const json: unknown = await res.json();
-        if (!res.ok) {
-          const msg =
-            typeof json === 'object' && json && 'message' in json
-              ? String((json as { message: unknown }).message)
-              : `Quote failed (${res.status})`;
-          throw new Error(msg);
-        }
-        const ok = json as TradeQuoteApiOk;
-        const executable =
-          ok.chain === 'sol'
-            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
-            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
-        if (!executable) {
-          throw new Error('No swap transaction from quote');
-        }
+        // Uses a warm prefetched quote when the queue had one ready, else fetches.
+        const ok = await getOrFetchBuyQuote(mint, amount, asset, token);
 
         if (!silent && toastId) toast.loading('Sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
@@ -296,7 +359,7 @@ export function usePulseQuickBuy() {
       wallet,
       activeWalletRow?.is_imported,
       getAccessToken,
-      activePreset,
+      getOrFetchBuyQuote,
       submitFromQuote,
       qc,
       activeChain,
@@ -505,6 +568,13 @@ export function usePulseQuickBuy() {
         const job = queueRef.current.shift()!;
         setQueueSize(queueRef.current.length);
         setActiveMint(job.mint);
+        // Warm the NEXT buy's quote concurrently so spam-buys sign immediately.
+        const next = queueRef.current[0];
+        if (next && next.kind === 'buy') {
+          const nextAsset: SolSpendAsset =
+            next.opts?.spendAsset ?? (activeChain === 'sol' ? spendAsset : 'sol');
+          void prefetchBuyQuote(next.mint, next.amount, nextAsset);
+        }
         try {
           const result =
             job.kind === 'buy'
@@ -522,7 +592,7 @@ export function usePulseQuickBuy() {
     } finally {
       drainingRef.current = false;
     }
-  }, [executeBuy, executeSell]);
+  }, [executeBuy, executeSell, prefetchBuyQuote, activeChain, spendAsset]);
 
   const enqueue = useCallback(
     (job: QueueJob) => {

@@ -11,6 +11,9 @@ import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
 import { awardPoints } from '@/lib/points/award';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { recordReferralEarningFromTrade } from '@/lib/referrals/earnings';
+import { recordTradeCashbackAccrual } from '@/lib/cashback/accrual';
+import { isSellPackOrigin, consumePackInventory } from '@/lib/db/packInventory';
+import { PACK_ITEM_SELL_FEE_BPS } from '@/lib/packs/constants';
 import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
@@ -104,7 +107,13 @@ export async function POST(req: NextRequest) {
         : lamportsToSol(BigInt(body.amountOutRaw)));
 
     const submittedAt = new Date().toISOString();
-    const feeBps = await getFeeBpsForUser(user.id);
+    // Pack-item sells pay the elevated pack fee (2%) and earn no cashback.
+    // Re-checked server-side (never trusting the client) so the recorded fee
+    // matches the on-chain swap the quote built.
+    const packItemSell =
+      body.side === 'sell' ? await isSellPackOrigin(user.id, mintCanon) : false;
+    const cashbackEligible = !packItemSell;
+    const feeBps = packItemSell ? PACK_ITEM_SELL_FEE_BPS : await getFeeBpsForUser(user.id);
     const lamports = solToLamports(amountSol);
     const platformFeeLamports = Number((lamports * BigInt(feeBps)) / 10_000n);
 
@@ -131,6 +140,21 @@ export async function POST(req: NextRequest) {
       });
     } catch {
       /* best-effort */
+    }
+
+    // Trader cashback rebate (50% of the platform fee they paid). Skipped for
+    // pack-item sells, which are charged a higher fee and earn no cashback.
+    if (cashbackEligible) {
+      try {
+        await recordTradeCashbackAccrual({
+          userId: user.id,
+          tradeId: trade.id,
+          platformFeeLamports,
+          signature: body.txSignature,
+        });
+      } catch {
+        /* best-effort */
+      }
     }
 
     try {
@@ -162,10 +186,22 @@ export async function POST(req: NextRequest) {
       /* client refetch still runs */
     }
 
+    // Draw down pack inventory for the sold token (FIFO) so future sells of the
+    // same mint revert to the normal fee once pack-acquired units are exhausted.
+    if (packItemSell) {
+      try {
+        await consumePackInventory(user.id, mintCanon, body.amountInRaw);
+      } catch {
+        /* best-effort */
+      }
+    }
+
     return NextResponse.json({
       signature: body.txSignature,
       tradeId: trade.id,
       status: 'confirmed',
+      packItemSell,
+      feeBps,
     });
   }
 
@@ -238,6 +274,18 @@ export async function POST(req: NextRequest) {
       referredUserId: user.id,
       tradeId: trade.id,
       platformFeeLamports,
+    });
+  } catch {
+    /* best-effort */
+  }
+
+  // Trader cashback rebate (TON has no packs, so every trade is eligible).
+  try {
+    await recordTradeCashbackAccrual({
+      userId: user.id,
+      tradeId: trade.id,
+      platformFeeLamports,
+      signature: txSignature,
     });
   } catch {
     /* best-effort */

@@ -16,6 +16,12 @@ export type JupiterQuoteInput = {
   swapMode?: 'ExactIn' | 'ExactOut';
   /** Passed through to Jupiter; default true. */
   dynamicSlippage?: boolean;
+  /**
+   * Override the on-chain platform fee (bps), bypassing the per-user tier seam.
+   * Used only for distinct products (e.g. pack-item sells at 2%). When omitted,
+   * the user's tier fee from {@link getFeeBpsForUser} is used.
+   */
+  feeBpsOverride?: number;
 };
 
 /** Raw Jupiter `/quote` JSON (shape varies by router). */
@@ -31,7 +37,10 @@ export type JupiterQuoteResponse = Record<string, unknown> & {
  * Jupiter swap quote with optional referral `platformFeeBps` from {@link getFeeBpsForUser}.
  */
 export async function getQuote(input: JupiterQuoteInput): Promise<JupiterQuoteResponse> {
-  const platformFeeBps = await getFeeBpsForUser(input.userId);
+  const platformFeeBps =
+    input.feeBpsOverride != null && Number.isFinite(input.feeBpsOverride) && input.feeBpsOverride >= 0
+      ? Math.floor(input.feeBpsOverride)
+      : await getFeeBpsForUser(input.userId);
   const feeAccount =
     platformFeeBps > 0
       ? await resolveJupiterFeeAccountForSwap({

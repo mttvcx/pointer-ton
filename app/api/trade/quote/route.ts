@@ -13,6 +13,8 @@ import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
 import { BUY_PRESETS_USDC, USDC_DECIMALS } from '@/lib/utils/constants';
 import { resolveBuyPresetsSol } from '@/lib/beta/founderBeta';
 import { getSolUsdPrice } from '@/lib/packs/pricing';
+import { PACK_ITEM_SELL_FEE_BPS } from '@/lib/packs/constants';
+import { isSellPackOrigin } from '@/lib/db/packInventory';
 import { lamportsToSol, solToLamports, uiToRaw } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
@@ -228,6 +230,9 @@ export async function POST(req: NextRequest) {
       }
 
       const useExactOutSell = body.amountSolOut != null && body.amountSolOut > 0;
+      // Tokens won from packs sell at the elevated pack fee (2%) and earn no
+      // cashback. The execute route re-checks this server-side as well.
+      const packItemSell = await isSellPackOrigin(user.id, mintCanon);
       const jq = await getQuote({
         userId: user.id,
         inputMint: mintCanon,
@@ -238,6 +243,7 @@ export async function POST(req: NextRequest) {
         slippageBps: body.slippageBps,
         dynamicSlippage: body.dynamicSlippage,
         swapMode: useExactOutSell ? 'ExactOut' : 'ExactIn',
+        feeBpsOverride: packItemSell ? PACK_ITEM_SELL_FEE_BPS : undefined,
       });
       const swap = body.includeSwapTx
         ? await getSwapTx(jq, walletCanon, {
@@ -264,6 +270,8 @@ export async function POST(req: NextRequest) {
         tonConnect: null,
         lastValidBlockHeight: swap?.lastValidBlockHeight,
         presetsSol: [...resolveBuyPresetsSol()],
+        packItemSell,
+        feeBps: packItemSell ? PACK_ITEM_SELL_FEE_BPS : undefined,
         summary: {
           amountInRaw: inAmt,
           amountOutRaw: outAmt,
