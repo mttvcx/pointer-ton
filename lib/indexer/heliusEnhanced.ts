@@ -1,5 +1,8 @@
 const RENT_LAMPORTS = 2_039_280;
-const HELIUS_REST_CREDITS_EST = 2;
+// Helius bills the Enhanced Transactions REST API at ~100 credits per call
+// (NOT 2). Under-counting this 50x made the free-plan budget look ~50x larger
+// than it is — keep this honest so credit/capacity planning is real.
+const HELIUS_REST_CREDITS_EST = 100;
 
 export type HeliusTokenTransfer = {
   fromTokenAccount?: string;

@@ -39,7 +39,7 @@ export function WalletPerformancePanel({
   const wr = data.performance.winRatePct;
   const wins = tx != null && wr != null ? Math.round((tx * wr) / 100) : null;
   const losses = tx != null && wins != null ? Math.max(0, tx - wins) : null;
-  const coinsTraded = data.positions.length;
+  const coinsTraded = data.performance.coinsTraded ?? data.positions.length;
 
   const realizedUsd = data.performance.realizedPnlUsd;
   const totalUsd = data.performance.totalPnlUsd;

@@ -97,6 +97,7 @@ export function WalletAnalyticsModal() {
     queryFn: async (): Promise<AnalyticsResponse> => {
       const res = await fetch(
         `/api/wallet/${encodeURIComponent(walletAddress!)}/analytics?tf=${encodeURIComponent(tf)}`,
+        { signal: AbortSignal.timeout(15_000) },
       );
       if (!res.ok) throw new Error('wallet_analytics_failed');
       return res.json() as Promise<AnalyticsResponse>;
@@ -147,7 +148,8 @@ export function WalletAnalyticsModal() {
       );
     }
     if (deskTab === 'most_profitable') {
-      return [...r].sort((a, b) => (b.pnlUsd ?? -Infinity) - (a.pnlUsd ?? -Infinity));
+      // Axiom-style: top-30 best trades, cleanly ranked.
+      return [...r].sort((a, b) => (b.pnlUsd ?? -Infinity) - (a.pnlUsd ?? -Infinity)).slice(0, 30);
     }
     return r;
   }, [effectiveData, posSearch, deskTab]);

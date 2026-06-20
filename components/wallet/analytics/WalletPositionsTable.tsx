@@ -52,7 +52,7 @@ export function WalletPositionsTable({
   };
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overflow-y-clip">
       <table className="w-full min-w-[860px] border-collapse text-left text-xs">
         <thead className="sticky top-0 z-[1] bg-bg-raised text-[10px] font-medium uppercase tracking-wider text-fg-muted">
           <tr className="border-b border-border-subtle">

@@ -9,6 +9,7 @@ import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 20;
 
 const TF: WalletAnalyticsTimeframe[] = ['1d', '7d', '30d', 'max'];
 

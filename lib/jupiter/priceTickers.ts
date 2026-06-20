@@ -159,19 +159,29 @@ type CachedPrice = {
 const PRICE_STALE_CACHE = new Map<string, CachedPrice>();
 const PRICE_STALE_TTL_MS = 10 * 60_000;
 
+/** Jupiter Price v3 caps ids per request (~100); a whale wallet with hundreds
+ * of token accounts produced one oversized URL that Jupiter rejected (400/414),
+ * nulling prices for the WHOLE wallet. Chunk into <=100-id requests and merge. */
+const JUPITER_PRICE_IDS_PER_REQUEST = 100;
+
 async function fetchJupiterPriceBatch(
   uniq: string[],
 ): Promise<Record<string, PriceRow>> {
-  const url = `${JUPITER_PRICE_V3_BASE}?ids=${encodeURIComponent(uniq.join(','))}`;
   const headers: HeadersInit = { Accept: 'application/json' };
   const key = process.env.JUPITER_API_KEY?.trim();
   if (key) headers['x-api-key'] = key;
 
-  const res = await fetch(url, { headers, cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error(`jupiter_price_http_${res.status}`);
+  const merged: Record<string, PriceRow> = {};
+  for (let i = 0; i < uniq.length; i += JUPITER_PRICE_IDS_PER_REQUEST) {
+    const slice = uniq.slice(i, i + JUPITER_PRICE_IDS_PER_REQUEST);
+    const url = `${JUPITER_PRICE_V3_BASE}?ids=${encodeURIComponent(slice.join(','))}`;
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(`jupiter_price_http_${res.status}`);
+    }
+    Object.assign(merged, (await res.json()) as Record<string, PriceRow>);
   }
-  return (await res.json()) as Record<string, PriceRow>;
+  return merged;
 }
 
 /**

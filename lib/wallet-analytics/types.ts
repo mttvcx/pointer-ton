@@ -80,6 +80,8 @@ export type WalletAnalyticsPayload = {
     realizedPnlUsd: number | null;
     txns: number | null;
     winRatePct: number | null;
+    /** Distinct mints traded in the window (timeframe-scoped); null when not indexed. */
+    coinsTraded?: number | null;
   };
   buckets: WinLossBucket[];
 };

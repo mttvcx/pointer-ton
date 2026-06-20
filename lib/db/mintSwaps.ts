@@ -106,6 +106,32 @@ export async function listMintSwapsForWallet(
   return (data ?? []) as MintSwapRow[];
 }
 
+/**
+ * All swaps for one wallet across EVERY mint (wallet-centric analytics),
+ * paginated past PostgREST's 1000-row cap. Optionally windowed by block_time.
+ * Ordered by `id` (stable/unique) so range pagination can't skip or dupe.
+ */
+export async function listAllSwapsForWallet(
+  wallet: string,
+  opts?: { sinceIso?: string },
+): Promise<MintSwapRow[]> {
+  const supabase = createAdminSupabase();
+  const PAGE = 1000;
+  const out: MintSwapRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    let query = supabase.from('mint_swaps').select('*').eq('wallet', wallet);
+    if (opts?.sinceIso) query = query.gte('block_time', opts.sinceIso);
+    const { data, error } = await query
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`listAllSwapsForWallet failed: ${error.message}`);
+    const rows = (data ?? []) as MintSwapRow[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function countMintSwaps(mint: string): Promise<number> {
   const supabase = createAdminSupabase();
   const { count, error } = await supabase
