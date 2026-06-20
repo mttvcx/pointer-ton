@@ -6,7 +6,26 @@ import { Eye, EyeOff, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
+import { useUIStore } from '@/store/ui';
+import type { AppChainId } from '@/lib/chains/appChain';
 import { cn } from '@/lib/utils/cn';
+
+/** Per-chain import copy. EVM rails are browse-only this phase (no key import). */
+const CHAIN_IMPORT: Record<AppChainId, { name: string; field: string; hint: string }> = {
+  sol: {
+    name: 'Solana',
+    field: 'Solana private key',
+    hint: 'Use a base58 secret (Phantom export), a 64/128-character hex key, or a JSON array.',
+  },
+  ton: {
+    name: 'TON',
+    field: 'TON mnemonic or hex key',
+    hint: 'Use a 12–24 word TON recovery phrase, a 64-character hex seed, or a 128-character hex secret key.',
+  },
+  eth: { name: 'Ethereum', field: '', hint: '' },
+  bnb: { name: 'BNB', field: '', hint: '' },
+  base: { name: 'Base', field: '', hint: '' },
+};
 
 export function ImportWalletModal({
   open,
@@ -19,6 +38,9 @@ export function ImportWalletModal({
   onImported: (address: string) => Promise<void>;
 }) {
   const { importWallet } = useImportWallet();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const cfg = CHAIN_IMPORT[activeChain];
+  const isEvm = activeChain === 'eth' || activeChain === 'bnb' || activeChain === 'base';
   const [keyText, setKeyText] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -26,12 +48,18 @@ export function ImportWalletModal({
 
   async function submit() {
     const trimmed = keyText.trim();
+    if (isEvm) {
+      toast.error(`${cfg.name} import not supported`, {
+        description: 'EVM rails are browse-only this phase — switch the chain to Solana or TON to import a key.',
+      });
+      return;
+    }
     setBusy(true);
     try {
-      const w = await importWallet({ privateKey: trimmed });
+      const w = await importWallet({ privateKey: trimmed, chain: activeChain });
       await onImported(w.address);
-      toast.success('Wallet imported', {
-        description: 'Added as view-only in Phase 4. Trading from imported keys ships in Phase 5.',
+      toast.success(`${cfg.name} wallet imported`, {
+        description: 'Added as view-only. Trading from imported keys ships in Phase 5.',
       });
       setKeyText('');
       onClose();
@@ -41,10 +69,8 @@ export function ImportWalletModal({
         msg.includes('unsupported_key_format') ||
         msg.includes('invalid_mnemonic') ||
         msg.includes('empty_key');
-      toast.error(isFormat ? 'Invalid TON secret' : 'Import failed', {
-        description: isFormat
-          ? 'Use a 12–24 word TON recovery phrase, a 64-character hex seed, or a 128-character hex secret key.'
-          : (e instanceof Error ? e.message : 'Unknown error').slice(0, 200),
+      toast.error(isFormat ? `Invalid ${cfg.name} key` : 'Import failed', {
+        description: isFormat ? cfg.hint : (e instanceof Error ? e.message : 'Unknown error').slice(0, 200),
       });
     } finally {
       setBusy(false);
@@ -93,7 +119,9 @@ export function ImportWalletModal({
         </div>
         <div className="px-4 pb-4">
           <div className="mb-3 flex items-center justify-between">
-            <label className="text-[12px] font-medium text-[#8b93a3]">TON mnemonic or hex key</label>
+            <label className="text-[12px] font-medium text-[#8b93a3]">
+              {isEvm ? `${cfg.name} — browse-only (no import)` : cfg.field}
+            </label>
             <button
               type="button"
               className="rounded bg-[#24306a] p-1 text-[#6378ff] hover:bg-[#2d3a83]"
@@ -106,9 +134,9 @@ export function ImportWalletModal({
             <input
               value={keyText}
               onChange={(e) => setKeyText(e.target.value)}
-              placeholder="Mnemonic or hex key (never share this)"
+              placeholder={isEvm ? 'Switch to Solana or TON to import' : 'Private key (never share this)'}
               type={showKey ? 'text' : 'password'}
-              disabled={busy}
+              disabled={busy || isEvm}
               className="focus-ring min-w-0 flex-1 border-0 bg-transparent py-2 text-[12px] text-[#d1d5db] outline-none placeholder:text-[#6b7280]"
               autoComplete="off"
               spellCheck={false}
@@ -124,7 +152,7 @@ export function ImportWalletModal({
           </div>
           <button
             type="button"
-            disabled={busy || !keyText.trim()}
+            disabled={busy || isEvm || !keyText.trim()}
             onClick={() => void submit()}
             className="btn-press focus-ring flex w-full items-center justify-center gap-1.5 rounded-full bg-[#5865F2] px-3 py-2 text-[13px] font-semibold text-[#05070d] disabled:opacity-50"
           >

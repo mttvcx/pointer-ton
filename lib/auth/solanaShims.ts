@@ -21,14 +21,28 @@ export type PrivyLikeSignTxInput = {
   };
 };
 
+import type { AppChainId } from '@/lib/chains/appChain';
+
 export function useImportWallet(): {
-  importWallet: (opts: { privateKey: string }) => Promise<{ address: string }>;
+  importWallet: (opts: { privateKey: string; chain: AppChainId }) => Promise<{ address: string }>;
 } {
   return {
-    importWallet: async (opts: { privateKey: string }): Promise<{ address: string }> => {
-      const { importTonPrivateKeyToAddress } = await import('@/lib/ton/tonPrivateKeyImport');
-      const address = await importTonPrivateKeyToAddress(opts.privateKey);
-      return { address };
+    importWallet: async (opts: {
+      privateKey: string;
+      chain: AppChainId;
+    }): Promise<{ address: string }> => {
+      // Imported wallets are view-only, so we only derive the public address —
+      // the key stays in the browser and is never sent to Privy or the server.
+      if (opts.chain === 'sol') {
+        const { deriveSolanaAddressFromSecret } = await import('@/lib/auth/importKeyDerive');
+        return { address: deriveSolanaAddressFromSecret(opts.privateKey) };
+      }
+      if (opts.chain === 'ton') {
+        const { importTonPrivateKeyToAddress } = await import('@/lib/ton/tonPrivateKeyImport');
+        return { address: await importTonPrivateKeyToAddress(opts.privateKey) };
+      }
+      // EVM rails are browse-only in this phase.
+      throw new Error('unsupported_chain_import');
     },
   };
 }

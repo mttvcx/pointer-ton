@@ -13,6 +13,7 @@ import { useUIStore } from '@/store/ui';
 import { BlitzWalletChip } from '@/components/trading/BlitzWalletChip';
 import { WalletMenuNativeBalance } from '@/components/wallets/WalletMenuNativeBalance';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { mintMatchesAppChain } from '@/lib/chains/mintKind';
 import { parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 import { Z_BOTTOM_BAR_POPOVER } from '@/lib/ui/zLayers';
@@ -71,9 +72,13 @@ export function WalletPickerPopover({
     staleTime: 30_000,
   });
 
+  // Only show wallets whose address belongs to the active chain — a SOL wallet
+  // must not appear under the EVM/TON rail, and vice versa.
   const wallets = useMemo<MyWalletRow[]>(() => {
-    return (walletsQ.data?.wallets ?? []).filter((w) => !w.is_archived);
-  }, [walletsQ.data?.wallets]);
+    return (walletsQ.data?.wallets ?? []).filter(
+      (w) => !w.is_archived && mintMatchesAppChain(w.wallet_address, activeChain),
+    );
+  }, [walletsQ.data?.wallets, activeChain]);
 
   const selected = useMemo(() => new Set(shortlist), [shortlist]);
 
