@@ -60,6 +60,16 @@ Pointer is a multi-chain (Solana primary, TON, EVM browse) Axiom-style trading t
 
 ---
 
+## 5b. KOL / wallet analytics gap (PnL, win-rate, per-token stats)
+**Symptom:** tracked KOLs show balance + coins-traded (live Helius), but **PnL / win-rate / per-token stats are empty** ("No PnL history indexed for this wallet yet").
+**Root cause (verified):** the `wallet_stats` table has **0 rows** — Pointer has never indexed any wallet's trade history in this DB. It only has stats for its own indexed mints/platform trades, not chain-wide wallet history.
+**Decision taken:** build a **self-indexer** (owner is buying paid Helius anyway).
+**Scope / estimate:** scaffolding already exists — `lib/solana/wallet-activity.ts` (`getSignaturesForAddress` + tx parse, currently capped at ~22) and `lib/indexer/deriveWalletStats.ts` (`deriveWalletStatsFromSwaps`) + `lib/db/mintWalletStats.ts`. The build = a **batch job** that, per tracked wallet: paginates full signature history → batches `getTransaction` → parses swaps → derives full-wallet PnL/win-rate → upserts `wallet_stats`; plus a **cron** (refresh) and **on-add** trigger.
+- **v1 (populate PnL for the 45 KOLs, cron-refreshed): ~1 focused engineering session.**
+- **Production-grade** (deep pagination limits, incremental updates, backfill queue, rate-limit/credit tuning): a few days of iteration.
+- **Helius-heavy** — needs the paid plan (45 KOLs × hundreds of txs each); the owner is buying it.
+**Alternative considered & rejected:** a third-party wallet-PnL API (gmgn/Birdeye/Vybe/Moralis) — faster to ship but ongoing per-call cost + less control; owner chose to self-index.
+
 ## 6. Confirmed "infra, not a bug"
 - **Pulse columns empty / slow** = free-Helius throttle + webhook not yet on the new account. DB has the tokens; the pipeline is intact.
 - **Balances were 0** = prod had the old maxed Helius key (fixed this session).
