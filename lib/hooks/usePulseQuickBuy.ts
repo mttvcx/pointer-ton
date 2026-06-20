@@ -303,9 +303,11 @@ export function usePulseQuickBuy() {
       }
 
       const toastId = silent ? undefined : toast.loading('Getting quote...');
+      const __t0 = performance.now();
       try {
         // Uses a warm prefetched quote when the queue had one ready, else fetches.
         const ok = await getOrFetchBuyQuote(mint, amount, asset, token);
+        const __tQuote = performance.now();
 
         if (!silent && toastId) toast.loading('Sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
@@ -314,11 +316,21 @@ export function usePulseQuickBuy() {
           mint,
           getAccessToken,
         });
+        const __tDone = performance.now();
+        const __q = Math.round(__tQuote - __t0);
+        const __se = Math.round(__tDone - __tQuote);
+        const __total = Math.round(__tDone - __t0);
+        // Execution telemetry — read in DevTools console or off the toast.
+        // quote≈0 means a prefetched quote was used (warm path).
+        // eslint-disable-next-line no-console
+        console.log(
+          `[pointer-speed] BUY total=${__total}ms quote=${__q}ms sign+exec=${__se}ms ${__q < 40 ? '(prefetched)' : '(cold quote)'} mint=${mint.slice(0, 8)} amt=${amount}`,
+        );
 
         if (!silent && toastId) {
-          toast.success('Buy complete', {
+          toast.success(`Filled in ${__total}ms`, {
             id: toastId,
-            description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
+            description: `quote ${__q}ms · sign+exec ${__se}ms${sig ? ` · ${sig.slice(0, 6)}…` : ''}`,
           });
         }
         const chainRes: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
@@ -420,6 +432,7 @@ export function usePulseQuickBuy() {
       }
 
       const toastId = silent ? undefined : toast.loading('Sell: quote...');
+      const __t0 = performance.now();
       try {
         const balRes = await fetch(
           `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet.address)}`,
@@ -495,6 +508,7 @@ export function usePulseQuickBuy() {
           throw new Error('No swap transaction from quote');
         }
 
+        const __tQuote = performance.now();
         if (!silent && toastId) toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
@@ -502,11 +516,19 @@ export function usePulseQuickBuy() {
           mint,
           getAccessToken,
         });
+        const __tDone = performance.now();
+        const __q = Math.round(__tQuote - __t0);
+        const __se = Math.round(__tDone - __tQuote);
+        const __total = Math.round(__tDone - __t0);
+        // eslint-disable-next-line no-console
+        console.log(
+          `[pointer-speed] SELL total=${__total}ms quote+bal=${__q}ms sign+exec=${__se}ms mint=${mint.slice(0, 8)} pct=${sellPct}`,
+        );
 
         if (!silent && toastId) {
-          toast.success('Sell complete', {
+          toast.success(`Sold in ${__total}ms`, {
             id: toastId,
-            description: sig ? `${sig.slice(0, 8)}...` : undefined,
+            description: `quote+bal ${__q}ms · sign+exec ${__se}ms${sig ? ` · ${sig.slice(0, 6)}…` : ''}`,
           });
         }
         const chainResSell: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
