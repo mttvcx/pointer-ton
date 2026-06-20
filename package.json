@@ -29,6 +29,7 @@
     "replay:qa-swaps": "node --import tsx scripts/replay-qa-mint-swaps.ts",
     "verify:qa-indexer": "node --import tsx scripts/verify-qa-indexer.ts",
     "backfill:active-mints": "node --import tsx scripts/backfill-active-mints.ts",
+    "backfill:kol-stats": "node --import tsx scripts/backfill-kol-stats.ts",
     "cron:local": "node --import tsx scripts/run-cron-local.ts",
     "cron:loop": "node --import tsx scripts/run-ingest-loop.ts",
     "migrate:mint-swaps-event": "node scripts/apply-mint-swaps-event-kind.mjs",
