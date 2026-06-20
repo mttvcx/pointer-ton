@@ -55,6 +55,7 @@ function DockTrackersSettingsModalContent() {
   const [listening, setListening] = useState<DockTrackerId | null>(null);
   const listeningRef = useRef<DockTrackerId | null>(null);
   const [dragIx, setDragIx] = useState<number | null>(null);
+  const [overIx, setOverIx] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     listeningRef.current = listening;
@@ -143,15 +144,34 @@ function DockTrackersSettingsModalContent() {
                   key={id}
                   draggable
                   onDragStart={() => setDragIx(ix)}
-                  onDragOver={(ev) => ev.preventDefault()}
+                  onDragOver={(ev) => {
+                    ev.preventDefault();
+                    if (dragIx !== null && dragIx !== ix) setOverIx(ix);
+                  }}
                   onDrop={() => {
-                    if (dragIx === null || dragIx === ix) return;
+                    if (dragIx === null || dragIx === ix) {
+                      setOverIx(null);
+                      return;
+                    }
                     moveItem(dragIx, ix);
                     setDragIx(null);
+                    setOverIx(null);
                   }}
-                  onDragEnd={() => setDragIx(null)}
-                  className="relative flex cursor-grab active:cursor-grabbing flex-col items-center gap-0.5 rounded-md border border-transparent px-2 py-1.5 transition-colors select-none hover:bg-bg-hover/90 active:brightness-110"
+                  onDragEnd={() => {
+                    setDragIx(null);
+                    setOverIx(null);
+                  }}
+                  className={cn(
+                    'relative flex cursor-grab active:cursor-grabbing flex-col items-center gap-0.5 rounded-md border border-transparent px-2 py-1.5 transition-colors select-none hover:bg-bg-hover/90 active:brightness-110',
+                    dragIx === ix && 'opacity-60',
+                  )}
                 >
+                  {dragIx !== null && dragIx !== ix && overIx === ix ? (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -left-[5px] top-1 bottom-1 w-[3px] rounded-full bg-accent-primary shadow-[0_0_6px_rgba(124,92,255,0.6)]"
+                    />
+                  ) : null}
                   <button
                     type="button"
                     title="Badge"
