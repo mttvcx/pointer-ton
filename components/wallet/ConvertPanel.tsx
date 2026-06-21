@@ -247,7 +247,8 @@ export function ConvertPanel({
       dispatchSolanaAccountRefresh('convert_swap');
       onClose?.();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Convert failed');
+      console.error('[ConvertPanel] convert submit failed', e);
+      toast.error('Convert failed — please try again');
     } finally {
       setConfirming(false);
     }

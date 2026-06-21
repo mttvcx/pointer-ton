@@ -135,7 +135,8 @@ function LabelWalletForm({
       toast.success('Wallet label saved');
       onClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save label');
+      console.error('[LabelWalletModal] save label', e);
+      toast.error('Couldn’t save label — please try again');
     } finally {
       setBusy(false);
     }

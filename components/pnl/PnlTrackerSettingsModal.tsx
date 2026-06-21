@@ -222,7 +222,8 @@ export function PnlTrackerSettingsModal() {
                   await setCustomBackgroundFromFile(file);
                   toast.success('Custom background saved');
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : 'Upload failed');
+                  console.error('[PnlTrackerSettingsModal] background upload failed', e);
+                  toast.error("Couldn't save background — please try again");
                 }
               }}
               onClearCustom={async () => {

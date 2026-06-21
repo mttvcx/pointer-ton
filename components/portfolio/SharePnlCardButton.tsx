@@ -45,9 +45,8 @@ export function SharePnlCardButton({
       });
       const j: unknown = await res.json();
       if (!res.ok) {
-        const msg =
-          typeof j === 'object' && j && 'error' in j ? String((j as { error: unknown }).error) : 'share_failed';
-        toast.error(msg);
+        console.error('[SharePnlCardButton] create share card failed', j);
+        toast.error('Couldn’t create share card — please try again');
         return;
       }
       const path =

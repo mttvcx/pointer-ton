@@ -64,13 +64,14 @@ export function ImportWalletModal({
       setKeyText('');
       onClose();
     } catch (e) {
+      console.error('[ImportWalletModal] import key', e);
       const msg = e instanceof Error ? e.message : '';
       const isFormat =
         msg.includes('unsupported_key_format') ||
         msg.includes('invalid_mnemonic') ||
         msg.includes('empty_key');
       toast.error(isFormat ? `Invalid ${cfg.name} key` : 'Import failed', {
-        description: isFormat ? cfg.hint : (e instanceof Error ? e.message : 'Unknown error').slice(0, 200),
+        description: isFormat ? cfg.hint : 'Please check the key and try again.',
       });
     } finally {
       setBusy(false);

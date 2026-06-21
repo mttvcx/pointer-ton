@@ -120,8 +120,8 @@ export function PackOpenFlow({ config, onClose, testCelebration, live = false }:
       try {
         payment = await payForPack({ packType: config.type, getAccessToken });
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Payment failed';
-        toast.error('Pack payment failed', { description: msg.slice(0, 160) });
+        console.error('[PackOpenFlow] pack payment failed', e);
+        toast.error('Pack payment failed', { description: 'Please try again.' });
         setOpening(false);
         return;
       }
@@ -174,8 +174,8 @@ export function PackOpenFlow({ config, onClose, testCelebration, live = false }:
     } catch (e) {
       if (shakeTimer) clearTimeout(shakeTimer);
       clearTimeout(burstTimer);
-      const msg = e instanceof Error ? e.message : 'Could not open pack';
-      toast.error('Pack open failed', { description: msg.slice(0, 160) });
+      console.error('[PackOpenFlow] pack open failed', e);
+      toast.error('Pack open failed', { description: 'Please try again.' });
       setOpening(false);
       setStage('confirm');
       setOpenPhase('float');

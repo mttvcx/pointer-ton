@@ -399,7 +399,10 @@ export function TrackersPanel({
       void queryClient.invalidateQueries({ queryKey: ['trackers'] });
       toast.success('Tracker added');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackersPanel] add tracker', e);
+      toast.error('Couldn’t add tracker — please try again');
+    },
   });
 
   const removeMutation = useMutation({
@@ -423,7 +426,10 @@ export function TrackersPanel({
       void queryClient.invalidateQueries({ queryKey: ['trackers'] });
       toast.success('Tracker removed');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackersPanel] remove tracker', e);
+      toast.error('Couldn’t remove tracker — please try again');
+    },
   });
 
   const removeAllMutation = useMutation({
@@ -444,7 +450,10 @@ export function TrackersPanel({
       toast.success('All trackers removed');
       setRemoveAllConfirmOpen(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackersPanel] remove all trackers', e);
+      toast.error('Couldn’t remove trackers — please try again');
+    },
   });
 
   const notifyMutation = useMutation({
@@ -462,7 +471,10 @@ export function TrackersPanel({
       if (!res.ok) throw new Error('notify update failed');
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['trackers'] }),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackersPanel] update notifications', e);
+      toast.error('Couldn’t update notifications — please try again');
+    },
   });
 
   const mintStarterKolsMutation = useMutation({
@@ -518,7 +530,10 @@ export function TrackersPanel({
         description: `${rows.length} wallets added to track + KOL labels.`,
       });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackersPanel] mint starter KOLs', e);
+      toast.error('Couldn’t load starter KOLs — please try again');
+    },
   });
 
   const sorted = useMemo(() => {
@@ -601,8 +616,9 @@ export function TrackersPanel({
       void queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       dispatchSolanaAccountRefresh('tracker_wallet_create');
     } catch (e) {
+      console.error('[TrackersPanel] create embedded wallet', e);
       toast.error('Could not create embedded wallet', {
-        description: e instanceof Error ? e.message : 'Unknown error',
+        description: 'Please try again',
       });
     } finally {
       setCreatingEmbedded(false);

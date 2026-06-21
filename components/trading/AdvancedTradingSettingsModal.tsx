@@ -105,9 +105,8 @@ function FormBody({
         });
         return;
       }
-      toast.error('Could not save', {
-        description: e instanceof Error ? e.message.slice(0, 120) : undefined,
-      });
+      console.error('[AdvancedTradingSettingsModal] save settings failed', e);
+      toast.error('Couldn’t save settings — please try again');
     },
   });
 

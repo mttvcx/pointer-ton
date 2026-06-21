@@ -308,7 +308,10 @@ export function GlobalSearchModal() {
         return;
       }
       if (json.error === 'wrong_chain') {
-        toast.error('Wrong chain', { description: json.message });
+        console.error('[GlobalSearchModal] resolve returned wrong_chain', json.message);
+        toast.error('Wrong chain', {
+          description: `Switch the header to ${CHAIN_DROPDOWN_LABEL[activeChain]} or paste an address for that chain.`,
+        });
         return;
       }
       toast.error(json.error === 'ens_not_found' ? 'ENS name not found' : 'Could not resolve query');

@@ -283,7 +283,10 @@ export function usePulseQuickBuy() {
           }
           return { ok: true, signature: res.tx.hash };
         }
-        if (!silent) toast.error('SANDBOX buy failed', { description: res.error });
+        if (!silent) {
+          console.debug('[usePulseQuickBuy] sandbox buy failed', res.error);
+          toast.error('SANDBOX buy failed', { description: 'Please try again.' });
+        }
         return { ok: false, error: res.error };
       }
 
@@ -363,7 +366,8 @@ export function usePulseQuickBuy() {
         if (!silent && toastId) toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
-        toast.error('Quick buy failed', { description: msg.slice(0, 200) });
+        console.error('[usePulseQuickBuy] quick buy failed', e);
+        toast.error('Quick buy failed', { description: 'Please try again.' });
       }
     },
     [
@@ -399,7 +403,10 @@ export function usePulseQuickBuy() {
           }
           return { ok: true, signature: res.tx.hash };
         }
-        if (!silent) toast.error('SANDBOX sell failed', { description: res.error });
+        if (!silent) {
+          console.debug('[usePulseQuickBuy] sandbox sell failed', res.error);
+          toast.error('SANDBOX sell failed', { description: 'Please try again.' });
+        }
         return { ok: false, error: res.error };
       }
 
@@ -567,7 +574,8 @@ export function usePulseQuickBuy() {
         if (!silent && toastId) toast.dismiss(toastId);
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
-        toast.error('Quick sell failed', { description: msg.slice(0, 200) });
+        console.error('[usePulseQuickBuy] quick sell failed', e);
+        toast.error('Quick sell failed', { description: 'Please try again.' });
       }
     },
     [

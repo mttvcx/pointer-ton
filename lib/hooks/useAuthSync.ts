@@ -262,7 +262,8 @@ export function useAuthSync() {
           setLastError(message);
           if (readSyncedUserId() !== userId) {
             setBackendReady(false);
-            toast.error('Account sync failed', { description: message });
+            console.error('[useAuthSync] account sync failed', err);
+            toast.error('Account sync failed — please try again');
           }
         } finally {
           if (syncInFlightRef.current === userId) syncInFlightRef.current = null;

@@ -112,7 +112,8 @@ export function SplitNowTransferModal({
         description: `Send ${formatNumber(j.depositAmount ?? amount, { decimals: 5 })} SOL to fund the transfer.`,
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'SplitNOW order failed');
+      console.error('[SplitNowTransferModal] order create failed', e);
+      toast.error('Couldn’t create the SplitNOW order — please try again');
     } finally {
       setBusy(false);
     }

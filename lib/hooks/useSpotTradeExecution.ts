@@ -281,7 +281,8 @@ export function useSpotTradeExecution(
             description: `${res.tx.hash.slice(0, 18)}… · fake fill, no real funds`,
           });
         } else {
-          toast.error('SANDBOX buy failed', { description: res.error });
+          console.debug('[useSpotTradeExecution] sandbox buy failed', res.error);
+          toast.error('SANDBOX buy failed', { description: 'Please try again.' });
         }
         return;
       }
@@ -398,8 +399,8 @@ export function useSpotTradeExecution(
         });
       } catch (e) {
         toast.dismiss(toastId);
-        const msg = e instanceof Error ? e.message : 'Trade failed';
-        toast.error('Buy failed', { description: msg.slice(0, 200) });
+        console.error('[useSpotTradeExecution] buy failed', e);
+        toast.error('Buy failed', { description: 'Please try again.' });
       }
     },
     [
@@ -433,7 +434,8 @@ export function useSpotTradeExecution(
             description: `PnL ${res.realizedPnlSol >= 0 ? '+' : ''}${res.realizedPnlSol.toFixed(4)} SOL · fake`,
           });
         } else {
-          toast.error('SANDBOX sell failed', { description: res.error });
+          console.debug('[useSpotTradeExecution] sandbox sell failed', res.error);
+          toast.error('SANDBOX sell failed', { description: 'Please try again.' });
         }
         return;
       }
@@ -555,8 +557,8 @@ export function useSpotTradeExecution(
         });
       } catch (e) {
         toast.dismiss(toastId);
-        const msg = e instanceof Error ? e.message : 'Trade failed';
-        toast.error('Sell failed', { description: msg.slice(0, 200) });
+        console.error('[useSpotTradeExecution] sell failed', e);
+        toast.error('Sell failed', { description: 'Please try again.' });
       }
     },
     [
@@ -589,7 +591,8 @@ export function useSpotTradeExecution(
             description: `PnL ${res.realizedPnlSol >= 0 ? '+' : ''}${res.realizedPnlSol.toFixed(4)} SOL · fake`,
           });
         } else {
-          toast.error('SANDBOX sell failed', { description: res.error });
+          console.debug('[useSpotTradeExecution] sandbox sellSolOut failed', res.error);
+          toast.error('SANDBOX sell failed', { description: 'Please try again.' });
         }
         return;
       }
@@ -711,8 +714,8 @@ export function useSpotTradeExecution(
         });
       } catch (e) {
         toast.dismiss(toastId);
-        const msg = e instanceof Error ? e.message : 'Trade failed';
-        toast.error('Sell failed', { description: msg.slice(0, 200) });
+        console.error('[useSpotTradeExecution] sellSolOut failed', e);
+        toast.error('Sell failed', { description: 'Please try again.' });
       }
     },
     [

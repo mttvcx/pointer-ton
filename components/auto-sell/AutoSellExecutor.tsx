@@ -141,7 +141,8 @@ export function AutoSellExecutor() {
             txSignature: result.signature,
           });
         } else {
-          patchToast(toastId, { status: 'failed', error: result.error });
+          console.error('[AutoSellExecutor] auto-sell failed', result.error);
+          patchToast(toastId, { status: 'failed', error: 'Auto-sell failed — please try again' });
         }
       } finally {
         inFlight.current.delete(dedupeKey);

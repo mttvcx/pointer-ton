@@ -116,7 +116,8 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
       dispatchSolanaAccountRefresh('withdraw_send');
       onClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Send failed');
+      console.error('[WithdrawSendPanel] send-native failed', e);
+      toast.error('Withdraw failed — please try again');
     } finally {
       setSending(false);
     }

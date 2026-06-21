@@ -172,9 +172,8 @@ export function WalletsManage({ className }: { className?: string }) {
       void qc.invalidateQueries({ queryKey: ['portfolio'] });
       dispatchSolanaAccountRefresh('wallet_create');
     } catch (e) {
-      toast.error('Could not create wallet', {
-        description: e instanceof Error ? e.message : 'Unknown error',
-      });
+      console.error('[WalletsManage] create embedded wallet', e);
+      toast.error('Couldn’t create wallet — please try again');
     } finally {
       setCreating(false);
     }

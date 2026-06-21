@@ -123,7 +123,8 @@ export function BuyPanel({
       toast.success('Opening Onramper', { id: toastId });
       window.open(parsed.widgetUrl, '_blank', 'noopener,noreferrer');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Buy failed', { id: toastId });
+      console.error('[BuyPanel] onramper signature failed', e);
+      toast.error('Buy failed — please try again', { id: toastId });
     } finally {
       setLaunching(false);
     }

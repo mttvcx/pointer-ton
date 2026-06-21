@@ -119,8 +119,9 @@ export function ExportPrivateKeyModal({
       setShowKey(true);
       toast.success('Verified');
     } catch (e: unknown) {
+      console.error('[ExportPrivateKeyModal] export private key failed', e);
       toast.error('Could not export private key', {
-        description: e instanceof Error ? e.message.slice(0, 200) : 'Try again with the same account you signed in with.',
+        description: 'Try again with the same account you signed in with.',
       });
     } finally {
       setBusy(false);

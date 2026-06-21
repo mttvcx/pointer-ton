@@ -26,7 +26,8 @@ export function useSandboxTrades() {
         description: `${symbol} · ${res.tx.hash.slice(0, 18)}… · fake fill`,
       });
     } else {
-      toast.error('SANDBOX buy failed', { description: res.error });
+      console.debug('[useSandboxTrades] sandbox buy failed', res.error);
+      toast.error('SANDBOX buy failed', { description: 'Please try again.' });
     }
     return res;
   }, []);
@@ -38,7 +39,8 @@ export function useSandboxTrades() {
         description: `${symbol} · PnL ${res.realizedPnlSol >= 0 ? '+' : ''}${res.realizedPnlSol.toFixed(4)} SOL`,
       });
     } else {
-      toast.error('SANDBOX sell failed', { description: res.error });
+      console.debug('[useSandboxTrades] sandbox sell failed', res.error);
+      toast.error('SANDBOX sell failed', { description: 'Please try again.' });
     }
     return res;
   }, []);

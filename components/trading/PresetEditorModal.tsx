@@ -83,9 +83,8 @@ function PresetEditorForm({
       onClose();
     },
     onError: (e) => {
-      toast.error('Could not save preset', {
-        description: e instanceof Error ? e.message.slice(0, 120) : undefined,
-      });
+      console.error('[PresetEditorModal] save preset failed', e);
+      toast.error('Couldn’t save preset — please try again');
     },
   });
 

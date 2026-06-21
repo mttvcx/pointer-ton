@@ -114,9 +114,10 @@ export function AutoBuyExecutor() {
             txSignature: result.signature,
           });
         } else {
+          console.error('[AutoBuyExecutor] auto-buy failed', result.error);
           patchToast(toastId, {
             status: 'failed',
-            error: result.error,
+            error: 'Auto-buy failed — please try again',
           });
         }
       } finally {

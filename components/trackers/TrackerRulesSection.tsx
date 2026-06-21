@@ -71,7 +71,10 @@ export function TrackerRulesSection({ tracker }: { tracker: TrackerRow }) {
       setPreview(data);
       toast.success("Rule understood - review below, then save.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackerRulesSection] parse rule', e);
+      toast.error('Couldn’t read that rule — please try again');
+    },
   });
 
   const saveMutation = useMutation({
@@ -101,7 +104,10 @@ export function TrackerRulesSection({ tracker }: { tracker: TrackerRow }) {
       void queryClient.invalidateQueries({ queryKey: ['tracker-rules', tracker.id] });
       toast.success('Rule saved');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackerRulesSection] save rule', e);
+      toast.error('Couldn’t save rule — please try again');
+    },
   });
 
   const toggleMutation = useMutation({
@@ -119,7 +125,10 @@ export function TrackerRulesSection({ tracker }: { tracker: TrackerRow }) {
       if (!res.ok) throw new Error('toggle failed');
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['tracker-rules', tracker.id] }),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackerRulesSection] toggle rule', e);
+      toast.error('Couldn’t update rule — please try again');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -133,7 +142,10 @@ export function TrackerRulesSection({ tracker }: { tracker: TrackerRow }) {
       if (!res.ok) throw new Error('delete failed');
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['tracker-rules', tracker.id] }),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[TrackerRulesSection] delete rule', e);
+      toast.error('Couldn’t delete rule — please try again');
+    },
   });
 
   return (

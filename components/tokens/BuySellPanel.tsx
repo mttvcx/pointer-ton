@@ -700,7 +700,8 @@ export function BuySellPanel({
         });
         return;
       }
-      toast.error('Could not create limit alert', { description: msg.slice(0, 120) });
+      console.error('[BuySellPanel] create limit alert failed', e);
+      toast.error('Could not create the limit alert — please try again');
     },
   });
 
@@ -937,8 +938,8 @@ export function BuySellPanel({
       setQuote(null);
       setQuoteForKey(null);
       setQuoteWallet(null);
-      const msg = e instanceof Error ? e.message : 'Trade failed';
-      toast.error('Trade failed', { description: msg.slice(0, 200) });
+      console.error('[BuySellPanel] trade failed', e);
+      toast.error('Trade failed — please try again');
     }
   }, [
     wallet,

@@ -283,8 +283,8 @@ function InnerAuth({ children }: { children: ReactNode }) {
           setSessionToken(json.accessToken);
           void queryClient.invalidateQueries();
         } catch (e) {
-          const message = e instanceof Error ? e.message : 'unknown error';
-          toast.error('TonConnect sign-in failed', { description: message.slice(0, 240) });
+          console.error('[PointerAuth] TonConnect sign-in failed', e);
+          toast.error('TonConnect sign-in failed — please try again');
         } finally {
           syncingRef.current = false;
         }
@@ -327,8 +327,8 @@ function InnerAuth({ children }: { children: ReactNode }) {
         }
         await privy.login();
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Could not open sign-in';
-        toast.error('Sign-in unavailable', { description: message.slice(0, 200) });
+        console.error('[PointerAuth] login failed', err);
+        toast.error('Sign-in unavailable — please try again');
       }
       return;
     }

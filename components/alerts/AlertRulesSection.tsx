@@ -241,7 +241,10 @@ export function AlertRulesSection({
       void qc.invalidateQueries({ queryKey: ['alert-rules'] });
       toast.success('Alert rule saved');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error('[AlertRulesSection] create alert rule', e);
+      toast.error('Couldn’t save alert rule — please try again');
+    },
   });
 
   const patchMutation = useMutation({

@@ -102,7 +102,10 @@ export function XMonitorRules() {
       setDraft({ ...defaultAutomationDraft(), name: 'Watch @handle' });
       toast.success('Rule saved');
     },
-    onError: (e: Error) => toast.error(e.message || 'Could not save rule'),
+    onError: (e: Error) => {
+      console.error('[XMonitorRules] create rule', e);
+      toast.error('Couldn’t save rule — please try again');
+    },
   });
 
   const deleteMutation = useMutation({

@@ -553,8 +553,9 @@ export function PortfolioDashboard({
       void qc.invalidateQueries({ queryKey: ['wallets-my'] });
       toast.success('Primary wallet updated');
     } catch (e: unknown) {
+      console.error('[PortfolioDashboard] set primary wallet failed', e);
       toast.error('Could not set primary wallet', {
-        description: e instanceof Error ? e.message.slice(0, 200) : 'Unknown error',
+        description: 'Please try again.',
       });
     }
   }
@@ -604,8 +605,9 @@ export function PortfolioDashboard({
       void qc.invalidateQueries({ queryKey: ['portfolio'] });
       dispatchSolanaAccountRefresh('portfolio_wallet_create');
     } catch (e) {
+      console.error('[PortfolioDashboard] create wallet failed', e);
       toast.error('Could not create wallet', {
-        description: e instanceof Error ? e.message : 'Unknown error',
+        description: 'Please try again.',
       });
     } finally {
       setCreating(false);
