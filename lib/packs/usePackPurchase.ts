@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import bs58 from 'bs58';
 import { useSignAndSendTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { useActiveWalletStore } from '@/store/activeWallet';
 
 function bytesFromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -20,13 +21,21 @@ function bytesFromBase64(b64: string): Uint8Array {
 export function usePackPurchase() {
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const { wallets } = useWallets();
+  const activeAddress = useActiveWalletStore((s) => s.activeWalletAddress);
 
   const payForPack = useCallback(
     async (opts: {
       packType: string;
       getAccessToken: () => Promise<string | null>;
     }): Promise<{ paymentTx: string; userWallet: string }> => {
-      const wallet = wallets[0];
+      // Charge + sign with the user's ACTIVE Pointer wallet — the same selection
+      // trading uses (usePointerTradeSubmit). Never wallets[0]: that can be an
+      // external/Phantom or non-active wallet, which routes through the wrong send
+      // path and HTTP-errors (Solana #8100002). Routes through Pointer regardless
+      // of login method.
+      const wallet =
+        (activeAddress ? wallets.find((w) => w.address === activeAddress) : undefined) ??
+        wallets[0];
       if (!wallet) throw new Error('No Solana wallet connected');
       const userWallet = wallet.address;
 
@@ -55,7 +64,7 @@ export function usePackPurchase() {
 
       return { paymentTx: bs58.encode(signature), userWallet };
     },
-    [wallets, signAndSendTransaction],
+    [wallets, signAndSendTransaction, activeAddress],
   );
 
   return { payForPack };
