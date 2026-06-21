@@ -2,17 +2,14 @@
 
 import { useEffect } from 'react';
 import { usePreferences } from '@/components/preferences/PreferencesProvider';
-import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
 
-/** Keeps global PreferencesProvider in sync with Pulse Display (compact tables, etc.). */
+/** Tabled row layout was removed — keep rows pinned to compact for everyone. */
 export function PulseDisplayPrefsSync() {
-  const compactTables = usePulseDisplayPrefsStore((s) => s.compactTables);
   const { prefs, setPref } = usePreferences();
 
   useEffect(() => {
-    const target = compactTables ? 'tabled' : 'compact';
-    if (prefs.rowDensity !== target) setPref('rowDensity', target);
-  }, [compactTables, prefs.rowDensity, setPref]);
+    if (prefs.rowDensity !== 'compact') setPref('rowDensity', 'compact');
+  }, [prefs.rowDensity, setPref]);
 
   return null;
 }

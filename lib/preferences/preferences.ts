@@ -58,9 +58,8 @@ export function isPreferences(value: unknown): value is Preferences {
  */
 export function withDefaults(input: Partial<Preferences> | null | undefined): Preferences {
   const merged = { ...DEFAULT_PREFERENCES, ...(input ?? {}) } as Preferences;
-  // Migrate legacy density values ('default' / 'spaced') → 'compact'.
-  if ((merged.rowDensity as string) !== 'compact' && (merged.rowDensity as string) !== 'tabled') {
-    merged.rowDensity = 'compact';
-  }
+  // Tabled row layout was removed — collapse any persisted density (incl. legacy
+  // 'tabled' / 'default' / 'spaced') to the compact layout users keep.
+  merged.rowDensity = 'compact';
   return merged;
 }

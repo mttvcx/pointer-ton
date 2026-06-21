@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ExternalLink,
   Eye,
-  Grid2x2,
   Hash,
   LayoutList,
   LoaderCircle,
@@ -364,12 +363,6 @@ export function PulseDisplayPopover() {
                     label="Progress bar"
                     value={prefs.showBondingProgress}
                     onChange={(v) => setPrefs({ showBondingProgress: v })}
-                  />
-                  <LayoutToggleRow
-                    icon={<Grid2x2 className="h-3.5 w-3.5" />}
-                    label="Compact tables"
-                    value={prefs.compactTables}
-                    onChange={(v) => setPrefs({ compactTables: v })}
                   />
                   <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                     Customize rows

@@ -125,17 +125,6 @@ export function DisplayPopover({ variant = 'topbar' }: DisplayPopoverProps) {
 
             <div className="border-t border-border-subtle pt-3" />
 
-            <PrefField label="Row layout">
-              <SegmentedControl
-                value={prefs.rowDensity}
-                onChange={(v) => setPref('rowDensity', v)}
-                options={[
-                  { value: 'compact', label: 'Compact' },
-                  { value: 'tabled', label: 'Tabled' },
-                ]}
-              />
-            </PrefField>
-
             <PrefField label="Avatar size">
               <SegmentedControl
                 value={prefs.avatarSize}

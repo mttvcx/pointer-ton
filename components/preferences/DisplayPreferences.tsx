@@ -24,17 +24,6 @@ export function DisplayPreferences() {
       <div className="border-t border-border-subtle" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <PrefField label="Row layout">
-          <SegmentedControl
-            value={prefs.rowDensity}
-            onChange={(v) => setPref('rowDensity', v)}
-            options={[
-              { value: 'compact', label: 'Compact' },
-              { value: 'tabled', label: 'Tabled' },
-            ]}
-          />
-        </PrefField>
-
         <PrefField label="Avatar size">
           <SegmentedControl
             value={prefs.avatarSize}

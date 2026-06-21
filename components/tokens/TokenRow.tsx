@@ -20,6 +20,7 @@ import { PulseMayhemTimerBadge } from '@/components/tokens/PulseMayhemTimerBadge
 import { PulseRowAgeLabel } from '@/components/tokens/PulseRowAgeLabel';
 import { PulseTokenAvatarHover } from '@/components/tokens/PulseTokenAvatarHover';
 import { PulseTokenTitleRow } from '@/components/tokens/PulseTokenTitleRow';
+import { usePreferences } from '@/components/preferences/PreferencesProvider';
 import { LaunchpadBadge } from '@/components/tokens/LaunchpadBadge';
 import { LaunchpadSubBadges } from '@/components/tokens/LaunchpadSubBadges';
 import { QuotePairBadge } from '@/components/tokens/QuotePairBadge';
@@ -185,18 +186,28 @@ function TokenRowInner({
   /** Pulse virtualizer rows use a single locked footprint; ignore per-preset density there. */
   const layoutDensity: PulseRowDensity = slotHeight != null ? 'normal' : density ?? 'normal';
 
+  // Avatar size preference (Small / Default / Large) scales the computed size.
+  const { prefs } = usePreferences();
+  const avatarScale =
+    prefs.avatarSize === 'small' ? 0.84 : prefs.avatarSize === 'large' ? 1.18 : 1;
+
   /** Pulse grid: fill most of the slot height (Axiom-style). Else preference-driven rhythm. */
   const avatarSize = useMemo(() => {
+    let base: number;
     if (slotHeight != null) {
       const verticalPad = 24; // pt-4 + pb-2 on Pulse grid hit area
       const captionReserve = 15; // truncated mint + gap under avatar
       const raw = slotHeight - verticalPad - captionReserve;
-      return Math.min(78, Math.max(44, Math.round(raw)));
+      base = Math.min(78, Math.max(44, Math.round(raw)));
+    } else if (layoutDensity === 'compact') {
+      base = 48;
+    } else if (layoutDensity === 'expanded') {
+      base = 56;
+    } else {
+      base = 52;
     }
-    if (layoutDensity === 'compact') return 48;
-    if (layoutDensity === 'expanded') return 56;
-    return 52;
-  }, [slotHeight, layoutDensity]);
+    return Math.round(Math.min(88, Math.max(38, base * avatarScale)));
+  }, [slotHeight, layoutDensity, avatarScale]);
 
   /**
    * Strip icon size — bumped ~10% across the board so Pulse rows read closer to Axiom:
