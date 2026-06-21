@@ -23,6 +23,7 @@ import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { useUIStore } from '@/store/ui';
 import { XMonitorRules } from '@/components/monitor/XMonitorRules';
+import { TweetMediaImage } from '@/components/monitor/TweetMediaImage';
 
 type MonitorTab = 'feed' | 'rules';
 
@@ -381,134 +382,124 @@ export function XMonitorPanel({
                   <li
                     key={row.alertId}
                     className={cn(
-                      'group px-3 py-2.5 transition-colors hover:bg-white/[0.02]',
+                      'group flex items-stretch gap-0 transition-colors hover:bg-white/[0.02]',
                       row.isMock && 'bg-bg-sunken/20',
                     )}
                   >
-                    <div className="flex gap-2.5">
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-white/[0.08] bg-white/[0.04] text-[11px] font-semibold text-fg-secondary">
-                        {image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={image}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          handleInitial(row.tweet.authorHandle)
-                        )}
-                      </div>
+                    {/* Left vertical outlined LAUNCH rail (Terminal-style) */}
+                    <button
+                      type="button"
+                      disabled={row.isMock}
+                      onClick={() => {
+                        if (row.isMock) return;
+                        if (launchMode === 'ai' && !pkg?.shouldLaunch) {
+                          void openDeployForTweetAsync(row.subject, row.tweet, true);
+                          return;
+                        }
+                        openDeployForTweet(row.subject, row.tweet, pkg, 0);
+                      }}
+                      title={row.isMock ? 'Sample tweet' : 'Launch a token from this tweet'}
+                      className={cn(
+                        'btn-press my-2 ml-2 flex w-8 shrink-0 items-center justify-center rounded-md border transition',
+                        row.isMock
+                          ? 'cursor-not-allowed border-white/[0.07] text-fg-muted/40'
+                          : 'border-accent-primary/55 text-accent-primary hover:border-accent-primary hover:bg-accent-primary/10',
+                      )}
+                    >
+                      <span className="rotate-180 text-[9px] font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]">
+                        {row.isMock ? 'Sample' : launchMode === 'ai' ? 'AI Launch' : 'Launch'}
+                      </span>
+                    </button>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                              <span className="truncate text-[12px] font-semibold text-fg-primary">
-                                @{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}
-                              </span>
-                              <span className="text-[10px] tabular-nums text-fg-muted/80">
-                                · {formatListenAge(row.createdAt)}
-                              </span>
-                              {row.payload.execution === 'auto_buy' ? (
-                                <span className="rounded-sm bg-white/[0.06] px-1 py-px text-[9px] font-semibold text-fg-muted">
-                                  auto_buy
-                                </span>
-                              ) : null}
-                              {isAutoLaunch ? (
-                                <span className="rounded-sm bg-accent-primary/12 px-1 py-px text-[9px] font-semibold text-accent-primary">
-                                  auto_launch
-                                </span>
-                              ) : null}
-                              {row.isMock ? (
-                                <span className="rounded-sm bg-white/[0.06] px-1 py-px text-[9px] text-fg-muted">
-                                  sample
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="mt-1 text-[12px] leading-snug text-fg-primary/95">
-                              {row.tweet.text}
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={row.isMock}
-                            onClick={() => {
-                              if (row.isMock) return;
-                              if (launchMode === 'ai' && !pkg?.shouldLaunch) {
-                                void openDeployForTweetAsync(row.subject, row.tweet, true);
-                                return;
-                              }
-                              openDeployForTweet(row.subject, row.tweet, pkg, 0);
-                            }}
-                            className={cn(
-                              'btn-press shrink-0 rounded-sm bg-accent-primary px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-fg-inverse hover:bg-accent-glow',
-                              row.isMock && 'cursor-not-allowed opacity-40 hover:bg-accent-primary',
-                            )}
-                          >
-                            {row.isMock ? 'Sample' : launchMode === 'ai' ? 'Deploy AI' : 'Deploy'}
-                          </button>
+                    <div className="min-w-0 flex-1 px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-[11px] font-bold text-fg-secondary">
+                          {handleInitial(row.tweet.authorHandle)}
                         </div>
-
-                        {mint && !row.isMock ? (
-                          <Link
-                            href={`/token/${encodeURIComponent(mint)}`}
-                            className="mt-1.5 inline-block font-mono text-[10px] text-accent-primary hover:underline"
-                          >
-                            {shortenAddress(mint, 4)}
-                          </Link>
+                        <span className="truncate text-[12px] font-semibold text-fg-primary">
+                          @{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}
+                        </span>
+                        <span className="shrink-0 text-[10px] tabular-nums text-fg-muted/80">
+                          · {formatListenAge(row.createdAt)}
+                        </span>
+                        {row.payload.execution === 'auto_buy' ? (
+                          <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[9px] font-semibold text-fg-muted">
+                            auto_buy
+                          </span>
                         ) : null}
-
-                        {pkg?.shouldLaunch ? (
-                          <div className="mt-2 space-y-1.5">
-                            <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
-                              <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
-                              AI · {Math.round(pkg.confidence * 100)}%
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {variants.slice(0, 3).map((v, idx) => {
-                                const pad = protocolBrand(v.suggestedLaunchpad);
-                                return (
-                                  <button
-                                    key={`${row.subject}-v${idx}`}
-                                    type="button"
-                                    onClick={() =>
-                                      openDeployForTweet(row.subject, row.tweet, pkg, idx)
-                                    }
-                                    className="btn-press flex max-w-full items-center gap-1 rounded-sm border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-left transition hover:border-accent-primary/30 hover:bg-accent-primary/10"
-                                  >
-                                    <ProtocolBrandIcon
-                                      protocolId={v.suggestedLaunchpad}
-                                      dotClassName="h-3 w-3"
-                                    />
-                                    <span className="truncate text-[10px] font-semibold text-fg-primary">
-                                      ${v.suggestedTicker.replace(/^\$/, '')}
-                                    </span>
-                                    <span className="truncate text-[9px] text-fg-muted">
-                                      {v.suggestedName}
-                                    </span>
-                                    {pad ? <span className="sr-only">{pad.label}</span> : null}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ) : packagesLoading && !mock ? (
-                          <p className="mt-2 text-[10px] text-fg-muted/80">Scanning launch potential…</p>
+                        {isAutoLaunch ? (
+                          <span className="shrink-0 rounded-sm bg-accent-primary/12 px-1 py-px text-[9px] font-semibold text-accent-primary">
+                            auto_launch
+                          </span>
                         ) : null}
-
-                        {row.payload.tweetUrl ? (
-                          <a
-                            href={row.payload.tweetUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-2 inline-block text-[10px] text-fg-muted hover:text-fg-secondary hover:underline"
-                          >
-                            View on X
-                          </a>
+                        {row.isMock ? (
+                          <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[9px] text-fg-muted">
+                            sample
+                          </span>
                         ) : null}
                       </div>
+
+                      <p className="mt-1.5 text-[12px] leading-snug text-fg-primary/95">
+                        {row.tweet.text}
+                      </p>
+
+                      {image ? <TweetMediaImage src={image} /> : null}
+
+                      {mint && !row.isMock ? (
+                        <Link
+                          href={`/token/${encodeURIComponent(mint)}`}
+                          className="mt-1.5 inline-block font-mono text-[10px] text-accent-primary hover:underline"
+                        >
+                          {shortenAddress(mint, 4)}
+                        </Link>
+                      ) : null}
+
+                      {pkg?.shouldLaunch ? (
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
+                            <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
+                            AI · {Math.round(pkg.confidence * 100)}%
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {variants.slice(0, 3).map((v, idx) => {
+                              const pad = protocolBrand(v.suggestedLaunchpad);
+                              return (
+                                <button
+                                  key={`${row.subject}-v${idx}`}
+                                  type="button"
+                                  onClick={() => openDeployForTweet(row.subject, row.tweet, pkg, idx)}
+                                  className="btn-press flex max-w-full items-center gap-1 rounded-sm border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-left transition hover:border-accent-primary/30 hover:bg-accent-primary/10"
+                                >
+                                  <ProtocolBrandIcon
+                                    protocolId={v.suggestedLaunchpad}
+                                    dotClassName="h-3 w-3"
+                                  />
+                                  <span className="truncate text-[10px] font-semibold text-fg-primary">
+                                    ${v.suggestedTicker.replace(/^\$/, '')}
+                                  </span>
+                                  <span className="truncate text-[9px] text-fg-muted">
+                                    {v.suggestedName}
+                                  </span>
+                                  {pad ? <span className="sr-only">{pad.label}</span> : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : packagesLoading && !mock ? (
+                        <p className="mt-2 text-[10px] text-fg-muted/80">Scanning launch potential…</p>
+                      ) : null}
+
+                      {row.payload.tweetUrl ? (
+                        <a
+                          href={row.payload.tweetUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-block text-[10px] text-fg-muted hover:text-fg-secondary hover:underline"
+                        >
+                          View on X
+                        </a>
+                      ) : null}
                     </div>
                   </li>
                 );
