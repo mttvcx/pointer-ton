@@ -14,8 +14,11 @@ export const APP_NAV: AppNavItem[] = [
   { label: 'Squads', href: '/squads' },
   { label: 'Championship', href: '/championship' },
   { label: '$PTR', href: '/points' },
-  { label: 'Predictions', href: '/predictions' },
 ];
 
-/** Items retained for nav-routing fallback but not shown in the topbar. */
+/**
+ * Items retained for nav-routing fallback but not shown in the topbar.
+ * Predictions is hidden until Kalshi (US-only) is wired post-launch — the full
+ * build lives on the `predictions-market` branch; the route 404s on main.
+ */
 export const HIDDEN_NAV: AppNavItem[] = [];

@@ -260,18 +260,26 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    // Only mark fulfilled if at least one reward actually delivered. Otherwise
+    // the buyer paid but received nothing — mark FAILED (not fulfilled) so it is
+    // visible for refund/reconciliation instead of silently looking complete.
+    const anyDelivered = fulfillment.results.some((r) => r.ok && r.deliveredRaw);
     if (paymentRowId) {
       try {
         await markPackPaymentStatus({
           id: paymentRowId,
-          status: 'fulfilled',
+          status: anyDelivered ? 'fulfilled' : 'failed',
           openId: finalResult.openId,
+          metadata: anyDelivered ? undefined : { reason: 'fulfillment_delivered_nothing' },
         });
       } catch {
         /* best-effort */
       }
     }
   }
+
+  const delivered =
+    fulfillment != null ? fulfillment.results.some((r) => r.ok && r.deliveredRaw) : null;
 
   return NextResponse.json({
     result: finalResult,
@@ -281,5 +289,8 @@ export async function POST(req: NextRequest) {
     economics,
     ledger: live ? 'live' : 'simulated',
     fulfillment: fulfillment?.results ?? null,
+    // null = simulated; true = delivered; false = paid but delivery failed
+    // (payment marked 'failed' for refund — client should show an honest message).
+    delivered,
   });
 }
