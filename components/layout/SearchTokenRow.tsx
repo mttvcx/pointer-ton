@@ -68,7 +68,7 @@ function searchQuickBuyClasses(chrome: SearchQuickBuyChrome, size: SearchQuickBu
 
 function SearchStatCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="w-[5.25rem] shrink-0 text-right sm:w-[5.75rem] lg:w-[6.5rem]">
+    <div className="w-[4.25rem] shrink-0 text-right lg:w-[4.75rem]">
       <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">{label}</div>
       <div className="text-sm font-semibold leading-tight tabular-nums text-fg-primary">{value}</div>
     </div>
@@ -111,7 +111,8 @@ export function SearchTokenRow({
   const spend: 'sol' | 'usdc' = spendAsset === 'usdc' ? 'usdc' : 'sol';
   const quote = activeChain === 'sol' ? spendAssetLabel(spend) : spendAssetLabel('sol');
   const buyLabel = formatBuyAmount(quickBuyAmount);
-  const avatarSize = compact ? 44 : 48;
+  // Smaller + rounded reads crisper (Axiom-style) than the old boxy 44-48px.
+  const avatarSize = compact ? 38 : 42;
 
   async function copyText(value: string, label: string) {
     try {
@@ -138,7 +139,7 @@ export function SearchTokenRow({
             src={row.image_url}
             alt={symbolTitle}
             size={avatarSize}
-            className="rounded-sm"
+            className="rounded-lg ring-border-subtle/70"
           />
           {showBadgeDot ? (
             <span
@@ -217,7 +218,7 @@ export function SearchTokenRow({
           </div>
         </div>
 
-        <div className="hidden shrink-0 items-center gap-6 sm:flex lg:gap-10">
+        <div className="hidden shrink-0 items-center gap-4 sm:flex lg:gap-5">
           <SearchStatCell label="MC" value={row.mcUsd != null ? formatCompactUsd(row.mcUsd) : '—'} />
           <SearchStatCell label="V" value={row.volUsd != null ? formatCompactUsd(row.volUsd) : '—'} />
           <SearchStatCell label="L" value={row.liqUsd != null ? formatCompactUsd(row.liqUsd) : '—'} />

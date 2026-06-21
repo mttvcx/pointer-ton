@@ -22,8 +22,10 @@ const CHROME: { id: SearchQuickBuyChrome; label: string }[] = [
 ];
 
 function previewBuyClass(size: SearchQuickBuySize, chrome: SearchQuickBuyChrome, selected: boolean) {
+  // Wider spread so the four options read as a clear small→ultra size ramp
+  // instead of four near-identical boxes.
   const h =
-    size === 'small' ? 'h-7' : size === 'large' ? 'h-8' : size === 'mega' ? 'h-9' : 'h-10';
+    size === 'small' ? 'h-6' : size === 'large' ? 'h-8' : size === 'mega' ? 'h-10' : 'h-12';
   const base = cn('inline-flex items-center justify-center gap-0.5 rounded px-1.5 font-semibold tabular-nums', h);
   if (chrome === 'filled') {
     return cn(base, 'border-0 bg-emerald-400 text-[#030806] text-[9px]');
@@ -84,7 +86,7 @@ export function SearchQuickBuySettingsPanel({ onClose }: { onClose: () => void }
                     type="button"
                     onClick={() => setSize(id)}
                     className={cn(
-                      'flex flex-col items-center gap-1.5 rounded-lg border-0 py-2 text-[10px] font-semibold transition',
+                      'flex min-h-[76px] flex-col items-center justify-end gap-1.5 rounded-lg border-0 py-2 text-[10px] font-semibold transition',
                       selected
                         ? 'bg-white/[0.12] text-fg-primary backdrop-blur-sm'
                         : 'bg-transparent text-fg-muted hover:bg-white/[0.07] hover:text-fg-secondary hover:backdrop-blur-sm',
