@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
@@ -34,6 +34,9 @@ import type { PackType } from '@/types/pack';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Fulfillment (treasury buy + transfer, two on-chain confirmations) runs in an
+// `after()` task post-response; keep the function alive long enough to finish.
+export const maxDuration = 60;
 
 const PackTypeSchema = z.enum(['bronze', 'silver', 'gold', 'legendary']);
 
@@ -239,47 +242,62 @@ export async function POST(req: NextRequest) {
 
   // Live commerce: deliver the won tokens on-chain (treasury buys + transfers),
   // then record them as pack inventory so SELLING charges 2% and earns no
-  // cashback. Per-reward failures are isolated and reported for reconciliation.
-  let fulfillment: Awaited<ReturnType<typeof fulfillPackRewards>> | null = null;
-  if (live && userId && body.userWallet) {
-    const plan = buildRewardFulfillmentPlan(finalResult, { maxPayoutSol: config.maxPayoutSol });
-    fulfillment = await fulfillPackRewards({ userWallet: body.userWallet, intents: plan.intents });
-    for (const r of fulfillment.results) {
-      if (r.ok && r.deliveredRaw) {
-        try {
-          await recordPackInventory({
-            userId,
-            mint: r.mint,
-            openId: finalResult.openId,
-            rewardId: r.rewardId,
-            amountRaw: r.deliveredRaw,
-            acquiredTx: r.transferTx ?? r.buyTx ?? null,
-          });
-        } catch (err) {
-          console.error('[packs/open] inventory write failed', err);
-        }
-      }
-    }
-    // Only mark fulfilled if at least one reward actually delivered. Otherwise
-    // the buyer paid but received nothing — mark FAILED (not fulfilled) so it is
-    // visible for refund/reconciliation instead of silently looking complete.
-    const anyDelivered = fulfillment.results.some((r) => r.ok && r.deliveredRaw);
-    if (paymentRowId) {
+  // cashback. This runs AFTER the response via `after()` so the cinematic plays
+  // instantly instead of blocking ~20s on two on-chain confirmations. The client
+  // polls /api/packs/payment-status for the real delivery outcome.
+  const fulfillmentPending = live && Boolean(userId) && Boolean(body.userWallet) && Boolean(paymentRowId);
+  if (fulfillmentPending) {
+    const uid = userId as string;
+    const userWallet = body.userWallet as string;
+    const rowId = paymentRowId as string;
+    const maxPayoutSol = config.maxPayoutSol;
+    after(async () => {
       try {
+        const plan = buildRewardFulfillmentPlan(finalResult, { maxPayoutSol });
+        const fulfillment = await fulfillPackRewards({ userWallet, intents: plan.intents });
+        for (const r of fulfillment.results) {
+          if (r.ok && r.deliveredRaw) {
+            try {
+              await recordPackInventory({
+                userId: uid,
+                mint: r.mint,
+                openId: finalResult.openId,
+                rewardId: r.rewardId,
+                amountRaw: r.deliveredRaw,
+                acquiredTx: r.transferTx ?? r.buyTx ?? null,
+              });
+            } catch (err) {
+              console.error('[packs/open] inventory write failed', err);
+            }
+          }
+        }
+        // Only mark fulfilled if at least one reward actually delivered. Otherwise
+        // the buyer paid but received nothing — mark FAILED (not fulfilled) so it
+        // is visible for refund/reconciliation instead of looking complete.
+        const anyDelivered = fulfillment.results.some((r) => r.ok && r.deliveredRaw);
         await markPackPaymentStatus({
-          id: paymentRowId,
+          id: rowId,
           status: anyDelivered ? 'fulfilled' : 'failed',
           openId: finalResult.openId,
-          metadata: anyDelivered ? undefined : { reason: 'fulfillment_delivered_nothing' },
+          metadata: (anyDelivered
+            ? { fulfillment: fulfillment.results }
+            : { reason: 'fulfillment_delivered_nothing', fulfillment: fulfillment.results }) as unknown as Json,
         });
-      } catch {
-        /* best-effort */
+      } catch (err) {
+        console.error('[packs/open] async fulfillment failed', err);
+        try {
+          await markPackPaymentStatus({
+            id: rowId,
+            status: 'failed',
+            openId: finalResult.openId,
+            metadata: { reason: 'fulfillment_threw' } as unknown as Json,
+          });
+        } catch {
+          /* best-effort */
+        }
       }
-    }
+    });
   }
-
-  const delivered =
-    fulfillment != null ? fulfillment.results.some((r) => r.ok && r.deliveredRaw) : null;
 
   return NextResponse.json({
     result: finalResult,
@@ -288,9 +306,9 @@ export async function POST(req: NextRequest) {
     solUsdSource: quote.source,
     economics,
     ledger: live ? 'live' : 'simulated',
-    fulfillment: fulfillment?.results ?? null,
-    // null = simulated; true = delivered; false = paid but delivery failed
-    // (payment marked 'failed' for refund — client should show an honest message).
-    delivered,
+    // Delivery is resolved post-response; poll /api/packs/payment-status by the
+    // payment signature. null delivered = not yet known (or simulated).
+    fulfillmentPending,
+    delivered: null,
   });
 }

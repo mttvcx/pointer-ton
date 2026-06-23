@@ -95,6 +95,18 @@ export async function claimPackPayment(input: {
   return { created: true, row: data };
 }
 
+/** Look up a pack payment by its on-chain signature (for delivery polling). */
+export async function getPackPaymentByTx(paymentTx: string): Promise<PackPaymentRow | null> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('pack_payments')
+    .select('*')
+    .eq('payment_tx', paymentTx)
+    .maybeSingle();
+  if (error) throw new Error(`getPackPaymentByTx: ${error.message}`);
+  return data ?? null;
+}
+
 export async function markPackPaymentStatus(input: {
   id: string;
   status: 'verified' | 'fulfilled' | 'refunded' | 'failed';

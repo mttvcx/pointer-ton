@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Share2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PackOpenResult, PackPublicConfig, PackType } from '@/types/pack';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -88,6 +88,43 @@ function stageFromCelebration(c: PackCelebration): FlowStage {
   return 'reveal';
 }
 
+type DeliveryState = 'idle' | 'pending' | 'delivered' | 'failed';
+
+/**
+ * Poll the live-commerce delivery outcome. The open response returns instantly;
+ * the treasury buy + transfer finish a few seconds later server-side. We poll
+ * the payment row until it leaves `verified`. On timeout we stay 'pending'
+ * rather than claim an outcome we can't confirm.
+ */
+async function pollPackDelivery(
+  paymentTx: string,
+  getAccessToken: () => Promise<string | null>,
+  onResolve: (state: 'delivered' | 'failed') => void,
+): Promise<void> {
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 2500));
+    let token: string | null = null;
+    try {
+      token = await getAccessToken();
+    } catch {
+      token = null;
+    }
+    try {
+      const res = await fetch(`/api/packs/payment-status?tx=${encodeURIComponent(paymentTx)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { delivered?: boolean; failed?: boolean };
+        if (j.delivered) return onResolve('delivered');
+        if (j.failed) return onResolve('failed');
+      }
+    } catch {
+      /* transient — keep polling */
+    }
+  }
+}
+
 export function PackOpenFlow({ config, onClose, testCelebration, live = false }: PackOpenFlowProps) {
   const { getAccessToken } = usePointerAuth();
   const { payForPack } = usePackPurchase();
@@ -96,6 +133,7 @@ export function PackOpenFlow({ config, onClose, testCelebration, live = false }:
   const [result, setResult] = useState<PackOpenResult | null>(null);
   const [revealedCount, setRevealedCount] = useState(0);
   const [opening, setOpening] = useState(false);
+  const [delivery, setDelivery] = useState<DeliveryState>('idle');
   const shareRef = useRef<HTMLDivElement>(null);
 
   usePackCelebrationSound(stage === 'jackpot_sting' ? 'jackpot_sting' : null);
@@ -107,6 +145,7 @@ export function PackOpenFlow({ config, onClose, testCelebration, live = false }:
     setResult(null);
     setRevealedCount(0);
     setOpening(false);
+    setDelivery('idle');
   }, [config, testCelebration]);
 
   const runOpen = useCallback(async () => {
@@ -157,6 +196,15 @@ export function PackOpenFlow({ config, onClose, testCelebration, live = false }:
       }
 
       setResult(json.result);
+
+      // Live commerce: delivery (treasury buy + transfer) finishes server-side a
+      // few seconds after this response. Poll for the real outcome so the summary
+      // reflects it honestly instead of always claiming "Delivered".
+      if (live && payment) {
+        setDelivery('pending');
+        void pollPackDelivery(payment.paymentTx, getAccessToken, setDelivery);
+      }
+
       const celebration = resolveFlowCelebration(config.type as PackType, json.result!, testCelebration);
       setTimeout(() => {
         const next = stageFromCelebration(celebration);
@@ -491,23 +539,42 @@ export function PackOpenFlow({ config, onClose, testCelebration, live = false }:
 
               {stage === 'summary' ? (
                 <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    disabled
-                    title={
-                      live
-                        ? 'Winnings were delivered to your wallet on-chain'
-                        : 'Wallet delivery coming with live pack commerce'
-                    }
-                    className={cn(
-                      'rounded-sm border px-5 py-2.5 text-sm font-medium',
-                      live
-                        ? 'border-signal-bull/30 text-signal-bull opacity-90'
-                        : 'border-border-subtle text-fg-muted opacity-45',
-                    )}
-                  >
-                    {live ? 'Delivered to wallet' : 'Add to wallet'}
-                  </button>
+                  {live ? (
+                    delivery === 'delivered' ? (
+                      <span
+                        title="Winnings were delivered to your wallet on-chain"
+                        className="inline-flex items-center gap-1.5 rounded-sm border border-signal-bull/30 px-5 py-2.5 text-sm font-medium text-signal-bull"
+                      >
+                        <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
+                        Delivered to wallet
+                      </span>
+                    ) : delivery === 'failed' ? (
+                      <span
+                        title="On-chain delivery failed — your payment is queued for a refund"
+                        className="inline-flex items-center gap-1.5 rounded-sm border border-red-400/30 px-5 py-2.5 text-sm font-medium text-red-300"
+                      >
+                        <AlertTriangle className="h-4 w-4" strokeWidth={2} />
+                        Delivery failed — refund queued
+                      </span>
+                    ) : (
+                      <span
+                        title="Buying your winnings and sending them to your wallet"
+                        className="inline-flex items-center gap-1.5 rounded-sm border border-amber-400/30 px-5 py-2.5 text-sm font-medium text-amber-200"
+                      >
+                        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                        Delivering to wallet…
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      title="Wallet delivery coming with live pack commerce"
+                      className="rounded-sm border border-border-subtle px-5 py-2.5 text-sm font-medium text-fg-muted opacity-45"
+                    >
+                      Add to wallet
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => void onShare()}
