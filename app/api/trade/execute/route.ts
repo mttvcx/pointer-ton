@@ -17,14 +17,25 @@ import { PACK_ITEM_SELL_FEE_BPS } from '@/lib/packs/constants';
 import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
+import { broadcastSignedTransaction } from '@/lib/solana/broadcast';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Embedded-wallet SOL trades broadcast their signed tx through this route; keep
+// the function alive long enough for the Helius send to settle.
+export const maxDuration = 30;
 
 const SolExecuteSchema = z
   .object({
     chain: z.literal('sol'),
-    txSignature: z.string().min(64).max(128),
+    /** Already-broadcast signature (external wallets self-broadcast via their RPC). */
+    txSignature: z.string().min(64).max(128).optional(),
+    /**
+     * Base64 fully-signed VersionedTransaction from an embedded Pointer wallet
+     * (sign-only). The server broadcasts it through the private Helius RPC — the
+     * public client RPC rejects sends with Solana #8100002.
+     */
+    signedTransaction: z.string().min(80).optional(),
     userPublicKey: z.string().min(32),
     mint: z.string().min(32),
     side: z.enum(['buy', 'sell']),
@@ -32,7 +43,10 @@ const SolExecuteSchema = z
     amountOutRaw: z.string().regex(/^\d+$/),
     amountSolNotional: z.number().nonnegative().optional(),
   })
-  .strict();
+  .strict()
+  .refine((d) => Boolean(d.txSignature) || Boolean(d.signedTransaction), {
+    message: 'txSignature_or_signedTransaction_required',
+  });
 
 const TonExecuteSchema = z
   .object({
@@ -100,6 +114,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Resolve the on-chain signature. External wallets self-broadcast and pass
+    // the signature; embedded Pointer wallets sign-only and pass a signed tx we
+    // broadcast through the private Helius RPC (the public client RPC rejects
+    // sends with #8100002, which silently killed embedded-wallet trades).
+    let txSignature: string;
+    if (body.signedTransaction) {
+      try {
+        txSignature = await broadcastSignedTransaction(
+          Buffer.from(body.signedTransaction, 'base64'),
+        );
+      } catch (err) {
+        console.error('[trade/execute] sol broadcast failed', err);
+        return NextResponse.json(
+          {
+            error: 'broadcast_failed',
+            message: err instanceof Error ? err.message : 'send_failed',
+          },
+          { status: 502 },
+        );
+      }
+    } else {
+      txSignature = body.txSignature!;
+    }
+
     const amountSol =
       body.amountSolNotional ??
       (body.side === 'buy'
@@ -126,7 +164,7 @@ export async function POST(req: NextRequest) {
       amount_out_raw: body.amountOutRaw,
       amount_sol: amountSol,
       platform_fee_lamports: Number.isFinite(platformFeeLamports) ? platformFeeLamports : null,
-      tx_signature: body.txSignature,
+      tx_signature: txSignature,
       status: 'confirmed',
       submitted_at: submittedAt,
       confirmed_at: new Date().toISOString(),
@@ -150,7 +188,7 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           tradeId: trade.id,
           platformFeeLamports,
-          signature: body.txSignature,
+          signature: txSignature,
         });
       } catch {
         /* best-effort */
@@ -159,9 +197,9 @@ export async function POST(req: NextRequest) {
 
     try {
       await awardPoints(user.id, 'trade_volume', {
-        dedupeKey: `trade:${body.txSignature}`,
+        dedupeKey: `trade:${txSignature}`,
         amountSol,
-        metadata: { mint: mintCanon, side: body.side, signature: body.txSignature },
+        metadata: { mint: mintCanon, side: body.side, signature: txSignature },
       });
     } catch {
       /* best-effort */
@@ -172,7 +210,7 @@ export async function POST(req: NextRequest) {
       if (n === 1) {
         await awardPoints(user.id, 'first_trade', {
           dedupeKey: 'first_trade',
-          metadata: { signature: body.txSignature },
+          metadata: { signature: txSignature },
         });
       }
     } catch {
@@ -181,7 +219,7 @@ export async function POST(req: NextRequest) {
 
     // Best-effort desk sync so trades tape / holders update without waiting on webhook.
     try {
-      await ingestExecutedSolSwap({ mint: mintCanon, txSignature: body.txSignature });
+      await ingestExecutedSolSwap({ mint: mintCanon, txSignature });
     } catch {
       /* client refetch still runs */
     }
@@ -197,7 +235,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      signature: body.txSignature,
+      signature: txSignature,
       tradeId: trade.id,
       status: 'confirmed',
       packItemSell,
