@@ -38,8 +38,10 @@ export type RewardFulfillmentResult = {
   error?: string;
 };
 
-/** How long we poll for a treasury tx to confirm before giving up. */
-const CONFIRM_TIMEOUT_MS = 45_000;
+// How long we poll for a treasury tx to confirm before giving up. Kept tight so
+// a buy + a transfer both fit inside the open route's 60s maxDuration budget
+// (mainnet confirmations are typically 5-15s; this is just a safety ceiling).
+const CONFIRM_TIMEOUT_MS = 24_000;
 const CONFIRM_POLL_MS = 1_200;
 
 function sleep(ms: number): Promise<void> {
