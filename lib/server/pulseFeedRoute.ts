@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getPulseFeed } from '@/lib/helius/feed';
+import { cachedGetPulseFeed } from '@/lib/server/cachedPulseFeed';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN, isAppChainId } from '@/lib/chains/appChain';
 import { withTimeout } from '@/lib/utils/withTimeout';
@@ -26,7 +26,7 @@ export async function pulseFeedRouteGET(req: NextRequest) {
   const chain: AppChainId = chainRaw && isAppChainId(chainRaw) ? chainRaw : DEFAULT_APP_CHAIN;
   try {
     const items = await withTimeout(
-      getPulseFeed(column, chain),
+      cachedGetPulseFeed(column, chain),
       FEED_TIMEOUT_MS,
       'pulse_feed',
     );

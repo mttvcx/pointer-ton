@@ -5,7 +5,7 @@ import { listPulseFeedTokens, listRecentTokens } from '@/lib/db/tokens';
 import type { AppChainId } from '@/lib/chains/appChain';
 import type { PulseColumnId } from '@/lib/utils/constants';
 
-const PULSE_FEED_CACHE_SECONDS = 1;
+const PULSE_FEED_CACHE_SECONDS = 5;
 
 /**
  * Recent-token scan for wide-chain backfill.
