@@ -9,19 +9,19 @@
   "crons": [
     {
       "path": "/api/cron/discover-tokens",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/enrich-pulse",
-      "schedule": "*/3 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/index-active-mints",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/20 * * * *"
     },
     {
       "path": "/api/cron/retry-failed-indexes",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/aggregate-wallet-stats",
@@ -29,11 +29,11 @@
     },
     {
       "path": "/api/cron/poll-tracked-wallets",
-      "schedule": "*/7 * * * *"
+      "schedule": "*/20 * * * *"
     },
     {
       "path": "/api/cron/refresh-kol-stats",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/check-limit-alerts",
