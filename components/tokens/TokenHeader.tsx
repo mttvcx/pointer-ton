@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useCallback, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { Bell, ExternalLink, Search, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -107,13 +108,31 @@ function pickAthUsd(ext: unknown): number | null {
 
 export function TokenHeader({
   token,
-  snapshot,
+  snapshot: snapshotProp,
   mint,
 }: {
   token: TokenRow;
   snapshot: TokenMarketSnapshotRow | null;
   mint: string;
 }) {
+  // The server now paints this header from a cheap (possibly stale/null) DB
+  // snapshot to avoid blocking on DexScreener. Self-refresh from the cheap
+  // /api/tokens/[mint] DB read (no Helius): poll fast until a snapshot exists
+  // (brand-new mint), then slowly to keep the market cap live.
+  const { data: liveDetail } = useQuery({
+    queryKey: ['token-header-detail', mint],
+    queryFn: async () => {
+      const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}`);
+      if (!r.ok) throw new Error('token_detail_failed');
+      return (await r.json()) as { snapshot?: TokenMarketSnapshotRow | null };
+    },
+    initialData: { snapshot: snapshotProp },
+    refetchInterval: (q) => (q.state.data?.snapshot ? 30_000 : 4_000),
+    staleTime: 2_000,
+    refetchOnWindowFocus: false,
+  });
+  const snapshot = liveDetail?.snapshot ?? snapshotProp;
+
   const ticker = token.symbol ?? '???';
   const name = token.name ?? 'Unknown';
   const now = useLiveClock();

@@ -4,7 +4,11 @@ import { notFound } from 'next/navigation';
 import { EntityLocker } from '@/components/ai/EntityLocker';
 import { TokenDetailView } from '@/components/tokens/TokenDetailView';
 import { TokenHeader } from '@/components/tokens/TokenHeader';
-import { getLatestSnapshotForMint } from '@/lib/db/tokens';
+import {
+  getLatestSnapshotForMint,
+  type TokenMarketSnapshotRow,
+  type TokenRow,
+} from '@/lib/db/tokens';
 import { getDevWalletStats } from '@/lib/db/wallets';
 import { cachedEnsureTokenRowFromDas } from '@/lib/helius/cachedEnsureTokenRow';
 import { pulseTwitterProfileHoverTestBundle } from '@/lib/dev/demoPulseBundles';
@@ -87,13 +91,57 @@ export default async function TokenDetailPage({
     notFound();
   }
 
-  // Supply/LP hydrate is manual-only for pump RPC enrich; Dex snapshot runs on cold load.
+  // Paint the header immediately from the cheap DB snapshot. The slow part — the
+  // DexScreener snapshot ensure + dev-wallet stats — moves into the Suspense
+  // boundary below so it no longer blocks the above-the-fold header on every cold
+  // token click. The header (client) self-refreshes from /api/tokens/[mint], so a
+  // brand-new mint with no DB snapshot yet fills in its market cap within seconds.
+  let headerSnapshot = await getLatestSnapshotForMint(mint);
+  if (mint === PULSE_X_HOVER_QA_MINT && demoFixturesEnabledServer()) {
+    headerSnapshot = pulseTwitterProfileHoverTestBundle('sol')?.snapshot ?? headerSnapshot;
+  }
+
+  return (
+    <>
+      <EntityLocker type="token" id={mint} label={token.symbol ?? token.name ?? null} />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
+        {/* Scroll the header + chart away first; desk sticks and owns vertical scroll inside */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto bg-bg-raised [-ms-overflow-style:auto] [scrollbar-gutter:stable]">
+          <div className="shrink-0 bg-bg-raised">
+            <TokenHeader token={token} snapshot={headerSnapshot} mint={mint} />
+          </div>
+
+          <Suspense
+            fallback={<div className="min-h-[40vh] animate-pulse bg-bg-elevated/15" aria-hidden />}
+          >
+            <TokenDetailSection mint={mint} token={token} headerSnapshot={headerSnapshot} />
+          </Suspense>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Streams the market-heavy section: ensures a fresh DexScreener snapshot and dev
+ * stats off the header's critical path, then renders the desk. Falls back to the
+ * header's cheap snapshot if the ensure yields nothing.
+ */
+async function TokenDetailSection({
+  mint,
+  token,
+  headerSnapshot,
+}: {
+  mint: string;
+  token: TokenRow;
+  headerSnapshot: TokenMarketSnapshotRow | null;
+}) {
   const [snapshotInitial, dev] = await Promise.all([
     ensureTokenDexSnapshot(mint, 'sol'),
     token.creator_wallet ? getDevWalletStats(token.creator_wallet) : Promise.resolve(null),
   ]);
 
-  let snapshot = snapshotInitial ?? (await getLatestSnapshotForMint(mint));
+  let snapshot = snapshotInitial ?? headerSnapshot ?? (await getLatestSnapshotForMint(mint));
   if (mint === PULSE_X_HOVER_QA_MINT && demoFixturesEnabledServer()) {
     snapshot = pulseTwitterProfileHoverTestBundle('sol')?.snapshot ?? snapshot;
   }
@@ -103,31 +151,15 @@ export default async function TokenDetailPage({
   });
 
   return (
-    <>
-      <EntityLocker type="token" id={mint} label={token.symbol ?? token.name ?? null} />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-        {/* Scroll the header + chart away first; desk sticks and owns vertical scroll inside */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto bg-bg-raised [-ms-overflow-style:auto] [scrollbar-gutter:stable]">
-          <div className="shrink-0 bg-bg-raised">
-            <TokenHeader token={token} snapshot={snapshot} mint={mint} />
-          </div>
-
-          <Suspense
-            fallback={<div className="min-h-[40vh] animate-pulse bg-bg-elevated/15" aria-hidden />}
-          >
-            <TokenDetailView
-              mint={mint}
-              symbol={token.symbol}
-              tokenName={token.name}
-              decimals={token.decimals}
-              creatorWallet={token.creator_wallet}
-              dev={dev}
-              marketSnapshot={snapshot}
-              supplyTokens={supplyTokens}
-            />
-          </Suspense>
-        </div>
-      </div>
-    </>
+    <TokenDetailView
+      mint={mint}
+      symbol={token.symbol}
+      tokenName={token.name}
+      decimals={token.decimals}
+      creatorWallet={token.creator_wallet}
+      dev={dev}
+      marketSnapshot={snapshot}
+      supplyTokens={supplyTokens}
+    />
   );
 }
