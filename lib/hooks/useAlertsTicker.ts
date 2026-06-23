@@ -26,6 +26,9 @@ export type AlertsTickerItem = {
  *
  * @param options.pollAggressively — Pulse / rail surfaces poll even while the
  *   copilot overlay is tucked away.
+ * @param options.background — poll globally (regardless of the copilot surface)
+ *   at the SLOW 30s cadence. For always-mounted bridges that need fresh data but
+ *   must not run the 8s firehose (e.g. the wallet-tracker toast bridge).
  * @param options.keepWhenHidden — keep this observer's interval alive while the
  *   browser tab is backgrounded. Only auto-buy / auto-launch executors that the
  *   user has explicitly enabled set this, so background execution is never
@@ -35,14 +38,16 @@ export type AlertsTickerItem = {
  */
 export function useAlertsTickerQuery(options?: {
   pollAggressively?: boolean;
+  background?: boolean;
   keepWhenHidden?: boolean;
   enabled?: boolean;
 }) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const copilotSurfaceOpen = useUIStore(selectCopilotSurfaceOpen);
   const aggressive = Boolean(options?.pollAggressively);
+  const background = Boolean(options?.background);
   const callerEnabled = options?.enabled ?? true;
-  const enabled = authenticated && callerEnabled && (aggressive || copilotSurfaceOpen);
+  const enabled = authenticated && callerEnabled && (aggressive || background || copilotSurfaceOpen);
 
   return useQuery({
     queryKey: ['alerts-ticker'],

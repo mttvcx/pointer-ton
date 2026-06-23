@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
+import { useDeferredMount } from '@/lib/hooks/useDeferredMount';
 import { showWalletTrackerTradeToast } from '@/lib/walletTracker/walletTrackerToast';
 
 type TradePayload = {
@@ -25,7 +26,11 @@ function formatMcLabel(mc: number | null | undefined): string | undefined {
 
 /** Bridge persisted tracked-wallet trade alerts → wallet-tracker toast channel. */
 export function WalletTrackerAlertBridge() {
-  const { data: alerts } = useAlertsTickerQuery({ pollAggressively: true, enabled: true });
+  // Poll globally at the slow 30s cadence (not the 8s firehose), and only after
+  // first paint settles so the toast loop never contends for connections during
+  // the cold-load window.
+  const ready = useDeferredMount(2_500);
+  const { data: alerts } = useAlertsTickerQuery({ background: true, enabled: ready });
   const seenRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {

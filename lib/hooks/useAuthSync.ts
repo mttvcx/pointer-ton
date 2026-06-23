@@ -270,7 +270,7 @@ export function useAuthSync() {
           if (!cancelled && syncRunRef.current === runId) setSyncing(false);
         }
       })();
-    }, wallet ? 200 : 650);
+    }, wallet ? 80 : 150);
 
     return () => {
       cancelled = true;

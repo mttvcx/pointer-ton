@@ -39,7 +39,9 @@ async function probe() {
   inFlight = true;
   const t0 = performance.now();
   try {
-    const res = await fetch('/api/prices/tickers', { cache: 'no-store' });
+    // Probe a trivial liveness route — measures origin RTT without recomputing
+    // the heavy tickers payload or busting its edge cache with `no-store`.
+    const res = await fetch('/api/health', { cache: 'no-store' });
     const ms = performance.now() - t0;
     if (!res.ok) {
       emit('degraded');

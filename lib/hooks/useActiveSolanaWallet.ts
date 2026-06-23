@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useActiveWalletStore } from '@/store/activeWallet';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -28,8 +28,13 @@ function canonicalWalletKey(address: string, chain: AppChainId): string | null {
   if (!mintMatchesAppChain(raw, chain)) return null;
   if (chain === 'ton') return normalizeTonAddress(raw);
   if (chain === 'sol') {
+    // Canonicalize via bs58 (decode → 32-byte check → re-encode) instead of
+    // @solana/web3.js PublicKey, so this shell-mounted hook does not drag the
+    // 14MB web3.js bundle onto the cold-load critical path.
     try {
-      return new PublicKey(raw).toBase58();
+      const bytes = bs58.decode(raw);
+      if (bytes.length !== 32) return null;
+      return bs58.encode(bytes);
     } catch {
       return null;
     }
