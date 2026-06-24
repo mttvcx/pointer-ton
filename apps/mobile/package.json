@@ -1,0 +1,40 @@
+{
+  "name": "@pointer/mobile",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "private": true,
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "build:dev:ios": "eas build --profile development --platform ios",
+    "build:dev:android": "eas build --profile development --platform android",
+    "submit:ios": "eas submit --platform ios"
+  },
+  "dependencies": {
+    "expo": "~56.0.12",
+    "expo-application": "*",
+    "expo-constants": "*",
+    "expo-crypto": "*",
+    "expo-linking": "*",
+    "expo-secure-store": "*",
+    "expo-status-bar": "~56.0.4",
+    "expo-web-browser": "*",
+    "@privy-io/expo": "*",
+    "@solana/web3.js": "^1.95.0",
+    "buffer": "^6.0.3",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-get-random-values": "*"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "expo": {
+    "install": {
+      "comment": "Run `npx expo install --fix` after `npm install` to replace the '*' versions with SDK-56-correct ones."
+    }
+  }
+}
