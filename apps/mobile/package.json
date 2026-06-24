@@ -15,8 +15,11 @@
   "dependencies": {
     "expo": "~56.0.12",
     "expo-application": "*",
+    "expo-blur": "*",
     "expo-constants": "*",
     "expo-crypto": "*",
+    "expo-glass-effect": "*",
+    "expo-linear-gradient": "*",
     "expo-linking": "*",
     "expo-secure-store": "*",
     "expo-status-bar": "~56.0.4",

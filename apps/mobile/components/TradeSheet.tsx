@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTradeSubmit } from '../src/trade/useTradeSubmit';
 import { AiVerdictChip } from './AiVerdictChip';
+import { Glass } from './Glass';
 import { colors, radius } from '../src/theme';
 
 const SOL_PRESETS = [0.1, 0.5, 1, 2];
@@ -48,7 +49,7 @@ export function TradeSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose} />
-      <View style={s.sheet}>
+      <Glass style={s.sheet} intensity={50}>
         <View style={s.handle} />
         <Text style={s.title}>
           {buy ? 'Buy' : 'Sell'} {symbol}
@@ -95,7 +96,7 @@ export function TradeSheet({
         <Pressable onPress={onClose} style={s.cancel}>
           <Text style={s.cancelText}>{state === 'done' ? 'Done' : 'Cancel'}</Text>
         </Pressable>
-      </View>
+      </Glass>
     </Modal>
   );
 }
@@ -103,14 +104,13 @@ export function TradeSheet({
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: {
-    backgroundColor: colors.bgRaised,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     padding: 20,
-    paddingBottom: 36,
+    paddingBottom: 40,
     gap: 14,
-    borderTopWidth: 1,
-    borderColor: colors.border,
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong },
   title: { color: colors.fg, fontSize: 20, fontWeight: '800' },

@@ -1,13 +1,10 @@
 import { getAccessToken, useEmbeddedSolanaWallet } from '@privy-io/expo';
-import { VersionedTransaction } from '@solana/web3.js';
+import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { api } from '../api/client';
+import { SOLANA_RPC_URL } from '../env';
 
 function b64ToBytes(b64: string): Uint8Array {
-  const bin = global.Buffer.from(b64, 'base64');
-  return new Uint8Array(bin);
-}
-function bytesToB64(bytes: Uint8Array): string {
-  return global.Buffer.from(bytes).toString('base64');
+  return new Uint8Array(global.Buffer.from(b64, 'base64'));
 }
 
 type QuoteResp = {
@@ -23,15 +20,15 @@ export type TradeParams = {
 };
 
 /**
- * Ported from web lib/hooks/usePointerTradeSubmit.ts (embedded-wallet path):
- *   quote  → /api/trade/quote (returns a base64 swap tx)
- *   sign   → Privy embedded Solana wallet signs ONLY (never broadcasts)
- *   execute→ /api/trade/execute relays the signed bytes; the SERVER broadcasts
- *            via lib/solana/broadcast.ts (Helius key never on device, the #8100002 fix).
+ * Mobile trade flow (ported from web lib/hooks/usePointerTradeSubmit.ts, adapted to
+ * Privy Expo's constraint — it only exposes signAndSendTransaction, no sign-only):
  *
- * SPIKE-VERIFIED STEP: the exact sign-only call on @privy-io/expo. Confirm against
- * the installed version — it must return a SIGNED VersionedTransaction without
- * broadcasting. If only signAndSend exists, this is the single place to adapt.
+ *   quote   → /api/trade/quote (base64 swap tx)
+ *   sign+send → Privy embedded wallet signs AND broadcasts through a Connection we
+ *               point at the backend's auth-gated /api/solana/rpc proxy, so the
+ *               private Helius key never ships in the app (no #8100002, no key leak).
+ *   record  → /api/trade/execute with the resulting txSignature (the external-wallet
+ *             path — server records the trade; it does NOT re-broadcast).
  */
 export function useTradeSubmit() {
   const solana = useEmbeddedSolanaWallet();
@@ -57,25 +54,25 @@ export function useTradeSubmit() {
     });
     if (!quote.swapTransaction) throw new Error('No swap transaction in quote');
 
-    // 2) Sign-only (embedded wallet). <-- verify this API in the Privy RN spike.
+    // 2) Sign + broadcast via the auth-gated proxy connection (key stays server-side).
+    const connection = new Connection(SOLANA_RPC_URL, {
+      commitment: 'confirmed',
+      httpHeaders: { Authorization: `Bearer ${token}` },
+    });
     const tx = VersionedTransaction.deserialize(b64ToBytes(quote.swapTransaction));
     const provider = await wallet.getProvider();
-    const { signedTransaction } = await provider.request({
-      method: 'signTransaction',
-      params: { transaction: tx },
+    const { signature } = await provider.request({
+      method: 'signAndSendTransaction',
+      params: { transaction: tx, connection },
     });
-    const signedBytes: Uint8Array =
-      typeof (signedTransaction as VersionedTransaction).serialize === 'function'
-        ? (signedTransaction as VersionedTransaction).serialize()
-        : (signedTransaction as Uint8Array);
 
-    // 3) Execute (server broadcasts + confirms + records).
-    const exec = await api<{ signature: string }>('/api/trade/execute', {
+    // 3) Record (does not re-broadcast — Privy already sent it).
+    await api('/api/trade/execute', {
       token,
       method: 'POST',
       body: {
         chain: 'sol',
-        signedTransaction: bytesToB64(signedBytes),
+        txSignature: signature,
         userPublicKey,
         mint: p.mint,
         side: p.side,
@@ -84,7 +81,7 @@ export function useTradeSubmit() {
         amountSolNotional: quote.summary.amountSolEstimate,
       },
     });
-    return { signature: exec.signature };
+    return { signature };
   }
 
   return { submit, hasWallet: Boolean(solana?.wallets?.[0]) };

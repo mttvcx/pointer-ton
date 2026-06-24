@@ -25,6 +25,17 @@ export async function getMe(): Promise<unknown> {
   return api('/api/me', { token });
 }
 
+export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
+/** Raw token balance for a wallet (USDC = spendable USD balance). */
+export async function getTokenBalance(mint: string, wallet: string): Promise<{ rawAmount: string }> {
+  const token = await getAccessToken();
+  return api<{ rawAmount: string }>(
+    `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet)}`,
+    { token },
+  );
+}
+
 /** The wedge: AI safety read for a token. `fast` is cheap + cached server-side. */
 export async function explainToken(mint: string, mode: 'fast' | 'deep' = 'fast'): Promise<ExplainTokenResponse> {
   const token = await getAccessToken();
