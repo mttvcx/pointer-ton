@@ -95,6 +95,18 @@ export async function claimPackPayment(input: {
   return { created: true, row: data };
 }
 
+/** Load a recorded pack open by its open_id (for resume/reconcile of delivery). */
+export async function getPackOpenByOpenId(openId: string): Promise<PackOpenRow | null> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('pack_opens')
+    .select('*')
+    .eq('open_id', openId)
+    .maybeSingle();
+  if (error) throw new Error(`getPackOpenByOpenId: ${error.message}`);
+  return data ?? null;
+}
+
 /** Look up a pack payment by its on-chain signature (for delivery polling). */
 export async function getPackPaymentByTx(paymentTx: string): Promise<PackPaymentRow | null> {
   const supabase = createAdminSupabase();

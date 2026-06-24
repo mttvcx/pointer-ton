@@ -51,6 +51,24 @@ export async function isSellPackOrigin(userId: string, mint: string): Promise<bo
   }
 }
 
+/** Reward ids already delivered (inventory written) for an open — idempotent fulfillment. */
+export async function listDeliveredRewardIds(openId: string): Promise<Set<string>> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('pack_inventory')
+    .select('reward_id')
+    .eq('open_id', openId);
+  if (error) {
+    if (isMissingTableError(error)) return new Set();
+    throw new Error(`listDeliveredRewardIds: ${error.message}`);
+  }
+  const set = new Set<string>();
+  for (const r of data ?? []) {
+    if (r.reward_id) set.add(String(r.reward_id));
+  }
+  return set;
+}
+
 /** Record tokens credited to a user from a pack open (after on-chain fulfillment). */
 export async function recordPackInventory(input: {
   userId: string;

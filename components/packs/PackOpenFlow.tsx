@@ -101,15 +101,20 @@ async function pollPackDelivery(
   getAccessToken: () => Promise<string | null>,
   onResolve: (state: 'delivered' | 'failed') => void,
 ): Promise<void> {
-  const deadline = Date.now() + 90_000;
+  // Multi-reward packs can't finish all buys+transfers inside the open route's
+  // 60s budget, so we both poll the status AND drive /api/packs/fulfill-resume,
+  // which delivers another chunk per call (idempotent + lease-guarded against the
+  // open's background task). Give it room for a few chunks.
+  const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 2500));
+    await new Promise((r) => setTimeout(r, 3_000));
     let token: string | null = null;
     try {
       token = await getAccessToken();
     } catch {
       token = null;
     }
+    // 1) Fast status check.
     try {
       const res = await fetch(`/api/packs/payment-status?tx=${encodeURIComponent(paymentTx)}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -121,6 +126,23 @@ async function pollPackDelivery(
       }
     } catch {
       /* transient — keep polling */
+    }
+    // 2) Drive a delivery chunk (may take up to ~60s; returns the new status).
+    if (token) {
+      try {
+        const rr = await fetch('/api/packs/fulfill-resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ paymentTx }),
+        });
+        if (rr.ok) {
+          const rj = (await rr.json()) as { status?: string };
+          if (rj.status === 'fulfilled') return onResolve('delivered');
+          if (rj.status === 'failed') return onResolve('failed');
+        }
+      } catch {
+        /* transient — keep polling */
+      }
     }
   }
 }

@@ -23,11 +23,9 @@ import {
   markPackPaymentStatus,
   type ForcedOutcome,
 } from '@/lib/db/packs';
-import { recordPackInventory } from '@/lib/db/packInventory';
 import { liveCommerceActive } from '@/lib/packs/commerce';
 import { verifyPackPayment } from '@/lib/packs/verifyPackPayment';
-import { buildRewardFulfillmentPlan } from '@/lib/packs/rewardFulfillmentPlan';
-import { fulfillPackRewards } from '@/lib/packs/fulfillRewards';
+import { resumePackFulfillment } from '@/lib/packs/resumeFulfillment';
 import { solToLamports } from '@/lib/utils/formatters';
 import type { Json } from '@/lib/supabase/types';
 import type { PackType } from '@/types/pack';
@@ -240,61 +238,34 @@ export async function POST(req: NextRequest) {
     console.error('[packs/open] history write failed', err);
   }
 
-  // Live commerce: deliver the won tokens on-chain (treasury buys + transfers),
-  // then record them as pack inventory so SELLING charges 2% and earns no
-  // cashback. This runs AFTER the response via `after()` so the cinematic plays
-  // instantly instead of blocking ~20s on two on-chain confirmations. The client
-  // polls /api/packs/payment-status for the real delivery outcome.
+  // Live commerce: deliver the won tokens on-chain. Fulfillment is idempotent +
+  // resumable (skips delivered rewards, recovers bought-but-not-transferred ones,
+  // records each delivery immediately), so a multi-reward pack that can't finish
+  // all buys+transfers inside the 60s budget is finished by the client's
+  // /api/packs/fulfill-resume call (and a reconcile script can mop up stragglers).
   const fulfillmentPending = live && Boolean(userId) && Boolean(body.userWallet) && Boolean(paymentRowId);
   if (fulfillmentPending) {
-    const uid = userId as string;
-    const userWallet = body.userWallet as string;
     const rowId = paymentRowId as string;
-    const maxPayoutSol = config.maxPayoutSol;
+    const openId = finalResult.openId;
+    const paymentTx = body.paymentTx as string;
+
+    // Bind the open to the payment SYNCHRONOUSLY so a resume/reconcile can find it
+    // even if the after() task is killed before it writes anything.
+    try {
+      await markPackPaymentStatus({ id: rowId, status: 'verified', openId });
+    } catch {
+      /* best-effort */
+    }
+
+    // Idempotent + resumable delivery (shared with /api/packs/fulfill-resume).
+    // A multi-reward pack that can't finish inside 60s is finished by the client's
+    // resume calls; partial progress is persisted per reward.
     after(async () => {
       try {
-        const plan = buildRewardFulfillmentPlan(finalResult, { maxPayoutSol });
-        const fulfillment = await fulfillPackRewards({ userWallet, intents: plan.intents });
-        for (const r of fulfillment.results) {
-          if (r.ok && r.deliveredRaw) {
-            try {
-              await recordPackInventory({
-                userId: uid,
-                mint: r.mint,
-                openId: finalResult.openId,
-                rewardId: r.rewardId,
-                amountRaw: r.deliveredRaw,
-                acquiredTx: r.transferTx ?? r.buyTx ?? null,
-              });
-            } catch (err) {
-              console.error('[packs/open] inventory write failed', err);
-            }
-          }
-        }
-        // Only mark fulfilled if at least one reward actually delivered. Otherwise
-        // the buyer paid but received nothing — mark FAILED (not fulfilled) so it
-        // is visible for refund/reconciliation instead of looking complete.
-        const anyDelivered = fulfillment.results.some((r) => r.ok && r.deliveredRaw);
-        await markPackPaymentStatus({
-          id: rowId,
-          status: anyDelivered ? 'fulfilled' : 'failed',
-          openId: finalResult.openId,
-          metadata: (anyDelivered
-            ? { fulfillment: fulfillment.results }
-            : { reason: 'fulfillment_delivered_nothing', fulfillment: fulfillment.results }) as unknown as Json,
-        });
+        await resumePackFulfillment({ paymentTx });
       } catch (err) {
+        // Leave 'verified' for resume; never mark 'failed' on a transient throw.
         console.error('[packs/open] async fulfillment failed', err);
-        try {
-          await markPackPaymentStatus({
-            id: rowId,
-            status: 'failed',
-            openId: finalResult.openId,
-            metadata: { reason: 'fulfillment_threw' } as unknown as Json,
-          });
-        } catch {
-          /* best-effort */
-        }
       }
     });
   }
