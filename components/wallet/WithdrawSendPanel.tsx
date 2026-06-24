@@ -3,12 +3,17 @@
 import { useState } from 'react';
 import bs58 from 'bs58';
 import Link from 'next/link';
-import { useSignAndSendTransaction, useWallets } from '@privy-io/react-auth/solana';
+import {
+  useSignAndSendTransaction,
+  useSignTransaction,
+  useWallets,
+} from '@privy-io/react-auth/solana';
 import { toast } from 'sonner';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber } from '@/lib/utils/formatters';
@@ -28,6 +33,12 @@ function txBytesFromBase64(b64: string): Uint8Array {
   return out;
 }
 
+function base64FromBytes(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
+  return btoa(bin);
+}
+
 type Props = {
   activeChain: AppChainId;
   walletAddress: string | null;
@@ -39,7 +50,9 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
   const nativeSym = nativeTicker(activeChain);
   const { getAccessToken } = usePointerAuth();
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { signTransaction } = useSignTransaction();
   const { wallets } = useWallets();
+  const embeddedAddresses = useEmbeddedSolanaAddresses();
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
   const [sending, setSending] = useState(false);
@@ -104,14 +117,41 @@ export function WithdrawSendPanel({ activeChain, walletAddress, nativeBalance, o
         throw new Error(data.message ?? `Send failed (${res.status})`);
       }
 
-      const { signature } = await signAndSendTransaction({
-        transaction: txBytesFromBase64(data.transaction),
-        wallet,
-        chain: 'solana:mainnet',
-      });
+      // Embedded Pointer wallet: sign-only, then broadcast server-side via the
+      // private Helius RPC (the public client RPC rejects sends with #8100002).
+      // External wallets self-broadcast via signAndSend (their own RPC works).
+      let sig: string;
+      if (embeddedAddresses.has(walletAddress)) {
+        const { signedTransaction } = await signTransaction({
+          transaction: txBytesFromBase64(data.transaction),
+          wallet,
+          chain: 'solana:mainnet',
+        });
+        const bRes = await fetch('/api/solana/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ signedTransaction: base64FromBytes(signedTransaction), confirm: true }),
+        });
+        const bJson = (await bRes.json().catch(() => ({}))) as {
+          signature?: string;
+          error?: string;
+          message?: string;
+        };
+        if (!bRes.ok || !bJson.signature) {
+          throw new Error(bJson.message ?? bJson.error ?? 'broadcast_failed');
+        }
+        sig = bJson.signature;
+      } else {
+        const { signature } = await signAndSendTransaction({
+          transaction: txBytesFromBase64(data.transaction),
+          wallet,
+          chain: 'solana:mainnet',
+        });
+        sig = bs58.encode(signature);
+      }
 
       toast.success('Withdraw sent', {
-        description: `${bs58.encode(signature).slice(0, 16)}…`,
+        description: `${sig.slice(0, 16)}…`,
       });
       dispatchSolanaAccountRefresh('withdraw_send');
       onClose();

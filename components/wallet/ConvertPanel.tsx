@@ -2,8 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import bs58 from 'bs58';
-import { useSignAndSendTransaction, useWallets } from '@privy-io/react-auth/solana';
+import {
+  useSignAndSendTransaction,
+  useSignTransaction,
+  useWallets,
+} from '@privy-io/react-auth/solana';
 import { useQuery } from '@tanstack/react-query';
+import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
 import { ArrowDownUp, ChevronDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -45,6 +50,12 @@ function txBytesFromBase64(b64: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
+}
+
+function base64FromBytes(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
+  return btoa(bin);
 }
 
 function AssetSelect({
@@ -123,7 +134,9 @@ export function ConvertPanel({
   const activeChain = useUIStore((s) => s.activeChain);
   const { getAccessToken } = usePointerAuth();
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { signTransaction } = useSignTransaction();
   const { wallets } = useWallets();
+  const embeddedAddresses = useEmbeddedSolanaAddresses();
 
   const [fromAsset, setFromAsset] = useState<ConvertAssetId>(() => defaultConvertFromAsset(activeChain));
   const [toAsset, setToAsset] = useState<ConvertAssetId>(() => defaultConvertToAsset(defaultConvertFromAsset(activeChain)));
@@ -236,13 +249,42 @@ export function ConvertPanel({
 
     setConfirming(true);
     try {
-      const { signature } = await signAndSendTransaction({
-        transaction: txBytesFromBase64(quote.transaction),
-        wallet,
-        chain: 'solana:mainnet',
-      });
+      // Embedded Pointer wallet: sign-only + server broadcast via the private
+      // Helius RPC (the public client RPC rejects sends with #8100002). External
+      // wallets self-broadcast via signAndSend.
+      let sig: string;
+      if (walletAddress && embeddedAddresses.has(walletAddress)) {
+        const token = await getAccessToken();
+        if (!token) throw new Error('Sign in required');
+        const { signedTransaction } = await signTransaction({
+          transaction: txBytesFromBase64(quote.transaction),
+          wallet,
+          chain: 'solana:mainnet',
+        });
+        const bRes = await fetch('/api/solana/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ signedTransaction: base64FromBytes(signedTransaction), confirm: true }),
+        });
+        const bJson = (await bRes.json().catch(() => ({}))) as {
+          signature?: string;
+          error?: string;
+          message?: string;
+        };
+        if (!bRes.ok || !bJson.signature) {
+          throw new Error(bJson.message ?? bJson.error ?? 'broadcast_failed');
+        }
+        sig = bJson.signature;
+      } else {
+        const { signature } = await signAndSendTransaction({
+          transaction: txBytesFromBase64(quote.transaction),
+          wallet,
+          chain: 'solana:mainnet',
+        });
+        sig = bs58.encode(signature);
+      }
       toast.success('Convert submitted', {
-        description: `${quote.rateLabel} · ${bs58.encode(signature).slice(0, 12)}…`,
+        description: `${quote.rateLabel} · ${sig.slice(0, 12)}…`,
       });
       dispatchSolanaAccountRefresh('convert_swap');
       onClose?.();
