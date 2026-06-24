@@ -67,12 +67,17 @@ export function ClipboardMintTopbarChip() {
   const summaryQ = useQuery({
     queryKey: ['clipboard-mint-summary', peekMint],
     queryFn: async () => {
-      const res = await fetch(`/api/tokens/summary?mints=${encodeURIComponent(peekMint!)}`);
+      // Resolve real metadata so the chip shows the token's logo + ticker, not the
+      // raw CA. /api/tokens/[mint] is DB-first, then DexScreener (free), then DAS —
+      // so known tokens cost no Helius and most new ones resolve via DexScreener.
+      // A non-token (e.g. a copied wallet address) 404s → the chip hides itself.
+      const res = await fetch(`/api/tokens/${encodeURIComponent(peekMint!)}`);
       if (!res.ok) return null;
       const json = (await res.json()) as {
-        tokens?: { mint: string; symbol: string | null; name: string | null; image_url: string | null }[];
+        token?: { symbol: string | null; name: string | null; image_url: string | null };
       };
-      return json.tokens?.[0] ?? null;
+      const t = json.token;
+      return t ? { symbol: t.symbol, name: t.name, image_url: t.image_url } : null;
     },
     enabled: Boolean(peekMint),
     staleTime: 60_000,
