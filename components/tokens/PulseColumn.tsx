@@ -35,7 +35,7 @@ import {
   pulseBundleMatchesFilters,
   sortPulseBundles,
 } from '@/lib/tokens/columnPresetModel';
-import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
+import { type PulseColumnId } from '@/lib/utils/constants';
 import { syntheticPulseFeedItems, pulseSocialShowcaseBundles } from '@/lib/dev/demoPulseBundles';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
@@ -517,17 +517,9 @@ function PulseColumnBody({
          */}
         <div className="flex min-h-[2.125rem] items-center gap-2">
           <div className="flex shrink-0 items-center gap-2">
-            <h2 className="whitespace-nowrap text-[13px] font-semibold text-fg-primary">
+            <h2 className="whitespace-nowrap text-[16px] font-medium text-fg-primary">
               {title}
             </h2>
-            {column === 'new' ? (
-              <span className="whitespace-nowrap text-[9px] tabular-nums text-fg-muted/80">
-                &lt;{' '}
-                {PULSE_THRESHOLDS.newMaxAgeMinutes >= 60
-                  ? `${PULSE_THRESHOLDS.newMaxAgeMinutes / 60}h`
-                  : `${PULSE_THRESHOLDS.newMaxAgeMinutes}m`}
-              </span>
-            ) : null}
           </div>
 
           <div className="flex min-h-[2.125rem] min-w-0 flex-1 items-center justify-center px-1">
@@ -701,15 +693,6 @@ function PulseColumnBody({
                     : column === 'stretch'
                       ? 'No stretch tokens yet'
                       : 'No migrated tokens yet'
-            }
-            description={
-              search.trim()
-                ? 'Try a different query or clear search.'
-                : columnFiltered.length === 0 && searchFiltered.length > 0
-                  ? 'Open filters and relax criteria, or reset the preset.'
-                  : column === 'new'
-                    ? 'Qualified new mints stream in here as Helius indexes launchpads. Empty is normal when the feed is quiet.'
-                    : 'Waiting for live qualified tokens — stretch and migrated columns fill as tokens bond and graduate.'
             }
           />
         ) : (
