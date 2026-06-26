@@ -8,6 +8,7 @@ import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
   Languages,
   LogOut,
+  Menu,
   Rocket,
   Search,
   Settings,
@@ -15,6 +16,7 @@ import {
   UserRound,
   Users,
   } from 'lucide-react';
+import { useMobileNavStore } from '@/store/mobileNav';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CLIPBOARD_TOPBAR_SLOT_PX,
@@ -364,7 +366,7 @@ export function Topbar() {
       </Link>
 
       <nav
-        className="flex max-w-[38%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[32%] sm:gap-1 md:max-w-[30%] lg:max-w-none [&::-webkit-scrollbar]:hidden"
+        className="hidden max-w-[38%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[32%] sm:gap-1 md:max-w-[30%] lg:flex lg:max-w-none [&::-webkit-scrollbar]:hidden"
         aria-label="Primary"
       >
         {navItems.map((item) => {
@@ -401,8 +403,8 @@ export function Topbar() {
       </nav>
       </div>
 
-      {/* Center — layout spacers are non-interactive; only pill/chip capture clicks */}
-      <div className="pointer-events-none flex min-w-0 items-center justify-center px-0.5">
+      {/* Center — AI copilot slot; hidden on mobile (no AI below lg). */}
+      <div className="pointer-events-none hidden min-w-0 items-center justify-center px-0.5 lg:flex">
         <div className="hidden items-center sm:flex">
           <div
             className="pointer-events-none shrink-0"
@@ -484,7 +486,7 @@ export function Topbar() {
           aria-label={squadsOpen ? 'Hide squads panel' : 'Open squads panel'}
           title={squadsOpen ? 'Hide squads' : 'Open squads'}
           className={cn(
-            'group/squads relative ml-0.5 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/20 sm:ml-1',
+            'group/squads relative ml-0.5 hidden shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/20 sm:ml-1 lg:block',
             squadsOpen && 'ring-2 ring-white/25',
           )}
         >
@@ -531,7 +533,7 @@ export function Topbar() {
               hasActiveWallet={Boolean(walletAddress)}
             />
 
-            <div className="relative shrink-0" ref={avatarMenuRef}>
+            <div className="relative hidden shrink-0 lg:block" ref={avatarMenuRef}>
               <button
                 ref={avatarButtonRef}
                 type="button"
@@ -643,6 +645,16 @@ export function Topbar() {
             </div>
           </div>
         ) : null}
+
+        {/* Mobile ☰ — opens the drawer (desktop uses the avatar menu + nav). */}
+        <button
+          type="button"
+          onClick={() => useMobileNavStore.getState().setDrawerOpen(true)}
+          aria-label="Open menu"
+          className="focus-ring ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary lg:hidden"
+        >
+          <Menu className="h-5 w-5" strokeWidth={2} aria-hidden />
+        </button>
       </div>
     </header>
 
