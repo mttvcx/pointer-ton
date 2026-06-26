@@ -35,7 +35,7 @@ import {
   pulseBundleMatchesFilters,
   sortPulseBundles,
 } from '@/lib/tokens/columnPresetModel';
-import { PULSE_COLUMN_ACCENT_DOT, PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
+import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
 import { syntheticPulseFeedItems, pulseSocialShowcaseBundles } from '@/lib/dev/demoPulseBundles';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
@@ -490,7 +490,6 @@ function PulseColumnBody({
     rowVirtualizer.scrollToIndex(ix, { align: 'center' });
   }, [trackPulseFlashMint, visibleRows, rowVirtualizer]);
 
-  const dotClass = PULSE_COLUMN_ACCENT_DOT[column];
   const title = COLUMN_LABEL[column];
   const effectiveBuyStyle = displayForRow.buyButtonStyle;
   const listLoading = query.isPending && query.data === undefined && feedItems.length === 0;
@@ -518,11 +517,7 @@ function PulseColumnBody({
          */}
         <div className="flex min-h-[2.125rem] items-center gap-2">
           <div className="flex shrink-0 items-center gap-2">
-            <span
-              className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotClass)}
-              aria-hidden
-            />
-            <h2 className="whitespace-nowrap text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
+            <h2 className="whitespace-nowrap text-[13px] font-semibold text-fg-primary">
               {title}
             </h2>
             {column === 'new' ? (
@@ -564,7 +559,7 @@ function PulseColumnBody({
           <div className="flex shrink-0 items-center gap-1.5">
             <div
               className={cn(
-                'flex h-[2.125rem] shrink-0 items-stretch overflow-hidden rounded-full border border-white/10 bg-white/5',
+                'flex h-[2.125rem] shrink-0 items-stretch overflow-hidden rounded-full border border-white/10',
               )}
             >
               <label
