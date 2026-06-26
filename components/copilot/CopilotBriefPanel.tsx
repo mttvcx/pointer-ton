@@ -127,7 +127,7 @@ export function CopilotBriefPanel({
       </span>
     );
   } else if (!debounced) {
-    body = <span className="text-fg-muted">{IDLE_COPY}</span>;
+    body = <span className="text-fg-primary">{IDLE_COPY}</span>;
   } else if (query.isLoading) {
     const hint =
       debounced.label ??
@@ -153,7 +153,7 @@ export function CopilotBriefPanel({
       </span>
     );
   } else {
-    body = <span className="text-fg-muted">{IDLE_COPY}</span>;
+    body = <span className="text-fg-primary">{IDLE_COPY}</span>;
   }
 
   const isWorkspace = variant === 'workspace';
