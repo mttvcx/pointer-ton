@@ -13,10 +13,32 @@ import { SocialScreen } from './screens/SocialScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { OnboardingFlow } from './screens/OnboardingFlow';
-import { SettingsScreen } from './screens/SettingsScreen';
+import { SettingsScreen, type Section } from './screens/SettingsScreen';
 import { GlassNav, type NavTab } from './components/GlassNav';
 import { colors } from './src/theme';
 import type { PulseBundle } from './src/types';
+
+/**
+ * Crossfades the whole shell when `target` flips (Simple ⇄ Advanced): fade out →
+ * commit the new mode → fade back in. The committed value drives what renders, so
+ * screens swap at the midpoint of the fade, not the instant the button is tapped.
+ */
+function useModeCrossfade(target: boolean) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const [committed, setCommitted] = useState(target);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      setCommitted(target);
+      Animated.timing(opacity, { toValue: 1, duration: 230, useNativeDriver: true }).start();
+    });
+  }, [target]);
+  return { opacity, committed };
+}
 
 function AnimatedMount({ routeKey, children }: { routeKey: string; children: React.ReactNode }) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -38,9 +60,18 @@ function Shell() {
   const [tab, setTab] = useState<NavTab>('home');
   const [token, setToken] = useState<PulseBundle | null>(null);
   const [advanced, setAdvanced] = useState(false);
+  const { opacity: modeOpacity, committed: adv } = useModeCrossfade(advanced);
   const [entered, setEntered] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<Section | null>(null);
+  const [settingsFocusBio, setSettingsFocusBio] = useState(false);
+
+  const openSettings = (section: Section | null = null, focusBio = false) => {
+    setSettingsSection(section);
+    setSettingsFocusBio(focusBio);
+    setSettingsOpen(true);
+  };
 
   if (!auth.ready) {
     return (
@@ -55,6 +86,8 @@ function Shell() {
   if (settingsOpen) {
     return (
       <SettingsScreen
+        initialSection={settingsSection}
+        autoFocusBio={settingsFocusBio}
         onClose={() => setSettingsOpen(false)}
         onLogout={() => {
           setSettingsOpen(false);
@@ -71,19 +104,21 @@ function Shell() {
 
   return (
     <View style={s.root}>
-      <AnimatedMount routeKey={token ? `token-${token.token.mint}` : tab}>
-        {token ? (
-          <TokenScreen bundle={token} onBack={() => setToken(null)} advanced={advanced} />
-        ) : tab === 'home' ? (
-          <HomeScreen onOpenToken={setToken} />
-        ) : tab === 'search' ? (
-          <SearchScreen onOpenToken={setToken} />
-        ) : tab === 'social' ? (
-          <SocialScreen />
-        ) : (
-          <ProfileScreen onOpenSettings={() => setSettingsOpen(true)} />
-        )}
-      </AnimatedMount>
+      <Animated.View style={{ flex: 1, opacity: modeOpacity }}>
+        <AnimatedMount routeKey={token ? `token-${token.token.mint}` : tab}>
+          {token ? (
+            <TokenScreen bundle={token} onBack={() => setToken(null)} advanced={adv} />
+          ) : tab === 'home' ? (
+            <HomeScreen onOpenToken={setToken} advanced={adv} />
+          ) : tab === 'search' ? (
+            <SearchScreen onOpenToken={setToken} />
+          ) : tab === 'social' ? (
+            <SocialScreen />
+          ) : (
+            <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
+          )}
+        </AnimatedMount>
+      </Animated.View>
 
       <View style={[s.topBar, { height: insets.top }]} pointerEvents="none" />
 

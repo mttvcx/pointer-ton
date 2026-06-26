@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Logo } from '../components/Logo';
@@ -6,17 +6,41 @@ import { PressScale } from '../components/PressScale';
 import { ExportKeysSheet } from '../components/ExportKeysSheet';
 import { colors, radius } from '../src/theme';
 import { useAuth } from '../src/auth';
+import { setBio, useBio } from '../src/local';
 import { shortMint } from '../src/format';
 
 const EVM = '0x65574B2fA1c3d9E70b1aF4d2E8b90F789948Fa3';
 
-export function AccountScreen() {
+export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean }) {
   const auth = useAuth();
+  const storedBio = useBio();
   const [username, setUsername] = useState('pointer');
   const [display, setDisplay] = useState('pointer');
-  const [desc, setDesc] = useState('');
+  const [desc, setDesc] = useState(storedBio);
+  const [saved, setSaved] = useState(false);
   const [exportSheet, setExportSheet] = useState(false);
   const [exportSignin, setExportSignin] = useState(false);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const descRef = useRef<TextInput>(null);
+  const descY = useRef(0);
+  const dirty = desc.trim() !== storedBio;
+
+  // Arriving from "Add a bio": land on the description, after the slide settles.
+  useEffect(() => {
+    if (!autoFocusBio) return;
+    const t = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, descY.current - 90), animated: true });
+      descRef.current?.focus();
+    }, 360);
+    return () => clearTimeout(t);
+  }, [autoFocusBio]);
+
+  const save = () => {
+    setBio(desc.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1400);
+  };
 
   const addrs = [
     { label: 'Solana address', value: auth.walletAddress ?? '—' },
@@ -28,7 +52,7 @@ export function AccountScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={s.h1}>Account</Text>
 
         <PressScale to={0.98} style={s.xCard}>
@@ -62,12 +86,13 @@ export function AccountScreen() {
           <TextInput value={display} onChangeText={setDisplay} style={s.input} />
         </View>
 
-        <View style={s.descHead}>
+        <View style={s.descHead} onLayout={(e) => (descY.current = e.nativeEvent.layout.y)}>
           <Text style={s.label}>A short description</Text>
           <Text style={s.count}>{desc.length} / 160</Text>
         </View>
-        <View style={s.textarea}>
+        <View style={[s.textarea, autoFocusBio && s.textareaFocus]}>
           <TextInput
+            ref={descRef}
             value={desc}
             onChangeText={(t) => setDesc(t.slice(0, 160))}
             style={s.textareaInput}
@@ -77,8 +102,8 @@ export function AccountScreen() {
           />
         </View>
 
-        <PressScale style={s.save}>
-          <Text style={s.saveText}>Save changes</Text>
+        <PressScale style={[s.save, dirty && s.saveDirty]} onPress={save}>
+          <Text style={[s.saveText, dirty && s.saveTextDirty]}>{saved ? 'Saved ✓' : 'Save changes'}</Text>
         </PressScale>
 
         <Text style={s.sectionLabel}>Account login</Text>
@@ -148,10 +173,13 @@ const s = StyleSheet.create({
   input: { flex: 1, color: colors.fg, fontSize: 18, fontWeight: '500', padding: 0 },
   descHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 8 },
   count: { color: colors.fgMuted, fontSize: 13 },
-  textarea: { backgroundColor: colors.bgRaised, borderRadius: radius.md, padding: 16, minHeight: 110 },
+  textarea: { backgroundColor: colors.bgRaised, borderRadius: radius.md, padding: 16, minHeight: 110, borderWidth: 1, borderColor: 'transparent' },
+  textareaFocus: { borderColor: colors.accent },
   textareaInput: { color: colors.fg, fontSize: 17, padding: 0, textAlignVertical: 'top', flex: 1 },
   save: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
+  saveDirty: { backgroundColor: colors.accent },
   saveText: { color: colors.fgMuted, fontSize: 16, fontWeight: '700' },
+  saveTextDirty: { color: '#fff' },
 
   sectionLabel: { color: colors.fgMuted, fontSize: 14, marginTop: 26 },
   loginRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },

@@ -61,3 +61,21 @@ export type ExplainTokenResponse = {
 export type Verdict = 'healthy' | 'caution' | 'high_risk';
 
 export type PulseColumn = 'new' | 'stretch' | 'migrated';
+
+/** /api/perps/markets → { markets: PerpMarket[] } — Hyperliquid-backed, read-only. */
+export type PerpMarket = {
+  id: string;
+  coin: string;
+  label: string;
+  iconSrc: string;
+  tvSymbol: string;
+  mark: number;
+  oraclePx: number;
+  chg24: number;
+  fundingHourly: number;
+  fundingApr: number;
+  fundingCountdown: string;
+  oiUsd: number;
+  vol24Usd: number;
+  maxLeverage: number;
+};

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '../components/Logo';
+import { GoogleIcon } from '../components/GoogleIcon';
 import { PressScale } from '../components/PressScale';
 
 // Founder's grass + sky background — the image IS the screen container.
@@ -109,7 +110,7 @@ export function LoginScreen({ onEnter }: { onEnter: () => void }) {
             <Text style={s.appleText}>Sign in with Apple</Text>
           </PressScale>
           <PressScale style={s.google} onPress={onEnter}>
-            <Ionicons name="logo-google" size={22} color="#fff" />
+            <GoogleIcon size={22} />
             <Text style={s.googleText}>Sign in with Google</Text>
           </PressScale>
           <Text style={s.terms}>By signing up, you agree to our Terms of Service and Privacy Policy.</Text>

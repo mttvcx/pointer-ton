@@ -9,18 +9,33 @@ import { useAuth } from '../src/auth';
 import { AccountScreen } from './AccountScreen';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-type Section = 'Account' | 'Appearance' | 'Notifications' | 'Security' | 'Deposit & Withdraw' | 'Legal & Privacy' | 'Taxes' | 'Help & Support' | 'Perps FAQ';
+export type Section = 'Account' | 'Appearance' | 'Notifications' | 'Security' | 'Deposit & Withdraw' | 'Legal & Privacy' | 'Taxes' | 'Help & Support' | 'Perps FAQ';
 
 const ROWS: Section[] = ['Account', 'Appearance', 'Notifications', 'Security', 'Deposit & Withdraw', 'Legal & Privacy', 'Taxes', 'Help & Support', 'Perps FAQ'];
 
-export function SettingsScreen({ onClose, onLogout }: { onClose: () => void; onLogout: () => void }) {
+export function SettingsScreen({
+  onClose,
+  onLogout,
+  initialSection = null,
+  autoFocusBio = false,
+}: {
+  onClose: () => void;
+  onLogout: () => void;
+  initialSection?: Section | null;
+  autoFocusBio?: boolean;
+}) {
   const insets = useSafeAreaInsets();
-  const [section, setSection] = useState<Section | null>(null);
+  const [section, setSection] = useState<Section | null>(initialSection);
+
+  // When opened straight into a section (e.g. "Add a bio" → Account), Back returns
+  // to where we came from rather than the settings list we never saw.
+  const goBack = () =>
+    section && !(initialSection && section === initialSection) ? setSection(null) : onClose();
 
   return (
     <View style={s.root}>
       <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
-        <PressScale onPress={section ? () => setSection(null) : onClose} to={0.85} hitSlop={10}>
+        <PressScale onPress={goBack} to={0.85} hitSlop={10}>
           <Ionicons name="chevron-back" size={26} color={colors.fgSecondary} />
         </PressScale>
       </View>
@@ -53,7 +68,7 @@ export function SettingsScreen({ onClose, onLogout }: { onClose: () => void; onL
         </Slide>
       ) : section === 'Account' ? (
         <Slide key="account" dir={1} style={{ flex: 1 }}>
-          <AccountScreen />
+          <AccountScreen autoFocusBio={autoFocusBio} />
         </Slide>
       ) : (
         <Slide key={section} dir={1} style={{ flex: 1 }}>

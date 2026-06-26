@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../components/Screen';
@@ -7,28 +7,17 @@ import { Logo } from '../components/Logo';
 import { PressScale } from '../components/PressScale';
 import { DepositFlow } from '../components/DepositFlow';
 import { colors, radius } from '../src/theme';
-import { setBio, useBio, useFollowCount } from '../src/local';
+import { useBio, useFollowCount } from '../src/local';
 import { shareText } from '../src/share';
 
 const RANGES = ['24h', '7d', '30d', 'All'];
 
-export function ProfileScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSettings: () => void; onEditProfile: () => void }) {
   const insets = useSafeAreaInsets();
   const [range, setRange] = useState(0);
   const [deposit, setDeposit] = useState(false);
   const bio = useBio();
   const following = useFollowCount();
-  const [editingBio, setEditingBio] = useState(false);
-  const [draft, setDraft] = useState('');
-
-  const startEdit = () => {
-    setDraft(bio);
-    setEditingBio(true);
-  };
-  const saveBio = () => {
-    setBio(draft.trim());
-    setEditingBio(false);
-  };
 
   return (
     <Screen>
@@ -51,33 +40,9 @@ export function ProfileScreen({ onOpenSettings }: { onOpenSettings: () => void }
         <Text style={s.name}>pointer</Text>
         <Text style={s.handle}>@pointer</Text>
 
-        {editingBio ? (
-          <View style={s.bioEdit}>
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Add a bio"
-              placeholderTextColor={colors.fgFaint}
-              style={s.bioInput}
-              maxLength={160}
-              multiline
-              autoFocus
-            />
-            <View style={s.bioActions}>
-              <Text style={s.bioCount}>{draft.length}/160</Text>
-              <PressScale onPress={() => setEditingBio(false)} to={0.9} hitSlop={6}>
-                <Text style={s.bioCancel}>Cancel</Text>
-              </PressScale>
-              <PressScale onPress={saveBio} to={0.9} hitSlop={6} style={s.bioSave}>
-                <Text style={s.bioSaveText}>Save</Text>
-              </PressScale>
-            </View>
-          </View>
-        ) : (
-          <PressScale onPress={startEdit} to={0.98} hitSlop={6}>
-            <Text style={bio ? s.bioText : s.bio}>{bio || '+ Add a bio'}</Text>
-          </PressScale>
-        )}
+        <PressScale onPress={onEditProfile} to={0.98} hitSlop={6}>
+          <Text style={bio ? s.bioText : s.bio}>{bio || '+ Add a bio'}</Text>
+        </PressScale>
 
         <View style={s.followRow}>
           <Text style={s.followNum}>
@@ -158,13 +123,6 @@ const s = StyleSheet.create({
   handle: { color: colors.fgMuted, fontSize: 15, marginTop: 2 },
   bio: { color: colors.accentGlow, fontSize: 15, fontWeight: '500', marginTop: 12 },
   bioText: { color: colors.fgSecondary, fontSize: 15, lineHeight: 21, marginTop: 12 },
-  bioEdit: { marginTop: 12, backgroundColor: colors.bgRaised, borderRadius: radius.md, padding: 12, borderWidth: 1, borderColor: colors.borderStrong },
-  bioInput: { color: colors.fg, fontSize: 15, lineHeight: 21, padding: 0, minHeight: 38 },
-  bioActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 },
-  bioCount: { color: colors.fgFaint, fontSize: 12, marginRight: 'auto' },
-  bioCancel: { color: colors.fgMuted, fontSize: 14, fontWeight: '600' },
-  bioSave: { backgroundColor: colors.accent, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 6 },
-  bioSaveText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   followRow: { flexDirection: 'row', gap: 22, marginTop: 12 },
   followNum: { color: colors.fg, fontSize: 15, fontWeight: '700' },
   followLabel: { color: colors.fgMuted, fontWeight: '400' },

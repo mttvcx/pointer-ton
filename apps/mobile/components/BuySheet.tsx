@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
@@ -220,9 +220,9 @@ function Keypad({ onPress }: { onPress: (k: string) => void }) {
       {KEY_ROWS.map((row, i) => (
         <View key={i} style={s.padRow}>
           {row.map((k) => (
-            <PressScale key={k} onPress={() => onPress(k)} to={0.92} style={s.key}>
+            <Pressable key={k} onPress={() => onPress(k)} style={({ pressed }) => [s.key, pressed && s.keyPressed]}>
               {k === 'del' ? <Ionicons name="backspace-outline" size={26} color={colors.fg} /> : <Text style={s.keyText}>{k}</Text>}
-            </PressScale>
+            </Pressable>
           ))}
         </View>
       ))}
@@ -256,7 +256,8 @@ const s = StyleSheet.create({
 
   pad: { marginTop: 14 },
   padRow: { flexDirection: 'row' },
-  key: { flex: 1, height: 54, alignItems: 'center', justifyContent: 'center' },
+  key: { flex: 1, height: 54, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  keyPressed: { backgroundColor: colors.bgRaised },
   keyText: { color: colors.fg, fontSize: 27, fontWeight: '600' },
 
   limitBox: { marginTop: 18, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14 },

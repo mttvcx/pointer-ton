@@ -2,6 +2,7 @@ import { authToken } from '../auth';
 import { api } from './client';
 import type {
   ExplainTokenResponse,
+  PerpMarket,
   PulseBundle,
   PulseColumn,
   PulseFeed,
@@ -42,6 +43,13 @@ export async function getLiveTokens(chain = 'sol'): Promise<PulseBundle[]> {
 
 export function getToken(mint: string): Promise<TokenDetail> {
   return api<TokenDetail>(`/api/tokens/${encodeURIComponent(mint)}`);
+}
+
+/** Hyperliquid perp markets (public, vol-sorted server-side). Read-only — order
+ * signing isn't shipped yet, same as web's Preview state. */
+export async function getPerpMarkets(): Promise<PerpMarket[]> {
+  const r = await api<{ markets?: PerpMarket[] }>('/api/perps/markets');
+  return r.markets ?? [];
 }
 
 /* ---------- authed (token from the auth layer) ---------- */

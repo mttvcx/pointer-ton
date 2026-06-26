@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { DragSheet } from './DragSheet';
@@ -190,9 +190,9 @@ function Keypad({ onPress }: { onPress: (k: string) => void }) {
       {KEY_ROWS.map((row, i) => (
         <View key={i} style={s.padRow}>
           {row.map((k) => (
-            <PressScale key={k} onPress={() => onPress(k)} to={0.92} style={s.key}>
+            <Pressable key={k} onPress={() => onPress(k)} style={({ pressed }) => [s.key, pressed && s.keyPressed]}>
               {k === 'del' ? <Ionicons name="backspace-outline" size={26} color={colors.fg} /> : <Text style={s.keyText}>{k}</Text>}
-            </PressScale>
+            </Pressable>
           ))}
         </View>
       ))}
@@ -286,7 +286,8 @@ const s = StyleSheet.create({
   presetTextOn: { color: colors.accentGlow },
   pad: { marginTop: 16 },
   padRow: { flexDirection: 'row' },
-  key: { flex: 1, height: 58, alignItems: 'center', justifyContent: 'center' },
+  key: { flex: 1, height: 58, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  keyPressed: { backgroundColor: colors.bgRaised },
   keyText: { color: colors.fg, fontSize: 28, fontWeight: '600' },
 
   payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 16, marginTop: 14 },

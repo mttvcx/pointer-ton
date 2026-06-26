@@ -14,6 +14,8 @@ import { useWatchlist } from '../src/local';
 import { TraderSheet } from '../components/TraderSheet';
 import { DepositFlow } from '../components/DepositFlow';
 import { WEEKLY, type WeeklyTrade } from '../src/demo';
+import { PulseBoard } from '../components/PulseBoard';
+import { PerpsList } from '../components/PerpsList';
 import type { PulseBundle } from '../src/types';
 
 const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: string }[] = [
@@ -25,7 +27,11 @@ const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: st
   { label: 'Gainers', sort: 'vol' },
 ];
 
-export function HomeScreen({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
+export function HomeScreen({ onOpenToken, advanced }: { onOpenToken: (b: PulseBundle) => void; advanced: boolean }) {
+  return advanced ? <PulseBoard onOpenToken={onOpenToken} /> : <SimpleHome onOpenToken={onOpenToken} />;
+}
+
+function SimpleHome({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(2);
   const [trade, setTrade] = useState<WeeklyTrade | null>(null);
@@ -33,6 +39,7 @@ export function HomeScreen({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const [watchOnly, setWatchOnly] = useState(false);
   const watchlist = useWatchlist();
   const sort = CHIPS[active].sort;
+  const isPerps = !watchOnly && CHIPS[active].label === 'Perps';
 
   const q = useQuery({ queryKey: ['live-tokens'], queryFn: () => getLiveTokens(), staleTime: 30_000, refetchInterval: 45_000 });
 
@@ -116,6 +123,12 @@ export function HomeScreen({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
           })}
         </ScrollView>
 
+        {isPerps ? (
+          <View style={s.pad}>
+            <PerpsList />
+          </View>
+        ) : (
+          <>
         <View style={s.pad}>
           <View style={s.banner}>
             <View style={s.bannerLeft}>
@@ -163,6 +176,8 @@ export function HomeScreen({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
           )}
           {q.isFetching && !q.isLoading ? <ActivityIndicator color={colors.fgMuted} style={{ marginTop: 12 }} /> : null}
         </View>
+          </>
+        )}
       </ScrollView>
       <View style={[s.topHeader, { paddingTop: insets.top + 8 }]}>
         <Logo size={40} />
