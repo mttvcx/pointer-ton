@@ -1,9 +1,10 @@
 # Pointer TON — Project State & Agent Handoff
 
-> **Last updated:** 2026-06-13  
+> **Last updated:** 2026-06-26  
 > **GitHub:** https://github.com/mttvcx/pointer-ton  
-> **Latest commit on `main`:** `5104d56` — Token-2022 balances, wallet intelligence, predictions, ingest crons  
-> **Read this file first.** Then `AGENTS.md` (hard rules). For full QA vs Axiom, use `docs/CLAUDE_CODE_QA_PROMPT.md`.
+> **Active branch:** `mobile-foundation` — Expo app in `apps/mobile/` (glass UI, onboarding, Advanced mode toggle)  
+> **Latest on `main`:** Token-2022 balances, wallet intelligence, predictions, ingest crons  
+> **Read this file first.** Then `AGENTS.md` (hard rules). Mobile: `apps/mobile/DESIGN-SYSTEM.md` + `ADVANCED-MODE-PLAN.md`.
 
 ---
 
@@ -177,21 +178,47 @@ Full rules: **`AGENTS.md`**
 ```
 You are working on Pointer (pointer-ton). Read HANDOFF.md and AGENTS.md first.
 
-Repo: https://github.com/mttvcx/pointer-ton · Dev: npm run dev → http://127.0.0.1:3001
+Repo: https://github.com/mttvcx/pointer-ton
+Branch: mobile-foundation (Expo app in apps/mobile/) — merge target main for web API
+Web dev: npm run dev → http://127.0.0.1:3001
+Mobile: cd apps/mobile — read DESIGN-SYSTEM.md, DESIGN-CRITIQUES.md, ADVANCED-MODE-PLAN.md
 
-Current focus: Axiom-parity QA, token desk accuracy (Token-2022 balances, indexer, PnL), wallet intelligence, predictions desk.
+Current focus: Pointer Mobile Advanced mode UI polish (center Adv. toggle exists; operator surfaces look bad). Fix anti-slop items in DESIGN-CRITIQUES tier 0–1 before new features.
 
-Rules: minimal diff, theme tokens, no scope creep, no commit unless asked. Trading tests: 0.001 SOL max. Compare behavior to axiom.trade when validating UX.
+Rules: minimal diff, Ocean #0077B6 not blurple, web --radius 6px brand, no emoji in fintech UI, no commit unless asked. Trading tests: 0.001 SOL max.
 
-For full screen-by-screen QA, follow docs/CLAUDE_CODE_QA_PROMPT.md.
+Web QA: docs/CLAUDE_CODE_QA_PROMPT.md · Fee wallet: JUPITER_REFERRAL_ACCOUNT in .env.local
 ```
+
+---
+
+## Mobile app (`mobile-foundation` branch)
+
+| Path | Purpose |
+|------|---------|
+| **`apps/mobile/`** | Expo SDK 56 · RN 0.85 · Privy Expo · EAS builds from Windows |
+| **`apps/mobile/DESIGN-SYSTEM.md`** | Single source of truth — Ocean palette, 6px brand radius, Simple/Advanced per screen |
+| **`apps/mobile/DESIGN-CRITIQUES.md`** | Anti-slop audit (kill blurple, flat bg, no emoji, hierarchy fixes) |
+| **`apps/mobile/ADVANCED-MODE-PLAN.md`** | Center `Adv.` toggle → operator mode (token console, trackers, automation) |
+| **`apps/mobile/DESIGN-STUDY.md`** | FOMO vs Pointer screen mapping |
+
+**Runnable today:** login/onboarding flow, 5-tab glass nav, Home/Search/Social/Profile, token screen with Simple/Advanced toggle, BuySheet, deposit flow, demo mode.
+
+**Current focus (founder):** Advanced mode **UI polish** — toggle works but operator surfaces look rough; follow DESIGN-CRITIQUES + DESIGN-SYSTEM before wiring more APIs.
+
+**Run:** `cd apps/mobile && npm install && npx expo start --dev-client` (needs EAS dev build — see `apps/mobile/README.md`).
 
 ---
 
 ## Suggested next work
 
+### Web (`main`)
 - Full Claude Code QA pass (`docs/CLAUDE_CODE_QA_PROMPT.md`) → prioritized fix list
 - Register Helius webhook on deployed URL for sub-minute tape
 - Wire `prependSwapInstructions` / ATA for Token-2022 on new buys
 - Predictions order flow (if Kalshi keys present)
-- Stretch column: populate `bonding_progress` in enrich cron
+
+### Mobile (`mobile-foundation`)
+- **Advanced mode UI pass** — token risk panel, holder dossier, chart intervals (DESIGN-CRITIQUES tier 0–1 fixes first)
+- Wire live APIs per ADVANCED-MODE-PLAN build order #1 (token operator console)
+- Persist `pointer.mode` in secure-store + Settings sync

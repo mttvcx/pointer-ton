@@ -13,6 +13,18 @@ export function priceUsd(n: number | null | undefined): string {
   return `$${n.toPrecision(2)}`;
 }
 
+/**
+ * Stable demo price-change % derived from the mint (the live API has no 24h-change
+ * field yet). Deterministic so it doesn't flicker between renders. Demo-only — to
+ * fill the UI with FOMO-style colored gain/loss until the backend exposes change.
+ */
+export function pseudoChange(seed: string): { pct: string; up: boolean } {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  const v = (Math.abs(h) % 11000) / 100 - 38; // ~ -38% … +72%
+  return { pct: `${Math.abs(v).toFixed(2)}%`, up: v >= 0 };
+}
+
 export function shortMint(mint: string): string {
   return mint.length > 8 ? `${mint.slice(0, 4)}…${mint.slice(-4)}` : mint;
 }

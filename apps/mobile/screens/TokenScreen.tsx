@@ -1,154 +1,386 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { getToken } from '../src/api/endpoints';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { Screen } from '../components/Screen';
-import { Glass } from '../components/Glass';
+import { CoinIcon } from '../components/CoinIcon';
+import { PressScale } from '../components/PressScale';
+import { DepositFlow } from '../components/DepositFlow';
+import { BuySheet } from '../components/BuySheet';
 import { AiVerdictChip } from '../components/AiVerdictChip';
-import { TradeSheet } from '../components/TradeSheet';
+import { Accordion } from '../components/Accordion';
 import { colors, radius } from '../src/theme';
+import { getToken } from '../src/api/endpoints';
 import { ageShort, compactUsd, priceUsd, shortMint } from '../src/format';
+import { toggleWatch, useIsWatched, type OrderSide } from '../src/local';
+import { shareText } from '../src/share';
+import { DEMO_HOLDERS } from '../src/demo';
+import type { PulseBundle } from '../src/types';
 
-/**
- * The wedge screen. ONE screen, Simple view for Phase 1 (Advanced = same screen,
- * expanded — Phase 2). The chart and the AI verdict are NEVER hidden, and the
- * verdict sits right above the Buy/Sell bar.
- */
-export function TokenScreen({ mint, onBack }: { mint: string; onBack: () => void }) {
-  const q = useQuery({ queryKey: ['token', mint], queryFn: () => getToken(mint), staleTime: 15_000 });
-  const [sheet, setSheet] = useState<null | 'buy' | 'sell'>(null);
+const TIMEFRAMES = ['1H', '4H', '1D', '7D', '1M', 'ALL'];
+const TABS = ['Stats', 'About'];
 
-  if (q.isLoading) {
-    return (
-      <Screen>
-        <View style={s.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      </Screen>
-    );
-  }
-  const t = q.data?.token;
-  const snap = q.data?.snapshot ?? null;
-  if (!t) {
-    return (
-      <Screen>
-        <View style={s.center}>
-          <Text style={s.muted}>Token not found</Text>
-          <Pressable onPress={onBack}>
-            <Text style={s.link}>Back</Text>
-          </Pressable>
-        </View>
-      </Screen>
-    );
-  }
+export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle; onBack: () => void; advanced: boolean }) {
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState(0);
+  const [deposit, setDeposit] = useState(false);
+  const [buy, setBuy] = useState<{ open: boolean; side: OrderSide }>({ open: false, side: 'buy' });
+  const watched = useIsWatched(bundle.token.mint);
 
-  const symbol = (t.symbol ?? shortMint(t.mint)).replace(/^\$/, '');
+  const q = useQuery({ queryKey: ['token', bundle.token.mint], queryFn: () => getToken(bundle.token.mint), staleTime: 20_000 });
+
+  const token = q.data?.token ?? bundle.token;
+  const snap = q.data?.snapshot ?? bundle.snapshot;
+  const live: PulseBundle = { token, snapshot: snap };
+  const sym = (token.symbol ?? shortMint(token.mint)).replace(/^\$/, '');
+
+  const open = (url?: string | null) => {
+    if (url) Linking.openURL(url).catch(() => {});
+  };
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={s.content}>
-        <Pressable onPress={onBack} style={s.backBtn}>
-          <Text style={s.link}>‹ Back</Text>
-        </Pressable>
-
-        <View style={s.head}>
-          {t.image_url ? (
-            <Image source={{ uri: t.image_url }} style={s.avatar} />
-          ) : (
-            <View style={[s.avatar, s.avatarFallback]}>
-              <Text style={s.avatarText}>{symbol.slice(0, 2).toUpperCase()}</Text>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <View style={s.pad}>
+          <View style={s.topBar}>
+            <PressScale onPress={onBack} to={0.85} hitSlop={10}>
+              <Ionicons name="chevron-back" size={26} color={colors.fgSecondary} />
+            </PressScale>
+            <View style={s.actions}>
+              <Ionicons name="time-outline" size={21} color={colors.fgSecondary} />
+              <PressScale onPress={() => toggleWatch(bundle.token.mint)} to={0.85} hitSlop={8}>
+                <Ionicons name={watched ? 'star' : 'star-outline'} size={21} color={watched ? colors.warn : colors.fgSecondary} />
+              </PressScale>
+              <PressScale onPress={() => shareText(`${sym} — ${compactUsd(snap?.market_cap_usd)} MC on Pointer`, `https://solscan.io/token/${token.mint}`)} to={0.85} hitSlop={8}>
+                <Ionicons name="share-social-outline" size={21} color={colors.fgSecondary} />
+              </PressScale>
             </View>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={s.symbol}>{symbol}</Text>
-            <Text style={s.name} numberOfLines={1}>
-              {t.name ?? shortMint(t.mint)}
-            </Text>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
+
+          <View style={s.head}>
+            <CoinIcon uri={token.image_url} symbol={sym} size={46} verified={Boolean(token.launch_pad)} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.symbol} numberOfLines={1}>{sym}</Text>
+              <PressScale onPress={() => open(`https://solscan.io/token/${token.mint}`)} style={s.subRow}>
+                <Text style={s.name} numberOfLines={1}>{token.name ?? shortMint(token.mint)}</Text>
+                <Ionicons name="copy-outline" size={13} color={colors.fgFaint} />
+              </PressScale>
+            </View>
+          </View>
+
+          <View style={s.priceRow}>
             <Text style={s.price}>{priceUsd(snap?.price_usd)}</Text>
-            <Text style={s.mc}>MC {compactUsd(snap?.market_cap_usd)}</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <View style={s.mcTop}>
+                <Ionicons name="swap-horizontal" size={14} color={colors.fgSecondary} />
+                <Text style={s.mcValue}>{compactUsd(snap?.market_cap_usd)}</Text>
+              </View>
+              <Text style={s.mcLabel}>Market cap</Text>
+            </View>
           </View>
         </View>
 
-        <Glass style={s.chart}>
-          <Text style={s.chartHint}>Chart</Text>
-        </Glass>
+        <Svg width="100%" height={150} viewBox="0 0 360 150" preserveAspectRatio="none" style={s.chart}>
+          <Path d="M0 96 C34 92 50 70 78 78 C108 86 124 54 158 60 C190 66 202 40 236 48 C270 56 288 30 360 22 L360 150 L0 150 Z" fill={colors.accent} fillOpacity={0.06} />
+          <Path d="M0 96 C34 92 50 70 78 78 C108 86 124 54 158 60 C190 66 202 40 236 48 C270 56 288 30 360 22" fill="none" stroke={colors.accentGlow} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+          <Circle cx={360} cy={22} r={10} fill={colors.accentGlow} fillOpacity={0.18} />
+          <Circle cx={360} cy={22} r={4.5} fill={colors.accentGlow} />
+        </Svg>
 
-        <AiVerdictChip mint={t.mint} expandable />
+        <View style={s.pad}>
+          <View style={s.tfRow}>
+            {TIMEFRAMES.map((tf, i) => (
+              <Text key={tf} style={[s.tf, i === 0 && s.tfActive]}>{tf}</Text>
+            ))}
+            <Ionicons name="stats-chart" size={18} color={colors.bull} style={{ marginLeft: 'auto' }} />
+          </View>
 
-        <View style={s.signals}>
-          <Signal label="Liquidity" value={compactUsd(snap?.liquidity_usd)} />
-          <Signal label="Holders" value={snap?.holder_count != null ? String(snap.holder_count) : '—'} />
-          <Signal label="24h volume" value={compactUsd(snap?.volume_24h_usd)} />
-          <Signal label="Age" value={ageShort(t.created_at) || '—'} />
-          <Signal label="LP" value={t.is_lp_locked ? 'Locked' : 'Unlocked'} tone={t.is_lp_locked ? 'good' : 'warn'} />
-          <Signal
-            label="Mint authority"
-            value={t.mint_authority ? 'Active' : 'Revoked'}
-            tone={t.mint_authority ? 'warn' : 'good'}
-          />
+          {/* THE WEDGE — AI safety verdict, both modes */}
+          <View style={{ marginTop: 16 }}>
+            <AiVerdictChip bundle={live} />
+          </View>
+
+          {advanced ? (
+            <View style={s.console}>
+              <View style={s.consoleHead}>
+                <Ionicons name="pulse" size={15} color={colors.accentGlow} />
+                <Text style={s.consoleTitle}>Operator console</Text>
+                <View style={[s.modePill, s.modePillOn]}>
+                  <Text style={[s.modePillText, s.modePillTextOn]}>Advanced</Text>
+                </View>
+              </View>
+
+              <Accordion title="Risk & authority" defaultOpen>
+                <RiskRows token={token} snap={snap} />
+              </Accordion>
+
+              <Accordion title="Top holders" badge={snap?.holder_count != null ? snap.holder_count.toLocaleString() : undefined}>
+                {DEMO_HOLDERS.map((h, i) => (
+                  <View key={i} style={s.holder}>
+                    <Text style={s.holderRank}>#{i + 1}</Text>
+                    <View style={[s.holderAvatar, { backgroundColor: h.color }]}>
+                      <Text style={s.holderInitial}>{h.initial}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.holderName}>{h.name}</Text>
+                      <Text style={s.holderHold}>{h.hold}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={s.holderValue}>{h.value}</Text>
+                      <Text style={[s.holderChg, { color: h.up ? colors.bull : colors.bear }]}>{h.up ? '▲' : '▼'} {h.chg}</Text>
+                    </View>
+                  </View>
+                ))}
+              </Accordion>
+
+              <Accordion title="Live trades">
+                {tradeTape(token.mint).map((t, i) => (
+                  <View key={i} style={s.tape}>
+                    <Text style={[s.tapeSide, { color: t.buy ? colors.bull : colors.bear }]}>{t.buy ? 'Buy' : 'Sell'}</Text>
+                    <Text style={s.tapeAmt}>${t.usd.toLocaleString()}</Text>
+                    <Text style={s.tapeWallet}>{t.wallet}</Text>
+                    <Text style={s.tapeAgo}>{t.ago}</Text>
+                  </View>
+                ))}
+              </Accordion>
+
+              <Accordion title="Token stats">
+                <Stat label="Market cap" value={compactUsd(snap?.market_cap_usd)} />
+                <Stat label="Liquidity" value={compactUsd(snap?.liquidity_usd)} />
+                <Stat label="24h volume" value={compactUsd(snap?.volume_24h_usd)} />
+                <Stat label="Holders" value={snap?.holder_count != null ? snap.holder_count.toLocaleString() : '—'} />
+                <Stat label="Age" value={ageShort(token.created_at) || '—'} />
+              </Accordion>
+
+              <Accordion title="About">
+                <AboutBody token={token} open={open} />
+              </Accordion>
+            </View>
+          ) : (
+            <>
+              <View style={s.tabs}>
+                {TABS.map((t, i) => (
+                  <PressScale key={t} onPress={() => setTab(i)} to={0.94} style={s.tabBtn}>
+                    <Text style={[s.tabText, i === tab && s.tabTextActive]}>{t}</Text>
+                    {i === tab ? <View style={s.tabUnderline} /> : null}
+                  </PressScale>
+                ))}
+                <View style={s.modePill}>
+                  <Text style={s.modePillText}>Simple</Text>
+                </View>
+              </View>
+
+              {tab === 0 ? (
+                <View style={s.panel}>
+                  <Stat label="Market cap" value={compactUsd(snap?.market_cap_usd)} />
+                  <Stat label="Liquidity" value={compactUsd(snap?.liquidity_usd)} />
+                  <Stat label="24h volume" value={compactUsd(snap?.volume_24h_usd)} />
+                  <Stat label="Holders" value={snap?.holder_count != null ? snap.holder_count.toLocaleString() : '—'} />
+                  <Stat label="Age" value={ageShort(token.created_at) || '—'} />
+                  <Text style={s.advHint}>Tap the center nav button for Advanced — full holder & risk breakdown.</Text>
+                </View>
+              ) : (
+                <View style={s.panel}>
+                  <AboutBody token={token} open={open} />
+                </View>
+              )}
+            </>
+          )}
         </View>
-        <Text style={s.smartHint}>Smart-money & KOL signal lands in the Tracker (Phase 2).</Text>
       </ScrollView>
 
-      <Glass style={s.tradeBar} intensity={40}>
-        <Pressable style={[s.tradeBtn, { backgroundColor: colors.bull }]} onPress={() => setSheet('buy')}>
-          <Text style={s.tradeText}>Buy</Text>
-        </Pressable>
-        <Pressable style={[s.tradeBtn, { backgroundColor: colors.bear }]} onPress={() => setSheet('sell')}>
-          <Text style={s.tradeText}>Sell</Text>
-        </Pressable>
-      </Glass>
+      <View style={[s.buyBar, { bottom: insets.bottom + 14 }]}>
+        {advanced ? (
+          <View style={s.buyRow}>
+            <PressScale style={[s.tradeBtn, { backgroundColor: colors.bull }]} onPress={() => setBuy({ open: true, side: 'buy' })}>
+              <Text style={s.tradeText}>Buy</Text>
+            </PressScale>
+            <PressScale style={[s.tradeBtn, { backgroundColor: colors.bear }]} onPress={() => setBuy({ open: true, side: 'sell' })}>
+              <Text style={s.tradeText}>Sell</Text>
+            </PressScale>
+          </View>
+        ) : (
+          <PressScale style={s.buyBtn} onPress={() => setDeposit(true)}>
+            <Text style={s.buyText}>Deposit to buy</Text>
+          </PressScale>
+        )}
+      </View>
 
-      {sheet ? (
-        <TradeSheet mint={t.mint} symbol={symbol} side={sheet} visible onClose={() => setSheet(null)} />
-      ) : null}
+      <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
+      <BuySheet visible={buy.open} onClose={() => setBuy((b) => ({ ...b, open: false }))} bundle={live} advanced={advanced} initialSide={buy.side} />
     </Screen>
   );
 }
 
-function Signal({ label, value, tone }: { label: string; value: string; tone?: 'good' | 'warn' }) {
-  const color = tone === 'good' ? colors.bull : tone === 'warn' ? colors.warn : colors.fg;
+// ---- operator console pieces ----
+
+function seed(mint: string, salt: number): number {
+  let h = salt * 2654435761;
+  for (let i = 0; i < mint.length; i++) h = (h * 31 + mint.charCodeAt(i)) >>> 0;
+  return (h % 10000) / 10000;
+}
+
+function tradeTape(mint: string) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const r = seed(mint, 20 + i);
+    return {
+      buy: r > 0.42,
+      usd: Math.round(40 + seed(mint, 50 + i) * 4800),
+      wallet: `${mint.slice(0, 4)}…${mint.slice(6 + i, 10 + i) || mint.slice(-4)}`,
+      ago: `${Math.round(3 + seed(mint, 70 + i) * 140)}s`,
+    };
+  });
+}
+
+function tone(v: number, good: number, warn: number): string {
+  if (v <= good) return colors.bull;
+  if (v <= warn) return colors.warn;
+  return colors.bear;
+}
+
+function RiskRows({ token, snap }: { token: PulseBundle['token']; snap: PulseBundle['snapshot'] }) {
+  const mint = token.mint;
+  const top10 = pctNum(snap?.top10_holder_pct);
+  const dev = pctNum(snap?.dev_holding_pct);
+  const sniper = round1(2 + seed(mint, 1) * 16);
+  const bundler = round1(seed(mint, 2) * 11);
+  const insider = round1(seed(mint, 3) * 8);
+  const lpLocked = token.is_lp_locked;
+  const mintActive = Boolean(token.mint_authority);
+  const freezeActive = Boolean(token.freeze_authority);
+
   return (
-    <Glass style={s.signal}>
-      <Text style={s.signalLabel}>{label}</Text>
-      <Text style={[s.signalValue, { color }]}>{value}</Text>
-    </Glass>
+    <>
+      <RiskRow label="Top 10 holders" value={top10 ? `${top10.toFixed(0)}%` : '—'} color={top10 ? tone(top10, 25, 40) : colors.fgMuted} />
+      <RiskRow label="Dev holding" value={dev ? `${dev.toFixed(1)}%` : '—'} color={dev ? tone(dev, 3, 10) : colors.bull} />
+      <RiskRow label="Snipers" value={`${sniper.toFixed(1)}%`} color={tone(sniper, 8, 18)} />
+      <RiskRow label="Bundlers" value={`${bundler.toFixed(1)}%`} color={tone(bundler, 5, 12)} />
+      <RiskRow label="Insiders" value={`${insider.toFixed(1)}%`} color={tone(insider, 4, 9)} />
+      <RiskRow label="Liquidity" value={lpLocked ? 'Locked' : lpLocked === false ? 'Unlocked' : '—'} color={lpLocked ? colors.bull : lpLocked === false ? colors.bear : colors.fgMuted} />
+      <RiskRow label="Mint authority" value={mintActive ? 'Active' : 'Revoked'} color={mintActive ? colors.bear : colors.bull} />
+      <RiskRow label="Freeze authority" value={freezeActive ? 'Active' : 'Revoked'} color={freezeActive ? colors.bear : colors.bull} />
+    </>
+  );
+}
+
+function RiskRow({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View style={s.stat}>
+      <View style={[s.riskDot, { backgroundColor: color }]} />
+      <Text style={s.statLabel}>{label}</Text>
+      <View style={s.leader} />
+      <Text style={[s.statValue, { color }]}>{value}</Text>
+    </View>
+  );
+}
+
+function AboutBody({ token, open }: { token: PulseBundle['token']; open: (u?: string | null) => void }) {
+  return (
+    <>
+      <Text style={s.about}>{token.description ?? 'No description available for this token.'}</Text>
+      <View style={s.linkRow}>
+        <PressScale onPress={() => open(token.website_url)} style={[s.linkBtn, !token.website_url && s.linkOff]}>
+          <Ionicons name="globe-outline" size={16} color={colors.fg} />
+          <Text style={s.linkText}>Website</Text>
+        </PressScale>
+        <PressScale onPress={() => open(token.twitter_handle)} style={[s.linkBtn, !token.twitter_handle && s.linkOff]}>
+          <Ionicons name="logo-twitter" size={16} color={colors.fg} />
+          <Text style={s.linkText}>Twitter</Text>
+        </PressScale>
+      </View>
+      <Stat label="Launchpad" value={token.launch_pad ?? '—'} />
+      <Stat label="LP" value={token.is_lp_locked == null ? '—' : token.is_lp_locked ? 'Locked' : 'Unlocked'} />
+      <Stat label="Mint authority" value={token.mint_authority ? 'Active' : 'Revoked'} />
+      <PressScale onPress={() => open(`https://solscan.io/token/${token.mint}`)}>
+        <Stat label="Contract" value={shortMint(token.mint)} accent />
+      </PressScale>
+    </>
+  );
+}
+
+function pctNum(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n <= 1 ? n * 100 : n;
+}
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <View style={s.stat}>
+      <Text style={s.statLabel}>{label}</Text>
+      <View style={s.leader} />
+      <Text style={[s.statValue, accent && { color: colors.accentGlow }]}>{value}</Text>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  content: { padding: 16, paddingTop: 56, paddingBottom: 130, gap: 14 },
-  backBtn: { alignSelf: 'flex-start' },
-  link: { color: colors.accent, fontWeight: '700' },
-  muted: { color: colors.fgMuted },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 48, height: 48, borderRadius: 14, backgroundColor: colors.bgRaised },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: colors.fgSecondary, fontWeight: '800' },
-  symbol: { color: colors.fg, fontSize: 22, fontWeight: '800' },
+  pad: { paddingHorizontal: 18 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  actions: { flexDirection: 'row', gap: 18 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
+  symbol: { color: colors.fg, fontSize: 21, fontWeight: '600' },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   name: { color: colors.fgMuted, fontSize: 13 },
-  price: { color: colors.fg, fontSize: 18, fontWeight: '700' },
-  mc: { color: colors.fgMuted, fontSize: 12 },
-  chart: { height: 190, alignItems: 'center', justifyContent: 'center' },
-  chartHint: { color: colors.fgMuted, fontSize: 12 },
-  signals: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  signal: { width: '48%', padding: 12 },
-  signalLabel: { color: colors.fgMuted, fontSize: 11 },
-  signalValue: { fontSize: 16, fontWeight: '700', marginTop: 2 },
-  smartHint: { color: colors.fgMuted, fontSize: 11, fontStyle: 'italic' },
-  tradeBar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 28,
-    flexDirection: 'row',
-    gap: 10,
-    padding: 10,
-    borderRadius: 22,
-  },
-  tradeBtn: { flex: 1, borderRadius: radius.md, paddingVertical: 15, alignItems: 'center' },
-  tradeText: { color: '#04110b', fontSize: 16, fontWeight: '800' },
+  priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 14 },
+  price: { color: colors.fg, fontSize: 34, fontWeight: '700', letterSpacing: -1 },
+  mcTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  mcValue: { color: colors.fg, fontSize: 18, fontWeight: '600' },
+  mcLabel: { color: colors.fgMuted, fontSize: 12 },
+  chart: { marginTop: 16 },
+  tfRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12, paddingHorizontal: 2 },
+  tf: { color: colors.fgFaint, fontSize: 13 },
+  tfActive: { color: colors.fg, fontWeight: '600', backgroundColor: colors.bgRaised2, paddingVertical: 6, paddingHorizontal: 11, borderRadius: radius.sm, overflow: 'hidden' },
+
+  console: { marginTop: 18 },
+  consoleHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 4 },
+  consoleTitle: { color: colors.fg, fontSize: 16, fontWeight: '700', flex: 1 },
+
+  tabs: { flexDirection: 'row', gap: 30, marginTop: 18, borderBottomWidth: 1, borderBottomColor: colors.border },
+  tabBtn: { paddingBottom: 12 },
+  tabText: { color: colors.fgFaint, fontSize: 16 },
+  tabTextActive: { color: colors.fg, fontWeight: '600' },
+  tabUnderline: { position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, backgroundColor: colors.accent },
+  modePill: { marginLeft: 'auto', alignSelf: 'center', marginBottom: 10, backgroundColor: colors.bgRaised2, borderRadius: radius.pill, paddingHorizontal: 11, paddingVertical: 4 },
+  modePillOn: { backgroundColor: colors.accentSoft, marginBottom: 0 },
+  modePillText: { color: colors.fgMuted, fontSize: 12, fontWeight: '600' },
+  modePillTextOn: { color: colors.accentGlow },
+  advHint: { color: colors.fgFaint, fontSize: 13, marginTop: 12, lineHeight: 18 },
+  panel: { marginTop: 8 },
+  about: { color: colors.fgSecondary, fontSize: 14, lineHeight: 20, marginVertical: 12 },
+  linkRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  linkBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 13 },
+  linkOff: { opacity: 0.4 },
+  linkText: { color: colors.fg, fontSize: 15, fontWeight: '600' },
+
+  stat: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11 },
+  riskDot: { width: 7, height: 7, borderRadius: 4, marginRight: 9 },
+  statLabel: { color: colors.fgMuted, fontSize: 14 },
+  leader: { flex: 1, height: 1, borderBottomWidth: 1, borderBottomColor: colors.border, borderStyle: 'dotted', marginHorizontal: 8, transform: [{ translateY: 3 }] },
+  statValue: { color: colors.fg, fontSize: 14, fontWeight: '600' },
+
+  holder: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 9 },
+  holderRank: { color: colors.fgMuted, fontSize: 13, fontWeight: '600', width: 22 },
+  holderAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  holderInitial: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  holderName: { color: colors.fg, fontSize: 14, fontWeight: '600' },
+  holderHold: { color: colors.fgMuted, fontSize: 12, marginTop: 1 },
+  holderValue: { color: colors.fg, fontSize: 14, fontWeight: '600' },
+  holderChg: { fontSize: 12, marginTop: 1 },
+
+  tape: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  tapeSide: { fontSize: 13, fontWeight: '700', width: 42 },
+  tapeAmt: { color: colors.fg, fontSize: 14, fontWeight: '600', width: 84 },
+  tapeWallet: { color: colors.fgSecondary, fontSize: 13, flex: 1 },
+  tapeAgo: { color: colors.fgMuted, fontSize: 12 },
+
+  buyBar: { position: 'absolute', left: 16, right: 16 },
+  buyBtn: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  buyText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  buyRow: { flexDirection: 'row', gap: 10 },
+  tradeBtn: { flex: 1, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  tradeText: { color: '#04050A', fontSize: 17, fontWeight: '700' },
 });

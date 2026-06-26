@@ -1,16 +1,20 @@
 import React from 'react';
 import { Platform, StyleSheet, View, type ViewProps } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { colors, radius } from '../src/theme';
 
-const liquid = (() => {
-  try {
-    return isLiquidGlassAvailable();
-  } catch {
-    return false;
-  }
-})();
+// expo-glass-effect (iOS 26 Liquid Glass) isn't in Expo Go — load it optionally so
+// the demo runs there, falling back to the blur panel.
+let GlassView: React.ComponentType<any> | null = null;
+let liquid = false;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const ge = require('expo-glass-effect');
+  GlassView = ge.GlassView ?? null;
+  liquid = typeof ge.isLiquidGlassAvailable === 'function' ? ge.isLiquidGlassAvailable() : false;
+} catch {
+  liquid = false;
+}
 
 /**
  * One glass surface for the whole app. iOS 26 → real Liquid Glass (GlassView);
@@ -27,7 +31,7 @@ export function Glass({
 }: ViewProps & { intensity?: number; interactive?: boolean }) {
   const frame = [s.base, style];
 
-  if (liquid) {
+  if (liquid && GlassView) {
     return (
       <GlassView
         glassEffectStyle="regular"

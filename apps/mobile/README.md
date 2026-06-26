@@ -1,31 +1,27 @@
-# Pointer Mobile (Expo) — Phase 0 foundation
+# Pointer Mobile (Expo)
 
-Native iOS/Android app for Pointer. **It is a client to the existing Pointer
-Next.js API** (`pointer-ton.vercel.app`, 170 routes) — not a rebuild. This folder
-is the Phase 0 scaffold + the **Privy spike** that de-risks the one hard
-dependency before screen work begins.
+Native iOS/Android client for Pointer. **Uses the existing Next.js API** (`pointer-ton.vercel.app`) — not a rebuild.
 
-Stack: Expo SDK 56 (New Architecture) · React Native 0.85 · `@privy-io/expo`
-(same Privy App ID as web → one identity + one embedded Solana wallet) ·
-`@solana/web3.js`. Builds from **Windows with no Mac/Xcode** via EAS cloud builds.
+Stack: Expo SDK 56 · React Native 0.85 · `@privy-io/expo` (same Privy App ID as web) · EAS cloud builds from Windows.
 
-## What's here (Phase 1 wedge slice — runnable after setup)
+## Design docs (read before UI work)
 
-- `App.tsx` — login-gated mini-navigator: **Pulse feed → Token screen → AI verdict →
-  one-tap trade**. (The 5-tab expo-router structure is the next step once verified.)
-- `screens/` — `LoginScreen` (Privy email OTP), `PulseScreen` (real `/api/pulse/feed`),
-  `TokenScreen` (the wedge: identity + chart placeholder + **AI verdict above the
-  Buy/Sell bar** + humanized signal rows).
-- `components/AiVerdictChip.tsx` — **the wedge**: `/api/ai/explain-token` → 3-state
-  chip (Healthy / Caution / High rug risk) with "Why?" expanding to real bull/bear/
-  risk bullets.
-- `components/TradeSheet.tsx` + `src/trade/useTradeSubmit.ts` — the ported money path:
-  `/api/trade/quote` → Privy embedded-wallet **sign-only** → `/api/trade/execute`
-  (server broadcasts). The sign-only call is the one thing to verify (see below).
-- `src/` — `api/client.ts` (typed Bearer client), `api/endpoints.ts`, `types.ts`
-  (contracts mirrored from live responses), `theme.ts`, `format.ts`, `polyfills.ts`.
-- `app.config.ts` (Pointer branding, `pointer://` scheme, `com.pointer.app`),
-  `eas.json` (dev/preview/production).
+| Doc | Purpose |
+|-----|---------|
+| **`DESIGN-SYSTEM.md`** | Tokens, components, Simple/Advanced per screen |
+| **`DESIGN-CRITIQUES.md`** | Anti-slop fixes (Ocean not blurple, flat bg, hierarchy) |
+| **`ADVANCED-MODE-PLAN.md`** | Operator mode scope + build order |
+| **`DESIGN-STUDY.md`** | FOMO benchmark mapping |
+
+## What's here (mobile-foundation branch)
+
+- **Onboarding** — experience picker (Simple vs Advanced), wallet provisioning
+- **5-tab glass nav** — Home, Search, center **Adv.** toggle, Social, Profile
+- **Token screen** — Simple/Advanced morph, BuySheet (market/limit stubs in Advanced)
+- **Funding** — deposit flow, Apple Pay path (where configured)
+- **Privy auth** — email OTP + embedded Solana wallet, real `/api/trade/*` path
+
+Phase 0 wedge (Pulse → token → AI verdict → trade) is superseded by the full shell above.
 
 ## One-time setup (Windows)
 

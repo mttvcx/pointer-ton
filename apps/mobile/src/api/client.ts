@@ -29,10 +29,12 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
   const text = await res.text();
   const json = text ? safeJson(text) : null;
   if (!res.ok) {
-    const message =
-      (json && typeof json === 'object' && 'message' in json && String((json as any).message)) ||
-      (json && typeof json === 'object' && 'error' in json && String((json as any).error)) ||
-      `Request failed (${res.status})`;
+    let message = `Request failed (${res.status})`;
+    if (json && typeof json === 'object') {
+      const o = json as Record<string, unknown>;
+      if (typeof o.message === 'string') message = o.message;
+      else if (typeof o.error === 'string') message = o.error;
+    }
     throw new ApiError(message, res.status, json);
   }
   return json as T;

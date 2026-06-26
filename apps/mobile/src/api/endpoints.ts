@@ -1,7 +1,8 @@
-import { getAccessToken } from '@privy-io/expo';
+import { authToken } from '../auth';
 import { api } from './client';
 import type {
   ExplainTokenResponse,
+  PulseBundle,
   PulseColumn,
   PulseFeed,
   TokenDetail,
@@ -14,33 +15,55 @@ export function getPulseFeed(column: PulseColumn = 'new', chain = 'sol'): Promis
   return api<PulseFeed>(`/api/pulse/feed?column=${column}&chain=${chain}`);
 }
 
+/**
+ * Real, tradeable token list for Home — merges the live feed columns, dedupes by
+ * mint, and keeps only tokens that have BOTH a logo and a live price snapshot, so
+ * every row renders complete (real logo + symbol + price + market cap).
+ */
+export async function getLiveTokens(chain = 'sol'): Promise<PulseBundle[]> {
+  const columns: PulseColumn[] = ['migrated', 'stretch'];
+  const feeds = await Promise.all(
+    columns.map((c) => getPulseFeed(c, chain).catch(() => ({ items: [] } as unknown as PulseFeed))),
+  );
+  const seen = new Set<string>();
+  const out: PulseBundle[] = [];
+  for (const feed of feeds) {
+    for (const item of feed.items ?? []) {
+      const mint = item.token?.mint;
+      if (!mint || seen.has(mint)) continue;
+      if (!item.token.image_url) continue;
+      if (!item.snapshot || item.snapshot.price_usd == null) continue;
+      seen.add(mint);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 export function getToken(mint: string): Promise<TokenDetail> {
   return api<TokenDetail>(`/api/tokens/${encodeURIComponent(mint)}`);
 }
 
-/* ---------- authed (Privy bearer) ---------- */
+/* ---------- authed (token from the auth layer) ---------- */
 
 export async function getMe(): Promise<unknown> {
-  const token = await getAccessToken();
-  return api('/api/me', { token });
+  return api('/api/me', { token: await authToken() });
 }
 
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 /** Raw token balance for a wallet (USDC = spendable USD balance). */
 export async function getTokenBalance(mint: string, wallet: string): Promise<{ rawAmount: string }> {
-  const token = await getAccessToken();
   return api<{ rawAmount: string }>(
     `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet)}`,
-    { token },
+    { token: await authToken() },
   );
 }
 
 /** The wedge: AI safety read for a token. `fast` is cheap + cached server-side. */
 export async function explainToken(mint: string, mode: 'fast' | 'deep' = 'fast'): Promise<ExplainTokenResponse> {
-  const token = await getAccessToken();
   return api<ExplainTokenResponse>('/api/ai/explain-token', {
-    token,
+    token: await authToken(),
     method: 'POST',
     body: { mint, mode, surface: 'hover' },
   });

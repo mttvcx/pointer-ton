@@ -17,7 +17,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'dark',
   backgroundColor: '#080D14',
   icon: './assets/icon.png',
-  newArchEnabled: true,
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.pointer.app',
@@ -34,6 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     // Privy embedded-wallet + auth native modules (added during setup — see README).
     // '@privy-io/expo',
+    'expo-font',
     'expo-secure-store',
     'expo-web-browser',
   ],

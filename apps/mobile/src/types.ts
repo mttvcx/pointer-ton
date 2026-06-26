@@ -30,6 +30,8 @@ export type TokenSnapshot = {
   liquidity_usd: number | null;
   volume_24h_usd: number | null;
   holder_count: number | null;
+  top10_holder_pct: number | null;
+  dev_holding_pct: number | null;
   extended_metrics: unknown;
   snapshot_at: string | null;
 } | null;

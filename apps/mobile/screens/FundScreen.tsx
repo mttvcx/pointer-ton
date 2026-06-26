@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { getAccessToken, useEmbeddedSolanaWallet } from '@privy-io/expo';
+import { useAuth } from '../src/auth';
 import { Screen } from '../components/Screen';
 import { Glass } from '../components/Glass';
 import { api } from '../src/api/client';
@@ -15,27 +15,30 @@ const PRESETS = [20, 50, 100, 200];
  * USDC balance the user spends from — no seed phrase, no bridging, no gas in view.
  */
 export function FundScreen({ onBack }: { onBack: () => void }) {
-  const solana = useEmbeddedSolanaWallet();
+  const auth = useAuth();
   const [amount, setAmount] = useState(50);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   const addFunds = async () => {
-    const wallet = solana?.wallets?.[0];
-    if (!wallet) {
+    if (auth.demo) {
+      Alert.alert('Demo', 'Apple Pay funding is live in the real build — this is a preview.');
+      return;
+    }
+    if (!auth.walletAddress) {
       setErr('Wallet not ready');
       return;
     }
     setBusy(true);
     setErr('');
     try {
-      const token = await getAccessToken();
+      const token = await auth.getToken();
       const { widgetUrl } = await api<{ widgetUrl: string }>('/api/onramper/signature', {
         token,
         method: 'POST',
         body: {
           activeChain: 'sol',
-          walletAddress: wallet.address,
+          walletAddress: auth.walletAddress,
           defaultFiat: 'usd',
           fiatAmount: amount,
         },

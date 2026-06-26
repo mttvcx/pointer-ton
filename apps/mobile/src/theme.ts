@@ -1,22 +1,35 @@
-/** Pointer dark palette (mirrors the web tokens). */
+/**
+ * FOMO-cloned dark palette. Direction (locked with founder 2026-06-24): clone FOMO
+ * 1:1 first, tweak later. Near-pure-black base, periwinkle accent, rounded radii.
+ * NO monospace / slashed-zero number fonts anywhere — numbers use the system font.
+ */
 export const colors = {
-  bg: '#080D14',
-  bgRaised: '#0e151f',
-  bgSunken: '#060a10',
-  border: '#1b2230',
+  bg: '#04050A',
+  bgRaised: '#0E1117',
+  bgRaised2: '#15181F',
+  bgSunken: '#02030A',
+  border: '#181C24',
   borderStrong: '#283143',
   fg: '#ffffff',
-  fgSecondary: '#aab3c2',
-  fgMuted: '#7a8595',
-  accent: '#5865F2',
-  accentSoft: 'rgba(88,101,242,0.16)',
-  bull: '#16c784',
-  bullSoft: 'rgba(22,199,132,0.14)',
-  bear: '#ea3943',
-  bearSoft: 'rgba(234,57,67,0.14)',
-  warn: '#f0a020',
-  warnSoft: 'rgba(240,160,32,0.14)',
+  fgSecondary: '#C9CDD4',
+  fgMuted: '#8C929C',
+  fgFaint: '#5A606B',
+  accent: '#5B6EF5',
+  accentGlow: '#8FA0FF',
+  accentSoft: 'rgba(91,110,245,0.16)',
+  bull: '#1FD760',
+  bullSoft: 'rgba(31,215,96,0.14)',
+  bear: '#FF4E45',
+  bearSoft: 'rgba(255,78,69,0.14)',
+  warn: '#FFB23E',
+  warnSoft: 'rgba(255,178,62,0.14)',
+  danger: '#FF6A3D',
+  chartDown: '#FF6A2C',
+  verify: '#3B82F6',
 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 export const space = (n: number) => n * 4;
+
+/** Fixed top inset (no safe-area-context dep). Clears the Dynamic Island. */
+export const TOP_INSET = 60;
