@@ -24,6 +24,8 @@ import { AskBox } from '@/components/ai/AskBox';
 import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
+import { usePreferences } from '@/components/preferences/PreferencesProvider';
+import { GLASS_SURFACE } from '@/lib/ui/glassSurface';
 import { cn } from '@/lib/utils/cn';
 
 const CHROME = {
@@ -296,6 +298,7 @@ function CopilotPillCollapsedSurface({
   );
   const expanded = useUIStore((s) => s.copilotPillExpanded);
   const pillOpacity = expanded || pillHover ? 1 : busyElsewhere ? 0.42 : 0.72;
+  const glassy = usePreferences().prefs.aiPanelStyle === 'glassy';
 
   return (
     <div
@@ -313,9 +316,11 @@ function CopilotPillCollapsedSurface({
         title="Open co-pilot · drag to reposition"
         className={cn(
           'flex h-9 w-full min-w-0 touch-none select-none items-stretch gap-2 rounded-full border py-0 pl-2.5 pr-2 shadow-md backdrop-blur-xl transition-[box-shadow,border-color,background-color,transform] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/38',
-          pillHover
-            ? 'border-white/22 bg-bg-base/95 shadow-[0_0_32px_-8px_rgba(255,255,255,0.28),0_0_14px_-2px_rgba(255,255,255,0.12)]'
-            : 'border-white/10 bg-bg-base/90 hover:border-white/18 hover:bg-bg-base/95 hover:shadow-[0_0_22px_-8px_rgba(255,255,255,0.18)]',
+          glassy
+            ? GLASS_SURFACE
+            : pillHover
+              ? 'border-white/22 bg-bg-base/95 shadow-[0_0_32px_-8px_rgba(255,255,255,0.28),0_0_14px_-2px_rgba(255,255,255,0.12)]'
+              : 'border-white/10 bg-bg-base/90 hover:border-white/18 hover:bg-bg-base/95 hover:shadow-[0_0_22px_-8px_rgba(255,255,255,0.18)]',
           shellProps.className,
         )}
         style={shellProps.style}

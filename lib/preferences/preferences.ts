@@ -27,12 +27,17 @@ export type RowDensity = z.infer<typeof RowDensitySchema>;
 export const AvatarSizeSchema = z.enum(['small', 'default', 'large']);
 export type AvatarSize = z.infer<typeof AvatarSizeSchema>;
 
+/** Surface skin for the AI co-pilot (answer box + collapsed pill). */
+export const AiPanelStyleSchema = z.enum(['default', 'glassy']);
+export type AiPanelStyle = z.infer<typeof AiPanelStyleSchema>;
+
 export const PreferencesSchema = z.object({
   rowDensity: RowDensitySchema,
   rowSeparators: z.boolean(),
   rowElevation: z.boolean(),
   actionZoneDivider: z.boolean(),
   avatarSize: AvatarSizeSchema,
+  aiPanelStyle: AiPanelStyleSchema,
 });
 
 export type Preferences = z.infer<typeof PreferencesSchema>;
@@ -43,6 +48,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   rowElevation: true,
   actionZoneDivider: true,
   avatarSize: 'default',
+  aiPanelStyle: 'default',
 };
 
 export const PREFERENCES_STORAGE_KEY = 'pointer.preferences';

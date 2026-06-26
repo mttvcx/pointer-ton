@@ -9,6 +9,8 @@ import { selectActiveEntity, selectCopilotSurfaceOpen, useUIStore } from '@/stor
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useCopilotMode } from './CopilotModeContext';
 import { aiScanClientKey, fetchAiScan } from '@/lib/client/fetchAiScan';
+import { usePreferences } from '@/components/preferences/PreferencesProvider';
+import { GLASS_SURFACE } from '@/lib/ui/glassSurface';
 import { cn } from '@/lib/utils/cn';
 
 type CommonResult = {
@@ -49,6 +51,7 @@ export function CopilotBriefPanel({
   const surfaceOpen = useUIStore(selectCopilotSurfaceOpen);
   const { authenticated, getAccessToken } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
+  const glassy = usePreferences().prefs.aiPanelStyle === 'glassy';
 
   const queryKey = useMemo(
     () => ['ai-explain', debounced?.type, debounced?.id, 'fast'] as const,
@@ -170,9 +173,10 @@ export function CopilotBriefPanel({
       <div className={cn('flex h-full min-w-0 flex-1 flex-col', className)}>
         <div
           className={cn(
-            'flex min-h-0 w-full flex-1 flex-col rounded-xl border border-white/[0.09]',
-            'bg-bg-raised/50 px-2.5 py-2 backdrop-blur-md',
-            'shadow-[0_14px_42px_-18px_rgba(0,0,0,0.72),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_1px_0_0_rgba(255,255,255,0.09)_inset]',
+            'flex min-h-0 w-full flex-1 flex-col rounded-xl border border-white/[0.09] px-2.5 py-2',
+            glassy
+              ? GLASS_SURFACE
+              : 'bg-bg-raised/50 backdrop-blur-md shadow-[0_14px_42px_-18px_rgba(0,0,0,0.72),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_1px_0_0_rgba(255,255,255,0.09)_inset]',
           )}
         >
           <div
@@ -210,13 +214,15 @@ export function CopilotBriefPanel({
         className={cn(
           'flex w-full flex-col overflow-hidden rounded-xl border border-white/[0.08]',
           isPulseSize ? 'h-full max-w-[440px]' : 'max-w-[400px]',
-          pulseCard
-            ? 'min-h-0 bg-bg-raised/75 px-2 py-1.5'
-            : cn(
-                'bg-bg-raised/50 px-2.5 py-1 backdrop-blur-md',
-                'shadow-[0_14px_42px_-18px_rgba(0,0,0,0.72),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_1px_0_0_rgba(255,255,255,0.09)_inset]',
-                'transition-[border-color,box-shadow] duration-150 ease-out',
-              ),
+          glassy
+            ? cn('px-2.5 py-1.5', GLASS_SURFACE)
+            : pulseCard
+              ? 'min-h-0 bg-bg-raised/75 px-2 py-1.5'
+              : cn(
+                  'bg-bg-raised/50 px-2.5 py-1 backdrop-blur-md',
+                  'shadow-[0_14px_42px_-18px_rgba(0,0,0,0.72),0_0_0_1px_rgba(255,255,255,0.05)_inset,0_1px_0_0_rgba(255,255,255,0.09)_inset]',
+                  'transition-[border-color,box-shadow] duration-150 ease-out',
+                ),
         )}
       >
         <div
