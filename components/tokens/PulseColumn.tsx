@@ -40,6 +40,8 @@ import { syntheticPulseFeedItems, pulseSocialShowcaseBundles } from '@/lib/dev/d
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
+import { useTradingPresets } from '@/lib/hooks/useTradingPresets';
+import { PresetHoverCard } from '@/components/tokens/PresetHoverCard';
 import { usePulseMetricsHydration } from '@/lib/hooks/usePulseMetricsHydration';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { usePulseHiddenMintsStore, normalizePulseTwitterHandle } from '@/store/pulseHiddenMints';
@@ -120,6 +122,7 @@ function PulseColumnBody({
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
   const setQuickBuyUsdc = usePulseColumnStore((s) => s.setQuickBuyUsdc);
   const setPresetSlot = usePulseColumnStore((s) => s.setPresetSlot);
+  const presets = useTradingPresets();
   const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
   const spendAsset = useTradingStore((s) => s.spendAsset);
 
@@ -594,19 +597,20 @@ function PulseColumnBody({
               </span>
               <div className="flex items-center gap-0.5 px-1">
                 {([1, 2, 3] as const).map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setPresetSlot(column, slot)}
-                    className={cn(
-                      'btn-press focus-ring rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition',
-                      presetSlot === slot
-                        ? 'text-accent-primary'
-                        : 'text-fg-muted hover:text-fg-secondary',
-                    )}
-                  >
-                    P{slot}
-                  </button>
+                  <PresetHoverCard key={slot} slot={slot} preset={presets.find((p) => p.slot === slot)}>
+                    <button
+                      type="button"
+                      onClick={() => setPresetSlot(column, slot)}
+                      className={cn(
+                        'btn-press focus-ring rounded px-1.5 py-0.5 text-[11px] font-semibold leading-none transition',
+                        presetSlot === slot
+                          ? 'text-accent-primary'
+                          : 'text-fg-muted hover:text-fg-secondary',
+                      )}
+                    >
+                      P{slot}
+                    </button>
+                  </PresetHoverCard>
                 ))}
               </div>
             </div>

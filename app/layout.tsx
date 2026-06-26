@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Geist } from 'next/font/google';
 import { cn } from '@/lib/utils/cn';
 import { APP_NAME, APP_TAGLINE } from '@/lib/utils/constants';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
@@ -34,9 +34,9 @@ const THEME_BOOTSTRAP_SCRIPT = `(function(){try{var d=document.documentElement;v
  */
 const PREFERENCES_BOOTSTRAP_SCRIPT = `(function(){try{var r=document.documentElement;var raw=localStorage.getItem('pointer.preferences');var p={};if(raw){try{p=JSON.parse(raw)||{};}catch(e){p={};}}r.setAttribute('data-row-density',p.rowDensity==='tabled'?'tabled':'compact');r.setAttribute('data-row-separators',p.rowSeparators===false?'false':'true');r.setAttribute('data-row-elevation',p.rowElevation===false?'false':'true');r.setAttribute('data-action-divider',p.actionZoneDivider===false?'false':'true');r.setAttribute('data-avatar-size',p.avatarSize==='small'||p.avatarSize==='large'?p.avatarSize:'default');}catch(e){}})();`;
 
-const inter = Inter({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-geist',
   display: 'swap',
 });
 
@@ -73,7 +73,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="pointer"
-      className={cn(inter.variable, 'dark')}
+      className={cn(geist.variable, 'dark')}
       suppressHydrationWarning
     >
       <head>

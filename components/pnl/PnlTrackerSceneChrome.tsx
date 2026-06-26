@@ -44,7 +44,7 @@ export function PnlBackdropWordmark({
           stroke={`url(#pnl-wordmark-fade-${fadeId})`}
           strokeWidth={1.2}
           style={{
-            fontFamily: 'var(--font-inter), ui-sans-serif, system-ui, sans-serif',
+            fontFamily: 'var(--font-geist), ui-sans-serif, system-ui, sans-serif',
             fontWeight: 900,
             fontSize: '210px',
             letterSpacing: '-0.045em',
