@@ -1,0 +1,14 @@
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_DEMO EXPO_PUBLIC_PRIVY_APP_ID EXPO_PUBLIC_PRIVY_CLIENT_ID
+Starting project at C:\Users\moust\Downloads\pointer-mobile\apps\mobile
+[metro.config] DEMO mode → aliasing @privy-io/expo to stub
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+iOS .\index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+iOS .\index.ts ▓▓▓▓▓▓▓▓▓▓░░░░░░ 64.5% (257/471)
+ WARN  Attempted to import the module "C:\Users\moust\Downloads\pointer-mobile\apps\mobile\node_modules\rpc-websockets" which is listed in the "exports" of "C:\Users\moust\Downloads\pointer-mobile\apps\mobile\node_modules\rpc-websockets", however no match was resolved for this request (platform = ios). Falling back to file-based resolution. Consider updating the call site or asking the package maintainer(s) to expose this API.
+ WARN  Attempted to import the module "C:\Users\moust\Downloads\pointer-mobile\apps\mobile\node_modules\@noble\hashes\crypto.js" which is not listed in the "exports" of "C:\Users\moust\Downloads\pointer-mobile\apps\mobile\node_modules\@noble\hashes" under the requested subpath "./crypto.js". Falling back to file-based resolution. Consider updating the call site or asking the package maintainer(s) to expose this API.
+iOS .\index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.8% (1126/1127)
+iOS Bundled 7761ms index.ts (1137 modules)

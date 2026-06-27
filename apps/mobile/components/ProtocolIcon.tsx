@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType, type ViewStyle } from 'react-native';
+import { colors } from '../src/theme';
 
 /**
  * Real protocol / launchpad / chain / token logos, ported 1:1 from pointer-web
@@ -242,7 +243,7 @@ export function ProtocolIcon({
     <View
       style={[
         { width: size, height: size, borderRadius: radius, overflow: 'hidden' },
-        chipBg ? { backgroundColor: chipBg, padding: pad } : null,
+        chipBg ? { backgroundColor: chipBg, padding: pad } : { backgroundColor: colors.bgRaised2 },
         style,
       ]}
     >

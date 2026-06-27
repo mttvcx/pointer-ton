@@ -214,13 +214,13 @@ function TokenRow({
   const busySell = busyMint === token.mint && busySide === 'sell';
 
   return (
-    <View style={[s.rowWrap, ultra && s.rowUltra, aiOpen && { borderColor: accent + '88' }]}>
+    <View style={[s.rowWrap, aiOpen && { borderColor: accent + '88' }]}>
       <Animated.View
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: colors.warn, opacity: flash }]}
       />
       <Pressable
-        onPress={() => (ultra ? onQuick(bundle, 'buy', primarySol) : onOpen(bundle))}
+        onPress={() => onOpen(bundle)}
         onLongPress={() => onLongPressAi(bundle)}
         delayLongPress={240}
         style={s.row}
@@ -252,27 +252,15 @@ function TokenRow({
           </View>
         </View>
 
-        {ultra ? (
-          <View style={s.ultraSide}>
-            {secondButton === 'sell' ? (
-              <QuickBtn kind="sell" busy={busySell} onPress={() => onQuick(bundle, 'sell')} />
-            ) : null}
-            <View style={s.ultraBuy}>
-              <Ionicons name="flash" size={13} color={colors.bull} />
-              <Text style={s.ultraBuyText}>{primarySol}</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={s.actions}>
-            {secondButton === 'sell' ? (
-              <QuickBtn kind="sell" busy={busySell} onPress={() => onQuick(bundle, 'sell')} />
-            ) : null}
-            {secondButton === 'buy' ? (
-              <QuickBtn kind="buy" label={String(secondSol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', secondSol)} />
-            ) : null}
-            <QuickBtn kind="buy" big label={String(primarySol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', primarySol)} />
-          </View>
-        )}
+        <View style={s.actions}>
+          {secondButton === 'sell' ? (
+            <QuickBtn kind="sell" outline={ultra} busy={busySell} onPress={() => onQuick(bundle, 'sell')} />
+          ) : null}
+          {secondButton === 'buy' ? (
+            <QuickBtn kind="buy" outline={ultra} label={String(secondSol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', secondSol)} />
+          ) : null}
+          <QuickBtn kind="buy" big outline={ultra} label={String(primarySol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', primarySol)} />
+        </View>
       </Pressable>
 
       {aiOpen ? <AiBrief mint={token.mint} /> : null}
@@ -283,29 +271,32 @@ function TokenRow({
 function QuickBtn({
   kind,
   big,
+  outline,
   label,
   busy,
   onPress,
 }: {
   kind: 'buy' | 'sell';
   big?: boolean;
+  outline?: boolean;
   label?: string;
   busy: boolean;
   onPress: () => void;
 }) {
   const buy = kind === 'buy';
+  const fg = buy ? (outline ? colors.bull : '#04050A') : colors.bear;
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
-      style={[s.qbtn, big && s.qbtnBig, buy ? s.qbtnBuy : s.qbtnSell, busy && { opacity: 0.6 }]}
+      style={[s.qbtn, big && s.qbtnBig, buy ? (outline ? s.qbtnBuyOutline : s.qbtnBuy) : s.qbtnSell, busy && { opacity: 0.6 }]}
     >
       {busy ? (
-        <ActivityIndicator size="small" color={buy ? '#04050A' : colors.bear} />
+        <ActivityIndicator size="small" color={fg} />
       ) : buy ? (
         <>
-          <Ionicons name="flash" size={big ? 14 : 12} color="#04050A" />
-          <Text style={[s.qbtnText, big && s.qbtnTextBig]}>{label}</Text>
+          <Ionicons name="flash" size={big ? 14 : 12} color={fg} />
+          <Text style={[s.qbtnText, big && s.qbtnTextBig, { color: fg }]}>{label}</Text>
         </>
       ) : (
         <Text style={[s.qbtnText, { color: colors.bear }]}>Sell</Text>
@@ -446,7 +437,7 @@ const s = StyleSheet.create({
   rowUltra: { borderColor: colors.bull + '66', borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10 },
   coinWrap: { width: 42, height: 42 },
-  protoBadge: { position: 'absolute', bottom: -2, right: -2, borderWidth: 1.5, borderColor: colors.bgRaised },
+  protoBadge: { position: 'absolute', bottom: -1, right: -1, borderWidth: 2, borderColor: colors.bgRaised },
 
   mid: { flex: 1, gap: 3 },
   midTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
@@ -466,6 +457,7 @@ const s = StyleSheet.create({
   qbtn: { minWidth: 54, height: 32, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 11 },
   qbtnBig: { minWidth: 86, height: 40, borderRadius: 12, paddingHorizontal: 16, gap: 5 },
   qbtnBuy: { backgroundColor: colors.bull },
+  qbtnBuyOutline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.bull },
   qbtnSell: { backgroundColor: colors.bearSoft, borderWidth: 1, borderColor: colors.bear + '55' },
   qbtnText: { fontSize: 14, fontWeight: '800', color: '#04050A' },
   qbtnTextBig: { fontSize: 16 },
