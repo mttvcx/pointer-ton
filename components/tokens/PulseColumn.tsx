@@ -44,7 +44,7 @@ import { useTradingPresets } from '@/lib/hooks/useTradingPresets';
 import { PresetHoverCard } from '@/components/tokens/PresetHoverCard';
 import { usePulseMetricsHydration } from '@/lib/hooks/usePulseMetricsHydration';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
-import { usePulseHiddenMintsStore, normalizePulseTwitterHandle } from '@/store/pulseHiddenMints';
+import { usePulseHiddenMintsStore, normalizePulseTwitterHandle, normalizeWebsiteDomain } from '@/store/pulseHiddenMints';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
@@ -423,6 +423,11 @@ function PulseColumnBody({
   const showHiddenTokens = usePulseHiddenMintsStore((s) => s.showHiddenTokens);
   const blacklistedDevs = usePulseHiddenMintsStore((s) => s.blacklistedDevs ?? []);
   const blacklistedTwitter = usePulseHiddenMintsStore((s) => s.blacklistedTwitter ?? []);
+  const blacklistedFunders = usePulseHiddenMintsStore((s) => s.blacklistedFunders ?? []);
+  const blacklistedKol = usePulseHiddenMintsStore((s) => s.blacklistedKol ?? []);
+  const blacklistedKeywords = usePulseHiddenMintsStore((s) => s.blacklistedKeywords ?? []);
+  const blacklistedWebsites = usePulseHiddenMintsStore((s) => s.blacklistedWebsites ?? []);
+  const creatorFunders = usePulseHiddenMintsStore((s) => s.creatorFunders ?? {});
 
   const searchFiltered = useMemo(() => {
     const list = feedItems.filter((b) => {
@@ -430,8 +435,21 @@ function PulseColumnBody({
       if (!showHiddenTokens && hiddenMints.includes(mint)) return false;
       const creator = b.token.creator_wallet;
       if (creator && blacklistedDevs.includes(creator)) return false;
+      if (creator && blacklistedFunders.length) {
+        const funder = creatorFunders[creator];
+        if (funder && blacklistedFunders.includes(funder)) return false;
+      }
       const tw = normalizePulseTwitterHandle(b.token.twitter_handle);
       if (tw && blacklistedTwitter.includes(tw)) return false;
+      if (tw && blacklistedKol.includes(tw)) return false;
+      if (blacklistedWebsites.length) {
+        const dom = normalizeWebsiteDomain(b.token.website_url);
+        if (dom && blacklistedWebsites.includes(dom)) return false;
+      }
+      if (blacklistedKeywords.length) {
+        const hay = `${b.token.symbol ?? ''} ${b.token.name ?? ''} ${b.token.description ?? ''}`.toLowerCase();
+        if (blacklistedKeywords.some((k) => k && hay.includes(k))) return false;
+      }
       return true;
     });
     const qq = search.trim().toLowerCase();
@@ -441,7 +459,54 @@ function PulseColumnBody({
       const name = (b.token.name ?? '').toLowerCase();
       return sym.includes(qq) || name.includes(qq);
     });
-  }, [feedItems, search, hiddenMints, showHiddenTokens, blacklistedDevs, blacklistedTwitter]);
+  }, [
+    feedItems,
+    search,
+    hiddenMints,
+    showHiddenTokens,
+    blacklistedDevs,
+    blacklistedTwitter,
+    blacklistedFunders,
+    blacklistedKol,
+    blacklistedKeywords,
+    blacklistedWebsites,
+    creatorFunders,
+  ]);
+
+  // Resolve dev → funding wallet lazily, ONLY when funder blacklists are active
+  // (zero Helius cost otherwise). Cached permanently per creator, capped per pass.
+  useEffect(() => {
+    if (!blacklistedFunders.length) return;
+    let cancelled = false;
+    (async () => {
+      const cache = usePulseHiddenMintsStore.getState().creatorFunders ?? {};
+      const pending = Array.from(
+        new Set(
+          feedItems
+            .map((b) => b.token.creator_wallet)
+            .filter((c): c is string => !!c && !(c in cache)),
+        ),
+      ).slice(0, 25);
+      for (const creator of pending) {
+        if (cancelled) break;
+        try {
+          const r = await fetch(`/api/wallet/funder?wallet=${encodeURIComponent(creator)}`);
+          if (!r.ok) continue;
+          const j = (await r.json()) as { funder?: string | null };
+          if (!cancelled) {
+            usePulseHiddenMintsStore
+              .getState()
+              .setCreatorFunder(creator, typeof j?.funder === 'string' ? j.funder : null);
+          }
+        } catch {
+          /* best-effort */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [blacklistedFunders.length, feedItems]);
 
   const columnFiltered = useMemo(
     () => searchFiltered.filter((b) => pulseBundleMatchesFilters(b, normalizedFilters, activeChain)),
