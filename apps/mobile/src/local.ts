@@ -124,6 +124,36 @@ export function setKillSwitch(v: boolean) {
 export const useAutoRules = () => useSyncExternalStore(subscribe, () => rules);
 export const useKillSwitch = () => useSyncExternalStore(subscribe, () => killSwitch);
 
+// ---- token chart prefs (timeframe + price/MC axis; persist within session) ----
+export type ChartAxis = 'price' | 'mc';
+let chartTf = '1H';
+let chartAxis: ChartAxis = 'price';
+export function setChartTf(v: string) {
+  chartTf = v;
+  emit();
+}
+export function setChartAxis(v: ChartAxis) {
+  chartAxis = v;
+  emit();
+}
+export const useChartTf = () => useSyncExternalStore(subscribe, () => chartTf);
+export const useChartAxis = () => useSyncExternalStore(subscribe, () => chartAxis);
+
+// ---- trade execution prefs (slippage + MEV; surfaced in Settings → Trading) ----
+export type MevMode = 'off' | 'fast' | 'secure';
+let tradeSlippage = 5; // percent
+let tradeMev: MevMode = 'fast';
+export function setTradeSlippage(v: number) {
+  tradeSlippage = v;
+  emit();
+}
+export function setTradeMev(v: MevMode) {
+  tradeMev = v;
+  emit();
+}
+export const useTradeSlippage = () => useSyncExternalStore(subscribe, () => tradeSlippage);
+export const useTradeMev = () => useSyncExternalStore(subscribe, () => tradeMev);
+
 // ---- limit orders (real client-side feature; demo persistence) ----
 export type OrderSide = 'buy' | 'sell';
 export type LimitOrder = {

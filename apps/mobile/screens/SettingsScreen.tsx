@@ -12,7 +12,12 @@ import {
   setQuickBuySol,
   setQuickBuySecondButton,
   setQuickBuySecondSol,
+  useTradeSlippage,
+  setTradeSlippage,
+  useTradeMev,
+  setTradeMev,
   type SecondButton,
+  type MevMode,
 } from '../src/local';
 import { AccountScreen } from './AccountScreen';
 
@@ -93,6 +98,8 @@ export function SettingsScreen({
 function Detail({ section }: { section: Section }) {
   const auth = useAuth();
   const qb = useQuickBuyPrefs();
+  const slippage = useTradeSlippage();
+  const mev = useTradeMev();
   if (section === 'Appearance') {
     return (
       <>
@@ -143,7 +150,10 @@ function Detail({ section }: { section: Section }) {
     const SECONDS: SecondButton[] = ['off', 'buy', 'sell'];
     const SOLS = [0.05, 0.1, 0.5, 1];
     const SECOND_SOLS = [0.5, 1, 5];
+    const SLIPPAGES = [0.5, 1, 2, 5];
+    const MEVS: MevMode[] = ['off', 'fast', 'secure'];
     const secondLabel = (v: SecondButton) => (v === 'off' ? 'Off' : v === 'buy' ? 'Buy' : 'Sell');
+    const mevLabel = (v: MevMode) => (v === 'off' ? 'Off' : v === 'fast' ? 'Fast' : 'Secure');
     return (
       <>
         <View style={s.toggleRow}>
@@ -172,6 +182,28 @@ function Detail({ section }: { section: Section }) {
             {SECONDS.map((v) => (
               <PressScale key={v} onPress={() => setQuickBuySecondButton(v)} to={0.96} style={[s.segItem, qb.secondButton === v && s.segItemOn]}>
                 <Text style={[s.segText, qb.secondButton === v && s.segTextOn]}>{secondLabel(v)}</Text>
+              </PressScale>
+            ))}
+          </View>
+        </View>
+
+        <View style={s.block}>
+          <Text style={s.blockLabel}>Slippage</Text>
+          <View style={s.seg}>
+            {SLIPPAGES.map((v) => (
+              <PressScale key={v} onPress={() => setTradeSlippage(v)} to={0.96} style={[s.segItem, slippage === v && s.segItemOn]}>
+                <Text style={[s.segText, slippage === v && s.segTextOn]}>{v}%</Text>
+              </PressScale>
+            ))}
+          </View>
+        </View>
+
+        <View style={s.block}>
+          <Text style={s.blockLabel}>MEV protection</Text>
+          <View style={s.seg}>
+            {MEVS.map((v) => (
+              <PressScale key={v} onPress={() => setTradeMev(v)} to={0.96} style={[s.segItem, mev === v && s.segItemOn]}>
+                <Text style={[s.segText, mev === v && s.segTextOn]}>{mevLabel(v)}</Text>
               </PressScale>
             ))}
           </View>

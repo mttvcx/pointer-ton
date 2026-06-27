@@ -18,8 +18,6 @@ const KEY_ROWS = [
 const PRESETS = [25, 100, 500, 1000];
 const LIMIT_MULTS = [0.8, 0.9, 1, 1.1, 1.25];
 const EXPIRIES = ['1h', '4h', '24h', 'Never'];
-const SLIPPAGES = [0.5, 1, 2, 5];
-const MEV = ['Off', 'Fast', 'Secure'];
 
 export function BuySheet({
   visible,
@@ -42,8 +40,6 @@ export function BuySheet({
   const [amount, setAmount] = useState('100');
   const [mult, setMult] = useState(1); // limit price as a multiple of market
   const [expiry, setExpiry] = useState('24h');
-  const [slip, setSlip] = useState(1);
-  const [mev, setMev] = useState('Fast');
   const [placed, setPlaced] = useState(false);
 
   const allOrders = useOrders();
@@ -160,30 +156,7 @@ export function BuySheet({
             <Keypad onPress={press} />
           )}
 
-          {advanced ? (
-            <View style={s.advRow}>
-              <View style={s.advCol}>
-                <Text style={s.advLabel}>Slippage</Text>
-                <View style={s.chips}>
-                  {SLIPPAGES.map((v) => (
-                    <PressScale key={v} onPress={() => setSlip(v)} to={0.92} style={[s.miniChip, slip === v && s.chipOn]}>
-                      <Text style={[s.chipText, slip === v && s.chipTextOn]}>{v}%</Text>
-                    </PressScale>
-                  ))}
-                </View>
-              </View>
-              <View style={s.advCol}>
-                <Text style={s.advLabel}>MEV</Text>
-                <View style={s.chips}>
-                  {MEV.map((v) => (
-                    <PressScale key={v} onPress={() => setMev(v)} to={0.92} style={[s.miniChip, mev === v && s.chipOn]}>
-                      <Text style={[s.chipText, mev === v && s.chipTextOn]}>{v}</Text>
-                    </PressScale>
-                  ))}
-                </View>
-              </View>
-            </View>
-          ) : null}
+          {/* Slippage & MEV moved to Settings → Trading — keep the buy flow Apple-Pay simple */}
 
           <PressScale style={[s.place, { backgroundColor: type === 'limit' ? colors.accent : accent }]} onPress={place}>
             <Text style={[s.placeText, type !== 'limit' && { color: '#04050A' }]}>

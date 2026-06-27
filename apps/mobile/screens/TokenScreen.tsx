@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -14,8 +14,12 @@ import { Accordion } from '../components/Accordion';
 import { colors, radius } from '../src/theme';
 import { getToken } from '../src/api/endpoints';
 import { ageShort, compactUsd, priceUsd, shortMint } from '../src/format';
-import { toggleWatch, useIsWatched, type OrderSide } from '../src/local';
-import { shareText } from '../src/share';
+import { toggleWatch, useIsWatched, useChartTf, setChartTf, useChartAxis, setChartAxis, type OrderSide } from '../src/local';
+import { copyText } from '../src/clipboard';
+import { CopyButton } from '../components/CopyButton';
+import { RecentTradesDrawer } from '../components/RecentTradesDrawer';
+import { TokenShareCard } from '../components/TokenShareCard';
+import { useAuth } from '../src/auth';
 import { DEMO_HOLDERS } from '../src/demo';
 import type { PulseBundle } from '../src/types';
 
@@ -28,6 +32,11 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
   const [deposit, setDeposit] = useState(false);
   const [buy, setBuy] = useState<{ open: boolean; side: OrderSide }>({ open: false, side: 'buy' });
   const watched = useIsWatched(bundle.token.mint);
+  const tfActive = useChartTf();
+  const axis = useChartAxis();
+  const wallet = useAuth().walletAddress;
+  const [tradesOpen, setTradesOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const q = useQuery({ queryKey: ['token', bundle.token.mint], queryFn: () => getToken(bundle.token.mint), staleTime: 20_000 });
 
@@ -49,11 +58,13 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
               <Ionicons name="chevron-back" size={26} color={colors.fgSecondary} />
             </PressScale>
             <View style={s.actions}>
-              <Ionicons name="time-outline" size={21} color={colors.fgSecondary} />
+              <PressScale onPress={() => setTradesOpen(true)} to={0.85} hitSlop={8}>
+                <Ionicons name="time-outline" size={21} color={colors.fgSecondary} />
+              </PressScale>
               <PressScale onPress={() => toggleWatch(bundle.token.mint)} to={0.85} hitSlop={8}>
                 <Ionicons name={watched ? 'star' : 'star-outline'} size={21} color={watched ? colors.warn : colors.fgSecondary} />
               </PressScale>
-              <PressScale onPress={() => shareText(`${sym} — ${compactUsd(snap?.market_cap_usd)} MC on Pointer`, `https://solscan.io/token/${token.mint}`)} to={0.85} hitSlop={8}>
+              <PressScale onPress={() => setShareOpen(true)} to={0.85} hitSlop={8}>
                 <Ionicons name="share-social-outline" size={21} color={colors.fgSecondary} />
               </PressScale>
             </View>
@@ -63,22 +74,19 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
             <CoinIcon uri={token.image_url} symbol={sym} size={46} verified={Boolean(token.launch_pad)} />
             <View style={{ flex: 1 }}>
               <Text style={s.symbol} numberOfLines={1}>{sym}</Text>
-              <PressScale onPress={() => open(`https://solscan.io/token/${token.mint}`)} style={s.subRow}>
-                <Text style={s.name} numberOfLines={1}>{token.name ?? shortMint(token.mint)}</Text>
-                <Ionicons name="copy-outline" size={13} color={colors.fgFaint} />
-              </PressScale>
+              <CopyButton value={token.mint} label={token.name ?? shortMint(token.mint)} size={13} color={colors.fgMuted} style={s.subRow} />
             </View>
           </View>
 
           <View style={s.priceRow}>
-            <Text style={s.price}>{priceUsd(snap?.price_usd)}</Text>
-            <View style={{ alignItems: 'flex-end' }}>
+            <Text style={s.price}>{axis === 'mc' ? compactUsd(snap?.market_cap_usd) : priceUsd(snap?.price_usd)}</Text>
+            <PressScale onPress={() => setChartAxis(axis === 'mc' ? 'price' : 'mc')} to={0.94} style={{ alignItems: 'flex-end' }} hitSlop={8}>
               <View style={s.mcTop}>
-                <Ionicons name="swap-horizontal" size={14} color={colors.fgSecondary} />
-                <Text style={s.mcValue}>{compactUsd(snap?.market_cap_usd)}</Text>
+                <Ionicons name="swap-horizontal" size={14} color={colors.accentGlow} />
+                <Text style={s.mcValue}>{axis === 'mc' ? priceUsd(snap?.price_usd) : compactUsd(snap?.market_cap_usd)}</Text>
               </View>
-              <Text style={s.mcLabel}>Market cap</Text>
-            </View>
+              <Text style={s.mcLabel}>{axis === 'mc' ? 'Price · tap to swap' : 'Market cap · tap to swap'}</Text>
+            </PressScale>
           </View>
         </View>
 
@@ -91,8 +99,10 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
 
         <View style={s.pad}>
           <View style={s.tfRow}>
-            {TIMEFRAMES.map((tf, i) => (
-              <Text key={tf} style={[s.tf, i === 0 && s.tfActive]}>{tf}</Text>
+            {TIMEFRAMES.map((tf) => (
+              <PressScale key={tf} onPress={() => setChartTf(tf)} to={0.9} hitSlop={6}>
+                <Text style={[s.tf, tf === tfActive && s.tfActive]}>{tf}</Text>
+              </PressScale>
             ))}
             <Ionicons name="stats-chart" size={18} color={colors.bull} style={{ marginLeft: 'auto' }} />
           </View>
@@ -104,14 +114,6 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
 
           {advanced ? (
             <View style={s.console}>
-              <View style={s.consoleHead}>
-                <Ionicons name="pulse" size={15} color={colors.accentGlow} />
-                <Text style={s.consoleTitle}>Operator console</Text>
-                <View style={[s.modePill, s.modePillOn]}>
-                  <Text style={[s.modePillText, s.modePillTextOn]}>Advanced</Text>
-                </View>
-              </View>
-
               <Accordion title="Risk & authority" defaultOpen>
                 <RiskRows token={token} snap={snap} />
               </Accordion>
@@ -210,6 +212,8 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
       <BuySheet visible={buy.open} onClose={() => setBuy((b) => ({ ...b, open: false }))} bundle={live} advanced={advanced} initialSide={buy.side} />
+      <RecentTradesDrawer visible={tradesOpen} onClose={() => setTradesOpen(false)} mint={token.mint} wallet={wallet} />
+      <TokenShareCard visible={shareOpen} onClose={() => setShareOpen(false)} bundle={live} wallet={wallet} />
     </Screen>
   );
 }
@@ -293,8 +297,8 @@ function AboutBody({ token, open }: { token: PulseBundle['token']; open: (u?: st
       <Stat label="Launchpad" value={token.launch_pad ?? '—'} />
       <Stat label="LP" value={token.is_lp_locked == null ? '—' : token.is_lp_locked ? 'Locked' : 'Unlocked'} />
       <Stat label="Mint authority" value={token.mint_authority ? 'Active' : 'Revoked'} />
-      <PressScale onPress={() => open(`https://solscan.io/token/${token.mint}`)}>
-        <Stat label="Contract" value={shortMint(token.mint)} accent />
+      <PressScale onPress={async () => { await copyText(token.mint); Vibration.vibrate(8); }}>
+        <Stat label="Contract · tap to copy" value={shortMint(token.mint)} accent />
       </PressScale>
     </>
   );

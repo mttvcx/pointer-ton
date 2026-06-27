@@ -52,6 +52,26 @@ export async function getPerpMarkets(): Promise<PerpMarket[]> {
   return r.markets ?? [];
 }
 
+/** One recorded trade against a token (mirrors the public trades feed row). */
+export type TradeRow = {
+  side: 'buy' | 'sell';
+  amount_sol: number | null;
+  amount_token: number | null;
+  price_usd_at_fill: number | null;
+  tx_signature: string;
+  submitted_at: string;
+  wallet_address?: string | null;
+  status: string;
+};
+
+/** Recent trades for a token (public). Newest first, server-capped by `limit`. */
+export async function getTokenTrades(mint: string, limit = 80): Promise<TradeRow[]> {
+  const res = await api<{ trades?: TradeRow[] }>(
+    `/api/tokens/${encodeURIComponent(mint)}/trades?limit=${limit}`,
+  );
+  return res.trades ?? [];
+}
+
 /* ---------- authed (token from the auth layer) ---------- */
 
 export async function getMe(): Promise<unknown> {
