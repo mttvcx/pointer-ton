@@ -42,6 +42,74 @@ export function setBio(v: string) {
 }
 export const useBio = () => useSyncExternalStore(subscribe, () => store.bio);
 
+// ---- advanced quick-buy prefs ----
+// `ultra` = one-tap instant buy straight from a screener row (outline button).
+// `sol`   = the amount each quick-buy spends. Demo persistence (in-memory).
+export type QuickBuyPrefs = { ultra: boolean; sol: number };
+let quickBuy: QuickBuyPrefs = { ultra: false, sol: 0.1 };
+export function setQuickBuyUltra(v: boolean) {
+  quickBuy = { ...quickBuy, ultra: v };
+  emit();
+}
+export function setQuickBuySol(v: number) {
+  quickBuy = { ...quickBuy, sol: v };
+  emit();
+}
+export const useQuickBuyPrefs = () => useSyncExternalStore(subscribe, () => quickBuy);
+
+// ---- alert push prefs (which alert types ping the phone) ----
+export type NotifPrefs = {
+  trackedWallets: boolean;
+  xMonitor: boolean;
+  priceAlerts: boolean;
+  autoBuyFills: boolean;
+};
+let notif: NotifPrefs = { trackedWallets: true, xMonitor: true, priceAlerts: true, autoBuyFills: true };
+export function setNotifPref(k: keyof NotifPrefs, v: boolean) {
+  notif = { ...notif, [k]: v };
+  emit();
+}
+export const useNotifPrefs = () => useSyncExternalStore(subscribe, () => notif);
+
+// ---- automation rules (sniping / auto-buy / alerts — web parity) ----
+// Demo persistence (in-memory). The rule UI + store are real; live firing wires
+// to the real trade path + alerts stream with the dev build.
+export type RuleTrigger = 'x_ca' | 'x_keyword' | 'tracked_wallet' | 'price' | 'image_match';
+export type AutoRule = {
+  id: number;
+  trigger: RuleTrigger;
+  target: string;
+  buySol: number; // 0 = notify only
+  cooldownSec: number;
+  dailyCapSol: number;
+  enabled: boolean;
+};
+let killSwitch = false;
+let ruleSeq = 3;
+let rules: AutoRule[] = [
+  { id: 1, trigger: 'x_ca', target: '@cupseyy', buySol: 0.1, cooldownSec: 30, dailyCapSol: 5, enabled: true },
+  { id: 2, trigger: 'tracked_wallet', target: 'Euris · buys > $5k', buySol: 0, cooldownSec: 0, dailyCapSol: 0, enabled: true },
+  { id: 3, trigger: 'price', target: '$piss → 2x', buySol: 0, cooldownSec: 0, dailyCapSol: 0, enabled: false },
+];
+export function addRule(r: Omit<AutoRule, 'id'>) {
+  rules = [{ ...r, id: ++ruleSeq }, ...rules];
+  emit();
+}
+export function toggleRule(id: number) {
+  rules = rules.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r));
+  emit();
+}
+export function removeRule(id: number) {
+  rules = rules.filter((r) => r.id !== id);
+  emit();
+}
+export function setKillSwitch(v: boolean) {
+  killSwitch = v;
+  emit();
+}
+export const useAutoRules = () => useSyncExternalStore(subscribe, () => rules);
+export const useKillSwitch = () => useSyncExternalStore(subscribe, () => killSwitch);
+
 // ---- limit orders (real client-side feature; demo persistence) ----
 export type OrderSide = 'buy' | 'sell';
 export type LimitOrder = {

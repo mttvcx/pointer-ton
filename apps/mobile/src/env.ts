@@ -5,7 +5,7 @@ type Extra = { apiUrl: string; privyAppId: string; privyClientId: string };
 const extra = (Constants.expoConfig?.extra ?? {}) as Partial<Extra>;
 
 /** Base URL of the existing Pointer Next.js API (the mobile app is a client to it). */
-export const API_URL = (extra.apiUrl ?? 'https://pointer-ton.vercel.app').replace(/\/$/, '');
+export const API_URL = (extra.apiUrl ?? 'https://pointer-ton-orcin.vercel.app').replace(/\/$/, '');
 
 /**
  * Solana RPC the embedded wallet broadcasts through. Privy Expo only does

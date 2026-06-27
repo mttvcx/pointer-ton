@@ -74,7 +74,7 @@ export function GlassNav({
         </View>
       </Slot>
       <Slot onPress={() => onSelect('social')}>
-        <Ionicons name="people" size={23} color={color('social')} />
+        <Ionicons name={advanced ? 'notifications' : 'people'} size={23} color={color('social')} />
       </Slot>
       <Slot onPress={() => onSelect('profile')}>
         <View style={s.profile}>

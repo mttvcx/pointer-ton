@@ -10,6 +10,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { TokenScreen } from './screens/TokenScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SocialScreen } from './screens/SocialScreen';
+import { AlertsScreen } from './screens/AlertsScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { OnboardingFlow } from './screens/OnboardingFlow';
@@ -113,7 +114,7 @@ function Shell() {
           ) : tab === 'search' ? (
             <SearchScreen onOpenToken={setToken} />
           ) : tab === 'social' ? (
-            <SocialScreen />
+            adv ? <AlertsScreen /> : <SocialScreen />
           ) : (
             <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
           )}

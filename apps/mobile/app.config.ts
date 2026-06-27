@@ -39,7 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   extra: {
     // Read by src/env.ts. Set via .env (EXPO_PUBLIC_*) or EAS build profile env.
-    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://pointer-ton.vercel.app',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://pointer-ton-orcin.vercel.app',
     privyAppId: process.env.EXPO_PUBLIC_PRIVY_APP_ID ?? '',
     privyClientId: process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID ?? '',
   },
