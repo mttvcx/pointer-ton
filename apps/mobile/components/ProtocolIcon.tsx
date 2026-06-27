@@ -22,7 +22,6 @@ const PROTOCOL_ASSETS: Record<string, ImageSourcePropType> = {
   moonshot: require('../assets/protocols/moonshot.png'),
   moonit: require('../assets/protocols/moonit.png'),
   bags: require('../assets/protocols/bags.png'),
-  bonkers: require('../assets/protocols/bonkers.png'),
   printr: require('../assets/protocols/printr.png'),
   liquid: require('../assets/protocols/liquid.png'),
   surge: require('../assets/protocols/surge.png'),
@@ -104,7 +103,7 @@ function matchSol(p: string): string | null {
     return 'meteora';
   }
   const solIds = [
-    'pump.fun', 'bonk', 'moonshot', 'bags', 'bonkers', 'printr', 'liquid', 'surge',
+    'pump.fun', 'bonk', 'moonshot', 'bags', 'printr', 'liquid', 'surge',
     'soar', 'mayhem', 'heaven', 'dynamic-bc', 'daos.fun', 'jupiter-studio',
     'raydium', 'launchlab', 'orca', 'meteora',
   ];
@@ -131,7 +130,6 @@ function matchSol(p: string): string | null {
   if (p.includes('launchlab') || p === 'launch_lab') return 'launchlab';
   if (p.includes('wavebreak') || (p.includes('orca') && p.includes('so'))) return 'orca';
   if (p === 'orca') return 'orca';
-  if (p.includes('bonkers')) return 'bonkers';
   if (p.includes('raydium') || p.includes('clmm')) return 'raydium';
   return null;
 }
