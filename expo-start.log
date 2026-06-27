@@ -1,9 +1,0 @@
-env: load .env
-env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_DEMO
-
-Development build: Unable to determine the default URI scheme for deep linking into the app. Ensure that the expo-dev-client package is installed.
-Starting project at C:\Users\moust\Downloads\pointer-mobile\apps\mobile
-[metro.config] DEMO mode → aliasing @privy-io/expo to stub
-Starting Metro Bundler
-Waiting on http://localhost:8081
-Logs for your project will appear below.
