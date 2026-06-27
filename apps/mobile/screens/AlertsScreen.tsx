@@ -94,12 +94,7 @@ export function AlertsScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 16, paddingHorizontal: 16, paddingBottom: insets.bottom + 110 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={s.head}>
-          <Text style={s.title}>Alerts</Text>
-          <View style={s.opBadge}>
-            <Text style={s.opBadgeText}>OPERATOR</Text>
-          </View>
-        </View>
+        <Text style={s.title}>Alerts</Text>
         <Text style={s.sub}>Sniping, X-monitor & auto-buy — and what pings your phone.</Text>
 
         {/* Kill switch */}

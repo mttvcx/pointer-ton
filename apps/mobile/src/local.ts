@@ -45,14 +45,28 @@ export const useBio = () => useSyncExternalStore(subscribe, () => store.bio);
 // ---- advanced quick-buy prefs ----
 // `ultra` = one-tap instant buy straight from a screener row (outline button).
 // `sol`   = the amount each quick-buy spends. Demo persistence (in-memory).
-export type QuickBuyPrefs = { ultra: boolean; sol: number };
-let quickBuy: QuickBuyPrefs = { ultra: false, sol: 0.1 };
+export type SecondButton = 'off' | 'buy' | 'sell';
+export type QuickBuyPrefs = {
+  ultra: boolean; // Ultra = the whole token row is an outlined tap-to-buy button
+  sol: number; // primary quick-buy amount
+  secondButton: SecondButton; // optional second action on each row
+  secondSol: number; // amount for the second buy button (when secondButton === 'buy')
+};
+let quickBuy: QuickBuyPrefs = { ultra: false, sol: 0.1, secondButton: 'off', secondSol: 1 };
 export function setQuickBuyUltra(v: boolean) {
   quickBuy = { ...quickBuy, ultra: v };
   emit();
 }
 export function setQuickBuySol(v: number) {
   quickBuy = { ...quickBuy, sol: v };
+  emit();
+}
+export function setQuickBuySecondButton(v: SecondButton) {
+  quickBuy = { ...quickBuy, secondButton: v };
+  emit();
+}
+export function setQuickBuySecondSol(v: number) {
+  quickBuy = { ...quickBuy, secondSol: v };
   emit();
 }
 export const useQuickBuyPrefs = () => useSyncExternalStore(subscribe, () => quickBuy);

@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressScale } from '../components/PressScale';
 import { Slide } from '../components/Slide';
 import { colors, radius } from '../src/theme';
 import { useAuth } from '../src/auth';
+import {
+  useQuickBuyPrefs,
+  setQuickBuyUltra,
+  setQuickBuySol,
+  setQuickBuySecondButton,
+  setQuickBuySecondSol,
+  type SecondButton,
+} from '../src/local';
 import { AccountScreen } from './AccountScreen';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-export type Section = 'Account' | 'Appearance' | 'Notifications' | 'Security' | 'Deposit & Withdraw' | 'Legal & Privacy' | 'Taxes' | 'Help & Support' | 'Perps FAQ';
+export type Section = 'Account' | 'Appearance' | 'Trading' | 'Notifications' | 'Security' | 'Deposit & Withdraw' | 'Legal & Privacy' | 'Taxes' | 'Help & Support' | 'Perps FAQ';
 
-const ROWS: Section[] = ['Account', 'Appearance', 'Notifications', 'Security', 'Deposit & Withdraw', 'Legal & Privacy', 'Taxes', 'Help & Support', 'Perps FAQ'];
+const ROWS: Section[] = ['Account', 'Appearance', 'Trading', 'Notifications', 'Security', 'Deposit & Withdraw', 'Legal & Privacy', 'Taxes', 'Help & Support', 'Perps FAQ'];
 
 export function SettingsScreen({
   onClose,
@@ -84,6 +92,7 @@ export function SettingsScreen({
 
 function Detail({ section }: { section: Section }) {
   const auth = useAuth();
+  const qb = useQuickBuyPrefs();
   if (section === 'Appearance') {
     return (
       <>
@@ -127,6 +136,59 @@ function Detail({ section }: { section: Section }) {
         <Field label="Deposit" value="Crypto · Apple Pay · Debit" />
         <Field label="Withdraw" value="Bank · Crypto wallet" />
         <Field label="Fee cashback" value="50% back on every trade" accent />
+      </>
+    );
+  }
+  if (section === 'Trading') {
+    const SECONDS: SecondButton[] = ['off', 'buy', 'sell'];
+    const SOLS = [0.05, 0.1, 0.5, 1];
+    const SECOND_SOLS = [0.5, 1, 5];
+    const secondLabel = (v: SecondButton) => (v === 'off' ? 'Off' : v === 'buy' ? 'Buy' : 'Sell');
+    return (
+      <>
+        <View style={s.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowLabel}>Ultra quick-buy</Text>
+            <Text style={s.toggleSub}>Tap a token row to buy instantly — the row becomes an outline button.</Text>
+          </View>
+          <Switch value={qb.ultra} onValueChange={setQuickBuyUltra} trackColor={{ false: colors.border, true: colors.accent }} thumbColor="#fff" />
+        </View>
+
+        <View style={s.block}>
+          <Text style={s.blockLabel}>Quick-buy amount</Text>
+          <View style={s.seg}>
+            {SOLS.map((v) => (
+              <PressScale key={v} onPress={() => setQuickBuySol(v)} to={0.96} style={[s.segItem, qb.sol === v && s.segItemOn]}>
+                <Text style={[s.segText, qb.sol === v && s.segTextOn]}>{v} SOL</Text>
+              </PressScale>
+            ))}
+          </View>
+        </View>
+
+        <View style={s.block}>
+          <Text style={s.blockLabel}>Second button</Text>
+          <Text style={s.toggleSub}>An optional second action on every screener row.</Text>
+          <View style={[s.seg, { marginTop: 10 }]}>
+            {SECONDS.map((v) => (
+              <PressScale key={v} onPress={() => setQuickBuySecondButton(v)} to={0.96} style={[s.segItem, qb.secondButton === v && s.segItemOn]}>
+                <Text style={[s.segText, qb.secondButton === v && s.segTextOn]}>{secondLabel(v)}</Text>
+              </PressScale>
+            ))}
+          </View>
+        </View>
+
+        {qb.secondButton === 'buy' ? (
+          <View style={s.block}>
+            <Text style={s.blockLabel}>Second buy amount</Text>
+            <View style={s.seg}>
+              {SECOND_SOLS.map((v) => (
+                <PressScale key={v} onPress={() => setQuickBuySecondSol(v)} to={0.96} style={[s.segItem, qb.secondSol === v && s.segItemOn]}>
+                  <Text style={[s.segText, qb.secondSol === v && s.segTextOn]}>{v} SOL</Text>
+                </PressScale>
+              ))}
+            </View>
+          </View>
+        ) : null}
       </>
     );
   }

@@ -16,24 +16,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { CoinIcon } from './CoinIcon';
+import { ProtocolIcon } from './ProtocolIcon';
+import { GlassTabs } from './GlassTabs';
 import { getPulseFeed, explainToken } from '../src/api/endpoints';
+import { getDemoPulse } from '../src/demo/pulseDemo';
 import { useTradeSubmit } from '../src/trade/useTradeSubmit';
-import { useQuickBuyPrefs } from '../src/local';
+import { useQuickBuyPrefs, type SecondButton } from '../src/local';
 import { ageShort, compactUsd } from '../src/format';
 import { colors, radius } from '../src/theme';
 import type { PulseBundle, PulseColumn, PulseFeed } from '../src/types';
-import { getDemoPulse } from '../src/demo/pulseDemo';
-import { GlassTabs } from './GlassTabs';
-import { SolAmount } from './SolAmount';
 
 /**
- * ADVANCED-MODE HOME — the operator screener. DexScreener's information-dense list
- * layout, rebuilt Pointer-native: New / Stretch / Migrated tabs (our Pulse
- * columns), each row = coin + protocol + Vol/MC (no fake %), Pointer link chips
- * (X / web / TG) in place of dex boosts, and a real quick-buy / sell. Tap a row →
- * full buy/sell sheet (token screen). Press-and-hold a row → cached AI brief (the
- * mobile equivalent of web hover; served from the shared ai_scan cache so it's
- * near-free). A tracked-tweets marquee scrolls across the top.
+ * ADVANCED-MODE HOME — the operator screener. DexScreener-style dense list with
+ * glassy New / Stretch / Migrated tabs, real protocol icons, Vol/MC rows, a real
+ * quick-buy (primary + optional second buy/sell), an "Ultra" mode where the whole
+ * row is a tap-to-buy outline, a yellow flash on an uptick, and press-and-hold →
+ * cached AI brief. Tap a row → full buy/sell sheet (token screen). Falls back to
+ * demo data so the board is never empty.
  */
 
 type ColDef = { key: PulseColumn; label: string; accent: string };
@@ -43,15 +42,30 @@ const COLS: ColDef[] = [
   { key: 'migrated', label: 'Migrated', accent: colors.bull },
 ];
 
-// Demo tracked-tweets for the marquee. Wire to the real X-monitor feed later
-// (the locked demo-data strategy — clearly fake content, real UI).
+// Demo tracked-tweets carousel (wire to the real X-monitor feed later).
 const DEMO_TWEETS = [
-  { handle: 'cupseyy', initial: 'C', text: 'aped $piss — chart primed, 30 buys in 8h' },
-  { handle: 'Euris', initial: 'E', text: '$SPCX69 holding the 8% dip, smart money still in' },
-  { handle: 'absol', initial: 'A', text: 'new CA from a wallet I track → $XGIFT, 827% 24h' },
-  { handle: 'kev', initial: 'K', text: '$world.xyz quietly climbing, 174k liq' },
-  { handle: 'Tibbz', initial: 'T', text: 'watching $RTM, 993% but liq thin — careful' },
+  { handle: 'cupseyy', text: 'aped $piss — chart primed, 30 buys in 8h' },
+  { handle: 'Euris', text: '$SPCX69 holding the 8% dip, smart money still in' },
+  { handle: 'absol', text: 'new CA from a wallet I track → $XGIFT, 827% 24h' },
+  { handle: 'kev', text: '$world.xyz quietly climbing, 174k liq' },
+  { handle: 'Tibbz', text: 'watching $RTM, 993% but liq thin — careful' },
 ];
+
+/** Flash the row yellow briefly when a token's price ticks up. */
+function useUptickFlash(price: number) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const prev = useRef(price);
+  useEffect(() => {
+    if (price > prev.current && prev.current > 0) {
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.2, duration: 120, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+    prev.current = price;
+  }, [price, opacity]);
+  return opacity;
+}
 
 export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
@@ -83,8 +97,8 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const accent = COLS[active].accent;
 
   const onQuick = useCallback(
-    async (b: PulseBundle, side: 'buy' | 'sell') => {
-      // No real wallet (demo / not signed in) → fall back to the full sheet.
+    async (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => {
+      // No real wallet (demo / not signed in) → open the full sheet instead.
       if (!hasWallet) {
         onOpenToken(b);
         return;
@@ -92,7 +106,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
       try {
         setBusy({ mint: b.token.mint, side });
         Vibration.vibrate(8);
-        await submit({ mint: b.token.mint, side, amountSol: qb.sol });
+        await submit({ mint: b.token.mint, side, amountSol: amountSol ?? qb.sol });
         Vibration.vibrate(18);
       } catch (e) {
         Alert.alert(side === 'buy' ? 'Buy failed' : 'Sell failed', e instanceof Error ? e.message : 'Try again.');
@@ -111,12 +125,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   return (
     <View style={[s.root, { paddingTop: insets.top + 6 }]}>
       <View style={s.header}>
-        <View style={s.titleRow}>
-          <Text style={s.title}>Pulse</Text>
-          <View style={s.opBadge}>
-            <Text style={s.opBadgeText}>OPERATOR</Text>
-          </View>
-        </View>
+        <Text style={s.title}>Pulse</Text>
         {!hasWallet ? <Text style={s.demoTag}>demo · tap a row to trade</Text> : null}
       </View>
 
@@ -152,8 +161,11 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
               bundle={item}
               accent={accent}
               ultra={qb.ultra}
-              buyLabel={String(qb.sol)}
-              busySide={busy?.mint === item.token.mint ? busy.side : null}
+              primarySol={qb.sol}
+              secondButton={qb.secondButton}
+              secondSol={qb.secondSol}
+              busyMint={busy?.mint ?? null}
+              busySide={busy?.side ?? null}
               aiOpen={aiMint === item.token.mint}
               onOpen={onOpenToken}
               onLongPressAi={onLongPressAi}
@@ -170,7 +182,10 @@ function TokenRow({
   bundle,
   accent,
   ultra,
-  buyLabel,
+  primarySol,
+  secondButton,
+  secondSol,
+  busyMint,
   busySide,
   aiOpen,
   onOpen,
@@ -180,30 +195,41 @@ function TokenRow({
   bundle: PulseBundle;
   accent: string;
   ultra: boolean;
-  buyLabel: string;
+  primarySol: number;
+  secondButton: SecondButton;
+  secondSol: number;
+  busyMint: string | null;
   busySide: 'buy' | 'sell' | null;
   aiOpen: boolean;
   onOpen: (b: PulseBundle) => void;
   onLongPressAi: (b: PulseBundle) => void;
-  onQuick: (b: PulseBundle, side: 'buy' | 'sell') => void;
+  onQuick: (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => void;
 }) {
   const { token, snapshot } = bundle;
   const sym = (token.symbol ?? '?').replace(/^\$/, '');
-  const proto = token.launch_pad ? token.launch_pad.toLowerCase() : null;
   const age = ageShort(token.created_at);
   const x = token.twitter_handle ? token.twitter_handle.replace(/^@/, '') : null;
+  const flash = useUptickFlash(snapshot?.price_usd ?? 0);
+  const busyBuy = busyMint === token.mint && busySide === 'buy';
+  const busySell = busyMint === token.mint && busySide === 'sell';
 
   return (
-    <View style={[s.rowWrap, aiOpen && { borderColor: accent + '88' }]}>
-      <Pressable onPress={() => onOpen(bundle)} onLongPress={() => onLongPressAi(bundle)} delayLongPress={240} style={s.row}>
-        <View style={s.coinWrap}>
-          <CoinIcon uri={token.image_url} symbol={sym} size={42} verified={Boolean(token.launch_pad)} />
-          {proto ? (
-            <View style={s.protoBadge}>
-              <Text style={s.protoText}>{proto.slice(0, 4)}</Text>
-            </View>
-          ) : null}
-        </View>
+    <View style={[s.rowWrap, ultra && s.rowUltra, aiOpen && { borderColor: accent + '88' }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: colors.warn, opacity: flash }]}
+      />
+      <Pressable
+        onPress={() => (ultra ? onQuick(bundle, 'buy', primarySol) : onOpen(bundle))}
+        onLongPress={() => onLongPressAi(bundle)}
+        delayLongPress={240}
+        style={s.row}
+      >
+        {/* Avatar always opens the token (even in Ultra, where the row buys) */}
+        <Pressable onPress={() => onOpen(bundle)} hitSlop={4} style={s.coinWrap}>
+          <CoinIcon uri={token.image_url} symbol={sym} size={42} />
+          <ProtocolIcon launchPad={token.launch_pad} size={16} style={s.protoBadge} />
+        </Pressable>
 
         <View style={s.mid}>
           <View style={s.midTop}>
@@ -226,10 +252,27 @@ function TokenRow({
           </View>
         </View>
 
-        <View style={s.actions}>
-          <QuickBtn kind="buy" ultra={ultra} label={buyLabel} busy={busySide === 'buy'} onPress={() => onQuick(bundle, 'buy')} />
-          <QuickBtn kind="sell" busy={busySide === 'sell'} onPress={() => onQuick(bundle, 'sell')} />
-        </View>
+        {ultra ? (
+          <View style={s.ultraSide}>
+            {secondButton === 'sell' ? (
+              <QuickBtn kind="sell" busy={busySell} onPress={() => onQuick(bundle, 'sell')} />
+            ) : null}
+            <View style={s.ultraBuy}>
+              <Ionicons name="flash" size={13} color={colors.bull} />
+              <Text style={s.ultraBuyText}>{primarySol}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={s.actions}>
+            {secondButton === 'sell' ? (
+              <QuickBtn kind="sell" busy={busySell} onPress={() => onQuick(bundle, 'sell')} />
+            ) : null}
+            {secondButton === 'buy' ? (
+              <QuickBtn kind="buy" label={String(secondSol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', secondSol)} />
+            ) : null}
+            <QuickBtn kind="buy" big label={String(primarySol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', primarySol)} />
+          </View>
+        )}
       </Pressable>
 
       {aiOpen ? <AiBrief mint={token.mint} /> : null}
@@ -239,31 +282,33 @@ function TokenRow({
 
 function QuickBtn({
   kind,
-  ultra,
+  big,
   label,
   busy,
   onPress,
 }: {
   kind: 'buy' | 'sell';
-  ultra?: boolean;
+  big?: boolean;
   label?: string;
   busy: boolean;
   onPress: () => void;
 }) {
   const buy = kind === 'buy';
-  const fg = buy ? (ultra ? colors.bull : '#04050A') : colors.bear;
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
-      style={[s.qbtn, buy ? (ultra ? s.qbtnBuyOutline : s.qbtnBuy) : s.qbtnSell, busy && { opacity: 0.6 }]}
+      style={[s.qbtn, big && s.qbtnBig, buy ? s.qbtnBuy : s.qbtnSell, busy && { opacity: 0.6 }]}
     >
       {busy ? (
-        <ActivityIndicator size="small" color={fg} />
+        <ActivityIndicator size="small" color={buy ? '#04050A' : colors.bear} />
       ) : buy ? (
-        <SolAmount value={label ?? ''} size={12} color={fg} weight="800" />
+        <>
+          <Ionicons name="flash" size={big ? 14 : 12} color="#04050A" />
+          <Text style={[s.qbtnText, big && s.qbtnTextBig]}>{label}</Text>
+        </>
       ) : (
-        <Text style={[s.qbtnText, { color: fg }]}>Sell</Text>
+        <Text style={[s.qbtnText, { color: colors.bear }]}>Sell</Text>
       )}
     </Pressable>
   );
@@ -348,17 +393,14 @@ function TweetMarquee() {
     );
     anim.start();
     return () => anim.stop();
-  }, [w]);
+  }, [w, x]);
 
   const strip = (measure: boolean) => (
-    <View
-      style={s.marqueeStrip}
-      onLayout={measure ? (e) => setW(e.nativeEvent.layout.width) : undefined}
-    >
+    <View style={s.marqueeStrip} onLayout={measure ? (e) => setW(e.nativeEvent.layout.width) : undefined}>
       {DEMO_TWEETS.map((t, i) => (
         <View key={`${measure ? 'a' : 'b'}-${i}`} style={s.tweetChip}>
           <View style={s.tweetAvatar}>
-            <Text style={s.tweetInitial}>{t.initial}</Text>
+            <Text style={s.tweetInitial}>{t.handle.charAt(0).toUpperCase()}</Text>
           </View>
           <Text style={s.tweetHandle}>@{t.handle}</Text>
           <Text style={s.tweetText} numberOfLines={1}>
@@ -371,7 +413,6 @@ function TweetMarquee() {
 
   return (
     <View style={s.marqueeWrap}>
-      <Ionicons name="logo-twitter" size={12} color={colors.fgMuted} style={s.marqueeIcon} />
       <Animated.View style={[s.marqueeTrack, { transform: [{ translateX: x }] }]}>
         {strip(true)}
         {strip(false)}
@@ -384,15 +425,11 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   title: { color: colors.fg, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
-  opBadge: { backgroundColor: colors.accentSoft, borderRadius: radius.sm, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: colors.accent + '55' },
-  opBadgeText: { color: colors.accentGlow, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   demoTag: { color: colors.fgFaint, fontSize: 11, fontWeight: '600' },
 
-  marqueeWrap: { flexDirection: 'row', alignItems: 'center', height: 30, marginTop: 12, marginHorizontal: 16, borderRadius: radius.sm, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
-  marqueeIcon: { paddingHorizontal: 8 },
-  marqueeTrack: { flexDirection: 'row' },
+  marqueeWrap: { height: 30, marginTop: 12, marginHorizontal: 16, borderRadius: radius.sm, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', justifyContent: 'center' },
+  marqueeTrack: { flexDirection: 'row', paddingLeft: 12 },
   marqueeStrip: { flexDirection: 'row', alignItems: 'center' },
   tweetChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 22 },
   tweetAvatar: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
@@ -401,19 +438,15 @@ const s = StyleSheet.create({
   tweetText: { color: colors.fgMuted, fontSize: 11.5 },
 
   glassTabs: { marginHorizontal: 16, marginTop: 12 },
-  tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 12 },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 10, borderWidth: 1, borderColor: colors.border },
-  tabLabel: { color: colors.fgMuted, fontSize: 13, fontWeight: '700' },
-  tabCount: { color: colors.fgFaint, fontSize: 12, fontWeight: '700' },
 
   empty: { alignItems: 'center', gap: 9, paddingVertical: 70 },
   emptyText: { color: colors.fgFaint, fontSize: 14 },
 
   rowWrap: { backgroundColor: colors.bgRaised, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, marginBottom: 7, overflow: 'hidden' },
+  rowUltra: { borderColor: colors.bull + '66', borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10 },
   coinWrap: { width: 42, height: 42 },
-  protoBadge: { position: 'absolute', bottom: -3, right: -3, backgroundColor: colors.bgRaised2, borderRadius: 6, paddingHorizontal: 3, paddingVertical: 1, borderWidth: 1, borderColor: colors.border },
-  protoText: { color: colors.fgMuted, fontSize: 8, fontWeight: '800' },
+  protoBadge: { position: 'absolute', bottom: -2, right: -2, borderWidth: 1.5, borderColor: colors.bgRaised },
 
   mid: { flex: 1, gap: 3 },
   midTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
@@ -426,12 +459,16 @@ const s = StyleSheet.create({
   metricValue: { color: colors.fgSecondary, fontSize: 13, fontWeight: '700' },
   linkChip: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised2 },
 
-  actions: { gap: 6, alignItems: 'stretch' },
-  qbtn: { minWidth: 58, height: 30, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 10 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ultraSide: { alignItems: 'flex-end', gap: 6 },
+  ultraBuy: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ultraBuyText: { color: colors.bull, fontSize: 15, fontWeight: '800' },
+  qbtn: { minWidth: 54, height: 32, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 11 },
+  qbtnBig: { minWidth: 86, height: 40, borderRadius: 12, paddingHorizontal: 16, gap: 5 },
   qbtnBuy: { backgroundColor: colors.bull },
-  qbtnBuyOutline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.bull },
   qbtnSell: { backgroundColor: colors.bearSoft, borderWidth: 1, borderColor: colors.bear + '55' },
-  qbtnText: { fontSize: 13, fontWeight: '800' },
+  qbtnText: { fontSize: 14, fontWeight: '800', color: '#04050A' },
+  qbtnTextBig: { fontSize: 16 },
 
   aiBox: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, gap: 6, backgroundColor: colors.bgSunken },
   aiHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
