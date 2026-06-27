@@ -115,20 +115,15 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
                     </p>
                     <p className="text-[12px] text-fg-muted">{hit.subtitle}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-                      {hit.valueSol != null ? (
-                        <span className="inline-flex items-center gap-1.5 font-mono tabular-nums text-accent-glow">
-                          Up to {hit.valueSol.toFixed(hit.valueSol >= 10 ? 0 : 1)}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src="/chains/sol.png" alt="" width={12} height={12} className="object-contain" />
-                        </span>
+                      {isToken ? (
+                        hit.valueUsd != null ? (
+                          <span className="font-mono tabular-nums text-accent-glow">
+                            Up to ~{formatPackVal(hit.valueUsd, null)}
+                          </span>
+                        ) : null
                       ) : (
                         <span className="font-mono tabular-nums text-accent-glow">{hit.displayValue}</span>
                       )}
-                      {hit.valueUsd != null ? (
-                        <span className="font-mono tabular-nums text-fg-secondary">
-                          ~{formatPackVal(hit.valueUsd, null)}
-                        </span>
-                      ) : null}
                       {hit.marketCapUsd != null ? (
                         <span className="text-fg-muted">MC {formatPackMc(hit.marketCapUsd)}</span>
                       ) : null}
@@ -138,6 +133,10 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
               );
             })}
           </div>
+          <p className="mt-4 text-[11px] leading-relaxed text-fg-muted">
+            &ldquo;Up to&rdquo; is the best-case pull for that slot — the bigger the hit, the rarer
+            it is. Cashback &amp; points boosts apply to your trading fees, not as cash.
+          </p>
         </div>
       </div>
     </div>
