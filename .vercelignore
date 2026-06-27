@@ -1,0 +1,4 @@
+# The Expo / React-Native app (apps/mobile) is a SEPARATE client, not part of the
+# Next.js web build. Excluding it so `next build` never tries to compile react-native
+# (which isn't installed at the web root) — protects the web deploy on every branch.
+apps/
