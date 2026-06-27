@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { useAdminFetch } from '@/lib/admin/useAdminApi';
-import type { OpsHealthSnapshot, OpsProvider } from '@/lib/admin/opsTypes';
+import type { DoctorReport, OpsHealthSnapshot, OpsProvider } from '@/lib/admin/opsTypes';
 import { cn } from '@/lib/utils/cn';
 
 type Tone = 'ok' | 'warn' | 'bad' | 'idle';
@@ -69,6 +69,44 @@ function fmtAge(min: number | null): string {
   return `${h}h ${min % 60}m ago`;
 }
 
+function DoctorPanel({ report }: { report: DoctorReport }) {
+  const tone: Tone = report.status === 'critical' ? 'bad' : report.status === 'warn' ? 'warn' : 'ok';
+  const skin =
+    report.status === 'critical'
+      ? 'border-signal-bear/40 bg-signal-bear/10'
+      : report.status === 'warn'
+        ? 'border-amber-400/40 bg-amber-400/10'
+        : 'border-signal-bull/40 bg-signal-bull/10';
+  return (
+    <section className={cn('rounded-lg border p-4', skin)}>
+      <header className="flex items-center gap-2">
+        <StatusDot tone={tone} />
+        <h2 className="text-[13px] font-semibold text-fg-primary">Pointer Doctor</h2>
+        <span className="ml-auto text-[10px] uppercase tracking-wide text-fg-muted">read-only diagnosis</span>
+      </header>
+      <p className="mt-1.5 text-[13px] text-fg-secondary">{report.summary}</p>
+      {report.findings.length ? (
+        <ul className="mt-3 space-y-2">
+          {report.findings.map((find) => (
+            <li key={find.id} className="rounded-md border border-border-subtle bg-bg-raised/60 p-2.5">
+              <div className="flex items-center gap-2">
+                <StatusDot tone={find.severity === 'critical' ? 'bad' : 'warn'} />
+                <span className="text-[12.5px] font-semibold text-fg-primary">{find.title}</span>
+              </div>
+              <p className="mt-1 text-[12px] text-fg-muted">{find.detail}</p>
+              <p className="mt-1 text-[11.5px] text-accent-primary">&rarr; {find.action}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-[12px] text-fg-muted">
+          No issues detected across trading, pulse, indexer, crons, providers, or open incidents.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function OpsHealthPage() {
   const adminFetch = useAdminFetch();
   const q = useQuery({
@@ -126,6 +164,8 @@ export default function OpsHealthPage() {
           discovery, enrichment and indexing crons are short-circuited to a no-op.
         </div>
       ) : null}
+
+      {snap ? <DoctorPanel report={snap.doctor} /> : null}
 
       {!snap && q.isLoading ? (
         <p className="text-sm text-fg-muted">Reading production signals…</p>

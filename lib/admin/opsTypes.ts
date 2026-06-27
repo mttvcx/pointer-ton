@@ -90,6 +90,22 @@ export type OpsIncident = {
   lastSeen: string;
 };
 
+export type DoctorSeverity = 'ok' | 'warn' | 'critical';
+export type DoctorFinding = {
+  id: string;
+  severity: 'warn' | 'critical';
+  title: string;
+  detail: string;
+  action: string;
+};
+/** Read-only diagnosis from Pointer Doctor (rule-based; no LLM, no actions). */
+export type DoctorReport = {
+  status: DoctorSeverity;
+  summary: string;
+  findings: DoctorFinding[];
+  checkedAt: string;
+};
+
 export type OpsHealthSnapshot = {
   generatedAt: string;
   trading: OpsTradingHealth | OpsSectionError;
@@ -101,4 +117,5 @@ export type OpsHealthSnapshot = {
   crons: OpsCronRun[] | OpsSectionError;
   incidents: OpsIncident[] | OpsSectionError;
   recentEvents: OpsEventLite[] | OpsSectionError;
+  doctor: DoctorReport;
 };

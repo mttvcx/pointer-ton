@@ -4,6 +4,7 @@ import { createAdminSupabase } from '@/lib/supabase/server';
 import { sumConfirmedTradeVolumeSolUtcToday } from '@/lib/db/trades';
 import { listHeliusUsageSince, aggregateHeliusUsageStats } from '@/lib/db/heliusUsage';
 import { PACKS_LIVE_COMMERCE_ENABLED } from '@/lib/packs/mode';
+import { diagnose } from '@/lib/ops/doctor';
 import type { Tables } from '@/lib/supabase/types';
 import type {
   OpsCronRun,
@@ -284,7 +285,7 @@ export async function collectOpsHealth(): Promise<OpsHealthSnapshot> {
   ]);
 
   const packsTreasuryConfigured = cfg('PACKS_TREASURY_SECRET_KEY');
-  return {
+  const snapshot: Omit<OpsHealthSnapshot, 'doctor'> = {
     generatedAt: new Date().toISOString(),
     trading,
     indexer,
@@ -300,4 +301,5 @@ export async function collectOpsHealth(): Promise<OpsHealthSnapshot> {
     incidents,
     recentEvents,
   };
+  return { ...snapshot, doctor: diagnose(snapshot) };
 }
