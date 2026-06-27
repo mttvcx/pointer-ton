@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { useAdminMe } from '@/lib/admin/useAdminApi';
 import {
+  Gauge,
   Languages,
   LogOut,
   Menu,
@@ -94,6 +96,7 @@ export function Topbar() {
   const queryClient = useQueryClient();
   const { authenticated, loggingOut, logout, getAccessToken, login, linkedTonAddress } =
     usePointerAuth();
+  const isAdmin = Boolean(useAdminMe().data);
   const searchQuery = useUIStore((s) => s.searchQuery);
   const searchOpen = useUIStore((s) => s.searchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
@@ -573,6 +576,18 @@ export function Topbar() {
                     )}
                   </div>
                   <div className="flex flex-col gap-0.5 px-1.5 pt-1.5">
+                    {isAdmin ? (
+                      <Link
+                        href="/admin"
+                        role="menuitem"
+                        prefetch={false}
+                        onClick={() => setAvatarMenuOpen(false)}
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] font-semibold text-accent-primary transition-colors hover:bg-accent-primary/10"
+                      >
+                        <Gauge className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+                        <span>Pointer Ops</span>
+                      </Link>
+                    ) : null}
                     <Link
                       href="/portfolio?tab=wallets"
                       role="menuitem"

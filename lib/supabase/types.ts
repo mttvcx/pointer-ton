@@ -892,6 +892,58 @@ export interface Database {
         Relationships: [];
       };
 
+      ops_events: {
+        Row: {
+          id: number;
+          ts: string;
+          category: string;
+          name: string;
+          status: string;
+          severity: string;
+          duration_ms: number | null;
+          message: string | null;
+          detail: Json;
+          correlation_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          ts?: string;
+          category: string;
+          name: string;
+          status: string;
+          severity?: string;
+          duration_ms?: number | null;
+          message?: string | null;
+          detail?: Json;
+          correlation_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['ops_events']['Insert']>;
+        Relationships: [];
+      };
+
+      ops_metrics: {
+        Row: {
+          id: number;
+          ts: string;
+          metric: string;
+          value: number;
+          labels: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          ts?: string;
+          metric: string;
+          value: number;
+          labels?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['ops_metrics']['Insert']>;
+        Relationships: [];
+      };
+
       referrals: {
         Row: {
           id: string;

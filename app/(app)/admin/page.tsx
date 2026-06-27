@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAdminMe } from '@/lib/admin/useAdminApi';
 
 const CARDS: { href: string; title: string; desc: string; perm: string }[] = [
+  { href: '/admin/ops', title: 'System health', desc: 'Pointer Ops — live trading, indexer, Pulse, providers & flags.', perm: '*any*' },
   { href: '/admin/users', title: 'Users', desc: 'Search users, view profiles, linked wallets, points & referrals.', perm: 'users.read' },
   { href: '/admin/packs', title: 'Packs', desc: 'Open history and the override queue with approval gating.', perm: 'packs.read' },
   { href: '/admin/economy', title: 'Economy', desc: 'Point grants, tier assignment, referral payouts, cashback.', perm: 'referrals.read' },
@@ -18,7 +19,7 @@ const CARDS: { href: string; title: string; desc: string; perm: string }[] = [
 export default function AdminHome() {
   const me = useAdminMe().data;
   const can = (p: string) => Boolean(me && (me.permissions.includes('*') || me.permissions.includes(p)));
-  const cards = CARDS.filter((c) => can(c.perm));
+  const cards = CARDS.filter((c) => c.perm === '*any*' || can(c.perm));
 
   return (
     <div className="space-y-5">

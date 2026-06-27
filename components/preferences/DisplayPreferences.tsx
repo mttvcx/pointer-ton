@@ -41,6 +41,7 @@ export function DisplayPreferences() {
             onChange={(v) => setPref('aiPanelStyle', v)}
             options={[
               { value: 'default', label: 'Default' },
+              { value: 'light', label: 'Light' },
               { value: 'glassy', label: 'Glassy' },
             ]}
           />

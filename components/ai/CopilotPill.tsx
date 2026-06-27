@@ -25,7 +25,8 @@ import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { usePreferences } from '@/components/preferences/PreferencesProvider';
-import { GLASS_SURFACE } from '@/lib/ui/glassSurface';
+import { LIGHT_GLASS_SURFACE } from '@/lib/ui/glassSurface';
+import { LiquidGlassLayers } from '@/components/ui/liquid-glass';
 import { cn } from '@/lib/utils/cn';
 
 const CHROME = {
@@ -102,7 +103,7 @@ function PillInsightCrossfade({ insight }: { insight: ReturnType<typeof useCopil
     // pointer-events-none on the whole insight area: text is purely
     // presentational — clicks must reach the parent shell's onClick (drag /
     // expand handlers) regardless of where the cursor lands inside the pill.
-    <div className="pointer-events-none flex min-h-0 min-w-0 flex-1 items-stretch self-stretch overflow-hidden px-2">
+    <div className="pointer-events-none relative z-10 flex min-h-0 min-w-0 flex-1 items-stretch self-stretch overflow-hidden px-2">
       <div className="relative min-h-0 min-w-0 flex-1">
         {stack.prev ? (
           <div
@@ -298,7 +299,7 @@ function CopilotPillCollapsedSurface({
   );
   const expanded = useUIStore((s) => s.copilotPillExpanded);
   const pillOpacity = expanded || pillHover ? 1 : busyElsewhere ? 0.42 : 0.72;
-  const glassy = usePreferences().prefs.aiPanelStyle === 'glassy';
+  const aiPanelStyle = usePreferences().prefs.aiPanelStyle;
 
   return (
     <div
@@ -316,11 +317,12 @@ function CopilotPillCollapsedSurface({
         title="Open co-pilot · drag to reposition"
         className={cn(
           'flex h-9 w-full min-w-0 touch-none select-none items-stretch gap-2 rounded-full border py-0 pl-2.5 pr-2 shadow-md backdrop-blur-xl transition-[box-shadow,border-color,background-color,transform] duration-200 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/38',
-          glassy
-            ? GLASS_SURFACE
-            : pillHover
+          aiPanelStyle === 'light' && LIGHT_GLASS_SURFACE,
+          aiPanelStyle === 'glassy' && 'relative isolate border-white/20 bg-white/[0.06]',
+          aiPanelStyle === 'default' &&
+            (pillHover
               ? 'border-white/22 bg-bg-base/95 shadow-[0_0_32px_-8px_rgba(255,255,255,0.28),0_0_14px_-2px_rgba(255,255,255,0.12)]'
-              : 'border-white/10 bg-bg-base/90 hover:border-white/18 hover:bg-bg-base/95 hover:shadow-[0_0_22px_-8px_rgba(255,255,255,0.18)]',
+              : 'border-white/10 bg-bg-base/90 hover:border-white/18 hover:bg-bg-base/95 hover:shadow-[0_0_22px_-8px_rgba(255,255,255,0.18)]'),
           shellProps.className,
         )}
         style={shellProps.style}
@@ -346,8 +348,11 @@ function CopilotPillCollapsedSurface({
         }}
         onClick={shellProps.onClick}
       >
+        {aiPanelStyle === 'glassy' ? (
+          <LiquidGlassLayers softer borderRadius="9999px" blurIntensity="md" glowIntensity="xs" shadowIntensity="sm" />
+        ) : null}
         <span
-          className="flex h-7 w-7 shrink-0 self-center items-center justify-center rounded-full border"
+          className="relative z-10 flex h-7 w-7 shrink-0 self-center items-center justify-center rounded-full border"
           style={{
             borderColor: `${CHROME.accent}44`,
             boxShadow: `0 0 12px -3px ${CHROME.accent}55`,
@@ -356,7 +361,7 @@ function CopilotPillCollapsedSurface({
           <Sparkles className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2.25} />
         </span>
         <PillInsightCrossfade insight={insight} />
-        <ChevronDown className="h-4 w-4 shrink-0 self-center text-fg-muted" strokeWidth={2.25} aria-hidden />
+        <ChevronDown className="relative z-10 h-4 w-4 shrink-0 self-center text-fg-muted" strokeWidth={2.25} aria-hidden />
       </div>
     </div>
   );

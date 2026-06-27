@@ -5,6 +5,7 @@ import {
   verifyHeliusWebhookAuthorization,
 } from '@/lib/helius/webhooks';
 import { claimHeliusWebhookSignature } from '@/lib/helius/webhookDedup';
+import { recordOpsEvent } from '@/lib/ops/events';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,11 +56,27 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const startedAt = Date.now();
   try {
     const result = await processHeliusWebhookBody(body, { source: 'helius', signature });
+    await recordOpsEvent({
+      category: 'webhook',
+      name: 'helius-webhook',
+      status: 'ok',
+      durationMs: Date.now() - startedAt,
+      detail: result as Record<string, unknown>,
+    });
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'webhook_failed';
+    await recordOpsEvent({
+      category: 'webhook',
+      name: 'helius-webhook',
+      status: 'error',
+      severity: 'error',
+      durationMs: Date.now() - startedAt,
+      message,
+    });
     return NextResponse.json({ error: 'webhook_failed', message }, { status: 500 });
   }
 }
