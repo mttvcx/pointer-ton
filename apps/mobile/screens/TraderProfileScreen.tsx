@@ -191,13 +191,6 @@ export function TraderProfileScreen({
             <Text style={s.pnlSub}>
               <Text style={s.pnlUp}>+{usd(pnl)}</Text> <Text style={s.pnlRange}>{RANGES[range]}</Text>
             </Text>
-            <View style={s.uRow}>
-              <Ionicons name={p.netUPnlUsd < 0 ? 'arrow-down' : 'arrow-up'} size={12} color={p.netUPnlUsd < 0 ? colors.bear : colors.bull} />
-              <Text style={[s.uTxt, { color: p.netUPnlUsd < 0 ? colors.bear : colors.bull }]}>
-                {p.netUPnlUsd < 0 ? `${usd(p.toBreakEvenUsd, 0)} to break even` : `${usd(p.netUPnlUsd, 0)} unrealized`}
-              </Text>
-              <Text style={s.uLabel}>net</Text>
-            </View>
           </View>
           <View style={s.ranges}>
             {RANGES.map((r, i) => (

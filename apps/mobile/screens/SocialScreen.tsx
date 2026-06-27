@@ -15,15 +15,8 @@ const MEDALS = ['#E3B321', '#B7C0CC', '#C57B3A'];
 /* ---- formatters (no Intl — Hermes-safe) ---- */
 const group = (int: string) => int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 function usd(n: number, dec = 2): string {
-  const neg = n < 0;
   const [i, f] = Math.abs(n).toFixed(dec).split('.');
-  return `${neg ? '-' : ''}$${group(i)}${f ? '.' + f : ''}`;
-}
-function compactUsd(n: number): string {
-  const a = Math.abs(n);
-  if (a >= 1e6) return `$${(a / 1e6).toFixed(1).replace(/\.0$/, '')}M`;
-  if (a >= 1e3) return `$${(a / 1e3).toFixed(0)}K`;
-  return `$${Math.round(a)}`;
+  return `$${group(i)}${f ? '.' + f : ''}`;
 }
 const avatarUri = (h: string) => `https://api.dicebear.com/9.x/avataaars/png?seed=${encodeURIComponent(h)}&size=96`;
 
@@ -34,8 +27,7 @@ export function SocialScreen({
 }) {
   const insets = useSafeAreaInsets();
   const [range, setRange] = useState(0);
-  const [sort, setSort] = useState<'today' | 'net'>('today');
-  const rows = useMemo(() => getLeaderboard(range, sort), [range, sort]);
+  const rows = useMemo(() => getLeaderboard(range, 'today'), [range]);
 
   return (
     <Screen>
@@ -43,9 +35,7 @@ export function SocialScreen({
         <View style={s.titleRow}>
           <Text style={s.title}>Leaderboard</Text>
           <PressScale
-            onPress={() =>
-              shareText('🏆 Top traders on Pointer — half your fees back, real P&L. Catch the board.', 'https://pointer-ton-orcin.vercel.app')
-            }
+            onPress={() => shareText('🏆 Top traders on Pointer — half your fees back. Catch the board.', 'https://pointer-ton-orcin.vercel.app')}
             to={0.85}
             hitSlop={8}
             style={s.shareBtn}
@@ -65,8 +55,8 @@ export function SocialScreen({
           <Text style={s.rankPnl}>$0</Text>
         </View>
 
-        {/* period + honest sort */}
-        <View style={s.controls}>
+        <View style={s.rangeRow}>
+          <Text style={s.section}>Top traders</Text>
           <View style={s.ranges}>
             {RANGES.map((r, i) => (
               <PressScale key={r} onPress={() => setRange(i)} to={0.94} style={[s.range, i === range && s.rangeOn]}>
@@ -74,25 +64,10 @@ export function SocialScreen({
               </PressScale>
             ))}
           </View>
-          <View style={s.sortToggle}>
-            <PressScale onPress={() => setSort('today')} to={0.95} style={[s.sortBtn, sort === 'today' && s.sortBtnOn]}>
-              <Text style={[s.sortText, sort === 'today' && s.sortTextOn]}>Today</Text>
-            </PressScale>
-            <PressScale onPress={() => setSort('net')} to={0.95} style={[s.sortBtn, sort === 'net' && s.sortBtnOn]}>
-              <Text style={[s.sortText, sort === 'net' && s.sortTextOn]}>Net</Text>
-            </PressScale>
-          </View>
         </View>
 
-        <Text style={s.caption}>
-          {sort === 'today'
-            ? `Ranked by ${RANGES[range]} gain. Tap “Net” for true unrealized P&L —`
-            : 'Ranked by true unrealized P&L (up or down) — no pump psyop.'}
-          {sort === 'today' ? <Text style={s.captionEm}> not a pump psyop.</Text> : null}
-        </Text>
-
         {rows.map((t) => (
-          <TraderRow key={t.handle} t={t} range={range} onOpen={onOpenTrader} />
+          <TraderRow key={t.handle} t={t} onOpen={onOpenTrader} />
         ))}
       </ScrollView>
     </Screen>
@@ -101,14 +76,11 @@ export function SocialScreen({
 
 function TraderRow({
   t,
-  range,
   onOpen,
 }: {
   t: LeaderEntry;
-  range: number;
   onOpen: (x: { handle: string; name: string; color: string; initial: string }) => void;
 }) {
-  const down = t.netUPnl < 0;
   return (
     <PressScale
       onPress={() => onOpen({ handle: t.handle, name: t.name, color: t.color, initial: t.initial })}
@@ -146,15 +118,7 @@ function TraderRow({
         </View>
       </View>
 
-      <View style={s.right}>
-        <Text style={s.pnl}>+{usd(t.periodPnl)}</Text>
-        <View style={[s.uChip, down ? s.uChipDown : s.uChipUp]}>
-          <Ionicons name={down ? 'arrow-down' : 'arrow-up'} size={10} color={down ? colors.bear : colors.bull} />
-          <Text style={[s.uText, { color: down ? colors.bear : colors.bull }]}>
-            {down ? `${compactUsd(t.toBreakEven)} to break even` : `${compactUsd(t.netUPnl)} up`}
-          </Text>
-        </View>
-      </View>
+      <Text style={s.pnl}>+{usd(t.periodPnl)}</Text>
     </PressScale>
   );
 }
@@ -172,20 +136,13 @@ const s = StyleSheet.create({
   rankValue: { color: colors.accentGlow, fontSize: 18, fontWeight: '700', marginTop: 2 },
   rankPnl: { color: colors.fg, fontSize: 20, fontWeight: '700' },
 
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 6 },
+  rangeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 6 },
+  section: { color: colors.fg, fontSize: 17, fontWeight: '700' },
   ranges: { flexDirection: 'row', gap: 4 },
   range: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: radius.sm },
   rangeOn: { backgroundColor: colors.bgRaised2 },
   rangeText: { color: colors.fgMuted, fontSize: 13, fontWeight: '600' },
   rangeTextOn: { color: colors.fg },
-  sortToggle: { flexDirection: 'row', backgroundColor: colors.bgRaised, borderRadius: radius.pill, padding: 3 },
-  sortBtn: { paddingHorizontal: 13, height: 30, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  sortBtnOn: { backgroundColor: colors.bgRaised2 },
-  sortText: { color: colors.fgMuted, fontSize: 13, fontWeight: '700' },
-  sortTextOn: { color: colors.fg },
-
-  caption: { color: colors.fgFaint, fontSize: 12, lineHeight: 17, marginBottom: 8 },
-  captionEm: { color: colors.fgMuted, fontWeight: '700' },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
   rankBox: { width: 24, alignItems: 'center' },
@@ -201,10 +158,5 @@ const s = StyleSheet.create({
   holding: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.bg },
   holdingInitial: { color: '#fff', fontSize: 9, fontWeight: '800' },
 
-  right: { alignItems: 'flex-end', gap: 5 },
   pnl: { color: colors.bull, fontSize: 17, fontWeight: '800' },
-  uChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.sm },
-  uChipUp: { backgroundColor: colors.bullSoft },
-  uChipDown: { backgroundColor: colors.bearSoft },
-  uText: { fontSize: 11, fontWeight: '700' },
 });
