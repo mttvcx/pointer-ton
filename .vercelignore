@@ -1,0 +1,5 @@
+# This branch (mobile-foundation) carries the Expo / React-Native app (apps/mobile),
+# which the Next.js web build cannot compile (react-native isn't installed at the web
+# root). Ignore it so any accidental Vercel web build of this branch succeeds.
+# The native app ships via Expo/EAS, not Vercel.
+apps/
