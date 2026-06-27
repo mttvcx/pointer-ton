@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '../components/Logo';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { PressScale } from '../components/PressScale';
+import { useAuth } from '../src/auth';
 
 // Founder's grass + sky background — the image IS the screen container.
 const BG = require('../assets/scene/login-field.png');
@@ -78,8 +79,20 @@ function FloatingCoin({ f }: { f: Float }) {
 
 export function LoginScreen({ onEnter }: { onEnter: () => void }) {
   const insets = useSafeAreaInsets();
+  const auth = useAuth();
   const brand = useRef(new Animated.Value(0)).current; // wordmark + bird appear first
   const foot = useRef(new Animated.Value(0)).current; // subtext + buttons fade in last
+
+  // Real mode: once Privy logs the user in (Apple/Google), enter the app.
+  useEffect(() => {
+    if (!auth.demo && auth.isLoggedIn) onEnter();
+  }, [auth.demo, auth.isLoggedIn]);
+
+  // Demo: buttons just enter. Real: kick off Privy OAuth (resolves via the effect).
+  const signIn = (provider: 'apple' | 'google') => {
+    if (auth.demo) return onEnter();
+    auth.loginWithOAuth(provider).catch(() => undefined);
+  };
 
   useEffect(() => {
     Animated.timing(brand, { toValue: 1, duration: 480, delay: 120, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
@@ -105,11 +118,11 @@ export function LoginScreen({ onEnter }: { onEnter: () => void }) {
         <Animated.Text style={[s.tagline, { opacity: foot }]}>Trade anything with{'\n'}the best edge.</Animated.Text>
 
         <Animated.View style={[s.actions, { opacity: foot }]}>
-          <PressScale style={s.apple} onPress={onEnter}>
+          <PressScale style={s.apple} onPress={() => signIn('apple')}>
             <Ionicons name="logo-apple" size={24} color="#000" />
             <Text style={s.appleText}>Sign in with Apple</Text>
           </PressScale>
-          <PressScale style={s.google} onPress={onEnter}>
+          <PressScale style={s.google} onPress={() => signIn('google')}>
             <GoogleIcon size={22} />
             <Text style={s.googleText}>Sign in with Google</Text>
           </PressScale>

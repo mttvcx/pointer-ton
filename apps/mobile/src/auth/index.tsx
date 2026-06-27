@@ -21,6 +21,8 @@ export type AuthState = {
   getToken: () => Promise<string | null>;
   sendCode: (email: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
+  /** Apple/Google OAuth via Privy (REAL only; no-op in demo). */
+  loginWithOAuth: (provider: 'google' | 'apple') => Promise<void>;
   logout: () => Promise<void>;
   /** Sign + broadcast a base64 tx via the RPC the app provides (REAL only). */
   signAndSend: (txBase64: string, rpcUrl: string, token: string) => Promise<string>;
@@ -53,6 +55,7 @@ function DemoAuthProvider({ children }: { children: React.ReactNode }) {
     getToken: async () => null,
     sendCode: async () => {},
     verifyCode: async () => {},
+    loginWithOAuth: async () => {},
     logout: async () => {},
     signAndSend: async () => {
       throw new Error('Trading is off in demo. Sign in with the real build to trade.');

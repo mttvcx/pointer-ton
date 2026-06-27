@@ -11,4 +11,5 @@ module.exports = {
   useLoginWithEmail: disabled,
   useEmbeddedSolanaWallet: disabled,
   getAccessToken: disabled,
+  useLoginWithOAuth: disabled,
 };

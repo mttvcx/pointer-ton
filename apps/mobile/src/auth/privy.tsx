@@ -3,6 +3,7 @@ import {
   PrivyProvider,
   usePrivy,
   useLoginWithEmail,
+  useLoginWithOAuth,
   useEmbeddedSolanaWallet,
   getAccessToken,
 } from '@privy-io/expo';
@@ -26,6 +27,7 @@ export function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
 function Bridge({ children }: { children: React.ReactNode }) {
   const { user, isReady, logout } = usePrivy();
   const { sendCode, loginWithCode } = useLoginWithEmail();
+  const { login: loginOAuth } = useLoginWithOAuth();
   const solana = useEmbeddedSolanaWallet();
   const wallet = solana?.wallets?.[0] ?? null;
 
@@ -42,6 +44,9 @@ function Bridge({ children }: { children: React.ReactNode }) {
     },
     verifyCode: async (email, code) => {
       await loginWithCode({ code, email });
+    },
+    loginWithOAuth: async (provider) => {
+      await loginOAuth({ provider });
     },
     logout: () => logout(),
     signAndSend: async (txBase64, rpcUrl, token) => {
