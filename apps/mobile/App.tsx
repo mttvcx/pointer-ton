@@ -10,6 +10,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { TokenScreen } from './screens/TokenScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SocialScreen } from './screens/SocialScreen';
+import { TraderProfileScreen } from './screens/TraderProfileScreen';
 import { AlertsScreen } from './screens/AlertsScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { LoginScreen } from './screens/LoginScreen';
@@ -60,6 +61,7 @@ function Shell() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<NavTab>('home');
   const [token, setToken] = useState<PulseBundle | null>(null);
+  const [trader, setTrader] = useState<{ handle: string; name?: string; color?: string; initial?: string } | null>(null);
   const [advanced, setAdvanced] = useState(false);
   const { opacity: modeOpacity, committed: adv } = useModeCrossfade(advanced);
   const [entered, setEntered] = useState(false);
@@ -100,21 +102,30 @@ function Shell() {
 
   const go = (t: NavTab) => {
     setToken(null);
+    setTrader(null);
     setTab(t);
   };
 
   return (
     <View style={s.root}>
       <Animated.View style={{ flex: 1, opacity: modeOpacity }}>
-        <AnimatedMount routeKey={token ? `token-${token.token.mint}` : tab}>
+        <AnimatedMount routeKey={token ? `token-${token.token.mint}` : trader ? `trader-${trader.handle}` : tab}>
           {token ? (
             <TokenScreen bundle={token} onBack={() => setToken(null)} advanced={adv} />
+          ) : trader ? (
+            <TraderProfileScreen
+              handle={trader.handle}
+              name={trader.name}
+              color={trader.color}
+              initial={trader.initial}
+              onBack={() => setTrader(null)}
+            />
           ) : tab === 'home' ? (
             <HomeScreen onOpenToken={setToken} advanced={adv} />
           ) : tab === 'search' ? (
             <SearchScreen onOpenToken={setToken} />
           ) : tab === 'social' ? (
-            adv ? <AlertsScreen /> : <SocialScreen />
+            adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={setTrader} />
           ) : (
             <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
           )}
@@ -123,7 +134,7 @@ function Shell() {
 
       <View style={[s.topBar, { height: insets.top }]} pointerEvents="none" />
 
-      {!token ? (
+      {!token && !trader ? (
         <GlassNav
           active={tab}
           onSelect={go}

@@ -13,7 +13,11 @@ type Trader = (typeof LEADERBOARD)[number];
 const RANGES = ['24h', '7d', '30d', 'All'];
 const MEDALS = ['#E3B321', '#B7C0CC', '#C57B3A'];
 
-export function SocialScreen() {
+export function SocialScreen({
+  onOpenTrader,
+}: {
+  onOpenTrader: (t: { handle: string; name: string; color: string; initial: string }) => void;
+}) {
   const insets = useSafeAreaInsets();
   const [range, setRange] = useState(0);
 
@@ -45,34 +49,46 @@ export function SocialScreen() {
         </View>
 
         {LEADERBOARD.map((t) => (
-          <TraderRow key={t.handle} t={t} />
+          <TraderRow key={t.handle} t={t} onOpen={onOpenTrader} />
         ))}
       </ScrollView>
     </Screen>
   );
 }
 
-function TraderRow({ t }: { t: Trader }) {
+function TraderRow({
+  t,
+  onOpen,
+}: {
+  t: Trader;
+  onOpen: (x: { handle: string; name: string; color: string; initial: string }) => void;
+}) {
   const following = useIsFollowing(t.handle);
   return (
     <View style={s.row}>
-      <View style={s.rankBox}>
-        {t.rank <= 3 ? (
-          <View style={[s.medal, { backgroundColor: MEDALS[t.rank - 1] }]}>
-            <Text style={s.medalText}>{t.rank}</Text>
-          </View>
-        ) : (
-          <Text style={s.rankNum}>{t.rank}</Text>
-        )}
-      </View>
-      <View style={[s.avatar, { backgroundColor: t.color }]}>
-        <Text style={s.avatarText}>{t.initial}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={s.name} numberOfLines={1}>{t.name}</Text>
-        <Text style={s.handle}>{t.handle}</Text>
-      </View>
-      <Text style={s.pnl}>{t.pnl}</Text>
+      <PressScale
+        onPress={() => onOpen({ handle: t.handle, name: t.name, color: t.color, initial: t.initial })}
+        to={0.98}
+        style={s.rowMain}
+      >
+        <View style={s.rankBox}>
+          {t.rank <= 3 ? (
+            <View style={[s.medal, { backgroundColor: MEDALS[t.rank - 1] }]}>
+              <Text style={s.medalText}>{t.rank}</Text>
+            </View>
+          ) : (
+            <Text style={s.rankNum}>{t.rank}</Text>
+          )}
+        </View>
+        <View style={[s.avatar, { backgroundColor: t.color }]}>
+          <Text style={s.avatarText}>{t.initial}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.name} numberOfLines={1}>{t.name}</Text>
+          <Text style={s.handle}>{t.handle}</Text>
+        </View>
+        <Text style={s.pnl}>{t.pnl}</Text>
+      </PressScale>
       <PressScale onPress={() => toggleFollow(t.handle)} to={0.88} hitSlop={6} style={[s.followBtn, following && s.followingBtn]}>
         <Ionicons name={following ? 'checkmark' : 'add'} size={15} color={following ? colors.bull : colors.fg} />
         <Text style={[s.followText, following && { color: colors.bull }]}>{following ? 'Following' : 'Follow'}</Text>
@@ -98,6 +114,7 @@ const s = StyleSheet.create({
   rangeText: { color: colors.fgMuted, fontSize: 13 },
   rangeTextOn: { color: colors.fg, fontWeight: '600' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
+  rowMain: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   followBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.bgRaised2, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
   followingBtn: { backgroundColor: colors.accentSoft },
   followText: { color: colors.fg, fontSize: 12, fontWeight: '600' },

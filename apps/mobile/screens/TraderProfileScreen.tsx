@@ -1,0 +1,396 @@
+import React, { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import { PressScale } from '../components/PressScale';
+import { VerifiedBadge } from '../components/VerifiedBadge';
+import { colors, radius } from '../src/theme';
+import { getDemoTrader, type TraderPosition } from '../src/demo/traders';
+import { toggleFollow, useIsFollowing } from '../src/local';
+import { shareText } from '../src/share';
+
+const RANGES = ['24h', '7d', '30d'];
+const RANGE_MULT = [1, 3.1, 6.6];
+
+/* ---- formatters (no Intl — Hermes-safe) ---- */
+function group(int: string): string {
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function usd(n: number, dec = 2): string {
+  const neg = n < 0;
+  const [int, frac] = Math.abs(n).toFixed(dec).split('.');
+  return `${neg ? '-' : ''}$${group(int)}${frac ? '.' + frac : ''}`;
+}
+function compactNum(n: number): string {
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(Math.round(n));
+}
+function fmtAmount(n: number): string {
+  const [int, frac] = n.toFixed(2).split('.');
+  return `${group(int)}.${frac}`;
+}
+
+/** Official X (Twitter) glyph in a subtle rounded square — shown only when the
+ * trader has connected their X account. */
+function XBadge() {
+  return (
+    <View style={s.xBadge}>
+      <Svg width={11} height={11} viewBox="0 0 24 24">
+        <Path
+          d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+          fill={colors.fg}
+        />
+      </Svg>
+    </View>
+  );
+}
+
+/** Green portfolio line + soft area fill. */
+function Sparkline({ data, up }: { data: number[]; up: boolean }) {
+  const W = 360;
+  const H = 150;
+  const stroke = up ? colors.bull : colors.bear;
+  const { line, area, lastX, lastY } = useMemo(() => {
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+    const span = max - min || 1;
+    const pts = data.map((v, i) => {
+      const x = (i / Math.max(1, data.length - 1)) * W;
+      const y = H - ((v - min) / span) * (H - 16) - 8;
+      return [x, y] as const;
+    });
+    const ln = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+    const last = pts[pts.length - 1];
+    return { line: ln, area: `${ln} L${W} ${H} L0 ${H} Z`, lastX: last[0], lastY: last[1] };
+  }, [data]);
+
+  return (
+    <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+      <Defs>
+        <LinearGradient id="pgrad" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={stroke} stopOpacity={0.22} />
+          <Stop offset="1" stopColor={stroke} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      <Path d={area} fill="url(#pgrad)" />
+      <Path d={line} fill="none" stroke={stroke} strokeWidth={2.6} strokeLinejoin="round" strokeLinecap="round" />
+      <Circle cx={lastX} cy={lastY} r={5} fill={stroke} />
+    </Svg>
+  );
+}
+
+type Status = 'open' | 'closed';
+type Kind = 'all' | 'tokens' | 'perps';
+
+export function TraderProfileScreen({
+  handle,
+  name,
+  color,
+  initial,
+  onBack,
+}: {
+  handle: string;
+  name?: string;
+  color?: string;
+  initial?: string;
+  onBack: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const p = useMemo(() => getDemoTrader(handle, { name, color, initial }), [handle, name, color, initial]);
+  const following = useIsFollowing(p.handle);
+  const [range, setRange] = useState(0);
+  const [status, setStatus] = useState<Status>('open');
+  const [kind, setKind] = useState<Kind>('all');
+  const [sortDesc, setSortDesc] = useState(true);
+
+  const base = status === 'open' ? p.open : p.closed;
+  const list = useMemo(() => {
+    const byKind = kind === 'all' ? base : base.filter((x) => (kind === 'perps' ? x.kind === 'perp' : x.kind === 'token'));
+    const metric = (x: TraderPosition) => (status === 'open' ? x.valueUsd : x.pnlUsd);
+    return [...byKind].sort((a, b) => (sortDesc ? metric(b) - metric(a) : metric(a) - metric(b)));
+  }, [base, kind, status, sortDesc]);
+
+  const pnl = p.pnl24hUsd * RANGE_MULT[range];
+  const chartData = range === 0 ? p.chart.slice(-16) : range === 1 ? p.chart.slice(-28) : p.chart;
+  const dollars = Math.floor(p.portfolioUsd);
+  const cents = Math.round((p.portfolioUsd - dollars) * 100);
+
+  return (
+    <View style={s.root}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: insets.top + 6, paddingBottom: insets.bottom + 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* top bar */}
+        <View style={s.topBar}>
+          <PressScale onPress={onBack} to={0.85} hitSlop={8}>
+            <Ionicons name="chevron-back" size={26} color={colors.fgSecondary} />
+          </PressScale>
+          <View style={s.topIcons}>
+            <PressScale onPress={() => setStatus('closed')} to={0.85} hitSlop={8}>
+              <Ionicons name="time-outline" size={22} color={colors.fgSecondary} />
+            </PressScale>
+            <PressScale
+              onPress={() => shareText(`Watch ${p.handle} trade on Pointer — ${usd(p.portfolioUsd, 0)} portfolio.`, 'https://pointer-ton-orcin.vercel.app')}
+              to={0.85}
+              hitSlop={8}
+            >
+              <Ionicons name="share-outline" size={22} color={colors.fgSecondary} />
+            </PressScale>
+          </View>
+        </View>
+
+        {/* identity */}
+        <View style={s.idRow}>
+          <View style={[s.avatar, { backgroundColor: p.color }]}>
+            <Text style={s.avatarText}>{p.initial}</Text>
+          </View>
+          <View style={s.idActions}>
+            <PressScale
+              onPress={() => shareText(`Watch ${p.handle} on Pointer.`, 'https://pointer-ton-orcin.vercel.app')}
+              to={0.9}
+              style={s.dmBtn}
+            >
+              <Ionicons name="paper-plane-outline" size={20} color={colors.fg} />
+            </PressScale>
+            <PressScale onPress={() => toggleFollow(p.handle)} to={0.94} style={[s.followBtn, following && s.followingBtn]}>
+              <Text style={[s.followText, following && s.followingText]}>{following ? 'Following' : 'Follow'}</Text>
+            </PressScale>
+          </View>
+        </View>
+
+        <View style={s.nameRow}>
+          <Text style={s.name} numberOfLines={1}>
+            {p.name}
+          </Text>
+          {p.xConnected ? <XBadge /> : null}
+        </View>
+        <Text style={s.handle}>{p.handle}</Text>
+
+        <View style={s.statRow}>
+          <Text style={s.statNum}>
+            {p.following} <Text style={s.statLabel}>Following</Text>
+          </Text>
+          <Text style={s.statNum}>
+            {compactNum(p.followers)} <Text style={s.statLabel}>Followers</Text>
+          </Text>
+        </View>
+
+        {p.mutuals.length ? (
+          <View style={s.mutualsRow}>
+            <View style={s.mutualStack}>
+              {p.mutuals.map((m, i) => (
+                <View key={i} style={[s.mutualAvatar, { backgroundColor: m.color, marginLeft: i ? -8 : 0 }]} />
+              ))}
+            </View>
+            <Text style={s.mutualsText}>{p.mutuals.length} mutuals following</Text>
+          </View>
+        ) : null}
+
+        <View style={s.metaRow}>
+          <Meta icon="time-outline" text={p.avgHold} />
+          <Meta icon="swap-horizontal" text={`${p.trades} trades`} />
+          <Meta icon="calendar-outline" text={p.joined} />
+        </View>
+
+        {/* portfolio value + range */}
+        <View style={s.pnlRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.value}>
+              {usd(dollars, 0)}
+              <Text style={s.valueCents}>.{String(cents).padStart(2, '0')}</Text>
+            </Text>
+            <Text style={s.pnlSub}>
+              <Text style={s.pnlUp}>+{usd(pnl)}</Text> <Text style={s.pnlRange}>{RANGES[range]}</Text>
+            </Text>
+          </View>
+          <View style={s.ranges}>
+            {RANGES.map((r, i) => (
+              <PressScale key={r} onPress={() => setRange(i)} to={0.92} style={[s.range, i === range && s.rangeOn]}>
+                <Text style={[s.rangeText, i === range && s.rangeTextOn]}>{r}</Text>
+              </PressScale>
+            ))}
+          </View>
+        </View>
+
+        <Sparkline data={chartData} up />
+
+        {/* total cash */}
+        <View style={s.cashCard}>
+          <View style={s.cashIcon}>
+            <Text style={s.cashGlyph}>$</Text>
+          </View>
+          <View>
+            <Text style={s.cashLabel}>Total cash</Text>
+            <Text style={s.cashValue}>{usd(p.totalCashUsd)}</Text>
+          </View>
+        </View>
+
+        {/* positions header */}
+        <View style={s.posHead}>
+          <Text style={s.posTitle}>
+            Positions <Text style={s.posCount}>({base.length})</Text>
+          </Text>
+          <View style={s.statusToggle}>
+            <PressScale onPress={() => setStatus('open')} to={0.95} style={[s.statusBtn, status === 'open' && s.statusBtnOn]}>
+              {status === 'open' ? <View style={s.statusDot} /> : null}
+              <Text style={[s.statusText, status === 'open' && s.statusTextOn]}>Open</Text>
+            </PressScale>
+            <PressScale onPress={() => setStatus('closed')} to={0.95} style={[s.statusBtn, status === 'closed' && s.statusBtnOnDark]}>
+              <Text style={[s.statusText, status === 'closed' && s.statusTextOn]}>Closed</Text>
+            </PressScale>
+          </View>
+        </View>
+
+        {/* kind filter + sort */}
+        <View style={s.filterRow}>
+          <View style={s.kindTabs}>
+            {(['all', 'tokens', 'perps'] as Kind[]).map((k) => (
+              <PressScale key={k} onPress={() => setKind(k)} to={0.95} style={[s.kindTab, kind === k && s.kindTabOn]}>
+                <Text style={[s.kindText, kind === k && s.kindTextOn]}>
+                  {k === 'all' ? 'All' : k === 'tokens' ? 'Tokens' : 'Perps'}
+                </Text>
+              </PressScale>
+            ))}
+          </View>
+          <PressScale onPress={() => setSortDesc((d) => !d)} to={0.9} hitSlop={6} style={s.sortBtn}>
+            <Text style={s.sortText}>Top trades</Text>
+            <Ionicons name={sortDesc ? 'arrow-down' : 'arrow-up'} size={14} color={colors.fgMuted} />
+          </PressScale>
+        </View>
+
+        {list.length ? (
+          list.map((pos, i) => <PositionRow key={`${pos.sym}-${i}`} pos={pos} status={status} />)
+        ) : (
+          <Text style={s.noPos}>No {status} positions</Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+function PositionRow({ pos, status }: { pos: TraderPosition; status: Status }) {
+  return (
+    <View style={s.posRow}>
+      <View style={[s.posIcon, { backgroundColor: pos.color }]}>
+        <Text style={s.posInitial}>{pos.initial}</Text>
+        {pos.verified ? (
+          <View style={s.posVerified}>
+            <VerifiedBadge size={16} />
+          </View>
+        ) : null}
+      </View>
+      <View style={s.posMid}>
+        <Text style={s.posSym} numberOfLines={1}>
+          {pos.sym}
+        </Text>
+        <Text style={s.posSub} numberOfLines={1}>
+          {status === 'closed' ? pos.dateLabel : `${fmtAmount(pos.heldAmount ?? 0)} ${pos.sym}`}
+        </Text>
+      </View>
+      <View style={s.posRight}>
+        <Text style={[s.posValue, status === 'closed' && s.posValueGain]}>
+          {status === 'closed' ? `+${usd(pos.pnlUsd)}` : usd(pos.valueUsd)}
+        </Text>
+        <Text style={s.posPct}>▲ {pos.pnlPct.toFixed(2)}%</Text>
+      </View>
+    </View>
+  );
+}
+
+function Meta({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }) {
+  return (
+    <View style={s.meta}>
+      <Ionicons name={icon} size={14} color={colors.fgMuted} />
+      <Text style={s.metaText}>{text}</Text>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topIcons: { flexDirection: 'row', gap: 20 },
+
+  idRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  idActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dmBtn: { width: 48, height: 44, borderRadius: 12, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' },
+  followBtn: { backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 26, height: 44, alignItems: 'center', justifyContent: 'center' },
+  followingBtn: { backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
+  followText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  followingText: { color: colors.fgSecondary },
+
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 14 },
+  name: { color: colors.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.5, flexShrink: 1 },
+  xBadge: { width: 24, height: 24, borderRadius: 7, backgroundColor: colors.bgRaised2, alignItems: 'center', justifyContent: 'center' },
+  handle: { color: colors.fgMuted, fontSize: 16, marginTop: 2 },
+
+  statRow: { flexDirection: 'row', gap: 24, marginTop: 16 },
+  statNum: { color: colors.fg, fontSize: 16, fontWeight: '800' },
+  statLabel: { color: colors.fgMuted, fontWeight: '500' },
+
+  mutualsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+  mutualStack: { flexDirection: 'row' },
+  mutualAvatar: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: colors.bg },
+  mutualsText: { color: colors.fgSecondary, fontSize: 15 },
+
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 14 },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  metaText: { color: colors.fgMuted, fontSize: 14 },
+
+  pnlRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 26 },
+  value: { color: colors.fg, fontSize: 40, fontWeight: '800', letterSpacing: -1.2 },
+  valueCents: { color: colors.fgFaint },
+  pnlSub: { fontSize: 16, marginTop: 4 },
+  pnlUp: { color: colors.bull, fontWeight: '700' },
+  pnlRange: { color: colors.fgMuted },
+  ranges: { flexDirection: 'row', gap: 5, marginTop: 8 },
+  range: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.sm },
+  rangeOn: { backgroundColor: colors.bgRaised2 },
+  rangeText: { color: colors.fgMuted, fontSize: 14, fontWeight: '600' },
+  rangeTextOn: { color: colors.fg },
+
+  cashCard: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 18 },
+  cashIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' },
+  cashGlyph: { color: colors.fg, fontSize: 22, fontWeight: '700' },
+  cashLabel: { color: colors.fgMuted, fontSize: 15 },
+  cashValue: { color: colors.fg, fontSize: 22, fontWeight: '700', marginTop: 2 },
+
+  posHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28 },
+  posTitle: { color: colors.fg, fontSize: 22, fontWeight: '800' },
+  posCount: { color: colors.fgFaint, fontWeight: '700' },
+  statusToggle: { flexDirection: 'row', backgroundColor: colors.bgRaised, borderRadius: radius.pill, padding: 3 },
+  statusBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 32, borderRadius: radius.pill },
+  statusBtnOn: { backgroundColor: colors.accentSoft },
+  statusBtnOnDark: { backgroundColor: colors.bgRaised2 },
+  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accentGlow },
+  statusText: { color: colors.fgMuted, fontSize: 14, fontWeight: '700' },
+  statusTextOn: { color: colors.fg },
+
+  filterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
+  kindTabs: { flexDirection: 'row', gap: 8 },
+  kindTab: { paddingHorizontal: 16, height: 34, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  kindTabOn: { backgroundColor: colors.bgRaised2, borderColor: colors.borderStrong },
+  kindText: { color: colors.fgMuted, fontSize: 14, fontWeight: '700' },
+  kindTextOn: { color: colors.fg },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  sortText: { color: colors.fgMuted, fontSize: 14, fontWeight: '600' },
+
+  noPos: { color: colors.fgFaint, fontSize: 15, textAlign: 'center', paddingVertical: 40 },
+
+  posRow: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13 },
+  posIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  posInitial: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  posVerified: { position: 'absolute', bottom: -1, right: -2 },
+  posMid: { flex: 1, gap: 3 },
+  posSym: { color: colors.fg, fontSize: 18, fontWeight: '700' },
+  posSub: { color: colors.fgMuted, fontSize: 13.5 },
+  posRight: { alignItems: 'flex-end', gap: 3 },
+  posValue: { color: colors.fg, fontSize: 18, fontWeight: '700' },
+  posValueGain: { color: colors.bull },
+  posPct: { color: colors.bull, fontSize: 14, fontWeight: '600' },
+});
