@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   FlatList,
+  Image,
   type LayoutChangeEvent,
   Linking,
   Pressable,
@@ -21,10 +22,12 @@ import { CoinIcon } from './CoinIcon';
 import { ProtocolIcon } from './ProtocolIcon';
 import { GlassTabs } from './GlassTabs';
 import { DragSheet } from './DragSheet';
+import { ChainIcon } from './ChainIcon';
 import { getPulseFeed, explainToken } from '../src/api/endpoints';
 import { getDemoPulse } from '../src/demo/pulseDemo';
 import { useTradeSubmit } from '../src/trade/useTradeSubmit';
 import { useQuickBuyPrefs, type SecondButton } from '../src/local';
+import { showToast } from '../src/toast';
 import { ageShort, compactUsd } from '../src/format';
 import { colors, radius } from '../src/theme';
 import type { PulseBundle, PulseColumn, PulseFeed } from '../src/types';
@@ -90,16 +93,16 @@ function passesFilters(b: PulseBundle, f: Filters): boolean {
 }
 
 // Demo tracked-tweets carousel (wire to the real X-monitor feed later).
+const tweetPic = (h: string) => `https://api.dicebear.com/9.x/avataaars/png?seed=${encodeURIComponent(h)}&size=64`;
 const DEMO_TWEETS = [
-  { handle: 'cupseyy', text: 'aped $piss — chart primed, 30 buys in 8h' },
-  { handle: 'Euris', text: '$SPCX69 holding the 8% dip, smart money still in' },
-  { handle: 'absol', text: 'new CA from a wallet I track → $XGIFT, 827% 24h' },
-  { handle: 'kev', text: '$world.xyz quietly climbing, 174k liq' },
-  { handle: 'Tibbz', text: 'watching $RTM, 993% but liq thin — careful' },
+  { handle: 'cupseyy', avatar: tweetPic('cupseyy'), text: 'aped $piss — chart primed, 30 buys in 8h' },
+  { handle: 'Euris', avatar: tweetPic('Euris'), text: '$SPCX69 holding the 8% dip, smart money still in' },
+  { handle: 'absol', avatar: tweetPic('absol'), text: 'new CA from a wallet I track → $XGIFT, 827% 24h' },
+  { handle: 'kev', avatar: tweetPic('kev'), text: '$world.xyz quietly climbing, 174k liq' },
+  { handle: 'Tibbz', avatar: tweetPic('Tibbz'), text: 'watching $RTM, 993% but liq thin — careful' },
 ];
 
 type MarqueeEntity = { kind: 'ticker' | 'handle' | 'ca'; value: string };
-const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 // Bounded alternation (no unbounded quantifiers) → safe against ReDoS; matched
 // values are only ever displayed, never executed.
 const ENTITY_RE = /(\$[A-Za-z][A-Za-z0-9._]{0,14}|@[A-Za-z0-9_]{1,15}|[1-9A-HJ-NP-Za-km-z]{32,44})/g;
@@ -147,7 +150,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(0);
   const [aiMint, setAiMint] = useState<string | null>(null);
-  const [marqueeEntity, setMarqueeEntity] = useState<MarqueeEntity | null>(null);
+  const [enlarged, setEnlarged] = useState<{ uri?: string | null; symbol: string } | null>(null);
   const [chain, setChain] = useState('sol');
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -183,16 +186,21 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
 
   const onQuick = useCallback(
     async (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => {
-      // No real wallet (demo / not signed in) → open the full sheet instead.
+      const sym = (b.token.symbol ?? '?').replace(/^\$/, '');
+      const amt = amountSol ?? qb.sol;
+      // No real wallet (demo / not signed in) → simulate the fill + drop into the token.
       if (!hasWallet) {
+        Vibration.vibrate(12);
+        showToast(`${side === 'buy' ? 'Bought' : 'Sold'} ${amt} SOL of ${sym}`, { sub: 'Demo order filled', kind: 'success' });
         onOpenToken(b);
         return;
       }
       try {
         setBusy({ mint: b.token.mint, side });
         Vibration.vibrate(8);
-        await submit({ mint: b.token.mint, side, amountSol: amountSol ?? qb.sol });
+        await submit({ mint: b.token.mint, side, amountSol: amt });
         Vibration.vibrate(18);
+        showToast(`${side === 'buy' ? 'Bought' : 'Sold'} ${amt} SOL of ${sym}`, { kind: 'success' });
       } catch (e) {
         Alert.alert(side === 'buy' ? 'Buy failed' : 'Sell failed', e instanceof Error ? e.message : 'Try again.');
       } finally {
@@ -207,14 +215,31 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
     setAiMint((m) => (m === b.token.mint ? null : b.token.mint));
   }, []);
 
+  // Marquee taps: @handle → X, $ticker / CA → the referenced token's page.
+  const onMarqueePress = useCallback(
+    (e: MarqueeEntity) => {
+      if (e.kind === 'handle') {
+        Linking.openURL(`https://x.com/${e.value.replace(/^@/, '')}`).catch(() => undefined);
+        return;
+      }
+      const needle = e.value.replace(/^\$/, '').toLowerCase();
+      const all = data.flat();
+      const hit =
+        all.find((b) => (b.token.symbol ?? '').replace(/^\$/, '').toLowerCase() === needle) ??
+        all.find((b) => (b.token.mint ?? '').toLowerCase() === e.value.toLowerCase());
+      if (hit) onOpenToken(hit);
+      else showToast(`${e.value} isn't on the board right now`, { kind: 'info' });
+    },
+    [data, onOpenToken],
+  );
+
   return (
     <View style={[s.root, { paddingTop: insets.top + 6 }]}>
       <View style={s.header}>
         <Text style={s.title}>Pulse</Text>
-        {!hasWallet ? <Text style={s.demoTag}>demo · tap a row to trade</Text> : null}
       </View>
 
-      <TweetMarquee onPressEntity={setMarqueeEntity} />
+      <TweetMarquee onPressEntity={onMarqueePress} />
 
       {/* Chain selector + filters */}
       <View style={s.controls}>
@@ -295,21 +320,26 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
               onOpen={onOpenToken}
               onLongPressAi={onLongPressAi}
               onQuick={onQuick}
+              onEnlarge={(b) => setEnlarged({ uri: b.token.image_url, symbol: (b.token.symbol ?? '?').replace(/^\$/, '') })}
+              onEnlargeEnd={() => setEnlarged(null)}
             />
           )}
         />
       )}
 
-      {marqueeEntity ? (
-        <DragSheet visible onClose={() => setMarqueeEntity(null)}>
-          <MarqueeAiSheet entity={marqueeEntity} />
-        </DragSheet>
-      ) : null}
-
       {filtersOpen ? (
         <DragSheet visible onClose={() => setFiltersOpen(false)}>
           <FilterSheet filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)} />
         </DragSheet>
+      ) : null}
+
+      {enlarged ? (
+        <View style={s.enlargeOverlay} pointerEvents="none">
+          <View style={s.enlargeCard}>
+            <CoinIcon uri={enlarged.uri} symbol={enlarged.symbol} size={208} />
+            <Text style={s.enlargeSym}>{enlarged.symbol}</Text>
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -328,6 +358,8 @@ function TokenRow({
   onOpen,
   onLongPressAi,
   onQuick,
+  onEnlarge,
+  onEnlargeEnd,
 }: {
   bundle: PulseBundle;
   accent: string;
@@ -341,6 +373,8 @@ function TokenRow({
   onOpen: (b: PulseBundle) => void;
   onLongPressAi: (b: PulseBundle) => void;
   onQuick: (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => void;
+  onEnlarge: (b: PulseBundle) => void;
+  onEnlargeEnd: () => void;
 }) {
   const { token, snapshot } = bundle;
   const sym = (token.symbol ?? '?').replace(/^\$/, '');
@@ -362,8 +396,15 @@ function TokenRow({
         delayLongPress={240}
         style={s.row}
       >
-        {/* Avatar always opens the token (even in Ultra, where the row buys) */}
-        <Pressable onPress={() => onOpen(bundle)} hitSlop={4} style={s.coinWrap}>
+        {/* Tap opens the token; press-and-hold enlarges the avatar (web hover-zoom). */}
+        <Pressable
+          onPress={() => onOpen(bundle)}
+          onLongPress={() => onEnlarge(bundle)}
+          onPressOut={onEnlargeEnd}
+          delayLongPress={260}
+          hitSlop={4}
+          style={s.coinWrap}
+        >
           <CoinIcon uri={token.image_url} symbol={sym} size={42} />
           <ProtocolIcon launchPad={token.launch_pad} size={16} style={s.protoBadge} />
         </Pressable>
@@ -496,9 +537,9 @@ function ChainPill({ chain, active, onPress }: { chain: ChainDef; active: boolea
   return (
     <Pressable onPress={onPress} style={[s.chainPill, active && s.chainPillActive]}>
       {chain.id === 'all' ? (
-        <Ionicons name="apps" size={12} color={active ? colors.fg : colors.fgMuted} />
+        <Ionicons name="apps" size={13} color={active ? colors.fg : colors.fgMuted} />
       ) : (
-        <View style={[s.chainDot, { backgroundColor: chain.color }]} />
+        <ChainIcon id={chain.id} size={17} />
       )}
       <Text style={[s.chainText, active && s.chainTextActive]}>{chain.label}</Text>
     </Pressable>
@@ -610,7 +651,7 @@ function TweetMarquee({ onPressEntity }: { onPressEntity: (e: MarqueeEntity) => 
       {DEMO_TWEETS.map((t, i) => (
         <View key={`${first ? 'a' : 'b'}-${i}`} style={s.tweetChip}>
           <View style={s.tweetAvatar}>
-            <Text style={s.tweetInitial}>{t.handle.charAt(0).toUpperCase()}</Text>
+            <Image source={{ uri: t.avatar }} style={s.tweetAvatarImg} />
           </View>
           <Text style={s.tweetHandle} onPress={() => onPressEntity({ kind: 'handle', value: '@' + t.handle })}>
             @{t.handle}
@@ -638,52 +679,6 @@ function TweetMarquee({ onPressEntity }: { onPressEntity: (e: MarqueeEntity) => 
   );
 }
 
-/** Drag-up AI popover for a tapped marquee entity — real AI brief for a contract,
- * tracked-mention digest for a $ticker / @handle (no fabricated metrics). */
-function MarqueeAiSheet({ entity }: { entity: MarqueeEntity }) {
-  const isMint = entity.kind === 'ca' && MINT_RE.test(entity.value);
-  const needle = entity.value.toLowerCase();
-  const mentions = DEMO_TWEETS.filter(
-    (t) => '@' + t.handle.toLowerCase() === needle || t.text.toLowerCase().includes(needle),
-  );
-  const kindLabel = entity.kind === 'handle' ? 'tracked trader' : entity.kind === 'ca' ? 'contract' : 'ticker';
-
-  return (
-    <View style={s.mqSheet}>
-      <View style={s.mqHead}>
-        <Ionicons name="sparkles" size={15} color={colors.accentGlow} />
-        <Text style={s.mqTitle} numberOfLines={1}>
-          {entity.value}
-        </Text>
-        <Text style={s.mqKind}>{kindLabel}</Text>
-      </View>
-
-      {isMint ? (
-        <AiBrief mint={entity.value} />
-      ) : (
-        <>
-          <Text style={s.mqSummary}>
-            {entity.kind === 'handle'
-              ? `${entity.value} is one of the traders you track. Recent calls:`
-              : `Pointer is tracking ${entity.value} across traders you follow — ${mentions.length} recent mention${mentions.length === 1 ? '' : 's'}.`}
-          </Text>
-          {mentions.length ? (
-            mentions.map((t, i) => (
-              <View key={i} style={s.mqMention}>
-                <Text style={s.mqMentionHandle}>@{t.handle}</Text>
-                <Text style={s.mqMentionText}>{t.text}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={s.aiMuted}>No tracked mentions yet.</Text>
-          )}
-          <Text style={s.mqFoot}>Open the token screen for the full AI breakdown + chart.</Text>
-        </>
-      )}
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
 
@@ -691,15 +686,20 @@ const s = StyleSheet.create({
   title: { color: colors.fg, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
   demoTag: { color: colors.fgFaint, fontSize: 11, fontWeight: '600' },
 
+  enlargeOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.82)', alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  enlargeCard: { alignItems: 'center', gap: 16 },
+  enlargeSym: { color: colors.fg, fontSize: 22, fontWeight: '800' },
+
   marqueeWrap: { height: 30, marginTop: 12, marginHorizontal: 16, borderRadius: radius.sm, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', justifyContent: 'center' },
   marqueeTrack: { flexDirection: 'row', paddingLeft: 12 },
   marqueeStrip: { flexDirection: 'row', alignItems: 'center' },
   tweetChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 22 },
   tweetAvatar: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   tweetInitial: { color: colors.accentGlow, fontSize: 9, fontWeight: '800' },
-  tweetHandle: { color: colors.fgSecondary, fontSize: 11.5, fontWeight: '700' },
+  tweetHandle: { color: colors.accentGlow, fontSize: 11.5, fontWeight: '700', textDecorationLine: 'underline' },
   tweetText: { color: colors.fgMuted, fontSize: 11.5 },
-  tweetEntity: { color: colors.accentGlow, fontWeight: '700' },
+  tweetAvatarImg: { width: 16, height: 16, borderRadius: 8 },
+  tweetEntity: { color: colors.accentGlow, fontWeight: '700', textDecorationLine: 'underline' },
 
   mqSheet: { paddingHorizontal: 18, paddingTop: 2, paddingBottom: 14, gap: 10 },
   mqHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },

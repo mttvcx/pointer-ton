@@ -27,6 +27,12 @@ function minsAgo(mins: number): string {
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
+/** Deterministic colorful demo avatar per symbol (so rows show a pic, not a
+ * letter). Swap for real token logos when the live feed provides image_url. */
+function demoPic(symbol: string): string {
+  return `https://api.dicebear.com/9.x/shapes/png?seed=${encodeURIComponent(symbol)}&size=120`;
+}
+
 /**
  * Build a fake, valid-LOOKING base58 mint (~44 chars) deterministically from a
  * seed so it's stable across renders but obviously not a real account. The seed
@@ -71,7 +77,7 @@ function toBundle(d: DemoSpec): PulseBundle {
     symbol: d.symbol,
     name: d.name,
     decimals: 6,
-    image_url: null,
+    image_url: demoPic(d.symbol),
     description: null,
     twitter_handle: d.twitter,
     telegram_url: d.telegram,

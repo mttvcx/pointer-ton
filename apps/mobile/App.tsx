@@ -17,6 +17,7 @@ import { LoginScreen } from './screens/LoginScreen';
 import { OnboardingFlow } from './screens/OnboardingFlow';
 import { SettingsScreen, type Section } from './screens/SettingsScreen';
 import { GlassNav, type NavTab } from './components/GlassNav';
+import { ToastHost } from './components/Toast';
 import { colors } from './src/theme';
 import type { PulseBundle } from './src/types';
 
@@ -143,6 +144,8 @@ function Shell() {
           onToggleAdvanced={() => setAdvanced((a) => !a)}
         />
       ) : null}
+
+      <ToastHost />
     </View>
   );
 }
