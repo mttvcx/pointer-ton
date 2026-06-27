@@ -5,6 +5,8 @@
  * backend ships a public-profile endpoint.
  */
 
+import { LEADERBOARD } from '../demo';
+
 export type TraderPosition = {
   sym: string;
   name: string;
@@ -36,6 +38,10 @@ export type DemoTraderProfile = {
   joined: string;
   portfolioUsd: number;
   pnl24hUsd: number;
+  /** True current unrealized P&L (can be NEGATIVE) — the honest "are they actually
+   * up or down" number, vs the cherry-picked period gain. */
+  netUPnlUsd: number;
+  toBreakEvenUsd: number;
   totalCashUsd: number;
   /** Normalized 0..1 portfolio series (oldest → newest). */
   chart: number[];
@@ -91,6 +97,9 @@ export function getDemoTrader(
 
   const portfolioUsd = 40_000 + rng() * 900_000;
   const pnl24hUsd = (0.05 + rng() * 0.3) * portfolioUsd;
+  // ~30% of traders are actually underwater overall despite a green period — the
+  // "psyop" the leaderboard should expose (uPNL up OR down, distance to break-even).
+  const netUPnlUsd = rng() < 0.3 ? -portfolioUsd * (0.15 + rng() * 0.5) : portfolioUsd * (0.1 + rng() * 0.7);
 
   // Mostly-rising green series with light noise.
   const chart: number[] = [];
@@ -157,9 +166,51 @@ export function getDemoTrader(
     joined: `Joined ${pick(MONTHS)} 2025`,
     portfolioUsd,
     pnl24hUsd,
+    netUPnlUsd,
+    toBreakEvenUsd: netUPnlUsd < 0 ? -netUPnlUsd : 0,
     totalCashUsd: 500 + rng() * 12_000,
     chart,
     open,
     closed,
   };
 }
+
+export type LeaderHolding = { sym: string; color: string; initial: string };
+export type LeaderEntry = {
+  rank: number;
+  handle: string;
+  name: string;
+  color: string;
+  initial: string;
+  xConnected: boolean;
+  periodPnl: number;
+  netUPnl: number;
+  toBreakEven: number;
+  holdings: LeaderHolding[];
+};
+
+const PERIOD_MULT = [1, 3.2, 6.5, 12];
+
+/** Leaderboard rows derived from the same per-handle profiles, so a row's numbers
+ * match the profile you open. `sort` flips between today's gain (FOMO) and net
+ * unrealized P&L (the honest "are they actually up" ranking). */
+export function getLeaderboard(period: number, sort: 'today' | 'net'): LeaderEntry[] {
+  const mult = PERIOD_MULT[period] ?? 1;
+  const rows = LEADERBOARD.map((h) => {
+    const t = getDemoTrader(h.handle, { name: h.name, color: h.color, initial: h.initial });
+    return {
+      handle: h.handle,
+      name: h.name,
+      color: h.color,
+      initial: h.initial,
+      xConnected: t.xConnected,
+      periodPnl: t.pnl24hUsd * mult,
+      netUPnl: t.netUPnlUsd,
+      toBreakEven: t.toBreakEvenUsd,
+      holdings: t.open.slice(0, 3).map((p) => ({ sym: p.sym, color: p.color, initial: p.initial })),
+    };
+  });
+  rows.sort((a, b) => (sort === 'net' ? b.netUPnl - a.netUPnl : b.periodPnl - a.periodPnl));
+  return rows.map((r, i) => ({ ...r, rank: i + 1 }));
+}
+

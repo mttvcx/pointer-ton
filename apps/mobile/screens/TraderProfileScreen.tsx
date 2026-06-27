@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { PressScale } from '../components/PressScale';
 import { VerifiedBadge } from '../components/VerifiedBadge';
+import { XBadge } from '../components/XBadge';
 import { colors, radius } from '../src/theme';
 import { getDemoTrader, type TraderPosition } from '../src/demo/traders';
 import { toggleFollow, useIsFollowing } from '../src/local';
@@ -30,21 +31,6 @@ function compactNum(n: number): string {
 function fmtAmount(n: number): string {
   const [int, frac] = n.toFixed(2).split('.');
   return `${group(int)}.${frac}`;
-}
-
-/** Official X (Twitter) glyph in a subtle rounded square — shown only when the
- * trader has connected their X account. */
-function XBadge() {
-  return (
-    <View style={s.xBadge}>
-      <Svg width={11} height={11} viewBox="0 0 24 24">
-        <Path
-          d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-          fill={colors.fg}
-        />
-      </Svg>
-    </View>
-  );
 }
 
 /** Green portfolio line + soft area fill. */
@@ -205,6 +191,13 @@ export function TraderProfileScreen({
             <Text style={s.pnlSub}>
               <Text style={s.pnlUp}>+{usd(pnl)}</Text> <Text style={s.pnlRange}>{RANGES[range]}</Text>
             </Text>
+            <View style={s.uRow}>
+              <Ionicons name={p.netUPnlUsd < 0 ? 'arrow-down' : 'arrow-up'} size={12} color={p.netUPnlUsd < 0 ? colors.bear : colors.bull} />
+              <Text style={[s.uTxt, { color: p.netUPnlUsd < 0 ? colors.bear : colors.bull }]}>
+                {p.netUPnlUsd < 0 ? `${usd(p.toBreakEvenUsd, 0)} to break even` : `${usd(p.netUPnlUsd, 0)} unrealized`}
+              </Text>
+              <Text style={s.uLabel}>net</Text>
+            </View>
           </View>
           <View style={s.ranges}>
             {RANGES.map((r, i) => (
@@ -348,6 +341,9 @@ const s = StyleSheet.create({
   pnlSub: { fontSize: 16, marginTop: 4 },
   pnlUp: { color: colors.bull, fontWeight: '700' },
   pnlRange: { color: colors.fgMuted },
+  uRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  uTxt: { fontSize: 13, fontWeight: '700' },
+  uLabel: { color: colors.fgFaint, fontSize: 11, fontWeight: '600', marginLeft: 2 },
   ranges: { flexDirection: 'row', gap: 5, marginTop: 8 },
   range: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.sm },
   rangeOn: { backgroundColor: colors.bgRaised2 },
