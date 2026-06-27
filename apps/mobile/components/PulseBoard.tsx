@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,6 +8,7 @@ import {
   type LayoutChangeEvent,
   Linking,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   Vibration,
@@ -43,6 +44,50 @@ const COLS: ColDef[] = [
   { key: 'stretch', label: 'Stretch', accent: colors.warn },
   { key: 'migrated', label: 'Migrated', accent: colors.bull },
 ];
+
+type ChainDef = { id: string; label: string; color: string };
+// Solana-first: only `sol`/`all` carry demo data; other chains render an honest
+// "coming" state until the backend serves their feeds. USDC routes the buy on any
+// chain (FOMO-style), so this only gates which tokens you VIEW.
+const CHAINS: ChainDef[] = [
+  { id: 'all', label: 'All', color: colors.fgSecondary },
+  { id: 'sol', label: 'SOL', color: '#14F195' },
+  { id: 'eth', label: 'ETH', color: '#627EEA' },
+  { id: 'base', label: 'Base', color: '#0052FF' },
+  { id: 'bnb', label: 'BNB', color: '#F0B90B' },
+];
+
+type Filters = { minVol: number; minMc: number; minHolders: number };
+const NO_FILTERS: Filters = { minVol: 0, minMc: 0, minHolders: 0 };
+const VOL_OPTS = [
+  { label: 'Any', value: 0 },
+  { label: '$10K', value: 10_000 },
+  { label: '$50K', value: 50_000 },
+  { label: '$250K', value: 250_000 },
+  { label: '$1M', value: 1_000_000 },
+];
+const MC_OPTS = [
+  { label: 'Any', value: 0 },
+  { label: '$50K', value: 50_000 },
+  { label: '$250K', value: 250_000 },
+  { label: '$1M', value: 1_000_000 },
+  { label: '$10M', value: 10_000_000 },
+];
+const HOLDER_OPTS = [
+  { label: 'Any', value: 0 },
+  { label: '50', value: 50 },
+  { label: '250', value: 250 },
+  { label: '1K', value: 1_000 },
+  { label: '5K', value: 5_000 },
+];
+
+function passesFilters(b: PulseBundle, f: Filters): boolean {
+  const snap = b.snapshot;
+  if (f.minVol && (snap?.volume_24h_usd ?? 0) < f.minVol) return false;
+  if (f.minMc && (snap?.market_cap_usd ?? 0) < f.minMc) return false;
+  if (f.minHolders && (snap?.holder_count ?? 0) < f.minHolders) return false;
+  return true;
+}
 
 // Demo tracked-tweets carousel (wire to the real X-monitor feed later).
 const DEMO_TWEETS = [
@@ -103,21 +148,27 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const [active, setActive] = useState(0);
   const [aiMint, setAiMint] = useState<string | null>(null);
   const [marqueeEntity, setMarqueeEntity] = useState<MarqueeEntity | null>(null);
+  const [chain, setChain] = useState('sol');
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [busy, setBusy] = useState<{ mint: string; side: 'buy' | 'sell' } | null>(null);
   const { submit, hasWallet } = useTradeSubmit();
   const qb = useQuickBuyPrefs();
 
   const q = useQuery({
-    queryKey: ['pulse-board', 'sol'],
+    queryKey: ['pulse-board', chain],
     queryFn: async () => {
+      // `all` uses Solana data for now (Solana-first); demo fallback only for the
+      // chains we actually have demo tokens for.
+      const fetchChain = chain === 'all' ? 'sol' : chain;
+      const allowDemo = chain === 'sol' || chain === 'all';
       const fetchCol = (c: PulseColumn) =>
-        getPulseFeed(c, 'sol').catch(() => ({ items: [] } as unknown as PulseFeed));
+        getPulseFeed(c, fetchChain).catch(() => ({ items: [] } as unknown as PulseFeed));
       const [n, st, m] = await Promise.all(COLS.map((c) => fetchCol(c.key)));
-      // Live feed first; fall back to demo data so the screener is never empty.
       return [
-        n.items?.length ? n.items : getDemoPulse('new'),
-        st.items?.length ? st.items : getDemoPulse('stretch'),
-        m.items?.length ? m.items : getDemoPulse('migrated'),
+        n.items?.length ? n.items : allowDemo ? getDemoPulse('new') : [],
+        st.items?.length ? st.items : allowDemo ? getDemoPulse('stretch') : [],
+        m.items?.length ? m.items : allowDemo ? getDemoPulse('migrated') : [],
       ] as PulseBundle[][];
     },
     refetchInterval: 15_000,
@@ -127,6 +178,8 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const data = q.data ?? [[], [], []];
   const items = data[active] ?? [];
   const accent = COLS[active].accent;
+  const filtered = useMemo(() => items.filter((b) => passesFilters(b, filters)), [items, filters]);
+  const activeFilters = (filters.minVol ? 1 : 0) + (filters.minMc ? 1 : 0) + (filters.minHolders ? 1 : 0);
 
   const onQuick = useCallback(
     async (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => {
@@ -163,10 +216,39 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
 
       <TweetMarquee onPressEntity={setMarqueeEntity} />
 
+      {/* Chain selector + filters */}
+      <View style={s.controls}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chainScroll} contentContainerStyle={s.chainRow}>
+          {CHAINS.map((c) => (
+            <ChainPill
+              key={c.id}
+              chain={c}
+              active={chain === c.id}
+              onPress={() => {
+                setChain(c.id);
+                setAiMint(null);
+              }}
+            />
+          ))}
+        </ScrollView>
+        <Pressable
+          onPress={() => setFiltersOpen(true)}
+          hitSlop={6}
+          style={[s.filterBtn, activeFilters > 0 && s.filterBtnActive]}
+        >
+          <Ionicons name="options-outline" size={18} color={activeFilters > 0 ? colors.accentGlow : colors.fgSecondary} />
+          {activeFilters > 0 ? (
+            <View style={s.filterBadge}>
+              <Text style={s.filterBadgeText}>{activeFilters}</Text>
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
+
       {/* Column tabs — glassy, matching the bottom nav island */}
       <GlassTabs
         style={s.glassTabs}
-        tabs={COLS.map((c, i) => ({ key: c.key, label: c.label, count: data[i].length, accent: c.accent }))}
+        tabs={COLS.map((c, i) => ({ key: c.key, label: c.label, count: data[i].filter((b) => passesFilters(b, filters)).length, accent: c.accent }))}
         activeIndex={active}
         onChange={(i) => {
           setActive(i);
@@ -178,14 +260,25 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
         <ActivityIndicator color={colors.accent} style={{ marginTop: 60 }} />
       ) : (
         <FlatList
-          data={items}
+          data={filtered}
           keyExtractor={(it) => it.token.mint}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 8, paddingBottom: insets.bottom + 96 }}
           ListEmptyComponent={
             <View style={s.empty}>
-              <Ionicons name="pulse" size={22} color={colors.fgFaint} />
-              <Text style={s.emptyText}>Quiet in {COLS[active].label} right now.</Text>
+              <Ionicons name={items.length ? 'options-outline' : 'pulse'} size={22} color={colors.fgFaint} />
+              <Text style={s.emptyText}>
+                {items.length
+                  ? 'No tokens match your filters.'
+                  : chain === 'sol' || chain === 'all'
+                    ? `Quiet in ${COLS[active].label} right now.`
+                    : `Solana-first for now — ${CHAINS.find((c) => c.id === chain)?.label ?? 'this chain'} feeds coming soon.`}
+              </Text>
+              {items.length ? (
+                <Pressable onPress={() => setFilters(NO_FILTERS)} style={s.emptyClear}>
+                  <Text style={s.emptyClearText}>Clear filters</Text>
+                </Pressable>
+              ) : null}
             </View>
           }
           renderItem={({ item }) => (
@@ -210,6 +303,12 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
       {marqueeEntity ? (
         <DragSheet visible onClose={() => setMarqueeEntity(null)}>
           <MarqueeAiSheet entity={marqueeEntity} />
+        </DragSheet>
+      ) : null}
+
+      {filtersOpen ? (
+        <DragSheet visible onClose={() => setFiltersOpen(false)}>
+          <FilterSheet filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)} />
         </DragSheet>
       ) : null}
     </View>
@@ -393,6 +492,71 @@ function AiBrief({ mint }: { mint: string }) {
   );
 }
 
+function ChainPill({ chain, active, onPress }: { chain: ChainDef; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[s.chainPill, active && s.chainPillActive]}>
+      {chain.id === 'all' ? (
+        <Ionicons name="apps" size={12} color={active ? colors.fg : colors.fgMuted} />
+      ) : (
+        <View style={[s.chainDot, { backgroundColor: chain.color }]} />
+      )}
+      <Text style={[s.chainText, active && s.chainTextActive]}>{chain.label}</Text>
+    </Pressable>
+  );
+}
+
+function FilterSheet({
+  filters,
+  onChange,
+  onClose,
+}: {
+  filters: Filters;
+  onChange: (f: Filters) => void;
+  onClose: () => void;
+}) {
+  return (
+    <View style={s.filterSheet}>
+      <Text style={s.filterTitle}>Filters</Text>
+      <FilterGroup label="Min 24h volume" opts={VOL_OPTS} value={filters.minVol} onPick={(v) => onChange({ ...filters, minVol: v })} />
+      <FilterGroup label="Min market cap" opts={MC_OPTS} value={filters.minMc} onPick={(v) => onChange({ ...filters, minMc: v })} />
+      <FilterGroup label="Min holders" opts={HOLDER_OPTS} value={filters.minHolders} onPick={(v) => onChange({ ...filters, minHolders: v })} />
+      <View style={s.filterActions}>
+        <Pressable onPress={() => onChange(NO_FILTERS)} style={s.filterReset}>
+          <Text style={s.filterResetText}>Reset</Text>
+        </Pressable>
+        <Pressable onPress={onClose} style={s.filterDone}>
+          <Text style={s.filterDoneText}>Done</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function FilterGroup({
+  label,
+  opts,
+  value,
+  onPick,
+}: {
+  label: string;
+  opts: { label: string; value: number }[];
+  value: number;
+  onPick: (v: number) => void;
+}) {
+  return (
+    <View style={s.filterGroup}>
+      <Text style={s.filterGroupLabel}>{label}</Text>
+      <View style={s.filterChips}>
+        {opts.map((o) => (
+          <Pressable key={o.label} onPress={() => onPick(o.value)} style={[s.filterChip, value === o.value && s.filterChipActive]}>
+            <Text style={[s.filterChipText, value === o.value && s.filterChipTextActive]}>{o.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <View style={s.metric}>
@@ -548,6 +712,37 @@ const s = StyleSheet.create({
   mqFoot: { color: colors.fgFaint, fontSize: 11.5, marginTop: 2 },
 
   glassTabs: { marginHorizontal: 16, marginTop: 12 },
+
+  controls: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 12, gap: 8 },
+  chainScroll: { flex: 1 },
+  chainRow: { gap: 7, alignItems: 'center', paddingRight: 4 },
+  chainPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 11, borderRadius: radius.pill, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
+  chainPillActive: { backgroundColor: colors.bgRaised2, borderColor: colors.borderStrong },
+  chainDot: { width: 8, height: 8, borderRadius: 4 },
+  chainText: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '700' },
+  chainTextActive: { color: colors.fg },
+  filterBtn: { width: 38, height: 30, borderRadius: radius.sm, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  filterBtnActive: { borderColor: colors.accent + '88', backgroundColor: colors.accentSoft },
+  filterBadge: { position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  filterBadgeText: { color: '#04050A', fontSize: 10, fontWeight: '800' },
+
+  emptyClear: { marginTop: 4, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: colors.border },
+  emptyClearText: { color: colors.fgSecondary, fontSize: 12.5, fontWeight: '700' },
+
+  filterSheet: { paddingHorizontal: 18, paddingTop: 2, paddingBottom: 14, gap: 16 },
+  filterTitle: { color: colors.fg, fontSize: 20, fontWeight: '800' },
+  filterGroup: { gap: 9 },
+  filterGroupLabel: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '700' },
+  filterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip: { paddingHorizontal: 14, height: 34, borderRadius: radius.sm, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  filterChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent + '88' },
+  filterChipText: { color: colors.fgSecondary, fontSize: 13.5, fontWeight: '700' },
+  filterChipTextActive: { color: colors.accentGlow },
+  filterActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  filterReset: { flex: 1, height: 46, borderRadius: radius.md, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  filterResetText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '700' },
+  filterDone: { flex: 1.4, height: 46, borderRadius: radius.md, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  filterDoneText: { color: '#04050A', fontSize: 15, fontWeight: '800' },
 
   empty: { alignItems: 'center', gap: 9, paddingVertical: 70 },
   emptyText: { color: colors.fgFaint, fontSize: 14 },
