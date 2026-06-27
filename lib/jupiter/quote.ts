@@ -4,6 +4,7 @@ import { getFeeBpsForUser } from '@/lib/db/tiers';
 import { jupiterRequestHeaders, wrapJupiterFetchError } from '@/lib/jupiter/httpHeaders';
 import { resolveJupiterFeeAccountForSwap } from '@/lib/jupiter/referralFee';
 import { JUPITER_QUOTE_URL } from '@/lib/utils/constants';
+import { recordOpsEvent } from '@/lib/ops/events';
 
 export type JupiterQuoteInput = {
   /** Supabase `users.id` (for platform fee tier). */
@@ -36,7 +37,7 @@ export type JupiterQuoteResponse = Record<string, unknown> & {
 /**
  * Jupiter swap quote with optional referral `platformFeeBps` from {@link getFeeBpsForUser}.
  */
-export async function getQuote(input: JupiterQuoteInput): Promise<JupiterQuoteResponse> {
+async function getQuoteInner(input: JupiterQuoteInput): Promise<JupiterQuoteResponse> {
   const platformFeeBps =
     input.feeBpsOverride != null && Number.isFinite(input.feeBpsOverride) && input.feeBpsOverride >= 0
       ? Math.floor(input.feeBpsOverride)
@@ -89,4 +90,23 @@ export async function getQuote(input: JupiterQuoteInput): Promise<JupiterQuoteRe
   }
 
   return json;
+}
+
+/** Error-only ops instrumentation (quote is a hot path — we log failures, not every ok). */
+export async function getQuote(input: JupiterQuoteInput): Promise<JupiterQuoteResponse> {
+  const startedAt = Date.now();
+  try {
+    return await getQuoteInner(input);
+  } catch (err) {
+    void recordOpsEvent({
+      category: 'provider',
+      name: 'jupiter:quote',
+      status: 'error',
+      severity: 'error',
+      durationMs: Date.now() - startedAt,
+      message: err instanceof Error ? err.message : String(err),
+      detail: { inputMint: input.inputMint, outputMint: input.outputMint },
+    });
+    throw err;
+  }
 }

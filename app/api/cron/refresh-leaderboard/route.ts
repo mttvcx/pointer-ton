@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { refreshPointsLeaderboardView } from '@/lib/points/refreshLeaderboardView';
+import { withOpsSpan } from '@/lib/ops/events';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
   try {
-    await refreshPointsLeaderboardView();
+    await withOpsSpan('cron', 'refresh-leaderboard', () => refreshPointsLeaderboardView(), {
+      metric: 'cron.duration_ms',
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'refresh_failed';

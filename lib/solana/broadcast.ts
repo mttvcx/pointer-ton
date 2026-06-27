@@ -5,6 +5,7 @@ import {
   getPublicSolanaConnection,
   isRpcQuotaError,
 } from '@/lib/solana/connection';
+import { withOpsSpan } from '@/lib/ops/events';
 
 /**
  * Broadcast a fully-signed Solana transaction through the server's private
@@ -26,10 +27,17 @@ export async function broadcastSignedTransaction(
   const send = (conn: ReturnType<typeof getConnection>) =>
     conn.sendRawTransaction(raw, { skipPreflight, maxRetries: 5 });
 
-  try {
-    return await send(getConnection());
-  } catch (err) {
-    if (!isRpcQuotaError(err)) throw err;
-    return await send(getPublicSolanaConnection());
-  }
+  return withOpsSpan(
+    'trade',
+    'trade.broadcast',
+    async () => {
+      try {
+        return await send(getConnection());
+      } catch (err) {
+        if (!isRpcQuotaError(err)) throw err;
+        return await send(getPublicSolanaConnection());
+      }
+    },
+    { metric: 'trade.broadcast_ms' },
+  );
 }

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { insertHeliusUsage } from '@/lib/db/heliusUsage';
+import { recordOpsEvent } from '@/lib/ops/events';
 
 /** Helius billing: DAS methods cost 10 credits; standard RPC costs 1. */
 export const HELIUS_CREDITS = {
@@ -24,11 +25,16 @@ export async function heliusCall<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
   const timestamp = new Date().toISOString();
+  const startedAt = Date.now();
   let success = false;
+  let errMessage: string | null = null;
   try {
     const result = await fn();
     success = true;
     return result;
+  } catch (err) {
+    errMessage = err instanceof Error ? err.message : String(err);
+    throw err;
   } finally {
     const entry: HeliusUsageLog = {
       endpoint,
@@ -47,6 +53,18 @@ export async function heliusCall<T>(
     }).catch((err) => {
       console.warn('[helius-usage] persist failed:', err instanceof Error ? err.message : err);
     });
+    // High-frequency provider: record only FAILURES to ops_events (volume/credits
+    // already live in helius_usage) so the event log stays signal, not noise.
+    if (!success) {
+      void recordOpsEvent({
+        category: 'provider',
+        name: `helius:${endpoint}`,
+        status: 'error',
+        severity: 'error',
+        durationMs: Date.now() - startedAt,
+        message: errMessage,
+      });
+    }
   }
 }
 

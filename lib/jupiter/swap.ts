@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { withOpsSpan } from '@/lib/ops/events';
 import { jupiterRequestHeaders, wrapJupiterFetchError } from '@/lib/jupiter/httpHeaders';
 import {
   deriveJupiterFeeTokenAccount,
@@ -89,7 +90,7 @@ function defaultPrioritizationPayload(landing: SwapLanding): unknown {
 /**
  * Build an unsigned versioned swap transaction (base64) from a quote response.
  */
-export async function getSwapTx(
+async function getSwapTxInner(
   quoteResponse: unknown,
   userPublicKey: string,
   opts?: {
@@ -183,4 +184,15 @@ export async function getSwapTx(
   }
 
   return json;
+}
+
+/** Per-trade swap build — records ok+error+latency to ops_events. */
+export async function getSwapTx(
+  quoteResponse: unknown,
+  userPublicKey: string,
+  opts?: { dynamicSlippage?: boolean; landing?: SwapLanding; fees?: SwapFeeParams },
+): Promise<JupiterSwapResponse> {
+  return withOpsSpan('provider', 'jupiter:swap', () => getSwapTxInner(quoteResponse, userPublicKey, opts), {
+    metric: 'provider.jupiter_swap_ms',
+  });
 }
