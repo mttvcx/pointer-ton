@@ -52,16 +52,30 @@ function defaultSeverity(status: OpsEventStatus): OpsEventSeverity {
 export async function recordOpsEvent(input: OpsEventInput): Promise<void> {
   try {
     const supabase = createAdminSupabase();
+    const severity = input.severity ?? defaultSeverity(input.status);
+    const message = input.message ? input.message.slice(0, 500) : null;
     await supabase.from('ops_events').insert({
       category: input.category,
       name: input.name,
       status: input.status,
-      severity: input.severity ?? defaultSeverity(input.status),
+      severity,
       duration_ms: input.durationMs ?? null,
-      message: input.message ? input.message.slice(0, 500) : null,
+      message,
       detail: (input.detail ?? {}) as Json,
       correlation_id: input.correlationId ?? null,
     });
+    // Auto-open (or increment) an incident for error/critical signals — same
+    // service-role client, still inside the swallowing try (best-effort).
+    if (input.status === 'error' || severity === 'critical') {
+      await supabase.rpc('ops_open_incident', {
+        p_key: `${input.category}:${input.name}`,
+        p_category: input.category,
+        p_name: input.name,
+        p_severity: severity,
+        p_message: message,
+        p_detail: (input.detail ?? {}) as Json,
+      });
+    }
   } catch {
     /* swallow — observability must never break the caller */
   }

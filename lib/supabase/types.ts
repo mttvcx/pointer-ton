@@ -944,6 +944,39 @@ export interface Database {
         Relationships: [];
       };
 
+      ops_incidents: {
+        Row: {
+          id: string;
+          key: string;
+          category: string;
+          name: string;
+          severity: string;
+          status: string;
+          count: number;
+          sample_message: string | null;
+          detail: Json;
+          first_seen: string;
+          last_seen: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          category: string;
+          name: string;
+          severity?: string;
+          status?: string;
+          count?: number;
+          sample_message?: string | null;
+          detail?: Json;
+          first_seen?: string;
+          last_seen?: string;
+          resolved_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['ops_incidents']['Insert']>;
+        Relationships: [];
+      };
+
       referrals: {
         Row: {
           id: string;
@@ -1799,6 +1832,17 @@ export interface Database {
     Functions: {
       refresh_points_leaderboard: {
         Args: Record<string, never>;
+        Returns: undefined;
+      };
+      ops_open_incident: {
+        Args: {
+          p_key: string;
+          p_category: string;
+          p_name: string;
+          p_severity: string;
+          p_message: string | null;
+          p_detail: Json;
+        };
         Returns: undefined;
       };
     };

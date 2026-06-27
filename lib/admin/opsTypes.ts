@@ -76,6 +76,20 @@ export type OpsEventLite = {
   durationMs: number | null;
 };
 
+/** An auto-opened incident, grouped by category:name, from error/critical events. */
+export type OpsIncident = {
+  id: string;
+  key: string;
+  category: string;
+  name: string;
+  severity: string;
+  status: string;
+  count: number;
+  sampleMessage: string | null;
+  firstSeen: string;
+  lastSeen: string;
+};
+
 export type OpsHealthSnapshot = {
   generatedAt: string;
   trading: OpsTradingHealth | OpsSectionError;
@@ -85,5 +99,6 @@ export type OpsHealthSnapshot = {
   flags: OpsFlags;
   providers: OpsProvider[];
   crons: OpsCronRun[] | OpsSectionError;
+  incidents: OpsIncident[] | OpsSectionError;
   recentEvents: OpsEventLite[] | OpsSectionError;
 };

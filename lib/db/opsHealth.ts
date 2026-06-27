@@ -9,6 +9,7 @@ import type {
   OpsCronRun,
   OpsEventLite,
   OpsHealthSnapshot,
+  OpsIncident,
   OpsHeliusHealth,
   OpsIndexerHealth,
   OpsIndexStatus,
@@ -215,6 +216,33 @@ async function collectRecentEvents(): Promise<OpsEventLite[] | OpsSectionError> 
   }
 }
 
+async function collectIncidents(): Promise<OpsIncident[] | OpsSectionError> {
+  try {
+    const supabase = createAdminSupabase();
+    const { data, error } = await supabase
+      .from('ops_incidents')
+      .select('id, key, category, name, severity, status, count, sample_message, first_seen, last_seen')
+      .eq('status', 'open')
+      .order('last_seen', { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      key: r.key,
+      category: r.category,
+      name: r.name,
+      severity: r.severity,
+      status: r.status,
+      count: r.count,
+      sampleMessage: r.sample_message ?? null,
+      firstSeen: r.first_seen,
+      lastSeen: r.last_seen,
+    }));
+  } catch (e) {
+    return errOf(e);
+  }
+}
+
 function collectProviders(): OpsProvider[] {
   const p = (key: string, label: string, configured: boolean, critical: boolean): OpsProvider => ({
     key,
@@ -245,13 +273,14 @@ function collectProviders(): OpsProvider[] {
 }
 
 export async function collectOpsHealth(): Promise<OpsHealthSnapshot> {
-  const [trading, indexer, pulse, helius, crons, recentEvents] = await Promise.all([
+  const [trading, indexer, pulse, helius, crons, recentEvents, incidents] = await Promise.all([
     collectTrading(),
     collectIndexer(),
     collectPulse(),
     collectHelius(),
     collectCronRuns(),
     collectRecentEvents(),
+    collectIncidents(),
   ]);
 
   const packsTreasuryConfigured = cfg('PACKS_TREASURY_SECRET_KEY');
@@ -268,6 +297,7 @@ export async function collectOpsHealth(): Promise<OpsHealthSnapshot> {
     },
     providers: collectProviders(),
     crons,
+    incidents,
     recentEvents,
   };
 }

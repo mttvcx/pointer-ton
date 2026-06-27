@@ -272,6 +272,48 @@ export default function OpsHealthPage() {
       ) : null}
 
       {snap ? (
+        <section className="rounded-lg border border-border-subtle bg-bg-raised p-4">
+          <header className="mb-2 flex items-center gap-2">
+            <h2 className="text-[13px] font-semibold text-fg-primary">Open incidents</h2>
+            <span className="ml-auto text-[10px] uppercase tracking-wide text-fg-muted">auto-opened from errors</span>
+          </header>
+          {Array.isArray(snap.incidents) ? (
+            snap.incidents.length === 0 ? (
+              <p className="text-[12px] text-fg-muted">No open incidents — nothing erroring right now.</p>
+            ) : (
+              <ul className="space-y-1">
+                {snap.incidents.map((inc) => {
+                  const tone: Tone = inc.severity === 'warn' ? 'warn' : 'bad';
+                  return (
+                    <li key={inc.id} className="flex items-center gap-2 text-[12px]">
+                      <StatusDot tone={tone} />
+                      <span className="shrink-0 rounded bg-bg-sunken px-1 text-[9px] uppercase tracking-wide text-fg-muted">
+                        {inc.category}
+                      </span>
+                      <span className="shrink-0 font-mono text-fg-secondary">{inc.name}</span>
+                      {inc.sampleMessage ? (
+                        <span className="min-w-0 truncate text-fg-muted" title={inc.sampleMessage}>
+                          {inc.sampleMessage}
+                        </span>
+                      ) : null}
+                      <span className="ml-auto shrink-0 rounded bg-bg-sunken px-1.5 tabular-nums text-fg-secondary">
+                        ×{inc.count}
+                      </span>
+                      <span className="w-14 shrink-0 text-right tabular-nums text-fg-muted">
+                        {fmtAge(Math.max(0, Math.round((Date.now() - new Date(inc.lastSeen).getTime()) / 60_000)))}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          ) : (
+            <SectionError error={snap.incidents.error} />
+          )}
+        </section>
+      ) : null}
+
+      {snap ? (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {/* Cron runs */}
           <section className="rounded-lg border border-border-subtle bg-bg-raised p-4">
@@ -305,8 +347,8 @@ export default function OpsHealthPage() {
               <SectionError error={snap.crons.error} />
             )}
             <p className="mt-2 text-[10px] leading-snug text-fg-muted">
-              Covers crons routed through the shared wrapper. Bespoke handlers (refresh-leaderboard,
-              check-limit-alerts) are wired next.
+              Covers all crons — the shared wrapper plus the bespoke handlers (refresh-leaderboard,
+              check-limit-alerts).
             </p>
           </section>
 
@@ -356,11 +398,10 @@ export default function OpsHealthPage() {
       <section className="rounded-lg border border-border-subtle bg-bg-sunken/40 p-4">
         <h2 className="text-[12px] font-semibold text-fg-secondary">Not yet instrumented (Phase 1 honesty)</h2>
         <p className="mt-1 text-[12px] leading-relaxed text-fg-muted">
-          These Mission Control signals have <strong>no durable source in the codebase yet</strong>, so they are
-          deliberately absent rather than mocked: per-cron last-run + duration, webhook delivery history, provider
-          latency/uptime, deployment markers, and request traces. They need an <code className="font-mono text-[11px]">ops_events</code>
-          {' '}/ <code className="font-mono text-[11px]">ops_metrics</code> substrate + a structured logger — the next Ops
-          phase. Until then, this page reports only what production can truthfully answer.
+          Now captured via <code className="font-mono text-[11px]">ops_events</code>: per-cron runs, trade-broadcast +
+          provider failures, and auto-opened incidents. Still <strong>deliberately absent</strong> rather than mocked:
+          full provider uptime %, webhook delivery history, deployment markers, request traces, and the read-only
+          Pointer Doctor — the next Ops phase. This page still reports only what production can truthfully answer.
         </p>
       </section>
     </div>
