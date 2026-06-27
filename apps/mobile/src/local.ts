@@ -71,6 +71,14 @@ export function setQuickBuySecondSol(v: number) {
 }
 export const useQuickBuyPrefs = () => useSyncExternalStore(subscribe, () => quickBuy);
 
+// ---- pulse alert sound/haptic (demo: a haptic buzz when a new coin lands) ----
+let pulseSound = true;
+export function setPulseSound(v: boolean) {
+  pulseSound = v;
+  emit();
+}
+export const usePulseSound = () => useSyncExternalStore(subscribe, () => pulseSound);
+
 // ---- alert push prefs (which alert types ping the phone) ----
 export type NotifPrefs = {
   trackedWallets: boolean;

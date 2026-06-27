@@ -8,6 +8,8 @@ import { colors, radius } from '../src/theme';
 import { useAuth } from '../src/auth';
 import {
   useQuickBuyPrefs,
+  usePulseSound,
+  setPulseSound,
   setQuickBuyUltra,
   setQuickBuySol,
   setQuickBuySecondButton,
@@ -98,6 +100,7 @@ export function SettingsScreen({
 function Detail({ section }: { section: Section }) {
   const auth = useAuth();
   const qb = useQuickBuyPrefs();
+  const pulseSound = usePulseSound();
   const slippage = useTradeSlippage();
   const mev = useTradeMev();
   if (section === 'Appearance') {
@@ -116,6 +119,13 @@ function Detail({ section }: { section: Section }) {
         <Toggle label="Friends' activity" sub="When people you follow trade" initial />
         <Toggle label="Top traders" sub="Large trades from top traders" initial />
         <Toggle label="Announcements" sub="New features and market news" />
+        <View style={s.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowLabel}>Alert sound</Text>
+            <Text style={s.toggleSub}>Buzz when a new coin lands in Pulse.</Text>
+          </View>
+          <Switch value={pulseSound} onValueChange={setPulseSound} trackColor={{ false: colors.border, true: colors.accent }} thumbColor="#fff" />
+        </View>
       </>
     );
   }

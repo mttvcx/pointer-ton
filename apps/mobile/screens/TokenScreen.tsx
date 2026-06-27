@@ -17,6 +17,7 @@ import { ageShort, compactUsd, priceUsd, shortMint } from '../src/format';
 import { toggleWatch, useIsWatched, useChartTf, setChartTf, useChartAxis, setChartAxis, type OrderSide } from '../src/local';
 import { copyText } from '../src/clipboard';
 import { CopyButton } from '../components/CopyButton';
+import { TwitterChip } from '../components/TwitterChip';
 import { RecentTradesDrawer } from '../components/RecentTradesDrawer';
 import { TokenShareCard } from '../components/TokenShareCard';
 import { useAuth } from '../src/auth';
@@ -75,6 +76,21 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
             <View style={{ flex: 1 }}>
               <Text style={s.symbol} numberOfLines={1}>{sym}</Text>
               <CopyButton value={token.mint} label={token.name ?? shortMint(token.mint)} size={13} color={colors.fgMuted} style={s.subRow} />
+              {token.twitter_handle || token.website_url || token.telegram_url ? (
+                <View style={s.socials}>
+                  {token.twitter_handle ? <TwitterChip value={token.twitter_handle} size={22} /> : null}
+                  {token.website_url ? (
+                    <PressScale onPress={() => open(token.website_url)} style={s.socialDot} hitSlop={6}>
+                      <Ionicons name="globe-outline" size={13} color={colors.fgMuted} />
+                    </PressScale>
+                  ) : null}
+                  {token.telegram_url ? (
+                    <PressScale onPress={() => open(token.telegram_url)} style={s.socialDot} hitSlop={6}>
+                      <Ionicons name="paper-plane-outline" size={13} color={colors.fgMuted} />
+                    </PressScale>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -329,6 +345,8 @@ const s = StyleSheet.create({
   symbol: { color: colors.fg, fontSize: 21, fontWeight: '600' },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   name: { color: colors.fgMuted, fontSize: 13 },
+  socials: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 7 },
+  socialDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.bgRaised2, alignItems: 'center', justifyContent: 'center' },
   priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 14 },
   price: { color: colors.fg, fontSize: 34, fontWeight: '700', letterSpacing: -1 },
   mcTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },

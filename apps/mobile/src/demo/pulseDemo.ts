@@ -153,3 +153,38 @@ export function getDemoPulse(column: PulseColumn): PulseBundle[] {
   const specs = column === 'new' ? NEW : column === 'stretch' ? STRETCH : MIGRATED;
   return specs.map(toBundle);
 }
+
+const LIVE_POOL: { sym: string; name: string; pad: Pad }[] = [
+  { sym: 'WAGMI', name: 'we all gonna make it', pad: 'pump' },
+  { sym: 'COPE', name: 'cope harder', pad: 'bonk' },
+  { sym: 'SER', name: 'gm ser', pad: 'pump' },
+  { sym: 'NGMI', name: 'not gonna make it', pad: 'moonshot' },
+  { sym: 'FOMO', name: 'fomo coin', pad: 'pump' },
+  { sym: 'REKT', name: 'rekt', pad: 'bonk' },
+  { sym: 'MOON', name: 'to the moon', pad: 'pump' },
+  { sym: 'JEET', name: 'paper hands', pad: 'moonshot' },
+];
+let liveSeq = 0;
+
+/** A fresh fake token for the demo "live feed" (new coins arriving in Pulse). */
+export function makeLiveDemoToken(): PulseBundle {
+  const p = LIVE_POOL[Math.floor(Math.random() * LIVE_POOL.length)]!;
+  liveSeq += 1;
+  const mc = 5_000 + Math.floor(Math.random() * 60_000);
+  return toBundle({
+    seed: `LIVE${liveSeq}x${Math.floor(Math.random() * 99_999)}`,
+    symbol: `$${p.sym}`,
+    name: p.name,
+    pad: p.pad,
+    twitter: `${p.sym.toLowerCase()}sol`,
+    website: null,
+    telegram: null,
+    bonding: 5 + Math.floor(Math.random() * 40),
+    ageMins: 0,
+    mc,
+    price: mc / 1_000_000_000,
+    liq: Math.floor(mc * 0.4),
+    vol: Math.floor(mc * (1 + Math.random() * 3)),
+    holders: 10 + Math.floor(Math.random() * 200),
+  });
+}

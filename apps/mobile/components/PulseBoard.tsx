@@ -23,10 +23,11 @@ import { ProtocolIcon } from './ProtocolIcon';
 import { GlassTabs } from './GlassTabs';
 import { DragSheet } from './DragSheet';
 import { ChainIcon } from './ChainIcon';
+import { TwitterChip } from './TwitterChip';
 import { getPulseFeed, explainToken } from '../src/api/endpoints';
-import { getDemoPulse } from '../src/demo/pulseDemo';
+import { getDemoPulse, makeLiveDemoToken } from '../src/demo/pulseDemo';
 import { useTradeSubmit } from '../src/trade/useTradeSubmit';
-import { useQuickBuyPrefs, type SecondButton } from '../src/local';
+import { useQuickBuyPrefs, usePulseSound, type SecondButton } from '../src/local';
 import { showToast } from '../src/toast';
 import { ageShort, compactUsd } from '../src/format';
 import { colors, radius } from '../src/theme';
@@ -131,18 +132,24 @@ function tweetTokens(text: string, onPress: (e: MarqueeEntity) => void): React.R
 }
 
 /** Flash the row yellow briefly when a token's price ticks up. */
-function useUptickFlash(price: number) {
+function useUptickFlash(price: number, flashOnMount = false) {
   const opacity = useRef(new Animated.Value(0)).current;
   const prev = useRef(price);
+  const mounted = useRef(false);
   useEffect(() => {
-    if (price > prev.current && prev.current > 0) {
+    const doFlash = () =>
       Animated.sequence([
         Animated.timing(opacity, { toValue: 0.2, duration: 120, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 320, useNativeDriver: true }),
       ]).start();
+    if (!mounted.current) {
+      mounted.current = true;
+      if (flashOnMount) doFlash();
+    } else if (price > prev.current && prev.current > 0) {
+      doFlash();
     }
     prev.current = price;
-  }, [price, opacity]);
+  }, [price, opacity, flashOnMount]);
   return opacity;
 }
 
@@ -183,6 +190,25 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const accent = COLS[active].accent;
   const filtered = useMemo(() => items.filter((b) => passesFilters(b, filters)), [items, filters]);
   const activeFilters = (filters.minVol ? 1 : 0) + (filters.minMc ? 1 : 0) + (filters.minHolders ? 1 : 0);
+
+  // Demo "live feed": fresh coins land in the New column so you SEE the yellow
+  // flash + feel a haptic buzz. Demo-only (no real wallet), Solana view.
+  const pulseSound = usePulseSound();
+  const [injected, setInjected] = useState<PulseBundle[]>([]);
+  useEffect(() => {
+    setInjected([]);
+    if (hasWallet || !(chain === 'sol' || chain === 'all')) return;
+    const id = setInterval(() => {
+      setInjected((prev) => [makeLiveDemoToken(), ...prev].slice(0, 6));
+      if (pulseSound) Vibration.vibrate(20);
+    }, 8000);
+    return () => clearInterval(id);
+  }, [hasWallet, chain, pulseSound]);
+  const injectedMints = useMemo(() => new Set(injected.map((b) => b.token.mint)), [injected]);
+  const display = useMemo(
+    () => (active === 0 ? [...injected, ...filtered] : filtered),
+    [active, injected, filtered],
+  );
 
   const onQuick = useCallback(
     async (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => {
@@ -285,7 +311,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
         <ActivityIndicator color={colors.accent} style={{ marginTop: 60 }} />
       ) : (
         <FlatList
-          data={filtered}
+          data={display}
           keyExtractor={(it) => it.token.mint}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 14, paddingTop: 8, paddingBottom: insets.bottom + 96 }}
@@ -322,6 +348,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
               onQuick={onQuick}
               onEnlarge={(b) => setEnlarged({ uri: b.token.image_url, symbol: (b.token.symbol ?? '?').replace(/^\$/, '') })}
               onEnlargeEnd={() => setEnlarged(null)}
+              fresh={injectedMints.has(item.token.mint)}
             />
           )}
         />
@@ -360,6 +387,7 @@ function TokenRow({
   onQuick,
   onEnlarge,
   onEnlargeEnd,
+  fresh,
 }: {
   bundle: PulseBundle;
   accent: string;
@@ -375,12 +403,13 @@ function TokenRow({
   onQuick: (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => void;
   onEnlarge: (b: PulseBundle) => void;
   onEnlargeEnd: () => void;
+  fresh?: boolean;
 }) {
   const { token, snapshot } = bundle;
   const sym = (token.symbol ?? '?').replace(/^\$/, '');
   const age = ageShort(token.created_at);
   const x = token.twitter_handle ? token.twitter_handle.replace(/^@/, '') : null;
-  const flash = useUptickFlash(snapshot?.price_usd ?? 0);
+  const flash = useUptickFlash(snapshot?.price_usd ?? 0, fresh);
   const busyBuy = busyMint === token.mint && busySide === 'buy';
   const busySell = busyMint === token.mint && busySide === 'sell';
 
@@ -415,7 +444,7 @@ function TokenRow({
               {sym}
             </Text>
             {age ? <Text style={s.age}>{age}</Text> : null}
-            {x ? <LinkChip icon="logo-twitter" url={`https://x.com/${x}`} /> : null}
+            {x ? <TwitterChip value={x} size={22} /> : null}
             {token.website_url ? <LinkChip icon="globe-outline" url={token.website_url} /> : null}
             {token.telegram_url ? <LinkChip icon="paper-plane-outline" url={token.telegram_url} /> : null}
           </View>
@@ -491,28 +520,26 @@ function AiBrief({ mint }: { mint: string }) {
     retry: 0,
   });
 
+  // Strip the em/en dashes that scream "AI wrote this".
+  const clean = (t: string) => t.replace(/\s*[—–]\s*/g, ', ').trim();
+
   let body: React.ReactNode;
   if (q.isLoading) {
-    body = (
-      <View style={s.aiLoading}>
-        <ActivityIndicator size="small" color={colors.accentGlow} />
-        <Text style={s.aiMuted}>Pointer AI reading the chain…</Text>
-      </View>
-    );
+    body = <Text style={s.aiText}>Pointer is reading the chain…</Text>;
   } else if (q.isError || !q.data?.data) {
-    body = <Text style={s.aiMuted}>AI brief unavailable — sign in / try the token screen.</Text>;
+    body = <Text style={s.aiText}>Sign in to get Pointer’s read on this token.</Text>;
   } else {
     const d = q.data.data;
     body = (
       <>
-        <Text style={s.aiSummary}>{d.summary}</Text>
+        <Text style={s.aiText}>{clean(d.summary)}</Text>
         {d.riskFlags?.length ? (
           <View style={s.aiFlags}>
             {d.riskFlags.slice(0, 3).map((f) => (
               <View key={f} style={s.aiFlag}>
                 <Ionicons name="warning-outline" size={11} color={colors.warn} />
                 <Text style={s.aiFlagText} numberOfLines={1}>
-                  {f}
+                  {clean(f)}
                 </Text>
               </View>
             ))}
@@ -522,15 +549,7 @@ function AiBrief({ mint }: { mint: string }) {
     );
   }
 
-  return (
-    <View style={s.aiBox}>
-      <View style={s.aiHead}>
-        <Ionicons name="sparkles" size={12} color={colors.accentGlow} />
-        <Text style={s.aiHeadText}>AI brief{q.data?.cacheHit || q.data?.fromCache ? ' · cached' : ''}</Text>
-      </View>
-      {body}
-    </View>
-  );
+  return <View style={s.aiBox}>{body}</View>;
 }
 
 function ChainPill({ chain, active, onPress }: { chain: ChainDef; active: boolean; onPress: () => void }) {
@@ -776,13 +795,9 @@ const s = StyleSheet.create({
   qbtnText: { fontSize: 14, fontWeight: '800', color: '#04050A' },
   qbtnTextBig: { fontSize: 16 },
 
-  aiBox: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, gap: 6, backgroundColor: colors.bgSunken },
-  aiHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  aiHeadText: { color: colors.accentGlow, fontSize: 10, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
-  aiSummary: { color: colors.fgSecondary, fontSize: 13, lineHeight: 18 },
-  aiLoading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  aiMuted: { color: colors.fgMuted, fontSize: 12.5 },
-  aiFlags: { gap: 4 },
+  aiBox: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 18, paddingVertical: 14, gap: 9, backgroundColor: colors.bgSunken, alignItems: 'center' },
+  aiText: { color: colors.fg, fontSize: 14.5, lineHeight: 21, textAlign: 'center', fontWeight: '500' },
+  aiFlags: { gap: 4, alignItems: 'center' },
   aiFlag: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  aiFlagText: { color: colors.warn, fontSize: 11.5, flex: 1 },
+  aiFlagText: { color: colors.warn, fontSize: 11.5 },
 });
