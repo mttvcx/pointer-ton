@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   FlatList,
+  type LayoutChangeEvent,
   Linking,
   Pressable,
   StyleSheet,
@@ -18,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CoinIcon } from './CoinIcon';
 import { ProtocolIcon } from './ProtocolIcon';
 import { GlassTabs } from './GlassTabs';
+import { DragSheet } from './DragSheet';
 import { getPulseFeed, explainToken } from '../src/api/endpoints';
 import { getDemoPulse } from '../src/demo/pulseDemo';
 import { useTradeSubmit } from '../src/trade/useTradeSubmit';
@@ -51,6 +53,35 @@ const DEMO_TWEETS = [
   { handle: 'Tibbz', text: 'watching $RTM, 993% but liq thin — careful' },
 ];
 
+type MarqueeEntity = { kind: 'ticker' | 'handle' | 'ca'; value: string };
+const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+// Bounded alternation (no unbounded quantifiers) → safe against ReDoS; matched
+// values are only ever displayed, never executed.
+const ENTITY_RE = /(\$[A-Za-z][A-Za-z0-9._]{0,14}|@[A-Za-z0-9_]{1,15}|[1-9A-HJ-NP-Za-km-z]{32,44})/g;
+
+/** Split tweet text into plain runs + pressable $ticker / @handle / contract spans. */
+function tweetTokens(text: string, onPress: (e: MarqueeEntity) => void): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  let m: RegExpExecArray | null;
+  ENTITY_RE.lastIndex = 0;
+  while ((m = ENTITY_RE.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const raw = m[0];
+    const kind: MarqueeEntity['kind'] = raw[0] === '$' ? 'ticker' : raw[0] === '@' ? 'handle' : 'ca';
+    out.push(
+      <Text key={`e${i}`} style={s.tweetEntity} onPress={() => onPress({ kind, value: raw })}>
+        {raw}
+      </Text>,
+    );
+    last = m.index + raw.length;
+    i++;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 /** Flash the row yellow briefly when a token's price ticks up. */
 function useUptickFlash(price: number) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -71,6 +102,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(0);
   const [aiMint, setAiMint] = useState<string | null>(null);
+  const [marqueeEntity, setMarqueeEntity] = useState<MarqueeEntity | null>(null);
   const [busy, setBusy] = useState<{ mint: string; side: 'buy' | 'sell' } | null>(null);
   const { submit, hasWallet } = useTradeSubmit();
   const qb = useQuickBuyPrefs();
@@ -129,7 +161,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
         {!hasWallet ? <Text style={s.demoTag}>demo · tap a row to trade</Text> : null}
       </View>
 
-      <TweetMarquee />
+      <TweetMarquee onPressEntity={setMarqueeEntity} />
 
       {/* Column tabs — glassy, matching the bottom nav island */}
       <GlassTabs
@@ -174,6 +206,12 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
           )}
         />
       )}
+
+      {marqueeEntity ? (
+        <DragSheet visible onClose={() => setMarqueeEntity(null)}>
+          <MarqueeAiSheet entity={marqueeEntity} />
+        </DragSheet>
+      ) : null}
     </View>
   );
 }
@@ -372,30 +410,49 @@ function LinkChip({ icon, url }: { icon: keyof typeof Ionicons.glyphMap; url: st
   );
 }
 
-function TweetMarquee() {
+function TweetMarquee({ onPressEntity }: { onPressEntity: (e: MarqueeEntity) => void }) {
   const [w, setW] = useState(0);
+  const wRef = useRef(0);
   const x = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    if (!w) return;
-    x.setValue(0);
-    const anim = Animated.loop(
-      Animated.timing(x, { toValue: -w, duration: Math.max(8000, w * 22), easing: Easing.linear, useNativeDriver: true }),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [w, x]);
+  // Self-looping timing (vs Animated.loop) so a touch can pause it and resume from
+  // the exact offset — otherwise tapping a moving entity is a coin toss.
+  const run = useCallback(
+    (from: number) => {
+      const width = wRef.current;
+      if (!width) return;
+      const dur = Math.max(9000, width * 24);
+      const firstLeg = Math.max(400, dur * ((width + from) / width));
+      x.setValue(from);
+      Animated.timing(x, { toValue: -width, duration: firstLeg, easing: Easing.linear, useNativeDriver: true }).start((res) => {
+        if (res.finished) run(0);
+      });
+    },
+    [x],
+  );
 
-  const strip = (measure: boolean) => (
-    <View style={s.marqueeStrip} onLayout={measure ? (e) => setW(e.nativeEvent.layout.width) : undefined}>
+  useEffect(() => {
+    if (w) run(0);
+    return () => x.stopAnimation();
+  }, [w, run, x]);
+
+  const measure = (e: LayoutChangeEvent) => {
+    wRef.current = e.nativeEvent.layout.width;
+    setW(e.nativeEvent.layout.width);
+  };
+
+  const strip = (first: boolean) => (
+    <View style={s.marqueeStrip} onLayout={first ? measure : undefined}>
       {DEMO_TWEETS.map((t, i) => (
-        <View key={`${measure ? 'a' : 'b'}-${i}`} style={s.tweetChip}>
+        <View key={`${first ? 'a' : 'b'}-${i}`} style={s.tweetChip}>
           <View style={s.tweetAvatar}>
             <Text style={s.tweetInitial}>{t.handle.charAt(0).toUpperCase()}</Text>
           </View>
-          <Text style={s.tweetHandle}>@{t.handle}</Text>
+          <Text style={s.tweetHandle} onPress={() => onPressEntity({ kind: 'handle', value: '@' + t.handle })}>
+            @{t.handle}
+          </Text>
           <Text style={s.tweetText} numberOfLines={1}>
-            {t.text}
+            {tweetTokens(t.text, onPressEntity)}
           </Text>
         </View>
       ))}
@@ -403,11 +460,62 @@ function TweetMarquee() {
   );
 
   return (
-    <View style={s.marqueeWrap}>
+    <View
+      style={s.marqueeWrap}
+      onTouchStart={() => x.stopAnimation()}
+      onTouchEnd={() => x.stopAnimation((v) => run(v))}
+      onTouchCancel={() => x.stopAnimation((v) => run(v))}
+    >
       <Animated.View style={[s.marqueeTrack, { transform: [{ translateX: x }] }]}>
         {strip(true)}
         {strip(false)}
       </Animated.View>
+    </View>
+  );
+}
+
+/** Drag-up AI popover for a tapped marquee entity — real AI brief for a contract,
+ * tracked-mention digest for a $ticker / @handle (no fabricated metrics). */
+function MarqueeAiSheet({ entity }: { entity: MarqueeEntity }) {
+  const isMint = entity.kind === 'ca' && MINT_RE.test(entity.value);
+  const needle = entity.value.toLowerCase();
+  const mentions = DEMO_TWEETS.filter(
+    (t) => '@' + t.handle.toLowerCase() === needle || t.text.toLowerCase().includes(needle),
+  );
+  const kindLabel = entity.kind === 'handle' ? 'tracked trader' : entity.kind === 'ca' ? 'contract' : 'ticker';
+
+  return (
+    <View style={s.mqSheet}>
+      <View style={s.mqHead}>
+        <Ionicons name="sparkles" size={15} color={colors.accentGlow} />
+        <Text style={s.mqTitle} numberOfLines={1}>
+          {entity.value}
+        </Text>
+        <Text style={s.mqKind}>{kindLabel}</Text>
+      </View>
+
+      {isMint ? (
+        <AiBrief mint={entity.value} />
+      ) : (
+        <>
+          <Text style={s.mqSummary}>
+            {entity.kind === 'handle'
+              ? `${entity.value} is one of the traders you track. Recent calls:`
+              : `Pointer is tracking ${entity.value} across traders you follow — ${mentions.length} recent mention${mentions.length === 1 ? '' : 's'}.`}
+          </Text>
+          {mentions.length ? (
+            mentions.map((t, i) => (
+              <View key={i} style={s.mqMention}>
+                <Text style={s.mqMentionHandle}>@{t.handle}</Text>
+                <Text style={s.mqMentionText}>{t.text}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={s.aiMuted}>No tracked mentions yet.</Text>
+          )}
+          <Text style={s.mqFoot}>Open the token screen for the full AI breakdown + chart.</Text>
+        </>
+      )}
     </View>
   );
 }
@@ -427,6 +535,17 @@ const s = StyleSheet.create({
   tweetInitial: { color: colors.accentGlow, fontSize: 9, fontWeight: '800' },
   tweetHandle: { color: colors.fgSecondary, fontSize: 11.5, fontWeight: '700' },
   tweetText: { color: colors.fgMuted, fontSize: 11.5 },
+  tweetEntity: { color: colors.accentGlow, fontWeight: '700' },
+
+  mqSheet: { paddingHorizontal: 18, paddingTop: 2, paddingBottom: 14, gap: 10 },
+  mqHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mqTitle: { color: colors.fg, fontSize: 20, fontWeight: '800', flexShrink: 1 },
+  mqKind: { color: colors.fgFaint, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  mqSummary: { color: colors.fgSecondary, fontSize: 14, lineHeight: 20 },
+  mqMention: { backgroundColor: colors.bgRaised, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, padding: 10, gap: 3 },
+  mqMentionHandle: { color: colors.accentGlow, fontSize: 12, fontWeight: '700' },
+  mqMentionText: { color: colors.fgSecondary, fontSize: 13, lineHeight: 18 },
+  mqFoot: { color: colors.fgFaint, fontSize: 11.5, marginTop: 2 },
 
   glassTabs: { marginHorizontal: 16, marginTop: 12 },
 
