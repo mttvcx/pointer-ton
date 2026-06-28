@@ -59,8 +59,9 @@ export const CONVERT_ASSETS: ConvertAssetMeta[] = [
   },
   {
     // Target-only: "convert" USDC on Solana to USDC on Hyperliquid via Circle CCTP.
+    // Short label — the Hyperliquid badge on the icon conveys the destination.
     id: 'HLUSDC',
-    label: 'USDC · Hyperliquid',
+    label: 'USDC',
     decimals: 6,
     iconSrc: '/logos/protocols/usdc.png',
     lifiChain: 'SOL',

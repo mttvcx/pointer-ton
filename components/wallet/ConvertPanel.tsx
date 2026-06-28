@@ -63,6 +63,29 @@ function base64FromBytes(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+/** Asset icon — USDC·Hyperliquid gets the real HL logo badged bottom-right (Axiom-style). */
+function AssetIcon({ asset, size }: { asset: ConvertAssetMeta; size: number }) {
+  return (
+    <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      <img
+        src={asset.iconSrc}
+        alt=""
+        className="h-full w-full rounded-full object-contain"
+        draggable={false}
+      />
+      {isHyperliquidUsdc(asset.id) ? (
+        <img
+          src="/branding/hyperliquid.png"
+          alt=""
+          aria-hidden
+          className="absolute -bottom-px -right-px rounded-full object-contain ring-1 ring-bg-raised"
+          style={{ width: Math.round(size * 0.6), height: Math.round(size * 0.6) }}
+        />
+      ) : null}
+    </span>
+  );
+}
+
 function AssetSelect({
   value,
   onChange,
@@ -88,7 +111,7 @@ function AssetSelect({
           EX.control,
         )}
       >
-        <img src={asset.iconSrc} alt="" className="h-4 w-4 rounded-full object-contain" draggable={false} />
+        <AssetIcon asset={asset} size={16} />
         {asset.label}
         <ChevronDown
           className={cn('h-3 w-3 text-fg-muted transition-transform duration-200', open && 'rotate-180')}
@@ -98,8 +121,9 @@ function AssetSelect({
       {open ? (
         <div
           className={cn(
-            'absolute right-0 top-[calc(100%+4px)] z-20 min-w-[7rem] overflow-hidden py-1 shadow-panel',
-            'animate-in fade-in slide-in-from-top-1 duration-150 ease-out',
+            // Open UPWARD so the modal's scroll area never clips the menu.
+            'absolute right-0 bottom-[calc(100%+6px)] z-20 min-w-[8rem] overflow-hidden py-1 shadow-panel',
+            'animate-in fade-in slide-in-from-bottom-1 duration-150 ease-out',
             EX.inset,
             'bg-bg-raised',
           )}
@@ -119,7 +143,7 @@ function AssetSelect({
                   : 'text-fg-secondary hover:bg-bg-hover/70 hover:text-fg-primary',
               )}
             >
-              <img src={opt.iconSrc} alt="" className="h-3.5 w-3.5 rounded-full object-contain" draggable={false} />
+              <AssetIcon asset={opt} size={14} />
               {opt.label}
             </button>
           ))}
