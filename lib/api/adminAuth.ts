@@ -5,6 +5,7 @@ import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { resolveAdminContext, type AdminContext } from '@/lib/db/admin';
 import { hasPermission, type AdminPermission, ADMIN_WILDCARD } from '@/lib/admin/permissions';
+import { enforceAdminRateLimit } from '@/lib/rate-limit/userAction';
 
 export type AdminAuthOk = { ok: true; ctx: AdminContext; ip: string | null };
 export type AdminAuthErr = { ok: false; response: NextResponse };
@@ -81,6 +82,12 @@ export async function requireAnyAdmin(
   if (!ctx) {
     return { ok: false, response: NextResponse.json({ error: 'not_admin' }, { status: 403 }) };
   }
+
+  // Defense-in-depth: cap admin MUTATIONS per admin (reads pass through, so the
+  // dashboard's polling is unaffected). Break-glass already returned above.
+  const adminRl = await enforceAdminRateLimit(ctx.adminUserId || ctx.userId, req.method);
+  if (adminRl) return { ok: false, response: adminRl };
+
   return { ok: true, ctx, ip };
 }
 

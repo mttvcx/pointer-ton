@@ -18,6 +18,7 @@ import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
 import { broadcastSignedTransaction } from '@/lib/solana/broadcast';
+import { enforceTradeRateLimit } from '@/lib/rate-limit/userAction';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,6 +87,11 @@ export async function POST(req: NextRequest) {
   // Defense-in-depth — same per-user fail-closed gate as quote.
   const freezeBlocked = await tradingFreezeGateOrNull(user.id);
   if (freezeBlocked) return freezeBlocked;
+
+  // Generous per-user cap so a script can't hammer the trade money path
+  // (fail-open; tune via TRADE_RATE_LIMIT_PER_MIN, disable via env).
+  const tradeRl = await enforceTradeRateLimit(user.id);
+  if (tradeRl) return tradeRl;
 
   const json: unknown = await req.json();
   const parsedSol = SolExecuteSchema.safeParse(json);
