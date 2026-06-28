@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Loader2, Lock, Sparkles } from 'lucide-react';
 import { BubbleMap } from '@/components/tokens/BubbleMap';
+import { InsightXDetailView, type InsightXDetailTab } from '@/components/tokens/InsightXDetailView';
 import type { BubbleLink, BubbleNode } from '@/lib/tokens/bubbleMap';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -33,6 +34,15 @@ const SEVERITY_DOT: Record<RiskSeverity, string> = {
   warn: 'bg-yellow-400',
   critical: 'bg-signal-bear',
 };
+
+type PanelView = 'map' | InsightXDetailTab;
+const VIEW_TABS: { id: PanelView; label: string }[] = [
+  { id: 'map', label: 'Map' },
+  { id: 'bundlers', label: 'Bundlers' },
+  { id: 'snipers', label: 'Snipers' },
+  { id: 'insiders', label: 'Insiders' },
+  { id: 'security', label: 'Security' },
+];
 
 /** App chain → InsightX network (null = no InsightX coverage, e.g. ton). */
 function ixNetworkFor(chain: string | null | undefined): string | null {
@@ -98,6 +108,7 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
   const { resolveLabel } = useWalletLabels();
   const activeChain = useUIStore((s) => s.activeChain);
   const ixNetwork = ixNetworkFor(activeChain);
+  const [view, setView] = useState<PanelView>('map');
 
   const q = useQuery({
     queryKey: ['bubble-holders', mint],
@@ -182,8 +193,28 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
   const holderCount = q.data?.holderCountTotal;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-desk-panel">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border-subtle/40 px-4 py-2.5">
+    <div className="flex min-h-0 flex-1 flex-col bg-desk-panel">
+      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border-subtle/40 px-2 py-1 [scrollbar-width:none]">
+        {VIEW_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setView(t.id)}
+            className={cn(
+              'btn-press shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors',
+              view === t.id ? 'bg-bg-hover text-fg-primary' : 'text-fg-muted hover:text-fg-secondary',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {view !== 'map' ? (
+        <InsightXDetailView mint={mint} network={ixNetwork} tab={view} />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border-subtle/40 px-4 py-2.5">
         <Stat label="Holders" value={holderCount != null ? formatNumber(holderCount, { compact: holderCount >= 10_000 }) : '—'} />
         <Stat label="Top 10" value={top10 != null ? `${top10.toFixed(1)}%` : '—'} />
         <Stat label="Dev holds" value={devPct != null ? `${devPct.toFixed(2)}%` : '—'} />
@@ -329,7 +360,9 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
             </p>
           </div>
         </aside>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
