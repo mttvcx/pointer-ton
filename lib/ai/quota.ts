@@ -70,6 +70,28 @@ export async function enforceRateLimit(userId: string): Promise<void> {
 }
 
 /**
+ * Read-only snapshot of the user's sliding-window rate-limit state. Prunes
+ * expired entries but, unlike {@link enforceRateLimit}, records no new call —
+ * safe to call from a status endpoint. Best-effort: returns a full-budget
+ * snapshot if Redis is unavailable.
+ */
+export async function getRateLimitState(
+  userId: string,
+): Promise<{ used: number; max: number; windowSeconds: number; remaining: number }> {
+  const max = AI_RATE_LIMIT_MAX_CALLS;
+  const windowSeconds = AI_RATE_LIMIT_WINDOW_SECONDS;
+  try {
+    const redis = getRedis();
+    const key = rateKey(userId);
+    await redis.zremrangebyscore(key, 0, Date.now() - windowSeconds * 1000);
+    const used = await redis.zcard(key);
+    return { used, max, windowSeconds, remaining: Math.max(0, max - used) };
+  } catch {
+    return { used: 0, max, windowSeconds, remaining: max };
+  }
+}
+
+/**
  * Check that the user is below their daily cost ceiling. Reads (does not
  * increment) so the cascade can avoid charging for cache hits.
  */
