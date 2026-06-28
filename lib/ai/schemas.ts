@@ -79,6 +79,24 @@ export const LaunchPackageOutputSchema = z
   .strict();
 export type LaunchPackageOutput = z.infer<typeof LaunchPackageOutputSchema>;
 
+export const BubbleRiskFactorSchema = z
+  .object({
+    label: z.string().min(1).max(48),
+    detail: z.string().min(1).max(220),
+    severity: z.enum(['info', 'warn', 'critical']),
+  })
+  .strict();
+
+export const BubbleRiskOutputSchema = z
+  .object({
+    riskLevel: z.enum(['low', 'medium', 'high', 'critical']),
+    headline: z.string().min(1).max(140),
+    factors: z.array(BubbleRiskFactorSchema).max(6).default([]),
+    summary: z.string().min(1).max(700),
+  })
+  .strict();
+export type BubbleRiskOutput = z.infer<typeof BubbleRiskOutputSchema>;
+
 export const PIPELINE_SCHEMAS = {
   explainToken: ExplainTokenOutputSchema,
   explainWallet: ExplainWalletOutputSchema,
@@ -86,6 +104,7 @@ export const PIPELINE_SCHEMAS = {
   narrateAlert: NarrateAlertOutputSchema,
   parseTrackerRule: ParseTrackerRuleOutputSchema,
   launchPackage: LaunchPackageOutputSchema,
+  bubbleRisk: BubbleRiskOutputSchema,
 } as const;
 
 export type PipelineId = keyof typeof PIPELINE_SCHEMAS;

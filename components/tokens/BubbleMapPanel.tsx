@@ -1,14 +1,38 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Loader2, Lock, Sparkles } from 'lucide-react';
 import { BubbleMap } from '@/components/tokens/BubbleMap';
 import type { BubbleLink, BubbleNode } from '@/lib/tokens/bubbleMap';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
+import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatNumber } from '@/lib/utils/formatters';
+import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
+
+type RiskSeverity = 'info' | 'warn' | 'critical';
+type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+type BubbleRisk = {
+  riskLevel: RiskLevel;
+  headline: string;
+  factors: { label: string; detail: string; severity: RiskSeverity }[];
+  summary: string;
+};
+type RiskResp = { configured: boolean; risk?: BubbleRisk; cached?: boolean; error?: string };
+
+const RISK_TONE: Record<RiskLevel, string> = {
+  low: 'border-signal-bull/40 bg-signal-bull/10 text-signal-bull',
+  medium: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400',
+  high: 'border-orange-500/40 bg-orange-500/10 text-orange-400',
+  critical: 'border-signal-bear/40 bg-signal-bear/10 text-signal-bear',
+};
+const SEVERITY_DOT: Record<RiskSeverity, string> = {
+  info: 'bg-fg-muted',
+  warn: 'bg-yellow-400',
+  critical: 'bg-signal-bear',
+};
 
 /** App chain → InsightX network (null = no InsightX coverage, e.g. ton). */
 function ixNetworkFor(chain: string | null | undefined): string | null {
@@ -105,6 +129,25 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
   const ixNodes = ixQ.data?.nodes ?? [];
   const useIx = ixConfigured && ixNodes.length > 0;
 
+  const { getAccessToken } = usePointerAuth();
+  const riskMut = useMutation({
+    mutationFn: async (): Promise<RiskResp> => {
+      const tkn = await getAccessToken();
+      const r = await fetch(`/api/insightx/risk/${encodeURIComponent(mint)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tkn ? { Authorization: `Bearer ${tkn}` } : {}),
+        },
+        body: JSON.stringify({ network: ixNetwork }),
+      });
+      const json = (await r.json().catch(() => ({}))) as RiskResp;
+      if (!r.ok) throw new Error(json.error || 'analyze_failed');
+      return json;
+    },
+  });
+  const risk = riskMut.data?.risk;
+
   const holderNodes = useMemo<BubbleNode[]>(() => {
     const holders = q.data?.holders ?? [];
     const pools = new Set(q.data?.poolAddresses ?? []);
@@ -191,12 +234,77 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
               </span>
             </div>
             {useIx ? (
-              <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
-                InsightX connected — <span className="text-fg-secondary">{ixQ.data?.summary?.clusterCount ?? 0} coordinated clusters</span> across{' '}
-                <span className="text-fg-secondary">{ixQ.data?.summary?.nodeCount ?? nodes.length} wallets</span>,{' '}
-                <span className="text-fg-secondary">{(ixQ.data?.summary?.clusteredPct ?? 0).toFixed(1)}% of supply</span> clustered.
-                The AI risk read of these clusters lands next.
-              </p>
+              <div className="mt-2">
+                {risk ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                          RISK_TONE[risk.riskLevel],
+                        )}
+                      >
+                        {risk.riskLevel} risk
+                      </span>
+                      {riskMut.data?.cached ? (
+                        <span className="text-[9px] uppercase tracking-wide text-fg-muted">cached</span>
+                      ) : null}
+                    </div>
+                    <p className="text-[11px] font-semibold leading-snug text-fg-primary">{risk.headline}</p>
+                    {risk.factors.length > 0 ? (
+                      <ul className="flex flex-col gap-1.5">
+                        {risk.factors.map((f, i) => (
+                          <li key={i} className="flex gap-1.5">
+                            <span className={cn('mt-1 h-1.5 w-1.5 shrink-0 rounded-full', SEVERITY_DOT[f.severity])} />
+                            <span className="text-[10.5px] leading-snug text-fg-muted">
+                              <span className="font-semibold text-fg-secondary">{f.label}:</span> {f.detail}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <p className="text-[10.5px] leading-relaxed text-fg-muted">{risk.summary}</p>
+                    <button
+                      type="button"
+                      onClick={() => riskMut.mutate()}
+                      disabled={riskMut.isPending}
+                      className="self-start text-[10px] font-semibold uppercase tracking-wide text-accent-primary transition hover:underline disabled:opacity-50"
+                    >
+                      Re-analyze
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2.5">
+                    <p className="text-[11px] leading-relaxed text-fg-muted">
+                      InsightX connected — <span className="text-fg-secondary">{ixQ.data?.summary?.clusterCount ?? 0} coordinated clusters</span>,{' '}
+                      <span className="text-fg-secondary">{(ixQ.data?.summary?.clusteredPct ?? 0).toFixed(1)}% of supply</span> clustered. Let the AI grade the rug risk.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => riskMut.mutate()}
+                      disabled={riskMut.isPending}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent-primary px-3 py-1.5 text-[11px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-60"
+                    >
+                      {riskMut.isPending ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" /> Analyze risk
+                        </>
+                      )}
+                    </button>
+                    {riskMut.isError ? (
+                      <p className="text-[10px] text-signal-bear">
+                        {(riskMut.error instanceof Error ? riskMut.error.message : '') === 'unauthenticated'
+                          ? 'Sign in to run the AI risk read.'
+                          : 'Risk read failed — try again.'}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
             ) : (
               <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
                 Connect an InsightX key to reveal <span className="text-fg-secondary">wallet clusters</span>,{' '}

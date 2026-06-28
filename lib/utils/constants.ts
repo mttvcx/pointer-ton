@@ -60,6 +60,7 @@ export const AI_CACHE_TTL = {
   narrateAlert: 86_400,
   parseTrackerRule: 1800,
   launchPackage: 7 * 86_400,
+  bubbleRisk: 1800,
 } as const;
 
 /** Shared global scan cache TTLs (seconds). See `lib/ai/scanCacheKeys.ts`. */
