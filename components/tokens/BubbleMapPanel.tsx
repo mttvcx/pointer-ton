@@ -4,10 +4,35 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Lock, Sparkles } from 'lucide-react';
 import { BubbleMap } from '@/components/tokens/BubbleMap';
-import type { BubbleNode } from '@/lib/tokens/bubbleMap';
+import type { BubbleLink, BubbleNode } from '@/lib/tokens/bubbleMap';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { formatNumber } from '@/lib/utils/formatters';
+import { useUIStore } from '@/store/ui';
+
+/** App chain → InsightX network (null = no InsightX coverage, e.g. ton). */
+function ixNetworkFor(chain: string | null | undefined): string | null {
+  switch (chain) {
+    case 'sol':
+      return 'sol';
+    case 'eth':
+      return 'eth';
+    case 'base':
+      return 'base';
+    case 'bnb':
+      return 'bsc';
+    default:
+      return null;
+  }
+}
+
+type IxBubbleResp = {
+  configured: boolean;
+  nodes?: BubbleNode[];
+  links?: BubbleLink[];
+  summary?: { nodeCount: number; linkCount: number; flaggedPct: number };
+  error?: string;
+};
 
 type HolderRow = {
   wallet_address: string;
@@ -47,6 +72,8 @@ function Stat({ label, value }: { label: string; value: string }) {
  */
 export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
   const { resolveLabel } = useWalletLabels();
+  const activeChain = useUIStore((s) => s.activeChain);
+  const ixNetwork = ixNetworkFor(activeChain);
 
   const q = useQuery({
     queryKey: ['bubble-holders', mint],
@@ -58,7 +85,27 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
     staleTime: 60_000,
   });
 
-  const nodes = useMemo<BubbleNode[]>(() => {
+  // InsightX graph (real clusters + funding links) — only when a key is set.
+  // The route returns { configured:false } cheaply, so this never burns quota
+  // until connected. Cached 15m client-side to respect the free-tier budget.
+  const ixQ = useQuery({
+    queryKey: ['ix-bubble', mint, ixNetwork],
+    queryFn: async () => {
+      const r = await fetch(
+        `/api/insightx/token/${encodeURIComponent(mint)}?network=${ixNetwork}`,
+      );
+      return (await r.json()) as IxBubbleResp;
+    },
+    enabled: Boolean(ixNetwork),
+    staleTime: 15 * 60_000,
+    retry: false,
+  });
+
+  const ixConfigured = ixQ.data?.configured === true;
+  const ixNodes = ixQ.data?.nodes ?? [];
+  const useIx = ixConfigured && ixNodes.length > 0;
+
+  const holderNodes = useMemo<BubbleNode[]>(() => {
     const holders = q.data?.holders ?? [];
     const pools = new Set(q.data?.poolAddresses ?? []);
     return holders
@@ -81,6 +128,11 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
         };
       });
   }, [q.data, resolveLabel]);
+
+  // Prefer InsightX's real cluster graph (nodes + funding links) when connected;
+  // otherwise our own top-holder bubbles (no fabricated links).
+  const nodes = useIx ? ixNodes : holderNodes;
+  const links: BubbleLink[] = useIx ? (ixQ.data?.links ?? []) : [];
 
   const top10 = q.data?.top10HolderPct;
   const devPct = q.data?.devHoldingPct;
@@ -117,30 +169,55 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
               No holder distribution indexed yet.
             </div>
           ) : (
-            <BubbleMap nodes={nodes} links={[]} />
+            <BubbleMap nodes={nodes} links={links} />
           )}
         </div>
 
-        {/* AI risk read — honestly locked until InsightX + AI are connected. */}
+        {/* AI risk read — honestly locked until InsightX is connected. */}
         <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-72">
           <div className="rounded-xl border border-border-subtle bg-bg-sunken/40 p-3.5">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-accent-primary" strokeWidth={2} />
               <span className="text-[12px] font-semibold text-fg-primary">AI risk read</span>
-              <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border-subtle px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
-                <Lock className="h-2.5 w-2.5" /> Locked
+              <span
+                className={
+                  'ml-auto inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ' +
+                  (useIx
+                    ? 'border-signal-bull/40 text-signal-bull'
+                    : 'border-border-subtle text-fg-muted')
+                }
+              >
+                {useIx ? 'Live' : <><Lock className="h-2.5 w-2.5" /> Locked</>}
               </span>
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
-              Connect an InsightX key to reveal <span className="text-fg-secondary">wallet clusters</span>,{' '}
-              <span className="text-fg-secondary">bundle &amp; sniper detection</span> and funding links — then
-              the AI reads the map: who&apos;s coordinated, how much they hold, and the rug risk.
-            </p>
+            {useIx ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
+                InsightX connected — <span className="text-fg-secondary">{ixQ.data?.summary?.linkCount ?? 0} funding links</span> across{' '}
+                <span className="text-fg-secondary">{ixQ.data?.summary?.nodeCount ?? nodes.length} wallets</span>,{' '}
+                <span className="text-fg-secondary">{(ixQ.data?.summary?.flaggedPct ?? 0).toFixed(1)}% flagged</span> (dev/sniper/bundler/insider).
+                The AI risk read of these clusters lands next.
+              </p>
+            ) : (
+              <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
+                Connect an InsightX key to reveal <span className="text-fg-secondary">wallet clusters</span>,{' '}
+                <span className="text-fg-secondary">bundle &amp; sniper detection</span> and funding links — then
+                the AI reads the map: who&apos;s coordinated, how much they hold, and the rug risk.
+              </p>
+            )}
           </div>
           <div className="rounded-xl border border-border-subtle bg-bg-sunken/40 p-3.5">
             <p className="text-[11px] leading-relaxed text-fg-muted">
-              Showing <span className="font-semibold text-fg-primary">{nodes.length}</span> top holders sized by
-              supply. Red = dev, amber = sniper, grey = LP. Cluster lines appear once InsightX is connected.
+              {useIx ? (
+                <>
+                  Showing <span className="font-semibold text-fg-primary">{nodes.length}</span> wallets from InsightX,
+                  linked by funding/transfer relationships. Red = dev, amber = sniper, violet = bundler, grey = LP.
+                </>
+              ) : (
+                <>
+                  Showing <span className="font-semibold text-fg-primary">{nodes.length}</span> top holders sized by
+                  supply. Red = dev, amber = sniper, grey = LP. Cluster lines appear once InsightX is connected.
+                </>
+              )}
             </p>
           </div>
         </aside>
