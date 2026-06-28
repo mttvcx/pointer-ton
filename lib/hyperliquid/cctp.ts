@@ -16,14 +16,16 @@
 export const SOLANA_CCTP_DOMAIN = 5;
 
 /**
- * Hyperliquid's CCTP destination domain. MUST come from Circle's official HL
- * integration — never guessed. Returns null until configured, which keeps the
- * burn path inert (no funds can move to an unknown domain).
+ * HyperEVM's CCTP destination domain = 19, confirmed from Circle's official
+ * "Supported Blockchains and Domains" table. CCTP mints native USDC to the user's
+ * address on HyperEVM; a one-click HyperEVM->HyperCore transfer then moves it into
+ * perps margin. Env-overridable, but defaults to the confirmed value.
  */
-export function hyperliquidCctpDomain(): number | null {
+export const HYPEREVM_CCTP_DOMAIN = 19;
+export function hyperliquidCctpDomain(): number {
   const raw = process.env.NEXT_PUBLIC_HL_CCTP_DOMAIN?.trim();
   const n = raw ? Number(raw) : NaN;
-  return Number.isInteger(n) && n >= 0 ? n : null;
+  return Number.isInteger(n) && n >= 0 ? n : HYPEREVM_CCTP_DOMAIN;
 }
 
 const IRIS_BASE = process.env.CIRCLE_IRIS_API_URL?.trim() || 'https://iris-api.circle.com';
