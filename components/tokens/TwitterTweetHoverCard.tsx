@@ -6,7 +6,6 @@ import {
   BadgeCheck,
   Bookmark,
   Calendar,
-  Camera,
   Eye,
   EyeOff,
   Heart,
@@ -114,13 +113,6 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
     }, 120);
   };
 
-  const openLens = () => {
-    window.open(
-      `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(absImageUrl(src))}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
-  };
 
   useEffect(() => {
     if (!hovered) return;
@@ -146,28 +138,10 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
             onMouseEnter={scheduleOpen}
             onMouseLeave={scheduleClose}
           >
-            <button
-              type="button"
-              aria-label="Search image on Google Lens"
-              title="Search image"
-              data-row-click-skip="true"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openLens();
-              }}
-              className="group/preview relative block w-full overflow-hidden transition hover:brightness-105"
-            >
+            <div className="relative block w-full overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={src} alt="" className="block h-auto w-full object-cover" draggable={false} />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/preview:bg-black/35">
-                <Camera
-                  className="h-6 w-6 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/preview:opacity-100"
-                  strokeWidth={2}
-                  aria-hidden
-                />
-              </span>
-            </button>
+            </div>
           </div>,
           document.body,
         )
@@ -184,13 +158,6 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="" className="block w-full object-cover transition duration-200 group-hover/media:scale-[1.02]" draggable={false} />
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/media:bg-black/30">
-          <Camera
-            className="h-5 w-5 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/media:opacity-100"
-            strokeWidth={2}
-            aria-hidden
-          />
-        </span>
       </div>
       {previewPanel}
     </>

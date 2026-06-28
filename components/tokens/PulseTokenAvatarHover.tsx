@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Camera, EyeOff, UserRoundX } from 'lucide-react';
+import { EyeOff, UserRoundX } from 'lucide-react';
 import { PulseTokenAvatar } from '@/components/tokens/PulseTokenAvatar';
 import type { LaunchpadAvatarChrome } from '@/lib/tokens/launchpadAvatarChrome';
 import { cn } from '@/lib/utils/cn';
@@ -154,15 +154,6 @@ export function PulseTokenAvatarHover({
     return list;
   }, [token.creator_wallet, twitterHandle]);
 
-  const openLens = useCallback(() => {
-    if (!imageUrl) return;
-    window.open(
-      `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(absImageUrl(imageUrl))}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
-  }, [imageUrl]);
-
   const onAction = (key: ActionKey, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -244,18 +235,7 @@ export function PulseTokenAvatarHover({
             onMouseEnter={scheduleOpen}
             onMouseLeave={scheduleClose}
           >
-            <button
-              type="button"
-              aria-label="Search image on Google Lens"
-              title="Search image"
-              data-row-click-skip="true"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openLens();
-              }}
-              className="group/preview relative block w-full overflow-hidden transition hover:brightness-105"
-            >
+            <div className="relative block w-full overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageUrl}
@@ -263,14 +243,7 @@ export function PulseTokenAvatarHover({
                 className="block h-auto w-full object-cover"
                 draggable={false}
               />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/preview:bg-black/35">
-                <Camera
-                  className="h-6 w-6 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/preview:opacity-100"
-                  strokeWidth={2}
-                  aria-hidden
-                />
-              </span>
-            </button>
+            </div>
 
             {reusedTotal > 0 ? (
               <div className="border-t border-white/[0.08] px-2.5 py-2">
@@ -371,35 +344,6 @@ export function PulseTokenAvatarHover({
           imagePriority={avatarImagePriority}
         />
 
-        {imageUrl ? (
-          <button
-            type="button"
-            aria-label="Search image on Google Lens"
-            title="Search image"
-            data-row-click-skip="true"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              openLens();
-            }}
-            className={cn(
-              'absolute inset-0 z-[18] flex items-center justify-center rounded-lg transition-[background-color,opacity] duration-150',
-              hovered
-                ? 'pointer-events-auto bg-black/40'
-                : 'pointer-events-none bg-transparent',
-            )}
-          >
-            <Camera
-              className={cn(
-                'text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition-opacity duration-150',
-                hovered ? 'opacity-100' : 'opacity-0',
-              )}
-              style={{ width: Math.max(14, Math.round(size * 0.28)), height: Math.max(14, Math.round(size * 0.28)) }}
-              strokeWidth={2}
-              aria-hidden
-            />
-          </button>
-        ) : null}
       </div>
 
       {previewPanel}
