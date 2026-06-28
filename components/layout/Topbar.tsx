@@ -109,6 +109,8 @@ export function Topbar() {
   const [walletPopoverOpen, setWalletPopoverOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const openSettings = useUIStore((s) => s.openSettings);
+  const exchangeRequestSignal = useUIStore((s) => s.exchangeRequest);
+  const clearExchangeRequest = useUIStore((s) => s.clearExchangeRequest);
   const [autoTranslateOpen, setAutoTranslateOpen] = useState(false);
   const [featureUpdatesOpen, setFeatureUpdatesOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
@@ -192,6 +194,14 @@ export function Topbar() {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [avatarMenuOpen]);
+
+  // Other surfaces (perps "Get USDC") trigger the wallet exchange modal here.
+  useEffect(() => {
+    if (!exchangeRequestSignal) return;
+    setExchangeTab(exchangeRequestSignal.tab);
+    setExchangeOpen(true);
+    clearExchangeRequest();
+  }, [exchangeRequestSignal, clearExchangeRequest]);
 
   const needsFullPortfolio =
     Boolean(pathname?.startsWith('/portfolio')) ||

@@ -25,10 +25,10 @@ export function HyperliquidWordmark({
       {markOk ? (
         // eslint-disable-next-line @next/next/no-img-element -- tiny brand mark, no optimization needed
         <img
-          src="/branding/hyperliquid.svg"
+          src="/branding/hyperliquid.png"
           alt=""
           aria-hidden
-          className={cn('shrink-0 rounded-[3px]', icon)}
+          className={cn('shrink-0 rounded-[3px] object-contain', icon)}
           onError={() => setMarkOk(false)}
         />
       ) : null}
