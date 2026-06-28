@@ -13,7 +13,7 @@ function PerpIcon({ src, coin, size = 24 }: { src: string; coin: string; size?: 
   const [failed, setFailed] = useState(false);
   return (
     <span
-      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0c1018] text-fg-secondary ring-1 ring-white/[0.08]"
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-bg-sunken text-fg-secondary ring-1 ring-border-subtle"
       style={{ width: size, height: size }}
       aria-hidden
     >
@@ -116,7 +116,7 @@ export function PerpMarketPicker({
         ref={buttonRef}
         type="button"
         onClick={openPicker}
-        className="group flex min-w-0 items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0b0f17] px-2 py-1.5 text-left transition hover:border-white/[0.14] hover:bg-[#101621]"
+        className="group flex min-w-0 items-center gap-2 rounded-lg border border-border-subtle bg-bg-sunken/60 px-2 py-1.5 text-left transition hover:border-border hover:bg-bg-hover"
         aria-label="Select perpetual market"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -146,16 +146,16 @@ export function PerpMarketPicker({
             aria-modal="true"
             aria-label="Select market"
             className={cn(
-              'fixed z-[900] flex max-h-[min(72vh,540px)] flex-col overflow-hidden rounded-xl border border-white/[0.08]',
-              'bg-[#0d1118] shadow-[0_32px_80px_-24px_rgba(0,0,0,0.92)]',
+              'fixed z-[900] flex max-h-[min(72vh,540px)] flex-col overflow-hidden rounded-xl border border-border-subtle',
+              'bg-bg-raised shadow-[0_32px_80px_-24px_rgba(0,0,0,0.92)]',
               overlayPanelClasses(visible),
               'fill-mode-forwards',
             )}
             style={dropdownStyle}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/[0.08] bg-black/30 px-2.5 py-2">
+            <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2.5">
+              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border-subtle bg-bg-sunken px-2.5 py-2">
                 <Search className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} />
                 <input
                   ref={inputRef}
@@ -176,7 +176,7 @@ export function PerpMarketPicker({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))] gap-2 border-b border-white/[0.05] bg-[#0d1118] px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
+              <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))] gap-2 border-b border-border-subtle bg-bg-raised px-3 py-2 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
                 <span>Token</span>
                 <span className="text-right">Last price</span>
                 <span className="text-right">24h change</span>
@@ -199,8 +199,8 @@ export function PerpMarketPicker({
                         setOpen(false);
                       }}
                       className={cn(
-                        'grid w-full grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))] gap-2 border-b border-white/[0.04] px-3 py-2.5 text-left transition',
-                        on ? 'bg-accent-primary/10' : 'hover:bg-white/[0.04]',
+                        'grid w-full grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))] gap-2 border-b border-border-subtle/60 px-3 py-2.5 text-left transition',
+                        on ? 'bg-accent-primary/10' : 'hover:bg-bg-hover',
                       )}
                     >
                       <span className="flex min-w-0 items-center gap-2">
