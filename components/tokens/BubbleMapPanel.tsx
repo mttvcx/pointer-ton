@@ -30,7 +30,7 @@ type IxBubbleResp = {
   configured: boolean;
   nodes?: BubbleNode[];
   links?: BubbleLink[];
-  summary?: { nodeCount: number; linkCount: number; flaggedPct: number };
+  summary?: { nodeCount: number; linkCount: number; clusterCount: number; clusteredPct: number };
   error?: string;
 };
 
@@ -192,9 +192,9 @@ export function BubbleMapPanel({ mint }: { mint: string; symbol?: string }) {
             </div>
             {useIx ? (
               <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
-                InsightX connected — <span className="text-fg-secondary">{ixQ.data?.summary?.linkCount ?? 0} funding links</span> across{' '}
+                InsightX connected — <span className="text-fg-secondary">{ixQ.data?.summary?.clusterCount ?? 0} coordinated clusters</span> across{' '}
                 <span className="text-fg-secondary">{ixQ.data?.summary?.nodeCount ?? nodes.length} wallets</span>,{' '}
-                <span className="text-fg-secondary">{(ixQ.data?.summary?.flaggedPct ?? 0).toFixed(1)}% flagged</span> (dev/sniper/bundler/insider).
+                <span className="text-fg-secondary">{(ixQ.data?.summary?.clusteredPct ?? 0).toFixed(1)}% of supply</span> clustered.
                 The AI risk read of these clusters lands next.
               </p>
             ) : (

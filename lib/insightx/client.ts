@@ -114,13 +114,27 @@ export function ixInsiders(network: IxNetwork, token: string): Promise<IxInsider
   return ixFetch(`/dex-metrics/v1/${network}/${enc(token)}/insiders`, 15 * 60 * 1000);
 }
 
-// ── Clusters + Atlas (holder graph) ─────────────────────────────────────────
-// Response schemas are not fully published in the OpenAPI spec, so these return
-// `unknown` and are normalized defensively in normalize.ts. Tighten once a live
-// key reveals the exact field names.
-export function ixClusters(network: IxNetwork, token: string): Promise<unknown> {
+// ── Clusters (coordinated wallet groups) ────────────────────────────────────
+// Verified shape from a live key: each cluster carries its own pct + tags and a
+// `cluster_addresses` list (member address/balance/percentage/tags). No explicit
+// edges — intra-cluster links are synthesized in normalize.ts.
+export type IxClusterMember = {
+  address: string;
+  balance?: number;
+  percentage?: number;
+  tags?: string[];
+};
+export type IxCluster = { pct?: number; tags?: string[]; cluster_addresses?: IxClusterMember[] };
+export type IxClustersResp = { total_cluster_pct?: number; clusters?: IxCluster[] };
+
+export function ixClusters(network: IxNetwork, token: string): Promise<IxClustersResp> {
   return ixFetch(`/dex-metrics/v1/${network}/${enc(token)}/clusters`, 15 * 60 * 1000);
 }
+
+// ── Atlas (holder graph: labels + relationship edges) ───────────────────────
+// Verified: { snapshot, token, network, holders:[{id,address,label,tags}], ... }.
+// Used to layer CEX/KOL labels + edges onto the cluster map. Normalized
+// defensively (link field names not yet confirmed).
 export function ixAtlasLatest(network: IxNetwork, token: string): Promise<unknown> {
   return ixFetch(`/atlas/v1/${network}/${enc(token)}/snapshots/latest`, 15 * 60 * 1000);
 }

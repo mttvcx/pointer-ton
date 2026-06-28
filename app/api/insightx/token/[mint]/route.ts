@@ -7,7 +7,7 @@ import {
   toIxNetwork,
   type IxNetwork,
 } from '@/lib/insightx/client';
-import { bubbleFromInsightx } from '@/lib/insightx/normalize';
+import { applyAtlasLabels, normalizeClusters } from '@/lib/insightx/normalize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,10 +15,13 @@ export const dynamic = 'force-dynamic';
 const NETWORKS: IxNetwork[] = ['eth', 'sol', 'base', 'bsc', 'monad', 'xlayer', 'abs'];
 
 /**
- * Bubble-map graph for a token from InsightX (Atlas holder graph, cluster
- * fallback). Returns `{ configured:false }` cheaply when no key is set — no
- * upstream call, so opening the Bubbles tab never burns the free-tier quota
- * until a key is connected. Heavily cached (client TTL + CDN s-maxage).
+ * Bubble-map graph for a token from InsightX. Primary source is the cluster
+ * endpoint (coordinated wallet groups, sized by %, intra-cluster links
+ * synthesized). Atlas is fetched best-effort to layer CEX/KOL labels onto nodes.
+ *
+ * Returns `{ configured:false }` cheaply when no key is set — no upstream call,
+ * so opening the Bubbles tab never burns the free-tier quota until connected.
+ * Heavily cached (client TTL + CDN s-maxage) to respect 1k req/month.
  */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ mint: string }> }) {
   if (!insightxConfigured()) {
@@ -35,30 +38,27 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ mint: strin
   }
 
   try {
-    // Atlas first (has relationship links). Cluster fallback only if Atlas is empty.
-    const atlas = await ixAtlasLatest(network, mint).catch(() => null);
-    let clusters: unknown = null;
-    let data = bubbleFromInsightx(atlas, null);
-    if (data.nodes.length === 0) {
-      clusters = await ixClusters(network, mint).catch(() => null);
-      data = bubbleFromInsightx(atlas, clusters);
-    }
+    const clusters = await ixClusters(network, mint);
+    let data = normalizeClusters(clusters);
 
-    const flaggedPct = data.nodes
-      .filter((n) => n.role && n.role !== 'lp')
-      .reduce((s, n) => s + (n.pct || 0), 0);
+    // Best-effort label enrichment (CEX/KOL names) — never breaks the map.
+    if (data.nodes.length > 0) {
+      const atlas = await ixAtlasLatest(network, mint).catch(() => null);
+      if (atlas) data = applyAtlasLabels(data, atlas);
+    }
 
     return NextResponse.json(
       {
         configured: true,
         network,
-        source: atlas ? 'atlas' : clusters ? 'clusters' : 'none',
+        source: 'clusters',
         nodes: data.nodes,
         links: data.links,
         summary: {
           nodeCount: data.nodes.length,
           linkCount: data.links.length,
-          flaggedPct: Math.round(flaggedPct * 100) / 100,
+          clusterCount: clusters.clusters?.length ?? 0,
+          clusteredPct: Math.round((clusters.total_cluster_pct ?? 0) * 100) / 100,
         },
       },
       { headers: { 'Cache-Control': 's-maxage=900, stale-while-revalidate=1800' } },

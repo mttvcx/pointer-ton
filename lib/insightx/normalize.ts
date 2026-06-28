@@ -1,3 +1,4 @@
+import type { IxClustersResp } from '@/lib/insightx/client';
 import type { BubbleLink, BubbleMapData, BubbleNode, BubbleRole } from '@/lib/tokens/bubbleMap';
 
 /**
@@ -66,33 +67,72 @@ export function normalizeAtlas(raw: unknown): BubbleMapData {
   return { nodes, links };
 }
 
-/** Normalize the cluster-metrics payload (nodes only — no edges) as a fallback. */
-export function normalizeClusters(raw: unknown): BubbleMapData {
-  const root = (raw ?? {}) as Record<string, unknown>;
-  const clustersRaw = pick<unknown[]>(root, ['clusters', 'data', 'items']) ?? [];
+/**
+ * Normalize the cluster-metrics payload into bubble nodes + synthesized links.
+ * Each cluster is a group of coordinated wallets; we color members by cluster,
+ * size by their `percentage`, and draw a star of links from each cluster's
+ * largest member to the rest (the endpoint has no explicit edges). Addresses are
+ * de-duped across clusters (first wins).
+ */
+export function normalizeClusters(raw: IxClustersResp | null | undefined): BubbleMapData {
+  const clusters = raw?.clusters ?? [];
   const nodes: BubbleNode[] = [];
-  (Array.isArray(clustersRaw) ? clustersRaw : []).forEach((raw, ci) => {
-    const c = (raw ?? {}) as Record<string, unknown>;
-    const tag = pick(c, ['tag', 'tags', 'type']);
-    const role = tagToRole(tag);
-    const members = pick<unknown[]>(c, ['wallets', 'members', 'addresses']) ?? [];
-    (Array.isArray(members) ? members : []).forEach((m, mi) => {
-      const w = (typeof m === 'string' ? { address: m } : (m ?? {})) as Record<string, unknown>;
+  const links: BubbleLink[] = [];
+  const seen = new Set<string>();
+
+  clusters.forEach((c, ci) => {
+    const clusterId = ci + 1;
+    const clusterRole = tagToRole(c.tags);
+    const members = (c.cluster_addresses ?? []).filter((m) => m && m.address && !seen.has(m.address));
+    if (members.length === 0) return;
+
+    const memberIds: string[] = [];
+    let anchorIdx = 0;
+    let anchorPct = -1;
+    members.forEach((m, i) => {
+      const id = String(m.address);
+      seen.add(id);
+      memberIds.push(id);
+      const pct = num(m.percentage);
+      if (pct > anchorPct) {
+        anchorPct = pct;
+        anchorIdx = i;
+      }
       nodes.push({
-        id: String(pick(w, ['address', 'wallet', 'id']) ?? `${ci}-${mi}`),
-        label: pick<string>(w, ['label', 'name']) || undefined,
-        pct: num(pick(w, ['percentage', 'percent', 'pct'])),
-        cluster: ci + 1,
-        role,
+        id,
+        pct,
+        cluster: clusterId,
+        role: tagToRole(m.tags) ?? clusterRole,
       });
     });
+
+    // Star topology: connect every member to the cluster's largest holder.
+    const anchor = memberIds[anchorIdx];
+    if (anchor) {
+      memberIds.forEach((id, i) => {
+        if (i !== anchorIdx) links.push({ source: anchor, target: id });
+      });
+    }
   });
-  return { nodes, links: [] };
+
+  return { nodes, links };
 }
 
-/** Best-effort bubble data: prefer Atlas (has links); fall back to clusters. */
-export function bubbleFromInsightx(atlas: unknown, clusters: unknown): BubbleMapData {
-  const a = normalizeAtlas(atlas);
-  if (a.nodes.length > 0) return a;
-  return normalizeClusters(clusters);
+/** Layer Atlas labels (CEX/KOL names) onto cluster nodes by address. */
+export function applyAtlasLabels(data: BubbleMapData, atlas: unknown): BubbleMapData {
+  const root = (atlas ?? {}) as Record<string, unknown>;
+  const holders = pick<unknown[]>(root, ['holders', 'nodes', 'wallets']) ?? [];
+  const labelByAddr = new Map<string, string>();
+  (Array.isArray(holders) ? holders : []).forEach((raw) => {
+    const h = (raw ?? {}) as Record<string, unknown>;
+    const addr = pick<string>(h, ['address', 'wallet']);
+    const label = pick<string>(h, ['label', 'name']);
+    // Skip Atlas's "Funding: <shortaddr>" echo labels — keep only real names.
+    if (addr && label && !/^funding:/i.test(label.trim())) labelByAddr.set(addr, label);
+  });
+  if (labelByAddr.size === 0) return data;
+  return {
+    links: data.links,
+    nodes: data.nodes.map((n) => (labelByAddr.has(n.id) ? { ...n, label: labelByAddr.get(n.id) } : n)),
+  };
 }
