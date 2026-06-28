@@ -24,6 +24,7 @@ import { GlassTabs } from './GlassTabs';
 import { DragSheet } from './DragSheet';
 import { ChainIcon } from './ChainIcon';
 import { TwitterChip } from './TwitterChip';
+import { xAvatarUrl, DEMO_KOL_TWEETS } from '../src/social';
 import { getPulseFeed, explainToken } from '../src/api/endpoints';
 import { getDemoPulse, makeLiveDemoToken } from '../src/demo/pulseDemo';
 import { useTradeSubmit } from '../src/trade/useTradeSubmit';
@@ -93,15 +94,8 @@ function passesFilters(b: PulseBundle, f: Filters): boolean {
   return true;
 }
 
-// Demo tracked-tweets carousel (wire to the real X-monitor feed later).
-const tweetPic = (h: string) => `https://api.dicebear.com/9.x/avataaars/png?seed=${encodeURIComponent(h)}&size=64`;
-const DEMO_TWEETS = [
-  { handle: 'cupseyy', avatar: tweetPic('cupseyy'), text: 'aped $piss — chart primed, 30 buys in 8h' },
-  { handle: 'Euris', avatar: tweetPic('Euris'), text: '$SPCX69 holding the 8% dip, smart money still in' },
-  { handle: 'absol', avatar: tweetPic('absol'), text: 'new CA from a wallet I track → $XGIFT, 827% 24h' },
-  { handle: 'kev', avatar: tweetPic('kev'), text: '$world.xyz quietly climbing, 174k liq' },
-  { handle: 'Tibbz', avatar: tweetPic('Tibbz'), text: 'watching $RTM, 993% but liq thin — careful' },
-];
+// Demo tracked-tweets carousel — real Solana KOLs (handles from the web seed) so
+// the avatars are their actual X pics. Wire to the real X-monitor feed later.
 
 type MarqueeEntity = { kind: 'ticker' | 'handle' | 'ca'; value: string };
 // Bounded alternation (no unbounded quantifiers) → safe against ReDoS; matched
@@ -423,7 +417,7 @@ function TokenRow({
         onPress={() => onOpen(bundle)}
         onLongPress={() => onLongPressAi(bundle)}
         delayLongPress={240}
-        style={s.row}
+        style={[s.row, ultra && s.rowUltraPad]}
       >
         {/* Tap opens the token; press-and-hold enlarges the avatar (web hover-zoom). */}
         <Pressable
@@ -459,15 +453,27 @@ function TokenRow({
           </View>
         </View>
 
-        <View style={s.actions}>
-          {secondButton === 'sell' ? (
-            <QuickBtn kind="sell" outline={ultra} busy={busySell} onPress={() => onQuick(bundle, 'sell')} />
-          ) : null}
-          {secondButton === 'buy' ? (
-            <QuickBtn kind="buy" outline={ultra} label={String(secondSol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', secondSol)} />
-          ) : null}
-          <QuickBtn kind="buy" big outline={ultra} label={String(primarySol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', primarySol)} />
-        </View>
+        {ultra ? (
+          <UltraDock
+            secondButton={secondButton}
+            secondSol={secondSol}
+            primarySol={primarySol}
+            busyBuy={busyBuy}
+            busySell={busySell}
+            onBuy={(amt) => onQuick(bundle, 'buy', amt)}
+            onSell={() => onQuick(bundle, 'sell')}
+          />
+        ) : (
+          <View style={s.actions}>
+            {secondButton === 'sell' ? (
+              <QuickBtn kind="sell" busy={busySell} onPress={() => onQuick(bundle, 'sell')} />
+            ) : null}
+            {secondButton === 'buy' ? (
+              <QuickBtn kind="buy" label={String(secondSol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', secondSol)} />
+            ) : null}
+            <QuickBtn kind="buy" big label={String(primarySol)} busy={busyBuy} onPress={() => onQuick(bundle, 'buy', primarySol)} />
+          </View>
+        )}
       </Pressable>
 
       {aiOpen ? <AiBrief mint={token.mint} /> : null}
@@ -509,6 +515,60 @@ function QuickBtn({
         <Text style={[s.qbtnText, { color: colors.bear }]}>Sell</Text>
       )}
     </Pressable>
+  );
+}
+
+/**
+ * Ultra mode: a tall outlined buy dock pinned to the right of the row, flush to
+ * the row's top/bottom/right edges and stopping just past the MC (mirrors the web
+ * Pulse Ultra outline). Tap to buy; an optional second buy/sell stacks above.
+ */
+function UltraDock({
+  secondButton,
+  secondSol,
+  primarySol,
+  busyBuy,
+  busySell,
+  onBuy,
+  onSell,
+}: {
+  secondButton: SecondButton;
+  secondSol: number;
+  primarySol: number;
+  busyBuy: boolean;
+  busySell: boolean;
+  onBuy: (amountSol: number) => void;
+  onSell: () => void;
+}) {
+  return (
+    <View style={s.ultraDock}>
+      {secondButton === 'sell' ? (
+        <Pressable style={[s.ultraCell, s.ultraCellSell]} onPress={onSell} disabled={busySell}>
+          {busySell ? <ActivityIndicator size="small" color={colors.bear} /> : <Text style={s.ultraSellText}>Sell</Text>}
+        </Pressable>
+      ) : secondButton === 'buy' ? (
+        <Pressable style={[s.ultraCell, s.ultraCellBuy]} onPress={() => onBuy(secondSol)} disabled={busyBuy}>
+          {busyBuy ? (
+            <ActivityIndicator size="small" color={colors.bull} />
+          ) : (
+            <>
+              <Ionicons name="flash" size={13} color={colors.bull} />
+              <Text style={s.ultraBuyText}>{secondSol}</Text>
+            </>
+          )}
+        </Pressable>
+      ) : null}
+      <Pressable style={[s.ultraCell, s.ultraCellBuy, s.ultraCellPrimary]} onPress={() => onBuy(primarySol)} disabled={busyBuy}>
+        {busyBuy ? (
+          <ActivityIndicator color={colors.bull} />
+        ) : (
+          <>
+            <Ionicons name="flash" size={16} color={colors.bull} />
+            <Text style={s.ultraBuyTextBig}>{primarySol}</Text>
+          </>
+        )}
+      </Pressable>
+    </View>
   );
 }
 
@@ -667,10 +727,10 @@ function TweetMarquee({ onPressEntity }: { onPressEntity: (e: MarqueeEntity) => 
 
   const strip = (first: boolean) => (
     <View style={s.marqueeStrip} onLayout={first ? measure : undefined}>
-      {DEMO_TWEETS.map((t, i) => (
+      {DEMO_KOL_TWEETS.map((t, i) => (
         <View key={`${first ? 'a' : 'b'}-${i}`} style={s.tweetChip}>
           <View style={s.tweetAvatar}>
-            <Image source={{ uri: t.avatar }} style={s.tweetAvatarImg} />
+            <Image source={{ uri: xAvatarUrl(t.handle) }} style={s.tweetAvatarImg} />
           </View>
           <Text style={s.tweetHandle} onPress={() => onPressEntity({ kind: 'handle', value: '@' + t.handle })}>
             @{t.handle}
@@ -784,9 +844,16 @@ const s = StyleSheet.create({
   linkChip: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised2 },
 
   actions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ultraSide: { alignItems: 'flex-end', gap: 6 },
-  ultraBuy: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ultraBuyText: { color: colors.bull, fontSize: 15, fontWeight: '800' },
+  // Ultra: reserve the right column so token text stops just before the dock.
+  rowUltraPad: { paddingRight: 124 },
+  ultraDock: { position: 'absolute', top: 6, right: 6, bottom: 6, width: 108, flexDirection: 'column', gap: 6 },
+  ultraCell: { flex: 1, borderRadius: 11, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  ultraCellBuy: { borderColor: colors.bull, backgroundColor: colors.bull + '12' },
+  ultraCellSell: { borderColor: colors.bear + '99', backgroundColor: colors.bear + '10' },
+  ultraCellPrimary: { flexGrow: 1.6 },
+  ultraBuyText: { color: colors.bull, fontSize: 14, fontWeight: '800' },
+  ultraBuyTextBig: { color: colors.bull, fontSize: 18, fontWeight: '800' },
+  ultraSellText: { color: colors.bear, fontSize: 14, fontWeight: '800' },
   qbtn: { minWidth: 54, height: 32, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 11 },
   qbtnBig: { minWidth: 86, height: 40, borderRadius: 12, paddingHorizontal: 16, gap: 5 },
   qbtnBuy: { backgroundColor: colors.bull },

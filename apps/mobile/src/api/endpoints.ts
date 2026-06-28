@@ -72,6 +72,28 @@ export async function getTokenTrades(mint: string, limit = 80): Promise<TradeRow
   return res.trades ?? [];
 }
 
+/* ---------- twitter profile (real, for hover / hold cards) ---------- */
+
+/** Mirrors the web `/api/twitter/profile/[handle]` shape (FixTweet-backed). */
+export type TwitterProfile = {
+  handle: string;
+  displayName: string;
+  verified: boolean;
+  avatarUrl: string | null;
+  bio: string | null;
+  followerCount: number;
+  followingCount: number;
+};
+
+/**
+ * Real X profile for a handle. Server is FixTweet-backed and NEVER fabricates
+ * follower counts — it throws when a handle can't be resolved, so the caller
+ * shows a minimal card instead of fake numbers.
+ */
+export function getTwitterProfile(handle: string): Promise<TwitterProfile> {
+  return api<TwitterProfile>(`/api/twitter/profile/${encodeURIComponent(handle.replace(/^@/, ''))}`);
+}
+
 /* ---------- authed (token from the auth layer) ---------- */
 
 export async function getMe(): Promise<unknown> {
