@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils/cn';
 import { ChainIcon } from '@/components/squads/ChainIcon';
 import { HoldersTable } from '@/components/tokens/HoldersTable';
 import { HoldersTableSettingsModal } from '@/components/tokens/HoldersTableSettingsModal';
+import { BubbleMapPanel } from '@/components/tokens/BubbleMapPanel';
 import { MintTradesTable } from '@/components/tokens/MintTradesTable';
 import { TopTradersTable } from '@/components/tokens/TopTradersTable';
 import { DevTokensPane } from '@/components/tokens/DevTokensPane';
@@ -68,7 +69,7 @@ const NATIVE_USD_HINT: Record<AppChainId, number> = {
   base: 3200,
 };
 
-type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'traders' | 'dev_tokens';
+type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'bubbles' | 'traders' | 'dev_tokens';
 
 type TradeRow = Tables<'trades'>;
 
@@ -77,6 +78,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'positions', label: 'Positions' },
   { id: 'orders', label: 'Orders' },
   { id: 'holders', label: 'Holders' },
+  { id: 'bubbles', label: 'Bubbles' },
   { id: 'traders', label: 'Top Traders' },
   { id: 'dev_tokens', label: 'Dev Tokens' },
 ];
@@ -994,6 +996,7 @@ export function TokenActivityTabs({
             onOpenSettings={() => setHoldersSettingsOpen(true)}
           />
         ) : null}
+        {tab === 'bubbles' ? <BubbleMapPanel mint={mint} symbol={sym} /> : null}
         {tab === 'traders' ? (
           tradersEmpty ? (
             <div className="p-4">
