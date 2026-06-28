@@ -7,16 +7,21 @@ import {
   useSignTransaction,
   useWallets,
 } from '@privy-io/react-auth/solana';
+import { useWallets as useEvmWallets } from '@privy-io/react-auth';
+import { useCctpFund } from '@/lib/hooks/useCctpFund';
 import { useQuery } from '@tanstack/react-query';
 import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
 import { ArrowDownUp, ChevronDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   CONVERT_ASSETS,
+  CONVERT_FROM_ASSETS,
   convertAssetById,
   defaultConvertFromAsset,
   defaultConvertToAsset,
+  isHyperliquidUsdc,
   type ConvertAssetId,
+  type ConvertAssetMeta,
 } from '@/lib/exchange/convertAssets';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { dispatchSolanaAccountRefresh } from '@/lib/client/portfolioRefreshEvents';
@@ -62,14 +67,16 @@ function AssetSelect({
   value,
   onChange,
   exclude,
+  options = CONVERT_ASSETS,
 }: {
   value: ConvertAssetId;
   onChange: (id: ConvertAssetId) => void;
   exclude?: ConvertAssetId;
+  options?: ConvertAssetMeta[];
 }) {
   const [open, setOpen] = useState(false);
   const asset = convertAssetById(value);
-  const options = CONVERT_ASSETS.filter((a) => a.id !== exclude);
+  const opts = options.filter((a) => a.id !== exclude);
 
   return (
     <div className="relative shrink-0">
@@ -83,17 +90,21 @@ function AssetSelect({
       >
         <img src={asset.iconSrc} alt="" className="h-4 w-4 rounded-full object-contain" draggable={false} />
         {asset.label}
-        <ChevronDown className={cn('h-3 w-3 text-fg-muted', open && 'rotate-180')} strokeWidth={2.25} />
+        <ChevronDown
+          className={cn('h-3 w-3 text-fg-muted transition-transform duration-200', open && 'rotate-180')}
+          strokeWidth={2.25}
+        />
       </button>
       {open ? (
         <div
           className={cn(
             'absolute right-0 top-[calc(100%+4px)] z-20 min-w-[7rem] overflow-hidden py-1 shadow-panel',
+            'animate-in fade-in slide-in-from-top-1 duration-150 ease-out',
             EX.inset,
             'bg-bg-raised',
           )}
         >
-          {options.map((opt) => (
+          {opts.map((opt) => (
             <button
               key={opt.id}
               type="button"
@@ -136,7 +147,13 @@ export function ConvertPanel({
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const { signTransaction } = useSignTransaction();
   const { wallets } = useWallets();
+  const { wallets: evmWallets } = useEvmWallets();
   const embeddedAddresses = useEmbeddedSolanaAddresses();
+  const cctp = useCctpFund();
+  const hlEvmAddress = useMemo(
+    () => evmWallets.find((w) => w.walletClientType === 'privy')?.address ?? evmWallets[0]?.address ?? null,
+    [evmWallets],
+  );
 
   const [fromAsset, setFromAsset] = useState<ConvertAssetId>(() => defaultConvertFromAsset(activeChain));
   const [toAsset, setToAsset] = useState<ConvertAssetId>(() => defaultConvertToAsset(defaultConvertFromAsset(activeChain)));
@@ -151,6 +168,12 @@ export function ConvertPanel({
 
   const amountUi = Number(amountIn);
   const amountValid = Number.isFinite(amountUi) && amountUi > 0;
+  const toHl = isHyperliquidUsdc(toAsset);
+
+  // Bridging to Hyperliquid is a USDC→USDC CCTP transfer — force the source to USDC.
+  useEffect(() => {
+    if (toHl && fromAsset !== 'USDC') setFromAsset('USDC');
+  }, [toHl, fromAsset]);
 
   const balanceFor = (asset: ConvertAssetId): number => {
     if (asset === 'SOL') return nativeBalance ?? 0;
@@ -163,7 +186,7 @@ export function ConvertPanel({
 
   const quoteQ = useQuery({
     queryKey: ['convert-quote', walletAddress, fromAsset, toAsset, amountIn],
-    enabled: Boolean(walletAddress && amountValid),
+    enabled: Boolean(walletAddress && amountValid && !toHl),
     staleTime: 12_000,
     queryFn: async (): Promise<QuotePayload> => {
       const token = await getAccessToken();
@@ -202,9 +225,10 @@ export function ConvertPanel({
 
   const quote = quoteQ.data;
   const toDisplay = useMemo(() => {
+    if (toHl && amountValid) return amountUi; // 1:1 USDC bridge via CCTP
     if (quote && amountValid) return quote.toAmountUi;
     return 0;
-  }, [quote, amountValid]);
+  }, [toHl, amountUi, quote, amountValid]);
 
   const usdHint = useMemo(() => {
     if (!amountValid || solUsd == null || fromAsset !== 'SOL') return null;
@@ -231,6 +255,28 @@ export function ConvertPanel({
       toast.error('Insufficient balance');
       return;
     }
+
+    // USDC → Hyperliquid: route through Circle CCTP instead of a Jupiter/LI.FI swap.
+    if (toHl) {
+      if (!hlEvmAddress) {
+        toast.error('No Hyperliquid (EVM) address on this account');
+        return;
+      }
+      setConfirming(true);
+      try {
+        const sig = await cctp.fund(amountUi, hlEvmAddress);
+        if (!sig) throw new Error(cctp.error ?? 'bridge_failed');
+        toast.success('Bridging to Hyperliquid', { description: `${sig.slice(0, 12)}…` });
+        dispatchSolanaAccountRefresh('convert_swap');
+        onClose?.();
+      } catch (e) {
+        toast.error('Bridge failed', { description: e instanceof Error ? e.message : undefined });
+      } finally {
+        setConfirming(false);
+      }
+      return;
+    }
+
     if (!quote?.transaction) {
       toast.error('No transaction ready', {
         description:
@@ -307,8 +353,11 @@ export function ConvertPanel({
   return (
     <div className="space-y-3 py-1">
       <p className={EX.muted}>
-        Swap {convertAssetById(fromAsset).label} for {convertAssetById(toAsset).label}
-        {quote?.provider === 'lifi' ? ' via bridge' : ' on Solana'}
+        {toHl
+          ? 'Bridge USDC to Hyperliquid via Circle CCTP'
+          : `Swap ${convertAssetById(fromAsset).label} for ${convertAssetById(toAsset).label}${
+              quote?.provider === 'lifi' ? ' via bridge' : ' on Solana'
+            }`}
       </p>
 
       <div className={cn('p-3', EX.inset)}>
@@ -332,7 +381,7 @@ export function ConvertPanel({
             placeholder="0.0"
             className="min-w-0 flex-1 bg-transparent text-lg font-semibold tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/60"
           />
-          <AssetSelect value={fromAsset} onChange={setFromAsset} exclude={toAsset} />
+          <AssetSelect value={fromAsset} onChange={setFromAsset} exclude={toAsset} options={CONVERT_FROM_ASSETS} />
         </div>
         {usdHint ? (
           <p className={cn('mt-1 text-right text-[10px] tabular-nums', EX.muted)}>({usdHint})</p>
@@ -380,7 +429,11 @@ export function ConvertPanel({
 
       <button
         type="button"
-        disabled={confirming || !amountValid || quoteQ.isFetching || !quote?.transaction}
+        disabled={
+          confirming ||
+          !amountValid ||
+          (toHl ? cctp.state === 'signing' || cctp.state === 'bridging' : quoteQ.isFetching || !quote?.transaction)
+        }
         onClick={() => void handleConfirm()}
         className={cn(EX.cta, 'flex items-center justify-center gap-2')}
       >

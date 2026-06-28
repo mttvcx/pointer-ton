@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { usePerpsAccount } from '@/lib/hooks/usePerpsAccount';
 import type { PerpMarket } from '@/lib/perps/types';
-import { PerpsExchangeModal } from '@/components/perps/PerpsExchangeModal';
+import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
 export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
@@ -14,7 +14,7 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
   const [sizePct, setSizePct] = useState(0);
   const [leverage, setLeverage] = useState(Math.min(20, pair.maxLeverage));
   const [tpSl, setTpSl] = useState(false);
-  const [exchangeOpen, setExchangeOpen] = useState(false);
+  const requestExchange = useUIStore((s) => s.requestExchange);
   const [amountUsdc, setAmountUsdc] = useState('');
 
   const { account } = usePerpsAccount();
@@ -33,7 +33,7 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
       return;
     }
     if (needsFunds) {
-      setExchangeOpen(true);
+      requestExchange('convert');
       return;
     }
     // TODO Phase 2: HL order signing — button is disabled until this lands.
@@ -46,7 +46,7 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
           <span className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Trade</span>
           <button
             type="button"
-            onClick={() => setExchangeOpen(true)}
+            onClick={() => requestExchange('convert')}
             className="rounded-md bg-accent-primary px-3 py-1 text-[11px] font-semibold text-fg-inverse hover:brightness-110"
           >
             Deposit
@@ -196,7 +196,7 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
               <span className="text-fg-muted">Available Margin</span>
               <button
                 type="button"
-                onClick={() => setExchangeOpen(true)}
+                onClick={() => requestExchange('convert')}
                 className="font-semibold tabular-nums text-accent-glow hover:underline"
               >
                 {availableMargin.toFixed(2)} USDC
@@ -228,7 +228,6 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
         </div>
       </div>
 
-      <PerpsExchangeModal open={exchangeOpen} onClose={() => setExchangeOpen(false)} />
     </>
   );
 }
