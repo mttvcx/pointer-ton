@@ -19,6 +19,7 @@ import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
 import { broadcastSignedTransaction } from '@/lib/solana/broadcast';
 import { enforceTradeRateLimit } from '@/lib/rate-limit/userAction';
+import { waitForSolConfirmation } from '@/lib/solana/confirm';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -176,6 +177,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Confirm-before-accrue: only treat the trade as real once it lands on chain.
+    // A reverted/failed swap (slippage etc.) returns 502 instead of recording a
+    // "confirmed" trade that pays cashback. Kill-switch: POINTER_DISABLE_TRADE_CONFIRM=1.
+    let solConfirmed = true;
+    if (process.env.POINTER_DISABLE_TRADE_CONFIRM !== '1') {
+      const state = await waitForSolConfirmation(txSignature, 12_000);
+      if (state === 'failed') {
+        return NextResponse.json(
+          { error: 'tx_failed', signature: txSignature, message: 'Transaction failed on-chain' },
+          { status: 502 },
+        );
+      }
+      solConfirmed = state === 'confirmed';
+    }
+
     const trade = await insertTrade({
       id: randomUUID(),
       user_id: user.id,
@@ -190,6 +206,18 @@ export async function POST(req: NextRequest) {
       submitted_at: submittedAt,
       confirmed_at: new Date().toISOString(),
     });
+
+    // Slow/unconfirmed send: record the trade + return success (unchanged
+    // contract) but skip ALL reward accrual + side effects until it's confirmed.
+    if (!solConfirmed) {
+      return NextResponse.json({
+        signature: txSignature,
+        tradeId: trade.id,
+        status: 'confirmed',
+        packItemSell,
+        feeBps,
+      });
+    }
 
     try {
       await recordReferralEarningFromTrade({
