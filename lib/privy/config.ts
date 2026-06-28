@@ -2,6 +2,7 @@ import 'server-only';
 
 import { PrivyClient } from '@privy-io/node';
 import { verifyPointerAccessToken } from '@/lib/auth/pointerSession';
+import { assertNotRevoked } from '@/lib/auth/revocation';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { PRIVY_APP_ID } from '@/lib/privy/appId';
 
@@ -34,17 +35,25 @@ export interface VerifiedPrivyUser {
 }
 
 export async function verifyPrivyAccessToken(token: string): Promise<VerifiedPrivyUser> {
+  let privyId: string;
+  let walletAddress: string;
+  let iatSeconds: number | undefined;
   try {
     const v = await verifyPointerAccessToken(token);
-    return { privyId: v.authSubject, walletAddress: v.walletAddress };
+    privyId = v.authSubject;
+    walletAddress = v.walletAddress;
+    iatSeconds = v.iatSeconds;
   } catch {
-    const { privyId } = await verifyPrivyBearerToken(token);
+    const verified = await verifyPrivyBearerToken(token);
+    privyId = verified.privyId;
     const user = await getUserByPrivyId(privyId);
-    return {
-      privyId,
-      walletAddress: user?.wallet_address ?? '',
-    };
+    walletAddress = user?.wallet_address ?? '';
+    // Privy bearers are short-lived and don't surface `iat`; they rely on natural
+    // expiry rather than the revocation cutoff.
   }
+  // Single revocation chokepoint for every authed route (fail-open).
+  await assertNotRevoked(privyId, iatSeconds);
+  return { privyId, walletAddress };
 }
 
 export async function verifyPrivyJwksOnly(token: string): Promise<{ privyId: string }> {
