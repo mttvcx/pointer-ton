@@ -300,7 +300,14 @@ export function WatchlistTickerBar() {
     <div
       className={cn(
         'flex h-[var(--app-watchlist-bar-h)] min-h-[var(--app-watchlist-bar-h)] shrink-0 items-center gap-2',
-        'border-b border-white/[0.06] bg-bg-base px-2 sm:px-2.5',
+        'border-b border-white/[0.06] bg-bg-base',
+        // Shift clear of an edge-docked side panel (wallet / X-monitor / pulse /
+        // squads) so the bar starts where the dock ends instead of hiding under
+        // it. Base gutter folded into the max() so spacing is unchanged with no
+        // dock open. Mirrors <main> + PulseChromeStack.
+        'pl-[max(0.5rem,var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))]',
+        'pr-[max(0.5rem,var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))]',
+        'transition-[padding] duration-200 ease-out',
       )}
     >
       <div className="flex shrink-0 items-center gap-0.5 border-r border-white/[0.06] pr-2">
