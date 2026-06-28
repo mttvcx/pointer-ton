@@ -79,8 +79,8 @@ export function PerpsExchangeModal({ open, onClose }: Props) {
           {hlAddress ? (
             <div className="space-y-3">
               <p className={EX.muted}>
-                Send <span className="font-semibold text-fg-primary">USDC on Arbitrum</span> to your
-                Hyperliquid address. It credits your perps margin once the bridge confirms.
+                Send <span className="font-semibold text-fg-primary">USDC on Hyperliquid</span> to your
+                account address. It credits your perps margin on arrival.
               </p>
 
               <div className={cn('flex gap-3 p-3', EX.inset)}>
@@ -96,7 +96,15 @@ export function PerpsExchangeModal({ open, onClose }: Props) {
                   </div>
                   {usdcIcon ? (
                     <span className="absolute flex h-7 w-7 items-center justify-center rounded-md bg-bg-base shadow ring-1 ring-border-subtle/40">
-                      <DepositAssetIcon src={usdcIcon} label="USDC" size="lg" className="h-5 w-5" />
+                      <span className="relative h-5 w-5">
+                        <DepositAssetIcon src={usdcIcon} label="USDC" size="lg" className="h-5 w-5" />
+                        <img
+                          src="/branding/hyperliquid.png"
+                          alt=""
+                          aria-hidden
+                          className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full object-contain ring-1 ring-bg-base"
+                        />
+                      </span>
                     </span>
                   ) : null}
                 </div>
@@ -124,20 +132,28 @@ export function PerpsExchangeModal({ open, onClose }: Props) {
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle/50 bg-bg-sunken/30 px-2 py-0.5 text-[10px] font-semibold text-fg-secondary">
                     {usdcIcon ? (
-                      <DepositAssetIcon src={usdcIcon} label="USDC" size="md" className="h-4 w-4" />
+                      <span className="relative h-4 w-4">
+                        <DepositAssetIcon src={usdcIcon} label="USDC" size="md" className="h-4 w-4" />
+                        <img
+                          src="/branding/hyperliquid.png"
+                          alt=""
+                          aria-hidden
+                          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full object-contain ring-1 ring-bg-base"
+                        />
+                      </span>
                     ) : null}
-                    USDC · Arbitrum
+                    USDC · Hyperliquid
                   </span>
                 </div>
                 <p className={cn('mt-1', EX.muted)}>
-                  Arbitrum USDC only. Sending any other asset or network can lose funds.
+                  USDC on Hyperliquid only. Sending another asset or network can lose funds.
                 </p>
               </div>
 
               <div className="rounded-md border border-border-subtle/40 bg-bg-sunken/30 p-3">
                 <div className={EX.label}>Need USDC first?</div>
                 <p className={cn('mt-1', EX.muted)}>
-                  Convert or buy in your Pointer wallet, then bridge the USDC to Arbitrum.
+                  Convert or buy in your Pointer wallet, then bridge the USDC to Hyperliquid.
                 </p>
                 <div className="mt-2 flex gap-2">
                   <button
