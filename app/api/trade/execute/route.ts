@@ -4,7 +4,7 @@ import { PublicKey } from '@solana/web3.js';
 import { z } from 'zod';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { getFeeBpsForUser } from '@/lib/db/tiers';
-import { countConfirmedTradesForUser, insertTrade } from '@/lib/db/trades';
+import { countConfirmedTradesForUser, getTradeBySignature, insertTrade } from '@/lib/db/trades';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { tradingFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
@@ -161,6 +161,21 @@ export async function POST(req: NextRequest) {
     const lamports = solToLamports(amountSol);
     const platformFeeLamports = Number((lamports * BigInt(feeBps)) / 10_000n);
 
+    // Idempotency: a retried submit of the same signature must not insert a
+    // second trade row (which would double-accrue cashback/referral — those are
+    // keyed on tradeId). Return the already-recorded trade instead.
+    const existingTrade = await getTradeBySignature(txSignature);
+    if (existingTrade) {
+      return NextResponse.json({
+        signature: txSignature,
+        tradeId: existingTrade.id,
+        status: existingTrade.status,
+        packItemSell,
+        feeBps,
+        idempotent: true,
+      });
+    }
+
     const trade = await insertTrade({
       id: randomUUID(),
       user_id: user.id,
@@ -297,6 +312,18 @@ export async function POST(req: NextRequest) {
   const feeBps = await getFeeBpsForUser(user.id);
   const lamports = solToLamports(amountSol);
   const platformFeeLamports = Number((lamports * BigInt(feeBps)) / 10_000n);
+
+  // Idempotency: a retried submit of the same signed BOC hashes to the same
+  // tx_signature; return the recorded trade instead of double-inserting.
+  const existingTrade = await getTradeBySignature(txSignature);
+  if (existingTrade) {
+    return NextResponse.json({
+      signature: txSignature,
+      tradeId: existingTrade.id,
+      status: existingTrade.status,
+      idempotent: true,
+    });
+  }
 
   const trade = await insertTrade({
     id: randomUUID(),
