@@ -17,7 +17,7 @@ export function buildMarketsFromMeta(meta: Awaited<ReturnType<typeof fetchMetaAn
   const [head, ctxs] = meta;
   const countdown = fundingCountdownLabel();
 
-  return head.universe.map((u, i) => {
+  return head.universe.map((u, i): PerpMarket | null => {
     const ctx = ctxs[i];
     if (!ctx) {
       return null;
@@ -45,6 +45,8 @@ export function buildMarketsFromMeta(meta: Awaited<ReturnType<typeof fetchMetaAn
       oiUsd,
       vol24Usd,
       maxLeverage: u.maxLeverage,
+      assetIndex: i,
+      szDecimals: u.szDecimals,
     } satisfies PerpMarket;
   }).filter((m): m is PerpMarket => m != null && m.mark > 0);
 }
