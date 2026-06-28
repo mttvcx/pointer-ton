@@ -24,6 +24,7 @@ import gmgnTrackWallet20Seed from '@/data/identity/gmgn-track-wallet-20-seed.jso
 import gmgnTrackEvmWallet20Seed from '@/data/identity/gmgn-track-evm-wallet-20-seed.json';
 import axiomKolSolSeed from '@/data/identity/axiom-kol-sol-seed.json';
 import cabalspySolSeed from '@/data/identity/cabalspy-sol-seed.json';
+import cabalspyEvmSeed from '@/data/identity/cabalspy-evm-seed.json';
 import solscannerKolSolSeed from '@/data/identity/solscanner-kol-sol-seed.json';
 import kolscanPartialOverrides from '@/data/identity/kolscan-partial-overrides.json';
 
@@ -185,6 +186,7 @@ function bootstrap(): void {
     // SolScanner's ~630 net-new KOLs still land.
     ...(solscannerKolSolSeed as IdentitySeedRow[]),
     ...(cabalspySolSeed as IdentitySeedRow[]),
+    ...(cabalspyEvmSeed as IdentitySeedRow[]),
     ...runtimeRows,
   ];
   for (const row of seeds) upsertSeedRow(row, { allowWeaker: true });
