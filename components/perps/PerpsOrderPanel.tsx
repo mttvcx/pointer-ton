@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { usePerpsAccount } from '@/lib/hooks/usePerpsAccount';
 import type { PerpMarket } from '@/lib/perps/types';
 import { PerpsExchangeModal } from '@/components/perps/PerpsExchangeModal';
 import { cn } from '@/lib/utils/cn';
@@ -16,8 +17,12 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
   const [exchangeOpen, setExchangeOpen] = useState(false);
   const [amountUsdc, setAmountUsdc] = useState('');
 
+  const { account } = usePerpsAccount();
   const isLong = side === 'long';
-  const availableMargin = 0;
+  // Real Hyperliquid account state (read-only) for the signed-in EVM address.
+  const availableMargin = account?.withdrawable ?? 0;
+  const accountValue = account?.accountValue ?? 0;
+  const position = account?.positions.find((p) => p.coin === pair.coin) ?? null;
   const needsFunds = authenticated && availableMargin <= 0;
   /** Hyperliquid order signing not wired yet — CTA never pretends to execute. */
   const executionUnavailable = authenticated && !needsFunds;
@@ -199,11 +204,25 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-fg-muted">Perps Account Value</span>
-              <span className="font-semibold tabular-nums text-fg-secondary">0.00 USDC</span>
+              <span className="font-semibold tabular-nums text-fg-secondary">{accountValue.toFixed(2)} USDC</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-fg-muted">Current Position</span>
-              <span className="font-semibold tabular-nums text-fg-secondary">—</span>
+              {position ? (
+                <span
+                  className={cn(
+                    'font-semibold tabular-nums',
+                    position.szi > 0 ? 'text-signal-bull' : 'text-signal-bear',
+                  )}
+                >
+                  {position.szi > 0 ? 'Long' : 'Short'} {Math.abs(position.szi)} {pair.coin}
+                  {position.unrealizedPnl != null
+                    ? ` (${position.unrealizedPnl >= 0 ? '+' : ''}${position.unrealizedPnl.toFixed(2)})`
+                    : ''}
+                </span>
+              ) : (
+                <span className="font-semibold tabular-nums text-fg-secondary">—</span>
+              )}
             </div>
           </div>
         </div>
