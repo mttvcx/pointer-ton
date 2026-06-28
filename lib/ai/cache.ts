@@ -103,6 +103,30 @@ export async function writeToCache(
   }
 }
 
+const INFLIGHT_PREFIX = 'ai:inflight:';
+
+/**
+ * Best-effort inflight lock so a thundering herd of identical cache-misses doesn't
+ * each pay the model. Returns true if THIS caller should run (lock acquired, or
+ * Redis unavailable → fail-open). TTL-based — no explicit release; the winner's
+ * cache write serves everyone after.
+ */
+export async function acquireInflight(
+  pipeline: PipelineId,
+  inputHash: string,
+  ttlSeconds = 25,
+): Promise<boolean> {
+  try {
+    const res = await getRedis().set(`${INFLIGHT_PREFIX}${cacheKey(pipeline, inputHash)}`, '1', {
+      ex: ttlSeconds,
+      nx: true,
+    });
+    return res === 'OK';
+  } catch {
+    return true;
+  }
+}
+
 /** Persist one row to `ai_responses`. Best-effort; never throws. */
 export async function recordCall(input: RecordCallInput): Promise<void> {
   try {

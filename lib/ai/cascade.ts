@@ -6,6 +6,7 @@ import {
   getGeminiFlash,
 } from '@/lib/ai/clients';
 import {
+  acquireInflight,
   hashInput,
   readFromCache,
   recordCall,
@@ -131,6 +132,32 @@ export async function runCascade<P extends PipelineId>(
       modelUsed: cached.modelUsed,
       costUsd: 0,
     };
+  }
+
+  // 1c. Inflight dedup: coalesce a thundering herd of identical misses so a
+  // brand-new token isn't paid for N times. Best-effort + fail-open. The winner
+  // runs the cascade + writes cache; losers poll briefly for that result.
+  if (!(await acquireInflight(input.pipeline, inputHash))) {
+    for (let i = 0; i < 8; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      const hit = scanSpec
+        ? await readScanCache<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>(scanSpec)
+        : ((await readFromCache(input.pipeline, inputHash)) as
+            | CacheEnvelope<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>
+            | null);
+      if (hit) {
+        return {
+          pipeline: input.pipeline,
+          data: hit.response,
+          cacheHit: true,
+          fromCache: true,
+          modelUsed: hit.modelUsed,
+          costUsd: 0,
+        };
+      }
+    }
+    // Winner slow or failed — fall through and run (rare; still capped by the
+    // per-user daily cost ceiling below).
   }
 
   // 2. Quota gates BEFORE we burn provider budget.
