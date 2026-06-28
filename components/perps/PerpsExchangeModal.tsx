@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowUpRight, X } from 'lucide-react';
 import { useWallets } from '@privy-io/react-auth';
@@ -11,6 +11,7 @@ import { HyperliquidPoweredBy } from '@/components/perps/HyperliquidWordmark';
 import { depositTokenIconSrc } from '@/lib/wallet/depositAssetIcons';
 import { overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
+import { useCctpFund } from '@/lib/hooks/useCctpFund';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
@@ -27,6 +28,8 @@ type Props = { open: boolean; onClose: () => void };
 export function PerpsExchangeModal({ open, onClose }: Props) {
   const { wallets } = useWallets();
   const requestExchange = useUIStore((s) => s.requestExchange);
+  const [fundAmt, setFundAmt] = useState('');
+  const { fund, state: fundState, error: fundError, burnSig, solanaAddress } = useCctpFund();
 
   const hlAddress = useMemo(() => {
     const embedded = wallets.find((w) => w.walletClientType === 'privy');
@@ -80,8 +83,53 @@ export function PerpsExchangeModal({ open, onClose }: Props) {
             <div className="space-y-3">
               <p className={EX.muted}>
                 Send <span className="font-semibold text-fg-primary">USDC on Hyperliquid</span> to your
-                account address. It credits your perps margin on arrival.
+                account address, or bridge it straight from your Solana balance below.
               </p>
+
+              {/* One-tap: bridge USDC from Solana to Hyperliquid via Circle CCTP. */}
+              <div className="rounded-md border border-accent-primary/30 bg-accent-primary/[0.06] p-3">
+                <div className="flex items-center justify-between">
+                  <span className={EX.label}>Fund from Solana</span>
+                  <span className="text-[10px] text-fg-muted">via Circle CCTP</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2 rounded-md border border-border-subtle/50 bg-bg-sunken/40 px-3 py-2">
+                  <input
+                    value={fundAmt}
+                    onChange={(e) => setFundAmt(e.target.value)}
+                    placeholder="0.00"
+                    inputMode="decimal"
+                    className="min-w-0 flex-1 bg-transparent text-[15px] font-semibold tabular-nums text-fg-primary outline-none placeholder:text-fg-muted/50"
+                  />
+                  <span className="text-[11px] font-semibold text-fg-secondary">USDC</span>
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    !hlAddress ||
+                    !solanaAddress ||
+                    fundState === 'signing' ||
+                    fundState === 'bridging' ||
+                    !(Number(fundAmt) > 0)
+                  }
+                  onClick={() => hlAddress && fund(Number(fundAmt), hlAddress)}
+                  className={cn(EX.cta, 'mt-2')}
+                >
+                  {fundState === 'signing'
+                    ? 'Confirm in wallet…'
+                    : fundState === 'bridging'
+                      ? 'Bridging…'
+                      : 'Bridge to Hyperliquid'}
+                </button>
+                {fundState === 'done' && burnSig ? (
+                  <p className={cn('mt-2', EX.muted)}>
+                    Burn sent. USDC mints to your Hyperliquid address after Circle attestation (~1–2
+                    min); move it to perps margin in the Hyperliquid app.
+                  </p>
+                ) : null}
+                {fundState === 'error' && fundError ? (
+                  <p className="mt-2 text-[11px] text-signal-bear">{fundError}</p>
+                ) : null}
+              </div>
 
               <div className={cn('flex gap-3 p-3', EX.inset)}>
                 <div className="relative flex shrink-0 items-center justify-center rounded-md bg-white p-2">
