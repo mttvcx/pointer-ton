@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { getRedis } from '@/lib/redis/client';
+
 /**
  * InsightX REST client — the data backbone for bubble maps, bundle/sniper
  * detection and wallet labels. Free tier is 5 req/min · 1,000 req/month, so
@@ -7,10 +9,19 @@ import 'server-only';
  * caching on top. The key is server-only (never NEXT_PUBLIC) and never leaves
  * this module.
  *
+ * Prod-hardening: concurrent identical requests are coalesced to one upstream
+ * call (in-process), and a Redis-backed monthly request counter trips a
+ * circuit-breaker before the free-tier quota is exhausted. The breaker is a
+ * cost guard, not a security control, so it FAILS OPEN on a Redis error — at
+ * worst we lean on InsightX's own 429s.
+ *
  * Base: https://api.insightx.network · Auth: header `X-API-Key`.
  */
 
 const BASE = 'https://api.insightx.network';
+
+/** Stop calling at this many upstream requests/month (free tier = 1000; leave headroom). */
+const MONTHLY_BUDGET = Number(process.env.INSIGHTX_MONTHLY_BUDGET ?? 950);
 
 export type IxNetwork = 'eth' | 'sol' | 'base' | 'bsc' | 'monad' | 'xlayer' | 'abs';
 
@@ -47,6 +58,39 @@ export class IxError extends Error {
 
 type CacheEntry = { at: number; value: unknown };
 const cache = new Map<string, CacheEntry>();
+/** In-flight upstream calls, keyed by path — coalesces concurrent identical misses. */
+const inflight = new Map<string, Promise<unknown>>();
+
+function monthKey(): string {
+  // YYYY-MM. (Server code — Date is fine here.)
+  return `ix:credits:${new Date().toISOString().slice(0, 7)}`;
+}
+
+/** Trip the breaker if the monthly budget is spent; otherwise count this call. Fails open. */
+async function reserveCredit(): Promise<void> {
+  try {
+    const redis = getRedis();
+    const k = monthKey();
+    const used = Number(await redis.get<number>(k)) || 0;
+    if (used >= MONTHLY_BUDGET) {
+      throw new IxError('rate_limited', 'insightx monthly budget exhausted', 429);
+    }
+    const next = await redis.incr(k);
+    if (next === 1) await redis.expire(k, 60 * 60 * 24 * 35);
+  } catch (err) {
+    if (err instanceof IxError) throw err; // budget trip → propagate (handled as 429)
+    // Redis unavailable → fail open: allow the call, lean on InsightX's own 429.
+  }
+}
+
+/** Current InsightX requests spent this month (best-effort; 0 on Redis error). */
+export async function insightxCreditsUsed(): Promise<number> {
+  try {
+    return Number(await getRedis().get<number>(monthKey())) || 0;
+  } catch {
+    return 0;
+  }
+}
 
 async function ixFetch<T>(path: string, ttlMs: number): Promise<T> {
   const key = process.env.INSIGHTX_API_KEY;
@@ -55,25 +99,40 @@ async function ixFetch<T>(path: string, ttlMs: number): Promise<T> {
   const hit = cache.get(path);
   if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
 
-  let res: Response;
+  // Coalesce concurrent identical misses onto a single upstream call.
+  const pending = inflight.get(path);
+  if (pending) return pending as Promise<T>;
+
+  const run = (async (): Promise<T> => {
+    await reserveCredit(); // circuit-breaker (throws rate_limited when budget spent)
+
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}${path}`, {
+        headers: { 'X-API-Key': key, accept: 'application/json' },
+        cache: 'no-store',
+      });
+    } catch (err) {
+      throw new IxError('upstream', err instanceof Error ? err.message : 'network_error', 0);
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      if (res.status === 429) throw new IxError('rate_limited', body || 'rate limited', 429);
+      throw new IxError('upstream', body || res.statusText, res.status);
+    }
+
+    const json = (await res.json()) as T;
+    cache.set(path, { at: Date.now(), value: json });
+    return json;
+  })();
+
+  inflight.set(path, run);
   try {
-    res = await fetch(`${BASE}${path}`, {
-      headers: { 'X-API-Key': key, accept: 'application/json' },
-      cache: 'no-store',
-    });
-  } catch (err) {
-    throw new IxError('upstream', err instanceof Error ? err.message : 'network_error', 0);
+    return await run;
+  } finally {
+    inflight.delete(path);
   }
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    if (res.status === 429) throw new IxError('rate_limited', body || 'rate limited', 429);
-    throw new IxError('upstream', body || res.statusText, res.status);
-  }
-
-  const json = (await res.json()) as T;
-  cache.set(path, { at: Date.now(), value: json });
-  return json;
 }
 
 const enc = encodeURIComponent;
