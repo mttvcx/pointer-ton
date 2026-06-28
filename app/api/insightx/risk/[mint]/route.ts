@@ -64,7 +64,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ mint: stri
     if (err instanceof IxError && err.code === 'rate_limited') {
       return NextResponse.json({ configured: true, error: 'rate_limited' }, { status: 429 });
     }
-    const message = err instanceof Error ? err.message : 'analyze_failed';
-    return NextResponse.json({ configured: true, error: 'analyze_failed', message }, { status: 500 });
+    // Log the detail server-side only; never echo cascade/DB/upstream internals.
+    console.error('[bubble-risk] analyze failed', err);
+    return NextResponse.json({ configured: true, error: 'analyze_failed' }, { status: 500 });
   }
 }
