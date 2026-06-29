@@ -12,6 +12,7 @@ const NAV: NavItem[] = [
   { href: '/admin/ops', label: 'System health', perm: '*any*' },
   { href: '/admin/metrics', label: 'Metrics', perm: '*any*' },
   { href: '/admin/incidents', label: 'Incidents', perm: '*any*' },
+  { href: '/admin/selfheal', label: 'Self-heal', perm: '*any*' },
   { href: '/admin/emergency', label: 'Emergency', perm: 'emergency.control' },
   { href: '/admin/ai-spend', label: 'AI spend', perm: '*any*' },
   { href: '/admin/providers', label: 'Providers', perm: '*any*' },

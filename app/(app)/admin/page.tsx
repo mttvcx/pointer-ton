@@ -11,6 +11,7 @@ const CARDS: { href: string; title: string; desc: string; perm: string }[] = [
   { href: '/admin/extension', title: 'Extension readiness', desc: 'The gate to start Pointer Extension — injection/Chrome/auth/release status board.', perm: '*any*' },
   { href: '/admin/metrics', title: 'Metrics', desc: 'Webhook latency/throughput, retry & DLQ depth, cron duration — 24h rollups.', perm: '*any*' },
   { href: '/admin/incidents', title: 'Incidents', desc: 'Acknowledge → investigate → mitigate → resolve, with an audit-logged timeline.', perm: '*any*' },
+  { href: '/admin/selfheal', title: 'Self-healing', desc: 'Safe auto-repair (observe-only by default); dangerous actions escalate.', perm: '*any*' },
   { href: '/admin/users', title: 'Users', desc: 'Search users, view profiles, linked wallets, points & referrals.', perm: 'users.read' },
   { href: '/admin/packs', title: 'Packs', desc: 'Open history and the override queue with approval gating.', perm: 'packs.read' },
   { href: '/admin/economy', title: 'Economy', desc: 'Point grants, tier assignment, referral payouts, cashback.', perm: 'referrals.read' },
