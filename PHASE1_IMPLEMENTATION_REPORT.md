@@ -278,6 +278,29 @@ Proof persisted in the existing JSON column to avoid a production migration.
 - Packs not yet provably fair (M6).
 - CI not yet enforced on PRs (M4).
 
+## Self-review (sprint pass)
+
+Reviewed the sprint's new code for race conditions, provider failures, edge cases,
+and operational blind spots:
+
+- **Pack open vs Redis** — the new provably-fair `reserveRoll` made a paid pack
+  open depend on Redis for the atomic nonce; a blip would 500 the open. **Fixed**
+  (`c3a46dd`): falls back to an ephemeral inline-revealed seed (still verifiable)
+  rather than failing the money path.
+- **Webhook ACK durability** — happy-path is not pre-persisted before `after()`;
+  documented tradeoff, covered by provider re-delivery + downstream idempotency +
+  the drain-cron backstop.
+- **Alert flood on Redis outage** — cooldown is Redis-backed; added an in-process
+  fallback so a Redis outage can't turn one incident into an alert storm. Alerting
+  is fully best-effort / never-throws.
+- **Fail-open vs fail-closed** — kept consistent with Phase 0: money/AI guards
+  fail closed; data-path cost guards + telemetry/alerting fail open.
+- **Full suite green** — 342/344 (the 2 failures are pre-existing stale
+  identity-seed assertions, tracked separately, unrelated to this sprint).
+
+Known residual risks are listed above (discovery latency, legacy `submit.ts`
+race, lifecycle UI, integration harness) and sequenced as follow-ons.
+
 ## Changelog
 
 - `1a35955` — secure predictions/orders (auth + freeze + rate limit).
@@ -289,3 +312,4 @@ Proof persisted in the existing JSON column to avoid a production migration.
 - `e3b6659` — Mission 3: close the cashback/referral/points double-credit race.
 - `4e144f6` — Bubble map: inline panel + zoom/pan/drag, removed full-page drawer.
 - `78fca3d` — Mission 5: outbound incident alerting (Discord/Slack).
+- `c3a46dd` — Mission 1 ADR (realtime architecture) + self-review pack-open fail-safe.
