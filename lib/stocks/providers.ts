@@ -5,11 +5,11 @@ import {
   getMockOrderbook,
   getMockQuote,
 } from '@/lib/stocks/mockStocks';
+import { xstocksProvider } from '@/lib/stocks/xstocksProvider';
 import type { SyntheticStockProvider } from '@/lib/stocks/types';
 
-// TODO Phase 2: TradeXYZ / XYZ markets adapter
-// TODO Phase 2: Hyperliquid HIP-3 market metadata
-// TODO Phase 2: Hyperliquid-style perps execution adapter
+// Phase 1 (LIVE): xStocks (Backed) via Jupiter — see `xstocksProvider`.
+// TODO Phase 2: Hyperliquid HIP-3 / TradeXYZ perps adapter for pre-IPO + leverage.
 
 const mockProvider: SyntheticStockProvider = {
   id: 'mock',
@@ -22,7 +22,9 @@ const mockProvider: SyntheticStockProvider = {
   getOrderbook: async (symbol) => getMockOrderbook(symbol),
 };
 
-let activeProvider: SyntheticStockProvider = mockProvider;
+// Live by default. Set NEXT_PUBLIC_STOCKS_PROVIDER=mock to force the demo fixture.
+let activeProvider: SyntheticStockProvider =
+  process.env.NEXT_PUBLIC_STOCKS_PROVIDER === 'mock' ? mockProvider : xstocksProvider;
 
 export function getSyntheticStockProvider(): SyntheticStockProvider {
   return activeProvider;

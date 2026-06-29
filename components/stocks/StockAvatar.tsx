@@ -21,12 +21,19 @@ export function StockAvatar({
   symbol,
   size,
   className,
+  iconUrl,
 }: {
   symbol: string;
   size: number;
   className?: string;
+  /** Authoritative logo (e.g. Backed xStocks metadata) — tried before the
+   *  symbol-derived candidates, then initials. */
+  iconUrl?: string | null;
 }) {
-  const candidates = useMemo(() => getStockLogoCandidates(symbol), [symbol]);
+  const candidates = useMemo(
+    () => (iconUrl ? [iconUrl, ...getStockLogoCandidates(symbol)] : getStockLogoCandidates(symbol)),
+    [symbol, iconUrl],
+  );
   const [idx, setIdx] = useState(0);
   const exhausted = idx >= candidates.length;
   const src = candidates[idx];

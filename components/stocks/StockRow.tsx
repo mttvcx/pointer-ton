@@ -44,7 +44,12 @@ export function StockRow({
     label: market.symbol,
   });
 
-  const stockPath = `/stock/${encodeURIComponent(market.symbol)}`;
+  // xStocks are real SPL tokens — route to the real /token/[mint] trade page
+  // (real chart + Jupiter swap). Fall back to the legacy /stock/[symbol] view
+  // only when there's no mint (demo fixture).
+  const stockPath = market.mint
+    ? `/token/${encodeURIComponent(market.mint)}`
+    : `/stock/${encodeURIComponent(market.symbol)}`;
   const nameTitle = `${market.symbol} — ${market.name}`;
 
   const isInteractiveClickTarget = (target: EventTarget | null) =>
@@ -88,7 +93,7 @@ export function StockRow({
       >
         <div className="flex h-full min-h-0 w-full min-w-0 items-start gap-2.5 sm:gap-3">
           <div className="flex shrink-0 flex-col items-center gap-1.5" style={{ minWidth: avatarSize }}>
-            <StockAvatar symbol={market.symbol} size={avatarSize} />
+            <StockAvatar symbol={market.symbol} size={avatarSize} iconUrl={market.iconUrl} />
           </div>
 
           <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-start gap-2 overflow-visible">
