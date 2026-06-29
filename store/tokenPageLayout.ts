@@ -9,6 +9,9 @@ type TokenPageLayoutState = {
   setRightStackW: (w: number) => void;
   chartH: number | null;
   setChartH: (h: number | null) => void;
+  /** Width (px) of the holder bubble-map slide-out (Axiom-style, drag-resizable). */
+  bubbleMapW: number;
+  setBubbleMapW: (w: number) => void;
   tradesPanel: boolean;
   setTradesPanel: (open: boolean) => void;
   tradesDeskFilter: TradesDeskFilter;
@@ -22,6 +25,10 @@ type TokenPageLayoutState = {
 const DEFAULT_RIGHT_STACK_W = 420;
 /** Legacy default — bump on rehydrate so PnL strip isn't squished. */
 const LEGACY_RIGHT_STACK_W = 340;
+/** Bubble-map slide-out default width (clamped in the component). */
+export const DEFAULT_BUBBLE_MAP_W = 520;
+export const MIN_BUBBLE_MAP_W = 360;
+export const MAX_BUBBLE_MAP_W = 920;
 
 export const useTokenPageLayoutStore = create<TokenPageLayoutState>()(
   persist(
@@ -30,6 +37,8 @@ export const useTokenPageLayoutStore = create<TokenPageLayoutState>()(
       setRightStackW: (rightStackW) => set({ rightStackW }),
       chartH: null,
       setChartH: (chartH) => set({ chartH }),
+      bubbleMapW: DEFAULT_BUBBLE_MAP_W,
+      setBubbleMapW: (bubbleMapW) => set({ bubbleMapW }),
       tradesPanel: true,
       setTradesPanel: (tradesPanel) => set({ tradesPanel }),
       tradesDeskFilter: 'all',
@@ -44,6 +53,7 @@ export const useTokenPageLayoutStore = create<TokenPageLayoutState>()(
       partialize: (s) => ({
         rightStackW: s.rightStackW,
         chartH: s.chartH,
+        bubbleMapW: s.bubbleMapW,
         tradesPanel: s.tradesPanel,
         tradesDeskFilter: s.tradesDeskFilter,
         tradesAgeSortDir: s.tradesAgeSortDir,

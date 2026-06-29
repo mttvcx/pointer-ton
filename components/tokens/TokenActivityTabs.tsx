@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BarChart3, ChevronUp, LayoutPanelTop, Settings, Table2, Workflow, Zap } from 'lucide-react';
+import { Activity, BarChart3, ChevronUp, LayoutPanelTop, Settings, Table2, Workflow, X, Zap } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd } from '@/lib/format';
@@ -59,6 +59,11 @@ import {
   DESK_TABLE_CLASS,
 } from '@/components/tokens/cells/deskTokens';
 import { useActiveWalletStore } from '@/store/activeWallet';
+import {
+  useTokenPageLayoutStore,
+  MIN_BUBBLE_MAP_W,
+  MAX_BUBBLE_MAP_W,
+} from '@/store/tokenPageLayout';
 
 /** Rough native/USD for converting USD notionals in the “native units” column toggle (UI preview). */
 const NATIVE_USD_HINT: Record<AppChainId, number> = {
@@ -69,16 +74,18 @@ const NATIVE_USD_HINT: Record<AppChainId, number> = {
   base: 3200,
 };
 
-type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'bubbles' | 'traders' | 'dev_tokens';
+type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'traders' | 'dev_tokens';
 
 type TradeRow = Tables<'trades'>;
 
+// Note: the holder bubble map is NOT a tab — it's a drag-resizable slide-out
+// (Axiom-style) toggled from the toolbar, so it overlays the active table
+// instead of taking a full tab of its own.
 const TABS: { id: TabId; label: string }[] = [
   { id: 'trades', label: 'Trades' },
   { id: 'positions', label: 'Positions' },
   { id: 'orders', label: 'Orders' },
   { id: 'holders', label: 'Holders' },
-  { id: 'bubbles', label: 'Bubbles' },
   { id: 'traders', label: 'Top Traders' },
   { id: 'dev_tokens', label: 'Dev Tokens' },
 ];
@@ -380,6 +387,37 @@ export function TokenActivityTabs({
     () => (tradesPanel ? TABS.filter((t) => t.id !== 'trades') : TABS),
     [tradesPanel],
   );
+
+  // Holder bubble map — Axiom-style drag-resizable slide-out (NOT a tab). Toggled
+  // from the toolbar; overlays the active table on the right; width persists.
+  const [bubblesOpen, setBubblesOpen] = useState(false);
+  const bubbleMapW = useTokenPageLayoutStore((s) => s.bubbleMapW);
+  const setBubbleMapW = useTokenPageLayoutStore((s) => s.setBubbleMapW);
+  const bubbleDragRef = useRef<{ startX: number; startW: number } | null>(null);
+  const onBubbleResizeDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    bubbleDragRef.current = { startX: e.clientX, startW: bubbleMapW };
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* no-op */
+    }
+  };
+  const onBubbleResizeMove = (e: React.PointerEvent) => {
+    const s = bubbleDragRef.current;
+    if (!s) return;
+    // Dragging the left edge leftward (clientX shrinks) widens the panel.
+    const next = Math.min(MAX_BUBBLE_MAP_W, Math.max(MIN_BUBBLE_MAP_W, s.startW + (s.startX - e.clientX)));
+    setBubbleMapW(next);
+  };
+  const onBubbleResizeUp = (e: React.PointerEvent) => {
+    bubbleDragRef.current = null;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* no-op */
+    }
+  };
   const [tradesFeedHoverPause, setTradesFeedHoverPause] = useState(false);
   const [onlyTracked, setOnlyTracked] = useState(false);
   const [traderDeskFilter, setTraderDeskFilter] = useState<TraderDeskFilter>('all');
@@ -773,10 +811,11 @@ export function TokenActivityTabs({
         <div className="ml-auto flex shrink-0 items-center gap-1.5 py-0.5">
           <button
             type="button"
-            onClick={() => setTab('bubbles')}
+            onClick={() => setBubblesOpen((o) => !o)}
+            aria-pressed={bubblesOpen}
             className={cn(
               'btn-press inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-[11px] font-semibold transition-colors',
-              tab === 'bubbles'
+              bubblesOpen
                 ? 'border-accent-primary/50 bg-accent-primary/10 text-fg-primary'
                 : 'border-border-subtle text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
             )}
@@ -900,7 +939,7 @@ export function TokenActivityTabs({
           </button>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden w-full">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden w-full">
         {tab === 'trades' && (tradesMakerFilter || tradesDeskFilter !== 'all') ? (
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle/25 px-3 py-1 text-[11px]">
             <span className="text-fg-muted">
@@ -1010,7 +1049,6 @@ export function TokenActivityTabs({
             onOpenSettings={() => setHoldersSettingsOpen(true)}
           />
         ) : null}
-        {tab === 'bubbles' ? <BubbleMapPanel mint={mint} symbol={sym} /> : null}
         {tab === 'traders' ? (
           tradersEmpty ? (
             <div className="p-4">
@@ -1072,6 +1110,44 @@ export function TokenActivityTabs({
             title="Dev token list"
             body="No creator wallet found for this token."
           />
+        ) : null}
+
+        {/* Holder bubble map — Axiom-style slide-out: overlays the active table on
+            the right, drag-resizable from its left edge, on-theme. Not a tab. */}
+        {bubblesOpen ? (
+          <div
+            className="absolute inset-y-0 right-0 z-20 flex max-w-full animate-in slide-in-from-right-4 duration-150 border-l border-border-default bg-bg-base shadow-[0_0_40px_rgba(0,0,0,0.45)]"
+            style={{ width: bubbleMapW }}
+          >
+            <div
+              onPointerDown={onBubbleResizeDown}
+              onPointerMove={onBubbleResizeMove}
+              onPointerUp={onBubbleResizeUp}
+              className="group absolute left-0 top-0 z-10 h-full w-2 -translate-x-1/2 cursor-col-resize touch-none"
+              role="separator"
+              aria-orientation="vertical"
+              title="Drag to resize"
+            >
+              <div className="mx-auto h-full w-px bg-border-subtle transition-colors group-hover:bg-accent-primary" />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex shrink-0 items-center justify-between border-b border-border-subtle/40 px-3 py-1.5">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-fg-primary">
+                  <Workflow className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2} aria-hidden />
+                  Bubble map
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBubblesOpen(false)}
+                  className="btn-press inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
+                  aria-label="Close bubble map"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </button>
+              </div>
+              <BubbleMapPanel mint={mint} symbol={sym} />
+            </div>
+          </div>
         ) : null}
       </div>
       <HoldersTableSettingsModal
