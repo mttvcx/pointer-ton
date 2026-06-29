@@ -8,6 +8,7 @@ const CARDS: { href: string; title: string; desc: string; perm: string }[] = [
   { href: '/admin/emergency', title: 'Emergency controls', desc: 'Kill switches, per-chain pause, maintenance + read-only, banner.', perm: 'emergency.control' },
   { href: '/admin/ai-spend', title: 'AI spend', desc: 'Org hourly/daily/monthly AI cost vs ceilings; top users & endpoints.', perm: '*any*' },
   { href: '/admin/providers', title: 'Provider breakers', desc: 'Helius/Moralis/InsightX/DexScreener/Jupiter usage vs budget + manual cutoff.', perm: '*any*' },
+  { href: '/admin/extension', title: 'Extension readiness', desc: 'The gate to start Pointer Extension — injection/Chrome/auth/release status board.', perm: '*any*' },
   { href: '/admin/users', title: 'Users', desc: 'Search users, view profiles, linked wallets, points & referrals.', perm: 'users.read' },
   { href: '/admin/packs', title: 'Packs', desc: 'Open history and the override queue with approval gating.', perm: 'packs.read' },
   { href: '/admin/economy', title: 'Economy', desc: 'Point grants, tier assignment, referral payouts, cashback.', perm: 'referrals.read' },
