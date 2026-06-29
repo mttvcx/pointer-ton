@@ -42,7 +42,9 @@ describe('wallet identity import', () => {
   it('loads Axiom KOL sol seed with twitter handles', () => {
     const dv = getWalletEntry('sol', 'BCagckXeMChUKrHEd6fKFA1uiWDtcmCXMsqaheLiUPJd');
     assert.ok(dv);
-    assert.equal(dv!.profile.displayName, 'dvces');
+    // Higher-priority CabalSpy/SolScanner seeds now win the merge with the
+    // richer label ('DV'); the Twitter handle still resolves from the Axiom seed.
+    assert.equal(dv!.profile.displayName, 'DV');
     assert.equal(dv!.profile.twitterHandle, 'vibed333');
     assert.ok(listRegistryStats().walletCount >= 110);
   });
@@ -52,7 +54,7 @@ describe('wallet identity import', () => {
     assert.ok(getWalletEntry('eth', addr));
     assert.ok(getWalletEntry('bnb', addr));
     assert.ok(getWalletEntry('base', addr));
-    assert.equal(getWalletEntry('bnb', addr)!.profile.displayName, 'H.E. ZEPUM');
+    assert.equal(getWalletEntry('bnb', addr)!.profile.displayName, 'H.E. ZEPUMP');
     assert.ok(listRegistryStats().walletCount >= 110);
   });
 
