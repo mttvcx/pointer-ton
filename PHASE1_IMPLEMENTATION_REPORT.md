@@ -18,7 +18,7 @@ Every milestone is its own commit; typecheck + tests stay green at each.
 | 2 | Webhook system | ✅ done | ✅ **shipped** (`af4516f`) |
 | 3 | Money-path testing | ✅ done | 🟡 **race hardened** (`e3b6659`); integration harness pending |
 | 4 | CI/CD | ✅ done | ✅ **shipped** (`99bdec5`) |
-| 5 | Incident management | ✅ done | ⏳ planned (rich substrate exists) |
+| 5 | Incident management | ✅ done | 🟡 **alerting shipped** (`78fca3d`); health-feeds + lifecycle pending |
 | 6 | Provably-fair packs | ✅ done | ✅ **shipped** (`adde97c`, `aaaa453`) |
 
 Pre-work this sprint: secured the unauthenticated `predictions/orders` endpoint
@@ -202,12 +202,23 @@ the manual circuit breaker.
 auto-open only (no ack / resolve / runbook links); no health checks for the new
 queue/webhook/DLQ subsystems; no severity-routed notification.
 
-### Implementation (planned)
+### Implementation
 
-Extend, don't rebuild: subsystem health checks (Redis, queue depth, webhook DLQ,
-cron freshness) feeding `diagnose()`; outbound alerting (Discord/Slack webhooks +
-email) routed by severity with dedup/cooldown; incident ack/resolve + runbook
-links surfaced in admin; the webhook-health view from Mission 2.
+**Shipped (`78fca3d`):** outbound **incident alerting** — the substrate existed
+but nothing pushed, so a break was invisible unless you watched the dashboard
+(exactly how the degraded-state banner surprised the operator). Now every
+error/critical `recordOpsEvent` (the same point that auto-opens an incident) fires
+a Discord/Slack webhook alert, severity-routed, deduped per incident key with a
+severity-scaled Redis cooldown (critical 5m / error 15m), best-effort and
+never-throwing, no-op when unconfigured. `POST /api/admin/ops/test-alert` verifies
+wiring. Pure decisions in `lib/ops/alertDecisions.ts` (9 tests); full design in
+[docs/OPS_ALERTING.md](docs/OPS_ALERTING.md). Env: `OPS_DISCORD_WEBHOOK_URL` /
+`OPS_SLACK_WEBHOOK_URL`.
+
+**Remaining:** feed webhook **DLQ depth / retry backlog** + Redis/queue health
+into `diagnose()` (a growing dead-letter queue → Doctor finding → alert); incident
+**lifecycle** (operator ack / resolve, root-cause notes, runbook links on
+`ops_incidents`); optional email channel.
 
 ---
 
@@ -274,3 +285,5 @@ Proof persisted in the existing JSON column to avoid a production migration.
 - `adde97c` — Mission 6: provably-fair cryptographic core (commit-reveal).
 - `aaaa453` — Mission 6: wire fair rolls into packs + player verification API.
 - `e3b6659` — Mission 3: close the cashback/referral/points double-credit race.
+- `4e144f6` — Bubble map: inline panel + zoom/pan/drag, removed full-page drawer.
+- `78fca3d` — Mission 5: outbound incident alerting (Discord/Slack).
