@@ -66,12 +66,16 @@ function needsConnect(error?: string): boolean {
   return /not_connected|connect|receiving end|extension_unavailable|message channel/i.test(error);
 }
 
+const LOGO_URL = chrome.runtime.getURL('pointer-bird.png');
+
 function CardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="pt-card" style={{ padding: 14, fontSize: 12.5 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-        <div style={brandDot}>P</div>
-        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--fg-primary)' }}>Pointer</span>
+        <img src={LOGO_URL} alt="" width={16} height={16} style={{ objectFit: 'contain' }} />
+        <span style={{ fontWeight: 600, fontSize: 13, letterSpacing: '-0.02em', color: 'var(--fg-primary)' }}>
+          pointer
+        </span>
       </div>
       {children}
     </div>
@@ -99,10 +103,6 @@ function ConnectCard({ note }: { note?: string }) {
   );
 }
 
-const brandDot: React.CSSProperties = {
-  width: 18, height: 18, borderRadius: 5, background: 'var(--fg-primary)',
-  display: 'grid', placeItems: 'center', color: 'var(--bg-base)', fontWeight: 800, fontSize: 11,
-};
 const connectBtn: React.CSSProperties = {
   width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
   fontWeight: 700, fontSize: 12, color: 'var(--bg-base)', background: 'var(--accent-glow)',

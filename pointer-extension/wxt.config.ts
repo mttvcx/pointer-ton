@@ -40,6 +40,25 @@ export default defineConfig({
         'https://*.pointer.trade/*',
       ],
     },
+    // The hover-card Shadow DOM loads the Pointer logo + Geist font from the
+    // packaged bundle (no remote assets).
+    web_accessible_resources: [
+      {
+        resources: ['pointer-bird.png', 'geist.woff2'],
+        matches: [
+          'https://x.com/*',
+          'https://twitter.com/*',
+          'https://dexscreener.com/*',
+          'https://solscan.io/*',
+          'https://pump.fun/*',
+          'https://gmgn.ai/*',
+          'https://axiom.trade/*',
+          'https://photon-sol.tinyastro.io/*',
+          'https://*.bullx.io/*',
+          'https://github.com/*',
+        ],
+      },
+    ],
     // No remote code; UI runs from the packaged bundle only.
     content_security_policy: {
       extension_pages: "script-src 'self'; object-src 'self';",

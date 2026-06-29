@@ -16,13 +16,20 @@ function ensureHost(): { mount: HTMLElement; root: Root } {
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'position:fixed;z-index:2147483647;inset:0;pointer-events:none;';
   const shadow = wrapper.attachShadow({ mode: 'closed' });
+  // Geist (Pointer's typeface), loaded from the packaged web-accessible font so the
+  // card matches the app — must be injected INTO the shadow root, host @font-face
+  // doesn't pierce it.
+  const font = document.createElement('style');
+  font.textContent = `@font-face{font-family:'Geist Variable';src:url(${chrome.runtime.getURL(
+    'geist.woff2',
+  )}) format('woff2');font-weight:100 900;font-display:swap;}`;
   const style = document.createElement('style');
   style.textContent = themeCss;
   const m = document.createElement('div');
   m.style.cssText = 'position:fixed;pointer-events:auto;display:none;';
   m.addEventListener('pointerenter', () => window.clearTimeout(hideTimer));
   m.addEventListener('pointerleave', () => scheduleHideCard());
-  shadow.append(style, m);
+  shadow.append(font, style, m);
   document.documentElement.appendChild(wrapper);
   mount = m;
   root = createRoot(m);
