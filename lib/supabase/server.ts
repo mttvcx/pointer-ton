@@ -1,6 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
 import type { Database } from './types';
 
 declare global {
@@ -41,6 +40,9 @@ export async function createServerSupabase() {
     throw new Error('Supabase env vars missing on server');
   }
 
+  // Lazy import: keeps `next/headers` out of the module's import graph so the
+  // admin client (which doesn't need cookies) is importable under `node --test`.
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
 
   return createServerClient<Database>(url, anonKey, {
@@ -61,6 +63,15 @@ export async function createServerSupabase() {
       },
     },
   });
+}
+
+/** Test seam: inject a fake admin client (e.g. lib/testing/fakeSupabase) so money
+ *  modules are driveable under `node --test` without a real database. */
+export function __setAdminSupabaseForTest(client: unknown): void {
+  globalThis.__pointerSupabaseAdmin = client as ReturnType<typeof createSupabaseClient<Database>>;
+}
+export function __resetAdminSupabaseForTest(): void {
+  globalThis.__pointerSupabaseAdmin = undefined;
 }
 
 export function createAdminSupabase() {
