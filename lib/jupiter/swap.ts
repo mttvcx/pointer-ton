@@ -12,6 +12,7 @@ import {
   jupiterQuoteHasPlatformFee,
   jupiterFeeTokenAccountReady,
   resolveJupiterFeeMint,
+  resolveJupiterFeeMintTokenProgram,
 } from '@/lib/jupiter/referralFee';
 import { prependAtaCreationToVersionedSwap } from '@/lib/solana/prependSwapInstructions';
 import { DEFAULT_JITO_TIP_LAMPORTS, JUPITER_SWAP_URL } from '@/lib/utils/constants';
@@ -158,29 +159,42 @@ async function getSwapTxInner(
   }
 
   const route = jupiterFeeRouteFromQuote(quoteResponse);
-  const feeAccount =
+  // Resolve the fee mint's token program ONCE (SOL short-circuits to classic SPL,
+  // so SOL-leg trades are unchanged) and reuse it for both the ATA derivation and
+  // the prepend, so token-2022 fee mints (xStocks) get the correct fee account.
+  const feeMintProgram =
     jupiterQuoteHasPlatformFee(quoteResponse) && route
-      ? deriveJupiterFeeTokenAccount(route)
+      ? await resolveJupiterFeeMintTokenProgram(route)
       : null;
+  const feeAccount =
+    route && feeMintProgram ? deriveJupiterFeeTokenAccount(route, feeMintProgram) : null;
   const feeOwner = jupiterFeeOwnerPubkey();
 
-  if (feeAccount && feeOwner && route && !(await jupiterFeeTokenAccountReady(feeAccount))) {
+  if (
+    feeAccount &&
+    feeOwner &&
+    route &&
+    feeMintProgram &&
+    !(await jupiterFeeTokenAccountReady(feeAccount))
+  ) {
     json.swapTransaction = await prependAtaCreationToVersionedSwap(
       json.swapTransaction,
       new PublicKey(userPublicKey),
       feeOwner,
       new PublicKey(resolveJupiterFeeMint(route)),
+      feeMintProgram,
     );
     return json;
   }
 
   if (json.simulationError && isInvalidFeeTokenAccountSimError(json.simulationError)) {
-    if (feeAccount && feeOwner && route) {
+    if (feeAccount && feeOwner && route && feeMintProgram) {
       json.swapTransaction = await prependAtaCreationToVersionedSwap(
         json.swapTransaction,
         new PublicKey(userPublicKey),
         feeOwner,
         new PublicKey(resolveJupiterFeeMint(route)),
+        feeMintProgram,
       );
       return json;
     }
