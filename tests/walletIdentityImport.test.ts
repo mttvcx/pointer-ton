@@ -52,7 +52,7 @@ describe('wallet identity import', () => {
     assert.ok(getWalletEntry('eth', addr));
     assert.ok(getWalletEntry('bnb', addr));
     assert.ok(getWalletEntry('base', addr));
-    assert.equal(getWalletEntry('bnb', addr)!.profile.displayName, 'H.E. ZEPUM');
+    assert.equal(getWalletEntry('bnb', addr)!.profile.displayName, 'H.E. ZEPUMP');
     assert.ok(listRegistryStats().walletCount >= 110);
   });
 
