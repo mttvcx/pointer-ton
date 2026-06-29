@@ -16,7 +16,7 @@ Every milestone is its own commit; typecheck + tests stay green at each.
 | --- | --- | --- | --- |
 | 1 | Realtime ingestion | ✅ done | ⏳ architecture doc + targeted hardening |
 | 2 | Webhook system | ✅ done | ✅ **shipped** (`af4516f`) |
-| 3 | Money-path testing | ✅ done | ⏳ next |
+| 3 | Money-path testing | ✅ done | 🟡 **race hardened** (`e3b6659`); integration harness pending |
 | 4 | CI/CD | ✅ done | ✅ **shipped** (`99bdec5`) |
 | 5 | Incident management | ✅ done | ⏳ planned (rich substrate exists) |
 | 6 | Provably-fair packs | ✅ done | ✅ **shipped** (`adde97c`, `aaaa453`) |
@@ -128,13 +128,26 @@ deterministic confirm polling (not the legacy Sender+Jito race).
 
 Test runner: `node --import tsx --test`; no DB/Redis/RPC mocking harness.
 
-### Implementation (next)
+### Implementation
 
-Deterministic money-path tests targeting the exact guarantees above —
-idempotency (double-submit → one effect), the accrual races, emergency-control
-gating — plus hardening the check-then-insert races where a duplicate could
-double-credit. Pure-logic extraction where the current code mixes I/O with
-decisioning, so the guarantees are unit-testable.
+**Shipped (`e3b6659`):** closed the highest-risk gap — the cashback / referral /
+points **double-credit race**. Each accrual deduped with a check-then-insert that
+two concurrent calls could both pass. Now:
+- `lib/db/pgError.ts` (pure, 4 tests) — `isUniqueViolation()` recognizes SQLSTATE
+  23505.
+- The three accruals treat a unique-violation on insert as an **idempotent
+  no-op** (the concurrent writer already recorded it) instead of throwing.
+- `scripts/money-idempotency-indexes.sql` — partial UNIQUE indexes on
+  `cashback_ledger(metadata->>'trade_id')`, `referral_earnings(trade_id)`,
+  `points_events(user_id,event_type,dedupe_key)` + a safe de-dup of any
+  pre-existing over-credits. **Apply once** for the DB-level guarantee.
+
+**Remaining:** a money-path integration harness (injectable fake Supabase/Redis)
+for end-to-end exactly-once / duplicate-submission / provider-failure tests of
+trade-execute, pack pay→open→fulfill, and AI reserve→settle. Trade and pack
+payments already dedupe on a unique `tx_signature` / `payment_tx`; this would add
+the automated regression coverage. Also flagged: replace the legacy `submit.ts`
+Sender+Jito race still used by admin emergency-sell.
 
 ---
 
@@ -260,3 +273,4 @@ Proof persisted in the existing JSON column to avoid a production migration.
 - `99bdec5` — Mission 4: CI/CD gates, env validation, post-deploy health probe.
 - `adde97c` — Mission 6: provably-fair cryptographic core (commit-reveal).
 - `aaaa453` — Mission 6: wire fair rolls into packs + player verification API.
+- `e3b6659` — Mission 3: close the cashback/referral/points double-credit race.
