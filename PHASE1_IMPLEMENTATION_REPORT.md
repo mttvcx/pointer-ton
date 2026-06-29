@@ -14,7 +14,7 @@ Every milestone is its own commit; typecheck + tests stay green at each.
 
 | Mission | Area | Audit | Implementation |
 | --- | --- | --- | --- |
-| 1 | Realtime ingestion | ✅ done | ⏳ architecture doc + targeted hardening |
+| 1 | Realtime ingestion | ✅ done | 🟡 **ADR shipped** + M2 reuse; migration sequenced |
 | 2 | Webhook system | ✅ done | ✅ **shipped** (`af4516f`) |
 | 3 | Money-path testing | ✅ done | 🟡 **race hardened** (`e3b6659`); integration harness pending |
 | 4 | CI/CD | ✅ done | ✅ **shipped** (`99bdec5`) |
@@ -55,15 +55,17 @@ failed jobs in M2); (4) tracked-wallet/KOL cron lag; (5) no ordering guarantees;
 (7) no provider-latency observability (partly addressed by provider breakers +
 M2 metrics); (8) Pulse cold-start latency.
 
-### Implementation (planned)
+### Implementation
 
-The full event-driven redesign (discovery webhooks, Supabase Realtime client
-push, persistent wallet subscriptions) is a multi-week infra change with cost and
-provider-tier implications, so Phase 1 delivers: (a) this architecture decision
-record, (b) the durable retry/replay + idempotency layer (shipped in M2, reused
-by all ingestion), and (c) targeted dedup/ordering hardening on the existing
-pipeline. The realtime-push migration is sequenced as a documented follow-on with
-explicit cost/latency tradeoffs.
+Full event-driven redesign is multi-week (provider-tier + cost implications), so
+Phase 1 delivers the **architecture decision record**
+([docs/REALTIME_ARCHITECTURE.md](docs/REALTIME_ARCHITECTURE.md)) — per-source
+transport decisions (webhook / poll / push), the Supabase-Realtime client-push
+direction, the mint-before-swap ordering rule, and the cost/latency tradeoffs —
+plus the durable **retry/replay/idempotency/DLQ** substrate (Mission 2) and
+**provider breakers** (Phase 0.3) that every event-driven source reuses, making
+"reduce polling, lazy + cached" safe to roll out. The discovery-webhook +
+client-push migration is sequenced with explicit follow-ons.
 
 ---
 
