@@ -1,15 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import {
   processHeliusWebhookBody,
   verifyHeliusWebhookAuthorization,
 } from '@/lib/helius/webhooks';
-import { claimHeliusWebhookSignature } from '@/lib/helius/webhookDedup';
-import { recordOpsEvent } from '@/lib/ops/events';
+import { recordOpsMetric } from '@/lib/ops/events';
 import { isReadOnly } from '@/lib/emergency/controls';
+import { claimWebhook } from '@/lib/webhooks/idempotency';
+import { runWebhookJob } from '@/lib/webhooks/runner';
+import type { WebhookJob } from '@/lib/webhooks/queue';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const PROVIDER = 'helius';
 
 function extractSignature(body: unknown): string {
   if (Array.isArray(body) && body.length > 0) {
@@ -26,6 +30,16 @@ function extractSignature(body: unknown): string {
   return randomUUID();
 }
 
+/**
+ * Helius enhanced-transaction webhook.
+ *
+ * Production contract: respond IMMEDIATELY (never block the ACK on heavy work —
+ * a slow ack triggers Helius retry storms), then process out of band via
+ * `after()`. Processing failures are retried with capped exponential backoff and
+ * dead-lettered after exhaustion (lib/webhooks/*), drained by the
+ * `/api/cron/drain-webhooks` cron. Idempotency is a durable 24h claim plus
+ * idempotent downstream writes. Read-only/maintenance ACKs without processing.
+ */
 export async function POST(req: NextRequest) {
   const authorized = verifyHeliusWebhookAuthorization(
     req.headers.get('authorization'),
@@ -36,10 +50,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Emergency maintenance / read-only: ingestion is a write path, so ACK without
-  // processing (200 prevents Helius retry storms). Fails closed (skips on a
-  // controls-store outage too).
+  // processing (200 prevents Helius retry storms). Fails closed.
   if (await isReadOnly()) {
-    return NextResponse.json({ ok: true, skipped: 'read_only', events: 0 });
+    return NextResponse.json({ ok: true, skipped: 'read_only', accepted: false });
   }
 
   let body: unknown;
@@ -51,40 +64,32 @@ export async function POST(req: NextRequest) {
 
   const signature = extractSignature(body);
 
-  const claimed = await claimHeliusWebhookSignature(signature);
+  // Durable idempotency (24h) — replaces the old 60s window.
+  const claimed = await claimWebhook(PROVIDER, signature);
   if (!claimed) {
-    return NextResponse.json({
-      ok: true,
-      deduped: true,
-      events: 0,
-      tokensUpserted: 0,
-      alerts: 0,
-      migrations: 0,
-      qaSwaps: null,
-    });
+    void recordOpsMetric('webhook.deduped', 1, { provider: PROVIDER });
+    return NextResponse.json({ ok: true, deduped: true, accepted: false });
   }
 
-  const startedAt = Date.now();
-  try {
-    const result = await processHeliusWebhookBody(body, { source: 'helius', signature });
-    await recordOpsEvent({
-      category: 'webhook',
-      name: 'helius-webhook',
-      status: 'ok',
-      durationMs: Date.now() - startedAt,
-      detail: result as Record<string, unknown>,
-    });
-    return NextResponse.json(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'webhook_failed';
-    await recordOpsEvent({
-      category: 'webhook',
-      name: 'helius-webhook',
-      status: 'error',
-      severity: 'error',
-      durationMs: Date.now() - startedAt,
-      message,
-    });
-    return NextResponse.json({ error: 'webhook_failed', message }, { status: 500 });
-  }
+  void recordOpsMetric('webhook.received', 1, { provider: PROVIDER });
+
+  const job: WebhookJob = {
+    id: signature,
+    provider: PROVIDER,
+    signature,
+    payload: body,
+    attempt: 0,
+    firstSeenAt: Date.now(),
+  };
+
+  // Process AFTER the response is sent. runWebhookJob handles success/retry/DLQ
+  // + metrics; a crash mid-processing is recovered because failures persist to
+  // the retry queue (and the drain cron is the backstop).
+  after(async () => {
+    await runWebhookJob(job, (j) =>
+      processHeliusWebhookBody(j.payload, { source: PROVIDER, signature: j.signature }),
+    );
+  });
+
+  return NextResponse.json({ ok: true, accepted: true, signature });
 }

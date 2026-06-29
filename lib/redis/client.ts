@@ -36,13 +36,21 @@ export interface RedisLike {
     stop: number,
     opts?: { rev?: boolean; withScores?: boolean },
   ): Promise<string[]>;
+  zrangebyscore(key: string, min: number | string, max: number | string): Promise<string[]>;
+  zrem(key: string, ...members: string[]): Promise<number>;
   incrbyfloat(key: string, value: number): Promise<number>;
+  // List ops (durable webhook queue + dead-letter queue).
+  lpush(key: string, ...values: string[]): Promise<number>;
+  rpop(key: string): Promise<string | null>;
+  lrange(key: string, start: number, stop: number): Promise<string[]>;
+  llen(key: string): Promise<number>;
 }
 
 class InMemoryRedis implements RedisLike {
   private kv = new Map<string, { value: string; expiresAt: number | null }>();
   private zs = new Map<string, Array<{ score: number; member: string }>>();
   private floats = new Map<string, number>();
+  private lists = new Map<string, string[]>();
 
   private alive(key: string): boolean {
     const row = this.kv.get(key);
@@ -170,6 +178,50 @@ class InMemoryRedis implements RedisLike {
     this.floats.set(key, next);
     this.kv.set(key, { value: String(next), expiresAt: this.kv.get(key)?.expiresAt ?? null });
     return next;
+  }
+
+  async zrangebyscore(key: string, min: number | string, max: number | string): Promise<string[]> {
+    const list = [...(this.zs.get(key) ?? [])].sort((a, b) => a.score - b.score);
+    const minN = min === '-inf' ? -Infinity : Number(min);
+    const maxN = max === '+inf' ? Infinity : Number(max);
+    return list.filter((x) => x.score >= minN && x.score <= maxN).map((x) => x.member);
+  }
+
+  async zrem(key: string, ...members: string[]): Promise<number> {
+    const list = this.zs.get(key);
+    if (!list) return 0;
+    const before = list.length;
+    const filtered = list.filter((x) => !members.includes(x.member));
+    this.zs.set(key, filtered);
+    return before - filtered.length;
+  }
+
+  async lpush(key: string, ...values: string[]): Promise<number> {
+    const list = this.lists.get(key) ?? [];
+    // Redis LPUSH prepends each value in turn (last arg ends up at head).
+    for (const v of values) list.unshift(v);
+    this.lists.set(key, list);
+    return list.length;
+  }
+
+  async rpop(key: string): Promise<string | null> {
+    const list = this.lists.get(key);
+    if (!list || list.length === 0) return null;
+    const v = list.pop()!;
+    this.lists.set(key, list);
+    return v;
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    const list = this.lists.get(key) ?? [];
+    const n = list.length;
+    const s = start < 0 ? Math.max(0, n + start) : start;
+    const e = stop < 0 ? n + stop : stop;
+    return list.slice(s, e + 1);
+  }
+
+  async llen(key: string): Promise<number> {
+    return this.lists.get(key)?.length ?? 0;
   }
 }
 
