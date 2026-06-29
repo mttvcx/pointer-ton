@@ -38,7 +38,8 @@
     "test": "node --import tsx --test \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",
     "validate:env": "node --import tsx scripts/validate-env.ts",
     "validate:env:schema": "node --import tsx scripts/validate-env.ts --schema",
-    "check:migrations": "node scripts/check-migrations.mjs"
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
