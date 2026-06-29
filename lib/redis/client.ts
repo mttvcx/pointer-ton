@@ -29,6 +29,13 @@ export interface RedisLike {
   ): Promise<number | null>;
   zremrangebyscore(key: string, min: number | string, max: number | string): Promise<number>;
   zcard(key: string): Promise<number>;
+  zincrby(key: string, increment: number, member: string): Promise<number>;
+  zrange(
+    key: string,
+    start: number,
+    stop: number,
+    opts?: { rev?: boolean; withScores?: boolean },
+  ): Promise<string[]>;
   incrbyfloat(key: string, value: number): Promise<number>;
 }
 
@@ -126,6 +133,35 @@ class InMemoryRedis implements RedisLike {
 
   async zcard(key: string): Promise<number> {
     return this.zs.get(key)?.length ?? 0;
+  }
+
+  async zincrby(key: string, increment: number, member: string): Promise<number> {
+    const list = this.zs.get(key) ?? [];
+    const existing = list.find((x) => x.member === member);
+    if (existing) {
+      existing.score += increment;
+      this.zs.set(key, list);
+      return existing.score;
+    }
+    list.push({ score: increment, member });
+    this.zs.set(key, list);
+    return increment;
+  }
+
+  async zrange(
+    key: string,
+    start: number,
+    stop: number,
+    opts?: { rev?: boolean; withScores?: boolean },
+  ): Promise<string[]> {
+    let list = [...(this.zs.get(key) ?? [])].sort((a, b) => a.score - b.score);
+    if (opts?.rev) list = list.reverse();
+    const n = list.length;
+    const s = start < 0 ? Math.max(0, n + start) : start;
+    const e = stop < 0 ? n + stop : stop;
+    const slice = list.slice(s, e + 1);
+    if (opts?.withScores) return slice.flatMap((x) => [x.member, String(x.score)]);
+    return slice.map((x) => x.member);
   }
 
   async incrbyfloat(key: string, value: number): Promise<number> {

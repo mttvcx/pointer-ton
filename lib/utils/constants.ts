@@ -48,9 +48,24 @@ export const SIGNATURE_POLL_INTERVAL_MS = 1_500;
  * source of truth. */
 export const DEFAULT_AI_DAILY_QUOTA_USD = 0.3;
 
-/** Sliding-window rate limit per user. */
+/** Fixed-window rate limit per user (atomic INCR). */
 export const AI_RATE_LIMIT_WINDOW_SECONDS = 5 * 60;
 export const AI_RATE_LIMIT_MAX_CALLS = 50;
+
+/** Fixed-window rate limit per IP (catches mass-account abuse the per-user
+ *  limit can't). Env-overridable. */
+export const AI_IP_RATE_LIMIT_WINDOW_SECONDS = Number(process.env.AI_IP_RATE_LIMIT_WINDOW_SECONDS ?? 60);
+export const AI_IP_RATE_LIMIT_MAX_CALLS = Number(process.env.AI_IP_RATE_LIMIT_MAX_CALLS ?? 60);
+
+/** Organization-wide AI spend ceilings (USD). The backstop the per-user ceiling
+ *  cannot provide: a botnet of synced accounts still can't exceed these. */
+export const AI_GLOBAL_HOURLY_USD = Number(process.env.AI_GLOBAL_HOURLY_USD ?? 25);
+export const AI_GLOBAL_DAILY_USD = Number(process.env.AI_GLOBAL_DAILY_USD ?? 200);
+export const AI_GLOBAL_MONTHLY_USD = Number(process.env.AI_GLOBAL_MONTHLY_USD ?? 3000);
+
+/** Conservative cost reserved BEFORE a model call (settled to actual after). A
+ *  flood of in-flight calls can't blow a ceiling between reserve and settle. */
+export const AI_SPEND_RESERVE_USD = Number(process.env.AI_SPEND_RESERVE_USD ?? 0.02);
 
 /** Legacy per-pipeline TTL (Redis `ai:{pipeline}:{hash}` backfill). */
 export const AI_CACHE_TTL = {

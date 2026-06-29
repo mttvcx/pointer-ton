@@ -26,8 +26,9 @@ import {
 } from '@/lib/ai/schemas';
 import {
   enforceRateLimit,
-  ensureUnderCostCeiling,
-  recordCost,
+  reserveAiSpend,
+  settleAiSpend,
+  releaseAiSpend,
   QuotaError,
 } from '@/lib/ai/quota';
 import { awardPoints } from '@/lib/db/points';
@@ -93,6 +94,9 @@ export async function runCascade<P extends PipelineId>(
   if (!input.userId) {
     throw new QuotaError('unauthenticated', 'AI cascade requires authenticated user');
   }
+  // Atomic per-user + per-IP rate limit BEFORE the cache lookup, so a cache-hit
+  // flood (enumeration / abuse) is throttled too. Fails closed.
+  await enforceRateLimit(input.userId);
   const schema = (input.outputSchema ?? PIPELINE_SCHEMAS[input.pipeline]) as z.ZodTypeAny;
   const mode: CascadeMode = input.mode ?? 'fast';
   const inputHash = hashInput({
@@ -164,9 +168,10 @@ export async function runCascade<P extends PipelineId>(
     // per-user daily cost ceiling below).
   }
 
-  // 2. Quota gates BEFORE we burn provider budget.
-  await ensureUnderCostCeiling(input.userId);
-  await enforceRateLimit(input.userId);
+  // 2. Reserve spend atomically across per-user + org hourly/daily/monthly
+  //    ceilings BEFORE we burn provider budget. Fails closed; settled to the
+  //    real cost on success, refunded on failure.
+  const reservation = await reserveAiSpend(input.userId, input.pipeline);
 
   // 3. Run cascade with first-success-wins. Each step: call provider, parse JSON,
   //    validate. On any throw / validation fail, try the next step.
@@ -216,7 +221,7 @@ export async function runCascade<P extends PipelineId>(
         cacheHit: false,
         response: validation.data,
       });
-      await recordCost(input.userId, costUsd);
+      await settleAiSpend(reservation, costUsd, out.modelUsed);
       if (!input.skipPointsAward) {
         try {
           await awardPoints(input.userId, POINTS_SOURCES.aiCall, POINTS_PER_AI_CALL, {
@@ -243,6 +248,8 @@ export async function runCascade<P extends PipelineId>(
     }
   }
 
+  // Every model failed — refund the reservation so failed calls don't consume budget.
+  await releaseAiSpend(reservation);
   const message = lastErr instanceof Error ? lastErr.message : 'cascade failed';
   throw new Error(`ai_cascade_failed: ${message}`);
 }
