@@ -9,6 +9,8 @@ import {
   openPackServer,
 } from '@/lib/packs/openPack';
 import { enrichPackRewards } from '@/lib/packs/enrichRewards';
+import { createFairRng, generateClientSeed, generateServerSeed, hashServerSeed } from '@/lib/packs/provablyFair';
+import { reserveRoll } from '@/lib/packs/fairnessSeeds';
 import {
   computePackEconomics,
   resolvePackConfig,
@@ -30,7 +32,7 @@ import { solToLamports } from '@/lib/utils/formatters';
 import { assertPacksAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
 import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import type { Json } from '@/lib/supabase/types';
-import type { PackType } from '@/types/pack';
+import type { PackOpenResult, PackType } from '@/types/pack';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -210,7 +212,26 @@ export async function POST(req: NextRequest) {
         ? openPackLegendaryEliteTest(config)
         : openPackEpicSurgeTest(epicSurgeConfig);
 
-  let result = forcedOutcome ? buildForced(forcedOutcome) : openPackServer(config, Math.random, openMeta);
+  // Provably-fair roll. An honest roll draws from an HMAC keystream keyed by the
+  // user's committed serverSeed + clientSeed + a unique nonce (lib/packs/
+  // provablyFair). Reserved lazily so a forced (override/dev) outcome — which
+  // does NOT use the RNG — never consumes a nonce. Anonymous opens get an
+  // ephemeral seed that is revealed inline.
+  let fairness: PackOpenResult['fairness'];
+  const honestRoll = async (): Promise<PackOpenResult> => {
+    if (userId) {
+      const r = await reserveRoll(userId);
+      fairness = { serverSeedHash: r.serverSeedHash, clientSeed: r.clientSeed, nonce: r.nonce };
+      return openPackServer(config, createFairRng(r.serverSeed, r.clientSeed, r.nonce), openMeta);
+    }
+    const serverSeed = generateServerSeed();
+    const clientSeed = generateClientSeed();
+    fairness = { serverSeed, serverSeedHash: hashServerSeed(serverSeed), clientSeed, nonce: 0 };
+    return openPackServer(config, createFairRng(serverSeed, clientSeed, 0), openMeta);
+  };
+
+  let result = forcedOutcome ? buildForced(forcedOutcome) : await honestRoll();
+  if (forcedOutcome) fairness = { forced: true };
   let appliedOverrideId: string | null = null;
 
   if (activeOverride) {
@@ -221,7 +242,12 @@ export async function POST(req: NextRequest) {
       // Lost the claim race (override already consumed elsewhere). Re-roll
       // honestly unless a dev QA mode was also requested.
       activeOverride = null;
-      result = devTestMode ? buildForced(devTestMode) : openPackServer(config, Math.random, openMeta);
+      if (devTestMode) {
+        result = buildForced(devTestMode);
+        fairness = { forced: true };
+      } else {
+        result = await honestRoll();
+      }
     }
   }
 
@@ -229,6 +255,7 @@ export async function POST(req: NextRequest) {
     ...result,
     ...openMeta,
     priceSol: config.packPriceSol,
+    fairness,
   };
 
   const enriched = await enrichPackRewards(withPricing.rewards, quote.solUsd);

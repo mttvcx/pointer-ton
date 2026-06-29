@@ -100,6 +100,20 @@ export type PackOpenResult = {
   solUsdSource?: 'live' | 'fallback';
   modeledHouseEdgeBps?: number;
   fullOpenEvSol?: number;
+  /**
+   * Provably-fair proof for this open. For an honest RNG roll: the public
+   * commitment (`serverSeedHash`, `clientSeed`, `nonce`) — the `serverSeed` is
+   * revealed later via seed rotation. For an anonymous open the `serverSeed` is
+   * revealed inline (no future opens to protect). `forced: true` marks an
+   * admin-override / dev-test outcome that did NOT come from the RNG.
+   */
+  fairness?: {
+    serverSeedHash?: string;
+    clientSeed?: string;
+    nonce?: number;
+    serverSeed?: string;
+    forced?: boolean;
+  };
 };
 
 export type PackEconomicsReport = {
