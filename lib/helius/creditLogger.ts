@@ -2,6 +2,7 @@ import 'server-only';
 
 import { insertHeliusUsage } from '@/lib/db/heliusUsage';
 import { recordOpsEvent } from '@/lib/ops/events';
+import { guardProvider } from '@/lib/providers/circuitBreaker';
 
 /** Helius billing: DAS methods cost 10 credits; standard RPC costs 1. */
 export const HELIUS_CREDITS = {
@@ -24,6 +25,9 @@ export async function heliusCall<T>(
   estimatedCredits: number,
   fn: () => Promise<T>,
 ): Promise<T> {
+  // Circuit breaker — charge the estimate and HARD-CUTOFF (throws) when Helius
+  // is over budget or manually disabled. Fails open on a Redis blip.
+  await guardProvider('helius', estimatedCredits);
   const timestamp = new Date().toISOString();
   const startedAt = Date.now();
   let success = false;

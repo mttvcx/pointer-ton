@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getRedis } from '@/lib/redis/client';
+import { chargeProvider } from '@/lib/providers/circuitBreaker';
 
 /**
  * InsightX REST client — the data backbone for bubble maps, bundle/sniper
@@ -19,9 +19,6 @@ import { getRedis } from '@/lib/redis/client';
  */
 
 const BASE = 'https://api.insightx.network';
-
-/** Stop calling at this many upstream requests/month (free tier = 1000; leave headroom). */
-const MONTHLY_BUDGET = Number(process.env.INSIGHTX_MONTHLY_BUDGET ?? 950);
 
 export type IxNetwork = 'eth' | 'sol' | 'base' | 'bsc' | 'monad' | 'xlayer' | 'abs';
 
@@ -61,35 +58,12 @@ const cache = new Map<string, CacheEntry>();
 /** In-flight upstream calls, keyed by path — coalesces concurrent identical misses. */
 const inflight = new Map<string, Promise<unknown>>();
 
-function monthKey(): string {
-  // YYYY-MM. (Server code — Date is fine here.)
-  return `ix:credits:${new Date().toISOString().slice(0, 7)}`;
-}
-
-/** Trip the breaker if the monthly budget is spent; otherwise count this call. Fails open. */
+/** Charge one request against the shared provider circuit breaker (insightx
+ *  budget). Trips to a 429-style IxError when over the monthly budget or the
+ *  provider is manually cut off; fails open on a Redis error. */
 async function reserveCredit(): Promise<void> {
-  try {
-    const redis = getRedis();
-    const k = monthKey();
-    const used = Number(await redis.get<number>(k)) || 0;
-    if (used >= MONTHLY_BUDGET) {
-      throw new IxError('rate_limited', 'insightx monthly budget exhausted', 429);
-    }
-    const next = await redis.incr(k);
-    if (next === 1) await redis.expire(k, 60 * 60 * 24 * 35);
-  } catch (err) {
-    if (err instanceof IxError) throw err; // budget trip → propagate (handled as 429)
-    // Redis unavailable → fail open: allow the call, lean on InsightX's own 429.
-  }
-}
-
-/** Current InsightX requests spent this month (best-effort; 0 on Redis error). */
-export async function insightxCreditsUsed(): Promise<number> {
-  try {
-    return Number(await getRedis().get<number>(monthKey())) || 0;
-  } catch {
-    return 0;
-  }
+  const d = await chargeProvider('insightx', 1);
+  if (!d.allowed) throw new IxError('rate_limited', `insightx circuit breaker is ${d.state}`, 429);
 }
 
 async function ixFetch<T>(path: string, ttlMs: number): Promise<T> {

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { withOpsSpan } from '@/lib/ops/events';
+import { chargeProvider } from '@/lib/providers/circuitBreaker';
 import { jupiterRequestHeaders, wrapJupiterFetchError } from '@/lib/jupiter/httpHeaders';
 import {
   deriveJupiterFeeTokenAccount,
@@ -123,6 +124,13 @@ async function getSwapTxInner(
       );
     }
     body.feeAccount = feeAccount;
+  }
+
+  // Cost metering + manual cutoff (see getQuoteInner — record usage, honor an
+  // admin cutoff, but never auto-trip live trading on a budget counter).
+  const jb = await chargeProvider('jupiter', 1);
+  if (jb.state === 'disabled') {
+    throw new Error('Jupiter is paused by the provider circuit breaker (admin cutoff)');
   }
 
   let res: Response;

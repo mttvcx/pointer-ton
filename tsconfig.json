@@ -44,6 +44,7 @@
   "exclude": [
     "node_modules",
     "apps/**",
+    "pointer-remotion/**",
     "tests/**",
     "**/*.test.ts",
     "**/*.test.tsx"

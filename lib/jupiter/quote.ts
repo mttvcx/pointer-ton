@@ -5,6 +5,7 @@ import { jupiterRequestHeaders, wrapJupiterFetchError } from '@/lib/jupiter/http
 import { resolveJupiterFeeAccountForSwap } from '@/lib/jupiter/referralFee';
 import { JUPITER_QUOTE_URL } from '@/lib/utils/constants';
 import { recordOpsEvent } from '@/lib/ops/events';
+import { chargeProvider } from '@/lib/providers/circuitBreaker';
 
 export type JupiterQuoteInput = {
   /** Supabase `users.id` (for platform fee tier). */
@@ -69,6 +70,14 @@ async function getQuoteInner(input: JupiterQuoteInput): Promise<JupiterQuoteResp
   if (platformFeeBps > 0 && feeAccount) {
     params.set('platformFeeBps', String(platformFeeBps));
     params.set('feeAccount', feeAccount);
+  }
+
+  // Cost metering + manual cutoff. Jupiter is the trade hot path, so we RECORD
+  // usage atomically and honor an admin emergency cutoff, but never auto-trip
+  // live trading on a budget counter (that's the emergency trading kill switch).
+  const jb = await chargeProvider('jupiter', 1);
+  if (jb.state === 'disabled') {
+    throw new Error('Jupiter is paused by the provider circuit breaker (admin cutoff)');
   }
 
   const url = `${JUPITER_QUOTE_URL}?${params.toString()}`;

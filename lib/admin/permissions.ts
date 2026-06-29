@@ -37,6 +37,9 @@ export const ADMIN_PERMISSIONS = [
   // referral), per-chain pauses, maintenance + read-only mode, emergency banner.
   // Superadmin-only by design — this can halt the whole platform.
   'emergency.control',
+  // Provider circuit breakers: manual emergency cutoff per upstream (Helius,
+  // Moralis, InsightX, DexScreener, Jupiter). Cost/runaway protection.
+  'providers.control',
 ] as const;
 
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
