@@ -22,6 +22,7 @@ import { PulseChromeStack } from '@/components/pulse/PulseChromeStack';
 import { useIsMobile } from '@/lib/hooks/useIsMobile';
 import { MobileBottomNav } from '@/components/mobile/MobileBottomNav';
 import { MobileDrawer } from '@/components/mobile/MobileDrawer';
+import { EmergencyBanner } from '@/components/emergency/EmergencyBanner';
 import { cn } from '@/lib/utils/cn';
 
 const GlobalSearchModal = dynamic(
@@ -178,6 +179,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <TooltipProvider delayDuration={120}>
       <CopilotModeProvider>
       <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
+      <EmergencyBanner />
       <RoutePrefetcher />
       <ClientNavigateBridge />
       <ProtocolLogoPreloader />

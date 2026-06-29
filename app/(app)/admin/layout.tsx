@@ -10,6 +10,7 @@ type NavItem = { href: string; label: string; perm: string };
 const NAV: NavItem[] = [
   { href: '/admin', label: 'Overview', perm: '*any*' },
   { href: '/admin/ops', label: 'System health', perm: '*any*' },
+  { href: '/admin/emergency', label: 'Emergency', perm: 'emergency.control' },
   { href: '/admin/users', label: 'Users', perm: 'users.read' },
   { href: '/admin/packs', label: 'Packs', perm: 'packs.read' },
   { href: '/admin/economy', label: 'Economy', perm: 'referrals.read' },

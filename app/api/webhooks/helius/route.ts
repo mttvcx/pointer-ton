@@ -6,6 +6,7 @@ import {
 } from '@/lib/helius/webhooks';
 import { claimHeliusWebhookSignature } from '@/lib/helius/webhookDedup';
 import { recordOpsEvent } from '@/lib/ops/events';
+import { isReadOnly } from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
   );
   if (!authorized) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  // Emergency maintenance / read-only: ingestion is a write path, so ACK without
+  // processing (200 prevents Helius retry storms). Fails closed (skips on a
+  // controls-store outage too).
+  if (await isReadOnly()) {
+    return NextResponse.json({ ok: true, skipped: 'read_only', events: 0 });
   }
 
   let body: unknown;

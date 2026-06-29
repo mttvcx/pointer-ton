@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { pickDefaultExchanger, splitnowConfigured, splitnowCreateOrder, splitnowCreateQuote } from '@/lib/splitnow/server';
+import { assertTradingAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,13 @@ export async function POST(req: NextRequest) {
       { error: 'splitnow_not_configured', message: 'Add SPLITNOW_API_KEY to .env.local' },
       { status: 503 },
     );
+  }
+  // Emergency trading kill switch / maintenance / read-only — fails closed.
+  try {
+    await assertTradingAllowed('sol');
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
   }
 
   let json: unknown;

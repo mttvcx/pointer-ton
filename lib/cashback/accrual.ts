@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { cashbackShareBps } from '@/lib/cashback/constants';
+import { isCashbackEnabled } from '@/lib/emergency/controls';
 import { lamportsToSol } from '@/lib/utils/formatters';
 import type { Json, TablesInsert } from '@/lib/supabase/types';
 
@@ -36,6 +37,8 @@ export async function recordTradeCashbackAccrual(input: {
   platformFeeLamports: number;
   signature?: string;
 }): Promise<void> {
+  // Emergency cashback kill switch — SKIP accrual (never fail the parent trade).
+  if (!(await isCashbackEnabled())) return;
   if (!(input.platformFeeLamports > 0)) return;
   const bps = cashbackShareBps();
   if (!(bps > 0)) return;

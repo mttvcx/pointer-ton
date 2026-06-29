@@ -20,6 +20,12 @@ import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
 import { broadcastSignedTransaction } from '@/lib/solana/broadcast';
 import { enforceTradeRateLimit } from '@/lib/rate-limit/userAction';
 import { waitForSolConfirmation } from '@/lib/solana/confirm';
+import {
+  assertTradingAllowed,
+  EmergencyBlockedError,
+  emergencyBlockedResponse,
+  type EmergencyChain,
+} from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -96,6 +102,17 @@ export async function POST(req: NextRequest) {
 
   const json: unknown = await req.json();
   const parsedSol = SolExecuteSchema.safeParse(json);
+
+  // Emergency global + per-chain trading kill switch / maintenance / read-only.
+  // Fails closed (throws if the controls store is unreadable).
+  const tradeChain: EmergencyChain = parsedSol.success ? 'sol' : 'ton';
+  try {
+    await assertTradingAllowed(tradeChain);
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
+
   if (parsedSol.success) {
     const body = parsedSol.data;
     if (inferMintKind(body.mint) !== 'sol' || inferMintKind(body.userPublicKey) !== 'sol') {

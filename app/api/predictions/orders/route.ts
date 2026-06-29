@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { kalshiConfigured, kalshiCreateOrder } from '@/lib/kalshi/client';
 import { CreateOrderBodySchema } from '@/lib/kalshi/schemas';
+import { assertTradingAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,13 @@ export async function POST(req: Request) {
       { error: 'kalshi_auth_missing', message: 'Kalshi API keys not configured on server.' },
       { status: 503 },
     );
+  }
+  // Emergency trading kill switch / maintenance / read-only — fails closed.
+  try {
+    await assertTradingAllowed();
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
   }
 
   try {

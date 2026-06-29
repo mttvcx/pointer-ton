@@ -2,9 +2,11 @@ import 'server-only';
 
 import { NextResponse } from 'next/server';
 import { QuotaError } from '@/lib/ai/quota';
+import { EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
 
 /** Convert exceptions raised by the cascade or pipelines into JSON responses. */
 export function aiErrorResponse(err: unknown): NextResponse {
+  if (err instanceof EmergencyBlockedError) return emergencyBlockedResponse(err);
   if (err instanceof QuotaError) {
     const headers: HeadersInit | undefined = err.retryAfterSeconds
       ? { 'Retry-After': String(err.retryAfterSeconds) }

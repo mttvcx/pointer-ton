@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { authorizeCronRequest } from '@/lib/cron/authorize';
 import { revalidatePulseFeedCache } from '@/lib/server/revalidatePulseFeed';
 import { recordOpsEvent, recordOpsMetric } from '@/lib/ops/events';
+import { isReadOnly } from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,11 @@ export async function runAuthorizedCron(
   if (process.env.POINTER_PAUSE_INGEST === '1') {
     await recordOpsEvent({ category: 'cron', name: cron, status: 'paused', message: 'POINTER_PAUSE_INGEST' });
     return NextResponse.json({ ok: true, paused: true, reason: 'POINTER_PAUSE_INGEST' });
+  }
+  // Emergency maintenance / read-only — crons mutate data, so skip. Fails closed.
+  if (await isReadOnly()) {
+    await recordOpsEvent({ category: 'cron', name: cron, status: 'paused', message: 'emergency_read_only' });
+    return NextResponse.json({ ok: true, paused: true, reason: 'emergency_read_only' });
   }
   const startedAt = Date.now();
   try {

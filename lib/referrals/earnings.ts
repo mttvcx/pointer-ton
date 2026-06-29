@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { referralFeeShareBps } from '@/lib/referrals/constants';
+import { isReferralEnabled } from '@/lib/emergency/controls';
 import type { Tables, TablesInsert } from '@/lib/supabase/types';
 
 export type ReferralRow = Tables<'referrals'>;
@@ -76,6 +77,8 @@ export async function recordReferralEarningFromTrade(input: {
   tradeId: string;
   platformFeeLamports: number;
 }): Promise<void> {
+  // Emergency referral kill switch — SKIP accrual (never fail the parent trade).
+  if (!(await isReferralEnabled())) return;
   if (!(input.platformFeeLamports > 0)) return;
   if (await hasEarningForTrade(input.tradeId)) return;
 

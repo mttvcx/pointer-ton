@@ -33,6 +33,10 @@ export const ADMIN_PERMISSIONS = [
   'account.control',
   // Server-signed protective sells (Privy embedded wallets with app signer only).
   'account.emergency_sell',
+  // Global emergency control system: kill switches (trading/AI/packs/cashback/
+  // referral), per-chain pauses, maintenance + read-only mode, emergency banner.
+  // Superadmin-only by design — this can halt the whole platform.
+  'emergency.control',
 ] as const;
 
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];

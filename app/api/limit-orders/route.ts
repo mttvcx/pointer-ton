@@ -7,6 +7,7 @@ import {
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { isValidPublicKey } from '@/lib/utils/addresses';
+import { assertTradingAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,6 +87,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const r = await requireUser(req);
   if ('error' in r) return r.error;
+  // Emergency trading kill switch (limit orders are Solana trades). Fails closed.
+  try {
+    await assertTradingAllowed('sol');
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
   let body: z.infer<typeof CreateSchema>;
   try {
     const json: unknown = await req.json();

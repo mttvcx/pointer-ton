@@ -31,6 +31,7 @@ import {
   QuotaError,
 } from '@/lib/ai/quota';
 import { awardPoints } from '@/lib/db/points';
+import { assertAiAllowed } from '@/lib/emergency/controls';
 import { MODELS, POINTS_SOURCES } from '@/lib/utils/constants';
 
 /**
@@ -86,6 +87,9 @@ const POINTS_PER_AI_CALL = 1;
 export async function runCascade<P extends PipelineId>(
   input: CascadeInput<P>,
 ): Promise<CascadeResult<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>> {
+  // Emergency global AI kill switch / maintenance — fails closed (throws when the
+  // controls store is unreadable). Single chokepoint covers every AI pipeline.
+  await assertAiAllowed();
   if (!input.userId) {
     throw new QuotaError('unauthenticated', 'AI cascade requires authenticated user');
   }

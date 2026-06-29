@@ -27,6 +27,7 @@ import { liveCommerceActive } from '@/lib/packs/commerce';
 import { verifyPackPayment } from '@/lib/packs/verifyPackPayment';
 import { resumePackFulfillment } from '@/lib/packs/resumeFulfillment';
 import { solToLamports } from '@/lib/utils/formatters';
+import { assertPacksAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
 import type { Json } from '@/lib/supabase/types';
 import type { PackType } from '@/types/pack';
 
@@ -65,6 +66,14 @@ function responsibleLimitsGate(_userId: string | null): { ok: true } {
 }
 
 export async function POST(req: NextRequest) {
+  // Emergency packs kill switch / maintenance / read-only — fails closed.
+  try {
+    await assertPacksAllowed();
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
+
   const authHeader = req.headers.get('authorization');
   const accessToken = authHeader?.startsWith('Bearer ')
     ? authHeader.slice('Bearer '.length).trim()
