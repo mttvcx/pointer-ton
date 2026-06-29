@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { isUniqueViolation } from '@/lib/db/pgError';
 import { cashbackShareBps } from '@/lib/cashback/constants';
 import { isCashbackEnabled } from '@/lib/emergency/controls';
 import { lamportsToSol } from '@/lib/utils/formatters';
@@ -65,5 +66,10 @@ export async function recordTradeCashbackAccrual(input: {
 
   const supabase = createAdminSupabase();
   const { error } = await supabase.from('cashback_ledger').insert(insert);
-  if (error) throw new Error(`recordTradeCashbackAccrual: ${error.message}`);
+  if (error) {
+    // A concurrent writer already recorded this trade's accrual (unique index on
+    // metadata->>'trade_id'). Treat as an idempotent no-op — never double-credit.
+    if (isUniqueViolation(error)) return;
+    throw new Error(`recordTradeCashbackAccrual: ${error.message}`);
+  }
 }
