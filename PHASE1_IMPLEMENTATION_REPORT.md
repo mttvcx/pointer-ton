@@ -17,7 +17,7 @@ Every milestone is its own commit; typecheck + tests stay green at each.
 | 1 | Realtime ingestion | ✅ done | ⏳ architecture doc + targeted hardening |
 | 2 | Webhook system | ✅ done | ✅ **shipped** (`af4516f`) |
 | 3 | Money-path testing | ✅ done | ⏳ next |
-| 4 | CI/CD | ✅ done | ⏳ planned |
+| 4 | CI/CD | ✅ done | ✅ **shipped** (`bb6baa7`) |
 | 5 | Incident management | ✅ done | ⏳ planned (rich substrate exists) |
 | 6 | Provably-fair packs | ✅ done | ⏳ planned (commit-reveal) |
 
@@ -138,25 +138,40 @@ decisioning, so the guarantees are unit-testable.
 
 ---
 
-## Mission 4 — CI/CD
+## Mission 4 — CI/CD ✅ SHIPPED (`bb6baa7`)
 
 ### Audit
 
-**No CI exists** (no `.github/workflows`, no pre-commit hooks). But all the gate
+**No CI existed** (no `.github/workflows`, no pre-commit hooks). But all the gate
 *scripts* are present: `typecheck` (tsc strict), `lint` (eslint flat),
 `test` (107 files), `build`, `format:check`. Deploy is git-triggered Vercel
 (`vercel.json`, 9 crons → now 10). Migrations are manual SQL in `scripts/*.sql`.
 No env-validation at boot. `/api/health` (liveness) + `/api/admin/ops/health`
 (full snapshot) exist but aren't wired to deploys.
 
-### Implementation (planned)
+### Implementation
 
-GitHub Actions: PR gate (typecheck + lint + test + build + the
-`pointer-remotion` exclusion already in tsconfig) blocking merge; env-schema
-validation step; post-deploy health probe against `/api/health`; manual
-(`workflow_dispatch`) production path rather than auto-deploy (the repo is not yet
-continuously deployed — surfaced in memory). Rollback documented via Vercel
-promote-previous.
+Full detail in [docs/CICD.md](docs/CICD.md).
+
+- **`ci.yml`** (PR + push to main): install (`--legacy-peer-deps`, mirrors
+  Vercel) → validate env schema → migration sanity → typecheck → lint → test →
+  build (placeholder env, no secrets). `concurrency` cancels superseded runs.
+  Enable branch protection requiring `verify` to block merges on red.
+- **Env contract** as a pure, unit-tested source of truth (`lib/env/required.ts`,
+  required vs recommended with `anyOf` alternates). `validate:env` is a deploy
+  preflight (fails on missing required); `validate:env:schema` is the CI shape
+  check. `check:migrations` guards the 43 SQL files.
+- **`deploy-health.yml`**: probes `/api/health` + `/api/emergency/status` ~90s
+  after a push, every 15m, and on demand (`scripts/health-check.ts`). No-ops
+  until `POINTER_PRODUCTION_URL` repo var is set.
+
+**Decisions / tradeoffs:** Node 20 in CI (matches `engines`; bump to match
+Vercel's 24 once verified). Build uses placeholder env so CI needs no secrets.
+Vercel owns deploys (git integration), so the gate is branch protection + the
+post-deploy probe rather than a workflow-driven promotion; hard pre-promotion
+gating would require switching to CLI deploys (noted). Rollback = Vercel
+promote-previous, plus Redis-backed emergency controls for redeploy-free
+mitigation.
 
 ---
 
@@ -227,3 +242,5 @@ opens stay valid; new opens are verifiable). Full design doc on delivery.
 
 - `1a35955` — secure predictions/orders (auth + freeze + rate limit).
 - `af4516f` — Mission 2: webhook async queue / retry / DLQ / durable idempotency.
+- `f871c5d` — Phase 1 implementation report (this doc).
+- `bb6baa7` — Mission 4: CI/CD gates, env validation, post-deploy health probe.

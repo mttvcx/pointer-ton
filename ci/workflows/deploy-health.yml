@@ -1,0 +1,49 @@
+name: Deploy health
+
+# Post-deploy + scheduled production health probe. Vercel performs deploys via
+# its git integration, so this workflow verifies the live app after a push to
+# main settles, and every 15 minutes, by hitting the public liveness + status
+# endpoints. A failure marks the run red (and can be wired to alerts).
+#
+# Set the repository variable POINTER_PRODUCTION_URL to the production origin
+# (e.g. https://app.pointer.xyz). Without it the workflow no-ops gracefully.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe production health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install (tsx only)
+        run: npm install --legacy-peer-deps --include=dev --no-audit --no-fund
+
+      - name: Wait for deploy to settle (push only)
+        if: github.event_name == 'push'
+        run: sleep 90
+
+      - name: Health probe
+        env:
+          POINTER_HEALTH_URL: ${{ vars.POINTER_PRODUCTION_URL }}
+        run: |
+          if [ -z "$POINTER_HEALTH_URL" ]; then
+            echo "POINTER_PRODUCTION_URL not set — skipping probe."
+            exit 0
+          fi
+          node --import tsx scripts/health-check.ts

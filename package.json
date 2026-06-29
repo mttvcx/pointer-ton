@@ -35,7 +35,10 @@
     "migrate:mint-swaps-event": "node scripts/apply-mint-swaps-event-kind.mjs",
     "verify:founder-beta": "node --import tsx scripts/founder-beta-sprint2-verify.ts",
     "test:packs": "node --import tsx --test lib/packs/pricing.test.ts",
-    "test": "node --import tsx --test \"lib/**/*.test.ts\" \"tests/**/*.test.ts\""
+    "test": "node --import tsx --test \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",
+    "validate:env": "node --import tsx scripts/validate-env.ts",
+    "validate:env:schema": "node --import tsx scripts/validate-env.ts --schema",
+    "check:migrations": "node scripts/check-migrations.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
