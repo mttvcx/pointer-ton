@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { runCascade } from '@/lib/ai/cascade';
+import { runCascade, assertAiEntryAllowed } from '@/lib/ai/cascade';
 import { delimitUntrusted, sanitizeForPrompt, sanitizeJsonForPrompt } from '@/lib/ai/promptSanitize';
 import { NarrateAlertOutputSchema, type NarrateAlertOutput } from '@/lib/ai/schemas';
 import { getAlertById, updateAlertNarration } from '@/lib/db/alerts';
@@ -39,6 +39,10 @@ export async function narrateAlert(input: NarrateAlertInput): Promise<{
   // alert payload, so an alert that isn't the caller's must be indistinguishable
   // from one that doesn't exist (no existence oracle, no cross-user narration).
   if (!alert || alert.user_id !== input.userId) throw new Error('alert_not_found');
+
+  // BLOCKER-4: gate BEFORE the cached-narration short-circuit below, so an ungated
+  // user can't read back AI output without passing the access policy.
+  await assertAiEntryAllowed(input.userId);
 
   const narrativeMint = mintFromAlertPayload(alert.payload) ?? alert.id;
 

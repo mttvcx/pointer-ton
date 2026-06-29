@@ -87,6 +87,24 @@ export interface CascadeResult<T> {
 
 const POINTS_PER_AI_CALL = 1;
 
+/**
+ * The AI entry gate: emergency AI kill switch + authentication + access policy
+ * (≥5 SOL OR active subscription). MUST run before any AI output is returned —
+ * including from a pre-`runCascade` cache read. Pipelines that consult their own
+ * cache before the cascade (bubbleRisk, narrateAlert) call this first, otherwise
+ * a cache hit (the bubbleRisk cache is global/cross-user) would hand AI output to
+ * an ungated user (BLOCKER-4). Rate limiting stays inside runCascade so the
+ * miss path isn't double-charged; cache hits by an already-authorized user are
+ * low-risk (no model/credit spend).
+ */
+export async function assertAiEntryAllowed(userId: string | null | undefined): Promise<void> {
+  await assertAiAllowed();
+  if (!userId) {
+    throw new QuotaError('unauthenticated', 'AI cascade requires authenticated user');
+  }
+  await assertAiAccess(userId);
+}
+
 export async function runCascade<P extends PipelineId>(
   input: CascadeInput<P>,
 ): Promise<CascadeResult<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>> {

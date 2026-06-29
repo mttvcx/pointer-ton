@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { runCascade, type CascadeMode } from '@/lib/ai/cascade';
+import { runCascade, assertAiEntryAllowed, type CascadeMode } from '@/lib/ai/cascade';
 import { sanitizeForPrompt } from '@/lib/ai/promptSanitize';
 import { hashInput, readFromCache } from '@/lib/ai/cache';
 import { BubbleRiskOutputSchema, type BubbleRiskOutput } from '@/lib/ai/schemas';
@@ -112,6 +112,11 @@ export async function analyzeBubbleRisk(input: BubbleRiskInput): Promise<{
   const { mint, network } = input;
   const mode = input.mode ?? 'fast';
   const inputs = { mint, network, mode };
+
+  // BLOCKER-4: gate BEFORE the cache read. The verdict cache is global/cross-user,
+  // so without this an ungated user could pull another user's cached AI verdict
+  // for free. Mirror the cascade's entry gate (emergency switch + access policy).
+  await assertAiEntryAllowed(input.userId);
 
   // Cost guard: the cascade's verdict cache is global (Redis + DB). If it's
   // already cached, return it without spending InsightX credits on facts we'd
