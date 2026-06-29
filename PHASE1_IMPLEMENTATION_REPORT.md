@@ -19,7 +19,7 @@ Every milestone is its own commit; typecheck + tests stay green at each.
 | 3 | Money-path testing | ✅ done | ⏳ next |
 | 4 | CI/CD | ✅ done | ✅ **shipped** (`99bdec5`) |
 | 5 | Incident management | ✅ done | ⏳ planned (rich substrate exists) |
-| 6 | Provably-fair packs | ✅ done | ⏳ planned (commit-reveal) |
+| 6 | Provably-fair packs | ✅ done | ✅ **shipped** (`adde97c`, `aaaa453`) |
 
 Pre-work this sprint: secured the unauthenticated `predictions/orders` endpoint
 (auth + freeze + rate limit, `1a35955`).
@@ -198,24 +198,38 @@ links surfaced in admin; the webhook-health view from Mission 2.
 
 ---
 
-## Mission 6 — Provably-fair packs
+## Mission 6 — Provably-fair packs ✅ SHIPPED (`adde97c`, `aaaa453`)
 
 ### Audit — not provably fair today
 
-Outcome is computed server-side from `Math.random()` (unseeded, server-chosen,
+Outcome was computed server-side from `Math.random()` (unseeded, server-chosen,
 no commitment). No client seed, server seed, commit, reveal, nonce, or
-verification is stored — a player cannot prove they weren't cheated. Economics
+verification was stored — a player could not prove they weren't cheated. Economics
 (house edge ≥22%, EV) are correctly modeled and logged; overrides are an
 explicit, four-eyes-approved admin promo path (not a fairness hole).
 
-### Implementation (planned)
+### Implementation
 
-Commit-reveal: client contributes entropy; server commits
-`hash(serverSeed)` **before** the outcome; outcome RNG =
-`HMAC(serverSeed, clientSeed:nonce)`; server seed revealed after the roll so
-anyone can recompute and verify. Persist commit/seed/nonce per open; ship a pure,
-unit-tested deterministic RNG + a `/verify` path. Backwards-compatible (legacy
-opens stay valid; new opens are verifiable). Full design doc on delivery.
+Commit-reveal (HMAC-SHA256), full design in
+[docs/PROVABLY_FAIR_PACKS.md](docs/PROVABLY_FAIR_PACKS.md):
+
+- **`lib/packs/provablyFair.ts`** (pure, `node:crypto`, 9 tests) — server commits
+  `sha256(serverSeed)`; draws come from a deterministic
+  `HMAC(serverSeed, clientSeed:nonce:counter)` keystream; rotation reveals the
+  seed so anyone can verify the hash + replay every roll.
+- **`lib/packs/fairnessSeeds.ts`** (Redis) — per-user seed lifecycle, atomic
+  nonce, set-client-seed + rotate.
+- **`openPackServer`** now injected with the fair keystream (it already took an
+  `rng`); the open route reserves a roll lazily (forced override/dev outcomes
+  burn no nonce, are flagged `forced`), attaches the proof to the existing
+  `pack_opens.result` JSON (**no schema change**), and reveals anon-open seeds
+  inline.
+- **API:** `GET/POST /api/packs/fairness` (commitment, set-seed, rotate-and-reveal)
+  + public `POST /api/packs/fairness/verify` (recompute from a revealed seed).
+
+**Decision:** commit-reveal over VRF/drand — the audited, pragmatic baseline that
+needs no third party and is fully self-verifiable; VRF noted as a future upgrade.
+Proof persisted in the existing JSON column to avoid a production migration.
 
 ---
 
@@ -244,3 +258,5 @@ opens stay valid; new opens are verifiable). Full design doc on delivery.
 - `af4516f` — Mission 2: webhook async queue / retry / DLQ / durable idempotency.
 - `f871c5d` — Phase 1 implementation report (this doc).
 - `99bdec5` — Mission 4: CI/CD gates, env validation, post-deploy health probe.
+- `adde97c` — Mission 6: provably-fair cryptographic core (commit-reveal).
+- `aaaa453` — Mission 6: wire fair rolls into packs + player verification API.
