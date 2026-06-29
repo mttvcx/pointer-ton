@@ -9,16 +9,33 @@
 > *safety/security* claims are OVERSTATED or FALSE. One is a critical, live,
 > fully-exploitable privilege escalation. **Details below — read BLOCKER-1 first.**
 
-> **REMEDIATION UPDATE (2026-06-29, post-audit):** **BLOCKER-1 is FIXED and
-> verified.** `/api/auth/sync` now writes a Privy-**verified** email (read
-> server-side via `fetchVerifiedPrivyEmail` → `users()._get` → tested pure
-> `pickVerifiedEmail`), never the request body; a UNIQUE index on
-> `users.email` (`users_email_lower_uniq`, applied to prod) is the second layer;
-> the upsert retries without email on conflict so login can't break. Verified
-> end-to-end against the live Privy API (founder `privy_id` → `moustimail@gmail.com`)
-> and confirmed no prior exploitation (only the founder holds an admin row). Gates
-> green: tsc 0 · 428/428 tests (+9 new) · build 0. The original findings below are
-> preserved as the point-in-time snapshot. **BLOCKERs 2–5 remain open.**
+> **REMEDIATION UPDATE (2026-06-29, post-audit): ALL 5 BLOCKERS FIXED + VERIFIED.**
+> Final gates green: **tsc 0 · 432/432 tests (+15 new) · build 0.** The original
+> findings below are preserved as the point-in-time snapshot.
+>
+> - **BLOCKER-1 (priv-esc) — FIXED.** `/api/auth/sync` now writes a Privy-**verified**
+>   email (`fetchVerifiedPrivyEmail` → `users()._get` → tested pure `pickVerifiedEmail`),
+>   never the body; UNIQUE index `users_email_lower_uniq` (prod) is the second layer;
+>   upsert retries without email on conflict. Live-verified against the Privy API
+>   (founder `privy_id` → `moustimail@gmail.com`); no prior exploitation.
+> - **BLOCKER-2 (money double-credit) — FIXED.** UNIQUE index `trades_tx_signature_uniq`
+>   (prod) + `insertTrade` returns the winner's row on 23505, so concurrent same-sig
+>   submits converge on one `trade.id`. New tests cross the trade-insert boundary.
+> - **BLOCKER-3 (kill switch gaps) — FIXED.** `assertWriteAllowed()` added to
+>   `solana/broadcast` + `wallets/send-native`; `assertPacksAllowed()` to
+>   `packs/pay` + `packs/pay-broadcast`. Maintenance / read-only now stop withdrawals.
+> - **BLOCKER-4 (AI cache bypass) — FIXED.** New `assertAiEntryAllowed` runs the
+>   emergency + access gate BEFORE the pre-cascade cache read in `bubbleRisk` and
+>   `narrateAlert`. (Operator: still set `AI_ACCESS_ENFORCED=1` in prod to enforce.)
+> - **BLOCKER-5 (untested fail-safety) — FIXED.** New `lib/emergency/controls.test.ts`
+>   injects a throwing Redis and asserts the kill switch FAILS CLOSED (money/AI
+>   paused, read-only) and every guard blocks.
+>
+> Residual non-blockers (browser Helius key, synthetic stocks page, Doctor
+> confidence, unauth paid-upstream routes, breaker fail-open, `AI_ACCESS_ENFORCED`
+> flip) remain as listed below — none are launch-stoppers for founder/private beta.
+> **Re-assessment: with all 5 blockers closed, the codebase clears the bar for
+> founder + private beta and to begin the extension.**
 
 ---
 
