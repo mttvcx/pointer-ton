@@ -7,8 +7,11 @@
 export interface ExtMe {
   connected: boolean;
   userId: string | null;
+  email: string | null;
+  username: string | null;
   subscription: 'none' | 'active' | 'founder';
   aiAccess: boolean; // ≥5 SOL OR subscription
+  referralCode: string | null;
   solBalance: number | null;
   monthlyVolumeSol: number | null;
   scansRemaining: number | null;
