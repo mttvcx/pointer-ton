@@ -45,6 +45,7 @@
     "node_modules",
     "apps/**",
     "pointer-remotion/**",
+    "pointer-extension/**",
     "tests/**",
     "**/*.test.ts",
     "**/*.test.tsx"
