@@ -218,16 +218,24 @@ export async function POST(req: NextRequest) {
   // does NOT use the RNG — never consumes a nonce. Anonymous opens get an
   // ephemeral seed that is revealed inline.
   let fairness: PackOpenResult['fairness'];
-  const honestRoll = async (): Promise<PackOpenResult> => {
-    if (userId) {
-      const r = await reserveRoll(userId);
-      fairness = { serverSeedHash: r.serverSeedHash, clientSeed: r.clientSeed, nonce: r.nonce };
-      return openPackServer(config, createFairRng(r.serverSeed, r.clientSeed, r.nonce), openMeta);
-    }
+  // Ephemeral seed revealed inline — used for anonymous opens AND as a fail-safe
+  // if the per-user seed store (Redis) blips, so a paid open NEVER fails on the
+  // fairness layer (the roll stays verifiable, just not pre-committed).
+  const ephemeralRoll = (): PackOpenResult => {
     const serverSeed = generateServerSeed();
     const clientSeed = generateClientSeed();
     fairness = { serverSeed, serverSeedHash: hashServerSeed(serverSeed), clientSeed, nonce: 0 };
     return openPackServer(config, createFairRng(serverSeed, clientSeed, 0), openMeta);
+  };
+  const honestRoll = async (): Promise<PackOpenResult> => {
+    if (!userId) return ephemeralRoll();
+    try {
+      const r = await reserveRoll(userId);
+      fairness = { serverSeedHash: r.serverSeedHash, clientSeed: r.clientSeed, nonce: r.nonce };
+      return openPackServer(config, createFairRng(r.serverSeed, r.clientSeed, r.nonce), openMeta);
+    } catch {
+      return ephemeralRoll(); // seed store unavailable — degrade, don't fail the open
+    }
   };
 
   let result = forcedOutcome ? buildForced(forcedOutcome) : await honestRoll();
