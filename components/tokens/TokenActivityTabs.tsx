@@ -22,7 +22,6 @@ import { ChainIcon } from '@/components/squads/ChainIcon';
 import { HoldersTable } from '@/components/tokens/HoldersTable';
 import { HoldersTableSettingsModal } from '@/components/tokens/HoldersTableSettingsModal';
 import { BubbleMapPanel } from '@/components/tokens/BubbleMapPanel';
-import { BubbleMapDrawer } from '@/components/tokens/BubbleMapDrawer';
 import { MintTradesTable } from '@/components/tokens/MintTradesTable';
 import { TopTradersTable } from '@/components/tokens/TopTradersTable';
 import { DevTokensPane } from '@/components/tokens/DevTokensPane';
@@ -407,7 +406,6 @@ export function TokenActivityTabs({
   const [traderPnlSortDir, setTraderPnlSortDir] = useState<'asc' | 'desc' | null>(null);
   const [tradesMakerFilter, setTradesMakerFilter] = useState<string | null>(null);
   const [holdersSettingsOpen, setHoldersSettingsOpen] = useState(false);
-  const [bubbleDrawerOpen, setBubbleDrawerOpen] = useState(false);
   const activeWalletAddress = useActiveWalletStore((s) => s.activeWalletAddress);
 
   const handleFilterMintTrades = (address: string) => {
@@ -775,9 +773,14 @@ export function TokenActivityTabs({
         <div className="ml-auto flex shrink-0 items-center gap-1.5 py-0.5">
           <button
             type="button"
-            onClick={() => setBubbleDrawerOpen(true)}
-            className="btn-press inline-flex h-6 items-center gap-1.5 rounded-md border border-border-subtle px-2 text-[11px] font-semibold text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary"
-            title="Open holder bubble map"
+            onClick={() => setTab('bubbles')}
+            className={cn(
+              'btn-press inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-[11px] font-semibold transition-colors',
+              tab === 'bubbles'
+                ? 'border-accent-primary/50 bg-accent-primary/10 text-fg-primary'
+                : 'border-border-subtle text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
+            )}
+            title="Holder bubble map"
           >
             <Workflow className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
             <span className="hidden sm:inline">Bubble map</span>
@@ -1007,7 +1010,7 @@ export function TokenActivityTabs({
             onOpenSettings={() => setHoldersSettingsOpen(true)}
           />
         ) : null}
-        {tab === 'bubbles' && !bubbleDrawerOpen ? <BubbleMapPanel mint={mint} symbol={sym} /> : null}
+        {tab === 'bubbles' ? <BubbleMapPanel mint={mint} symbol={sym} /> : null}
         {tab === 'traders' ? (
           tradersEmpty ? (
             <div className="p-4">
@@ -1075,12 +1078,6 @@ export function TokenActivityTabs({
         open={holdersSettingsOpen}
         onClose={() => setHoldersSettingsOpen(false)}
         title={tab === 'traders' ? 'Top Traders Table Settings' : 'Holders Table Settings'}
-      />
-      <BubbleMapDrawer
-        mint={mint}
-        symbol={sym}
-        open={bubbleDrawerOpen}
-        onClose={() => setBubbleDrawerOpen(false)}
       />
     </div>
   );
