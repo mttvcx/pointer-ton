@@ -1,4 +1,4 @@
-import { ensureToken, apiBase, beginConnect } from '@/pointer/auth';
+import { ensureToken, apiBase, beginConnect, exchangeCode } from '@/pointer/auth';
 import type { PointerRequest, PointerResponse } from '@/pointer/client';
 
 /**
@@ -78,4 +78,21 @@ export default defineBackground(() => {
     brokered(req).then(sendResponse);
     return true; // async response
   });
+
+  // The connect handshake: ONLY pointer.trade (externally_connectable) can send the
+  // single-use code, which we exchange server-side for the scoped token.
+  chrome.runtime.onMessageExternal.addListener(
+    (msg: { pointerConnect?: { code?: string } }, _sender, sendResponse) => {
+      const code = msg?.pointerConnect?.code;
+      if (typeof code !== 'string' || !code) {
+        sendResponse({ ok: false });
+        return false;
+      }
+      exchangeCode(code).then((ok) => {
+        mem.clear(); // fresh session → drop any stale cache
+        sendResponse({ ok });
+      });
+      return true; // async
+    },
+  );
 });

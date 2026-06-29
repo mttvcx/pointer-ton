@@ -26,6 +26,11 @@ export default defineConfig({
       'https://neo.bullx.io/*',
       'https://github.com/*',
     ],
+    // Only pointer.trade may message the extension (the connect handshake hands a
+    // single-use code in; nothing else can reach the background externally).
+    externally_connectable: {
+      matches: ['https://pointer.trade/*', 'https://*.pointer.trade/*'],
+    },
     // No remote code; UI runs from the packaged bundle only.
     content_security_policy: {
       extension_pages: "script-src 'self'; object-src 'self';",

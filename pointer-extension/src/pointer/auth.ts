@@ -50,7 +50,7 @@ async function refresh(t: ExtToken): Promise<string | null> {
     const res = await fetch(`${apiBase()}/api/ext/auth/refresh`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ refresh: t.refresh }),
+      body: JSON.stringify({ refresh: t.refresh, ext: chrome.runtime.id }),
     });
     if (!res.ok) {
       await setToken(null);
