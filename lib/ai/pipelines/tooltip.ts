@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { runCascade } from '@/lib/ai/cascade';
+import { sanitizeForPrompt } from '@/lib/ai/promptSanitize';
 import { TooltipOutputSchema, type TooltipOutput } from '@/lib/ai/schemas';
 
 export interface TooltipInput {
@@ -26,8 +27,11 @@ export async function tooltip(input: TooltipInput): Promise<{
   modelUsed: string;
   costUsd: number;
 }> {
-  const term = input.term.trim().slice(0, 80);
-  const context = input.context?.trim().slice(0, 200) ?? null;
+  // term + context are user-supplied and this answer is cached across users by
+  // term — sanitize so the same value shapes BOTH the prompt and the cache key
+  // and can't break out of the quoted interpolation below.
+  const term = sanitizeForPrompt(input.term, 80);
+  const context = sanitizeForPrompt(input.context, 200) || null;
   if (!term) throw new Error('empty_term');
 
   const userPrompt = [

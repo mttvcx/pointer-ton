@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { runCascade } from '@/lib/ai/cascade';
+import { delimitUntrusted, sanitizeForPrompt } from '@/lib/ai/promptSanitize';
 import type { ParseTrackerRuleOutput } from '@/lib/ai/schemas';
 
 export async function parseTrackerRuleNaturalLanguage(input: {
@@ -20,10 +21,13 @@ export async function parseTrackerRuleNaturalLanguage(input: {
     'Respond ONLY with JSON: { "summary": string, "condition": { "eventTypes": [...], ... } }',
   ].join(' ');
 
+  // walletLabel is from external feeds; nlText is user free-text. Fence both as
+  // data so neither can override the "respond ONLY with JSON" instruction above.
+  const label = input.walletLabel ? delimitUntrusted('label', input.walletLabel, 80) : null;
   const user = [
-    `Wallet: ${input.walletAddress}`,
-    input.walletLabel ? `Label: ${input.walletLabel}` : null,
-    `Rule: ${input.nlText.trim().slice(0, 800)}`,
+    `Wallet: ${sanitizeForPrompt(input.walletAddress, 80)}`,
+    label ? `Label: ${label}` : null,
+    `Rule: ${delimitUntrusted('rule', input.nlText, 800)}`,
   ]
     .filter(Boolean)
     .join('\n');

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { runCascade, type CascadeMode } from '@/lib/ai/cascade';
+import { sanitizeForPrompt } from '@/lib/ai/promptSanitize';
 import { hashInput, readFromCache } from '@/lib/ai/cache';
 import { BubbleRiskOutputSchema, type BubbleRiskOutput } from '@/lib/ai/schemas';
 import {
@@ -27,19 +28,11 @@ const IX_TO_APP: Partial<Record<IxNetwork, AppChainId>> = {
 const pct = (v: number | null | undefined) => (v == null ? 'unknown' : `${v.toFixed(1)}%`);
 
 /**
- * Strip non-printable + quote/bracket chars and truncate. Token names and wallet
- * labels are untrusted (DB / external) yet interpolated into the LLM prompt, so
- * this neutralizes prompt-injection attempts before they reach the model.
+ * Token names and wallet labels are untrusted (DB / external) yet interpolated
+ * into the LLM prompt — delegate to the shared prompt sanitizer so injection
+ * neutralization is identical across every pipeline.
  */
-function clean(s: string | null | undefined, max: number): string {
-  if (!s) return '';
-  return s
-    .replace(/[^\x20-\x7E]+/g, ' ')
-    .replace(/["'`{}<>]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max);
-}
+const clean = (s: string | null | undefined, max: number): string => sanitizeForPrompt(s, max);
 
 export interface BubbleRiskInput {
   mint: string;

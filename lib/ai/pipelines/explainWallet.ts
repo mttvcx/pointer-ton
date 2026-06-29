@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { runCascade, type CascadeMode } from '@/lib/ai/cascade';
+import { sanitizeForPrompt } from '@/lib/ai/promptSanitize';
 import { ExplainWalletOutputSchema, type ExplainWalletOutput } from '@/lib/ai/schemas';
 import { getDevWalletStats, getWalletStats } from '@/lib/db/wallets';
 import {
@@ -41,8 +42,10 @@ function buildPrompt(facts: {
   ].join(' ');
 
   const lines: string[] = [];
-  lines.push(`Wallet: ${facts.address}`);
-  if (facts.kolHandle) lines.push(`KOL handle: @${facts.kolHandle}`);
+  // address is base58; kolHandle comes from external label feeds (untrusted) and
+  // this analysis is cached by address and served to all users — sanitize it.
+  lines.push(`Wallet: ${sanitizeForPrompt(facts.address, 64)}`);
+  if (facts.kolHandle) lines.push(`KOL handle: @${sanitizeForPrompt(facts.kolHandle, 32)}`);
   if (facts.isKol === true) lines.push('Tagged: KOL');
   if (facts.pnl30d != null) lines.push(`30d PnL: ${formatCompactUsd(facts.pnl30d)}`);
   if (facts.pnl7d != null) lines.push(`7d PnL: ${formatCompactUsd(facts.pnl7d)}`);
