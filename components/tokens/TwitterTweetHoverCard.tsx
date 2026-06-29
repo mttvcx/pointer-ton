@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
   Bookmark,
+  Camera,
   Calendar,
   Eye,
   EyeOff,
@@ -113,6 +114,13 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
     }, 120);
   };
 
+  const openLens = () => {
+    window.open(
+      `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(absImageUrl(src))}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  };
 
   useEffect(() => {
     if (!hovered) return;
@@ -138,10 +146,27 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
             onMouseEnter={scheduleOpen}
             onMouseLeave={scheduleClose}
           >
-            <div className="relative block w-full overflow-hidden">
+            <button
+              type="button"
+              aria-label="Search this image on Google Lens"
+              data-row-click-skip="true"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openLens();
+              }}
+              className="group/preview relative block w-full overflow-hidden transition hover:brightness-105"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={src} alt="" className="block h-auto w-full object-cover" draggable={false} />
-            </div>
+              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/preview:bg-black/35">
+                <Camera
+                  className="h-6 w-6 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/preview:opacity-100"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+              </span>
+            </button>
           </div>,
           document.body,
         )

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 
 function absUrl(u: string): string {
@@ -21,6 +21,15 @@ export function TweetMediaImage({ src, alt = '' }: { src: string; alt?: string }
   const ref = useRef<HTMLButtonElement>(null);
   const [preview, setPreview] = useState<{ top: number; left: number } | null>(null);
 
+  function openLens(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(
+      `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(absUrl(src))}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  }
 
   function showPreview() {
     const el = ref.current;
@@ -39,6 +48,8 @@ export function TweetMediaImage({ src, alt = '' }: { src: string; alt?: string }
       <button
         ref={ref}
         type="button"
+        onClick={openLens}
+        aria-label="Search this image on Google Lens"
         onMouseEnter={showPreview}
         onMouseLeave={() => setPreview(null)}
         className="group/media mt-2 block w-full cursor-zoom-in overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.02]"
