@@ -21,16 +21,16 @@ export interface ThemeMeta {
 
 export const THEMES: readonly ThemeMeta[] = [
   {
-    id: 'pointer',
-    label: 'Pointer',
-    description: 'The default. Cool navy with cyan accents.',
-    swatches: ['#080D14', '#0077B6', '#00A3E0'],
-  },
-  {
     id: 'axiom',
     label: 'Axiom',
-    description: 'Neutral grey, muted, institutional.',
+    description: 'The default. Neutral grey, muted, institutional.',
     swatches: ['#0A0A0B', '#9CA3AF', '#3DDC97'],
+  },
+  {
+    id: 'pointer',
+    label: 'Pointer',
+    description: 'Cool navy with cyan accents.',
+    swatches: ['#080D14', '#0077B6', '#00A3E0'],
   },
   {
     id: 'terminal',
@@ -40,9 +40,21 @@ export const THEMES: readonly ThemeMeta[] = [
   },
 ] as const;
 
-export const DEFAULT_THEME: ThemeId = 'pointer';
+export const DEFAULT_THEME: ThemeId = 'axiom';
 
 export const THEME_STORAGE_KEY = 'pointer.theme';
+
+/**
+ * Routes where the theme is LOCKED to the default (axiom) regardless of the
+ * user's saved preference — the marketing/auth surface always shows the clean
+ * brand look. Theme switching only takes effect inside the app. Matched as
+ * exact `/` or prefix for the rest.
+ */
+export function isThemeLockedRoute(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  if (pathname === '/') return true;
+  return pathname.startsWith('/auth') || pathname.startsWith('/beta');
+}
 
 export function isValidTheme(value: string | null | undefined): value is ThemeId {
   return (
