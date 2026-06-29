@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { isUniqueViolation } from '@/lib/db/pgError';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 
 export type UserRow = Tables<'users'>;
@@ -48,18 +49,33 @@ export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserR
   // Only write email/username when provided — otherwise an email-less re-sync
   // (e.g. a TonConnect refresh) would NULL out a previously-stored email and
   // silently break email-based admin bootstrap. Email is normalized lowercase so
-  // ADMIN_BOOTSTRAP_EMAILS / subscription lookups match.
+  // ADMIN_BOOTSTRAP_EMAILS / subscription lookups match. NOTE: callers must pass
+  // a Privy-VERIFIED email here (see `fetchVerifiedPrivyEmail`), never a
+  // client-supplied one — `users.email` is a privilege-bearing field.
   const email = input.email?.trim().toLowerCase();
   if (email) insert.email = email;
   if (input.username != null) insert.username = input.username;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('users')
     .upsert(insert, { onConflict: 'privy_id' })
     .select('*')
     .single();
 
+  // `users.email` carries a UNIQUE index (defense-in-depth for admin bootstrap).
+  // In the rare case two Privy accounts surface the same verified email, keep
+  // login working: retry the upsert without touching the email rather than 500.
+  if (error && insert.email && isUniqueViolation(error)) {
+    delete insert.email;
+    ({ data, error } = await supabase
+      .from('users')
+      .upsert(insert, { onConflict: 'privy_id' })
+      .select('*')
+      .single());
+  }
+
   if (error) throw new Error(`upsertUserFromPrivy failed: ${error.message}`);
+  if (!data) throw new Error('upsertUserFromPrivy failed: no row returned');
 
   const [
     presetsResult,

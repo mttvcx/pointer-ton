@@ -5,6 +5,7 @@ import { verifyPointerAccessToken } from '@/lib/auth/pointerSession';
 import { assertNotRevoked } from '@/lib/auth/revocation';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { PRIVY_APP_ID } from '@/lib/privy/appId';
+import { pickVerifiedEmail } from '@/lib/privy/verifiedEmail';
 
 export { PRIVY_APP_ID } from '@/lib/privy/appId';
 
@@ -58,6 +59,24 @@ export async function verifyPrivyAccessToken(token: string): Promise<VerifiedPri
 
 export async function verifyPrivyJwksOnly(token: string): Promise<{ privyId: string }> {
   return verifyPrivyBearerToken(token);
+}
+
+/**
+ * The user's TRUSTED email, read server-side from Privy's verified linked
+ * accounts. This is the authoritative source for `users.email` (which drives
+ * admin bootstrap + subscription) — callers must NEVER trust a client-supplied
+ * email for that field. Returns null when Privy has no email on file or the
+ * lookup fails; a null result means "leave the stored email unchanged", never a
+ * grant. Called once per session from `/api/auth/sync` (not a hot path).
+ */
+export async function fetchVerifiedPrivyEmail(privyId: string): Promise<string | null> {
+  try {
+    const user = await getPrivyServerClient().users()._get(privyId);
+    return pickVerifiedEmail((user as { linked_accounts?: unknown } | null)?.linked_accounts);
+  } catch (err) {
+    console.warn('[privy] fetchVerifiedPrivyEmail failed:', err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 let _privy: PrivyClient | null = null;

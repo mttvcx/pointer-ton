@@ -6,7 +6,7 @@ import { verifyTonConnectProof } from '@/lib/ton/tonProofService';
 import { fetchWalletPublicKey, type TonConnectNetwork } from '@/lib/ton/tonLiteClient';
 import { assertTonAddress, tonAuthSubject } from '@/lib/utils/tonAddress';
 import { isValidPublicKey } from '@/lib/utils/addresses';
-import { verifyPrivyJwksOnly } from '@/lib/privy/config';
+import { verifyPrivyJwksOnly, fetchVerifiedPrivyEmail } from '@/lib/privy/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,10 @@ const PrivySyncBodySchema = z
       .optional()
       .nullable()
       .transform((v) => (v && isValidPublicKey(v) ? v : null)),
+    // SECURITY: accepted for backward-compat but IGNORED. The stored email is
+    // read server-side from Privy's verified identity (see below) — trusting the
+    // client email here let any user self-escalate to superadmin via
+    // ADMIN_BOOTSTRAP_EMAILS.
     email: z.string().trim().email().optional().nullable(),
     username: z.string().trim().min(1).max(64).optional().nullable(),
   })
@@ -79,10 +83,15 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // The email is read from Privy's verified identity, NOT `body.email`.
+      // (BLOCKER-1 fix: a client-supplied email matching ADMIN_BOOTSTRAP_EMAILS
+      // would otherwise bootstrap the caller as superadmin.) null → leave the
+      // stored email unchanged.
+      const verifiedEmail = await fetchVerifiedPrivyEmail(verified.privyId);
       const user = await upsertUserFromPrivy({
         privyId: verified.privyId,
         walletAddress: body.walletAddress,
-        email: body.email,
+        email: verifiedEmail,
         username: body.username,
       });
 

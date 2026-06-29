@@ -9,6 +9,17 @@
 > *safety/security* claims are OVERSTATED or FALSE. One is a critical, live,
 > fully-exploitable privilege escalation. **Details below — read BLOCKER-1 first.**
 
+> **REMEDIATION UPDATE (2026-06-29, post-audit):** **BLOCKER-1 is FIXED and
+> verified.** `/api/auth/sync` now writes a Privy-**verified** email (read
+> server-side via `fetchVerifiedPrivyEmail` → `users()._get` → tested pure
+> `pickVerifiedEmail`), never the request body; a UNIQUE index on
+> `users.email` (`users_email_lower_uniq`, applied to prod) is the second layer;
+> the upsert retries without email on conflict so login can't break. Verified
+> end-to-end against the live Privy API (founder `privy_id` → `moustimail@gmail.com`)
+> and confirmed no prior exploitation (only the founder holds an admin row). Gates
+> green: tsc 0 · 428/428 tests (+9 new) · build 0. The original findings below are
+> preserved as the point-in-time snapshot. **BLOCKERs 2–5 remain open.**
+
 ---
 
 ## VERDICT
