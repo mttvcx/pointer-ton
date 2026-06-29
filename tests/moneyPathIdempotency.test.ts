@@ -6,6 +6,8 @@ import { __resetAdminSupabaseForTest, __setAdminSupabaseForTest } from '@/lib/su
 import { recordTradeCashbackAccrual } from '@/lib/cashback/accrual';
 import { recordReferralEarningFromTrade } from '@/lib/referrals/earnings';
 import { awardPoints } from '@/lib/points/award';
+import { insertTrade } from '@/lib/db/trades';
+import type { TablesInsert } from '@/lib/supabase/types';
 
 const tradeId = (r: Row) => {
   if (r.kind !== 'accrual') return null;
@@ -82,6 +84,48 @@ describe('money idempotency — points awards', () => {
     assert.equal(b.skipped, true);
     assert.equal(b.reason, 'duplicate');
     assert.equal(db.rowCount('points_events'), 1);
+  });
+});
+
+const tradeSig = (r: Row) => (r.tx_signature != null ? String(r.tx_signature) : null);
+const tradeRow = (id: string, sig: string): TablesInsert<'trades'> =>
+  ({
+    id,
+    user_id: 'u',
+    mint: 'MintAddr1111111111111111111111111111111111',
+    side: 'buy',
+    amount_in_raw: '1000',
+    amount_out_raw: '1000',
+    amount_sol: 1,
+    tx_signature: sig,
+    status: 'confirmed',
+    submitted_at: '2026-01-01T00:00:00Z',
+    confirmed_at: '2026-01-01T00:00:00Z',
+  }) as TablesInsert<'trades'>;
+
+describe('money idempotency — trade insert (BLOCKER-2)', () => {
+  afterEach(() => __resetAdminSupabaseForTest());
+
+  it('a concurrent/retried same-signature insert converges on ONE trade row', async () => {
+    // This is the boundary the prior suite never crossed: cashback/referral dedupe
+    // on trade.id, so the real exposure is two trade rows sharing a signature. With
+    // a UNIQUE index on tx_signature, the second insert loses with 23505 and
+    // insertTrade must return the winner's row (same id) — not create a second.
+    const db = new FakeSupabase().addUnique('trades', tradeSig);
+    __setAdminSupabaseForTest(db);
+    const first = await insertTrade(tradeRow('id-winner', 'SIG-XYZ'));
+    const second = await insertTrade(tradeRow('id-loser', 'SIG-XYZ'));
+    assert.equal(first.id, 'id-winner');
+    assert.equal(second.id, 'id-winner'); // converged, not a 2nd row
+    assert.equal(db.rowCount('trades'), 1);
+  });
+
+  it('distinct signatures each insert their own row', async () => {
+    const db = new FakeSupabase().addUnique('trades', tradeSig);
+    __setAdminSupabaseForTest(db);
+    await insertTrade(tradeRow('id-a', 'SIG-A'));
+    await insertTrade(tradeRow('id-b', 'SIG-B'));
+    assert.equal(db.rowCount('trades'), 2);
   });
 });
 
