@@ -44,9 +44,14 @@ export async function upsertUserFromPrivy(input: UserUpsertInput): Promise<UserR
   const insert: TablesInsert<'users'> = {
     privy_id: input.privyId,
     wallet_address: walletAddress ?? `privy:${input.privyId}`,
-    email: input.email ?? null,
-    username: input.username ?? null,
   };
+  // Only write email/username when provided — otherwise an email-less re-sync
+  // (e.g. a TonConnect refresh) would NULL out a previously-stored email and
+  // silently break email-based admin bootstrap. Email is normalized lowercase so
+  // ADMIN_BOOTSTRAP_EMAILS / subscription lookups match.
+  const email = input.email?.trim().toLowerCase();
+  if (email) insert.email = email;
+  if (input.username != null) insert.username = input.username;
 
   const { data, error } = await supabase
     .from('users')
