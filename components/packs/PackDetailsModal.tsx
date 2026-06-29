@@ -3,7 +3,7 @@
 import { X } from 'lucide-react';
 import type { PackPublicConfig } from '@/types/pack';
 import { listPackShowcaseItems } from '@/lib/packs/packShowcase';
-import { formatApproxUsd, formatPackMc, formatPackVal } from '@/lib/packs/formatDisplay';
+import { formatPackMc } from '@/lib/packs/formatDisplay';
 import { PACK_VISUAL, RARITY_THEME } from '@/lib/packs/rarityTheme';
 import { PackSolAmount } from '@/components/packs/PackSolAmount';
 import { cn } from '@/lib/utils/cn';
@@ -115,15 +115,11 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
                     </p>
                     <p className="text-[12px] text-fg-muted">{hit.subtitle}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-                      {isToken ? (
-                        hit.valueUsd != null ? (
-                          <span className="font-mono tabular-nums text-accent-glow">
-                            Up to ~{formatPackVal(hit.valueUsd, null)}
-                          </span>
-                        ) : null
-                      ) : (
+                      {/* Token hits intentionally show NO best-case $ value — only the
+                          boost/pass display value renders. (`valueUsd` stays in the data.) */}
+                      {!isToken ? (
                         <span className="font-mono tabular-nums text-accent-glow">{hit.displayValue}</span>
-                      )}
+                      ) : null}
                       {hit.marketCapUsd != null ? (
                         <span className="text-fg-muted">MC {formatPackMc(hit.marketCapUsd)}</span>
                       ) : null}
@@ -134,8 +130,7 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
             })}
           </div>
           <p className="mt-4 text-[11px] leading-relaxed text-fg-muted">
-            &ldquo;Up to&rdquo; is the best-case pull for that slot — the bigger the hit, the rarer
-            it is. Cashback &amp; points boosts apply to your trading fees, not as cash.
+            Cashback &amp; points boosts apply to your trading fees, not as cash.
           </p>
         </div>
       </div>
