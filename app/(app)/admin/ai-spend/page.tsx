@@ -12,10 +12,26 @@ type Summary = {
   topUsers: Row[];
   topEndpoints: Row[];
   providers: Row[];
+  cacheHits: number;
+  cacheMisses: number;
+  cacheHitRate: number;
+  estMonthly: number;
+  distinctUsersToday: number;
+  costPerUserToday: number;
   error?: boolean;
 };
 
 const usd = (n: number) => `$${(n || 0).toFixed(2)}`;
+
+function CostStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-md border border-border-subtle bg-bg-raised p-3">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">{label}</span>
+      <p className="mt-1 text-[18px] font-semibold tabular-nums text-fg-primary">{value}</p>
+      {sub ? <p className="text-[10px] text-fg-muted">{sub}</p> : null}
+    </div>
+  );
+}
 
 function Meter({ label, spent, cap }: { label: string; spent: number; cap: number }) {
   const pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
@@ -91,10 +107,20 @@ export default function AdminAiSpendPage() {
             <Meter label="Today" spent={s.daily} cap={s.caps.daily} />
             <Meter label="This month" spent={s.monthly} cap={s.caps.monthly} />
           </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <CostStat label="Est. monthly" value={usd(s.estMonthly)} sub="projected from month-to-date" />
+            <CostStat
+              label="Cache hit rate"
+              value={`${s.cacheHitRate.toFixed(1)}%`}
+              sub={`${s.cacheHits.toLocaleString()} hit · ${s.cacheMisses.toLocaleString()} miss`}
+            />
+            <CostStat label="Cost / user" value={usd(s.costPerUserToday)} sub="today" />
+            <CostStat label="Active users" value={s.distinctUsersToday.toLocaleString()} sub="today" />
+          </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Leaderboard title="Top users (today)" rows={s.topUsers} mono />
             <Leaderboard title="Top endpoints (today)" rows={s.topEndpoints} />
-            <Leaderboard title="Providers (today)" rows={s.providers} mono />
+            <Leaderboard title="Per model (today)" rows={s.providers} mono />
           </div>
         </>
       ) : (

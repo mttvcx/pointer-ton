@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { headers } from 'next/headers';
 import { getAIQuotaForUser } from '@/lib/db/tiers';
 import { getRedis } from '@/lib/redis/client';
+import { cacheHitRate, costPerUser, daysInMonth, projectMonthlySpend } from '@/lib/ai/costCenter';
 import {
   fixedWindowBucket,
   isOverFixedWindow,
@@ -202,6 +203,22 @@ export async function releaseAiSpend(res: SpendReservation): Promise<void> {
   await adjustSpend(res.userId, -res.estimate).catch(() => {});
 }
 
+const cacheHitKey = (day: string) => `ai:cache:hit:${day}`;
+const cacheMissKey = (day: string) => `ai:cache:miss:${day}`;
+
+/** Record a cache hit/miss for the cost-center cache-efficiency stat. Best-effort. */
+export async function recordCacheOutcome(hit: boolean): Promise<void> {
+  try {
+    const redis = getRedis();
+    const day = dayKey();
+    const key = hit ? cacheHitKey(day) : cacheMissKey(day);
+    const n = await redis.incr(key);
+    if (n === 1) await redis.expire(key, 60 * 60 * 36);
+  } catch {
+    /* best effort */
+  }
+}
+
 /* ------------------------------- read helpers ----------------------------- */
 
 export async function getCapForUser(userId: string): Promise<number> {
@@ -255,7 +272,15 @@ export type AiSpendSummary = {
   caps: { hourly: number; daily: number; monthly: number };
   topUsers: { member: string; usd: number }[];
   topEndpoints: { member: string; usd: number }[];
+  /** Per-model spend today (the settle key is the model). */
   providers: { member: string; usd: number }[];
+  /** Cost-center extras. */
+  cacheHits: number;
+  cacheMisses: number;
+  cacheHitRate: number;
+  estMonthly: number;
+  distinctUsersToday: number;
+  costPerUserToday: number;
   error?: boolean;
 };
 
@@ -265,24 +290,58 @@ export async function getSpendSummary(): Promise<AiSpendSummary> {
   try {
     const redis = getRedis();
     const day = dayKey();
-    const [hourly, daily, monthly, topUsers, topEndpoints, providers] = await Promise.all([
-      redis.get(globalHourlyKey()),
-      redis.get(globalDailyKey()),
-      redis.get(globalMonthlyKey()),
-      redis.zrange(`ai:spend:users:${day}`, 0, 9, { rev: true, withScores: true }),
-      redis.zrange(`ai:spend:endpoints:${day}`, 0, 9, { rev: true, withScores: true }),
-      redis.zrange(`ai:spend:providers:${day}`, 0, 19, { rev: true, withScores: true }),
-    ]);
+    const [hourly, daily, monthly, topUsers, topEndpoints, providers, hits, misses, distinctUsers] =
+      await Promise.all([
+        redis.get(globalHourlyKey()),
+        redis.get(globalDailyKey()),
+        redis.get(globalMonthlyKey()),
+        redis.zrange(`ai:spend:users:${day}`, 0, 9, { rev: true, withScores: true }),
+        redis.zrange(`ai:spend:endpoints:${day}`, 0, 9, { rev: true, withScores: true }),
+        redis.zrange(`ai:spend:providers:${day}`, 0, 19, { rev: true, withScores: true }),
+        redis.get(cacheHitKey(day)),
+        redis.get(cacheMissKey(day)),
+        redis.zcard(`ai:spend:users:${day}`),
+      ]);
+    const now = new Date();
+    const cacheHits = num(hits);
+    const cacheMisses = num(misses);
+    const dailyUsd = num(daily);
+    const users = num(distinctUsers);
     return {
       hourly: num(hourly),
-      daily: num(daily),
+      daily: dailyUsd,
       monthly: num(monthly),
       caps,
       topUsers: parseLeaderboard(topUsers),
       topEndpoints: parseLeaderboard(topEndpoints),
       providers: parseLeaderboard(providers),
+      cacheHits,
+      cacheMisses,
+      cacheHitRate: cacheHitRate(cacheHits, cacheMisses),
+      estMonthly: projectMonthlySpend(
+        num(monthly),
+        now.getUTCDate(),
+        daysInMonth(now.getUTCFullYear(), now.getUTCMonth() + 1),
+      ),
+      distinctUsersToday: users,
+      costPerUserToday: costPerUser(dailyUsd, users),
     };
   } catch {
-    return { hourly: 0, daily: 0, monthly: 0, caps, topUsers: [], topEndpoints: [], providers: [], error: true };
+    return {
+      hourly: 0,
+      daily: 0,
+      monthly: 0,
+      caps,
+      topUsers: [],
+      topEndpoints: [],
+      providers: [],
+      cacheHits: 0,
+      cacheMisses: 0,
+      cacheHitRate: 0,
+      estMonthly: 0,
+      distinctUsersToday: 0,
+      costPerUserToday: 0,
+      error: true,
+    };
   }
 }

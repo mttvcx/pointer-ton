@@ -26,6 +26,7 @@ import {
 } from '@/lib/ai/schemas';
 import {
   enforceRateLimit,
+  recordCacheOutcome,
   reserveAiSpend,
   settleAiSpend,
   releaseAiSpend,
@@ -137,6 +138,7 @@ export async function runCascade<P extends PipelineId>(
     | CacheEnvelope<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>
     | null;
   if (cached) {
+    void recordCacheOutcome(true);
     return {
       pipeline: input.pipeline,
       data: cached.response,
@@ -172,6 +174,9 @@ export async function runCascade<P extends PipelineId>(
     // Winner slow or failed — fall through and run (rare; still capped by the
     // per-user daily cost ceiling below).
   }
+
+  // A real miss — we're about to run the model.
+  void recordCacheOutcome(false);
 
   // 2. Reserve spend atomically across per-user + org hourly/daily/monthly
   //    ceilings BEFORE we burn provider budget. Fails closed; settled to the
