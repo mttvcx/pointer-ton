@@ -5,6 +5,7 @@ import { FakeSupabase, type Row } from '@/lib/testing/fakeSupabase';
 import { __resetAdminSupabaseForTest, __setAdminSupabaseForTest } from '@/lib/supabase/server';
 import { recordTradeCashbackAccrual } from '@/lib/cashback/accrual';
 import { recordReferralEarningFromTrade } from '@/lib/referrals/earnings';
+import { awardPoints } from '@/lib/points/award';
 
 const tradeId = (r: Row) => {
   if (r.kind !== 'accrual') return null;
@@ -61,5 +62,49 @@ describe('money idempotency — referral earnings', () => {
     __setAdminSupabaseForTest(db);
     await recordReferralEarningFromTrade({ referredUserId: 'u', tradeId: 't1', platformFeeLamports: 1_000_000 });
     assert.equal(db.rowCount('referral_earnings'), 0);
+  });
+});
+
+const dedupeKey = (r: Row) => {
+  const dk = (r.metadata as Record<string, unknown> | undefined)?.dedupe_key;
+  return dk != null ? `${r.user_id}|${r.event_type}|${dk}` : null;
+};
+
+describe('money idempotency — points awards', () => {
+  afterEach(() => __resetAdminSupabaseForTest());
+
+  it('the same daily-login dedupe key awards EXACTLY ONCE', async () => {
+    const db = new FakeSupabase().addUnique('points_events', dedupeKey);
+    __setAdminSupabaseForTest(db);
+    const a = await awardPoints('u', 'daily_login', { dedupeKey: 'login:2026-01-01' });
+    const b = await awardPoints('u', 'daily_login', { dedupeKey: 'login:2026-01-01' });
+    assert.equal(a.skipped, false);
+    assert.equal(b.skipped, true);
+    assert.equal(b.reason, 'duplicate');
+    assert.equal(db.rowCount('points_events'), 1);
+  });
+});
+
+describe('money paths — failure injection', () => {
+  afterEach(() => __resetAdminSupabaseForTest());
+
+  it('a unique-violation when the pre-check MISSED is treated as idempotent (no throw, no dup)', async () => {
+    // Simulate the race: pre-check finds nothing, but the insert loses to a
+    // concurrent writer → 23505. The module must no-op, not throw or double-credit.
+    const db = new FakeSupabase().addUnique('cashback_ledger', tradeId);
+    db.failNextInsert('cashback_ledger', { code: '23505', message: 'duplicate key value violates unique constraint' });
+    __setAdminSupabaseForTest(db);
+    await recordTradeCashbackAccrual({ userId: 'u', tradeId: 't1', platformFeeLamports: 1_000_000 });
+    assert.equal(db.rowCount('cashback_ledger'), 0); // the injected dup blocked the write, no throw
+  });
+
+  it('a NON-unique DB error is NOT swallowed (surfaces, never silently lost)', async () => {
+    const db = new FakeSupabase().addUnique('cashback_ledger', tradeId);
+    db.failNextInsert('cashback_ledger', { code: '08006', message: 'connection failure' });
+    __setAdminSupabaseForTest(db);
+    await assert.rejects(
+      () => recordTradeCashbackAccrual({ userId: 'u', tradeId: 't1', platformFeeLamports: 1_000_000 }),
+      /recordTradeCashbackAccrual/,
+    );
   });
 });

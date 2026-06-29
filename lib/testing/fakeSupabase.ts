@@ -33,6 +33,8 @@ class FakeTable {
   rows: Row[] = [];
   uniques: UniqueKeyFn[] = [];
   seq = 1;
+  /** One-shot injected error for the next insert/upsert (failure-injection tests). */
+  nextWriteError: { code: string; message: string } | null = null;
   violates(row: Row): boolean {
     for (const u of this.uniques) {
       const sig = u(row);
@@ -102,6 +104,11 @@ class FakeQuery implements PromiseLike<PgResult<unknown>> {
 
   private run(): PgResult<unknown> {
     if (this.op === 'insert' || this.op === 'upsert') {
+      if (this.table.nextWriteError) {
+        const err = this.table.nextWriteError;
+        this.table.nextWriteError = null;
+        return { data: null, error: err };
+      }
       const inserted: Row[] = [];
       for (const r of this.payload) {
         const row = { id: r.id ?? `row_${this.table.seq++}`, created_at: r.created_at ?? new Date(0).toISOString(), ...r };
@@ -153,6 +160,11 @@ export class FakeSupabase {
   /** Seed rows directly (bypasses constraint checks). */
   seed(table: string, rows: Row[]): this {
     this.tbl(table).rows.push(...rows);
+    return this;
+  }
+  /** Make the NEXT insert/upsert on `table` fail (e.g. a transient DB error). */
+  failNextInsert(table: string, error: { code: string; message: string }): this {
+    this.tbl(table).nextWriteError = error;
     return this;
   }
   rowCount(table: string): number {
