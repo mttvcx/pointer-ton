@@ -39,6 +39,7 @@ export const ENV_GROUPS: EnvGroup[] = [
   { id: 'sentry', anyOf: ['NEXT_PUBLIC_SENTRY_DSN'], tier: 'recommended', note: 'Error reporting' },
   { id: 'kalshi', anyOf: ['KALSHI_API_KEY_ID'], tier: 'recommended', note: 'Predictions markets' },
   { id: 'insightx', anyOf: ['INSIGHTX_API_KEY'], tier: 'recommended', note: 'Bubble maps / risk' },
+  { id: 'ops_alerting', anyOf: ['OPS_DISCORD_WEBHOOK_URL', 'OPS_SLACK_WEBHOOK_URL'], tier: 'recommended', note: 'Ops incident alerting (Discord/Slack) — paged on error/critical' },
 ];
 
 export type EnvValidation = {

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { dispatchOpsAlert } from '@/lib/ops/alerts';
 import type { Json } from '@/lib/supabase/types';
 
 /**
@@ -74,6 +75,15 @@ export async function recordOpsEvent(input: OpsEventInput): Promise<void> {
         p_severity: severity,
         p_message: message,
         p_detail: (input.detail ?? {}) as Json,
+      });
+      // Page a human (Discord/Slack) — deduped + cooldowned, fire-and-forget.
+      void dispatchOpsAlert({
+        category: input.category,
+        name: input.name,
+        status: input.status,
+        severity,
+        message,
+        detail: input.detail,
       });
     }
   } catch {
