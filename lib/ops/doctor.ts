@@ -4,6 +4,7 @@ import type {
   DoctorSeverity,
   OpsHealthSnapshot,
 } from '@/lib/admin/opsTypes';
+import { inferDomain, scoreFinding } from '@/lib/ops/doctorScoring';
 
 /**
  * Pointer Doctor — a READ-ONLY, deterministic investigator. It correlates the
@@ -162,5 +163,11 @@ export function diagnose(snap: Omit<OpsHealthSnapshot, 'doctor'>): DoctorReport 
         ? `${criticals} critical${warns ? ` + ${warns} warning${warns > 1 ? 's' : ''}` : ''} to look at.`
         : `${warns} warning${warns > 1 ? 's' : ''} — nothing critical.`;
 
-  return { status, summary, findings: f, checkedAt: snap.generatedAt };
+  // V2: score every finding (confidence / user + revenue impact / urgency) and
+  // rank by priority so the costliest, most-certain problems surface first.
+  const findings: DoctorFinding[] = f
+    .map((x) => ({ ...x, score: scoreFinding({ severity: x.severity, domain: inferDomain(x.id) }) }))
+    .sort((a, b) => (b.score?.priority ?? 0) - (a.score?.priority ?? 0));
+
+  return { status, summary, findings, checkedAt: snap.generatedAt };
 }

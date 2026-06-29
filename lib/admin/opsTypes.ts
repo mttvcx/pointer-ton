@@ -97,6 +97,8 @@ export type DoctorFinding = {
   title: string;
   detail: string;
   action: string;
+  /** Doctor V2 scoring (confidence / user+revenue impact / urgency / priority). */
+  score?: import('@/lib/ops/doctorScoring').FindingScore;
 };
 /** Read-only diagnosis from Pointer Doctor (rule-based; no LLM, no actions). */
 export type DoctorReport = {

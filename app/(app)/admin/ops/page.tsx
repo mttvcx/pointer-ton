@@ -93,6 +93,30 @@ function DoctorPanel({ report }: { report: DoctorReport }) {
                 <StatusDot tone={find.severity === 'critical' ? 'bad' : 'warn'} />
                 <span className="text-[12.5px] font-semibold text-fg-primary">{find.title}</span>
               </div>
+              {find.score ? (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9.5px] font-semibold uppercase tracking-wide">
+                  <span
+                    className={`rounded border px-1 py-px ${
+                      find.score.urgency === 'critical'
+                        ? 'border-signal-bear/40 text-signal-bear'
+                        : find.score.urgency === 'high'
+                          ? 'border-orange-500/40 text-orange-400'
+                          : find.score.urgency === 'medium'
+                            ? 'border-yellow-500/40 text-yellow-400'
+                            : 'border-border-subtle text-fg-muted'
+                    }`}
+                  >
+                    {find.score.urgency}
+                  </span>
+                  {find.score.revenueImpact !== 'none' ? (
+                    <span className="rounded border border-border-subtle px-1 py-px text-fg-muted">rev {find.score.revenueImpact}</span>
+                  ) : null}
+                  {find.score.userImpact !== 'none' ? (
+                    <span className="rounded border border-border-subtle px-1 py-px text-fg-muted">user {find.score.userImpact}</span>
+                  ) : null}
+                  <span className="text-fg-muted">{Math.round(find.score.confidence * 100)}% conf</span>
+                </div>
+              ) : null}
               <p className="mt-1 text-[12px] text-fg-muted">{find.detail}</p>
               <p className="mt-1 text-[11.5px] text-accent-primary">&rarr; {find.action}</p>
             </li>
