@@ -33,6 +33,7 @@ import {
 } from '@/lib/ai/quota';
 import { awardPoints } from '@/lib/db/points';
 import { assertAiAllowed } from '@/lib/emergency/controls';
+import { assertAiAccess } from '@/lib/access/aiAccess';
 import { MODELS, POINTS_SOURCES } from '@/lib/utils/constants';
 
 /**
@@ -94,6 +95,10 @@ export async function runCascade<P extends PipelineId>(
   if (!input.userId) {
     throw new QuotaError('unauthenticated', 'AI cascade requires authenticated user');
   }
+  // AI access policy — ≥5 SOL across linked wallets OR an active subscription.
+  // No-op unless AI_ACCESS_ENFORCED=1 (so the gate ships before the beta flip).
+  // Fails OPEN on RPC uncertainty within a grace window (never wrongly revoke).
+  await assertAiAccess(input.userId);
   // Atomic per-user + per-IP rate limit BEFORE the cache lookup, so a cache-hit
   // flood (enumeration / abuse) is throttled too. Fails closed.
   await enforceRateLimit(input.userId);
