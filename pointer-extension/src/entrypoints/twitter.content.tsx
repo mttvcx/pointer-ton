@@ -45,42 +45,65 @@ export default defineContentScript({
     }
 
     async function openToken(target: HoverTarget) {
-      showCard(target.anchor, <CardShell>Loading {target.entity.value.slice(0, 6)}…</CardShell>);
+      showCard(target.anchor, <LoadingCard />);
       const res = await pointer.token(target.entity.value);
       if (res.ok) {
         showCard(target.anchor, <TokenCard data={res.data as TokenIntel} />);
-      } else if (res.error === 'not_connected') {
-        showCard(
-          target.anchor,
-          <CardShell>
-            <button onClick={() => void pointer.connect()} style={connectBtn}>
-              Connect Pointer
-            </button>
-          </CardShell>,
-        );
+      } else if (needsConnect(res.error)) {
+        // No scoped token yet, or the service worker was waking — either way the
+        // user just needs to connect. Show a clean prompt, never a dead end.
+        showCard(target.anchor, <ConnectCard />);
       } else {
-        showCard(target.anchor, <CardShell>Unavailable</CardShell>);
+        showCard(target.anchor, <ConnectCard note="Couldn't load — retry, or open the popup." />);
       }
     }
   },
 });
 
-const connectBtn: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 0',
-  borderRadius: 8,
-  border: 'none',
-  cursor: 'pointer',
-  fontWeight: 700,
-  fontSize: 12,
-  color: 'var(--bg-base)',
-  background: 'var(--accent-glow)',
-};
+/** Treat "no token" and transient SW-wake/messaging failures as "please connect". */
+function needsConnect(error?: string): boolean {
+  if (!error) return true;
+  return /not_connected|connect|receiving end|extension_unavailable|message channel/i.test(error);
+}
 
 function CardShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="pt-card" style={{ padding: 14, fontSize: 12.5, color: 'var(--fg-secondary)' }}>
+    <div className="pt-card" style={{ padding: 14, fontSize: 12.5 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+        <div style={brandDot}>P</div>
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--fg-primary)' }}>Pointer</span>
+      </div>
       {children}
     </div>
   );
 }
+
+function LoadingCard() {
+  return (
+    <CardShell>
+      <div style={{ color: 'var(--fg-muted)' }}>Loading intelligence…</div>
+    </CardShell>
+  );
+}
+
+function ConnectCard({ note }: { note?: string }) {
+  return (
+    <CardShell>
+      <p style={{ color: 'var(--fg-muted)', margin: '0 0 10px' }}>
+        {note ?? 'Connect Pointer to see token intelligence as you browse.'}
+      </p>
+      <button onClick={() => void pointer.connect()} style={connectBtn}>
+        Connect Pointer
+      </button>
+    </CardShell>
+  );
+}
+
+const brandDot: React.CSSProperties = {
+  width: 18, height: 18, borderRadius: 5, background: 'var(--fg-primary)',
+  display: 'grid', placeItems: 'center', color: 'var(--bg-base)', fontWeight: 800, fontSize: 11,
+};
+const connectBtn: React.CSSProperties = {
+  width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+  fontWeight: 700, fontSize: 12, color: 'var(--bg-base)', background: 'var(--accent-glow)',
+};

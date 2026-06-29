@@ -75,7 +75,11 @@ export default defineBackground(() => {
   }
 
   chrome.runtime.onMessage.addListener((req: PointerRequest, _sender, sendResponse) => {
-    brokered(req).then(sendResponse);
+    // ALWAYS respond — a rejected broker promise must not hang the message channel
+    // (that surfaces to the content script as a dead "Unavailable" card).
+    brokered(req)
+      .then(sendResponse)
+      .catch((e) => sendResponse({ ok: false, error: e instanceof Error ? e.message : 'failed' }));
     return true; // async response
   });
 
