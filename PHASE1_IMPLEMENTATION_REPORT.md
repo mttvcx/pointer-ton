@@ -17,7 +17,7 @@ Every milestone is its own commit; typecheck + tests stay green at each.
 | 1 | Realtime ingestion | ✅ done | ⏳ architecture doc + targeted hardening |
 | 2 | Webhook system | ✅ done | ✅ **shipped** (`af4516f`) |
 | 3 | Money-path testing | ✅ done | ⏳ next |
-| 4 | CI/CD | ✅ done | ✅ **shipped** (`bb6baa7`) |
+| 4 | CI/CD | ✅ done | ✅ **shipped** (`99bdec5`) |
 | 5 | Incident management | ✅ done | ⏳ planned (rich substrate exists) |
 | 6 | Provably-fair packs | ✅ done | ⏳ planned (commit-reveal) |
 
@@ -138,7 +138,7 @@ decisioning, so the guarantees are unit-testable.
 
 ---
 
-## Mission 4 — CI/CD ✅ SHIPPED (`bb6baa7`)
+## Mission 4 — CI/CD ✅ SHIPPED (`99bdec5`)
 
 ### Audit
 
@@ -243,4 +243,4 @@ opens stay valid; new opens are verifiable). Full design doc on delivery.
 - `1a35955` — secure predictions/orders (auth + freeze + rate limit).
 - `af4516f` — Mission 2: webhook async queue / retry / DLQ / durable idempotency.
 - `f871c5d` — Phase 1 implementation report (this doc).
-- `bb6baa7` — Mission 4: CI/CD gates, env validation, post-deploy health probe.
+- `99bdec5` — Mission 4: CI/CD gates, env validation, post-deploy health probe.
