@@ -6,6 +6,7 @@ import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
+import { assertWriteAllowed, emergencyBlockedResponse, EmergencyBlockedError } from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,15 @@ export async function POST(req: Request) {
   // fund-out transfer to sign. Moving money is exactly what a freeze stops.
   const frozen = await accountFreezeGateOrNull(userId, 'trading');
   if (frozen) return frozen;
+
+  // Global emergency kill switch (BLOCKER-3): maintenance / read-only must also
+  // stop withdrawals, not just per-user freeze.
+  try {
+    await assertWriteAllowed();
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
 
   let json: unknown;
   try {

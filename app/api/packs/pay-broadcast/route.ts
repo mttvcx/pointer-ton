@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
+import { assertPacksAllowed, emergencyBlockedResponse, EmergencyBlockedError } from '@/lib/emergency/controls';
 import {
   getConnection,
   getPublicSolanaConnection,
@@ -48,6 +49,15 @@ export async function POST(req: NextRequest) {
   // step too, so a freeze applied between pay and broadcast still stops the send.
   const frozen = await accountFreezeGateOrNull(userId, 'trading');
   if (frozen) return frozen;
+
+  // Global emergency kill switch (BLOCKER-3): this is where pack money actually
+  // leaves — honor the packs switch + maintenance/read-only here too.
+  try {
+    await assertPacksAllowed();
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
 
   let body: z.infer<typeof BodySchema>;
   try {

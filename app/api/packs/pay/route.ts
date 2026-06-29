@@ -11,6 +11,7 @@ import { getUserByPrivyId, type UserRow } from '@/lib/db/users';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
 import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import { liveCommerceActive } from '@/lib/packs/commerce';
+import { assertPacksAllowed, emergencyBlockedResponse, EmergencyBlockedError } from '@/lib/emergency/controls';
 import { getPacksTreasuryPubkey } from '@/lib/packs/treasury';
 import { resolvePackConfigAtMarket } from '@/lib/packs/packConfig';
 import { getConnection } from '@/lib/solana/connection';
@@ -58,6 +59,15 @@ export async function POST(req: NextRequest) {
   // Per-user account freeze (fail-closed) — paying for a pack moves funds.
   const frozen = await accountFreezeGateOrNull(user.id, 'trading');
   if (frozen) return frozen;
+
+  // Global emergency kill switch (BLOCKER-3): pack purchase moves money, so it
+  // must honor the packs switch + maintenance/read-only.
+  try {
+    await assertPacksAllowed();
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
 
   let body: z.infer<typeof BodySchema>;
   try {

@@ -5,6 +5,7 @@ import { getUserByPrivyId } from '@/lib/db/users';
 import { broadcastSignedTransaction } from '@/lib/solana/broadcast';
 import { getConnection } from '@/lib/solana/connection';
 import { enforceTradeRateLimit } from '@/lib/rate-limit/userAction';
+import { assertWriteAllowed, emergencyBlockedResponse, EmergencyBlockedError } from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,16 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
   }
+  // Emergency kill switch (BLOCKER-3): the embedded-wallet money actually LEAVES
+  // through this relay, so maintenance / read-only must stop it — not just the
+  // trade-execute route. assertWriteAllowed = blocked under maintenance/read-only.
+  try {
+    await assertWriteAllowed();
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
+
   // Generous per-user cap on the relay/money path (fail-open; env-tunable).
   const rl = await enforceTradeRateLimit(userId);
   if (rl) return rl;
