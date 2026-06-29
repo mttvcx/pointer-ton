@@ -8,6 +8,7 @@ import {
   listTrackerRulesForWallet,
 } from '@/lib/db/trackerRules';
 import { getTrackedWalletById } from '@/lib/db/wallets';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import { TrackerRuleConditionSchema } from '@/lib/trackers/ruleCondition';
 import type { Json } from '@/lib/supabase/types';
 
@@ -57,6 +58,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireSyncedUser(req);
   if (!auth.ok) return auth.response;
+
+  // Per-user account freeze (automation kind, fail-closed) — a frozen account
+  // cannot add a new automation rule to a tracker.
+  const frozen = await accountFreezeGateOrNull(auth.user.id, 'automation');
+  if (frozen) return frozen;
 
   let body: z.infer<typeof PostBody>;
   try {

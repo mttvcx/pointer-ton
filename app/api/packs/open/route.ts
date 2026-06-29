@@ -28,6 +28,7 @@ import { verifyPackPayment } from '@/lib/packs/verifyPackPayment';
 import { resumePackFulfillment } from '@/lib/packs/resumeFulfillment';
 import { solToLamports } from '@/lib/utils/formatters';
 import { assertPacksAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import type { Json } from '@/lib/supabase/types';
 import type { PackType } from '@/types/pack';
 
@@ -88,6 +89,13 @@ export async function POST(req: NextRequest) {
     } catch {
       /* allow anonymous demo opens */
     }
+  }
+
+  // Per-user account freeze (fail-closed). Only applies to a known user — an
+  // anonymous demo open has no account to freeze and never charges.
+  if (userId) {
+    const frozen = await accountFreezeGateOrNull(userId, 'trading');
+    if (frozen) return frozen;
   }
 
   const compliance = complianceGate(userId);

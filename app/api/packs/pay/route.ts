@@ -9,6 +9,7 @@ import {
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { getUserByPrivyId, type UserRow } from '@/lib/db/users';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import { liveCommerceActive } from '@/lib/packs/commerce';
 import { getPacksTreasuryPubkey } from '@/lib/packs/treasury';
 import { resolvePackConfigAtMarket } from '@/lib/packs/packConfig';
@@ -53,6 +54,10 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
   }
+
+  // Per-user account freeze (fail-closed) — paying for a pack moves funds.
+  const frozen = await accountFreezeGateOrNull(user.id, 'trading');
+  if (frozen) return frozen;
 
   let body: z.infer<typeof BodySchema>;
   try {

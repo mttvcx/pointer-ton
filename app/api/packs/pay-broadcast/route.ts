@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { getUserByPrivyId } from '@/lib/db/users';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import {
   getConnection,
   getPublicSolanaConnection,
@@ -33,13 +34,20 @@ export async function POST(req: NextRequest) {
   if (!accessToken) {
     return NextResponse.json({ error: 'missing_authorization' }, { status: 401 });
   }
+  let userId: string;
   try {
     const verified = await verifyPrivyAccessToken(accessToken);
     const user = await getUserByPrivyId(verified.privyId);
     if (!user) return NextResponse.json({ error: 'user_not_synced' }, { status: 403 });
+    userId = user.id;
   } catch {
     return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
   }
+
+  // Per-user account freeze (fail-closed) — defense-in-depth on the broadcast
+  // step too, so a freeze applied between pay and broadcast still stops the send.
+  const frozen = await accountFreezeGateOrNull(userId, 'trading');
+  if (frozen) return frozen;
 
   let body: z.infer<typeof BodySchema>;
   try {

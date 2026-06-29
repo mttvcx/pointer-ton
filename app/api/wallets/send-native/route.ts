@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { getConnection } from '@/lib/solana/connection';
 import { heliusCall, HELIUS_CREDITS } from '@/lib/helius/creditLogger';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
+import { getUserByPrivyId } from '@/lib/db/users';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,11 +26,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'missing_authorization' }, { status: 401 });
   }
 
+  let userId: string;
   try {
-    await verifyPrivyAccessToken(accessToken);
+    const verified = await verifyPrivyAccessToken(accessToken);
+    const user = await getUserByPrivyId(verified.privyId);
+    if (!user) return NextResponse.json({ message: 'user_not_synced' }, { status: 403 });
+    userId = user.id;
   } catch {
     return NextResponse.json({ message: 'invalid_token' }, { status: 401 });
   }
+
+  // Per-user account freeze (fail-closed) — a frozen account cannot build a
+  // fund-out transfer to sign. Moving money is exactly what a freeze stops.
+  const frozen = await accountFreezeGateOrNull(userId, 'trading');
+  if (frozen) return frozen;
 
   let json: unknown;
   try {

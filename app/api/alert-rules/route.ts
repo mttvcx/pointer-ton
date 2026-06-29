@@ -13,6 +13,7 @@ import {
   validateAutomationRuleBody,
 } from '@/lib/alerts/automationRuleModel';
 import { insertAlertRule, listAlertRulesForUser } from '@/lib/db/alertRules';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import type { Json } from '@/lib/supabase/types';
 
 export const runtime = 'nodejs';
@@ -50,6 +51,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requirePointerUser(req);
   if ('error' in auth) return auth.error;
+
+  // Per-user account freeze (automation kind, fail-closed) — a frozen account
+  // cannot arm a new alert/auto-buy rule (auto-buy execution itself routes
+  // through trade/execute, which is independently freeze-gated).
+  const frozen = await accountFreezeGateOrNull(auth.user.id, 'automation');
+  if (frozen) return frozen;
 
   let body: unknown;
   try {
