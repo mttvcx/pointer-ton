@@ -1,12 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useMemo, type KeyboardEvent, type MouseEvent } from 'react';
 import { StockAvatar } from '@/components/stocks/StockAvatar';
-import {
-  StockRowLeverageCenter,
-  StockRowTradeDock,
-} from '@/components/stocks/StockRowTradeDock';
+import { StockRowTradeDock } from '@/components/stocks/StockRowTradeDock';
 import type { SyntheticStockMarket } from '@/lib/stocks/types';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { formatPercent } from '@/lib/utils/formatters';
@@ -15,22 +12,11 @@ import { cn } from '@/lib/utils/cn';
 /** Match Pulse virtualizer tabled row height. */
 const ROW_SLOT_PX = 116;
 
-export function StockRow({
-  market,
-  defaultLeverage = 5,
-}: {
-  market: SyntheticStockMarket;
-  defaultLeverage?: number;
-}) {
+export function StockRow({ market }: { market: SyntheticStockMarket }) {
   const router = useRouter();
   const slotHeight = ROW_SLOT_PX;
   const mcTone = market.category === 'top' ? 'gold' : 'cyan';
   const changeTone = market.change24hPct >= 0 ? 'bull' : 'bear';
-  const [leverage, setLeverage] = useState(defaultLeverage);
-
-  useEffect(() => {
-    setLeverage(defaultLeverage);
-  }, [defaultLeverage]);
 
   const avatarSize = useMemo(() => {
     const verticalPad = 24;
@@ -127,18 +113,12 @@ export function StockRow({
         </div>
       </div>
 
-      <StockRowLeverageCenter
-        leverage={leverage}
-        onLeverageChange={setLeverage}
-        symbol={market.symbol}
-      />
-
       <StockRowTradeDock
         volume24hUsd={market.volume24hUsd}
         marketCapUsd={market.marketCapUsd}
         mcTone={mcTone}
-        leverage={leverage}
         symbol={market.symbol}
+        onBuy={openStock}
       />
     </div>
   );
