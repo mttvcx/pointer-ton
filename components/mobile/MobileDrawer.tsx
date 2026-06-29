@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useMobileNavStore } from '@/store/mobileNav';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { useAdminMe } from '@/lib/admin/useAdminApi';
 import { useUIStore } from '@/store/ui';
 import { APP_NAV } from '@/components/layout/navConfig';
 import { shortenAddress } from '@/lib/utils/addresses';
@@ -34,6 +35,7 @@ const NAV_ICON: Record<string, LucideIcon> = {
   '/squads': Users,
   '/championship': Trophy,
   '/points': Coins,
+  '/admin': Shield,
 };
 
 /**
@@ -47,6 +49,7 @@ export function MobileDrawer() {
   const pathname = usePathname();
   const router = useRouter();
   const { authenticated, logout, linkedTonAddress } = usePointerAuth();
+  const isAdmin = Boolean(useAdminMe().data);
   const openSettings = useUIStore((s) => s.openSettings);
 
   const close = () => setOpen(false);
@@ -113,7 +116,7 @@ export function MobileDrawer() {
         {/* Navigation */}
         <nav className="flex flex-col gap-0.5 px-2 py-3">
           <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Navigation</p>
-          {APP_NAV.map((item) => {
+          {(isAdmin ? [...APP_NAV, { label: 'Admin', href: '/admin' }] : APP_NAV).map((item) => {
             const Icon = NAV_ICON[item.href] ?? Activity;
             const active = pathname === item.href || Boolean(pathname?.startsWith(item.href + '/'));
             return (

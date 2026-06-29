@@ -118,6 +118,12 @@ export function Topbar() {
   const avatarMenuPresence = useOverlayPresence(avatarMenuOpen, POPOVER_ANIM_CLOSE_MS);
   const topbarNavOrder = useTopbarNavStore((s) => s.order);
   const navItems = useMemo(() => resolveTopbarNav(topbarNavOrder), [topbarNavOrder]);
+  // Admin-only nav tab (appended after the normal items, same styling). Hidden
+  // for everyone else; the route itself is RBAC-gated server-side too.
+  const navItemsToRender = useMemo(
+    () => (isAdmin ? [...navItems, { label: 'Admin', href: '/admin' }] : navItems),
+    [navItems, isAdmin],
+  );
   const squadsRailSide = usePulseSquadsRailStore((s) => s.side);
   const squadsFloatOpen = useTokenDockPeekStore((s) => s.squadsPeekOpen);
   const squadsOpen = squadsRailSide !== 'hidden' || squadsFloatOpen;
@@ -382,7 +388,7 @@ export function Topbar() {
         className="hidden max-w-[38%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[32%] sm:gap-1 md:max-w-[30%] lg:flex lg:max-w-none [&::-webkit-scrollbar]:hidden"
         aria-label="Primary"
       >
-        {navItems.map((item) => {
+        {navItemsToRender.map((item) => {
           const active =
             pathname === item.href || pathname?.startsWith(item.href + '/');
           const cls = cn(
