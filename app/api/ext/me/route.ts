@@ -23,16 +23,21 @@ export async function GET(req: NextRequest) {
     getReferralCodeRowForUser(auth.userId).catch(() => null),
   ]);
 
+  // TESTING UNBLOCK: when EXT_TEST_UNLOCK=1, the facade reports full access so
+  // every gated surface (AI, premium, smart followers) is open — no payment
+  // gating. Local-only flag; does NOT touch real subscriptions or money paths.
+  const testUnlock = process.env.EXT_TEST_UNLOCK === '1';
+
   return NextResponse.json({
     connected: true,
     userId: auth.userId,
     email: user?.email ?? null,
     username: user?.username ?? null,
-    subscription: decision?.basis === 'subscription' ? 'active' : 'none',
-    aiAccess: decision?.allowed ?? false,
+    subscription: testUnlock ? 'founder' : decision?.basis === 'subscription' ? 'active' : 'none',
+    aiAccess: testUnlock ? true : (decision?.allowed ?? false),
     referralCode: refRow?.code ?? null,
     solBalance: null,
     monthlyVolumeSol: null,
-    scansRemaining: null,
+    scansRemaining: testUnlock ? 999 : null,
   });
 }

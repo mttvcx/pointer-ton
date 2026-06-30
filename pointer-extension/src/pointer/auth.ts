@@ -14,6 +14,11 @@
 
 const TOKEN_KEY = 'pointer.ext.token';
 
+/** Network timeout for every Pointer auth call — a backend blip (e.g. a DB
+ *  hiccup upstream) must fail fast with a clear result instead of hanging the
+ *  connect / refresh forever. AbortSignal.timeout is supported in MV3 SW. */
+const NET_TIMEOUT_MS = 12_000;
+
 export interface ExtToken {
   token: string;
   refresh: string;
@@ -51,6 +56,7 @@ async function refresh(t: ExtToken): Promise<string | null> {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ refresh: t.refresh, ext: chrome.runtime.id }),
+      signal: AbortSignal.timeout(NET_TIMEOUT_MS),
     });
     if (!res.ok) {
       await setToken(null);
@@ -76,6 +82,7 @@ export async function exchangeCode(code: string): Promise<boolean> {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code, ext: chrome.runtime.id }),
+      signal: AbortSignal.timeout(NET_TIMEOUT_MS),
     });
     if (!res.ok) return false;
     await setToken((await res.json()) as ExtToken);
@@ -92,6 +99,7 @@ export async function disconnect(): Promise<void> {
       await fetch(`${apiBase()}/api/ext/auth/revoke`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${t.token}` },
+        signal: AbortSignal.timeout(NET_TIMEOUT_MS),
       });
     } catch {
       /* best-effort; token also dies on TTL */

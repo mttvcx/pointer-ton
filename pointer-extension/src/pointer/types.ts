@@ -4,6 +4,18 @@
  * because the facade returns what it can verify; the UI degrades gracefully.
  */
 
+/** Universal on-page label — Pointer's KOL/identity directory or the user's own. */
+export interface ExtLabel {
+  name: string;
+  badge: string | null;
+  verified: boolean;
+  kind: 'kol' | 'personal' | 'community';
+}
+export interface ExtLabels {
+  handles: Record<string, ExtLabel>;
+  wallets: Record<string, ExtLabel>;
+}
+
 export interface ExtMe {
   connected: boolean;
   userId: string | null;

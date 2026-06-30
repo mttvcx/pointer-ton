@@ -15,7 +15,7 @@ export default defineConfig({
     short_name: 'Pointer',
     description: 'Crypto intelligence, everywhere you browse. The official Pointer extension.',
     author: 'Pointer',
-    permissions: ['storage', 'activeTab', 'scripting'],
+    permissions: ['storage', 'activeTab', 'scripting', 'downloads', 'sidePanel'],
     // V1 supported sites — add a site = add a host + an adapter file.
     host_permissions: [
       ...(LOCAL ? ['http://localhost/*', 'http://127.0.0.1/*'] : []),

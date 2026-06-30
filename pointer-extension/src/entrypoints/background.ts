@@ -1,4 +1,4 @@
-import { ensureToken, apiBase, beginConnect, exchangeCode } from '@/pointer/auth';
+import { ensureToken, apiBase, beginConnect, disconnect, exchangeCode } from '@/pointer/auth';
 import type { PointerRequest, PointerResponse } from '@/pointer/client';
 
 /**
@@ -40,6 +40,49 @@ export default defineBackground(() => {
       await beginConnect();
       return { ok: false, error: 'connect_started' };
     }
+    if (req.type === 'pointer:disconnect') {
+      await disconnect();
+      mem.clear();
+      return { ok: true, data: { ok: true } };
+    }
+    if (req.type === 'pointer:submitLabel') {
+      try {
+        const token = await ensureToken();
+        if (!token) return { ok: false, error: 'not_connected' };
+        const res = await fetch(`${apiBase()}/api/ext/labels/submit`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ subjectType: req.subjectType, subject: req.subject, label: req.label, category: req.category }),
+        });
+        if (res.status === 401) return { ok: false, error: 'not_connected' };
+        if (!res.ok) return { ok: false, error: `http_${res.status}` };
+        mem.clear(); // labels changed — drop cache so the new tag shows
+        return { ok: true, data: await res.json() };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'failed' };
+      }
+    }
+    if (req.type === 'pointer:labels') {
+      const key = `labels:${req.handles.join(',')}|${req.wallets.join(',')}`;
+      const cached = mem.get(key);
+      if (cached && Date.now() - cached.at < 120_000) return { ok: true, data: cached.data };
+      try {
+        const token = await ensureToken();
+        if (!token) return { ok: false, error: 'not_connected' };
+        const res = await fetch(`${apiBase()}/api/ext/labels`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ handles: req.handles, wallets: req.wallets }),
+        });
+        if (res.status === 401) return { ok: false, error: 'not_connected' };
+        if (!res.ok) return { ok: false, error: `http_${res.status}` };
+        const data = await res.json();
+        mem.set(key, { at: Date.now(), data });
+        return { ok: true, data };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'failed' };
+      }
+    }
     const route = pathFor(req);
     if (!route) return { ok: false, error: 'bad_request' };
 
@@ -60,7 +103,10 @@ export default defineBackground(() => {
       if (res.status === 401) throw new Error('not_connected');
       if (!res.ok) throw new Error(`http_${res.status}`);
       const data = await res.json();
-      mem.set(route.key, { at: Date.now(), data });
+      // Don't cache a transient "not found" profile (e.g. a blip mid-import) —
+      // let it retry on the next view instead of sticking for the TTL.
+      const skipCache = route.kind === 'profile' && data && (data as { found?: boolean }).found === false;
+      if (!skipCache) mem.set(route.key, { at: Date.now(), data });
       return data;
     })();
 

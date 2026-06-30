@@ -36,10 +36,12 @@ function ConnectInner() {
     try {
       const token = await getAccessToken();
       if (!token) throw new Error('Not signed in');
+      // Timeout so a backend hiccup fails fast instead of spinning "Connecting…" forever.
       const res = await fetch('/api/ext/auth/authorize', {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({ ext: extId }),
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? 'authorize_failed');
       const { code } = (await res.json()) as { code: string };
@@ -51,15 +53,31 @@ function ConnectInner() {
       if (typeof chromeRt !== 'function') {
         throw new Error('Open this from the Pointer extension (Connect button).');
       }
+      // Backstop timeout: if the extension's background never calls back (asleep
+      // service worker, hung exchange), don't hang — surface a retryable error.
       await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error('extension_timeout')),
+          20_000,
+        );
         chromeRt(extId, { pointerConnect: { code } }, (resp: { ok?: boolean } | undefined) => {
+          clearTimeout(timer);
           if (resp?.ok) resolve();
           else reject(new Error('Extension did not accept the connection.'));
         });
       });
       setPhase('done');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Connection failed');
+      const raw = e instanceof Error ? e.message : 'Connection failed';
+      // Map fail-fast signals to something a user can act on. Check the specific
+      // extension-timeout case before the generic network-timeout regex.
+      const friendly =
+        raw === 'extension_timeout'
+          ? 'The extension didn’t respond. Reload it (chrome://extensions) and try Connect again.'
+          : /timeout|aborted|timed out|signal|networkerror|failed to fetch/i.test(raw)
+            ? 'Pointer is temporarily unreachable — please try again in a moment.'
+            : raw;
+      setError(friendly);
       setPhase('error');
     }
   }

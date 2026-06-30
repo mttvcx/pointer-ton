@@ -1,4 +1,4 @@
-import type { TokenIntel, ProfileIntel, WalletIntel, ExtMe } from '@/pointer/types';
+import type { TokenIntel, ProfileIntel, WalletIntel, ExtMe, ExtLabels } from '@/pointer/types';
 
 /**
  * Pointer client (content-script side). Content scripts NEVER hold the auth token
@@ -13,6 +13,9 @@ export type PointerRequest =
   | { type: 'pointer:wallet'; address: string }
   | { type: 'pointer:me' }
   | { type: 'pointer:connect' }
+  | { type: 'pointer:disconnect' }
+  | { type: 'pointer:labels'; handles: string[]; wallets: string[] }
+  | { type: 'pointer:submitLabel'; subjectType: 'handle' | 'wallet'; subject: string; label: string; category?: string }
   | { type: 'pointer:ai'; kind: 'token' | 'profile' | 'wallet' | 'project'; ref: string };
 
 export type PointerResponse<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -31,6 +34,10 @@ export const pointer = {
   wallet: (address: string) => send<WalletIntel>({ type: 'pointer:wallet', address }),
   me: () => send<ExtMe>({ type: 'pointer:me' }),
   connect: () => send<ExtMe>({ type: 'pointer:connect' }),
+  disconnect: () => send<{ ok: boolean }>({ type: 'pointer:disconnect' }),
+  labels: (handles: string[], wallets: string[]) => send<ExtLabels>({ type: 'pointer:labels', handles, wallets }),
+  submitLabel: (subjectType: 'handle' | 'wallet', subject: string, label: string, category?: string) =>
+    send<{ ok: boolean }>({ type: 'pointer:submitLabel', subjectType, subject, label, category }),
 };
 
 /** Deep links back into Pointer — the funnel. The extension never signs; trade
