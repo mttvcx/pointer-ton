@@ -240,45 +240,52 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
     body.appendChild(wrap);
   }
 
-  // Smart followers — known KOLs who follow them (bottom, like FrontRun's list).
+  // Smart followers — compact single-line rows, "See more" to expand (FrontRun-tight).
   if (data.smartFollowers && data.smartFollowers > 0) {
     body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
+    const all = data.smartFollowerList ?? [];
     const list = document.createElement('div');
-    Object.assign(list.style, { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '12px' } as CSSStyleDeclaration);
-    for (const sf of (data.smartFollowerList ?? []).slice(0, 14)) {
+    Object.assign(list.style, { display: 'flex', flexDirection: 'column' } as CSSStyleDeclaration);
+    const renderRow = (sf: { handle: string; name: string; badge: string | null; avatar?: string | null }) => {
       const row = document.createElement('a');
       row.href = `https://x.com/${sf.handle}`;
       row.target = '_blank';
       row.rel = 'noreferrer';
-      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 8px', borderRadius: '10px', textDecoration: 'none', color: TW.text } as CSSStyleDeclaration);
+      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '8px', textDecoration: 'none', color: TW.text } as CSSStyleDeclaration);
       row.onmouseenter = () => (row.style.background = TW.hover);
       row.onmouseleave = () => (row.style.background = 'transparent');
-      row.appendChild(avatarEl(sf.handle, sf.name, sf.avatar));
-      const col = document.createElement('div');
-      Object.assign(col.style, { minWidth: '0', flex: '1' } as CSSStyleDeclaration);
-      const nm = document.createElement('div');
+      const av = avatarEl(sf.handle, sf.name, sf.avatar);
+      av.style.width = '22px';
+      av.style.height = '22px';
+      row.appendChild(av);
+      const nm = document.createElement('span');
       nm.textContent = sf.name;
-      Object.assign(nm.style, { fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
-      const hd = document.createElement('div');
+      Object.assign(nm.style, { fontSize: '12.5px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: '0', maxWidth: '50%' } as CSSStyleDeclaration);
+      const hd = document.createElement('span');
       hd.textContent = `@${sf.handle}`;
-      Object.assign(hd.style, { fontSize: '11px', color: TW.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
-      col.append(nm, hd);
-      row.appendChild(col);
+      Object.assign(hd.style, { fontSize: '11.5px', color: TW.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1' } as CSSStyleDeclaration);
+      row.append(nm, hd);
       if (sf.badge) {
         const sb = pill(sf.badge);
         sb.style.flexShrink = '0';
         row.appendChild(sb);
       }
-      list.appendChild(row);
-    }
+      return row;
+    };
+    const INITIAL = 5;
+    for (const sf of all.slice(0, INITIAL)) list.appendChild(renderRow(sf));
     body.appendChild(list);
+    if (all.length > INITIAL) {
+      const more = document.createElement('button');
+      more.textContent = `See ${all.length - INITIAL} more`;
+      Object.assign(more.style, { width: '100%', marginTop: '6px', padding: '7px 0', borderRadius: '999px', border: `1px solid ${TW.divider}`, background: 'transparent', color: TW.text, fontWeight: '700', fontSize: '12.5px', cursor: 'pointer', font: 'inherit' } as CSSStyleDeclaration);
+      more.onclick = () => {
+        for (const sf of all.slice(INITIAL)) list.appendChild(renderRow(sf));
+        more.remove();
+      };
+      body.appendChild(more);
+    }
   }
-
-  const b = document.createElement('button');
-  b.textContent = 'View profile';
-  b.onclick = () => void pointer.profile(handle);
-  Object.assign(b.style, { width: '100%', marginTop: '4px', boxSizing: 'border-box', padding: '10px 16px', borderRadius: '999px', border: '1px solid transparent', cursor: 'pointer', fontWeight: '800', fontSize: '14px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#fff', background: 'linear-gradient(180deg,#8b8cf9,#7280ff)', boxShadow: '0 6px 18px -6px rgba(124,131,255,0.65), inset 0 1px 0 rgba(255,255,255,0.28)', font: 'inherit' } as CSSStyleDeclaration);
-  body.appendChild(b);
 }
 
 /* ── builders ── */
