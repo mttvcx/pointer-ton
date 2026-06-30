@@ -43,7 +43,7 @@ function ensureOverlay(): HTMLElement {
   Object.assign(el.style, {
     position: 'fixed',
     zIndex: '2147483646',
-    width: '252px',
+    width: '290px',
     boxSizing: 'border-box',
     padding: '12px 14px 13px',
     borderRadius: '16px',
@@ -120,7 +120,7 @@ function open(anchor: HTMLElement, sf: SF): void {
 
   // chart slot
   const slot = document.createElement('div');
-  Object.assign(slot.style, { minHeight: '52px' } as CSSStyleDeclaration);
+  Object.assign(slot.style, { minHeight: '66px' } as CSSStyleDeclaration);
   slot.appendChild(note('Loading PnL…'));
   el.appendChild(slot);
 
@@ -134,6 +134,7 @@ function open(anchor: HTMLElement, sf: SF): void {
     const pr = await pointer.profile(sf.handle);
     if (token !== reqToken) return;
     const prof = pr.ok ? (pr.data as ProfileIntel) : null;
+    if (prof?.name) nm.textContent = prof.name; // avatar hovers pass only the handle
     const addr = prof?.wallets?.find((w) => w.chain === 'sol')?.address ?? prof?.wallets?.[0]?.address;
     if (!addr) {
       nw.set('—');
@@ -218,8 +219,8 @@ function initials(name: string): HTMLElement {
 
 /** Compact realized-PnL sparkline: zero baseline, area fill, green/red by sign. */
 function sparkline(points: { t: number; v: number }[]): SVGElement {
-  const W = 224;
-  const H = 50;
+  const W = 262;
+  const H = 64;
   const svg = document.createElementNS(SVGNS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   Object.assign(svg.style, { width: '100%', height: `${H}px`, display: 'block' } as CSSStyleDeclaration);
