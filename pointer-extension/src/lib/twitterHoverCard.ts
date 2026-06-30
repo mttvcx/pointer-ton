@@ -116,6 +116,23 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
   if (data.badge) id.appendChild(pill(data.badge));
   panel.appendChild(id);
 
+  // smart followers (known KOLs who follow them)
+  if (data.smartFollowers && data.smartFollowers > 0) {
+    panel.appendChild(sectionLabel(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
+    const wrap = chipWrap();
+    for (const sf of (data.smartFollowerList ?? []).slice(0, 8)) {
+      const chip = document.createElement('a');
+      chip.href = `https://x.com/${sf.handle}`;
+      chip.target = '_blank';
+      chip.rel = 'noreferrer';
+      chip.textContent = sf.name;
+      chip.title = sf.badge ? `${sf.name} · ${sf.badge}` : sf.name;
+      Object.assign(chip.style, { fontSize: '10.5px', fontWeight: '600', padding: '2px 8px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.14)', border: '1px solid rgba(124,131,255,0.4)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
+      wrap.appendChild(chip);
+    }
+    panel.appendChild(wrap);
+  }
+
   // linked wallets
   if (data.wallets.length) {
     const lbl = document.createElement('div');
@@ -142,6 +159,22 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
       row.append(addr, chain, arrow);
       panel.appendChild(row);
     }
+  }
+
+  // CA history — Pointer's own, from the tweets we've scanned.
+  if (data.cas && data.cas.length) {
+    panel.appendChild(sectionLabel(`CA history · ${data.cas.length}`));
+    const wrap = chipWrap();
+    for (const c of data.cas.slice(0, 8)) {
+      const chip = document.createElement('a');
+      chip.href = c.chain === 'eth' ? `https://etherscan.io/token/${c.mint}` : `https://solscan.io/token/${c.mint}`;
+      chip.target = '_blank';
+      chip.rel = 'noreferrer';
+      chip.textContent = `${c.mint.slice(0, 4)}…${c.mint.slice(-4)}`;
+      Object.assign(chip.style, { fontSize: '10.5px', fontVariantNumeric: 'tabular-nums', padding: '2px 7px', borderRadius: '7px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+      wrap.appendChild(chip);
+    }
+    panel.appendChild(wrap);
   }
 
   panel.appendChild(actions([{ label: 'View profile', onClick: () => void pointer.profile(handle), primary: true }]));
@@ -204,6 +237,17 @@ function pill(text: string): HTMLElement {
   const el = document.createElement('span');
   el.textContent = text;
   Object.assign(el.style, { padding: '1px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: '700', letterSpacing: '0.03em', color: '#c8ccff', background: 'rgba(124,131,255,0.16)', border: `1px solid rgba(124,131,255,0.45)` } as CSSStyleDeclaration);
+  return el;
+}
+function sectionLabel(text: string): HTMLElement {
+  const el = document.createElement('div');
+  el.textContent = text;
+  Object.assign(el.style, { fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: TW.muted, marginBottom: '6px' } as CSSStyleDeclaration);
+  return el;
+}
+function chipWrap(): HTMLElement {
+  const el = document.createElement('div');
+  Object.assign(el.style, { display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' } as CSSStyleDeclaration);
   return el;
 }
 function textRow(text: string): HTMLElement {

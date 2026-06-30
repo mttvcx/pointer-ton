@@ -106,7 +106,7 @@ function buildCard(handle: string): HTMLElement {
   Object.assign(img.style, { width: '16px', height: '16px', objectFit: 'contain' } as CSSStyleDeclaration);
   const t = document.createElement('span');
   t.textContent = 'Pointer';
-  Object.assign(t.style, { fontWeight: '800', fontSize: '15px' } as CSSStyleDeclaration);
+  Object.assign(t.style, { fontWeight: '800', fontSize: '15px', letterSpacing: '-0.02em' } as CSSStyleDeclaration);
   const hh = document.createElement('span');
   hh.textContent = `@${handle}`;
   Object.assign(hh.style, { marginLeft: 'auto', fontSize: '12px', color: TW.muted } as CSSStyleDeclaration);
