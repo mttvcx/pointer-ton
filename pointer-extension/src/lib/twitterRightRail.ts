@@ -148,19 +148,35 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
   // Smart followers — known KOLs who follow them (from their followers page).
   if (data.smartFollowers && data.smartFollowers > 0) {
     body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
-    const wrap = document.createElement('div');
-    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' } as CSSStyleDeclaration);
-    for (const sf of (data.smartFollowerList ?? []).slice(0, 12)) {
-      const chip = document.createElement('a');
-      chip.href = `https://x.com/${sf.handle}`;
-      chip.target = '_blank';
-      chip.rel = 'noreferrer';
-      chip.textContent = sf.name;
-      chip.title = sf.badge ? `${sf.name} · ${sf.badge}` : sf.name;
-      Object.assign(chip.style, { fontSize: '11px', fontWeight: '600', padding: '3px 9px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.14)', border: '1px solid rgba(124,131,255,0.4)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
-      wrap.appendChild(chip);
+    const list = document.createElement('div');
+    Object.assign(list.style, { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '12px' } as CSSStyleDeclaration);
+    for (const sf of (data.smartFollowerList ?? []).slice(0, 14)) {
+      const row = document.createElement('a');
+      row.href = `https://x.com/${sf.handle}`;
+      row.target = '_blank';
+      row.rel = 'noreferrer';
+      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 8px', borderRadius: '10px', textDecoration: 'none', color: TW.text } as CSSStyleDeclaration);
+      row.onmouseenter = () => (row.style.background = TW.hover);
+      row.onmouseleave = () => (row.style.background = 'transparent');
+      row.appendChild(avatarEl(sf.handle, sf.name, sf.avatar));
+      const col = document.createElement('div');
+      Object.assign(col.style, { minWidth: '0', flex: '1' } as CSSStyleDeclaration);
+      const nm = document.createElement('div');
+      nm.textContent = sf.name;
+      Object.assign(nm.style, { fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
+      const hd = document.createElement('div');
+      hd.textContent = `@${sf.handle}`;
+      Object.assign(hd.style, { fontSize: '11px', color: TW.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
+      col.append(nm, hd);
+      row.appendChild(col);
+      if (sf.badge) {
+        const b = pill(sf.badge);
+        b.style.flexShrink = '0';
+        row.appendChild(b);
+      }
+      list.appendChild(row);
     }
-    body.appendChild(wrap);
+    body.appendChild(list);
   }
 
   if (data.wallets.length) {
@@ -271,6 +287,21 @@ function label(text: string): HTMLElement {
   el.textContent = text;
   Object.assign(el.style, { fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: TW.muted, margin: '0 0 7px' } as CSSStyleDeclaration);
   return el;
+}
+function initialsEl(handle: string, name: string): HTMLElement {
+  const c = document.createElement('span');
+  c.textContent = (name || handle).slice(0, 1).toUpperCase();
+  Object.assign(c.style, { width: '30px', height: '30px', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: '13px', fontWeight: '700', color: '#fff', background: 'linear-gradient(150deg,#7c83ff,#9a7cff)', flexShrink: '0' } as CSSStyleDeclaration);
+  return c;
+}
+function avatarEl(handle: string, name: string, url?: string | null): HTMLElement {
+  if (!url) return initialsEl(handle, name);
+  const img = document.createElement('img');
+  img.src = url;
+  img.referrerPolicy = 'no-referrer';
+  Object.assign(img.style, { width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: '0' } as CSSStyleDeclaration);
+  img.onerror = () => img.replaceWith(initialsEl(handle, name));
+  return img;
 }
 function textRow(text: string): HTMLElement {
   const el = document.createElement('div');
