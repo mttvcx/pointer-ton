@@ -6,6 +6,28 @@
  */
 import { pointer } from '@/pointer/client';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
+import type { WalletIntel } from '@/pointer/types';
+
+const usd = (n: number) => (Math.abs(n) >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`);
+function statCell(k: string, v: string): HTMLElement {
+  const cell = document.createElement('div');
+  Object.assign(cell.style, { padding: '8px 10px', borderRadius: '10px', border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+  const kl = document.createElement('div');
+  kl.textContent = k;
+  Object.assign(kl.style, { fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', color: TW.muted, fontWeight: '700', marginBottom: '2px' } as CSSStyleDeclaration);
+  const vl = document.createElement('div');
+  vl.className = 'pt-stat-v';
+  vl.textContent = v;
+  Object.assign(vl.style, { fontSize: '14px', fontWeight: '800', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+  cell.append(kl, vl);
+  return cell;
+}
+function setStat(cell: HTMLElement, v: string, signed?: number | null) {
+  const vl = cell.querySelector<HTMLElement>('.pt-stat-v');
+  if (!vl) return;
+  vl.textContent = v;
+  if (signed != null) vl.style.color = signed > 0 ? '#3ddc97' : signed < 0 ? '#ff5e78' : TW.text;
+}
 
 const TW = { divider: 'rgb(47, 51, 54)', text: 'rgb(231, 233, 234)', muted: 'rgb(113, 118, 123)', btnBorder: 'rgb(83, 100, 113)', hover: 'rgba(231,233,234,0.03)' };
 const PT_ACCENT = '#7c83ff';
@@ -145,6 +167,25 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
       row.append(a, c, ar);
       body.appendChild(row);
     }
+  }
+
+  // Real wallet PnL — Pointer's own analytics for the primary linked wallet.
+  if (data.wallets[0]) {
+    const grid = document.createElement('div');
+    Object.assign(grid.style, { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' } as CSSStyleDeclaration);
+    const nw = statCell('Net worth', '…');
+    const pnl = statCell('Realized PnL', '…');
+    grid.append(nw, pnl);
+    body.appendChild(grid);
+    void pointer.wallet(data.wallets[0].address).then((r) => {
+      if (!r.ok) {
+        grid.remove();
+        return;
+      }
+      const w = r.data as WalletIntel;
+      setStat(nw, w.netWorthUsd != null ? usd(w.netWorthUsd) : '—');
+      setStat(pnl, w.realizedPnlUsd != null ? usd(w.realizedPnlUsd) : '—', w.realizedPnlUsd);
+    });
   }
 
   // CA history — Pointer's own, built from the tweets we've scanned.
