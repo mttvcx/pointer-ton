@@ -24,10 +24,8 @@ export default defineBackground(() => {
         return { key: `token:${req.mint}`, path: `/token/${req.mint}`, kind: 'token' };
       case 'pointer:profile':
         return { key: `profile:${req.handle}`, path: `/profile/${req.handle}`, kind: 'profile' };
-      case 'pointer:wallet': {
-        const tf = req.timeframe ?? '30d';
-        return { key: `wallet:${req.address}:${tf}`, path: `/wallet/${req.address}?timeframe=${tf}`, kind: 'wallet' };
-      }
+      case 'pointer:wallet':
+        return { key: `wallet:${req.address}`, path: `/wallet/${req.address}`, kind: 'wallet' };
       case 'pointer:me':
         return { key: 'me', path: `/me`, kind: 'me' };
       case 'pointer:ai':

@@ -7,7 +7,6 @@
  */
 import { pointer } from '@/pointer/client';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
-import type { WalletIntel } from '@/pointer/types';
 
 // Twitter's own tokens — match the native card so the panel is seamless.
 const TW = {
@@ -23,30 +22,6 @@ const RESERVED = new Set(['home', 'explore', 'notifications', 'messages', 'i', '
 
 const short = (a: string) => (a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a);
 const explorer = (chain: string, a: string) => (chain === 'sol' || chain === 'solana' ? `https://solscan.io/account/${a}` : `https://etherscan.io/address/${a}`);
-const usd = (n: number): string => {
-  const neg = n < 0;
-  const a = Math.abs(n);
-  const s = a >= 1000 ? `$${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : `$${a.toFixed(a < 1 && a > 0 ? 2 : 0)}`;
-  return neg ? `-${s}` : s;
-};
-
-/** A bordered metric tile (label + value) with a `set(value, signed?)` to repaint on toggle. */
-function statCell(label: string, value: string): { cell: HTMLElement; set: (v: string, signed?: number | null) => void } {
-  const cell = document.createElement('div');
-  Object.assign(cell.style, { flex: '1', padding: '7px 9px', borderRadius: '9px', border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
-  const l = document.createElement('div');
-  l.textContent = label;
-  Object.assign(l.style, { fontSize: '9.5px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', color: TW.muted, marginBottom: '3px' } as CSSStyleDeclaration);
-  const v = document.createElement('div');
-  v.textContent = value;
-  Object.assign(v.style, { fontSize: '14px', fontWeight: '700', color: TW.text, fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
-  cell.append(l, v);
-  const set = (val: string, signed?: number | null) => {
-    v.textContent = val;
-    v.style.color = signed == null ? TW.text : signed > 0 ? '#3ddc97' : signed < 0 ? '#f4615f' : TW.text;
-  };
-  return { cell, set };
-}
 
 export function startTwitterHoverCard(): void {
   const obs = new MutationObserver((muts) => {
@@ -158,69 +133,32 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     panel.appendChild(wrap);
   }
 
-  // wallet + PnL — toggle the lookback (1D/7D/30D/All), real numbers from our analytics.
+  // linked wallets
   if (data.wallets.length) {
-    const w0 = data.wallets[0]!;
-    panel.appendChild(sectionLabel(data.wallets.length > 1 ? `Wallet PnL · ${data.wallets.length} linked` : 'Wallet PnL'));
-
-    const seg = document.createElement('div');
-    Object.assign(seg.style, { display: 'flex', gap: '4px', marginBottom: '8px' } as CSSStyleDeclaration);
-
-    const grid = document.createElement('div');
-    Object.assign(grid.style, { display: 'flex', gap: '8px', marginBottom: '8px' } as CSSStyleDeclaration);
-    const nw = statCell('Net worth', '…');
-    const pnl = statCell('Realized PnL', '…');
-    grid.append(nw.cell, pnl.cell);
-
-    const tfBtns: Record<string, HTMLButtonElement> = {};
-    let activeTf = '30d';
-    const load = (tf: string) => {
-      activeTf = tf;
-      for (const [k, b] of Object.entries(tfBtns)) {
-        const on = k === tf;
-        b.style.color = on ? '#fff' : TW.muted;
-        b.style.background = on ? 'rgba(124,131,255,0.22)' : 'transparent';
-        b.style.borderColor = on ? 'rgba(124,131,255,0.5)' : TW.divider;
-      }
-      nw.set('…'); pnl.set('…', null);
-      void pointer.wallet(w0.address, tf).then((r) => {
-        if (activeTf !== tf) return; // a newer toggle won — drop this stale result
-        const wd = r.ok ? (r.data as WalletIntel) : null;
-        nw.set(wd?.netWorthUsd != null ? usd(wd.netWorthUsd) : '—');
-        pnl.set(wd?.realizedPnlUsd != null ? usd(wd.realizedPnlUsd) : '—', wd?.realizedPnlUsd ?? null);
-      });
-    };
-    for (const tf of [{ id: '1d', label: '1D' }, { id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: 'max', label: 'All' }]) {
-      const b = document.createElement('button');
-      b.textContent = tf.label;
-      Object.assign(b.style, { flex: '1', padding: '4px 0', borderRadius: '7px', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer', color: TW.muted, background: 'transparent', border: `1px solid ${TW.divider}`, font: 'inherit' } as CSSStyleDeclaration);
-      b.onclick = () => load(tf.id);
-      tfBtns[tf.id] = b;
-      seg.appendChild(b);
+    const lbl = document.createElement('div');
+    lbl.textContent = `Linked wallets · ${data.wallets.length}`;
+    Object.assign(lbl.style, { fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: TW.muted, marginBottom: '6px' } as CSSStyleDeclaration);
+    panel.appendChild(lbl);
+    for (const w of data.wallets.slice(0, 3)) {
+      const row = document.createElement('a');
+      row.href = explorer(w.chain, w.address);
+      row.target = '_blank';
+      row.rel = 'noreferrer';
+      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 9px', borderRadius: '9px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}`, marginBottom: '5px', fontSize: '12.5px' } as CSSStyleDeclaration);
+      row.onmouseenter = () => (row.style.background = TW.hover);
+      row.onmouseleave = () => (row.style.background = 'transparent');
+      const addr = document.createElement('span');
+      addr.textContent = short(w.address);
+      Object.assign(addr.style, { fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+      const chain = document.createElement('span');
+      chain.textContent = w.chain.toUpperCase();
+      Object.assign(chain.style, { marginLeft: 'auto', fontSize: '10px', fontWeight: '700', color: TW.muted } as CSSStyleDeclaration);
+      const arrow = document.createElement('span');
+      arrow.textContent = '↗';
+      Object.assign(arrow.style, { color: TW.muted } as CSSStyleDeclaration);
+      row.append(addr, chain, arrow);
+      panel.appendChild(row);
     }
-    panel.appendChild(seg);
-    panel.appendChild(grid);
-    load('30d');
-
-    // compact wallet link (explorer)
-    const row = document.createElement('a');
-    row.href = explorer(w0.chain, w0.address);
-    row.target = '_blank';
-    row.rel = 'noreferrer';
-    Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 9px', borderRadius: '9px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}`, fontSize: '12px' } as CSSStyleDeclaration);
-    row.onmouseenter = () => (row.style.background = TW.hover);
-    row.onmouseleave = () => (row.style.background = 'transparent');
-    const addr = document.createElement('span');
-    addr.textContent = short(w0.address);
-    Object.assign(addr.style, { fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
-    const chain = document.createElement('span');
-    chain.textContent = w0.chain.toUpperCase();
-    Object.assign(chain.style, { marginLeft: 'auto', fontSize: '10px', fontWeight: '700', color: TW.muted } as CSSStyleDeclaration);
-    const arrow = document.createElement('span');
-    arrow.textContent = '↗';
-    Object.assign(arrow.style, { color: TW.muted } as CSSStyleDeclaration);
-    row.append(addr, chain, arrow);
-    panel.appendChild(row);
   }
 
   // CA history — Pointer's own, from the tweets we've scanned.
@@ -238,6 +176,8 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     }
     panel.appendChild(wrap);
   }
+
+  panel.appendChild(actions([{ label: 'View profile', onClick: () => void pointer.profile(handle), primary: true }]));
 }
 
 function tagHandle(handle: string, panel: HTMLElement): void {

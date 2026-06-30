@@ -202,6 +202,25 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
     }
   }
 
+  // Real wallet PnL — Pointer's own analytics for the primary linked wallet.
+  if (data.wallets[0]) {
+    const grid = document.createElement('div');
+    Object.assign(grid.style, { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' } as CSSStyleDeclaration);
+    const nw = statCell('Net worth', '…');
+    const pnl = statCell('Realized PnL', '…');
+    grid.append(nw, pnl);
+    body.appendChild(grid);
+    void pointer.wallet(data.wallets[0].address).then((r) => {
+      if (!r.ok) {
+        grid.remove();
+        return;
+      }
+      const w = r.data as WalletIntel;
+      setStat(nw, w.netWorthUsd != null ? usd(w.netWorthUsd) : '—');
+      setStat(pnl, w.realizedPnlUsd != null ? usd(w.realizedPnlUsd) : '—', w.realizedPnlUsd);
+    });
+  }
+
   // CA history — Pointer's own, built from the tweets we've scanned.
   if (data.cas && data.cas.length) {
     body.appendChild(label(`CA history · ${data.cas.length}`));
