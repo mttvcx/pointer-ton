@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireExtAuth } from '@/lib/ext/auth';
 import { createAdminSupabase } from '@/lib/supabase/server';
-import { getCommunityLabels, type CommunityHit } from '@/lib/ext/communityLabels';
+import { getCommunityLabels, getAllCommunityLabels, type CommunityHit } from '@/lib/ext/communityLabels';
 import { getKolCas } from '@/lib/ext/kolCas';
 import { getSmartFollowers } from '@/lib/ext/smartFollowers';
 
@@ -82,10 +82,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ handle: str
       .limit(20);
 
     const badge = badgeForCategory(prof.primary_category);
-    const [cas, smart] = await Promise.all([
+    const [cas, smart, extraLabels] = await Promise.all([
       getKolCas(handle, 12).catch(() => []),
       getSmartFollowers(handle, 24).catch(() => ({ count: 0, list: [] })),
+      getAllCommunityLabels(auth.userId, 'handle', handle).catch(() => [] as string[]),
     ]);
+    const labels = [...new Set([...(badge ? [badge] : []), ...extraLabels])];
     return NextResponse.json({
       handle,
       found: true,
@@ -96,7 +98,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ handle: str
       website: prof.website_url ?? null,
       notes: prof.notes ?? null,
       wallets: (wRows ?? []).map((w) => ({ address: w.address, chain: w.chain, label: prof.display_name ?? null })),
-      labels: badge ? [badge] : [],
+      labels,
       cas,
       smartFollowers: smart.count,
       smartFollowerList: smart.list,

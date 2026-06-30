@@ -56,6 +56,26 @@ export interface CommunityHit {
   mine: boolean;
 }
 
+/** ALL labels for a subject (verified by agreement, or the user's own) — for the
+ *  multi-label stack ("different lines"). */
+export async function getAllCommunityLabels(userId: string, subjectType: SubjectType, subject: string): Promise<string[]> {
+  const key = subjectType === 'handle' ? norm(subject) : subject.trim();
+  if (!key) return [];
+  try {
+    const { data } = await table().select('subject, label, submitted_by').eq('subject_type', subjectType).in('subject', [key]).limit(200);
+    const counts = new Map<string, { c: number; mine: boolean }>();
+    for (const r of data ?? []) {
+      const e = counts.get(r.label) ?? { c: 0, mine: false };
+      e.c++;
+      if (r.submitted_by === userId) e.mine = true;
+      counts.set(r.label, e);
+    }
+    return [...counts.entries()].filter(([, e]) => e.c >= THRESHOLD || e.mine).map(([l]) => l);
+  } catch {
+    return [];
+  }
+}
+
 /** Top agreed label per subject — included when verified (≥ threshold) or it's
  *  the requesting user's own submission. */
 export async function getCommunityLabels(

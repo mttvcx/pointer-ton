@@ -131,7 +131,7 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
   }
 
   const id = document.createElement('div');
-  Object.assign(id.style, { display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '12px' } as CSSStyleDeclaration);
+  Object.assign(id.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' } as CSSStyleDeclaration);
   const nm = document.createElement('span');
   nm.textContent = data.name ?? `@${handle}`;
   Object.assign(nm.style, { fontSize: '15px', fontWeight: '800' } as CSSStyleDeclaration);
@@ -142,7 +142,7 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
     Object.assign(v.style, { color: '#3ddc97' } as CSSStyleDeclaration);
     id.appendChild(v);
   }
-  if (data.badge) id.appendChild(pill(data.badge));
+  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) id.appendChild(pill(l));
   body.appendChild(id);
 
   // Smart followers — known KOLs who follow them (from their followers page).

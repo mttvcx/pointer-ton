@@ -102,7 +102,7 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
 
   // identity row: name + verified + KOL badge
   const id = document.createElement('div');
-  Object.assign(id.style, { display: 'flex', alignItems: 'center', gap: '7px', marginBottom: data.wallets.length ? '10px' : '11px' } as CSSStyleDeclaration);
+  Object.assign(id.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' } as CSSStyleDeclaration);
   const nm = document.createElement('span');
   nm.textContent = data.name ?? `@${handle}`;
   Object.assign(nm.style, { fontSize: '14px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
@@ -113,7 +113,7 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     Object.assign(v.style, { color: '#3ddc97', fontSize: '12px' } as CSSStyleDeclaration);
     id.appendChild(v);
   }
-  if (data.badge) id.appendChild(pill(data.badge));
+  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) id.appendChild(pill(l));
   panel.appendChild(id);
 
   // smart followers (known KOLs who follow them)
