@@ -147,6 +147,25 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
     }
   }
 
+  // CA history — Pointer's own, built from the tweets we've scanned.
+  if (data.cas && data.cas.length) {
+    body.appendChild(label(`CA history · ${data.cas.length}`));
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' } as CSSStyleDeclaration);
+    for (const c of data.cas.slice(0, 8)) {
+      const chip = document.createElement('a');
+      chip.href = c.chain === 'eth' ? `https://etherscan.io/token/${c.mint}` : `https://solscan.io/token/${c.mint}`;
+      chip.target = '_blank';
+      chip.rel = 'noreferrer';
+      chip.textContent = `${c.mint.slice(0, 4)}…${c.mint.slice(-4)}`;
+      Object.assign(chip.style, { fontSize: '11px', fontVariantNumeric: 'tabular-nums', padding: '3px 8px', borderRadius: '8px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+      chip.onmouseenter = () => (chip.style.background = TW.hover);
+      chip.onmouseleave = () => (chip.style.background = 'transparent');
+      wrap.appendChild(chip);
+    }
+    body.appendChild(wrap);
+  }
+
   const b = document.createElement('button');
   b.textContent = 'View profile';
   b.onclick = () => void pointer.profile(handle);

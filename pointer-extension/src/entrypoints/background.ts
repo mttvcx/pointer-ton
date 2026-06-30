@@ -62,6 +62,21 @@ export default defineBackground(() => {
         return { ok: false, error: e instanceof Error ? e.message : 'failed' };
       }
     }
+    if (req.type === 'pointer:submitCas') {
+      try {
+        const token = await ensureToken();
+        if (!token) return { ok: false, error: 'not_connected' };
+        const res = await fetch(`${apiBase()}/api/ext/cas/submit`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ handle: req.handle, cas: req.cas }),
+        });
+        if (!res.ok) return { ok: false, error: `http_${res.status}` };
+        return { ok: true, data: await res.json() };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'failed' };
+      }
+    }
     if (req.type === 'pointer:labels') {
       const key = `labels:${req.handles.join(',')}|${req.wallets.join(',')}`;
       const cached = mem.get(key);

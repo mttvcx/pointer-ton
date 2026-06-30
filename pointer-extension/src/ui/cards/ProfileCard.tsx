@@ -18,6 +18,7 @@ export interface ProfileSummary {
   notes: string | null;
   wallets: { address: string; chain: string; label: string | null }[];
   labels: string[];
+  cas?: { mint: string; chain: string; firstSeen: string }[];
   smartFollowers: number | null;
   ethos: { score: number | null; reviews: number | null } | null;
 }

@@ -22,9 +22,32 @@ export default defineContentScript({
     const HOVER_INTENT_MS = 50;
     let hoverTimer: number | undefined;
 
+    const PROFILE_RE = /^\/([A-Za-z0-9_]{1,15})\/?$/;
+    const RESERVED = new Set(['home', 'explore', 'notifications', 'messages', 'i', 'settings', 'search', 'compose']);
+    const seenCas = new Set<string>(); // `${handle}:${mint}` — submit each once per session
+
     const scan = () => {
-      for (const t of twitterAdapter.scan(document.body)) bindHover(t);
+      const targets = Array.from(twitterAdapter.scan(document.body));
+      for (const t of targets) bindHover(t);
+      captureCas(targets);
     };
+
+    // CA history: when viewing a profile, record the contract addresses in that
+    // account's tweets — Pointer's own dataset, built from what we already detect.
+    function captureCas(targets: HoverTarget[]) {
+      const m = PROFILE_RE.exec(location.pathname);
+      const handle = m?.[1]?.toLowerCase();
+      if (!handle || RESERVED.has(handle)) return;
+      const fresh: { mint: string }[] = [];
+      for (const t of targets) {
+        if (t.entity.kind !== 'token') continue;
+        const key = `${handle}:${t.entity.value}`;
+        if (seenCas.has(key)) continue;
+        seenCas.add(key);
+        fresh.push({ mint: t.entity.value });
+      }
+      if (fresh.length) void pointer.submitCas(handle, fresh);
+    }
     const schedule = () =>
       (window.requestIdleCallback ?? window.setTimeout)(() => scan(), { timeout: 500 } as never);
 

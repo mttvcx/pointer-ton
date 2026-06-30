@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireExtAuth } from '@/lib/ext/auth';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { getCommunityLabels, type CommunityHit } from '@/lib/ext/communityLabels';
+import { getKolCas } from '@/lib/ext/kolCas';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ handle: str
       .limit(20);
 
     const badge = badgeForCategory(prof.primary_category);
+    const cas = await getKolCas(handle, 12).catch(() => []);
     return NextResponse.json({
       handle,
       found: true,
@@ -91,6 +93,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ handle: str
       notes: prof.notes ?? null,
       wallets: (wRows ?? []).map((w) => ({ address: w.address, chain: w.chain, label: prof.display_name ?? null })),
       labels: badge ? [badge] : [],
+      cas,
       smartFollowers: null,
       ethos: null,
     });
