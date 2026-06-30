@@ -7,6 +7,7 @@
  */
 import { pointer } from '@/pointer/client';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
+import { demoCurve } from '@/lib/pnlDemo';
 
 // Twitter's own tokens — match the native card so the panel is seamless.
 const TW = {
@@ -191,29 +192,6 @@ const usd = (n: number): string => {
   const a = Math.abs(n);
   return a >= 1000 ? `$${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : `$${a.toFixed(a < 1 && a > 0 ? 2 : 0)}`;
 };
-
-/**
- * DEMO PnL curve — deterministic per (handle, timeframe) so the UI is stable to
- * iterate on. Replace with the real /api/ext/wallet `chart` (cumulative realized
- * PnL, multi-wallet combined) once the layout is approved.
- */
-function demoCurve(seed: string, tf: string): { v: number }[] {
-  let h = 2166136261;
-  for (const ch of `${seed}:${tf}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-  const rand = () => {
-    h = (Math.imul(h, 1664525) + 1013904223) >>> 0;
-    return h / 4294967296;
-  };
-  const n = tf === '1d' ? 24 : tf === '7d' ? 30 : tf === '30d' ? 40 : 56;
-  const bias = (rand() - 0.42) * 260; // slight positive lean — can still go red
-  let v = 0;
-  const pts: { v: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    v += (rand() - 0.5) * 1500 + bias;
-    pts.push({ v: Math.round(v) });
-  }
-  return pts;
-}
 
 /** Clean PnL line on the grey card: zero baseline, gradient fill, colored line. */
 function lineChart(points: { v: number }[], color: string): SVGElement {

@@ -6,7 +6,8 @@
  * (which now returns a true cumulative realized-PnL curve from indexed swaps).
  */
 import { pointer } from '@/pointer/client';
-import type { WalletIntel, ProfileIntel } from '@/pointer/types';
+import type { ProfileIntel } from '@/pointer/types';
+import { demoWallet } from '@/lib/pnlDemo';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TW = {
@@ -135,8 +136,8 @@ function open(anchor: HTMLElement, sf: SF): void {
     if (token !== reqToken) return;
     const prof = pr.ok ? (pr.data as ProfileIntel) : null;
     if (prof?.name) nm.textContent = prof.name; // avatar hovers pass only the handle
-    const addr = prof?.wallets?.find((w) => w.chain === 'sol')?.address ?? prof?.wallets?.[0]?.address;
-    if (!addr) {
+    const hasWallet = !!(prof?.wallets && prof.wallets.length);
+    if (!hasWallet) {
       nw.set('—');
       pnl.set('—', null);
       slot.textContent = '';
@@ -144,15 +145,12 @@ function open(anchor: HTMLElement, sf: SF): void {
       place(el, anchor);
       return;
     }
-    const wr = await pointer.wallet(addr);
-    if (token !== reqToken) return;
-    const w = wr.ok ? (wr.data as WalletIntel) : null;
-    nw.set(w?.netWorthUsd != null ? usd(w.netWorthUsd) : '—');
-    pnl.set(w?.realizedPnlUsd != null ? usd(w.realizedPnlUsd) : '—', w?.realizedPnlUsd ?? null);
+    // DEMO numbers + chart — wire-ready: swap demoWallet(handle) for pointer.wallet(addr)
+    const d = demoWallet(sf.handle);
+    nw.set(usd(d.netWorthUsd));
+    pnl.set(`${d.realizedPnlUsd >= 0 ? '+' : '−'}${usd(Math.abs(d.realizedPnlUsd))}`, d.realizedPnlUsd);
     slot.textContent = '';
-    const pts = w?.chart ?? [];
-    if (pts.length >= 2) slot.appendChild(sparkline(pts));
-    else slot.appendChild(note('Not enough trade history for a chart'));
+    if (d.chart.length >= 2) slot.appendChild(sparkline(d.chart));
     place(el, anchor);
   })();
 }
@@ -218,20 +216,17 @@ function initials(name: string): HTMLElement {
 }
 
 /** Compact realized-PnL sparkline: zero baseline, area fill, green/red by sign. */
-function sparkline(points: { t: number; v: number }[]): SVGElement {
+function sparkline(points: { v: number }[]): SVGElement {
   const W = 262;
   const H = 64;
   const svg = document.createElementNS(SVGNS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   Object.assign(svg.style, { width: '100%', height: `${H}px`, display: 'block' } as CSSStyleDeclaration);
 
-  const xs = points.map((p) => p.t);
   const ys = points.map((p) => p.v);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
   const minY = Math.min(...ys, 0);
   const maxY = Math.max(...ys, 0);
-  const px = (x: number) => ((x - minX) / ((maxX - minX) || 1)) * (W - 6) + 3;
+  const px = (i: number) => (i / (points.length - 1)) * (W - 6) + 3;
   const py = (y: number) => H - 4 - ((y - minY) / ((maxY - minY) || 1)) * (H - 8);
   const last = ys[ys.length - 1] ?? 0;
   const color = last >= 0 ? UP : DOWN;
@@ -247,9 +242,9 @@ function sparkline(points: { t: number; v: number }[]): SVGElement {
   base.setAttribute('stroke-dasharray', '2 3');
   svg.appendChild(base);
 
-  const line = points.map((p, i) => `${i ? 'L' : 'M'}${px(p.t).toFixed(1)} ${py(p.v).toFixed(1)}`).join(' ');
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)} ${py(p.v).toFixed(1)}`).join(' ');
   const area = document.createElementNS(SVGNS, 'path');
-  area.setAttribute('d', `${line} L ${px(maxX).toFixed(1)} ${zeroY.toFixed(1)} L ${px(minX).toFixed(1)} ${zeroY.toFixed(1)} Z`);
+  area.setAttribute('d', `${line} L ${px(points.length - 1).toFixed(1)} ${zeroY.toFixed(1)} L ${px(0).toFixed(1)} ${zeroY.toFixed(1)} Z`);
   area.setAttribute('fill', color);
   area.setAttribute('opacity', '0.12');
   svg.appendChild(area);

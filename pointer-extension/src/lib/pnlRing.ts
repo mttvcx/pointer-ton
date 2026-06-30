@@ -16,6 +16,7 @@
 import { pointer } from '@/pointer/client';
 import type { ProfileIntel } from '@/pointer/types';
 import { attachFollowerHover } from '@/lib/followerHover';
+import { demoPnl } from '@/lib/pnlDemo';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const UP = '#3ddc97';
@@ -62,13 +63,6 @@ async function applyTo(el: HTMLElement, handle: string): Promise<void> {
   if (el.isConnected && !el.querySelector('.pt-pnl-ring')) drawRing(el, handle, pnl);
 }
 
-/** Deterministic demo PnL per handle (≈ -8k…+40k, biased positive). */
-function demoPnl(seed: string): number {
-  let h = 2166136261;
-  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-  return Math.round((h >>> 0) / 4294967296 * 48000 - 8000);
-}
-
 function drawRing(container: HTMLElement, handle: string, pnl: number): void {
   if (container.querySelector('.pt-pnl-ring')) return;
   if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
@@ -90,16 +84,18 @@ function drawRing(container: HTMLElement, handle: string, pnl: number): void {
   circle.setAttribute('r', '47.5');
   circle.setAttribute('fill', 'none');
   circle.setAttribute('stroke', color);
-  circle.setAttribute('stroke-width', minimal ? '3.5' : '3');
+  circle.setAttribute('stroke-width', minimal ? '4.5' : '3');
   svg.appendChild(circle);
   wrap.appendChild(svg);
 
+  // value badge — shown on BOTH sizes (compact on small avatars)
+  const badge = document.createElement('div');
+  badge.textContent = `${up ? '+' : '−'}${usd(Math.abs(pnl))}`;
+  Object.assign(badge.style, { position: 'absolute', left: '50%', bottom: minimal ? '-8px' : '-7px', transform: 'translateX(-50%)', background: color, color: '#000', fontSize: minimal ? '9px' : '11px', fontWeight: '800', padding: minimal ? '0 5px' : '1px 8px', borderRadius: '999px', whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,0.5)', fontVariantNumeric: 'tabular-nums', border: minimal ? '1.5px solid #000' : '2px solid #000', lineHeight: minimal ? '1.45' : '1.5' } as CSSStyleDeclaration);
+  wrap.appendChild(badge);
+
+  // Rich portfolio popup only on the big header avatar (small ones use X's hovercard)
   if (!minimal) {
-    const badge = document.createElement('div');
-    badge.textContent = `${up ? '+' : '−'}${usd(Math.abs(pnl))}`;
-    Object.assign(badge.style, { position: 'absolute', left: '50%', bottom: '-7px', transform: 'translateX(-50%)', background: color, color: '#000', fontSize: '11px', fontWeight: '800', padding: '1px 8px', borderRadius: '999px', whiteSpace: 'nowrap', boxShadow: '0 2px 7px rgba(0,0,0,0.5)', fontVariantNumeric: 'tabular-nums', border: '2px solid #000' } as CSSStyleDeclaration);
-    wrap.appendChild(badge);
-    // Rich portfolio popup on hover (the profile's own avatar — X shows no hovercard here)
     const img = container.querySelector('img');
     attachFollowerHover(container, { handle, name: handle, badge: null, avatar: img?.getAttribute('src') ?? null });
   }
