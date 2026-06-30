@@ -123,7 +123,9 @@ export function PulseTokenAvatarHover({
   const anchorRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovered, setHovered] = useState(false);
-  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
+  const [panelPos, setPanelPos] = useState<{ left: number; top?: number; bottom?: number } | null>(
+    null,
+  );
 
   const twitterHandle = useMemo(
     () => normalizePulseTwitterHandle(token.twitter_handle),
@@ -171,12 +173,30 @@ export function PulseTokenAvatarHover({
     else if (key === 'twitter' && twitterHandle) blacklistTwitter(twitterHandle);
   };
 
+  /** Open below the avatar by default; flip ABOVE when there isn't room below and
+   *  there's more room above (so a row near the viewport bottom isn't clipped).
+   *  When flipping, anchor by `bottom` so the panel grows upward regardless of its
+   *  rendered height. Also clamp horizontally so the panel never overflows. */
+  const computePos = useCallback(
+    (r: DOMRect): { left: number; top?: number; bottom?: number } => {
+      const gap = 8;
+      const w = Math.min(280, Math.max(size * 2.4, 160));
+      const estH = w + 28; // image preview ≈ its width; enough to decide a flip
+      const spaceBelow = window.innerHeight - r.bottom;
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+      if (spaceBelow < estH && r.top > spaceBelow) {
+        return { left, bottom: Math.max(8, window.innerHeight - r.top + gap) };
+      }
+      return { left, top: r.bottom + gap };
+    },
+    [size],
+  );
+
   const syncPanelPos = useCallback(() => {
     const el = anchorRef.current;
     if (!el || typeof window === 'undefined') return;
-    const r = el.getBoundingClientRect();
-    setPanelPos({ top: r.bottom + 8, left: r.left });
-  }, []);
+    setPanelPos(computePos(el.getBoundingClientRect()));
+  }, [computePos]);
 
   const clearHoverTimer = () => {
     if (hoverTimer.current) {
@@ -226,8 +246,7 @@ export function PulseTokenAvatarHover({
     if (panelPos) return panelPos;
     const el = anchorRef.current;
     if (!el || typeof window === 'undefined') return null;
-    const r = el.getBoundingClientRect();
-    return { top: r.bottom + 8, left: r.left };
+    return computePos(el.getBoundingClientRect());
   })();
 
   const previewPanel =
@@ -237,6 +256,7 @@ export function PulseTokenAvatarHover({
             className="pointer-events-auto fixed z-[260] overflow-hidden rounded-lg border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)]"
             style={{
               top: resolvedPanelPos.top,
+              bottom: resolvedPanelPos.bottom,
               left: resolvedPanelPos.left,
               width: previewPx,
             }}
