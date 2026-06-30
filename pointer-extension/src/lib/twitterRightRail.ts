@@ -145,40 +145,6 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
   for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) id.appendChild(pill(l));
   body.appendChild(id);
 
-  // Smart followers — known KOLs who follow them (from their followers page).
-  if (data.smartFollowers && data.smartFollowers > 0) {
-    body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
-    const list = document.createElement('div');
-    Object.assign(list.style, { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '12px' } as CSSStyleDeclaration);
-    for (const sf of (data.smartFollowerList ?? []).slice(0, 14)) {
-      const row = document.createElement('a');
-      row.href = `https://x.com/${sf.handle}`;
-      row.target = '_blank';
-      row.rel = 'noreferrer';
-      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 8px', borderRadius: '10px', textDecoration: 'none', color: TW.text } as CSSStyleDeclaration);
-      row.onmouseenter = () => (row.style.background = TW.hover);
-      row.onmouseleave = () => (row.style.background = 'transparent');
-      row.appendChild(avatarEl(sf.handle, sf.name, sf.avatar));
-      const col = document.createElement('div');
-      Object.assign(col.style, { minWidth: '0', flex: '1' } as CSSStyleDeclaration);
-      const nm = document.createElement('div');
-      nm.textContent = sf.name;
-      Object.assign(nm.style, { fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
-      const hd = document.createElement('div');
-      hd.textContent = `@${sf.handle}`;
-      Object.assign(hd.style, { fontSize: '11px', color: TW.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
-      col.append(nm, hd);
-      row.appendChild(col);
-      if (sf.badge) {
-        const b = pill(sf.badge);
-        b.style.flexShrink = '0';
-        row.appendChild(b);
-      }
-      list.appendChild(row);
-    }
-    body.appendChild(list);
-  }
-
   if (data.wallets.length) {
     body.appendChild(label(`Linked wallets · ${data.wallets.length}`));
     for (const w of data.wallets.slice(0, 4)) {
@@ -239,6 +205,40 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
       wrap.appendChild(chip);
     }
     body.appendChild(wrap);
+  }
+
+  // Smart followers — known KOLs who follow them (bottom, like FrontRun's list).
+  if (data.smartFollowers && data.smartFollowers > 0) {
+    body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
+    const list = document.createElement('div');
+    Object.assign(list.style, { display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '12px' } as CSSStyleDeclaration);
+    for (const sf of (data.smartFollowerList ?? []).slice(0, 14)) {
+      const row = document.createElement('a');
+      row.href = `https://x.com/${sf.handle}`;
+      row.target = '_blank';
+      row.rel = 'noreferrer';
+      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '9px', padding: '6px 8px', borderRadius: '10px', textDecoration: 'none', color: TW.text } as CSSStyleDeclaration);
+      row.onmouseenter = () => (row.style.background = TW.hover);
+      row.onmouseleave = () => (row.style.background = 'transparent');
+      row.appendChild(avatarEl(sf.handle, sf.name, sf.avatar));
+      const col = document.createElement('div');
+      Object.assign(col.style, { minWidth: '0', flex: '1' } as CSSStyleDeclaration);
+      const nm = document.createElement('div');
+      nm.textContent = sf.name;
+      Object.assign(nm.style, { fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
+      const hd = document.createElement('div');
+      hd.textContent = `@${sf.handle}`;
+      Object.assign(hd.style, { fontSize: '11px', color: TW.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
+      col.append(nm, hd);
+      row.appendChild(col);
+      if (sf.badge) {
+        const sb = pill(sf.badge);
+        sb.style.flexShrink = '0';
+        row.appendChild(sb);
+      }
+      list.appendChild(row);
+    }
+    body.appendChild(list);
   }
 
   const b = document.createElement('button');
