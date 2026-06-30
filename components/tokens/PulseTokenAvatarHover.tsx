@@ -369,7 +369,7 @@ export function PulseTokenAvatarHover({
             <TooltipContent
               side="left"
               sideOffset={6}
-              className="rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5 text-[11px] font-normal text-white/90 shadow-lg"
+              className="z-[290] rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5 text-[11px] font-normal text-white/90 shadow-lg"
             >
               {action.title}
             </TooltipContent>
