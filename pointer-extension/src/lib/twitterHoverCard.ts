@@ -102,13 +102,22 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     return;
   }
 
-  // header: timeframe toggle (left) + powered-by pointer.trade (right)
+  // identity: name + label (KOL) — right under X's own name
+  const idRow = document.createElement('div');
+  Object.assign(idRow.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '11px' } as CSSStyleDeclaration);
+  const idNm = document.createElement('span');
+  idNm.textContent = data.name ?? `@${handle}`;
+  Object.assign(idNm.style, { fontSize: '14px', fontWeight: '800' } as CSSStyleDeclaration);
+  idRow.appendChild(idNm);
+  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) idRow.appendChild(pill(l));
+  panel.appendChild(idRow);
+
+  // header: timeframe toggle (left)
   const head = document.createElement('div');
   Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' } as CSSStyleDeclaration);
   const seg = document.createElement('div');
   Object.assign(seg.style, { display: 'flex', gap: '4px' } as CSSStyleDeclaration);
   head.appendChild(seg);
-  head.appendChild(poweredBy());
   panel.appendChild(head);
 
   // PnL value — reacts to the selected timeframe, green up / red down
@@ -151,9 +160,17 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     seg.appendChild(b);
   }
   draw('30d');
+
+  // powered-by — bottom line
+  const foot = document.createElement('div');
+  Object.assign(foot.style, { display: 'flex', marginTop: '11px', paddingTop: '9px', borderTop: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+  const pb = poweredBy();
+  pb.style.marginLeft = '0';
+  foot.appendChild(pb);
+  panel.appendChild(foot);
 }
 
-/** Pointer wordmark lockup — bigger bird + clearer label, for the top-right. */
+/** Pointer wordmark lockup — bigger bird + clearer label. */
 function poweredBy(): HTMLElement {
   const a = document.createElement('a');
   a.href = 'https://pointer.trade';

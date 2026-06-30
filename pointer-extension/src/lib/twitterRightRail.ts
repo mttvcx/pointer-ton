@@ -142,8 +142,8 @@ function buildCard(handle: string, id: string): HTMLElement {
   t.textContent = 'Pointer';
   Object.assign(t.style, { fontWeight: '800', fontSize: '15px', letterSpacing: '-0.02em' } as CSSStyleDeclaration);
   const hh = document.createElement('span');
-  hh.textContent = `@${handle}`;
-  Object.assign(hh.style, { marginLeft: 'auto', marginRight: '6px', fontSize: '12px', color: TW.muted } as CSSStyleDeclaration);
+  hh.textContent = 'powered by pointer.trade';
+  Object.assign(hh.style, { marginLeft: 'auto', fontSize: '11.5px', fontWeight: '600', color: 'rgb(160,166,173)' } as CSSStyleDeclaration);
   head.append(img, t, hh);
   const body = document.createElement('div');
   body.className = 'pt-rail-body';

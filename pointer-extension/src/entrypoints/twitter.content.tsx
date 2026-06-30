@@ -7,6 +7,7 @@ import { showCard, scheduleHideCard } from '@/ui/cardHost';
 import { startTwitterLabels } from '@/lib/twitterLabels';
 import { startTwitterHoverCard } from '@/lib/twitterHoverCard';
 import { startTwitterRightRail, startTwitterProfileInline } from '@/lib/twitterRightRail';
+import { startPnlRing } from '@/lib/pnlRing';
 
 /**
  * Twitter/X content script. Flagship slice: a contract address in a tweet → hover →
@@ -96,6 +97,8 @@ export default defineContentScript({
     startTwitterRightRail();
     // Same card in the MAIN column under the bio (FrontRun's spot).
     startTwitterProfileInline();
+    // Ethos-style PnL ring around the profile avatar.
+    startPnlRing();
 
     function bindHover(target: HoverTarget) {
       // Only token/CA entities have a live card today; profiles are Phase 3.
