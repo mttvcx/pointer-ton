@@ -124,6 +124,7 @@ async function injectInline(handle: string): Promise<void> {
   if (!nav || !nav.parentElement) return; // header not ready — tick() retries
   const card = buildCard(handle, INLINE_ID);
   card.style.margin = '6px 16px 14px';
+  card.style.border = 'none'; // main column has no card borders — flush, not boxed
   nav.parentElement.insertBefore(card, nav);
   const res = await pointer.profile(handle);
   fill(card, res.ok ? (res.data as unknown as ProfileSummary) : null, handle);
@@ -143,7 +144,7 @@ function buildCard(handle: string, id: string): HTMLElement {
   Object.assign(t.style, { fontWeight: '800', fontSize: '15px', letterSpacing: '-0.02em' } as CSSStyleDeclaration);
   const hh = document.createElement('span');
   hh.textContent = `@${handle}`;
-  Object.assign(hh.style, { marginLeft: 'auto', fontSize: '12px', color: TW.muted } as CSSStyleDeclaration);
+  Object.assign(hh.style, { marginLeft: 'auto', marginRight: '6px', fontSize: '12px', color: TW.muted } as CSSStyleDeclaration);
   head.append(img, t, hh);
   const body = document.createElement('div');
   body.className = 'pt-rail-body';
