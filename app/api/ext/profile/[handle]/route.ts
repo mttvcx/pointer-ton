@@ -3,6 +3,7 @@ import { requireExtAuth } from '@/lib/ext/auth';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { getCommunityLabels, type CommunityHit } from '@/lib/ext/communityLabels';
 import { getKolCas } from '@/lib/ext/kolCas';
+import { getSmartFollowers } from '@/lib/ext/smartFollowers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,7 +82,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ handle: str
       .limit(20);
 
     const badge = badgeForCategory(prof.primary_category);
-    const cas = await getKolCas(handle, 12).catch(() => []);
+    const [cas, smart] = await Promise.all([
+      getKolCas(handle, 12).catch(() => []),
+      getSmartFollowers(handle, 24).catch(() => ({ count: 0, list: [] })),
+    ]);
     return NextResponse.json({
       handle,
       found: true,
@@ -94,7 +98,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ handle: str
       wallets: (wRows ?? []).map((w) => ({ address: w.address, chain: w.chain, label: prof.display_name ?? null })),
       labels: badge ? [badge] : [],
       cas,
-      smartFollowers: null,
+      smartFollowers: smart.count,
+      smartFollowerList: smart.list,
       ethos: null,
     });
   } catch {

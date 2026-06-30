@@ -20,6 +20,7 @@ export interface ProfileSummary {
   labels: string[];
   cas?: { mint: string; chain: string; firstSeen: string }[];
   smartFollowers: number | null;
+  smartFollowerList?: { handle: string; name: string; badge: string | null }[];
   ethos: { score: number | null; reviews: number | null } | null;
 }
 

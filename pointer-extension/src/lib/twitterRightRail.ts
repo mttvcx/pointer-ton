@@ -145,6 +145,24 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
   if (data.badge) id.appendChild(pill(data.badge));
   body.appendChild(id);
 
+  // Smart followers — known KOLs who follow them (from their followers page).
+  if (data.smartFollowers && data.smartFollowers > 0) {
+    body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' } as CSSStyleDeclaration);
+    for (const sf of (data.smartFollowerList ?? []).slice(0, 12)) {
+      const chip = document.createElement('a');
+      chip.href = `https://x.com/${sf.handle}`;
+      chip.target = '_blank';
+      chip.rel = 'noreferrer';
+      chip.textContent = sf.name;
+      chip.title = sf.badge ? `${sf.name} · ${sf.badge}` : sf.name;
+      Object.assign(chip.style, { fontSize: '11px', fontWeight: '600', padding: '3px 9px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.14)', border: '1px solid rgba(124,131,255,0.4)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
+      wrap.appendChild(chip);
+    }
+    body.appendChild(wrap);
+  }
+
   if (data.wallets.length) {
     body.appendChild(label(`Linked wallets · ${data.wallets.length}`));
     for (const w of data.wallets.slice(0, 4)) {

@@ -26,11 +26,39 @@ export default defineContentScript({
     const RESERVED = new Set(['home', 'explore', 'notifications', 'messages', 'i', 'settings', 'search', 'compose']);
     const seenCas = new Set<string>(); // `${handle}:${mint}` — submit each once per session
 
+    const FOLLOWERS_RE = /^\/([A-Za-z0-9_]{1,15})\/(followers|followers_you_follow|verified_followers)\/?$/;
+    const seenFollowers = new Set<string>(); // `${handle}:${follower}`
+
     const scan = () => {
       const targets = Array.from(twitterAdapter.scan(document.body));
       for (const t of targets) bindHover(t);
       captureCas(targets);
+      captureFollowers();
     };
+
+    // Smart followers: on a handle's followers page, submit the @handles X rendered;
+    // the server keeps the ones that are known KOLs. Built from public X data.
+    function captureFollowers() {
+      const m = FOLLOWERS_RE.exec(location.pathname);
+      const handle = m?.[1]?.toLowerCase();
+      if (!handle) return;
+      const fresh: string[] = [];
+      for (const c of Array.from(document.querySelectorAll<HTMLElement>('[data-testid="UserCell"]'))) {
+        for (const s of Array.from(c.querySelectorAll<HTMLElement>('span'))) {
+          const hm = /^@([A-Za-z0-9_]{1,15})$/.exec((s.textContent ?? '').trim());
+          if (hm?.[1]) {
+            const f = hm[1].toLowerCase();
+            const key = `${handle}:${f}`;
+            if (!seenFollowers.has(key)) {
+              seenFollowers.add(key);
+              fresh.push(f);
+            }
+            break;
+          }
+        }
+      }
+      if (fresh.length) void pointer.submitFollowers(handle, fresh);
+    }
 
     // CA history: when viewing a profile, record the contract addresses in that
     // account's tweets — Pointer's own dataset, built from what we already detect.

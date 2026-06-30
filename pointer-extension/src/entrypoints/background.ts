@@ -62,6 +62,21 @@ export default defineBackground(() => {
         return { ok: false, error: e instanceof Error ? e.message : 'failed' };
       }
     }
+    if (req.type === 'pointer:submitFollowers') {
+      try {
+        const token = await ensureToken();
+        if (!token) return { ok: false, error: 'not_connected' };
+        const res = await fetch(`${apiBase()}/api/ext/smart-followers/submit`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ handle: req.handle, followers: req.followers }),
+        });
+        if (!res.ok) return { ok: false, error: `http_${res.status}` };
+        return { ok: true, data: await res.json() };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'failed' };
+      }
+    }
     if (req.type === 'pointer:submitCas') {
       try {
         const token = await ensureToken();
