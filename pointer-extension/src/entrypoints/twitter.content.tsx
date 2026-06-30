@@ -42,20 +42,22 @@ export default defineContentScript({
       const m = FOLLOWERS_RE.exec(location.pathname);
       const handle = m?.[1]?.toLowerCase();
       if (!handle) return;
-      const fresh: string[] = [];
+      const fresh: { handle: string; avatar?: string }[] = [];
       for (const c of Array.from(document.querySelectorAll<HTMLElement>('[data-testid="UserCell"]'))) {
+        let fh = '';
         for (const s of Array.from(c.querySelectorAll<HTMLElement>('span'))) {
           const hm = /^@([A-Za-z0-9_]{1,15})$/.exec((s.textContent ?? '').trim());
           if (hm?.[1]) {
-            const f = hm[1].toLowerCase();
-            const key = `${handle}:${f}`;
-            if (!seenFollowers.has(key)) {
-              seenFollowers.add(key);
-              fresh.push(f);
-            }
+            fh = hm[1].toLowerCase();
             break;
           }
         }
+        if (!fh) continue;
+        const key = `${handle}:${fh}`;
+        if (seenFollowers.has(key)) continue;
+        seenFollowers.add(key);
+        const img = c.querySelector<HTMLImageElement>('img[src*="twimg.com"]');
+        fresh.push({ handle: fh, avatar: img?.src });
       }
       if (fresh.length) void pointer.submitFollowers(handle, fresh);
     }

@@ -20,7 +20,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'bad_json' }, { status: 400 });
   }
   const handle = typeof body.handle === 'string' ? body.handle : '';
-  const followers = Array.isArray(body.followers) ? body.followers.filter((f): f is string => typeof f === 'string') : [];
+  const followers = Array.isArray(body.followers)
+    ? body.followers
+        .map((f) => (f && typeof f === 'object' ? (f as { handle?: unknown; avatar?: unknown }) : { handle: f }))
+        .filter((f): f is { handle: string; avatar?: unknown } => typeof f.handle === 'string')
+        .map((f) => ({ handle: f.handle, avatar: typeof f.avatar === 'string' ? f.avatar : undefined }))
+    : [];
   if (!handle.trim() || !followers.length) return NextResponse.json({ ok: true, stored: 0 });
 
   try {
