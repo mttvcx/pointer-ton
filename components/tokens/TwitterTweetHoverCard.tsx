@@ -69,8 +69,14 @@ function XGlyph({ className }: { className?: string }) {
 function TwitterTweetHoverShell({ children }: { children: ReactNode }) {
   return (
     <div
-      className="flex w-[360px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-2xl border border-white/[0.08] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.85)]"
-      style={{ backgroundColor: AXIOM_TWITTER_HOVER_PANEL_BG }}
+      className="flex w-[360px] max-w-[calc(100vw-24px)] flex-col overflow-x-hidden overflow-y-auto rounded-2xl border border-white/[0.08] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.85)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      // Cap to the space Radix has before a collision (it already flips/shifts via
+      // collisionPadding) so a tall tweet scrolls inside the card instead of
+      // overflowing the viewport. Fallback for any non-Radix usage.
+      style={{
+        backgroundColor: AXIOM_TWITTER_HOVER_PANEL_BG,
+        maxHeight: 'var(--radix-hover-card-content-available-height, calc(100vh - 24px))',
+      }}
     >
       {children}
     </div>
