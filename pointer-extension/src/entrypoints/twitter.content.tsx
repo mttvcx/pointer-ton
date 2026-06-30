@@ -6,7 +6,7 @@ import { TokenCard } from '@/ui/cards/TokenCard';
 import { showCard, scheduleHideCard } from '@/ui/cardHost';
 import { startTwitterLabels } from '@/lib/twitterLabels';
 import { startTwitterHoverCard } from '@/lib/twitterHoverCard';
-import { startTwitterRightRail } from '@/lib/twitterRightRail';
+import { startTwitterRightRail, startTwitterProfileInline } from '@/lib/twitterRightRail';
 
 /**
  * Twitter/X content script. Flagship slice: a contract address in a tweet → hover →
@@ -94,6 +94,8 @@ export default defineContentScript({
     startTwitterHoverCard();
     // Right-rail Pointer card on profile pages.
     startTwitterRightRail();
+    // Same card in the MAIN column under the bio (FrontRun's spot).
+    startTwitterProfileInline();
 
     function bindHover(target: HoverTarget) {
       // Only token/CA entities have a live card today; profiles are Phase 3.

@@ -88,16 +88,49 @@ async function inject(handle: string): Promise<void> {
   if (!sidebar || document.getElementById(CARD_ID)) return;
   const box = firstSectionBox(sidebar);
   if (!box || !box.parentElement) return; // sidebar not ready — tick() retries
-  const card = buildCard(handle);
+  const card = buildCard(handle, CARD_ID);
   box.parentElement.insertBefore(card, box);
 
   const res = await pointer.profile(handle);
   fill(card, res.ok ? (res.data as unknown as ProfileSummary) : null, handle);
 }
 
-function buildCard(handle: string): HTMLElement {
+const INLINE_ID = 'pt-inline-card';
+
+/** Inject the SAME Pointer card into the MAIN profile column — FrontRun's spot:
+ *  under the bio, above the Posts/Replies tabs — in addition to the right rail. */
+export function startTwitterProfileInline(): void {
+  let current = '';
+  const tick = () => {
+    const handle = profileHandle();
+    if (handle !== current) {
+      current = handle;
+      document.getElementById(INLINE_ID)?.remove();
+      if (handle) void injectInline(handle);
+    } else if (handle && !document.getElementById(INLINE_ID)) {
+      void injectInline(handle);
+    }
+  };
+  window.setInterval(tick, 800);
+  tick();
+}
+
+async function injectInline(handle: string): Promise<void> {
+  if (document.getElementById(INLINE_ID)) return;
+  const pc = document.querySelector('[data-testid="primaryColumn"]');
+  const tabs = pc?.querySelector('[role="tablist"]');
+  const nav = tabs?.closest('nav');
+  if (!nav || !nav.parentElement) return; // header not ready — tick() retries
+  const card = buildCard(handle, INLINE_ID);
+  card.style.margin = '6px 16px 14px';
+  nav.parentElement.insertBefore(card, nav);
+  const res = await pointer.profile(handle);
+  fill(card, res.ok ? (res.data as unknown as ProfileSummary) : null, handle);
+}
+
+function buildCard(handle: string, id: string): HTMLElement {
   const card = document.createElement('div');
-  card.id = CARD_ID;
+  card.id = id;
   Object.assign(card.style, { width: '100%', boxSizing: 'border-box', margin: '0 0 16px', border: `1px solid ${TW.divider}`, borderRadius: '16px', overflow: 'hidden', font: 'inherit', color: TW.text } as CSSStyleDeclaration);
   const head = document.createElement('div');
   Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '7px', padding: '12px 16px 0' } as CSSStyleDeclaration);
