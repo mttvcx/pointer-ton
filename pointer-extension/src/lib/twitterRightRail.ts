@@ -7,6 +7,7 @@
 import { pointer } from '@/pointer/client';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
 import type { WalletIntel } from '@/pointer/types';
+import { attachFollowerHover } from '@/lib/followerHover';
 
 const usd = (n: number) => (Math.abs(n) >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`);
 function statCell(k: string, v: string): HTMLElement {
@@ -251,7 +252,8 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
       a.href = `https://x.com/${sf.handle}`;
       a.target = '_blank';
       a.rel = 'noreferrer';
-      a.title = sf.badge ? `${sf.name} · ${sf.badge}` : sf.name;
+      // No native title tooltip — hovering opens our grey PnL overlay instead.
+      attachFollowerHover(a, sf);
       Object.assign(a.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 9px 2px 3px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.10)', border: '1px solid rgba(124,131,255,0.35)', fontSize: '12px', fontWeight: '600', maxWidth: '170px' } as CSSStyleDeclaration);
       const av = avatarEl(sf.handle, sf.name, sf.avatar);
       av.style.width = '18px';

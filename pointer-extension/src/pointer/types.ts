@@ -62,6 +62,8 @@ export interface WalletIntel {
   recentBuys: { mint: string; symbol: string | null }[];
   recentSells: { mint: string; symbol: string | null }[];
   aiSummary: string | null;
+  /** Real cumulative realized-PnL curve from indexed swaps (t = epoch ms, v = USD). */
+  chart?: { t: number; v: number }[];
 }
 
 export interface ProfileIntel {

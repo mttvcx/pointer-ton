@@ -35,6 +35,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ address: st
     netWorthUsd: a.totalValueUsd ?? null,
     realizedPnlUsd: a.performance?.realizedPnlUsd ?? null,
     unrealizedPnlUsd: a.unrealizedPnlUsd ?? null,
+    chart: a.chart ?? [], // real cumulative realized-PnL curve (sparkline)
     favoriteEcosystem: a.chain ?? null,
     avgHoldHours: null, // Phase 3
     behavior: null, // Phase 3 (derive from win-rate / tx cadence)
