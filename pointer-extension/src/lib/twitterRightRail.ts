@@ -202,48 +202,6 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
     }
   }
 
-  // Real wallet PnL — Pointer's own analytics, with a timeframe toggle.
-  if (data.wallets[0]) {
-    const addr = data.wallets[0].address;
-    const seg = document.createElement('div');
-    Object.assign(seg.style, { display: 'flex', gap: '4px', marginBottom: '8px' } as CSSStyleDeclaration);
-    const grid = document.createElement('div');
-    Object.assign(grid.style, { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' } as CSSStyleDeclaration);
-    const nw = statCell('Net worth', '…');
-    const pnl = statCell('Realized PnL', '…');
-    grid.append(nw, pnl);
-    const tfBtns: Record<string, HTMLButtonElement> = {};
-    let activeTf = '30d';
-    const load = (tf: string) => {
-      activeTf = tf;
-      for (const [id, btn] of Object.entries(tfBtns)) {
-        const on = id === tf;
-        btn.style.background = on ? 'rgba(124,131,255,0.18)' : 'transparent';
-        btn.style.color = on ? '#c8ccff' : TW.muted;
-        btn.style.borderColor = on ? 'rgba(124,131,255,0.45)' : TW.divider;
-      }
-      setStat(nw, '…');
-      setStat(pnl, '…');
-      void pointer.wallet(addr, tf).then((r) => {
-        if (activeTf !== tf) return; // a newer toggle won the race
-        const w = r.ok ? (r.data as WalletIntel) : null;
-        setStat(nw, w?.netWorthUsd != null ? usd(w.netWorthUsd) : '—');
-        setStat(pnl, w?.realizedPnlUsd != null ? usd(w.realizedPnlUsd) : '—', w?.realizedPnlUsd ?? null);
-      });
-    };
-    for (const tf of [{ id: '1d', label: '1D' }, { id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: 'max', label: 'All' }]) {
-      const btn = document.createElement('button');
-      btn.textContent = tf.label;
-      Object.assign(btn.style, { flex: '1', padding: '4px 0', borderRadius: '8px', border: `1px solid ${TW.divider}`, background: 'transparent', color: TW.muted, fontSize: '11px', fontWeight: '800', cursor: 'pointer', font: 'inherit' } as CSSStyleDeclaration);
-      btn.onclick = () => load(tf.id);
-      tfBtns[tf.id] = btn;
-      seg.appendChild(btn);
-    }
-    body.appendChild(seg);
-    body.appendChild(grid);
-    load('30d');
-  }
-
   // CA history — Pointer's own, built from the tweets we've scanned.
   if (data.cas && data.cas.length) {
     body.appendChild(label(`CA history · ${data.cas.length}`));
