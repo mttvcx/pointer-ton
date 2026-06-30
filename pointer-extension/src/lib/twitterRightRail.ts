@@ -122,12 +122,11 @@ async function injectInline(handle: string): Promise<void> {
   const tabs = pc?.querySelector('[role="tablist"]');
   const nav = tabs?.closest('nav');
   if (!nav || !nav.parentElement) return; // header not ready — tick() retries
-  const card = buildCard(handle, INLINE_ID);
-  card.style.margin = '6px 16px 14px';
-  card.style.border = 'none'; // main column has no card borders — flush, not boxed
+  const card = buildInlineCard(INLINE_ID);
+  card.style.margin = '2px 0 6px'; // flush, tight — no big gap above the tabs
   nav.parentElement.insertBefore(card, nav);
   const res = await pointer.profile(handle);
-  fill(card, res.ok ? (res.data as unknown as ProfileSummary) : null, handle);
+  fillInline(card, res.ok ? (res.data as unknown as ProfileSummary) : null, handle);
 }
 
 function buildCard(handle: string, id: string): HTMLElement {
@@ -248,24 +247,7 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
     const all = data.smartFollowerList ?? [];
     const wrap = document.createElement('div');
     Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
-    const chipOf = (sf: { handle: string; name: string; badge: string | null; avatar?: string | null }) => {
-      const a = document.createElement('a');
-      a.href = `https://x.com/${sf.handle}`;
-      a.target = '_blank';
-      a.rel = 'noreferrer';
-      // No native title tooltip — hovering opens our grey PnL overlay instead.
-      attachFollowerHover(a, sf);
-      Object.assign(a.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 9px 2px 3px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.10)', border: '1px solid rgba(124,131,255,0.35)', fontSize: '12px', fontWeight: '600', maxWidth: '170px' } as CSSStyleDeclaration);
-      const av = avatarEl(sf.handle, sf.name, sf.avatar);
-      av.style.width = '18px';
-      av.style.height = '18px';
-      a.appendChild(av);
-      const nm = document.createElement('span');
-      nm.textContent = sf.name;
-      Object.assign(nm.style, { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
-      a.appendChild(nm);
-      return a;
-    };
+    const chipOf = followerChip;
     const INITIAL = 12;
     for (const sf of all.slice(0, INITIAL)) wrap.appendChild(chipOf(sf));
     body.appendChild(wrap);
@@ -321,6 +303,178 @@ function label(text: string): HTMLElement {
   el.textContent = text;
   Object.assign(el.style, { fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: TW.muted, margin: '0 0 7px' } as CSSStyleDeclaration);
   return el;
+}
+
+/** Compact avatar+name follower chip (shared by rail + inline). Hover → PnL overlay. */
+function followerChip(sf: { handle: string; name: string; badge: string | null; avatar?: string | null }): HTMLElement {
+  const a = document.createElement('a');
+  a.href = `https://x.com/${sf.handle}`;
+  a.target = '_blank';
+  a.rel = 'noreferrer';
+  attachFollowerHover(a, sf);
+  Object.assign(a.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 9px 2px 3px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.10)', border: '1px solid rgba(124,131,255,0.35)', fontSize: '12px', fontWeight: '600', maxWidth: '170px' } as CSSStyleDeclaration);
+  const av = avatarEl(sf.handle, sf.name, sf.avatar);
+  av.style.width = '18px';
+  av.style.height = '18px';
+  a.appendChild(av);
+  const nm = document.createElement('span');
+  nm.textContent = sf.name;
+  Object.assign(nm.style, { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
+  a.appendChild(nm);
+  return a;
+}
+
+/* ── Inline (main-column) card — FrontRun-style: full-bleed line separators, no
+ *    boxes, "powered by pointer.trade" top-right, compact. Distinct from the
+ *    boxed rail card (buildCard/fill), which stays as-is. ── */
+function divider(): HTMLElement {
+  const d = document.createElement('div');
+  // Full-bleed against the body's 16px padding → spans the whole column like X's.
+  Object.assign(d.style, { height: '1px', background: TW.divider, margin: '10px -16px' } as CSSStyleDeclaration);
+  return d;
+}
+
+function inlineStat(k: string): { el: HTMLElement; set: (v: string, signed?: number | null) => void } {
+  const el = document.createElement('span');
+  Object.assign(el.style, { display: 'inline-flex', alignItems: 'baseline', gap: '6px' } as CSSStyleDeclaration);
+  const kl = document.createElement('span');
+  kl.textContent = k;
+  Object.assign(kl.style, { fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', color: TW.muted, fontWeight: '700' } as CSSStyleDeclaration);
+  const vl = document.createElement('span');
+  vl.textContent = '…';
+  Object.assign(vl.style, { fontSize: '14px', fontWeight: '800', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+  el.append(kl, vl);
+  return {
+    el,
+    set: (v, signed) => {
+      vl.textContent = v;
+      vl.style.color = signed == null ? TW.text : signed > 0 ? '#3ddc97' : signed < 0 ? '#ff5e78' : TW.text;
+    },
+  };
+}
+
+function buildInlineCard(id: string): HTMLElement {
+  const card = document.createElement('div');
+  card.id = id;
+  Object.assign(card.style, { width: '100%', boxSizing: 'border-box', font: 'inherit', color: TW.text } as CSSStyleDeclaration);
+  const body = document.createElement('div');
+  body.className = 'pt-rail-body';
+  Object.assign(body.style, { padding: '2px 16px 10px' } as CSSStyleDeclaration);
+  body.appendChild(textRow('Loading…'));
+  card.appendChild(body);
+  return card;
+}
+
+function fillInline(card: HTMLElement, data: ProfileSummary | null, handle: string): void {
+  const body = card.querySelector<HTMLElement>('.pt-rail-body');
+  if (!body) return;
+  body.textContent = '';
+
+  if (!data || !data.found) {
+    body.appendChild(textRow('Not in Pointer’s directory yet.'));
+    body.appendChild(tagButton(handle, body));
+    return;
+  }
+
+  // header: identity (left) + powered-by (right)
+  const head = document.createElement('div');
+  Object.assign(head.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '7px' } as CSSStyleDeclaration);
+  const nm = document.createElement('span');
+  nm.textContent = data.name ?? `@${handle}`;
+  Object.assign(nm.style, { fontSize: '15px', fontWeight: '800' } as CSSStyleDeclaration);
+  head.appendChild(nm);
+  if (data.verified) {
+    const v = document.createElement('span');
+    v.textContent = '✓';
+    Object.assign(v.style, { color: '#3ddc97', fontSize: '13px' } as CSSStyleDeclaration);
+    head.appendChild(v);
+  }
+  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) head.appendChild(pill(l));
+  const powered = document.createElement('a');
+  powered.href = 'https://pointer.trade';
+  powered.target = '_blank';
+  powered.rel = 'noreferrer';
+  Object.assign(powered.style, { marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: TW.muted, textDecoration: 'none', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
+  const plogo = document.createElement('img');
+  plogo.src = LOGO;
+  Object.assign(plogo.style, { width: '13px', height: '13px', objectFit: 'contain' } as CSSStyleDeclaration);
+  const ptxt = document.createElement('span');
+  ptxt.textContent = 'powered by pointer.trade';
+  powered.append(plogo, ptxt);
+  head.appendChild(powered);
+  body.appendChild(head);
+
+  // wallet + net worth + realized PnL — one wrapping row, separated by a line
+  if (data.wallets[0]) {
+    body.appendChild(divider());
+    const row = document.createElement('div');
+    Object.assign(row.style, { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px 18px' } as CSSStyleDeclaration);
+    const w0 = data.wallets[0];
+    const wlink = document.createElement('a');
+    wlink.href = explorer(w0.chain, w0.address);
+    wlink.target = '_blank';
+    wlink.rel = 'noreferrer';
+    Object.assign(wlink.style, { display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', color: TW.text, fontSize: '13px', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+    const waddr = document.createElement('span');
+    waddr.textContent = short(w0.address);
+    const wchain = document.createElement('span');
+    wchain.textContent = w0.chain.toUpperCase();
+    Object.assign(wchain.style, { fontSize: '10px', fontWeight: '800', color: TW.muted } as CSSStyleDeclaration);
+    const warrow = document.createElement('span');
+    warrow.textContent = '↗';
+    warrow.style.color = TW.muted;
+    wlink.append(waddr, wchain, warrow);
+    row.appendChild(wlink);
+    const nwStat = inlineStat('Net worth');
+    const pnlStat = inlineStat('Realized PnL');
+    row.append(nwStat.el, pnlStat.el);
+    body.appendChild(row);
+    void pointer.wallet(w0.address).then((r) => {
+      const w = r.ok ? (r.data as WalletIntel) : null;
+      nwStat.set(w?.netWorthUsd != null ? usd(w.netWorthUsd) : '—');
+      pnlStat.set(w?.realizedPnlUsd != null ? usd(w.realizedPnlUsd) : '—', w?.realizedPnlUsd ?? null);
+    });
+  }
+
+  // smart followers — show generously; "View more" only when it actually overflows
+  if (data.smartFollowers && data.smartFollowers > 0) {
+    body.appendChild(divider());
+    body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
+    const all = data.smartFollowerList ?? [];
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    body.appendChild(wrap);
+    const INITIAL = 21;
+    for (const sf of all.slice(0, INITIAL)) wrap.appendChild(followerChip(sf));
+    if (all.length > INITIAL) {
+      const more = document.createElement('button');
+      more.textContent = `View ${all.length - INITIAL} more`;
+      Object.assign(more.style, { marginTop: '8px', padding: '5px 12px', borderRadius: '999px', border: `1px solid ${TW.divider}`, background: 'transparent', color: TW.muted, fontWeight: '700', fontSize: '12px', cursor: 'pointer', font: 'inherit' } as CSSStyleDeclaration);
+      more.onclick = () => {
+        for (const sf of all.slice(INITIAL)) wrap.appendChild(followerChip(sf));
+        more.remove();
+      };
+      body.appendChild(more);
+    }
+  }
+
+  // CA history (best calls) — compact token chips, line-separated
+  if (data.cas && data.cas.length) {
+    body.appendChild(divider());
+    body.appendChild(label(`CA history · ${data.cas.length}`));
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    for (const c of data.cas.slice(0, 14)) {
+      const chip = document.createElement('a');
+      chip.href = c.chain === 'eth' ? `https://etherscan.io/token/${c.mint}` : `https://solscan.io/token/${c.mint}`;
+      chip.target = '_blank';
+      chip.rel = 'noreferrer';
+      chip.textContent = `${c.mint.slice(0, 4)}…${c.mint.slice(-4)}`;
+      Object.assign(chip.style, { fontSize: '11px', fontVariantNumeric: 'tabular-nums', padding: '3px 8px', borderRadius: '8px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+      wrap.appendChild(chip);
+    }
+    body.appendChild(wrap);
+  }
 }
 function initialsEl(handle: string, name: string): HTMLElement {
   const c = document.createElement('span');
