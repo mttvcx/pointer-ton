@@ -394,10 +394,10 @@ function fillInline(card: HTMLElement, data: ProfileSummary | null, handle: stri
   powered.href = 'https://pointer.trade';
   powered.target = '_blank';
   powered.rel = 'noreferrer';
-  Object.assign(powered.style, { marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: TW.muted, textDecoration: 'none', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
+  Object.assign(powered.style, { marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'rgb(160,166,173)', fontWeight: '600', textDecoration: 'none', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
   const plogo = document.createElement('img');
   plogo.src = LOGO;
-  Object.assign(plogo.style, { width: '13px', height: '13px', objectFit: 'contain' } as CSSStyleDeclaration);
+  Object.assign(plogo.style, { width: '18px', height: '18px', objectFit: 'contain' } as CSSStyleDeclaration);
   const ptxt = document.createElement('span');
   ptxt.textContent = 'powered by pointer.trade';
   powered.append(plogo, ptxt);
