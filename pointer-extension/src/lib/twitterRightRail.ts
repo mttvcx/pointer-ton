@@ -240,47 +240,38 @@ function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): v
     body.appendChild(wrap);
   }
 
-  // Smart followers — compact single-line rows, "See more" to expand (FrontRun-tight).
+  // Smart followers — wrapping grid of compact avatar+name chips (FrontRun-style).
   if (data.smartFollowers && data.smartFollowers > 0) {
     body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
     const all = data.smartFollowerList ?? [];
-    const list = document.createElement('div');
-    Object.assign(list.style, { display: 'flex', flexDirection: 'column' } as CSSStyleDeclaration);
-    const renderRow = (sf: { handle: string; name: string; badge: string | null; avatar?: string | null }) => {
-      const row = document.createElement('a');
-      row.href = `https://x.com/${sf.handle}`;
-      row.target = '_blank';
-      row.rel = 'noreferrer';
-      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', borderRadius: '8px', textDecoration: 'none', color: TW.text } as CSSStyleDeclaration);
-      row.onmouseenter = () => (row.style.background = TW.hover);
-      row.onmouseleave = () => (row.style.background = 'transparent');
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    const chipOf = (sf: { handle: string; name: string; badge: string | null; avatar?: string | null }) => {
+      const a = document.createElement('a');
+      a.href = `https://x.com/${sf.handle}`;
+      a.target = '_blank';
+      a.rel = 'noreferrer';
+      a.title = sf.badge ? `${sf.name} · ${sf.badge}` : sf.name;
+      Object.assign(a.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 9px 2px 3px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.10)', border: '1px solid rgba(124,131,255,0.35)', fontSize: '12px', fontWeight: '600', maxWidth: '170px' } as CSSStyleDeclaration);
       const av = avatarEl(sf.handle, sf.name, sf.avatar);
-      av.style.width = '22px';
-      av.style.height = '22px';
-      row.appendChild(av);
+      av.style.width = '18px';
+      av.style.height = '18px';
+      a.appendChild(av);
       const nm = document.createElement('span');
       nm.textContent = sf.name;
-      Object.assign(nm.style, { fontSize: '12.5px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: '0', maxWidth: '50%' } as CSSStyleDeclaration);
-      const hd = document.createElement('span');
-      hd.textContent = `@${sf.handle}`;
-      Object.assign(hd.style, { fontSize: '11.5px', color: TW.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1' } as CSSStyleDeclaration);
-      row.append(nm, hd);
-      if (sf.badge) {
-        const sb = pill(sf.badge);
-        sb.style.flexShrink = '0';
-        row.appendChild(sb);
-      }
-      return row;
+      Object.assign(nm.style, { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
+      a.appendChild(nm);
+      return a;
     };
-    const INITIAL = 5;
-    for (const sf of all.slice(0, INITIAL)) list.appendChild(renderRow(sf));
-    body.appendChild(list);
+    const INITIAL = 12;
+    for (const sf of all.slice(0, INITIAL)) wrap.appendChild(chipOf(sf));
+    body.appendChild(wrap);
     if (all.length > INITIAL) {
       const more = document.createElement('button');
       more.textContent = `See ${all.length - INITIAL} more`;
-      Object.assign(more.style, { width: '100%', marginTop: '6px', padding: '7px 0', borderRadius: '999px', border: `1px solid ${TW.divider}`, background: 'transparent', color: TW.text, fontWeight: '700', fontSize: '12.5px', cursor: 'pointer', font: 'inherit' } as CSSStyleDeclaration);
+      Object.assign(more.style, { marginTop: '8px', padding: '5px 12px', borderRadius: '999px', border: `1px solid ${TW.divider}`, background: 'transparent', color: TW.muted, fontWeight: '700', fontSize: '12px', cursor: 'pointer', font: 'inherit' } as CSSStyleDeclaration);
       more.onclick = () => {
-        for (const sf of all.slice(INITIAL)) list.appendChild(renderRow(sf));
+        for (const sf of all.slice(INITIAL)) wrap.appendChild(chipOf(sf));
         more.remove();
       };
       body.appendChild(more);
