@@ -243,6 +243,7 @@ export const JUPITER_SWAP_URL =
   process.env.JUPITER_SWAP_URL ?? 'https://lite-api.jup.ag/swap/v1/swap';
 
 /** Legacy Solana JSON-RPC (Helius) for Pulse / webhooks / ingest only — not the primary TON RPC. */
+// Key is env-driven (HELIUS_API_KEY); rotate via Vercel env + redeploy. Last rotation: 2026-06-30.
 export function getHeliusRpcUrl(): string {
   const key = process.env.HELIUS_API_KEY?.trim();
   if (key) {
