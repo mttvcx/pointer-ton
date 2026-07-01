@@ -72,6 +72,8 @@ export interface WalletIntel {
 export interface WalletPnl {
   realizedPnlUsd: number | null;
   chart: { t: number; v: number }[];
+  /** Biggest realized-PnL tokens — "Top Moves". */
+  topMoves?: { mint: string; symbol: string; pnlUsd: number }[];
   indexing: boolean;
 }
 

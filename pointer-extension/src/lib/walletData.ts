@@ -17,6 +17,7 @@ export type WalletData = {
   netWorthUsd: number | null;
   realizedPnlUsd: number | null;
   chart: { v: number }[];
+  topMoves: { mint: string; symbol: string; pnlUsd: number }[];
   indexing: boolean;
 };
 
@@ -54,11 +55,27 @@ async function fetchCombined(handle: string, timeframe: string): Promise<WalletD
   if (!oks.length) throw new Error('walletpnl_unavailable'); // all errored → retry
 
   const realized = oks.map((w) => w.realizedPnlUsd).filter((v): v is number => v != null);
+
+  // Top Moves — merge each wallet's biggest-PnL tokens by mint, re-rank, keep top 8.
+  const moveMap = new Map<string, { symbol: string; pnlUsd: number }>();
+  for (const w of oks) {
+    for (const m of w.topMoves ?? []) {
+      const e = moveMap.get(m.mint) ?? { symbol: m.symbol, pnlUsd: 0 };
+      e.pnlUsd += m.pnlUsd;
+      moveMap.set(m.mint, e);
+    }
+  }
+  const topMoves = [...moveMap.entries()]
+    .map(([mint, e]) => ({ mint, symbol: e.symbol, pnlUsd: e.pnlUsd }))
+    .sort((a, b) => Math.abs(b.pnlUsd) - Math.abs(a.pnlUsd))
+    .slice(0, 8);
+
   return {
     name: prof.name ?? null,
     netWorthUsd: null,
     realizedPnlUsd: realized.length ? realized.reduce((a, b) => a + b, 0) : null,
     chart: combineCurves(oks.map((w) => w.chart ?? [])),
+    topMoves,
     indexing: oks.some((w) => w.indexing),
   };
 }

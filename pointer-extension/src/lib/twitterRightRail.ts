@@ -8,8 +8,13 @@ import { pointer } from '@/pointer/client';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
 import type { WalletIntel } from '@/pointer/types';
 import { attachFollowerHover } from '@/lib/followerHover';
+import { getWalletData } from '@/lib/walletData';
 
-const usd = (n: number) => (Math.abs(n) >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`);
+const usd = (n: number) => {
+  const a = Math.abs(n);
+  const s = a >= 1e6 ? `$${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1)}M` : a >= 1e3 ? `$${(a / 1e3).toFixed(1)}k` : `$${a.toFixed(0)}`;
+  return n < 0 ? `-${s}` : s;
+};
 function statCell(k: string, v: string): HTMLElement {
   const cell = document.createElement('div');
   Object.assign(cell.style, { padding: '8px 10px', borderRadius: '10px', border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
@@ -324,6 +329,23 @@ function followerChip(sf: { handle: string; name: string; badge: string | null; 
   return a;
 }
 
+/** A "Top Moves" token chip: symbol + realized PnL (green up / red down). */
+function moveChip(m: { mint: string; symbol: string; pnlUsd: number }): HTMLElement {
+  const chip = document.createElement('a');
+  chip.href = `https://solscan.io/token/${m.mint}`;
+  chip.target = '_blank';
+  chip.rel = 'noreferrer';
+  chip.title = `${m.symbol} · ${usd(m.pnlUsd)} realized`;
+  Object.assign(chip.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 8px', borderRadius: '8px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}`, fontSize: '11px', fontWeight: '700' } as CSSStyleDeclaration);
+  const sym = document.createElement('span');
+  sym.textContent = m.symbol;
+  const val = document.createElement('span');
+  val.textContent = usd(m.pnlUsd);
+  Object.assign(val.style, { color: m.pnlUsd >= 0 ? '#3ddc97' : '#ff5e78', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+  chip.append(sym, val);
+  return chip;
+}
+
 /* ── Inline (main-column) card — FrontRun-style: full-bleed line separators, no
  *    boxes, "powered by pointer.trade" top-right, compact. Distinct from the
  *    boxed rail card (buildCard/fill), which stays as-is. ── */
@@ -431,8 +453,32 @@ function fillInline(card: HTMLElement, data: ProfileSummary | null, handle: stri
     body.appendChild(row);
     void pointer.wallet(w0.address).then((r) => {
       const w = r.ok ? (r.data as WalletIntel) : null;
-      nwStat.set(w?.netWorthUsd != null ? usd(w.netWorthUsd) : '—');
-      pnlStat.set(w?.realizedPnlUsd != null ? usd(w.realizedPnlUsd) : '—', w?.realizedPnlUsd ?? null);
+      nwStat.set(w?.netWorthUsd != null ? usd(w.netWorthUsd) : '—'); // net worth (heavy path)
+    });
+
+    // Realized PnL + Top Moves — fast indexed-swap path (shared with the ring/hover).
+    const movesLbl = label('Top Moves');
+    movesLbl.style.marginTop = '11px';
+    body.appendChild(movesLbl);
+    const movesWrap = document.createElement('div');
+    Object.assign(movesWrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    const movesNote = document.createElement('span');
+    movesNote.textContent = '…';
+    Object.assign(movesNote.style, { fontSize: '11px', color: TW.muted } as CSSStyleDeclaration);
+    movesWrap.appendChild(movesNote);
+    body.appendChild(movesWrap);
+    void getWalletData(handle).then((d) => {
+      pnlStat.set(d?.realizedPnlUsd != null ? usd(d.realizedPnlUsd) : d?.indexing ? '…' : '—', d?.realizedPnlUsd ?? null);
+      movesWrap.textContent = '';
+      const moves = d?.topMoves ?? [];
+      if (!moves.length) {
+        const n = document.createElement('span');
+        n.textContent = d?.indexing ? 'Indexing trades…' : 'No notable trades yet';
+        Object.assign(n.style, { fontSize: '11px', color: TW.muted } as CSSStyleDeclaration);
+        movesWrap.appendChild(n);
+        return;
+      }
+      for (const m of moves) movesWrap.appendChild(moveChip(m));
     });
   }
 
