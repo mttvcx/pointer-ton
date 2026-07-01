@@ -2,6 +2,7 @@ import 'server-only';
 
 import { fetchWalletSwapHistory } from '@/lib/indexer/fetchWalletSwapHistory';
 import { insertMintSwap } from '@/lib/db/mintSwaps';
+import { ensureTokenRowForMint } from '@/lib/helius/feed';
 import { fetchUsdPricesForMints } from '@/lib/jupiter/priceTickers';
 import { SOL_MINT } from '@/lib/utils/addresses';
 
@@ -57,8 +58,15 @@ async function runIndex(address: string): Promise<void> {
       const r = await insertMintSwap(swap).catch(() => 'error' as const);
       if (r === 'inserted') inserted += 1;
     }
+
+    // Backfill token metadata (symbols) for the traded mints, so Top Moves reads
+    // real names not mint prefixes. ensureTokenRowForMint is DB-first — it only
+    // hits DAS for tokens we don't already have. Deduped + capped.
+    const mints = [...new Set(res.swaps.map((s) => s.mint))].filter(Boolean).slice(0, 40);
+    for (const mint of mints) await ensureTokenRowForMint(mint).catch(() => null);
+
     lastIndexed.set(address, Date.now());
-    console.log(`[ext-index] ${address.slice(0, 8)}… swaps=${res.swaps.length} inserted=${inserted} pages=${res.pagesFetched} credits~${res.creditsEstimated}`);
+    console.log(`[ext-index] ${address.slice(0, 8)}… swaps=${res.swaps.length} inserted=${inserted} mints=${mints.length} pages=${res.pagesFetched} credits~${res.creditsEstimated}`);
   } catch (err) {
     console.warn('[ext-index] failed', address.slice(0, 8), err instanceof Error ? err.message : err);
   } finally {

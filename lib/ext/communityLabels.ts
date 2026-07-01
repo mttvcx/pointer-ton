@@ -23,6 +23,7 @@ interface CommunityRow {
   submitted_by: string;
   auto_verified?: boolean;
   source?: string;
+  hidden?: boolean;
 }
 interface CommunityTable {
   upsert: (v: Record<string, unknown>, o: { onConflict: string }) => Promise<{ error: { message: string } | null }>;
@@ -65,6 +66,59 @@ export async function submitCommunityLabel(p: {
   if (error) throw new Error(`community_submit_failed: ${error.message}`);
 }
 
+/* ── Admin cockpit over ext labels (community / AI / X / admin) ── */
+export interface ExtLabelAdminRow {
+  id: string;
+  subject_type: string;
+  subject: string;
+  label: string;
+  category: string | null;
+  source: string;
+  confidence: number | null;
+  auto_verified: boolean;
+  hidden: boolean;
+  submitted_by: string;
+  created_at: string;
+}
+interface LabelSelect {
+  eq: (c: string, v: unknown) => LabelSelect;
+  order: (c: string, o: { ascending: boolean }) => LabelSelect;
+  limit: (n: number) => Promise<{ data: ExtLabelAdminRow[] | null }>;
+}
+interface LabelMutate {
+  eq: (c: string, v: unknown) => Promise<{ error: { message: string } | null }>;
+}
+function adminTable(): { select: (c: string) => LabelSelect; update: (v: Record<string, unknown>) => LabelMutate; delete: () => LabelMutate } {
+  return (createAdminSupabase() as unknown as { from: (t: string) => ReturnType<typeof adminTable> }).from('community_labels');
+}
+
+const ADMIN_COLS = 'id, subject_type, subject, label, category, source, confidence, auto_verified, hidden, submitted_by, created_at';
+
+/** List ext labels for the admin panel, filtered by source and/or status. */
+export async function listExtLabels(opts?: { source?: string; status?: 'live' | 'queued' | 'hidden'; limit?: number }): Promise<ExtLabelAdminRow[]> {
+  let q = adminTable().select(ADMIN_COLS);
+  if (opts?.source) q = q.eq('source', opts.source);
+  if (opts?.status === 'hidden') q = q.eq('hidden', true);
+  else if (opts?.status === 'live') q = q.eq('hidden', false).eq('auto_verified', true);
+  else if (opts?.status === 'queued') q = q.eq('hidden', false).eq('auto_verified', false);
+  const { data } = await q.order('created_at', { ascending: false }).limit(Math.min(opts?.limit ?? 300, 1000));
+  return data ?? [];
+}
+
+export async function setExtLabelHidden(id: string, hidden: boolean): Promise<void> {
+  const { error } = await adminTable().update({ hidden }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+/** Approve a queued label → live (auto-verified, unhidden). */
+export async function approveExtLabel(id: string): Promise<void> {
+  const { error } = await adminTable().update({ auto_verified: true, hidden: false }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+export async function deleteExtLabel(id: string): Promise<void> {
+  const { error } = await adminTable().delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 /** True if the subject already has an AI- or X-sourced label (skip re-classifying). */
 export async function hasMachineLabel(subjectType: SubjectType, subject: string): Promise<boolean> {
   const key = subjectType === 'handle' ? norm(subject) : subject.trim();
@@ -90,9 +144,10 @@ export async function getAllCommunityLabels(userId: string, subjectType: Subject
   const key = subjectType === 'handle' ? norm(subject) : subject.trim();
   if (!key) return [];
   try {
-    const { data } = await table().select('subject, label, submitted_by, auto_verified').eq('subject_type', subjectType).in('subject', [key]).limit(200);
+    const { data } = await table().select('subject, label, submitted_by, auto_verified, hidden').eq('subject_type', subjectType).in('subject', [key]).limit(200);
     const counts = new Map<string, { c: number; mine: boolean; auto: boolean }>();
     for (const r of data ?? []) {
+      if (r.hidden) continue; // admin-hidden — never surface
       const e = counts.get(r.label) ?? { c: 0, mine: false, auto: false };
       e.c++;
       if (r.submitted_by === userId) e.mine = true;
@@ -117,9 +172,10 @@ export async function getCommunityLabels(
   if (!keys.length) return out;
 
   try {
-    const { data } = await table().select('subject, label, submitted_by, auto_verified').eq('subject_type', subjectType).in('subject', keys).limit(1000);
+    const { data } = await table().select('subject, label, submitted_by, auto_verified, hidden').eq('subject_type', subjectType).in('subject', keys).limit(1000);
     const tally = new Map<string, Map<string, { count: number; mine: boolean; auto: boolean }>>();
     for (const r of data ?? []) {
+      if (r.hidden) continue; // admin-hidden — never surface
       const byLabel = tally.get(r.subject) ?? new Map<string, { count: number; mine: boolean; auto: boolean }>();
       const e = byLabel.get(r.label) ?? { count: 0, mine: false, auto: false };
       e.count++;
