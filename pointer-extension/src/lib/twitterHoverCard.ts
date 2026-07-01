@@ -7,7 +7,7 @@
  */
 import { pointer } from '@/pointer/client';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
-import { demoCurve } from '@/lib/pnlDemo';
+import { getWalletData } from '@/lib/walletData';
 
 // Twitter's own tokens — match the native card so the panel is seamless.
 const TW = {
@@ -137,20 +137,35 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
   panel.appendChild(chartBox);
 
   const tfBtns: Record<string, HTMLButtonElement> = {};
+  let activeTf = '30d';
   const draw = (tf: string): void => {
+    activeTf = tf;
     for (const [id, b] of Object.entries(tfBtns)) {
       const on = id === tf;
       b.style.color = on ? '#fff' : TW.muted;
       b.style.background = on ? 'rgba(124,131,255,0.22)' : 'transparent';
       b.style.borderColor = on ? 'rgba(124,131,255,0.5)' : TW.divider;
     }
-    const pts = demoCurve(handle, tf); // DEMO — wire to /api/ext/wallet chart once UI is locked
-    const last = pts[pts.length - 1]?.v ?? 0;
-    const up = last >= 0;
-    pnlVal.textContent = `${up ? '+' : '−'}${usd(Math.abs(last))}`;
-    pnlVal.style.color = up ? UP : DOWN;
+    pnlVal.textContent = '…';
+    pnlVal.style.color = TW.muted;
     chartBox.textContent = '';
-    chartBox.appendChild(lineChart(pts, up ? UP : DOWN));
+    void getWalletData(handle, tf).then((d) => {
+      if (activeTf !== tf) return; // a newer toggle won the race
+      const realized = d?.realizedPnlUsd ?? null;
+      const chart = d?.chart ?? [];
+      const up = (realized ?? 0) >= 0;
+      pnlVal.textContent = realized != null ? `${up ? '+' : '−'}${usd(Math.abs(realized))}` : '—';
+      pnlVal.style.color = realized == null ? TW.text : up ? UP : DOWN;
+      chartBox.textContent = '';
+      if (chart.length >= 2) {
+        chartBox.appendChild(lineChart(chart, up ? UP : DOWN));
+      } else {
+        const n = document.createElement('div');
+        n.textContent = 'No trade history in this window';
+        Object.assign(n.style, { fontSize: '11px', color: TW.muted, textAlign: 'center', padding: '24px 0' } as CSSStyleDeclaration);
+        chartBox.appendChild(n);
+      }
+    });
   };
   for (const tf of [{ id: '1d', label: '1D' }, { id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: 'max', label: 'All' }]) {
     const b = document.createElement('button');

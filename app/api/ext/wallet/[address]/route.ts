@@ -22,10 +22,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ address: st
     return NextResponse.json({ error: 'invalid_address' }, { status: 400 });
   }
 
+  const tfParam = req.nextUrl.searchParams.get('timeframe');
+  const timeframe = (['1d', '7d', '30d', 'max'].includes(tfParam ?? '') ? tfParam : '30d') as '1d' | '7d' | '30d' | 'max';
+
   const stats = await getWalletStats(address).catch(() => null);
   let a: Awaited<ReturnType<typeof buildSolWalletAnalytics>> | null = null;
   try {
-    a = await buildSolWalletAnalytics({ address, timeframe: '30d', stats });
+    a = await buildSolWalletAnalytics({ address, timeframe, stats });
   } catch {
     return NextResponse.json({ error: 'wallet_unavailable' }, { status: 200 });
   }

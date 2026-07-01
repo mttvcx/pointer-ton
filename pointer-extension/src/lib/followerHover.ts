@@ -5,9 +5,7 @@
  * "trading view"). All real — profile → linked wallet → /api/ext/wallet analytics
  * (which now returns a true cumulative realized-PnL curve from indexed swaps).
  */
-import { pointer } from '@/pointer/client';
-import type { ProfileIntel } from '@/pointer/types';
-import { demoWallet } from '@/lib/pnlDemo';
+import { getWalletData } from '@/lib/walletData';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TW = {
@@ -132,12 +130,10 @@ function open(anchor: HTMLElement, sf: SF): void {
   });
 
   void (async () => {
-    const pr = await pointer.profile(sf.handle);
+    const d = await getWalletData(sf.handle); // real, all linked wallets combined
     if (token !== reqToken) return;
-    const prof = pr.ok ? (pr.data as ProfileIntel) : null;
-    if (prof?.name) nm.textContent = prof.name; // avatar hovers pass only the handle
-    const hasWallet = !!(prof?.wallets && prof.wallets.length);
-    if (!hasWallet) {
+    if (d?.name) nm.textContent = d.name; // avatar hovers pass only the handle
+    if (!d) {
       nw.set('—');
       pnl.set('—', null);
       slot.textContent = '';
@@ -145,12 +141,11 @@ function open(anchor: HTMLElement, sf: SF): void {
       place(el, anchor);
       return;
     }
-    // DEMO numbers + chart — wire-ready: swap demoWallet(handle) for pointer.wallet(addr)
-    const d = demoWallet(sf.handle);
-    nw.set(usd(d.netWorthUsd));
-    pnl.set(`${d.realizedPnlUsd >= 0 ? '+' : '−'}${usd(Math.abs(d.realizedPnlUsd))}`, d.realizedPnlUsd);
+    nw.set(d.netWorthUsd != null ? usd(d.netWorthUsd) : '—');
+    pnl.set(d.realizedPnlUsd != null ? `${d.realizedPnlUsd >= 0 ? '+' : '−'}${usd(Math.abs(d.realizedPnlUsd))}` : '—', d.realizedPnlUsd ?? null);
     slot.textContent = '';
     if (d.chart.length >= 2) slot.appendChild(sparkline(d.chart));
+    else slot.appendChild(note('Not enough trade history for a chart'));
     place(el, anchor);
   })();
 }

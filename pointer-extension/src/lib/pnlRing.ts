@@ -11,12 +11,11 @@
  * - No connected wallet → no ring. Sits just outside the avatar so it wraps an
  *   Ethos ring if present.
  *
- * PnL is DEMO for now (deterministic per handle) until wired to real realizedPnlUsd.
+ * PnL is REAL — realizedPnlUsd from getWalletData (all linked wallets combined,
+ * one cached fetch per handle shared with the popup + hover chart).
  */
-import { pointer } from '@/pointer/client';
-import type { ProfileIntel } from '@/pointer/types';
 import { attachFollowerHover } from '@/lib/followerHover';
-import { demoPnl } from '@/lib/pnlDemo';
+import { getWalletData } from '@/lib/walletData';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const UP = '#3ddc97';
@@ -51,13 +50,12 @@ export function startPnlRing(): void {
 async function applyTo(el: HTMLElement, handle: string): Promise<void> {
   let pnl = pnlCache.get(handle);
   if (pnl === undefined) {
-    const pr = await pointer.profile(handle);
-    const prof = pr.ok ? (pr.data as ProfileIntel) : null;
-    pnl = prof?.wallets && prof.wallets.length ? demoPnl(handle) : null; // DEMO until wired
+    const d = await getWalletData(handle); // real, all linked wallets combined
+    pnl = d?.realizedPnlUsd ?? null;
     pnlCache.set(handle, pnl);
   }
   if (pnl == null) {
-    el.dataset.ptNoRing = '1'; // no wallet → never ring this one
+    el.dataset.ptNoRing = '1'; // no wallet / no realized PnL → no ring
     return;
   }
   if (el.isConnected && !el.querySelector('.pt-pnl-ring')) drawRing(el, handle, pnl);

@@ -10,7 +10,7 @@ import type { TokenIntel, ProfileIntel, WalletIntel, ExtMe, ExtLabels } from '@/
 export type PointerRequest =
   | { type: 'pointer:token'; mint: string }
   | { type: 'pointer:profile'; handle: string }
-  | { type: 'pointer:wallet'; address: string }
+  | { type: 'pointer:wallet'; address: string; timeframe?: string }
   | { type: 'pointer:me' }
   | { type: 'pointer:connect' }
   | { type: 'pointer:disconnect' }
@@ -33,7 +33,7 @@ async function send<T>(req: PointerRequest): Promise<PointerResponse<T>> {
 export const pointer = {
   token: (mint: string) => send<TokenIntel>({ type: 'pointer:token', mint }),
   profile: (handle: string) => send<ProfileIntel>({ type: 'pointer:profile', handle }),
-  wallet: (address: string) => send<WalletIntel>({ type: 'pointer:wallet', address }),
+  wallet: (address: string, timeframe?: string) => send<WalletIntel>({ type: 'pointer:wallet', address, timeframe }),
   me: () => send<ExtMe>({ type: 'pointer:me' }),
   connect: () => send<ExtMe>({ type: 'pointer:connect' }),
   disconnect: () => send<{ ok: boolean }>({ type: 'pointer:disconnect' }),
