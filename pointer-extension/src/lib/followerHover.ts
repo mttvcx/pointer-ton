@@ -130,8 +130,14 @@ function open(anchor: HTMLElement, sf: SF): void {
   });
 
   void (async () => {
-    const d = await getWalletData(sf.handle); // real, all linked wallets combined
+    const d = await getWalletData(sf.handle).catch(() => undefined); // real, all wallets combined
     if (token !== reqToken) return;
+    if (d === undefined) {
+      slot.textContent = '';
+      slot.appendChild(note('Couldn’t load — hover again'));
+      place(el, anchor);
+      return;
+    }
     if (d?.name) nm.textContent = d.name; // avatar hovers pass only the handle
     if (!d) {
       nw.set('—');

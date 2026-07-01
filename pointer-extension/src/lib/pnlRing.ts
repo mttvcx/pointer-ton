@@ -50,7 +50,8 @@ export function startPnlRing(): void {
 async function applyTo(el: HTMLElement, handle: string): Promise<void> {
   let pnl = pnlCache.get(handle);
   if (pnl === undefined) {
-    const d = await getWalletData(handle); // real, all linked wallets combined
+    const d = await getWalletData(handle).catch(() => undefined); // real, all wallets combined
+    if (d === undefined) return; // transient (e.g. not connected yet) — retry on a later tick
     pnl = d?.realizedPnlUsd ?? null;
     pnlCache.set(handle, pnl);
   }

@@ -165,6 +165,15 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
         Object.assign(n.style, { fontSize: '11px', color: TW.muted, textAlign: 'center', padding: '24px 0' } as CSSStyleDeclaration);
         chartBox.appendChild(n);
       }
+    }).catch(() => {
+      if (activeTf !== tf) return; // transient (e.g. not connected yet)
+      pnlVal.textContent = '—';
+      pnlVal.style.color = TW.text;
+      chartBox.textContent = '';
+      const n = document.createElement('div');
+      n.textContent = 'Couldn’t load — try again';
+      Object.assign(n.style, { fontSize: '11px', color: TW.muted, textAlign: 'center', padding: '24px 0' } as CSSStyleDeclaration);
+      chartBox.appendChild(n);
     });
   };
   for (const tf of [{ id: '1d', label: '1D' }, { id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: 'max', label: 'All' }]) {

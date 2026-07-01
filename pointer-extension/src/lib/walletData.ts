@@ -25,24 +25,28 @@ export function getWalletData(handle: string, timeframe = '30d'): Promise<Wallet
   if (!p) {
     p = fetchCombined(handle, timeframe);
     cache.set(key, p);
+    // Transient failure (e.g. not connected yet) rejects — drop it so the next
+    // call refetches. Otherwise a pre-connect miss would stick until page reload.
+    void p.catch(() => cache.delete(key));
   }
   return p;
 }
 
 async function fetchCombined(handle: string, timeframe: string): Promise<WalletData | null> {
   const pr = await pointer.profile(handle);
-  const prof = pr.ok ? (pr.data as ProfileIntel) : null;
-  const wallets = prof?.wallets ?? [];
+  if (!pr.ok) throw new Error(pr.error || 'profile_unavailable'); // transient — not cached
+  const prof = pr.data as ProfileIntel;
+  const wallets = prof.wallets ?? [];
   const sol = wallets.filter((w) => w.chain === 'sol');
   const addrs = (sol.length ? sol : wallets).map((w) => w.address);
-  if (!addrs.length) return null; // no linked wallet
+  if (!addrs.length) return null; // genuine: no linked wallet → no ring
 
-  const intels = (await Promise.all(addrs.map((a) => pointer.wallet(a, timeframe))))
-    .map((r) => (r.ok ? (r.data as WalletIntel) : null))
-    .filter((x): x is WalletIntel => x != null);
+  const results = await Promise.all(addrs.map((a) => pointer.wallet(a, timeframe)));
+  const intels = results.map((r) => (r.ok ? (r.data as WalletIntel) : null)).filter((x): x is WalletIntel => x != null);
+  if (!intels.length) throw new Error('wallet_unavailable'); // all fetches errored → retry, don't cache
 
   return {
-    name: prof?.name ?? null,
+    name: prof.name ?? null,
     netWorthUsd: sumNullable(intels.map((i) => i.netWorthUsd)),
     realizedPnlUsd: sumNullable(intels.map((i) => i.realizedPnlUsd)),
     chart: combineCurves(intels.map((i) => i.chart ?? [])),

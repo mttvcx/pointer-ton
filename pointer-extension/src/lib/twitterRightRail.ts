@@ -475,6 +475,53 @@ function fillInline(card: HTMLElement, data: ProfileSummary | null, handle: stri
     }
     body.appendChild(wrap);
   }
+
+  // Tag this account yourself — always available (feeds the crowdsourced label pool)
+  body.appendChild(divider());
+  body.appendChild(tagControl(handle));
+}
+
+/** Inline "＋ Add your tag" control — button → input → submit, without wiping the card. */
+function tagControl(handle: string): HTMLElement {
+  const wrap = document.createElement('div');
+  const btn = document.createElement('button');
+  btn.textContent = '＋ Add your tag';
+  Object.assign(btn.style, { padding: '4px 11px', borderRadius: '999px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', color: TW.muted, background: 'transparent', border: `1px solid ${TW.divider}`, font: 'inherit' } as CSSStyleDeclaration);
+  const done = (msg: string) => {
+    wrap.textContent = '';
+    const s = document.createElement('span');
+    s.textContent = msg;
+    Object.assign(s.style, { fontSize: '11px', color: TW.muted } as CSSStyleDeclaration);
+    wrap.appendChild(s);
+  };
+  btn.onclick = () => {
+    wrap.textContent = '';
+    const input = document.createElement('input');
+    input.placeholder = 'KOL · Dev · Scammer · Insider…';
+    input.maxLength = 32;
+    Object.assign(input.style, { width: '190px', maxWidth: '100%', boxSizing: 'border-box', padding: '6px 10px', borderRadius: '9px', fontSize: '12.5px', font: 'inherit', color: TW.text, background: 'transparent', border: `1px solid ${TW.btnBorder}`, outline: 'none' } as CSSStyleDeclaration);
+    const submit = async () => {
+      const v = input.value.trim();
+      if (!v) return;
+      input.disabled = true;
+      const res = await pointer.submitLabel('handle', handle, v, 'kol');
+      done(res.ok ? `✓ Tagged “${v}” — public once others agree.` : 'Couldn’t submit — retry.');
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void submit();
+      if (e.key === 'Escape') {
+        wrap.textContent = '';
+        wrap.appendChild(btn);
+      }
+    });
+    input.addEventListener('blur', () => {
+      if (input.value.trim()) void submit();
+    });
+    wrap.appendChild(input);
+    input.focus();
+  };
+  wrap.appendChild(btn);
+  return wrap;
 }
 function initialsEl(handle: string, name: string): HTMLElement {
   const c = document.createElement('span');
