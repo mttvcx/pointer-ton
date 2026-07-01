@@ -24,6 +24,13 @@ export default defineConfig({
     description: 'Crypto intelligence, everywhere you browse. The official Pointer extension.',
     author: 'Pointer',
     permissions: ['storage', 'activeTab', 'scripting', 'downloads', 'sidePanel'],
+    // Toolbar / management-page icon (the bird). Chrome scales the one source.
+    icons: {
+      16: 'pointer-bird.png',
+      32: 'pointer-bird.png',
+      48: 'pointer-bird.png',
+      128: 'pointer-bird.png',
+    },
     // V1 supported sites — add a site = add a host + an adapter file.
     host_permissions: [
       ...(LOCAL ? ['http://localhost/*', 'http://127.0.0.1/*'] : []),
@@ -74,6 +81,6 @@ export default defineConfig({
     content_security_policy: {
       extension_pages: "script-src 'self'; object-src 'self';",
     },
-    action: { default_title: 'Pointer' },
+    action: { default_title: 'Pointer', default_icon: { 16: 'pointer-bird.png', 32: 'pointer-bird.png', 48: 'pointer-bird.png' } },
   },
 });
