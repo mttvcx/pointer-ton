@@ -1,4 +1,4 @@
-import type { TokenIntel, ProfileIntel, WalletIntel, ExtMe, ExtLabels } from '@/pointer/types';
+import type { TokenIntel, ProfileIntel, WalletIntel, WalletPnl, ExtMe, ExtLabels } from '@/pointer/types';
 
 /**
  * Pointer client (content-script side). Content scripts NEVER hold the auth token
@@ -11,6 +11,7 @@ export type PointerRequest =
   | { type: 'pointer:token'; mint: string }
   | { type: 'pointer:profile'; handle: string }
   | { type: 'pointer:wallet'; address: string; timeframe?: string }
+  | { type: 'pointer:walletPnl'; address: string; timeframe?: string }
   | { type: 'pointer:me' }
   | { type: 'pointer:connect' }
   | { type: 'pointer:disconnect' }
@@ -34,6 +35,7 @@ export const pointer = {
   token: (mint: string) => send<TokenIntel>({ type: 'pointer:token', mint }),
   profile: (handle: string) => send<ProfileIntel>({ type: 'pointer:profile', handle }),
   wallet: (address: string, timeframe?: string) => send<WalletIntel>({ type: 'pointer:wallet', address, timeframe }),
+  walletPnl: (address: string, timeframe?: string) => send<WalletPnl>({ type: 'pointer:walletPnl', address, timeframe }),
   me: () => send<ExtMe>({ type: 'pointer:me' }),
   connect: () => send<ExtMe>({ type: 'pointer:connect' }),
   disconnect: () => send<{ ok: boolean }>({ type: 'pointer:disconnect' }),

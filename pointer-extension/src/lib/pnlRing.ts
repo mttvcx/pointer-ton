@@ -28,38 +28,30 @@ const usd = (n: number): string => {
   return a >= 1000 ? `$${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : `$${a.toFixed(0)}`;
 };
 
-// handle → PnL (null = no wallet → no ring). Cached so each handle is fetched once.
-const pnlCache = new Map<string, number | null>();
-
 export function startPnlRing(): void {
   const tick = () => {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[data-testid^="${PREFIX}"]`))) {
-      if (el.dataset.ptNoRing || el.querySelector('.pt-pnl-ring')) continue;
+      if (el.dataset.ptSkip || el.querySelector('.pt-pnl-ring')) continue;
       const handle = (el.getAttribute('data-testid') || '').slice(PREFIX.length).toLowerCase();
       if (!handle || RESERVED.has(handle)) {
-        el.dataset.ptNoRing = '1';
+        el.dataset.ptSkip = '1'; // reserved / no handle — never ring this element
         continue;
       }
       void applyTo(el, handle);
     }
   };
-  window.setInterval(tick, 900);
+  window.setInterval(tick, 1500);
   tick();
 }
 
+// No local cache/markers on purpose: getWalletData is TTL-cached (short while a
+// wallet is still indexing, long once final), so re-checking each tick is cheap
+// and the ring self-populates the moment the on-demand backfill lands.
 async function applyTo(el: HTMLElement, handle: string): Promise<void> {
-  let pnl = pnlCache.get(handle);
-  if (pnl === undefined) {
-    const d = await getWalletData(handle).catch(() => undefined); // real, all wallets combined
-    if (d === undefined) return; // transient (e.g. not connected yet) — retry on a later tick
-    pnl = d?.realizedPnlUsd ?? null;
-    pnlCache.set(handle, pnl);
-  }
-  if (pnl == null) {
-    el.dataset.ptNoRing = '1'; // no wallet / no realized PnL → no ring
-    return;
-  }
-  if (el.isConnected && !el.querySelector('.pt-pnl-ring')) drawRing(el, handle, pnl);
+  const d = await getWalletData(handle).catch(() => undefined);
+  // transient / no wallet / no realized PnL yet → no ring (retry as the TTL expires)
+  if (!d || d.realizedPnlUsd == null) return;
+  if (el.isConnected && !el.querySelector('.pt-pnl-ring')) drawRing(el, handle, d.realizedPnlUsd);
 }
 
 function drawRing(container: HTMLElement, handle: string, pnl: number): void {

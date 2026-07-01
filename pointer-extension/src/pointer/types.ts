@@ -66,6 +66,13 @@ export interface WalletIntel {
   chart?: { t: number; v: number }[];
 }
 
+/** Fast realized-PnL read (from indexed swaps). `indexing` = backfill in progress. */
+export interface WalletPnl {
+  realizedPnlUsd: number | null;
+  chart: { t: number; v: number }[];
+  indexing: boolean;
+}
+
 export interface ProfileIntel {
   handle: string;
   name: string | null;

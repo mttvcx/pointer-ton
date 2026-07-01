@@ -147,6 +147,14 @@ function open(anchor: HTMLElement, sf: SF): void {
       place(el, anchor);
       return;
     }
+    if (d.indexing) {
+      nw.set('…');
+      pnl.set('…', null);
+      slot.textContent = '';
+      slot.appendChild(note('Indexing trades — hover again in a moment'));
+      place(el, anchor);
+      return;
+    }
     nw.set(d.netWorthUsd != null ? usd(d.netWorthUsd) : '—');
     pnl.set(d.realizedPnlUsd != null ? `${d.realizedPnlUsd >= 0 ? '+' : '−'}${usd(Math.abs(d.realizedPnlUsd))}` : '—', d.realizedPnlUsd ?? null);
     slot.textContent = '';

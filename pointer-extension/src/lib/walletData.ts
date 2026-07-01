@@ -1,34 +1,42 @@
 /**
- * Real wallet intelligence for a handle — the single fetch path the avatar ring,
- * portfolio popup, and hover chart all share. Resolves the handle's linked Solana
- * wallet(s) via /api/ext/profile, pulls each wallet's analytics from
- * /api/ext/wallet, and COMBINES them (net worth + realized PnL summed, cumulative
- * realized-PnL curves merged). Results are cached (and in-flight deduped) per
- * handle+timeframe, so N surfaces showing the same account cost one round-trip.
+ * Real wallet PnL for a handle — the single path the avatar ring, portfolio popup,
+ * and hover chart share. Resolves the handle's linked Solana wallet(s) via
+ * /api/ext/profile, then reads each wallet's realized PnL + curve from the FAST
+ * /api/ext/wallet-pnl (indexed swaps, no live prices), COMBINED across wallets. A
+ * miss triggers a bounded on-demand backfill server-side (`indexing: true`).
+ *
+ * Cached per handle+timeframe with a TTL that's short while indexing (so it
+ * refreshes once data lands) and long once we have a final answer. Net worth is
+ * NOT on this path (it needs the slow live-balance/price fetch) — it's null here.
  */
 import { pointer } from '@/pointer/client';
-import type { ProfileIntel, WalletIntel } from '@/pointer/types';
+import type { ProfileIntel, WalletPnl } from '@/pointer/types';
 
 export type WalletData = {
   name: string | null;
   netWorthUsd: number | null;
   realizedPnlUsd: number | null;
   chart: { v: number }[];
+  indexing: boolean;
 };
 
-// null = account has no linked wallet (→ no ring, no popup PnL).
-const cache = new Map<string, Promise<WalletData | null>>();
+type Entry = { at: number; ttl: number; p: Promise<WalletData | null> };
+const cache = new Map<string, Entry>();
 
 export function getWalletData(handle: string, timeframe = '30d'): Promise<WalletData | null> {
   const key = `${handle.toLowerCase()}:${timeframe}`;
-  let p = cache.get(key);
-  if (!p) {
-    p = fetchCombined(handle, timeframe);
-    cache.set(key, p);
-    // Transient failure (e.g. not connected yet) rejects — drop it so the next
-    // call refetches. Otherwise a pre-connect miss would stick until page reload.
-    void p.catch(() => cache.delete(key));
-  }
+  const e = cache.get(key);
+  if (e && Date.now() - e.at < e.ttl) return e.p;
+  const p = fetchCombined(handle, timeframe);
+  const entry: Entry = { at: Date.now(), ttl: 60_000, p };
+  cache.set(key, entry);
+  void p
+    .then((d) => {
+      // Final (has PnL, or genuinely no wallet) caches long; still-indexing caches
+      // short so the ring/popup pick up the data once the backfill lands.
+      entry.ttl = d == null || (d.realizedPnlUsd != null && !d.indexing) ? 10 * 60_000 : 15_000;
+    })
+    .catch(() => cache.delete(key)); // transient failure → refetch next call
   return p;
 }
 
@@ -41,21 +49,18 @@ async function fetchCombined(handle: string, timeframe: string): Promise<WalletD
   const addrs = (sol.length ? sol : wallets).map((w) => w.address);
   if (!addrs.length) return null; // genuine: no linked wallet → no ring
 
-  const results = await Promise.all(addrs.map((a) => pointer.wallet(a, timeframe)));
-  const intels = results.map((r) => (r.ok ? (r.data as WalletIntel) : null)).filter((x): x is WalletIntel => x != null);
-  if (!intels.length) throw new Error('wallet_unavailable'); // all fetches errored → retry, don't cache
+  const results = await Promise.all(addrs.map((a) => pointer.walletPnl(a, timeframe)));
+  const oks = results.filter((r) => r.ok).map((r) => (r as { data: WalletPnl }).data);
+  if (!oks.length) throw new Error('walletpnl_unavailable'); // all errored → retry
 
+  const realized = oks.map((w) => w.realizedPnlUsd).filter((v): v is number => v != null);
   return {
     name: prof.name ?? null,
-    netWorthUsd: sumNullable(intels.map((i) => i.netWorthUsd)),
-    realizedPnlUsd: sumNullable(intels.map((i) => i.realizedPnlUsd)),
-    chart: combineCurves(intels.map((i) => i.chart ?? [])),
+    netWorthUsd: null,
+    realizedPnlUsd: realized.length ? realized.reduce((a, b) => a + b, 0) : null,
+    chart: combineCurves(oks.map((w) => w.chart ?? [])),
+    indexing: oks.some((w) => w.indexing),
   };
-}
-
-function sumNullable(vals: (number | null)[]): number | null {
-  const nums = vals.filter((v): v is number => v != null && Number.isFinite(v));
-  return nums.length ? nums.reduce((a, b) => a + b, 0) : null;
 }
 
 /** Merge cumulative realized-PnL curves ({t,v}) into one portfolio curve: at each

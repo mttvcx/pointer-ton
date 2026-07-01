@@ -14,6 +14,7 @@ export default defineBackground(() => {
     token: 20_000,
     profile: 60_000,
     wallet: 60_000,
+    walletPnl: 15_000, // short — so a pending "indexing" wallet refreshes once data lands
     me: 30_000,
     ai: 5 * 60_000,
   };
@@ -27,6 +28,10 @@ export default defineBackground(() => {
       case 'pointer:wallet': {
         const tf = req.timeframe ?? '30d';
         return { key: `wallet:${req.address}:${tf}`, path: `/wallet/${req.address}?timeframe=${tf}`, kind: 'wallet' };
+      }
+      case 'pointer:walletPnl': {
+        const tf = req.timeframe ?? '30d';
+        return { key: `walletPnl:${req.address}:${tf}`, path: `/wallet-pnl/${req.address}?timeframe=${tf}`, kind: 'walletPnl' };
       }
       case 'pointer:me':
         return { key: 'me', path: `/me`, kind: 'me' };
@@ -137,7 +142,9 @@ export default defineBackground(() => {
       const data = await res.json();
       // Don't cache a transient "not found" profile (e.g. a blip mid-import) —
       // let it retry on the next view instead of sticking for the TTL.
-      const skipCache = route.kind === 'profile' && data && (data as { found?: boolean }).found === false;
+      const skipCache =
+        (route.kind === 'profile' && data && (data as { found?: boolean }).found === false) ||
+        (route.kind === 'walletPnl' && data && (data as { indexing?: boolean }).indexing === true);
       if (!skipCache) mem.set(route.key, { at: Date.now(), data });
       return data;
     })();

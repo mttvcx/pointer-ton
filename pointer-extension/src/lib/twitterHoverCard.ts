@@ -151,6 +151,16 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     chartBox.textContent = '';
     void getWalletData(handle, tf).then((d) => {
       if (activeTf !== tf) return; // a newer toggle won the race
+      if (d?.indexing) {
+        pnlVal.textContent = '…';
+        pnlVal.style.color = TW.muted;
+        chartBox.textContent = '';
+        const n = document.createElement('div');
+        n.textContent = 'Indexing trades — one moment';
+        Object.assign(n.style, { fontSize: '11px', color: TW.muted, textAlign: 'center', padding: '24px 0' } as CSSStyleDeclaration);
+        chartBox.appendChild(n);
+        return;
+      }
       const realized = d?.realizedPnlUsd ?? null;
       const chart = d?.chart ?? [];
       const up = (realized ?? 0) >= 0;
