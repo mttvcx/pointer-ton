@@ -10,6 +10,14 @@ const LOCAL = process.env.EXT_LOCAL === '1';
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
+  // API base is deterministic per build mode (overrides any committed .env): local
+  // dev → :3001, everything else → pointer.trade. Prevents a store/prod build from
+  // accidentally shipping localhost.
+  vite: () => ({
+    define: {
+      'import.meta.env.VITE_POINTER_API_BASE': JSON.stringify(LOCAL ? 'http://localhost:3001' : 'https://pointer.trade'),
+    },
+  }),
   manifest: {
     name: 'Pointer',
     short_name: 'Pointer',
