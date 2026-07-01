@@ -21,6 +21,8 @@ interface CommunityRow {
   subject: string;
   label: string;
   submitted_by: string;
+  auto_verified?: boolean;
+  source?: string;
 }
 interface CommunityTable {
   upsert: (v: Record<string, unknown>, o: { onConflict: string }) => Promise<{ error: { message: string } | null }>;
@@ -38,15 +40,41 @@ export async function submitCommunityLabel(p: {
   subject: string;
   label: string;
   category?: string | null;
+  /** 'user' (crowdsource, needs agreement), 'ai' (Claude), or 'x' (X's own affiliation). */
+  source?: 'user' | 'ai' | 'x';
+  confidence?: number | null;
+  /** authoritative — surfaces immediately without needing N agreements (X labels, high-confidence AI). */
+  autoVerified?: boolean;
 }): Promise<void> {
   const subject = p.subjectType === 'handle' ? norm(p.subject) : p.subject.trim();
   const label = p.label.trim().slice(0, 64);
   if (!subject || !label) throw new Error('empty');
   const { error } = await table().upsert(
-    { subject_type: p.subjectType, subject, label, category: p.category ?? null, submitted_by: p.userId },
+    {
+      subject_type: p.subjectType,
+      subject,
+      label,
+      category: p.category ?? null,
+      submitted_by: p.userId,
+      source: p.source ?? 'user',
+      confidence: p.confidence ?? null,
+      auto_verified: p.autoVerified ?? false,
+    },
     { onConflict: 'subject_type,subject,submitted_by' },
   );
   if (error) throw new Error(`community_submit_failed: ${error.message}`);
+}
+
+/** True if the subject already has an AI- or X-sourced label (skip re-classifying). */
+export async function hasMachineLabel(subjectType: SubjectType, subject: string): Promise<boolean> {
+  const key = subjectType === 'handle' ? norm(subject) : subject.trim();
+  if (!key) return false;
+  try {
+    const { data } = await table().select('subject, label, submitted_by, source').eq('subject_type', subjectType).in('subject', [key]).limit(50);
+    return (data ?? []).some((r) => r.source === 'ai' || r.source === 'x');
+  } catch {
+    return false;
+  }
 }
 
 export interface CommunityHit {
@@ -62,15 +90,16 @@ export async function getAllCommunityLabels(userId: string, subjectType: Subject
   const key = subjectType === 'handle' ? norm(subject) : subject.trim();
   if (!key) return [];
   try {
-    const { data } = await table().select('subject, label, submitted_by').eq('subject_type', subjectType).in('subject', [key]).limit(200);
-    const counts = new Map<string, { c: number; mine: boolean }>();
+    const { data } = await table().select('subject, label, submitted_by, auto_verified').eq('subject_type', subjectType).in('subject', [key]).limit(200);
+    const counts = new Map<string, { c: number; mine: boolean; auto: boolean }>();
     for (const r of data ?? []) {
-      const e = counts.get(r.label) ?? { c: 0, mine: false };
+      const e = counts.get(r.label) ?? { c: 0, mine: false, auto: false };
       e.c++;
       if (r.submitted_by === userId) e.mine = true;
+      if (r.auto_verified) e.auto = true;
       counts.set(r.label, e);
     }
-    return [...counts.entries()].filter(([, e]) => e.c >= THRESHOLD || e.mine).map(([l]) => l);
+    return [...counts.entries()].filter(([, e]) => e.c >= THRESHOLD || e.mine || e.auto).map(([l]) => l);
   } catch {
     return [];
   }
@@ -88,23 +117,29 @@ export async function getCommunityLabels(
   if (!keys.length) return out;
 
   try {
-    const { data } = await table().select('subject, label, submitted_by').eq('subject_type', subjectType).in('subject', keys).limit(1000);
-    const tally = new Map<string, Map<string, { count: number; mine: boolean }>>();
+    const { data } = await table().select('subject, label, submitted_by, auto_verified').eq('subject_type', subjectType).in('subject', keys).limit(1000);
+    const tally = new Map<string, Map<string, { count: number; mine: boolean; auto: boolean }>>();
     for (const r of data ?? []) {
-      const byLabel = tally.get(r.subject) ?? new Map<string, { count: number; mine: boolean }>();
-      const e = byLabel.get(r.label) ?? { count: 0, mine: false };
+      const byLabel = tally.get(r.subject) ?? new Map<string, { count: number; mine: boolean; auto: boolean }>();
+      const e = byLabel.get(r.label) ?? { count: 0, mine: false, auto: false };
       e.count++;
       if (r.submitted_by === userId) e.mine = true;
+      if (r.auto_verified) e.auto = true;
       byLabel.set(r.label, e);
       tally.set(r.subject, byLabel);
     }
     for (const [subject, byLabel] of tally) {
-      let best: { label: string; count: number; mine: boolean } | null = null;
+      let best: { label: string; count: number; mine: boolean; auto: boolean } | null = null;
       for (const [label, e] of byLabel) {
-        if (!best || e.count > best.count || (e.mine && !best.mine)) best = { label, count: e.count, mine: e.mine };
+        if (!best) {
+          best = { label, count: e.count, mine: e.mine, auto: e.auto };
+          continue;
+        }
+        const better = (e.auto && !best.auto) || (e.auto === best.auto && (e.count > best.count || (e.mine && !best.mine)));
+        if (better) best = { label, count: e.count, mine: e.mine, auto: e.auto };
       }
-      if (best && (best.count >= THRESHOLD || best.mine)) {
-        out[subject] = { label: best.label, count: best.count, verified: best.count >= THRESHOLD, mine: best.mine };
+      if (best && (best.count >= THRESHOLD || best.mine || best.auto)) {
+        out[subject] = { label: best.label, count: best.count, verified: best.count >= THRESHOLD || best.auto, mine: best.mine };
       }
     }
   } catch {

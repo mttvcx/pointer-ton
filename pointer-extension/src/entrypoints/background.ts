@@ -84,6 +84,23 @@ export default defineBackground(() => {
         return { ok: false, error: e instanceof Error ? e.message : 'failed' };
       }
     }
+    if (req.type === 'pointer:aiLabel') {
+      try {
+        const token = await ensureToken();
+        if (!token) return { ok: false, error: 'not_connected' };
+        const res = await fetch(`${apiBase()}/api/ext/ai/label`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ handle: req.handle, name: req.name, bio: req.bio, affiliation: req.affiliation, followers: req.followers }),
+        });
+        if (!res.ok) return { ok: false, error: `http_${res.status}` };
+        const data = await res.json();
+        if (data && data.applied) mem.clear(); // a new label went live — drop cache so it shows
+        return { ok: true, data };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'failed' };
+      }
+    }
     if (req.type === 'pointer:submitCas') {
       try {
         const token = await ensureToken();

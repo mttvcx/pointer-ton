@@ -19,6 +19,7 @@ export type PointerRequest =
   | { type: 'pointer:submitLabel'; subjectType: 'handle' | 'wallet'; subject: string; label: string; category?: string }
   | { type: 'pointer:submitCas'; handle: string; cas: { mint: string; chain?: string }[] }
   | { type: 'pointer:submitFollowers'; handle: string; followers: { handle: string; avatar?: string }[] }
+  | { type: 'pointer:aiLabel'; handle: string; name?: string; bio?: string; affiliation?: string; followers?: number }
   | { type: 'pointer:ai'; kind: 'token' | 'profile' | 'wallet' | 'project'; ref: string };
 
 export type PointerResponse<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -46,6 +47,8 @@ export const pointer = {
     send<{ ok: boolean; stored: number }>({ type: 'pointer:submitCas', handle, cas }),
   submitFollowers: (handle: string, followers: { handle: string; avatar?: string }[]) =>
     send<{ ok: boolean; stored: number }>({ type: 'pointer:submitFollowers', handle, followers }),
+  aiLabel: (meta: { handle: string; name?: string; bio?: string; affiliation?: string; followers?: number }) =>
+    send<{ ok: boolean; label?: string | null; applied?: boolean; queued?: boolean }>({ type: 'pointer:aiLabel', ...meta }),
 };
 
 /** Deep links back into Pointer — the funnel. The extension never signs; trade

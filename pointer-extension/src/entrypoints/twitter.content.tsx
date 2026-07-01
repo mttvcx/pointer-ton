@@ -35,7 +35,26 @@ export default defineContentScript({
       for (const t of targets) bindHover(t);
       captureCas(targets);
       captureFollowers();
+      captureProfileMeta();
     };
+
+    // AI auto-labeler: on a profile page, send the account's public name + bio so
+    // Claude can label what they do (any domain — many "key followers" aren't crypto).
+    // Fires once per handle per session; the server dedups + only classifies once ever.
+    const seenMeta = new Set<string>();
+    function captureProfileMeta() {
+      const m = PROFILE_RE.exec(location.pathname);
+      const handle = m?.[1]?.toLowerCase();
+      if (!handle || RESERVED.has(handle) || seenMeta.has(handle)) return;
+      const nameEl = document.querySelector<HTMLElement>('[data-testid="UserName"]');
+      const bioEl = document.querySelector<HTMLElement>('[data-testid="UserDescription"]');
+      if (!nameEl || !bioEl) return; // wait until the header + bio have rendered
+      seenMeta.add(handle);
+      const name = (nameEl.querySelector('span')?.textContent ?? '').trim();
+      const bio = (bioEl.textContent ?? '').trim();
+      if (!bio) return;
+      void pointer.aiLabel({ handle, name, bio });
+    }
 
     // Smart followers: on a handle's followers page, submit the @handles X rendered;
     // the server keeps the ones that are known KOLs. Built from public X data.
