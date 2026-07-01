@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { requireExtAuth } from '@/lib/ext/auth';
 import { isValidPublicKey } from '@/lib/utils/addresses';
 import { listAllSwapsForWallet } from '@/lib/db/mintSwaps';
@@ -38,8 +38,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ address: st
 
   const swaps = await listAllSwapsForWallet(address, sinceIso ? { sinceIso } : undefined).catch(() => []);
   if (swaps.length === 0) {
-    const indexing = scheduleWalletIndex(address); // bounded background backfill
-    return NextResponse.json({ realizedPnlUsd: null, chart: [], topMoves: [], indexing });
+    const { scheduled, work } = scheduleWalletIndex(address);
+    if (work) after(work); // keep the function alive on Vercel until the backfill lands
+    return NextResponse.json({ realizedPnlUsd: null, chart: [], topMoves: [], indexing: scheduled });
   }
 
   const { realizedPnlUsd, chart, byMint } = realizedFromSwaps(swaps);
