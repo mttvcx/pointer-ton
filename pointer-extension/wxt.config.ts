@@ -25,7 +25,7 @@ export default defineConfig({
     short_name: 'Pointer',
     description: 'Crypto intelligence, everywhere you browse. The official Pointer extension.',
     author: 'Pointer',
-    permissions: ['storage', 'activeTab', 'scripting', 'downloads', 'sidePanel'],
+    permissions: ['storage', 'downloads', 'sidePanel'],
     // Toolbar / management-page icon (the bird). Chrome scales the one source.
     icons: {
       16: 'pointer-bird.png',
@@ -40,17 +40,9 @@ export default defineConfig({
       'https://pointer-ton-orcin.vercel.app/*',
       'https://pointer.trade/*',
       'https://*.pointer.trade/*',
+      // The site with a content-script adapter today. Add more hosts as adapters ship.
       'https://x.com/*',
       'https://twitter.com/*',
-      'https://dexscreener.com/*',
-      'https://solscan.io/*',
-      'https://pump.fun/*',
-      'https://gmgn.ai/*',
-      'https://axiom.trade/*',
-      'https://photon-sol.tinyastro.io/*',
-      'https://*.bullx.io/*',
-      'https://neo.bullx.io/*',
-      'https://github.com/*',
     ],
     // Only pointer.trade may message the extension (the connect handshake hands a
     // single-use code in; nothing else can reach the background externally).
@@ -67,18 +59,7 @@ export default defineConfig({
     web_accessible_resources: [
       {
         resources: ['pointer-bird.png', 'geist.woff2'],
-        matches: [
-          'https://x.com/*',
-          'https://twitter.com/*',
-          'https://dexscreener.com/*',
-          'https://solscan.io/*',
-          'https://pump.fun/*',
-          'https://gmgn.ai/*',
-          'https://axiom.trade/*',
-          'https://photon-sol.tinyastro.io/*',
-          'https://*.bullx.io/*',
-          'https://github.com/*',
-        ],
+        matches: ['https://x.com/*', 'https://twitter.com/*'],
       },
     ],
     // No remote code; UI runs from the packaged bundle only.
