@@ -65,7 +65,7 @@ export function Home({ me, onNav }: { me: ExtMe; onNav: (t: Nav) => void }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {actions.map((a) => (
             <button key={a.label} className="glass glass-card glass-card--hover" style={{ padding: 13, gap: 9, alignItems: 'flex-start', flexDirection: 'row' }} onClick={a.run}>
-              <span style={{ display: 'grid', placeItems: 'center', width: 32, height: 32, borderRadius: 10, color: 'var(--pt-accent)', background: 'var(--pt-accent-soft)', border: '1px solid var(--pt-accent-line)' }}>{a.icon}</span>
+              <span style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: 8, color: 'var(--pt-accent)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)' }}>{a.icon}</span>
               <span style={{ fontSize: 12.5, fontWeight: 600, alignSelf: 'center', textAlign: 'left' }}>{a.label}</span>
             </button>
           ))}
