@@ -22,6 +22,8 @@ interface LabelHit {
   badge: string | null;
   verified: boolean;
   kind: 'kol' | 'personal' | 'community';
+  /** Full stack to show inline — directory badge + community/AI labels (e.g. ["KOL","Founder @ Pastel Alpha"]). */
+  labels?: string[];
 }
 
 function badgeForCategory(cat: string | null): string | null {
@@ -118,20 +120,32 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── community labels (crowdsourced) — fill the gaps the directory misses ──
+  // ── community + AI/X labels — additive on TOP of the directory badge ──
+  let ch: Record<string, CommunityHit> = {};
   try {
-    const [ch, cw] = await Promise.all([
+    const [chRes, cw] = await Promise.all([
       handles.length ? getCommunityLabels(auth.userId, 'handle', handles) : Promise.resolve<Record<string, CommunityHit>>({}),
       wallets.length ? getCommunityLabels(auth.userId, 'wallet', wallets) : Promise.resolve<Record<string, CommunityHit>>({}),
     ]);
+    ch = chRes;
     for (const [h, hit] of Object.entries(ch)) {
-      if (!outHandles[h]) outHandles[h] = { name: hit.label, badge: hit.verified ? 'Community' : 'Tagged', verified: hit.verified, kind: 'community' };
+      if (!outHandles[h]) outHandles[h] = { name: hit.label, badge: null, verified: hit.verified, kind: 'community' };
     }
     for (const [w, hit] of Object.entries(cw)) {
       if (!outWallets[w]) outWallets[w] = { name: hit.label, badge: hit.verified ? 'Community' : 'Tagged', verified: hit.verified, kind: 'community' };
     }
   } catch {
     /* community is additive — never blocks the directory */
+  }
+
+  // Build the inline label stack per handle: directory badge FIRST, then the
+  // community/AI label (e.g. "Founder @ Pastel Alpha") — so both show beside the name.
+  for (const [h, hit] of Object.entries(outHandles)) {
+    const stack: string[] = [];
+    if (hit.badge) stack.push(hit.badge);
+    const c = ch[h];
+    if (c?.label && !stack.some((s) => s.toLowerCase() === c.label.toLowerCase())) stack.push(c.label);
+    hit.labels = stack.length ? stack : hit.badge ? [hit.badge] : [hit.name];
   }
 
   return NextResponse.json({ handles: outHandles, wallets: outWallets });

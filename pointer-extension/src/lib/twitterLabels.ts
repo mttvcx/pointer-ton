@@ -72,7 +72,17 @@ export function startTwitterLabels(): void {
       if (c.querySelector('.pt-label-badge')) continue;
       const hit = hitFor(handle);
       if (!hit) continue;
-      el.insertAdjacentElement('afterend', makeBadge(hit));
+      // Full stack (KOL + Founder …) on the profile header; just the primary badge
+      // on tweets / list cells to keep those uncluttered.
+      const isHeader = c.getAttribute('data-testid') === 'UserName';
+      const stack = hit.labels?.length ? hit.labels : [hit.kind === 'personal' ? hit.name : hit.badge || hit.name];
+      const toShow = isHeader ? stack.slice(0, 4) : stack.slice(0, 1);
+      let anchor: HTMLElement = el;
+      toShow.forEach((text, i) => {
+        const pill = makeBadgePill(text, hit, i === 0);
+        anchor.insertAdjacentElement('afterend', pill);
+        anchor = pill;
+      });
     }
   }
 
@@ -85,7 +95,8 @@ export function startTwitterLabels(): void {
   }).observe(document.body, { childList: true, subtree: true });
 }
 
-function makeBadge(hit: ExtLabel): HTMLElement {
+/** One inline pill. `withDot` only on the first (primary) so a stack reads clean. */
+function makeBadgePill(text: string, hit: ExtLabel, withDot: boolean): HTMLElement {
   const kol = hit.kind !== 'personal'; // directory + community = accent; personal = green
   const accent = kol ? '#7c83ff' : '#3ddc97';
   const el = document.createElement('span');
@@ -95,7 +106,7 @@ function makeBadge(hit: ExtLabel): HTMLElement {
     alignItems: 'center',
     gap: '4px',
     margin: '0 2px 0 6px',
-    padding: '1px 7px 1px 6px',
+    padding: withDot ? '1px 7px 1px 6px' : '1px 8px',
     borderRadius: '999px',
     fontSize: '11px',
     fontWeight: '700',
@@ -107,18 +118,17 @@ function makeBadge(hit: ExtLabel): HTMLElement {
     border: `1px solid ${kol ? 'rgba(124,131,255,0.45)' : 'rgba(61,220,151,0.42)'}`,
     cursor: 'default',
   } as CSSStyleDeclaration);
-  // Inline pill shows the TAG (e.g. "KOL") for directory entries; for the user's
-  // own labels it shows their note. Name stays in the tooltip (handle's right there).
-  const text = hit.kind === 'personal' ? hit.name : hit.badge || hit.name;
-  el.title = hit.kind === 'personal' ? `Your label: ${hit.name}` : `Pointer · ${hit.name}${hit.badge ? ` (${hit.badge})` : ''}`;
+  el.title = hit.kind === 'personal' ? `Your label: ${hit.name}` : `Pointer · ${hit.name}`;
 
-  const dot = document.createElement('span');
-  Object.assign(dot.style, { width: '5px', height: '5px', borderRadius: '999px', background: accent, boxShadow: `0 0 6px ${accent}`, flex: '0 0 auto' } as CSSStyleDeclaration);
-  el.appendChild(dot);
+  if (withDot) {
+    const dot = document.createElement('span');
+    Object.assign(dot.style, { width: '5px', height: '5px', borderRadius: '999px', background: accent, boxShadow: `0 0 6px ${accent}`, flex: '0 0 auto' } as CSSStyleDeclaration);
+    el.appendChild(dot);
+  }
 
   const label = document.createElement('span');
   label.textContent = text;
-  Object.assign(label.style, { maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: hit.kind === 'personal' ? '0' : '0.02em' } as CSSStyleDeclaration);
+  Object.assign(label.style, { maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: hit.kind === 'personal' ? '0' : '0.02em' } as CSSStyleDeclaration);
   el.appendChild(label);
   return el;
 }

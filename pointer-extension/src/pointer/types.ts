@@ -10,6 +10,8 @@ export interface ExtLabel {
   badge: string | null;
   verified: boolean;
   kind: 'kol' | 'personal' | 'community';
+  /** Full inline stack — directory badge + community/AI labels (e.g. ["KOL","Founder @ Pastel Alpha"]). */
+  labels?: string[];
 }
 export interface ExtLabels {
   handles: Record<string, ExtLabel>;
