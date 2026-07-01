@@ -153,32 +153,33 @@ function Loading() {
 
 function Disconnected({ onConnect }: { onConnect: () => void }) {
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6, padding: '0 8px' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6, padding: '0 10px' }}>
       <div
         style={{
           display: 'grid',
           placeItems: 'center',
-          width: 64,
-          height: 64,
-          borderRadius: 20,
-          marginBottom: 14,
+          width: 92,
+          height: 92,
+          borderRadius: 28,
+          marginBottom: 18,
           background: 'linear-gradient(150deg, var(--pt-accent-soft), rgba(154,124,255,0.04))',
           border: '1px solid var(--pt-accent-line)',
           boxShadow: 'var(--pt-accent-glow)',
         }}
       >
-        <img src="/pointer-bird.png" alt="" width={30} height={30} style={{ objectFit: 'contain' }} />
+        <img src="/pointer-bird.png" alt="" width={46} height={46} style={{ objectFit: 'contain' }} />
       </div>
-      <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em' }}>Pointer</div>
-      <p className="meta" style={{ margin: '4px 0 0', lineHeight: 1.55, maxWidth: 250 }}>
-        Crypto intelligence on every page you browse — hover any token, wallet, or profile. Connect your account to turn it on.
+      <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.035em', lineHeight: 1 }}>
+        pointer<span style={{ color: 'var(--pt-accent)' }}>.</span>
+      </div>
+      <p style={{ margin: '12px 0 0', fontSize: 14.5, fontWeight: 600, lineHeight: 1.5, maxWidth: 280, color: 'var(--fg-primary)' }}>
+        The all-in-one crypto intelligence tool — labels, PnL, and AI on every token, wallet, and profile you browse.
       </p>
-      <div style={{ width: '100%', marginTop: 18 }}>
+      <div style={{ width: '100%', marginTop: 22 }}>
         <GlassButton variant="accent" block onClick={onConnect}>
           <Ic.Plug size={16} /> Connect Pointer
         </GlassButton>
       </div>
-      <p className="meta" style={{ margin: '12px 0 0', fontSize: 10.5 }}>Read-only — Pointer can never move your funds.</p>
     </div>
   );
 }
