@@ -3,6 +3,7 @@ import { requireExtAuth } from '@/lib/ext/auth';
 import { getAiAccess } from '@/lib/access/aiAccess';
 import { getUserById } from '@/lib/db/users';
 import { getReferralCodeRowForUser } from '@/lib/referrals/codes';
+import { resolveAdminContext } from '@/lib/db/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,21 +24,28 @@ export async function GET(req: NextRequest) {
     getReferralCodeRowForUser(auth.userId).catch(() => null),
   ]);
 
-  // TESTING UNBLOCK: when EXT_TEST_UNLOCK=1, the facade reports full access so
-  // every gated surface (AI, premium, smart followers) is open — no payment
-  // gating. Local-only flag; does NOT touch real subscriptions or money paths.
-  const testUnlock = process.env.EXT_TEST_UNLOCK === '1';
+  // Full access for ADMINS/founders (never paywall the operator). resolveAdminContext
+  // also BOOTSTRAPS from ADMIN_BOOTSTRAP_EMAILS/WALLETS, so the founder is recognized
+  // even if no admin row exists yet. EXT_TEST_UNLOCK=1 opens it for local testing.
+  // Otherwise the SAME real gate as the app (≥5 SOL OR active subscription).
+  const adminCtx = await resolveAdminContext(
+    auth.userId,
+    (user as { wallet_address?: string | null } | null)?.wallet_address ?? null,
+    user?.username ?? null,
+    user?.email ?? null,
+  ).catch(() => null);
+  const unlock = adminCtx != null || process.env.EXT_TEST_UNLOCK === '1';
 
   return NextResponse.json({
     connected: true,
     userId: auth.userId,
     email: user?.email ?? null,
     username: user?.username ?? null,
-    subscription: testUnlock ? 'founder' : decision?.basis === 'subscription' ? 'active' : 'none',
-    aiAccess: testUnlock ? true : (decision?.allowed ?? false),
+    subscription: unlock ? 'founder' : decision?.basis === 'subscription' ? 'active' : 'none',
+    aiAccess: unlock ? true : (decision?.allowed ?? false),
     referralCode: refRow?.code ?? null,
     solBalance: null,
     monthlyVolumeSol: null,
-    scansRemaining: testUnlock ? 999 : null,
+    scansRemaining: unlock ? 999 : null,
   });
 }
