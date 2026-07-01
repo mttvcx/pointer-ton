@@ -40,8 +40,8 @@ export async function submitCommunityLabel(p: {
   subject: string;
   label: string;
   category?: string | null;
-  /** 'user' (crowdsource, needs agreement), 'ai' (Claude), or 'x' (X's own affiliation). */
-  source?: 'user' | 'ai' | 'x';
+  /** 'user' (crowdsource, needs agreement), 'admin' (trusted), 'ai' (Claude), or 'x' (X's affiliation). */
+  source?: 'user' | 'admin' | 'ai' | 'x';
   confidence?: number | null;
   /** authoritative — surfaces immediately without needing N agreements (X labels, high-confidence AI). */
   autoVerified?: boolean;

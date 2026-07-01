@@ -42,7 +42,7 @@ export const pointer = {
   disconnect: () => send<{ ok: boolean }>({ type: 'pointer:disconnect' }),
   labels: (handles: string[], wallets: string[]) => send<ExtLabels>({ type: 'pointer:labels', handles, wallets }),
   submitLabel: (subjectType: 'handle' | 'wallet', subject: string, label: string, category?: string) =>
-    send<{ ok: boolean }>({ type: 'pointer:submitLabel', subjectType, subject, label, category }),
+    send<{ ok: boolean; applied?: boolean }>({ type: 'pointer:submitLabel', subjectType, subject, label, category }),
   submitCas: (handle: string, cas: { mint: string; chain?: string }[]) =>
     send<{ ok: boolean; stored: number }>({ type: 'pointer:submitCas', handle, cas }),
   submitFollowers: (handle: string, followers: { handle: string; avatar?: string }[]) =>

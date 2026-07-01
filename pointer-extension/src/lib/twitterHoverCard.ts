@@ -316,7 +316,7 @@ function tagHandle(handle: string, panel: HTMLElement): void {
     const res = await pointer.submitLabel('handle', handle, label, 'kol');
     panel.textContent = '';
     panel.appendChild(header());
-    panel.appendChild(textRow(res.ok ? `Tagged @${handle} as “${label}”. In the pool — public once others agree.` : 'Couldn’t submit — connect Pointer and retry.'));
+    panel.appendChild(textRow(!res.ok ? 'Couldn’t submit — connect Pointer and retry.' : res.data.applied ? `Tagged @${handle} as “${label}” — live.` : `Tagged @${handle} as “${label}”. In the pool — public once others agree.`));
   };
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') void submit();

@@ -1,14 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireExtAuth } from '@/lib/ext/auth';
 import { submitCommunityLabel } from '@/lib/ext/communityLabels';
+import { isActiveAdmin } from '@/lib/db/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Crowdsource a tag — the user submits a label for an @handle or wallet. It joins
- * the community pool; once enough distinct users agree it surfaces publicly for
- * everyone (see communityLabels.ts). One submission per user per subject.
+ * Submit a tag for an @handle or wallet. A normal user's tag joins the community
+ * pool and surfaces once enough distinct users agree. An ADMIN's tag is trusted —
+ * it auto-applies immediately (source 'admin', auto-verified).
  */
 export async function POST(req: NextRequest) {
   const auth = await requireExtAuth(req);
@@ -30,8 +31,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await submitCommunityLabel({ userId: auth.userId, subjectType, subject, label, category });
-    return NextResponse.json({ ok: true });
+    const admin = await isActiveAdmin(auth.userId).catch(() => false);
+    await submitCommunityLabel({
+      userId: auth.userId,
+      subjectType,
+      subject,
+      label,
+      category,
+      source: admin ? 'admin' : 'user',
+      autoVerified: admin,
+    });
+    return NextResponse.json({ ok: true, applied: admin });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'submit_failed' }, { status: 500 });
   }

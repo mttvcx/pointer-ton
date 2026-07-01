@@ -280,7 +280,7 @@ function tagButton(handle: string, body: HTMLElement): HTMLElement {
       if (!v) return;
       const res = await pointer.submitLabel('handle', handle, v, 'kol');
       body.textContent = '';
-      body.appendChild(textRow(res.ok ? `Tagged @${handle} as “${v}”. Public once others agree.` : 'Couldn’t submit — retry.'));
+      body.appendChild(textRow(!res.ok ? 'Couldn’t submit — retry.' : res.data.applied ? `Tagged @${handle} as “${v}” — live.` : `Tagged @${handle} as “${v}”. Public once others agree.`));
     };
     input.addEventListener('keydown', (e) => e.key === 'Enter' && void save());
     const sb = document.createElement('button');
@@ -505,7 +505,7 @@ function tagControl(handle: string): HTMLElement {
       if (!v) return;
       input.disabled = true;
       const res = await pointer.submitLabel('handle', handle, v, 'kol');
-      done(res.ok ? `✓ Tagged “${v}” — public once others agree.` : 'Couldn’t submit — retry.');
+      done(!res.ok ? 'Couldn’t submit — retry.' : res.data.applied ? `✓ Tagged “${v}” — live.` : `✓ Tagged “${v}” — public once others agree.`);
     };
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void submit();
