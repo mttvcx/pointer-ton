@@ -15,7 +15,9 @@ export default defineConfig({
   // accidentally shipping localhost.
   vite: () => ({
     define: {
-      'import.meta.env.VITE_POINTER_API_BASE': JSON.stringify(LOCAL ? 'http://localhost:3001' : 'https://pointer.trade'),
+      // pointer.trade isn't live yet (NXDOMAIN) — prod points at the actual Vercel
+      // deployment. Swap to pointer.trade once that domain is configured.
+      'import.meta.env.VITE_POINTER_API_BASE': JSON.stringify(LOCAL ? 'http://localhost:3001' : 'https://pointer-ton-orcin.vercel.app'),
     },
   }),
   manifest: {
@@ -35,6 +37,7 @@ export default defineConfig({
     host_permissions: [
       ...(LOCAL ? ['http://localhost/*', 'http://127.0.0.1/*'] : []),
       // Pointer's own API — the background worker fetches /api/ext here.
+      'https://pointer-ton-orcin.vercel.app/*',
       'https://pointer.trade/*',
       'https://*.pointer.trade/*',
       'https://x.com/*',
@@ -54,6 +57,7 @@ export default defineConfig({
     externally_connectable: {
       matches: [
         ...(LOCAL ? ['http://localhost/*'] : []),
+        'https://pointer-ton-orcin.vercel.app/*',
         'https://pointer.trade/*',
         'https://*.pointer.trade/*',
       ],

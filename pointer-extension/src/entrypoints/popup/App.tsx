@@ -99,8 +99,9 @@ function Header({ title, me, chain, setChain, mode }: { title: string; me: ExtMe
   return (
     <header className="pt-header">
       <div className="pt-brand">
-        <img src="/pointer-bird.png" alt="" width={22} height={22} style={{ objectFit: 'contain' }} />
-        <span className="pt-brand__title">{title}</span>
+        <img src="/pointer-bird.png" alt="Pointer" width={24} height={24} style={{ objectFit: 'contain' }} />
+        {/* Just the bird as the brand mark; show the section name only when connected (never the redundant "Pointer"). */}
+        {title !== 'Pointer' && <span className="pt-brand__title">{title}</span>}
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}>
         {usage && <UsageIndicator usage={usage} />}

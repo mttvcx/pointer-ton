@@ -28,7 +28,7 @@ export interface ExtToken {
 /** Pointer API base, baked per build (POINTER_API_BASE). */
 export function apiBase(): string {
   return (import.meta.env.VITE_POINTER_API_BASE as string | undefined)?.replace(/\/$/, '')
-    || 'https://pointer.trade';
+    || 'https://pointer-ton-orcin.vercel.app';
 }
 
 export async function getToken(): Promise<ExtToken | null> {
