@@ -35,8 +35,36 @@ export default defineContentScript({
       for (const t of targets) bindHover(t);
       captureCas(targets);
       captureFollowers();
+      captureProfileFollowers();
       captureProfileMeta();
     };
+
+    // #1 — auto smart followers: on a profile, X shows "Followed by A, B, and N
+    // others you follow". Capture those named mutuals + submit as this handle's
+    // followers; the server keeps the known KOLs. Fills without visiting /followers.
+    const seenProfileFollowers = new Set<string>();
+    function captureProfileFollowers() {
+      const m = PROFILE_RE.exec(location.pathname);
+      const handle = m?.[1]?.toLowerCase();
+      if (!handle || RESERVED.has(handle) || seenProfileFollowers.has(handle)) return;
+      if (!document.querySelector('[data-testid="UserName"]')) return; // header not ready — retry
+      seenProfileFollowers.add(handle);
+      const link = document.querySelector<HTMLAnchorElement>(`a[href="/${handle}/followers_you_follow"]`);
+      if (!link) return; // no "you follow" mutuals shown
+      let box: HTMLElement = link;
+      for (let i = 0; i < 4 && box.parentElement; i++) box = box.parentElement;
+      const fresh: { handle: string; avatar?: string }[] = [];
+      const seen = new Set<string>();
+      for (const a of Array.from(box.querySelectorAll<HTMLAnchorElement>('a[href^="/"]'))) {
+        const hm = /^\/([A-Za-z0-9_]{1,15})$/.exec(a.getAttribute('href') ?? '');
+        const fh = hm?.[1]?.toLowerCase();
+        if (!fh || fh === handle || RESERVED.has(fh) || seen.has(fh)) continue;
+        seen.add(fh);
+        const img = a.querySelector<HTMLImageElement>('img[src*="twimg.com"]');
+        fresh.push({ handle: fh, avatar: img?.src });
+      }
+      if (fresh.length) void pointer.submitFollowers(handle, fresh);
+    }
 
     // AI auto-labeler: on a profile page, send the account's public name + bio so
     // Claude can label what they do (any domain — many "key followers" aren't crypto).
