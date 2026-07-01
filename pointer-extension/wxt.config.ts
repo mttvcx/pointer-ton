@@ -27,6 +27,9 @@ export default defineConfig({
     // V1 supported sites — add a site = add a host + an adapter file.
     host_permissions: [
       ...(LOCAL ? ['http://localhost/*', 'http://127.0.0.1/*'] : []),
+      // Pointer's own API — the background worker fetches /api/ext here.
+      'https://pointer.trade/*',
+      'https://*.pointer.trade/*',
       'https://x.com/*',
       'https://twitter.com/*',
       'https://dexscreener.com/*',
