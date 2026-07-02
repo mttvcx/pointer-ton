@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
+import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
 import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
@@ -1008,7 +1009,7 @@ export function TrackersPanel({
                   onOpenWallet={openWallet}
                 />
               ) : viewTab === 'live_trades' ? (
-                <LiveTradesEmptyState />
+                <TrackerTradesFeed />
               ) : viewTab === 'monitor' ? (
                 <MonitorEmptyState />
               ) : viewTab === 'kols' ? (
@@ -1130,16 +1131,6 @@ export function TrackersPanel({
         chainTicker={nativeTicker(activeChain)}
         zClass="z-[85]"
       />
-    </div>
-  );
-}
-
-function LiveTradesEmptyState() {
-  return (
-    <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-8 text-center">
-      <Activity className="mb-3 h-8 w-8 text-fg-muted" strokeWidth={2} aria-hidden />
-      <p className="text-sm text-fg-secondary">Live trades from tracked wallets will appear here</p>
-      <p className="mt-1 text-xs text-fg-muted">Add wallets in Wallet Manager to start tracking</p>
     </div>
   );
 }

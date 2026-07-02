@@ -23,6 +23,7 @@ import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 import { openXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { toastWalletTrackedTradeDemo } from '@/lib/walletTracker/walletTrackerToast';
+import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
 
 type WalletTrackerTab = 'manager' | 'trades' | 'monitor' | 'kols';
 
@@ -571,26 +572,12 @@ export function DockWalletTrackerFloatingPanel() {
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col',
-            tab === 'monitor' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
+            tab === 'monitor' || tab === 'trades' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
           )}
           style={{ minHeight: tab === 'monitor' ? 280 : 220 }}
         >
           {tab === 'trades' ? (
-            <>
-              <p className="px-3 pt-3 text-[11px] leading-relaxed text-fg-secondary">
-                Live buys / sells land as <strong className="text-fg-primary">top pings</strong> when you&apos;re tracking
-                wallets. Open Track for the full grid — this peek shares Pulse-style edge docking.
-              </p>
-              <Link
-                href="/track"
-                data-no-drag
-                className="inline-flex items-center gap-1 px-3 pb-3 text-[11px] font-semibold text-accent-primary hover:brightness-125"
-                onClick={() => setOpen(false)}
-              >
-                Open Track workspace
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-              </Link>
-            </>
+            <TrackerTradesFeed />
           ) : tab === 'monitor' ? (
             <div className="flex flex-col gap-3 px-3 py-3">
               <p className="text-[11px] leading-relaxed text-fg-secondary">
