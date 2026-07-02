@@ -16,7 +16,7 @@ import {
   tweetInputFromAlertPayload,
   type TwitterListenAlertPayload,
 } from '@/lib/launch/alertTweet';
-import { openDeployForTweet, openDeployForTweetAsync } from '@/lib/launch/openLaunchModal';
+import { openDeployForTweet, openDeployForTweetAsync, openLaunchFromSuggestion } from '@/lib/launch/openLaunchModal';
 import { tweetLaunchCacheSubject } from '@/lib/launch/tweetLaunchSubject';
 import type { LaunchPackage, TweetLaunchInput } from '@/lib/launch/types';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
@@ -481,7 +481,11 @@ export function XMonitorPanel({
                     <button
                       type="button"
                       onClick={() => {
-                        if (row.isMock) return; // preview only — never launch from sample data
+                        if (row.isMock) {
+                          // Preview the deploy panel with the sample tweet (Deploy stays disabled).
+                          openDeployForTweet(row.subject, row.tweet, null);
+                          return;
+                        }
                         if (launchMode === 'ai' && !pkg?.shouldLaunch) {
                           void openDeployForTweetAsync(row.subject, row.tweet, true);
                           return;
@@ -659,6 +663,7 @@ export function XMonitorPanel({
                                   <button
                                     type="button"
                                     title="Edit and focus name"
+                                    onClick={() => openLaunchFromSuggestion(row.subject, row.tweet, s, 'name')}
                                     className="flex flex-1 items-center justify-center px-1.5 text-[9px] font-bold text-fg-muted transition hover:bg-accent-primary/15 hover:text-accent-primary"
                                   >
                                     N
@@ -666,6 +671,7 @@ export function XMonitorPanel({
                                   <button
                                     type="button"
                                     title="Edit and focus ticker"
+                                    onClick={() => openLaunchFromSuggestion(row.subject, row.tweet, s, 'ticker')}
                                     className="flex flex-1 items-center justify-center border-t border-white/[0.08] px-1.5 text-[9px] font-bold text-fg-muted transition hover:bg-accent-primary/15 hover:text-accent-primary"
                                   >
                                     T

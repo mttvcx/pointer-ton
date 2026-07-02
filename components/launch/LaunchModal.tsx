@@ -41,6 +41,18 @@ export function LaunchModal() {
     };
   }, [open]);
 
+  // Opened from a suggestion's N/T badge → focus + select that field for a quick edit.
+  const focusField = draft?.focusField ?? null;
+  useEffect(() => {
+    if (!open || !focusField) return;
+    const t = setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(`[data-launch-field="${focusField}"]`);
+      el?.focus();
+      el?.select();
+    }, 60);
+    return () => clearTimeout(t);
+  }, [open, focusField]);
+
   if (!mounted || !draft) return null;
 
   const inputCls =
@@ -98,20 +110,30 @@ export function LaunchModal() {
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           <div className="grid grid-cols-2 gap-2">
             <label className="block">
-              <span className="mb-1 block text-[10px] font-medium text-fg-muted">Name</span>
+              <span className="mb-1 flex items-center justify-between text-[10px] font-medium text-fg-muted">
+                <span>Name</span>
+                <span className="tabular-nums">{draft.name.length}/32</span>
+              </span>
               <input
+                data-launch-field="name"
                 className={inputCls}
                 value={draft.name}
                 maxLength={32}
+                placeholder="Token name"
                 onChange={(e) => patchDraft({ name: e.target.value })}
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[10px] font-medium text-fg-muted">Ticker</span>
+              <span className="mb-1 flex items-center justify-between text-[10px] font-medium text-fg-muted">
+                <span>Ticker</span>
+                <span className="tabular-nums">{draft.symbol.length}/10</span>
+              </span>
               <input
+                data-launch-field="ticker"
                 className={cn(inputCls, 'uppercase')}
                 value={draft.symbol}
                 maxLength={10}
+                placeholder="TICKER"
                 onChange={(e) =>
                   patchDraft({ symbol: e.target.value.replace(/^\$/, '').toUpperCase() })
                 }
@@ -194,6 +216,26 @@ export function LaunchModal() {
                 if (Number.isFinite(n)) patchDraft({ launchBuySol: n });
               }}
             />
+            <div className="mt-1.5 flex gap-1.5">
+              {[0.5, 1, 2, 5].map((amt) => {
+                const active = draft.launchBuySol === amt;
+                return (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => patchDraft({ launchBuySol: amt })}
+                    className={cn(
+                      'btn-press flex-1 rounded-sm py-1 text-[11px] font-semibold tabular-nums transition-colors',
+                      active
+                        ? 'bg-accent-primary/25 text-accent-primary'
+                        : 'bg-accent-primary/[0.08] text-fg-muted hover:bg-accent-primary/15 hover:text-accent-primary',
+                    )}
+                  >
+                    {amt}
+                  </button>
+                );
+              })}
+            </div>
           </label>
 
           {draft.reasoning ? (

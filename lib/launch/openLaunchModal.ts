@@ -73,6 +73,33 @@ export function openLaunchFromTweet(tweetSubject: string, tweet: TweetLaunchInpu
   });
 }
 
+/** Open the deploy panel from a suggestion card's N/T badge — prefill the
+ *  suggestion's name + ticker and focus the chosen field for a quick edit. */
+export function openLaunchFromSuggestion(
+  tweetSubject: string,
+  tweet: TweetLaunchInput,
+  suggestion: { name: string; ticker: string },
+  focusField: 'name' | 'ticker',
+): void {
+  const buySol = useAutoLaunchStore.getState().launchBuySol;
+  useLaunchModalStore.getState().openWithDraft({
+    tweetSubject,
+    tweetText: tweet.text,
+    authorHandle: tweet.authorHandle,
+    tweetUrl: tweet.tweetUrl ?? null,
+    imageUrls: tweet.imageUrls ?? [],
+    name: suggestion.name,
+    symbol: suggestion.ticker.replace(/^\$/, '').toUpperCase(),
+    description: tweet.text.slice(0, 500),
+    launchpad: 'pump.fun',
+    imageStrategy: tweet.imageUrls?.[0] ? 'use_tweet_image' : 'no_image',
+    launchBuySol: buySol,
+    confidence: 0,
+    reasoning: '',
+    focusField,
+  });
+}
+
 export function openDeployForTweet(
   tweetSubject: string,
   tweet: TweetLaunchInput,
