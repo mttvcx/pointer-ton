@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { BadgePercent, Layers, ListChecks, Rocket, Split, Users, X, Zap } from 'lucide-react';
+import { BadgePercent, Layers, ListChecks, Rocket, Split, Users, Zap } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import {
   LAUNCH_PACKAGE_LAUNCHPADS,
   type LaunchPackageLaunchpad,
@@ -101,14 +102,7 @@ export function LaunchModal() {
               {draft.tweetText.length > 120 ? '…' : ''}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={close}
-            className="btn-press flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={close} size="lg" />
         </header>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">

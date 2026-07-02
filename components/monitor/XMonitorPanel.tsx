@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowUpRight, BadgeCheck, Loader2, MessageCircle, Quote, Repeat2, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
 import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import { isUiDemoMode } from '@/lib/dev/uiDemoMode';
@@ -94,17 +94,6 @@ function EventIcon({ type }: { type: DemoEvent }) {
   if (type === 'followed') return <UserPlus className={cls} strokeWidth={2} aria-hidden />;
   if (type === 'deleted') return <Trash2 className={cls} strokeWidth={2} aria-hidden />;
   return <ArrowUpRight className={cls} strokeWidth={2} aria-hidden />;
-}
-
-/** Hex (#rgb or #rrggbb) → rgba() string for inline launch-rail theming. */
-function hexA(hex: string, a: number): string {
-  const h = hex.replace('#', '');
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  const r = parseInt(full.slice(0, 2), 16);
-  const g = parseInt(full.slice(2, 4), 16);
-  const b = parseInt(full.slice(4, 6), 16);
-  if ([r, g, b].some((n) => Number.isNaN(n))) return `rgba(124,92,255,${a})`;
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
 function fmtCount(n: number): string {
@@ -411,9 +400,6 @@ export function XMonitorPanel({
             {tab === 'feed' && packagesLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" aria-hidden />
             ) : null}
-            {tab === 'feed' ? (
-              <span className="text-[10px] tabular-nums text-fg-muted">{rows.length}</span>
-            ) : null}
             <button
               type="button"
               title="Hide X monitor"
@@ -534,10 +520,10 @@ export function XMonitorPanel({
                       : launchRailSide === 'top'
                         ? 'mx-2 mt-2'
                         : 'mx-2 mb-2';
-                const railCustom = launchRailColor
-                  ? launchRailStyle === 'fill'
-                    ? { backgroundColor: hexA(launchRailColor, isAutoLaunch ? 0.28 : 0.14), color: launchRailColor }
-                    : { border: `1px solid ${hexA(launchRailColor, 0.5)}`, color: launchRailColor }
+                // Custom colour drives a --rail CSS var; hover fill/outline is done
+                // with color-mix arbitrary classes so it reacts like the default accent.
+                const railStyle: CSSProperties | undefined = launchRailColor
+                  ? ({ ['--rail']: launchRailColor, color: launchRailColor } as CSSProperties)
                   : undefined;
 
                 return (
@@ -579,16 +565,25 @@ export function XMonitorPanel({
                             ? 'Auto-launch armed for this rule'
                             : 'Launch a token from this tweet'
                       }
-                      style={railCustom}
+                      style={railStyle}
                       className={cn(
                         'btn-press focus-ring flex shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
                         railThickness,
                         railMargin,
-                        !railCustom && launchRailStyle === 'fill' && (isAutoLaunch
+                        // Default accent
+                        !launchRailColor && launchRailStyle === 'fill' && (isAutoLaunch
                           ? 'bg-accent-primary/25 text-accent-primary hover:bg-accent-primary/[0.32]'
                           : 'bg-accent-primary/[0.12] text-accent-primary hover:bg-accent-primary/20'),
-                        !railCustom && launchRailStyle === 'outline' &&
+                        !launchRailColor && launchRailStyle === 'outline' &&
                           'border border-accent-primary/50 text-accent-primary hover:bg-accent-primary/[0.12]',
+                        // Custom colour — fill (deepens on hover) via color-mix
+                        launchRailColor && launchRailStyle === 'fill' && !isAutoLaunch &&
+                          '[background:color-mix(in_srgb,var(--rail)_16%,transparent)] hover:[background:color-mix(in_srgb,var(--rail)_26%,transparent)]',
+                        launchRailColor && launchRailStyle === 'fill' && isAutoLaunch &&
+                          '[background:color-mix(in_srgb,var(--rail)_28%,transparent)] hover:[background:color-mix(in_srgb,var(--rail)_38%,transparent)]',
+                        // Custom colour — outline (fills a little on hover)
+                        launchRailColor && launchRailStyle === 'outline' &&
+                          'border [border-color:color-mix(in_srgb,var(--rail)_55%,transparent)] hover:[background:color-mix(in_srgb,var(--rail)_14%,transparent)]',
                       )}
                     >
                       <span
