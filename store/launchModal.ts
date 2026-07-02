@@ -17,6 +17,8 @@ export type LaunchModalDraft = {
   launchBuySol: number;
   confidence: number;
   reasoning: string;
+  website?: string;
+  twitterUrl?: string;
   /** When opened from a suggestion's N/T badge — which field to focus for editing. */
   focusField?: 'name' | 'ticker' | null;
 };

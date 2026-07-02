@@ -151,6 +151,27 @@ export function LaunchModal() {
             />
           </label>
 
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-medium text-fg-muted">Website (optional)</span>
+              <input
+                className={inputCls}
+                value={draft.website ?? ''}
+                placeholder="https://…"
+                onChange={(e) => patchDraft({ website: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-medium text-fg-muted">X / Twitter</span>
+              <input
+                className={inputCls}
+                value={draft.twitterUrl ?? draft.tweetUrl ?? `https://x.com/${draft.authorHandle.replace(/^@/, '')}`}
+                placeholder="https://x.com/…"
+                onChange={(e) => patchDraft({ twitterUrl: e.target.value })}
+              />
+            </label>
+          </div>
+
           <div>
             <span className="mb-1 block text-[10px] font-medium text-fg-muted">Launchpad</span>
             <div className="flex flex-wrap gap-1.5">
