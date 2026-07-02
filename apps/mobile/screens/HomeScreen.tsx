@@ -142,6 +142,7 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
         <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleed}>
           {WEEKLY.map((w) => (
             <PressScale key={w.name} onPress={() => setTrade(w)} to={0.97} style={s.weekCard}>
+              <GlassFill />
               <View style={s.weekTop}>
                 <View style={[s.weekAvatar, { backgroundColor: w.color }]}>
                   <Text style={s.weekInitial}>{w.initial}</Text>
@@ -168,6 +169,7 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
           <>
         <View style={s.pad}>
           <PressScale style={s.banner} to={0.99} onPress={() => setFeeInfo(true)}>
+            <GlassFill />
             <View style={s.bannerLeft}>
               <Ionicons name="pricetag-outline" size={17} color={colors.accent} />
               <Text style={s.bannerText}>
@@ -248,6 +250,7 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
             better fills.
           </Text>
           <PressScale style={s.feeClose} onPress={() => setFeeInfo(false)}>
+            <GlassFill />
             <Text style={s.feeCloseText}>Close</Text>
           </PressScale>
         </View>
@@ -296,7 +299,7 @@ const s = StyleSheet.create({
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 26 },
   sectionBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: colors.accent },
   sectionTitle: { color: colors.fg, fontSize: 18, fontWeight: '600' },
-  weekCard: { width: 178, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: colors.border },
+  weekCard: { width: 178, borderRadius: radius.lg, padding: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   weekTop: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   weekAvatar: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   weekInitial: { color: '#fff', fontSize: 14, fontWeight: '600' },
@@ -314,7 +317,7 @@ const s = StyleSheet.create({
   newBadge: { backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   newText: { color: colors.onAccent, fontSize: 11, fontWeight: '700' },
 
-  banner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14, marginTop: 18, borderWidth: 1, borderColor: colors.border },
+  banner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.lg, padding: 14, marginTop: 18, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   bannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   bannerText: { color: colors.fgSecondary, fontSize: 15, flex: 1 },
   bannerAccent: { color: colors.accent, fontWeight: '600' },
@@ -341,6 +344,6 @@ const s = StyleSheet.create({
   feeTitle: { color: colors.fg, fontSize: 22, fontWeight: '800', marginTop: 16, textAlign: 'center' },
   feeBody: { color: colors.fgSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 },
   feeStrong: { color: colors.fg, fontWeight: '700' },
-  feeClose: { alignSelf: 'stretch', backgroundColor: colors.bgRaised, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 22, borderWidth: 1, borderColor: colors.border },
+  feeClose: { alignSelf: 'stretch', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   feeCloseText: { color: colors.fg, fontSize: 16, fontWeight: '700' },
 });

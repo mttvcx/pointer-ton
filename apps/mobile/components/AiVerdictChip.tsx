@@ -5,6 +5,7 @@ import { explainToken, deriveVerdict } from '../src/api/endpoints';
 import { DEMO } from '../src/auth';
 import type { ExplainTokenResponse, PulseBundle, Verdict } from '../src/types';
 import { colors, radius } from '../src/theme';
+import { GlassFill } from './GlassFill';
 
 /**
  * THE WEDGE — a plain-English AI safety verdict that sits above the Buy button on
@@ -114,6 +115,7 @@ export function AiVerdictChip({ bundle, expandable = true }: { bundle: PulseBund
 
       {open ? (
         <View style={s.detail}>
+          <GlassFill />
           <Text style={s.summary}>{d.summary}</Text>
           {d.riskFlags.length ? <Section title="Risk flags" items={d.riskFlags} color={colors.bear} /> : null}
           {d.bullCase.length ? <Section title="Bull case" items={d.bullCase} color={colors.bull} /> : null}
@@ -142,7 +144,7 @@ const s = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   label: { fontSize: 13, fontWeight: '700', flex: 1 },
   why: { fontSize: 12, fontWeight: '600' },
-  detail: { marginTop: 8, gap: 10, backgroundColor: colors.bgRaised, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 12 },
+  detail: { marginTop: 8, gap: 10, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 12 },
   summary: { color: colors.fg, fontSize: 13, lineHeight: 19 },
   secTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   bullet: { color: colors.fgSecondary, fontSize: 12, lineHeight: 17 },

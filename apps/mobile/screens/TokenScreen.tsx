@@ -11,6 +11,8 @@ import { DepositFlow } from '../components/DepositFlow';
 import { BuySheet } from '../components/BuySheet';
 import { AiVerdictChip } from '../components/AiVerdictChip';
 import { Accordion } from '../components/Accordion';
+import { GlassFill } from '../components/GlassFill';
+import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
 import { getToken } from '../src/api/endpoints';
 import { ageShort, compactUsd, priceUsd, shortMint } from '../src/format';
@@ -291,9 +293,9 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
             </PressScale>
           </View>
         ) : (
-          <PressScale style={s.buyBtn} onPress={() => setDeposit(true)}>
+          <GlossButton onPress={() => setDeposit(true)}>
             <Text style={s.buyText}>Deposit to buy</Text>
-          </PressScale>
+          </GlossButton>
         )}
       </View>
       </Animated.View>
@@ -448,6 +450,7 @@ function TradersHere({ mint, price }: { mint: string; price: number }) {
   if (!traders.length) return null;
   return (
     <View style={s.thCard}>
+      <GlassFill />
       <View style={s.thHead}>
         <Ionicons name="people-outline" size={15} color={colors.accentGlow} />
         <Text style={s.thTitle}>Traders here</Text>
@@ -542,7 +545,7 @@ const s = StyleSheet.create({
   tapeWallet: { color: colors.fgSecondary, fontSize: 13, flex: 1 },
   tapeAgo: { color: colors.fgMuted, fontSize: 12 },
 
-  thCard: { marginTop: 16, backgroundColor: colors.bgRaised, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingBottom: 6, paddingTop: 12 },
+  thCard: { marginTop: 16, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 14, paddingBottom: 6, paddingTop: 12 },
   thHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 4 },
   thTitle: { color: colors.fg, fontSize: 15, fontWeight: '700', flex: 1 },
   thHint: { color: colors.fgMuted, fontSize: 12 },
