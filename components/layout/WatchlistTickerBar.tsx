@@ -117,7 +117,7 @@ function TickerBarPill({
           size={16}
           className="!h-4 !w-4 shrink-0 rounded-[5px] ring-1 ring-white/[0.08]"
         />
-        <span className="truncate text-[11px] font-semibold text-fg-primary">{label}</span>
+        <span className="truncate text-[11px] font-medium text-fg-primary">{label}</span>
         <span className="shrink-0 text-[10px] tabular-nums text-fg-muted">{mc}</span>
         {showQuickbuy ? (
           <span
