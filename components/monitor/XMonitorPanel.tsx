@@ -476,7 +476,8 @@ export function XMonitorPanel({
                       row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.05]',
                     )}
                   >
-                    {/* Left vertical outlined LAUNCH rail (Terminal-style) */}
+                    {/* Left vertical LAUNCH rail — same borderless accent-fill look
+                        as the Pulse quick-buy pill (no clashing outline). */}
                     <button
                       type="button"
                       onClick={() => {
@@ -495,14 +496,13 @@ export function XMonitorPanel({
                             : 'Launch a token from this tweet'
                       }
                       className={cn(
-                        'btn-press my-2 ml-2 flex w-8 shrink-0 items-center justify-center rounded-md border transition',
+                        'btn-press focus-ring my-2 ml-2 flex w-8 shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
                         isAutoLaunch
-                          ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
-                          : 'border-accent-primary/55 text-accent-primary hover:border-accent-primary hover:bg-accent-primary/10',
-                        'cursor-pointer',
+                          ? 'bg-accent-primary/25 text-accent-primary hover:bg-accent-primary/[0.32]'
+                          : 'bg-accent-primary/[0.12] text-accent-primary hover:bg-accent-primary/20',
                       )}
                     >
-                      <span className="rotate-180 text-[9px] font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]">
+                      <span className="rotate-180 text-[9.5px] font-semibold uppercase tracking-wide [writing-mode:vertical-rl]">
                         {isAutoLaunch ? 'Auto' : launchMode === 'ai' ? 'AI Launch' : 'Launch'}
                       </span>
                     </button>

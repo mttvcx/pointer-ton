@@ -2,6 +2,25 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+/**
+ * Resilience: bound EVERY Supabase (PostgREST) call with a hard timeout so a DB
+ * or provider incident fails fast instead of hanging ~20s+ and cascading into
+ * dead skeletons / stuck requests. Callers catch the abort and can serve cached
+ * / degraded responses. Tunable via SUPABASE_FETCH_TIMEOUT_MS.
+ */
+const DB_FETCH_TIMEOUT_MS = Number(process.env.SUPABASE_FETCH_TIMEOUT_MS) || 8_000;
+
+const dbFetch: typeof fetch = (input, init) => {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new Error('supabase_timeout')), DB_FETCH_TIMEOUT_MS);
+  const caller = init?.signal;
+  if (caller) {
+    if (caller.aborted) ctrl.abort(caller.reason);
+    else caller.addEventListener('abort', () => ctrl.abort(caller.reason), { once: true });
+  }
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+};
+
 declare global {
   // eslint-disable-next-line no-var
   var __pointerSupabaseAdmin: ReturnType<typeof createSupabaseClient<Database>> | undefined;
@@ -46,6 +65,7 @@ export async function createServerSupabase() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(url, anonKey, {
+    global: { fetch: dbFetch },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -95,6 +115,7 @@ export function createAdminSupabase() {
     },
     global: {
       headers: { 'x-pointer-client': 'admin' },
+      fetch: dbFetch,
     },
   });
   return globalThis.__pointerSupabaseAdmin;
