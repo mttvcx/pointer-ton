@@ -32,6 +32,7 @@ import { useUIStore } from '@/store/ui';
 import { useXMonitorPreviewStore } from '@/store/xMonitorPreview';
 import { XMonitorRules } from '@/components/monitor/XMonitorRules';
 import { TweetMediaImage } from '@/components/monitor/TweetMediaImage';
+import { HoverZoomImage } from '@/components/monitor/HoverZoomImage';
 
 type MonitorTab = 'feed' | 'rules';
 
@@ -620,22 +621,7 @@ export function XMonitorPanel({
                                 className="flex items-stretch overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.05] transition-colors hover:border-white/[0.18]"
                               >
                                 {s.image ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={s.image}
-                                    alt=""
-                                    referrerPolicy="no-referrer"
-                                    title="Click to reverse-image search"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      window.open(
-                                        `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(s.image!)}`,
-                                        '_blank',
-                                        'noreferrer',
-                                      );
-                                    }}
-                                    className="h-12 w-12 shrink-0 cursor-zoom-in object-cover transition-transform hover:scale-110"
-                                  />
+                                  <HoverZoomImage src={s.image} className="h-12 w-12 shrink-0" previewW={240} />
                                 ) : (
                                   <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-white/[0.04] text-[12px] font-bold text-fg-secondary">
                                     {s.ticker.replace(/^\$/, '').slice(0, 2).toUpperCase()}
