@@ -1,6 +1,66 @@
+import { useState } from 'react';
 import type { TokenIntel } from '@/pointer/types';
 import { deepLinks } from '@/pointer/client';
 import { apiBase } from '@/pointer/auth';
+
+const shortMint = (m: string) => (m.length > 12 ? `${m.slice(0, 4)}…${m.slice(-4)}` : m);
+
+/** Copy-to-clipboard control for the contract address. Actually copies (with a
+ *  fallback for shadow-DOM/content-script contexts) — never navigates. */
+function CopyCa({ mint }: { mint: string }) {
+  const [done, setDone] = useState(false);
+  const copy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const flash = () => {
+      setDone(true);
+      window.setTimeout(() => setDone(false), 1200);
+    };
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = mint;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* noop */ }
+      ta.remove();
+      flash();
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(mint).then(flash, fallback);
+    else fallback();
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title="Copy contract address"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '4px 9px',
+        borderRadius: 8,
+        cursor: 'pointer',
+        border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))',
+        background: 'var(--bg-hover)',
+        color: done ? 'var(--signal-bull)' : 'var(--fg-muted)',
+        font: 'inherit',
+        fontSize: 11,
+        fontWeight: 600,
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
+      <span>{shortMint(mint)}</span>
+      {done ? (
+        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+      ) : (
+        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h10" /></svg>
+      )}
+      <span style={{ color: done ? 'var(--signal-bull)' : 'var(--fg-muted)' }}>{done ? 'Copied' : 'Copy'}</span>
+    </button>
+  );
+}
 
 /** Compact USD / number formatting for the dense hover card. */
 function usd(n: number | null | undefined): string {
@@ -89,6 +149,12 @@ export function TokenCard({ data }: { data: TokenIntel }) {
           <Stat label="Snipers" value={data.snipersPct != null ? `${data.snipersPct.toFixed(1)}%` : '—'} tone={data.snipersPct && data.snipersPct > 15 ? 'bear' : undefined} />
         </div>
       )}
+
+      {/* contract address — copy (never navigates) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ color: 'var(--fg-muted)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.3, fontWeight: 700 }}>CA</span>
+        <CopyCa mint={data.mint} />
+      </div>
 
       {/* actions */}
       <div style={{ display: 'flex', gap: 8 }}>
