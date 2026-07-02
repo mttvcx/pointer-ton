@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '../components/Screen';
 import { Logo } from '../components/Logo';
 import { CoinIcon } from '../components/CoinIcon';
@@ -116,9 +117,19 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
               </Text>
               <Text style={s.sub}>— · Past 24h</Text>
             </View>
-            <PressScale onPress={() => setDeposit(true)} style={s.deposit}>
-              <Ionicons name="add" size={18} color={colors.onAccent} />
-              <Text style={s.depositText}>Deposit</Text>
+            <PressScale onPress={() => setDeposit(true)} style={s.depositWrap}>
+              <View style={s.deposit}>
+                <LinearGradient colors={[colors.accentGlow, colors.accent]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.32)', 'rgba(255,255,255,0)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={s.depositSheen}
+                  pointerEvents="none"
+                />
+                <Ionicons name="add" size={18} color={colors.onAccent} />
+                <Text style={s.depositText}>Deposit</Text>
+              </View>
             </PressScale>
           </View>
 
@@ -277,7 +288,9 @@ const s = StyleSheet.create({
   balance: { color: colors.fg, fontSize: 46, fontWeight: '600', letterSpacing: -1.5 },
   cents: { color: colors.fgFaint, fontSize: 46, fontWeight: '600' },
   sub: { color: colors.fgFaint, fontSize: 13, marginTop: 6 },
-  deposit: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20 },
+  depositWrap: { borderRadius: 15, shadowColor: colors.accent, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  deposit: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 15, paddingVertical: 14, paddingHorizontal: 20, overflow: 'hidden', backgroundColor: colors.accent },
+  depositSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '62%' },
   depositText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 26 },
