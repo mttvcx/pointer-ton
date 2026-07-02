@@ -45,6 +45,17 @@ export function PopupApp({ mode = 'popup' }: { mode?: Mode }) {
     };
   }, [refresh]);
 
+  // Safety net: never spin on "Connecting…" forever. If the first probe is still
+  // pending after 8s (worker cold-start / API blip), fall back to the connect
+  // screen — the 2.5s poll flips it to connected the moment me() lands.
+  useEffect(() => {
+    if (state.phase !== 'loading') return;
+    const t = window.setTimeout(() => {
+      setState((s) => (s.phase === 'loading' ? { phase: 'disconnected' } : s));
+    }, 8000);
+    return () => window.clearTimeout(t);
+  }, [state.phase]);
+
   const connected = state.phase === 'connected';
   const me = connected ? state.me : null;
 

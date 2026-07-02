@@ -10,6 +10,11 @@ import type { PointerRequest, PointerResponse } from '@/pointer/client';
 export default defineBackground(() => {
   const mem = new Map<string, { at: number; data: unknown }>();
   const inflight = new Map<string, Promise<unknown>>();
+  // Every broker fetch MUST time out — a stalled request (e.g. mid-deploy cold
+  // start) with no timeout hangs the message channel forever, which poisons the
+  // inflight coalescing map and leaves the popup stuck on "Connecting…".
+  const NET_TIMEOUT_MS = 12_000;
+  const netSignal = () => AbortSignal.timeout(NET_TIMEOUT_MS);
   const TTL: Record<string, number> = {
     token: 20_000,
     profile: 60_000,
@@ -60,6 +65,7 @@ export default defineBackground(() => {
           method: 'POST',
           headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
           body: JSON.stringify({ subjectType: req.subjectType, subject: req.subject, label: req.label, category: req.category }),
+          signal: netSignal(),
         });
         if (res.status === 401) return { ok: false, error: 'not_connected' };
         if (!res.ok) return { ok: false, error: `http_${res.status}` };
@@ -77,6 +83,7 @@ export default defineBackground(() => {
           method: 'POST',
           headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
           body: JSON.stringify({ handle: req.handle, followers: req.followers }),
+          signal: netSignal(),
         });
         if (!res.ok) return { ok: false, error: `http_${res.status}` };
         return { ok: true, data: await res.json() };
@@ -92,6 +99,7 @@ export default defineBackground(() => {
           method: 'POST',
           headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
           body: JSON.stringify({ handle: req.handle, name: req.name, bio: req.bio, affiliation: req.affiliation, followers: req.followers }),
+          signal: netSignal(),
         });
         if (!res.ok) return { ok: false, error: `http_${res.status}` };
         const data = await res.json();
@@ -109,6 +117,7 @@ export default defineBackground(() => {
           method: 'POST',
           headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
           body: JSON.stringify({ handle: req.handle, cas: req.cas }),
+          signal: netSignal(),
         });
         if (!res.ok) return { ok: false, error: `http_${res.status}` };
         return { ok: true, data: await res.json() };
@@ -127,6 +136,7 @@ export default defineBackground(() => {
           method: 'POST',
           headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
           body: JSON.stringify({ handles: req.handles, wallets: req.wallets }),
+          signal: netSignal(),
         });
         if (res.status === 401) return { ok: false, error: 'not_connected' };
         if (!res.ok) return { ok: false, error: `http_${res.status}` };
@@ -153,6 +163,7 @@ export default defineBackground(() => {
       if (!token) throw new Error('not_connected');
       const res = await fetch(`${apiBase()}/api/ext${route.path}`, {
         headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+        signal: netSignal(),
       });
       if (res.status === 401) throw new Error('not_connected');
       if (!res.ok) throw new Error(`http_${res.status}`);
