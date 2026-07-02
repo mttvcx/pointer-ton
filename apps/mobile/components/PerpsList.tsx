@@ -6,6 +6,7 @@ import { CoinIcon } from './CoinIcon';
 import { HlBadge } from './HlBadge';
 import { PerpsExplainer } from './PerpsExplainer';
 import { PressScale } from './PressScale';
+import { GlassFill } from './GlassFill';
 import { getPerpMarkets } from '../src/api/endpoints';
 import { API_URL } from '../src/env';
 import { colors, radius } from '../src/theme';
@@ -53,6 +54,7 @@ export function PerpsList() {
   return (
     <View style={s.wrap}>
       <View style={s.banner}>
+        <GlassFill />
         <Ionicons name="trending-up" size={22} color={colors.bull} />
         <View style={{ flex: 1 }}>
           <Text style={s.bannerTitle}>Go long or short</Text>
@@ -118,7 +120,7 @@ function Row({ m }: { m: PerpMarket }) {
 
 const s = StyleSheet.create({
   wrap: { marginTop: 14 },
-  banner: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 6 },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.lg, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginBottom: 6 },
   bannerTitle: { color: colors.fg, fontSize: 17, fontWeight: '700' },
   bannerSub: { color: colors.fgSecondary, fontSize: 13.5, lineHeight: 19, marginTop: 3 },
 

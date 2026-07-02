@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Screen } from '../components/Screen';
 import { CoinIcon } from '../components/CoinIcon';
 import { PressScale } from '../components/PressScale';
+import { GlassFill } from '../components/GlassFill';
 import { colors, radius } from '../src/theme';
 import { getLiveTokens } from '../src/api/endpoints';
 import { priceUsd, pseudoChange } from '../src/format';
@@ -30,6 +31,7 @@ export function SearchScreen({ onOpenToken }: { onOpenToken: (b: PulseBundle) =>
       <View style={[s.head, { paddingTop: insets.top + 10 }]}>
         <Text style={s.title}>Search</Text>
         <View style={s.searchBar}>
+          <GlassFill />
           <Ionicons name="search" size={18} color={colors.fgMuted} />
           <TextInput
             value={query}
@@ -85,7 +87,7 @@ export function SearchScreen({ onOpenToken }: { onOpenToken: (b: PulseBundle) =>
 const s = StyleSheet.create({
   head: { paddingHorizontal: 18 },
   title: { color: colors.fg, fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, marginTop: 14 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 14, paddingVertical: 12, marginTop: 14 },
   input: { flex: 1, color: colors.fg, fontSize: 16, padding: 0 },
   content: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 130 },
   section: { color: colors.fgMuted, fontSize: 13, fontWeight: '600', marginBottom: 6 },

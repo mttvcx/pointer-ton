@@ -6,6 +6,8 @@ import { Screen } from '../components/Screen';
 import { Logo } from '../components/Logo';
 import { PressScale } from '../components/PressScale';
 import { DepositFlow } from '../components/DepositFlow';
+import { GlassFill } from '../components/GlassFill';
+import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
 import { useBio, useFollowCount } from '../src/local';
 import { shareText } from '../src/share';
@@ -81,6 +83,7 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
         </View>
 
         <View style={s.cashback}>
+          <GlassFill />
           <View style={s.cashbackHead}>
             <Ionicons name="cash-outline" size={20} color={colors.bull} />
             <Text style={s.cashbackTitle}>Half your fees, back to you</Text>
@@ -95,9 +98,9 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
           </PressScale>
         </View>
 
-        <PressScale style={s.deposit} onPress={() => setDeposit(true)}>
+        <GlossButton onPress={() => setDeposit(true)} style={{ marginTop: 16 }}>
           <Text style={s.depositText}>Deposit</Text>
-        </PressScale>
+        </GlossButton>
       </ScrollView>
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
@@ -140,7 +143,7 @@ const s = StyleSheet.create({
   rangeTextOn: { color: colors.fg, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 36, gap: 8 },
   emptyText: { color: colors.fgMuted, fontSize: 14 },
-  cashback: { backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16, borderWidth: 1, borderColor: 'rgba(31,215,96,0.22)' },
+  cashback: { borderRadius: radius.lg, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,224,160,0.30)' },
   cashbackHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cashbackTitle: { color: colors.fg, fontSize: 16, fontWeight: '600' },
   cashbackBody: { color: colors.fgSecondary, fontSize: 14, lineHeight: 20, marginTop: 8 },

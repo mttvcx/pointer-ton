@@ -5,6 +5,7 @@ import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
 import { PressScale } from './PressScale';
+import { GlassFill } from './GlassFill';
 import { colors, radius } from '../src/theme';
 import { compactUsd } from '../src/format';
 import { shareText } from '../src/share';
@@ -183,10 +184,12 @@ export function PnlShareCard({
 
       <View style={s.actions}>
         <PressScale style={s.action} onPress={onCopy} to={0.96}>
+          <GlassFill />
           <Ionicons name="copy-outline" size={18} color={colors.fg} />
           <Text style={s.actionText}>Copy</Text>
         </PressScale>
         <PressScale style={s.action} onPress={onShare} to={0.96}>
+          <GlassFill />
           <Ionicons name="share-outline" size={18} color={colors.fg} />
           <Text style={s.actionText}>Share</Text>
         </PressScale>
@@ -229,6 +232,6 @@ const s = StyleSheet.create({
   code: { color: colors.onAccent, fontSize: 15, fontWeight: '800', marginTop: 1 },
 
   actions: { flexDirection: 'row', gap: 12, marginTop: 18 },
-  action: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.bgRaised, borderRadius: 14, paddingVertical: 15, borderWidth: 1, borderColor: colors.border },
+  action: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 15, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   actionText: { color: colors.fg, fontSize: 16, fontWeight: '700' },
 });
