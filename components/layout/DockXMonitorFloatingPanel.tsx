@@ -11,7 +11,6 @@ import {
   snapDockPeekCoords,
 } from '@/lib/layout/dockPeekSnap';
 import { stickyDockSideFromFloatingRect } from '@/lib/layout/floatingPeekSticky';
-import { embedXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorFloat';
 import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import {
   clampDockPeekWidth,
@@ -358,10 +357,9 @@ export function DockXMonitorFloatingPanel() {
       setDockGlow(null);
 
       if (snapped) {
-        if (onPulse) {
-          embedXMonitorOnPulse(snapped);
-          return;
-        }
+        // Edge-dock exactly like the wallet tracker (full height + body padding
+        // pushes Pulse/Stocks/watchlist over), instead of embedding into the Pulse
+        // rail which just overlapped the columns.
         setDockSnap(snapped);
         return;
       }

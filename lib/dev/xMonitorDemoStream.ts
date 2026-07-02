@@ -20,10 +20,11 @@ export interface DemoStreamFields {
   followers: number;
   eventType: DemoEvent;
   platform: DemoPlatform;
+  avatarUrl?: string;
   /** the other account for reply/quote/retweet/follow events */
   targetHandle?: string;
-  quoted?: { handle: string; name: string; text: string };
-  suggestions?: { name: string; ticker: string }[];
+  quoted?: { handle: string; name: string; text: string; avatarUrl?: string };
+  suggestions?: { name: string; ticker: string; image?: string }[];
 }
 
 export interface DemoStreamRow extends DemoStreamFields {
@@ -121,6 +122,12 @@ const TEMPLATES: Template[] = [
 
 const fmtFollowers = (k: number): number => Math.round(k * 1000);
 
+/** Real X avatar for a handle (demo only — external service, preview UI). */
+const avatarFor = (handle: string): string => `https://unavatar.io/twitter/${handle}`;
+/** Deterministic demo token image for a suggestion. */
+const suggestionImg = (ticker: string, i: number): string =>
+  `https://picsum.photos/seed/pt-${ticker.replace(/[^a-z0-9]/gi, '')}-${i}/64`;
+
 /** Build one demo row from template index `t`, made unique by `seq`. */
 export function makeDemoStreamRow(seq: number, tIndex: number, nowMs: number): DemoStreamRow {
   const t = TEMPLATES[((tIndex % TEMPLATES.length) + TEMPLATES.length) % TEMPLATES.length]!;
@@ -151,9 +158,12 @@ export function makeDemoStreamRow(seq: number, tIndex: number, nowMs: number): D
     followers: fmtFollowers(t.followersK),
     eventType: t.eventType,
     platform: t.platform,
+    avatarUrl: avatarFor(t.handle),
     ...(t.targetHandle ? { targetHandle: t.targetHandle } : {}),
-    ...(t.quoted ? { quoted: t.quoted } : {}),
-    ...(t.suggestions ? { suggestions: t.suggestions } : {}),
+    ...(t.quoted ? { quoted: { ...t.quoted, avatarUrl: avatarFor(t.quoted.handle) } } : {}),
+    ...(t.suggestions
+      ? { suggestions: t.suggestions.map((s, i) => ({ ...s, image: suggestionImg(s.ticker, i) })) }
+      : {}),
   };
 }
 

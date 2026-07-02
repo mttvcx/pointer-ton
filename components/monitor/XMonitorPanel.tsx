@@ -98,6 +98,62 @@ function fmtCount(n: number): string {
   return String(n);
 }
 
+/** Avatar with graceful fallback to the handle initial if the image fails. */
+function Avatar({ url, handle, size = 28 }: { url?: string; handle: string; size?: number }) {
+  const [err, setErr] = useState(false);
+  if (!url || err) {
+    return (
+      <div
+        className="flex shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-[11px] font-bold text-fg-secondary"
+        style={{ width: size, height: size }}
+      >
+        {handleInitial(handle)}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      width={size}
+      height={size}
+      referrerPolicy="no-referrer"
+      onError={() => setErr(true)}
+      className="shrink-0 rounded-full object-cover"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+/** Real brand marks for the source platform (X / Instagram / Truth Social). */
+function PlatformBadge({ platform }: { platform: DemoPlatform }) {
+  if (platform === 'x') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-fg-secondary" fill="currentColor" aria-label="X">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    );
+  }
+  if (platform === 'instagram') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-pink-400" fill="none" stroke="currentColor" strokeWidth={2} aria-label="Instagram">
+        <rect x="2" y="2" width="20" height="20" rx="5.5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  return (
+    <span
+      className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] bg-[#5448ee] text-[8px] font-black leading-none text-white"
+      aria-label="Truth Social"
+    >
+      T
+    </span>
+  );
+}
+
 function alertToListenRow(a: AlertsTickerItem): ListenRow | null {
   const tweet = tweetInputFromAlertPayload(a.payload);
   if (!tweet) return null;
@@ -443,7 +499,7 @@ export function XMonitorPanel({
                         isAutoLaunch
                           ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
                           : 'border-accent-primary/55 text-accent-primary hover:border-accent-primary hover:bg-accent-primary/10',
-                        row.isMock && 'cursor-default',
+                        'cursor-pointer',
                       )}
                     >
                       <span className="rotate-180 text-[9px] font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]">
@@ -453,29 +509,42 @@ export function XMonitorPanel({
 
                     <div className="min-w-0 flex-1 px-3 py-2.5">
                       <div className="flex items-start gap-2">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-[11px] font-bold text-fg-secondary">
-                          {handleInitial(row.tweet.authorHandle)}
-                        </div>
+                        <a
+                          href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0"
+                        >
+                          <Avatar url={row.avatarUrl} handle={row.tweet.authorHandle ?? ''} size={28} />
+                        </a>
                         <div className="flex min-w-0 flex-1 flex-col">
                           <div className="flex items-center gap-1.5">
-                            <span className="truncate text-[12px] font-semibold text-fg-primary">
+                            <a
+                              href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="truncate text-[12px] font-semibold text-fg-primary hover:underline"
+                            >
                               {row.displayName ?? `@${(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}`}
-                            </span>
+                            </a>
                             {row.verified ? (
                               <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-sky-400" strokeWidth={2} aria-hidden />
                             ) : null}
-                            {row.platform && row.platform !== 'x' ? (
-                              <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[8px] font-semibold uppercase text-fg-muted">
-                                {PLATFORM_LABEL[row.platform]}
-                              </span>
-                            ) : null}
+                            {row.platform ? <PlatformBadge platform={row.platform} /> : null}
                             <span className="shrink-0 text-[10px] tabular-nums text-fg-muted/80">
                               · {formatListenAge(row.createdAt)}
                             </span>
                           </div>
                           {row.displayName ? (
                             <div className="flex items-center gap-1.5 text-[10px] text-fg-muted">
-                              <span className="truncate">@{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}</span>
+                              <a
+                                href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="truncate hover:underline"
+                              >
+                                @{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}
+                              </a>
                               {row.followers ? (
                                 <span className="shrink-0 tabular-nums">· {fmtCount(row.followers)} followers</span>
                               ) : null}
@@ -531,13 +600,19 @@ export function XMonitorPanel({
                       ) : null}
 
                       {row.quoted ? (
-                        <div className="mt-1.5 rounded-md border-l-2 border-white/[0.12] bg-white/[0.02] px-2.5 py-1.5">
-                          <div className="flex items-center gap-1 text-[10px]">
+                        <a
+                          href={`https://x.com/${row.quoted.handle}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1.5 block rounded-md border-l-2 border-white/[0.12] bg-white/[0.02] px-2.5 py-1.5 transition-colors hover:bg-white/[0.04]"
+                        >
+                          <div className="flex items-center gap-1.5 text-[10px]">
+                            <Avatar url={row.quoted.avatarUrl} handle={row.quoted.handle} size={14} />
                             <span className="font-semibold text-fg-secondary">{row.quoted.name}</span>
                             <span className="text-fg-muted">@{row.quoted.handle}</span>
                           </div>
                           <p className="mt-0.5 text-[11px] leading-snug text-fg-muted">{row.quoted.text}</p>
-                        </div>
+                        </a>
                       ) : null}
 
                       {image ? <TweetMediaImage src={image} /> : null}
@@ -563,9 +638,19 @@ export function XMonitorPanel({
                                 key={`${row.subject}-s${i}`}
                                 className="flex items-stretch overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.03]"
                               >
-                                <div className="flex w-7 shrink-0 items-center justify-center bg-white/[0.04] text-[9px] font-bold text-fg-muted">
-                                  {s.ticker.replace(/^\$/, '').slice(0, 2).toUpperCase()}
-                                </div>
+                                {s.image ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={s.image}
+                                    alt=""
+                                    referrerPolicy="no-referrer"
+                                    className="h-full w-7 shrink-0 object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex w-7 shrink-0 items-center justify-center bg-white/[0.04] text-[9px] font-bold text-fg-muted">
+                                    {s.ticker.replace(/^\$/, '').slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
                                 <div className="min-w-0 px-2 py-1">
                                   <div className="truncate text-[10px] font-semibold text-fg-primary">{s.name}</div>
                                   <div className="truncate text-[9px] text-fg-muted">${s.ticker.replace(/^\$/, '')}</div>
