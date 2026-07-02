@@ -21,7 +21,9 @@ export function AppToaster() {
       className={cn('toaster-app', anchorRight && 'toaster-app--answer-open')}
       richColors
       offset={toastOffset(placement)}
+      duration={3000}
       toastOptions={{
+        duration: 3000,
         classNames: {
           toast: surface.custom ? 'border' : 'border border-border-subtle text-fg-primary !bg-bg-base',
           title: 'text-sm font-medium',

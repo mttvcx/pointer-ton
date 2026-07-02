@@ -357,7 +357,14 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 isolate z-[100] box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1">
+    <header
+      className={cn(
+        'sticky top-0 isolate box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1',
+        // While the account menu is open, lift the whole header stacking context
+        // above the floating docks (z-221) so its scrim can dim them too.
+        avatarMenuOpen ? 'z-[300]' : 'z-[100]',
+      )}
+    >
       {/* Left — logo + primary nav (above center chrome so Championship / $PTR stay clickable) */}
       <div className="relative z-20 flex min-w-0 items-center gap-1 sm:gap-1.5">
       <Link

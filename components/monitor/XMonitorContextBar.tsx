@@ -62,10 +62,19 @@ export function XMonitorContextBar() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 z-[96] flex justify-center" style={{ bottom: 'calc(var(--app-bottombar-h) + 8px)' }}>
-      <div className="pointer-events-auto flex w-full max-w-[520px] flex-col items-center px-3">
+      {/* Click-away catcher: closes the open page when clicking anywhere else. */}
+      {active ? (
+        <button
+          type="button"
+          aria-label="Close page"
+          onClick={close}
+          className="pointer-events-auto fixed inset-0 cursor-default bg-black/25 animate-in fade-in-0 duration-150"
+        />
+      ) : null}
+      <div className="pointer-events-auto relative flex w-full max-w-[520px] flex-col items-center px-3">
         {/* Popup page — rises above the strip */}
         {active ? (
-          <div className="mb-2 flex w-full flex-col overflow-hidden rounded-xl border border-white/[0.12] bg-bg-raised shadow-[0_24px_60px_-18px_rgba(0,0,0,0.85)]">
+          <div className="mb-2 flex w-full flex-col overflow-hidden rounded-xl border border-white/[0.12] bg-bg-raised shadow-[0_24px_60px_-18px_rgba(0,0,0,0.85)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
             <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.08] bg-bg-hover px-3 py-2">
               <div className="flex items-center gap-2">
                 <active.icon className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2} aria-hidden />

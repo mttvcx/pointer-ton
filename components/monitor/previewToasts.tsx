@@ -89,7 +89,7 @@ export function fireCaMentionToast() {
         </div>
       </div>
     ),
-    { duration: 9000 },
+    { duration: 3000 },
   );
 }
 
@@ -147,6 +147,6 @@ export function fireTradeToast() {
         <CloseButton size="sm" label="Dismiss" onClick={() => toast.dismiss(id)} />
       </div>
     ),
-    { duration: 9000 },
+    { duration: 3000 },
   );
 }

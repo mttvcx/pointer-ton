@@ -12,7 +12,6 @@ import { PulseWorkspaceToolbar } from '@/components/pulse/PulseWorkspaceToolbar'
 import { usePulseAssetModeStore } from '@/store/pulseAssetMode';
 import { useWatchlistStore } from '@/store/watchlist';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
-import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
@@ -40,16 +39,7 @@ export function PulseChromeStack() {
   const walletDockSnap = useTokenDockPeekStore((s) => s.dockWalletDockSnap);
   const toolbarStacked = walletPeekOpen && walletDockSnap === 'right';
 
-  // Same idea for the left group (Pulse/Stocks + chains): when a side dock is
-  // open the centered hover-answer box collides with it, so lift the group to a
-  // dedicated row above instead of squishing it under the answer box.
-  const xMonitorPeekOpen = useTokenDockPeekStore((s) => s.xMonitorPeekOpen);
-  const pulsePeekOpen = useTokenDockPeekStore((s) => s.pulsePeekOpen);
-  const xMonitorRailOpen = usePulseTwitterRailStore((s) => s.side !== 'hidden');
-  const anyDockOpen = walletPeekOpen || xMonitorPeekOpen || pulsePeekOpen || xMonitorRailOpen;
-
   const showBrief = isEmbedded && showBriefSlot;
-  const leftStacked = showBrief && anyDockOpen;
   const onPulse = Boolean(pathname?.startsWith('/pulse'));
 
   useEffect(() => {
@@ -73,37 +63,25 @@ export function PulseChromeStack() {
           watchlistTickerOn ? 'py-1.5' : 'py-1 sm:py-1.5',
         )}
       >
-        {/* Squished: lift Pulse/Stocks + chains to a dedicated row above the
-            answer box so they don't overlap it. */}
-        {leftStacked && hydrated ? (
-          <div className="mb-1 flex w-full items-center gap-2.5 px-2 sm:gap-3 sm:px-3 lg:px-4">
-            <PulseModeSelector mode={assetMode} onChange={setAssetMode} variant="label" />
-            <span className="h-4 w-px shrink-0 bg-white/[0.08]" aria-hidden />
-            <PulseChainSelector />
-          </div>
-        ) : null}
-
         <div className="relative w-full min-h-[var(--pulse-answer-chrome-h)]">
-          {!leftStacked ? (
-            <div
-              className={cn(
-                'pointer-events-none absolute bottom-2.5 z-10',
-                'left-[max(0.5rem,var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))]',
+          <div
+            className={cn(
+              'pointer-events-none absolute bottom-2.5 z-10',
+              'left-[max(0.5rem,var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))]',
+            )}
+          >
+            <div className="pointer-events-auto flex items-center gap-2.5 sm:gap-3">
+              {hydrated ? (
+                <>
+                  <PulseModeSelector mode={assetMode} onChange={setAssetMode} variant="label" />
+                  <span className="h-4 w-px shrink-0 bg-white/[0.08]" aria-hidden />
+                  <PulseChainSelector />
+                </>
+              ) : (
+                <span className="h-5 w-40 animate-pulse rounded bg-bg-hover" aria-hidden />
               )}
-            >
-              <div className="pointer-events-auto flex items-center gap-2.5 sm:gap-3">
-                {hydrated ? (
-                  <>
-                    <PulseModeSelector mode={assetMode} onChange={setAssetMode} variant="label" />
-                    <span className="h-4 w-px shrink-0 bg-white/[0.08]" aria-hidden />
-                    <PulseChainSelector />
-                  </>
-                ) : (
-                  <span className="h-5 w-40 animate-pulse rounded bg-bg-hover" aria-hidden />
-                )}
-              </div>
             </div>
-          ) : null}
+          </div>
 
           <div
             className={cn(

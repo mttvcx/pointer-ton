@@ -27,8 +27,9 @@ export function WalletTrackerToaster() {
       visibleToasts={3}
       swipeDirections={['bottom']}
       offset={toastOffset(placement)}
+      duration={3000}
       toastOptions={{
-        duration: 5000,
+        duration: 3000,
         classNames: {
           toast: '!bg-transparent !border-0 !p-0 !shadow-none',
         },
