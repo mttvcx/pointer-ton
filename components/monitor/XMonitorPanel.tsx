@@ -39,7 +39,7 @@ type ListenRow = {
 const MOCK_ROWS: ListenRow[] = [
   {
     alertId: 'ux-mock-twitter-1',
-    createdAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+    createdAt: new Date(Date.now() - 1 * 60_000).toISOString(),
     subject: 'demo-1',
     isMock: true,
     payload: {
@@ -53,6 +53,25 @@ const MOCK_ROWS: ListenRow[] = [
       authorHandle: 'elonmusk',
       text: 'Introducing Grok 4.5 — our most capable model yet. Built different.',
       tweetUrl: 'https://x.com/i/web/status/1234567890123456789',
+    },
+  },
+  {
+    alertId: 'ux-mock-twitter-auto',
+    createdAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+    subject: 'demo-auto',
+    isMock: true,
+    payload: {
+      handle: 'a1lon9',
+      tweetText: 'wif hat but for the AI era. deploying this myself. wagmi',
+      tweetUrl: 'https://x.com/i/web/status/1111111111111111111',
+      execution: 'auto_launch',
+      requestedExecution: 'auto_launch',
+    },
+    tweet: {
+      id: '1111111111111111111',
+      authorHandle: 'a1lon9',
+      text: 'wif hat but for the AI era. deploying this myself. wagmi',
+      tweetUrl: 'https://x.com/i/web/status/1111111111111111111',
     },
   },
   {
@@ -90,6 +109,45 @@ const MOCK_ROWS: ListenRow[] = [
       authorHandle: 'kol_demo',
       text: 'This chart is sending it. Someone should tokenize this moment.',
       imageUrls: ['https://picsum.photos/seed/pointer-demo-cover/96/96'],
+    },
+  },
+  {
+    alertId: 'ux-mock-twitter-4',
+    createdAt: new Date(Date.now() - 21 * 60_000).toISOString(),
+    subject: 'demo-4',
+    isMock: true,
+    payload: {
+      handle: 'realDonaldTrump',
+      tweetText:
+        'The United Saints of America is the #1 song in the Country. A GREAT anthem for America 250. Everyone should listen!',
+      tweetUrl: 'https://x.com/i/web/status/2222222222222222222',
+      execution: 'notify',
+    },
+    tweet: {
+      id: '2222222222222222222',
+      authorHandle: 'realDonaldTrump',
+      text:
+        'The United Saints of America is the #1 song in the Country. A GREAT anthem for America 250. Everyone should listen!',
+      tweetUrl: 'https://x.com/i/web/status/2222222222222222222',
+    },
+  },
+  {
+    alertId: 'ux-mock-twitter-5',
+    createdAt: new Date(Date.now() - 34 * 60_000).toISOString(),
+    subject: 'demo-5',
+    isMock: true,
+    payload: {
+      handle: 'frankdegods',
+      tweetText: 'CA: 7xKq...pump — aping a bag, might be nothing. NFA.',
+      tweetUrl: 'https://x.com/i/web/status/3333333333333333333',
+      mint: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      execution: 'notify',
+    },
+    tweet: {
+      id: '3333333333333333333',
+      authorHandle: 'frankdegods',
+      text: 'CA: 7xKq...pump — aping a bag, might be nothing. NFA.',
+      tweetUrl: 'https://x.com/i/web/status/3333333333333333333',
     },
   },
 ];
@@ -217,33 +275,38 @@ export function XMonitorPanel({
   }, [data]);
 
   const uiDemo = isUiDemoMode();
+  // Per-browser, user-initiated preview so the operator can iterate on the feed UI
+  // even in founder beta (where the global demo flag is hard-locked off). Only
+  // affects this session/tab; always clearly badged "Preview" + per-row "sample".
+  const [localSamples, setLocalSamples] = useState(false);
+  const showDemo = uiDemo || localSamples;
   const { rows, mock, banner } = useMemo(() => {
     if (activeChain !== 'sol') {
       return {
-        rows: uiDemo ? MOCK_ROWS : [],
-        mock: uiDemo,
+        rows: showDemo ? MOCK_ROWS : [],
+        mock: showDemo,
         banner: 'Live X listens are Solana-only — switch chain to SOL.',
       };
     }
     if (serverRows.length === 0) {
-      /** Live mode: honest empty feed — samples only in explicit demo mode. */
+      /** Live mode: honest empty feed — samples only when explicitly previewed. */
       return {
-        rows: uiDemo ? MOCK_ROWS : [],
-        mock: uiDemo,
-        banner: uiDemo
-          ? 'No live hits yet · showing samples. Add @ rules in Rules tab.'
+        rows: showDemo ? MOCK_ROWS : [],
+        mock: showDemo,
+        banner: showDemo
+          ? 'Preview — sample data, not live. Add @ rules in the Rules tab.'
           : 'No live hits yet. Add @ rules in the Rules tab to start monitoring.',
       };
     }
     return { rows: serverRows, mock: false, banner: null as string | null };
-  }, [activeChain, serverRows, uiDemo]);
+  }, [activeChain, serverRows, showDemo]);
 
   const tweets = useMemo(() => rows.map((r) => r.tweet), [rows]);
   const {
     data: packages,
     isFetching: packagesLoading,
     isError: packagesError,
-  } = useLaunchPackages(tweets, tweets.length > 0 && activeChain === 'sol');
+  } = useLaunchPackages(tweets, tweets.length > 0 && activeChain === 'sol' && !mock);
 
   const packageBySubject = useMemo(() => {
     const map = new Map<string, LaunchPackage>();
@@ -343,9 +406,18 @@ export function XMonitorPanel({
       ) : (
         <>
           {banner ? (
-            <p className="shrink-0 border-b border-white/[0.06] px-3 py-2 text-[10px] leading-snug text-fg-muted">
-              {banner}
-            </p>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2">
+              <p className="text-[10px] leading-snug text-fg-muted">{banner}</p>
+              {!uiDemo ? (
+                <button
+                  type="button"
+                  onClick={() => setLocalSamples((v) => !v)}
+                  className="btn-press shrink-0 rounded-sm border border-white/[0.1] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted transition hover:border-accent-primary/40 hover:text-accent-primary"
+                >
+                  {localSamples ? 'Exit preview' : 'Preview samples'}
+                </button>
+              ) : null}
+            </div>
           ) : null}
           {packagesError ? (
             <p className="shrink-0 border-b border-white/[0.06] px-3 py-2 text-[10px] text-fg-muted">
@@ -389,25 +461,31 @@ export function XMonitorPanel({
                     {/* Left vertical outlined LAUNCH rail (Terminal-style) */}
                     <button
                       type="button"
-                      disabled={row.isMock}
                       onClick={() => {
-                        if (row.isMock) return;
+                        if (row.isMock) return; // preview only — never launch from sample data
                         if (launchMode === 'ai' && !pkg?.shouldLaunch) {
                           void openDeployForTweetAsync(row.subject, row.tweet, true);
                           return;
                         }
                         openDeployForTweet(row.subject, row.tweet, pkg, 0);
                       }}
-                      title={row.isMock ? 'Sample tweet' : 'Launch a token from this tweet'}
+                      title={
+                        row.isMock
+                          ? 'Sample preview — launch is disabled on demo data'
+                          : isAutoLaunch
+                            ? 'Auto-launch armed for this rule'
+                            : 'Launch a token from this tweet'
+                      }
                       className={cn(
                         'btn-press my-2 ml-2 flex w-8 shrink-0 items-center justify-center rounded-md border transition',
-                        row.isMock
-                          ? 'cursor-not-allowed border-white/[0.07] text-fg-muted/40'
+                        isAutoLaunch
+                          ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
                           : 'border-accent-primary/55 text-accent-primary hover:border-accent-primary hover:bg-accent-primary/10',
+                        row.isMock && 'cursor-default',
                       )}
                     >
                       <span className="rotate-180 text-[9px] font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]">
-                        {row.isMock ? 'Sample' : launchMode === 'ai' ? 'AI Launch' : 'Launch'}
+                        {isAutoLaunch ? 'Auto' : launchMode === 'ai' ? 'AI Launch' : 'Launch'}
                       </span>
                     </button>
 
