@@ -46,6 +46,11 @@ export type XMonitorSettings = {
     deploy: string;
     dismiss: string;
   };
+
+  /** Wallet that signs the deploy (address; null = prompt at deploy). */
+  deployWallet: string | null;
+  /** Extra wallets used for sniper / buy-in spread. */
+  buyInWallets: Array<{ label: string; address: string }>;
 };
 
 export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
@@ -72,12 +77,16 @@ export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
     deploy: 'd',
     dismiss: 'x',
   },
+  deployWallet: null,
+  buyInWallets: [],
 };
 
 type XMonitorSettingsState = XMonitorSettings & {
   set: (patch: Partial<XMonitorSettings>) => void;
   setSource: (source: FeedSource, on: boolean) => void;
   setKeybind: (action: keyof XMonitorSettings['keybinds'], key: string) => void;
+  addBuyInWallet: (w: { label: string; address: string }) => void;
+  removeBuyInWallet: (address: string) => void;
   reset: () => void;
 };
 
@@ -90,6 +99,14 @@ export const useXMonitorSettings = create<XMonitorSettingsState>()(
         set((s) => ({ ...s, sources: { ...s.sources, [source]: on } })),
       setKeybind: (action, key) =>
         set((s) => ({ ...s, keybinds: { ...s.keybinds, [action]: key } })),
+      addBuyInWallet: (w) =>
+        set((s) =>
+          s.buyInWallets.some((x) => x.address === w.address)
+            ? s
+            : { ...s, buyInWallets: [...s.buyInWallets, w] },
+        ),
+      removeBuyInWallet: (address) =>
+        set((s) => ({ ...s, buyInWallets: s.buyInWallets.filter((x) => x.address !== address) })),
       reset: () => set((s) => ({ ...s, ...DEFAULT_XMONITOR_SETTINGS })),
     }),
     { name: 'pointer.x-monitor-settings' },

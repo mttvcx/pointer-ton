@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, type KeyboardEvent } from 'react';
-import { Plus, RotateCcw, X } from 'lucide-react';
+import { Check, Plus, RotateCcw, Wallet, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { shortenAddress } from '@/lib/utils/addresses';
+import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
 import {
   useXMonitorSettings,
   type FeedSource,
@@ -230,6 +232,9 @@ export function XMonitorSettings() {
         />
       </Section>
 
+      {/* Wallets */}
+      <WalletsSection />
+
       {/* Feed sources */}
       <Section title="Feed accounts" desc="Toggle the channels that stream into the monitor.">
         <ul className="space-y-1.5">
@@ -352,6 +357,172 @@ export function XMonitorSettings() {
         </button>
       </div>
     </div>
+  );
+}
+
+function WalletsSection() {
+  const deployWallet = useXMonitorSettings((s) => s.deployWallet);
+  const buyInWallets = useXMonitorSettings((s) => s.buyInWallets);
+  const set = useXMonitorSettings((s) => s.set);
+  const addBuyInWallet = useXMonitorSettings((s) => s.addBuyInWallet);
+  const removeBuyInWallet = useXMonitorSettings((s) => s.removeBuyInWallet);
+  const embedded = useEmbeddedSolanaAddresses();
+  const embeddedList = Array.from(embedded);
+
+  const [custom, setCustom] = useState('');
+  const [label, setLabel] = useState('');
+  const [addr, setAddr] = useState('');
+
+  const isKnown = deployWallet ? embeddedList.includes(deployWallet) : true;
+
+  return (
+    <Section title="Wallets" desc="Which wallet deploys, and buy-in wallets for spread/snipe.">
+      <div className="space-y-3">
+        <div>
+          <span className="text-[11px] text-fg-secondary">Deploy wallet</span>
+          <div className="mt-1.5 space-y-1">
+            <WalletOption
+              active={deployWallet === null}
+              onClick={() => set({ deployWallet: null })}
+              title="Prompt each time"
+              sub="Choose a wallet when you deploy"
+            />
+            {embeddedList.map((a) => (
+              <WalletOption
+                key={a}
+                active={deployWallet === a}
+                onClick={() => set({ deployWallet: a })}
+                title={shortenAddress(a, 6)}
+                sub="Pointer embedded wallet"
+                mono
+              />
+            ))}
+            {deployWallet && !isKnown ? (
+              <WalletOption
+                active
+                onClick={() => {}}
+                title={shortenAddress(deployWallet, 6)}
+                sub="Custom wallet"
+                mono
+              />
+            ) : null}
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <input
+              value={custom}
+              onChange={(e) => setCustom(e.target.value)}
+              placeholder="Paste a custom deploy address…"
+              className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 font-mono text-[10.5px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
+            />
+            <button
+              type="button"
+              disabled={custom.trim().length < 32}
+              onClick={() => {
+                set({ deployWallet: custom.trim() });
+                setCustom('');
+              }}
+              className="btn-press rounded-md border border-white/[0.1] px-2 py-1 text-[11px] font-semibold text-fg-secondary transition-colors hover:border-accent-primary/40 hover:text-accent-primary disabled:opacity-40"
+            >
+              Set
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <span className="text-[11px] text-fg-secondary">Buy-in wallets</span>
+          {buyInWallets.length ? (
+            <ul className="mt-1.5 space-y-1">
+              {buyInWallets.map((w) => (
+                <li
+                  key={w.address}
+                  className="flex items-center justify-between gap-2 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-medium text-fg-primary">{w.label || 'Wallet'}</p>
+                    <p className="truncate font-mono text-[10px] text-fg-muted">{shortenAddress(w.address, 6)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeBuyInWallet(w.address)}
+                    className="text-fg-muted hover:text-signal-bear"
+                    aria-label="Remove wallet"
+                  >
+                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-[10px] text-fg-muted">None yet — add wallets to spread the buy.</p>
+          )}
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Label"
+              className="w-20 shrink-0 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 text-[11px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
+            />
+            <input
+              value={addr}
+              onChange={(e) => setAddr(e.target.value)}
+              placeholder="Address…"
+              className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 font-mono text-[10.5px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
+            />
+            <button
+              type="button"
+              disabled={addr.trim().length < 32}
+              onClick={() => {
+                addBuyInWallet({ label: label.trim(), address: addr.trim() });
+                setLabel('');
+                setAddr('');
+              }}
+              className="btn-press rounded-md border border-white/[0.1] p-1 text-fg-secondary transition-colors hover:border-accent-primary/40 hover:text-accent-primary disabled:opacity-40"
+              aria-label="Add buy-in wallet"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function WalletOption({
+  active,
+  onClick,
+  title,
+  sub,
+  mono,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  sub: string;
+  mono?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors',
+        active
+          ? 'border-accent-primary/40 bg-accent-primary/[0.08]'
+          : 'border-white/[0.08] bg-white/[0.03] hover:border-white/20',
+      )}
+    >
+      <Wallet
+        className={cn('h-3.5 w-3.5 shrink-0', active ? 'text-accent-primary' : 'text-fg-muted')}
+        strokeWidth={2}
+        aria-hidden
+      />
+      <span className="min-w-0 flex-1">
+        <span className={cn('block text-[11px] font-medium text-fg-primary', mono && 'font-mono')}>{title}</span>
+        <span className="block truncate text-[9.5px] text-fg-muted">{sub}</span>
+      </span>
+      {active ? <Check className="h-3.5 w-3.5 shrink-0 text-accent-primary" strokeWidth={2.5} aria-hidden /> : null}
+    </button>
   );
 }
 

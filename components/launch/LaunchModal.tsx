@@ -12,8 +12,10 @@ import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverla
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
+import { shortenAddress } from '@/lib/utils/addresses';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { DEFAULT_LAUNCH_FEATURES, useLaunchModalStore, type LaunchFeatures } from '@/store/launchModal';
+import { useXMonitorSettings } from '@/store/xMonitorSettings';
 
 export function LaunchModal() {
   const open = useLaunchModalStore((s) => s.open);
@@ -21,6 +23,7 @@ export function LaunchModal() {
   const patchDraft = useLaunchModalStore((s) => s.patchDraft);
   const close = useLaunchModalStore((s) => s.close);
   const defaultBuySol = useAutoLaunchStore((s) => s.launchBuySol);
+  const deployWallet = useXMonitorSettings((s) => s.deployWallet);
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
 
   useEffect(() => {
@@ -289,7 +292,11 @@ export function LaunchModal() {
             Deploy <span className="font-normal text-fg-muted">· coming soon</span>
           </button>
           <p className="mt-2 text-center text-[9px] text-fg-muted">
-            Default dev buy {defaultBuySol} SOL · toggle AI launcher in X monitor
+            Deploy from{' '}
+            <span className="font-mono text-fg-secondary">
+              {deployWallet ? shortenAddress(deployWallet, 4) : 'prompt at deploy'}
+            </span>{' '}
+            · default dev buy {defaultBuySol} SOL
           </p>
         </footer>
       </div>
