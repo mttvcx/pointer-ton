@@ -3,6 +3,8 @@ import { Linking, ScrollView, StyleSheet, Switch, Text, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressScale } from '../components/PressScale';
+import { Screen } from '../components/Screen';
+import { GlassFill } from '../components/GlassFill';
 import { Slide } from '../components/Slide';
 import { colors, radius } from '../src/theme';
 import { useAuth } from '../src/auth';
@@ -48,7 +50,7 @@ export function SettingsScreen({
     section && !(initialSection && section === initialSection) ? setSection(null) : onClose();
 
   return (
-    <View style={s.root}>
+    <Screen>
       <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
         <PressScale onPress={goBack} to={0.85} hitSlop={10}>
           <Ionicons name="chevron-back" size={26} color={colors.fgSecondary} />
@@ -93,7 +95,7 @@ export function SettingsScreen({
           </ScrollView>
         </Slide>
       )}
-    </View>
+    </Screen>
   );
 }
 
@@ -177,6 +179,7 @@ function Detail({ section }: { section: Section }) {
         <View style={s.block}>
           <Text style={s.blockLabel}>Quick-buy amount</Text>
           <View style={s.seg}>
+            <GlassFill />
             {SOLS.map((v) => (
               <PressScale key={v} onPress={() => setQuickBuySol(v)} to={0.96} style={[s.segItem, qb.sol === v && s.segItemOn]}>
                 <Text style={[s.segText, qb.sol === v && s.segTextOn]}>{v} SOL</Text>
@@ -200,6 +203,7 @@ function Detail({ section }: { section: Section }) {
         <View style={s.block}>
           <Text style={s.blockLabel}>Slippage</Text>
           <View style={s.seg}>
+            <GlassFill />
             {SLIPPAGES.map((v) => (
               <PressScale key={v} onPress={() => setTradeSlippage(v)} to={0.96} style={[s.segItem, slippage === v && s.segItemOn]}>
                 <Text style={[s.segText, slippage === v && s.segTextOn]}>{v}%</Text>
@@ -211,6 +215,7 @@ function Detail({ section }: { section: Section }) {
         <View style={s.block}>
           <Text style={s.blockLabel}>MEV protection</Text>
           <View style={s.seg}>
+            <GlassFill />
             {MEVS.map((v) => (
               <PressScale key={v} onPress={() => setTradeMev(v)} to={0.96} style={[s.segItem, mev === v && s.segItemOn]}>
                 <Text style={[s.segText, mev === v && s.segTextOn]}>{mevLabel(v)}</Text>
@@ -291,11 +296,11 @@ const s = StyleSheet.create({
 
   block: { marginTop: 18 },
   blockLabel: { color: colors.fg, fontSize: 16, fontWeight: '600', marginBottom: 10 },
-  seg: { flexDirection: 'row', backgroundColor: colors.bgRaised, borderRadius: radius.md, padding: 4, gap: 4 },
+  seg: { flexDirection: 'row', borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 4, gap: 4 },
   segItem: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: radius.sm },
-  segItemOn: { backgroundColor: colors.accent },
+  segItemOn: { backgroundColor: 'rgba(255,255,255,0.13)' },
   segText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600' },
-  segTextOn: { color: colors.onAccent, fontWeight: '700' },
+  segTextOn: { color: colors.fg, fontWeight: '700' },
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   toggleSub: { color: colors.fgMuted, fontSize: 13, marginTop: 3 },

@@ -69,8 +69,8 @@ export function GlassNav({
       </Slot>
       <Slot onPress={onToggleAdvanced}>
         <View style={[s.center, advanced && s.centerOn]}>
-          <Logo size={56} />
-          <Text style={s.advExp}>Adv.</Text>
+          <Logo size={56} style={{ tintColor: advanced ? colors.accent : colors.fgMuted }} />
+          <Text style={[s.advExp, { color: advanced ? colors.accentGlow : colors.fgSecondary }]}>Adv.</Text>
         </View>
       </Slot>
       <Slot onPress={() => onSelect('social')}>
@@ -142,5 +142,5 @@ const s = StyleSheet.create({
   center: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   centerOn: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent },
   advExp: { position: 'absolute', top: 3, right: 3, color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: -0.2, textShadowColor: 'rgba(0,0,0,0.55)', textShadowRadius: 3 },
-  profile: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#E8732A', alignItems: 'center', justifyContent: 'center' },
+  profile: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
 });

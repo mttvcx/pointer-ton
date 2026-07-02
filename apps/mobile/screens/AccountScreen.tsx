@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Logo } from '../components/Logo';
 import { PressScale } from '../components/PressScale';
+import { GlassFill } from '../components/GlassFill';
 import { ExportKeysSheet } from '../components/ExportKeysSheet';
 import { colors, radius } from '../src/theme';
 import { useAuth } from '../src/auth';
@@ -77,12 +78,14 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
 
         <Text style={s.label}>Username</Text>
         <View style={s.field}>
+          <GlassFill />
           <Text style={s.at}>@</Text>
           <TextInput value={username} onChangeText={setUsername} style={s.input} autoCapitalize="none" autoCorrect={false} />
         </View>
 
         <Text style={s.label}>Display name</Text>
         <View style={s.field}>
+          <GlassFill />
           <TextInput value={display} onChangeText={setDisplay} style={s.input} />
         </View>
 
@@ -91,6 +94,7 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
           <Text style={s.count}>{desc.length} / 160</Text>
         </View>
         <View style={[s.textarea, autoFocusBio && s.textareaFocus]}>
+          <GlassFill />
           <TextInput
             ref={descRef}
             value={desc}
@@ -103,6 +107,7 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
         </View>
 
         <PressScale style={[s.save, dirty && s.saveDirty]} onPress={save}>
+          <GlassFill active={dirty} />
           <Text style={[s.saveText, dirty && s.saveTextDirty]}>{saved ? 'Saved ✓' : 'Save changes'}</Text>
         </PressScale>
 
@@ -168,18 +173,18 @@ const s = StyleSheet.create({
   pencil: { position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, backgroundColor: '#1A1E27', borderWidth: 2, borderColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
 
   label: { color: colors.fgMuted, fontSize: 14, marginTop: 22, marginBottom: 8 },
-  field: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 15 },
+  field: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 16, paddingVertical: 15 },
   at: { color: colors.fgMuted, fontSize: 18, fontWeight: '600' },
   input: { flex: 1, color: colors.fg, fontSize: 18, fontWeight: '500', padding: 0 },
   descHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 8 },
   count: { color: colors.fgMuted, fontSize: 13 },
-  textarea: { backgroundColor: colors.bgRaised, borderRadius: radius.md, padding: 16, minHeight: 110, borderWidth: 1, borderColor: 'transparent' },
+  textarea: { borderRadius: radius.md, padding: 16, minHeight: 110, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   textareaFocus: { borderColor: colors.accent },
   textareaInput: { color: colors.fg, fontSize: 17, padding: 0, textAlignVertical: 'top', flex: 1 },
-  save: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
-  saveDirty: { backgroundColor: colors.accent },
+  save: { borderRadius: radius.md, paddingVertical: 16, alignItems: 'center', marginTop: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  saveDirty: { borderColor: 'rgba(255,255,255,0.28)' },
   saveText: { color: colors.fgMuted, fontSize: 16, fontWeight: '700' },
-  saveTextDirty: { color: colors.onAccent },
+  saveTextDirty: { color: colors.fg },
 
   sectionLabel: { color: colors.fgMuted, fontSize: 14, marginTop: 26 },
   loginRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
