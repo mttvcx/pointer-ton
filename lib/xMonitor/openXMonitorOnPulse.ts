@@ -30,18 +30,14 @@ export function openXMonitorOnPulse(side: 'left' | 'right' = 'left') {
   ui.setAlertRulesDocked(false);
   ui.setAlertRulesPopout(null);
 
-  if (isOnPulseRoute()) {
-    usePulseTwitterRailStore.getState().setSide(side);
-    return;
-  }
+  // Always open the draggable/resizable floating dock (like the wallet tracker),
+  // docked to `side` so it stands full-height and pushes Pulse/Stocks/watchlist
+  // over — instead of the fixed, non-draggable rail.
+  usePulseTwitterRailStore.getState().setSide('hidden');
+  peek.setXMonitorPeekOpen(true);
+  peek.setXMonitorDockSnap(side);
 
-  if (isOnTokenRoute()) {
-    usePulseTwitterRailStore.getState().setSide('hidden');
-    peek.setXMonitorPeekOpen(true);
-    return;
-  }
-
-  usePulseTwitterRailStore.getState().setSide(side);
+  if (isOnPulseRoute() || isOnTokenRoute()) return;
   goToPulse();
 }
 
