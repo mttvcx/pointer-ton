@@ -1,7 +1,7 @@
 'use client';
 
 import { goToPulse, isOnPulseRoute, isOnTokenRoute } from '@/lib/navigation/clientNavigate';
-import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
+import { pickFreeDockSide, useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
 
@@ -31,11 +31,11 @@ export function openXMonitorOnPulse(side: 'left' | 'right' = 'left') {
   ui.setAlertRulesPopout(null);
 
   // Always open the draggable/resizable floating dock (like the wallet tracker),
-  // docked to `side` so it stands full-height and pushes Pulse/Stocks/watchlist
-  // over — instead of the fixed, non-draggable rail.
+  // docked to a FREE side so it stands full-height + pushes content over without
+  // spawning on top of another already-docked panel (wallet/squads/pulse).
   usePulseTwitterRailStore.getState().setSide('hidden');
   peek.setXMonitorPeekOpen(true);
-  peek.setXMonitorDockSnap(side);
+  peek.setXMonitorDockSnap(pickFreeDockSide('xMonitor') ?? side);
 
   if (isOnPulseRoute() || isOnTokenRoute()) return;
   goToPulse();

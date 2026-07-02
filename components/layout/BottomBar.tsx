@@ -37,7 +37,7 @@ import { DockTrackersSettingsModal } from '@/components/layout/DockTrackersSetti
 import { MarketLighthouseHover } from '@/components/layout/MarketLighthouseHover';
 import { DOCK_TRACKER_ICON } from '@/components/layout/dockTrackerUi';
 import { normalizeDockModes, normalizeDockOrder, useDockTrackersStore } from '@/store/dockTrackers';
-import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
+import { pickFreeDockSide, useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePnlTrackerStore } from '@/store/pnlTracker';
 import { openXMonitorOnPulse, toggleXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
@@ -393,6 +393,12 @@ function DockTrackerSlot({
     if (activeChain !== 'sol') {
       router.push('/track');
       return;
+    }
+    // When opening, dock to a side another panel isn't already on so it doesn't
+    // spawn on top of the docked X monitor / squads / pulse.
+    if (!walletPeekOpen) {
+      const free = pickFreeDockSide('wallet');
+      if (free) useTokenDockPeekStore.getState().setWalletDockSnap(free);
     }
     toggleWalletPeek();
   };

@@ -570,7 +570,7 @@ export function XMonitorPanel({
                       {row.tweet.text ? (
                         <p
                           className={cn(
-                            'mt-1.5 text-[13px] leading-relaxed',
+                            'mt-1.5 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[13px] leading-relaxed',
                             isDeleted
                               ? 'text-white/50 line-through decoration-signal-bear/50'
                               : 'text-white',
@@ -592,7 +592,7 @@ export function XMonitorPanel({
                             <span className="font-semibold text-fg-secondary">{row.quoted.name}</span>
                             <span className="text-fg-muted">@{row.quoted.handle}</span>
                           </div>
-                          <p className="mt-0.5 text-[12px] leading-relaxed text-white/85">{row.quoted.text}</p>
+                          <p className="mt-0.5 break-words [overflow-wrap:anywhere] text-[12px] leading-relaxed text-white/85">{row.quoted.text}</p>
                         </a>
                       ) : null}
 
