@@ -2,7 +2,6 @@ import { apiBase } from '@/pointer/auth';
 import type { ExtMe } from '@/pointer/types';
 import { GlassButton, GlassCard, Ic, Pill, ProgressBar } from './components';
 
-const SITES = ['X', 'DexScreener', 'Solscan', 'Axiom', 'Pump.fun', 'GMGN', 'Photon', 'BullX'];
 const UNLOCK_SOL = 5;
 const base = () => apiBase();
 
@@ -71,17 +70,6 @@ export function Home({ me, onNav }: { me: ExtMe; onNav: (t: Nav) => void }) {
           ))}
         </div>
       </div>
-
-      {/* live on */}
-      <GlassCard>
-        <div className="section-label" style={{ marginBottom: 10 }}>Live on</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {SITES.map((s) => (
-            <Pill key={s} chip style={{ height: 25, fontSize: 11.5 }}>{s}</Pill>
-          ))}
-        </div>
-        <p className="meta" style={{ margin: '11px 0 0' }}>Hover any contract, wallet, or profile for an instant Pointer card.</p>
-      </GlassCard>
 
       <GlassButton variant="primary" block href={base()}>
         Open Pointer <Ic.External size={15} />
