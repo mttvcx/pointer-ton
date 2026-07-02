@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { CoinIcon } from './CoinIcon';
 import { ProtocolIcon } from './ProtocolIcon';
+import { GlassFill } from './GlassFill';
 import { GlassTabs } from './GlassTabs';
 import { DragSheet } from './DragSheet';
 import { ChainIcon } from './ChainIcon';
@@ -409,6 +410,7 @@ function TokenRow({
 
   return (
     <View style={[s.rowWrap, aiOpen && { borderColor: accent + '88' }]}>
+      <GlassFill />
       <Animated.View
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: colors.warn, opacity: flash }]}
@@ -615,6 +617,7 @@ function AiBrief({ mint }: { mint: string }) {
 function ChainPill({ chain, active, onPress }: { chain: ChainDef; active: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={[s.chainPill, active && s.chainPillActive]}>
+      <GlassFill active={active} />
       {chain.id === 'all' ? (
         <Ionicons name="apps" size={13} color={active ? colors.fg : colors.fgMuted} />
       ) : (
@@ -642,6 +645,7 @@ function FilterSheet({
       <FilterGroup label="Min holders" opts={HOLDER_OPTS} value={filters.minHolders} onPick={(v) => onChange({ ...filters, minHolders: v })} />
       <View style={s.filterActions}>
         <Pressable onPress={() => onChange(NO_FILTERS)} style={s.filterReset}>
+          <GlassFill />
           <Text style={s.filterResetText}>Reset</Text>
         </Pressable>
         <Pressable onPress={onClose} style={s.filterDone}>
@@ -669,6 +673,7 @@ function FilterGroup({
       <View style={s.filterChips}>
         {opts.map((o) => (
           <Pressable key={o.label} onPress={() => onPick(o.value)} style={[s.filterChip, value === o.value && s.filterChipActive]}>
+            <GlassFill active={value === o.value} />
             <Text style={[s.filterChipText, value === o.value && s.filterChipTextActive]}>{o.label}</Text>
           </Pressable>
         ))}
@@ -795,8 +800,8 @@ const s = StyleSheet.create({
   controls: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 12, gap: 8 },
   chainScroll: { flex: 1 },
   chainRow: { gap: 7, alignItems: 'center', paddingRight: 4 },
-  chainPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 11, borderRadius: radius.pill, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
-  chainPillActive: { backgroundColor: colors.bgRaised2, borderColor: colors.borderStrong },
+  chainPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 11, borderRadius: radius.pill, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  chainPillActive: { borderColor: 'rgba(255,255,255,0.28)' },
   chainDot: { width: 8, height: 8, borderRadius: 4 },
   chainText: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '700' },
   chainTextActive: { color: colors.fg },
@@ -813,12 +818,12 @@ const s = StyleSheet.create({
   filterGroup: { gap: 9 },
   filterGroupLabel: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '700' },
   filterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filterChip: { paddingHorizontal: 14, height: 34, borderRadius: radius.sm, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  filterChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent + '88' },
+  filterChip: { paddingHorizontal: 14, height: 34, borderRadius: radius.sm, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
+  filterChipActive: { borderColor: 'rgba(255,255,255,0.28)' },
   filterChipText: { color: colors.fgSecondary, fontSize: 13.5, fontWeight: '700' },
-  filterChipTextActive: { color: colors.accentGlow },
+  filterChipTextActive: { color: colors.fg },
   filterActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  filterReset: { flex: 1, height: 46, borderRadius: radius.md, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  filterReset: { flex: 1, height: 46, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
   filterResetText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '700' },
   filterDone: { flex: 1.4, height: 46, borderRadius: radius.md, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   filterDoneText: { color: '#04050A', fontSize: 15, fontWeight: '800' },
@@ -826,7 +831,7 @@ const s = StyleSheet.create({
   empty: { alignItems: 'center', gap: 9, paddingVertical: 70 },
   emptyText: { color: colors.fgFaint, fontSize: 14 },
 
-  rowWrap: { backgroundColor: colors.bgRaised, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, marginBottom: 7, overflow: 'hidden' },
+  rowWrap: { borderRadius: radius.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginBottom: 7, overflow: 'hidden' },
   rowUltra: { borderColor: colors.bull + '66', borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10 },
   coinWrap: { width: 42, height: 42 },
