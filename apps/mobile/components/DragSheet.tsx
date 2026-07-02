@@ -15,7 +15,19 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
  * is the grab zone. The scrim + sheet are hand-animated together (Modal fade is
  * off) so there's no dim-flash or freeze on open/close.
  */
-export function DragSheet({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: React.ReactNode }) {
+export function DragSheet({
+  visible,
+  onClose,
+  children,
+  fullDrag = false,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  /** When true (sheets with no inner scroll), the WHOLE sheet follows the finger,
+   *  not just the handle — grab it anywhere and fling it around. */
+  fullDrag?: boolean;
+}) {
   const insets = useSafeAreaInsets();
   const ty = useRef(new Animated.Value(900)).current;
   const [tall, setTall] = useState(false);
@@ -64,6 +76,8 @@ export function DragSheet({ visible, onClose, children }: { visible: boolean; on
   if (!visible) return null;
 
   const scrimOpacity = ty.interpolate({ inputRange: [0, 360], outputRange: [1, 0], extrapolate: 'clamp' });
+  const sheetHandlers = fullDrag ? pan.panHandlers : {};
+  const grabHandlers = fullDrag ? {} : pan.panHandlers;
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={close} statusBarTranslucent>
@@ -71,6 +85,7 @@ export function DragSheet({ visible, onClose, children }: { visible: boolean; on
         <Pressable style={StyleSheet.absoluteFill} onPress={close} />
       </Animated.View>
       <Animated.View
+        {...sheetHandlers}
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
           if (h > 0) hRef.current = h + 60;
@@ -80,7 +95,7 @@ export function DragSheet({ visible, onClose, children }: { visible: boolean; on
           { maxHeight: tall ? WIN_H - insets.top - 6 : Math.round(WIN_H * 0.92), transform: [{ translateY: ty }], paddingBottom: insets.bottom + 14 },
         ]}
       >
-        <View {...pan.panHandlers} hitSlop={{ top: 10, bottom: 52, left: 90, right: 90 }} style={s.grab}>
+        <View {...grabHandlers} hitSlop={{ top: 10, bottom: 52, left: 90, right: 90 }} style={s.grab}>
           <View style={s.handle} />
         </View>
         {children}

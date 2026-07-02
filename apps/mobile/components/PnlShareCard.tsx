@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Defs, LinearGradient as SvgGrad, Path, Stop } from 'react-native-svg';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
 import { PressScale } from './PressScale';
@@ -35,6 +36,56 @@ function hash(s: string): number {
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+/**
+ * Custom PnL line — rises for a gain (green), falls for a loss (red). Travel +
+ * steepness scale with |pnlPct| (bigger win = more aggressive climb), and the
+ * curve SHAPE rotates by seed so tokens don't all look identical. Soft area fill
+ * + a glowing end dot.
+ */
+function PnlLine({ pct, up, seed }: { pct: number; up: boolean; seed: number }) {
+  const W = 320;
+  const H = 92;
+  const color = up ? colors.bull : colors.bear;
+  const { line, area, ex, ey } = useMemo(() => {
+    const strength = Math.min(1, Math.max(0.25, Math.abs(pct) / 600)); // 0.25..1
+    const amp = 0.34 + 0.58 * strength; // fraction of height the line travels
+    const variant = seed % 3;
+    const N = 46;
+    const pts: [number, number][] = [];
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const shape =
+        variant === 0
+          ? Math.pow(t, 3 - 1.8 * strength) // hockey-stick (late blow-off)
+          : variant === 1
+            ? Math.pow(t, 1.5) // smooth accelerate
+            : t * 0.55 + Math.pow(t, 2.4) * 0.45; // stair-ish
+      const noise = Math.sin(t * Math.PI * (3 + variant)) * 0.02 * (1 - strength * 0.6);
+      const prog = Math.max(0, Math.min(1, shape + noise));
+      const hf = up ? 0.12 + prog * amp : 0.12 + amp - prog * amp; // gain rises, loss falls
+      pts.push([t * W, H - hf * H]);
+    }
+    const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+    const last = pts[pts.length - 1];
+    return { line, area: `${line} L${W} ${H} L0 ${H} Z`, ex: last[0], ey: last[1] };
+  }, [pct, up, seed]);
+
+  return (
+    <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+      <Defs>
+        <SvgGrad id="pnlfill" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color} stopOpacity={0.24} />
+          <Stop offset="1" stopColor={color} stopOpacity={0} />
+        </SvgGrad>
+      </Defs>
+      <Path d={area} fill="url(#pnlfill)" />
+      <Path d={line} fill="none" stroke={color} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+      <Circle cx={ex} cy={ey} r={9} fill={color} fillOpacity={0.18} />
+      <Circle cx={ex} cy={ey} r={4} fill={color} />
+    </Svg>
+  );
 }
 
 export function PnlShareCard({
@@ -81,7 +132,7 @@ export function PnlShareCard({
   };
 
   return (
-    <DragSheet visible={visible} onClose={onClose}>
+    <DragSheet visible={visible} onClose={onClose} fullDrag>
       <Text style={s.title}>Share position</Text>
 
       <View style={s.card}>
@@ -101,6 +152,10 @@ export function PnlShareCard({
               </Text>
             ) : null}
           </View>
+        </View>
+
+        <View style={s.chart}>
+          <PnlLine pct={pnlPct} up={up} seed={hash(sym)} />
         </View>
 
         <View style={s.hero}>
@@ -163,6 +218,7 @@ const s = StyleSheet.create({
   card: { borderRadius: 20, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: '#000' },
   watermark: { position: 'absolute', right: -34, bottom: 46, opacity: 0.05, tintColor: '#fff' },
 
+  chart: { marginTop: 14, marginHorizontal: 4 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 18 },
   sym: { color: colors.fg, fontSize: 21, fontWeight: '800', letterSpacing: -0.3 },
   name: { color: colors.fgMuted, fontSize: 14, marginTop: 1 },

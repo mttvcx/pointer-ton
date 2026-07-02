@@ -13,6 +13,7 @@ import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useWatchlist } from '../src/local';
 import { TraderSheet } from '../components/TraderSheet';
 import { DepositFlow } from '../components/DepositFlow';
+import { DragSheet } from '../components/DragSheet';
 import { WEEKLY, type WeeklyTrade } from '../src/demo';
 import { PulseBoard } from '../components/PulseBoard';
 import { PerpsList } from '../components/PerpsList';
@@ -44,6 +45,7 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
   const [active, setActive] = useState(2);
   const [trade, setTrade] = useState<WeeklyTrade | null>(null);
   const [deposit, setDeposit] = useState(false);
+  const [feeInfo, setFeeInfo] = useState(false);
   const [watchOnly, setWatchOnly] = useState(false);
   const watchlist = useWatchlist();
   const sort = CHIPS[active].sort;
@@ -139,15 +141,15 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
         ) : (
           <>
         <View style={s.pad}>
-          <View style={s.banner}>
+          <PressScale style={s.banner} to={0.99} onPress={() => setFeeInfo(true)}>
             <View style={s.bannerLeft}>
               <Ionicons name="pricetag-outline" size={17} color={colors.accent} />
               <Text style={s.bannerText}>
-                <Text style={s.bannerAccent}>Lowest fees</Text> on Solana tokens, anywhere.
+                <Text style={s.bannerAccent}>Lowest fees</Text> anywhere.
               </Text>
             </View>
             <Ionicons name="information-circle-outline" size={17} color={colors.fgFaint} />
-          </View>
+          </PressScale>
         </View>
 
         <View style={[s.pad, s.list]}>
@@ -196,6 +198,23 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
       </View>
       <TraderSheet trade={trade} onClose={() => setTrade(null)} />
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
+
+      <DragSheet visible={feeInfo} onClose={() => setFeeInfo(false)} fullDrag>
+        <View style={s.feeInfo}>
+          <View style={s.feeIcon}>
+            <Ionicons name="cash-outline" size={28} color={colors.accent} />
+          </View>
+          <Text style={s.feeTitle}>Highest cashback, anywhere</Text>
+          <Text style={s.feeBody}>
+            Pointer pays you back <Text style={s.feeStrong}>50% of your trading fees</Text> — the highest cashback of any
+            platform — and routes every order for <Text style={s.feeStrong}>best execution</Text>. Lower fees, more back,
+            better fills.
+          </Text>
+          <PressScale style={s.feeClose} onPress={() => setFeeInfo(false)}>
+            <Text style={s.feeCloseText}>Close</Text>
+          </PressScale>
+        </View>
+      </DragSheet>
     </Screen>
   );
 }
@@ -272,4 +291,12 @@ const s = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600' },
   emptySub: { color: colors.fgMuted, fontSize: 13, marginTop: 4 },
+
+  feeInfo: { alignItems: 'center', paddingTop: 6, paddingBottom: 8 },
+  feeIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  feeTitle: { color: colors.fg, fontSize: 22, fontWeight: '800', marginTop: 16, textAlign: 'center' },
+  feeBody: { color: colors.fgSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 },
+  feeStrong: { color: colors.fg, fontWeight: '700' },
+  feeClose: { alignSelf: 'stretch', backgroundColor: colors.bgRaised, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 22, borderWidth: 1, borderColor: colors.border },
+  feeCloseText: { color: colors.fg, fontSize: 16, fontWeight: '700' },
 });
