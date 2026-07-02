@@ -441,7 +441,7 @@ export function XMonitorPanel({
               <p className="px-3 py-4 text-[11px] text-fg-muted">Loading listens…</p>
             ) : null}
 
-            <ul className="divide-y divide-white/[0.06]">
+            <ul className="flex flex-col gap-1.5 p-1.5">
               {rows.map((row) => {
                 const pkg = packageBySubject.get(row.subject);
                 const mint = row.payload.mint?.trim() ?? null;
@@ -468,12 +468,12 @@ export function XMonitorPanel({
                   <li
                     key={row.alertId}
                     className={cn(
-                      'group flex items-stretch gap-0 transition-colors hover:bg-white/[0.02]',
-                      row.isMock && !isDeleted && 'bg-bg-sunken/20',
-                      // Deleted events read red + striped (J7); platform accent otherwise.
-                      isDeleted && 'bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.06)_0_10px,transparent_10px_20px)]',
-                      row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.03]',
-                      row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.03]',
+                      // Carded grey rows (J7-style premium) instead of a flat list.
+                      'group flex items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.025] transition-colors hover:border-white/[0.12] hover:bg-white/[0.045]',
+                      // Deleted events read red + striped; platform accent otherwise.
+                      isDeleted && 'border-signal-bear/25 bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.07)_0_10px,rgba(255,255,255,0.02)_10px_20px)]',
+                      row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.05]',
+                      row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.05]',
                     )}
                   >
                     {/* Left vertical outlined LAUNCH rail (Terminal-style) */}
