@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, RefreshControl, ScrollView, StyleSheet, Te
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { BlurView } from 'expo-blur';
 import { Screen } from '../components/Screen';
 import { Logo } from '../components/Logo';
 import { CoinIcon } from '../components/CoinIcon';
@@ -204,8 +205,13 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
         )}
       </Animated.ScrollView>
       <View style={[s.topHeader, { paddingTop: insets.top + 8 }]}>
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, s.topHeaderBg, { opacity: headerFade }]} />
-        <Animated.View pointerEvents="none" style={[s.topHeaderHairline, { opacity: headerFade }]} />
+        {/* Liquid-glass header: transparent while floating at rest, frosts as
+            content scrolls under it. */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { opacity: headerFade }]}>
+          <BlurView intensity={48} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={s.topHeaderTint} />
+          <View style={s.topHeaderHairline} />
+        </Animated.View>
         <Logo size={40} />
         <PressScale onPress={onOpenEducation} to={0.85} hitSlop={8} style={s.headerBtn}>
           <Ionicons name="book-outline" size={21} color={colors.fgSecondary} />
@@ -254,9 +260,9 @@ function SkeletonRow() {
 
 const s = StyleSheet.create({
   pad: { paddingHorizontal: 18 },
-  topHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10, zIndex: 20 },
-  topHeaderBg: { backgroundColor: colors.bgGradient[0] },
-  topHeaderHairline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: colors.border },
+  topHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10, zIndex: 20, overflow: 'hidden' },
+  topHeaderTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,19,15,0.42)' },
+  topHeaderHairline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
   headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
   bleed: { gap: 12, paddingTop: 12, paddingHorizontal: 18 },
   bleedChips: { gap: 8, paddingTop: 18, paddingHorizontal: 18 },
