@@ -19,6 +19,7 @@ import { WEEKLY, type WeeklyTrade } from '../src/demo';
 import { PulseBoard } from '../components/PulseBoard';
 import { PerpsList } from '../components/PerpsList';
 import { MiniSpark } from '../components/MiniSpark';
+import { GlassFill } from '../components/GlassFill';
 import type { PulseBundle } from '../src/types';
 
 const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: string }[] = [
@@ -83,15 +84,18 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={q.isFetching && !q.isLoading} onRefresh={() => q.refetch()} tintColor={colors.fgMuted} />}
       >
-        {/* Category row at the very top (Invo-style) — above the balance. */}
+        {/* Header row: separate floating liquid-glass chips + a glass selector for
+            the active one (no green outline). */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleedChips}>
-          <PressScale onPress={() => setWatchOnly((v) => !v)} to={0.95} style={[s.chip, s.chipIcon, watchOnly && s.chipActive]}>
-            <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={watchOnly ? colors.accentGlow : colors.fg} />
+          <PressScale onPress={() => setWatchOnly((v) => !v)} to={0.95} style={[s.chip, s.chipIcon, watchOnly && s.chipOn]}>
+            <GlassFill active={watchOnly} />
+            <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={colors.fg} />
           </PressScale>
           {CHIPS.map((c, i) => {
             const on = !watchOnly && i === active;
             return (
-              <PressScale key={c.label} onPress={() => { setWatchOnly(false); setActive(i); }} to={0.95} style={[s.chip, on && s.chipActive]}>
+              <PressScale key={c.label} onPress={() => { setWatchOnly(false); setActive(i); }} to={0.95} style={[s.chip, on && s.chipOn]}>
+                <GlassFill active={on} />
                 <Text style={[s.chipText, on && s.chipTextActive]}>{c.label}</Text>
                 {c.badge ? (
                   <View style={s.newBadge}>
@@ -214,6 +218,7 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
         </Animated.View>
         <Logo size={40} />
         <PressScale onPress={onOpenEducation} to={0.85} hitSlop={8} style={s.headerBtn}>
+          <GlassFill />
           <Ionicons name="book-outline" size={21} color={colors.fgSecondary} />
         </PressScale>
       </View>
@@ -263,7 +268,7 @@ const s = StyleSheet.create({
   topHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10, zIndex: 20, overflow: 'hidden' },
   topHeaderTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,19,15,0.42)' },
   topHeaderHairline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
-  headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
+  headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   bleed: { gap: 12, paddingTop: 12, paddingHorizontal: 18 },
   bleedChips: { gap: 8, paddingTop: 18, paddingHorizontal: 18 },
 
@@ -288,11 +293,11 @@ const s = StyleSheet.create({
   weekTokenText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   weekAmt: { color: colors.bull, fontSize: 17, fontWeight: '600' },
 
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.bgRaised, borderRadius: radius.pill, paddingVertical: 9, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.border },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: radius.pill, paddingVertical: 9, paddingHorizontal: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   chipIcon: { paddingHorizontal: 11 },
-  chipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  chipOn: { borderColor: 'rgba(255,255,255,0.28)' },
   chipText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '500' },
-  chipTextActive: { color: colors.accentGlow, fontWeight: '700' },
+  chipTextActive: { color: colors.fg, fontWeight: '700' },
   newBadge: { backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   newText: { color: colors.onAccent, fontSize: 11, fontWeight: '700' },
 
