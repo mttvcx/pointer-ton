@@ -99,7 +99,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
             </ScrollView>
           </>
         ) : step === 3 ? (
-          <>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
             <Text style={s.title}>Your potential earnings</Text>
             <Text style={s.sub}>If you'd copied every move from these traders, this is what you'd have made.</Text>
             <View style={s.earnCard}>
@@ -128,7 +128,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
               </View>
               <EarningsSlider value={invest} min={50} max={2000} onChange={setInvest} />
             </View>
-          </>
+          </ScrollView>
         ) : (
           <>
             <Text style={s.title}>Enter referral code</Text>

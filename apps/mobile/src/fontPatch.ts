@@ -11,18 +11,21 @@
  */
 import { StyleSheet, Text, TextInput } from 'react-native';
 
+// Weights mapped ONE NOTCH LIGHTER than requested — the app leans heavily on
+// 700/800, which reads as "thick" in Sora. Shifting down keeps hierarchy but gives
+// the cleaner, airier Invo feel.
 const FAMILY: Record<string, string> = {
   '100': 'Sora_400Regular',
   '200': 'Sora_400Regular',
   '300': 'Sora_400Regular',
   '400': 'Sora_400Regular',
   normal: 'Sora_400Regular',
-  '500': 'Sora_500Medium',
-  '600': 'Sora_600SemiBold',
-  '700': 'Sora_700Bold',
-  bold: 'Sora_700Bold',
-  '800': 'Sora_800ExtraBold',
-  '900': 'Sora_800ExtraBold',
+  '500': 'Sora_400Regular',
+  '600': 'Sora_500Medium',
+  '700': 'Sora_600SemiBold',
+  bold: 'Sora_600SemiBold',
+  '800': 'Sora_700Bold',
+  '900': 'Sora_700Bold',
 };
 
 function familyFor(style: unknown): string {

@@ -54,9 +54,26 @@ export function DragSheet({
       if (finished) onClose();
     });
 
+  // Where the touch began (page Y) + the sheet's resting top, so we know if a drag
+  // started in the top "grip" zone. `fullDrag` = the whole sheet is a grip.
+  const startY = useRef(0);
+  const sheetTop = useRef(WIN_H);
+  const fullDragRef = useRef(fullDrag);
+  fullDragRef.current = fullDrag;
+  const GRIP = 110;
+
   const pan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4 && Math.abs(g.dy) > Math.abs(g.dx) * 1.3,
+      // Record the touch origin but DON'T steal it — taps on buttons still work.
+      onStartShouldSetPanResponderCapture: (e) => {
+        startY.current = e.nativeEvent.pageY;
+        return false;
+      },
+      // Capture (beats child scroll/buttons) a vertical drag that began in the grip zone.
+      onMoveShouldSetPanResponderCapture: (_, g) => {
+        if (Math.abs(g.dy) < 5 || Math.abs(g.dy) <= Math.abs(g.dx)) return false;
+        return fullDragRef.current || startY.current - sheetTop.current < GRIP;
+      },
       onPanResponderMove: (_, g) => {
         if (g.dy >= 0) ty.setValue(g.dy);
         else ty.setValue(tallRef.current ? g.dy * 0.28 : g.dy * 0.5); // livelier rubber-band up
@@ -70,14 +87,13 @@ export function DragSheet({
         else if (g.dy > 42 && tallRef.current) setTallBoth(false);
         Animated.spring(ty, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 4 }).start();
       },
+      onPanResponderTerminationRequest: () => false,
     }),
   ).current;
 
   if (!visible) return null;
 
   const scrimOpacity = ty.interpolate({ inputRange: [0, 360], outputRange: [1, 0], extrapolate: 'clamp' });
-  const sheetHandlers = fullDrag ? pan.panHandlers : {};
-  const grabHandlers = fullDrag ? {} : pan.panHandlers;
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={close} statusBarTranslucent>
@@ -85,17 +101,18 @@ export function DragSheet({
         <Pressable style={StyleSheet.absoluteFill} onPress={close} />
       </Animated.View>
       <Animated.View
-        {...sheetHandlers}
+        {...pan.panHandlers}
         onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          if (h > 0) hRef.current = h + 60;
+          const { y, height } = e.nativeEvent.layout;
+          if (height > 0) hRef.current = height + 60;
+          sheetTop.current = y; // resting top in screen coords (modal is full-screen)
         }}
         style={[
           s.sheet,
           { maxHeight: tall ? WIN_H - insets.top - 6 : Math.round(WIN_H * 0.92), transform: [{ translateY: ty }], paddingBottom: insets.bottom + 14 },
         ]}
       >
-        <View {...grabHandlers} hitSlop={{ top: 10, bottom: 52, left: 90, right: 90 }} style={s.grab}>
+        <View style={s.grab}>
           <View style={s.handle} />
         </View>
         {children}
