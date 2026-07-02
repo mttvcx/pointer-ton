@@ -5,7 +5,9 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN, isAppChainId } from '@/lib/chains/appChain';
 import { withTimeout } from '@/lib/utils/withTimeout';
 
-const FEED_TIMEOUT_MS = 11_000;
+// Long enough for one cold compute (no request-path polling now) to COMPLETE
+// and populate the cross-instance warm cache; subsequent requests read L2 fast.
+const FEED_TIMEOUT_MS = 14_000;
 
 const QuerySchema = z.object({
   column: z.enum(['new', 'stretch', 'migrated']).default('new'),

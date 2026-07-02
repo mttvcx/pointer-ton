@@ -388,18 +388,10 @@ export async function getPulseFeed(
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
     if (chain === 'sol') {
-      try {
-        const inserted = await withTimeout(
-          pollSolanaPulseFromDas(),
-          5_000,
-          'pulse_sol_cold_poll',
-        );
-        debugTon('getPulseFeed: sync Sol DAS poll', { insertedNewMints: inserted });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn('[pointer][pulse DAS] cold-start sync poll failed:', msg);
-        maybeKickSolDasPollAsync();
-      }
+      // Never block the request on DAS polling (slow + burns Helius credits).
+      // Kick it in the background; the discover-tokens cron is the primary
+      // populator and the warm-feed cache serves users meanwhile.
+      maybeKickSolDasPollAsync();
     } else {
       const geckoNet = geckoNetworkForAppChain(chain);
       if (geckoNet) maybeKickGeckoPollAsync(geckoNet);
