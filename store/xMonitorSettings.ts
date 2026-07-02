@@ -51,6 +51,19 @@ export type XMonitorSettings = {
   deployWallet: string | null;
   /** Extra wallets used for sniper / buy-in spread. */
   buyInWallets: Array<{ label: string; address: string }>;
+
+  /** Priority-fee tier for buys/deploys (speed vs cost). */
+  feePreset: 'low' | 'med' | 'high' | 'turbo';
+  /** Jito tip (SOL) added to bundled txns for landing priority. */
+  jitoTipSol: number;
+};
+
+/** SOL priority-fee amounts per tier (informational; consumed by tx builders). */
+export const FEE_PRESET_SOL: Record<XMonitorSettings['feePreset'], number> = {
+  low: 0.0005,
+  med: 0.001,
+  high: 0.005,
+  turbo: 0.02,
 };
 
 export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
@@ -79,6 +92,8 @@ export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
   },
   deployWallet: null,
   buyInWallets: [],
+  feePreset: 'med',
+  jitoTipSol: 0.001,
 };
 
 type XMonitorSettingsState = XMonitorSettings & {

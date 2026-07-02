@@ -6,12 +6,16 @@ import { cn } from '@/lib/utils/cn';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
 import {
+  FEE_PRESET_SOL,
   useXMonitorSettings,
   type FeedSource,
   type LaunchRailSide,
   type LaunchRailStyle,
   type DeployMode,
+  type XMonitorSettings as XMonitorSettingsType,
 } from '@/store/xMonitorSettings';
+
+type XMonitorSettingsFeePreset = XMonitorSettingsType['feePreset'];
 
 /** Preset accent options for the launch rail (last = "theme accent" / null). */
 const COLOR_SWATCHES: Array<{ label: string; value: string | null }> = [
@@ -232,6 +236,9 @@ export function XMonitorSettings() {
         />
       </Section>
 
+      {/* Fees */}
+      <FeesSection />
+
       {/* Wallets */}
       <WalletsSection />
 
@@ -357,6 +364,62 @@ export function XMonitorSettings() {
         </button>
       </div>
     </div>
+  );
+}
+
+function FeesSection() {
+  const feePreset = useXMonitorSettings((s) => s.feePreset);
+  const jitoTipSol = useXMonitorSettings((s) => s.jitoTipSol);
+  const set = useXMonitorSettings((s) => s.set);
+
+  const tiers: Array<{ id: XMonitorSettingsFeePreset; label: string }> = [
+    { id: 'low', label: 'Low' },
+    { id: 'med', label: 'Med' },
+    { id: 'high', label: 'High' },
+    { id: 'turbo', label: 'Turbo' },
+  ];
+
+  return (
+    <Section title="Fees" desc="Priority fee + Jito tip for buys and deploys.">
+      <div className="space-y-3">
+        <div>
+          <span className="text-[11px] text-fg-secondary">Priority fee</span>
+          <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+            {tiers.map((t) => {
+              const active = feePreset === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => set({ feePreset: t.id })}
+                  className={cn(
+                    'btn-press rounded-md border py-1.5 text-center transition-colors',
+                    active
+                      ? 'border-accent-primary/40 bg-accent-primary/[0.12] text-accent-primary'
+                      : 'border-white/[0.08] bg-white/[0.03] text-fg-muted hover:border-white/20',
+                  )}
+                >
+                  <span className="block text-[11px] font-semibold">{t.label}</span>
+                  <span className="block text-[9px] tabular-nums opacity-80">{FEE_PRESET_SOL[t.id]} ◎</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-fg-secondary">Jito tip (SOL)</span>
+          <input
+            value={String(jitoTipSol)}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n) && n >= 0) set({ jitoTipSol: n });
+            }}
+            inputMode="decimal"
+            className="w-20 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 text-right text-[11px] tabular-nums text-fg-primary outline-none focus:border-accent-primary/40"
+          />
+        </div>
+      </div>
+    </Section>
   );
 }
 

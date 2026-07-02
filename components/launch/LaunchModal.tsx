@@ -24,6 +24,7 @@ export function LaunchModal() {
   const close = useLaunchModalStore((s) => s.close);
   const defaultBuySol = useAutoLaunchStore((s) => s.launchBuySol);
   const deployWallet = useXMonitorSettings((s) => s.deployWallet);
+  const feePreset = useXMonitorSettings((s) => s.feePreset);
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
 
   useEffect(() => {
@@ -296,7 +297,7 @@ export function LaunchModal() {
             <span className="font-mono text-fg-secondary">
               {deployWallet ? shortenAddress(deployWallet, 4) : 'prompt at deploy'}
             </span>{' '}
-            · default dev buy {defaultBuySol} SOL
+            · {defaultBuySol} SOL dev buy · <span className="uppercase text-fg-secondary">{feePreset}</span> fee
           </p>
         </footer>
       </div>
