@@ -1,13 +1,15 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest, after } from 'next/server';
 import { z } from 'zod';
 import { cachedGetPulseFeed } from '@/lib/server/cachedPulseFeed';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN, isAppChainId } from '@/lib/chains/appChain';
 import { withTimeout } from '@/lib/utils/withTimeout';
 
-// Long enough for one cold compute (no request-path polling now) to COMPLETE
-// and populate the cross-instance warm cache; subsequent requests read L2 fast.
-const FEED_TIMEOUT_MS = 14_000;
+// Respond fast. If the warm cache is cold, we don't make the user wait for the
+// heavy pipeline — we return soft-empty and finish the compute in the background
+// via after() (survives past the response, unlike a raced promise that Vercel
+// freezes), so the NEXT request reads the now-warm cross-instance cache.
+const FEED_TIMEOUT_MS = 4_000;
 
 const QuerySchema = z.object({
   column: z.enum(['new', 'stretch', 'migrated']).default('new'),
@@ -37,12 +39,20 @@ export async function pulseFeedRouteGET(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'feed failed';
     const timedOut = message.includes('_timeout_');
     if (timedOut) {
-      console.warn('[pointer][pulse] feed GET timed out', { column, chain, message });
+      // Warm the cache in the background so the next request is instant. after()
+      // work runs post-response within the function lifetime (not frozen).
+      after(async () => {
+        try {
+          await cachedGetPulseFeed(column, chain);
+        } catch {
+          /* best-effort warm */
+        }
+      });
       return NextResponse.json({
         column,
         chain,
         items: [],
-        warning: 'feed_timeout',
+        warning: 'feed_warming',
       });
     }
     return NextResponse.json({ error: 'feed_failed', message, items: [] }, { status: 500 });
