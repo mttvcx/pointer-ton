@@ -5,12 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../components/Screen';
 import { PressScale } from '../components/PressScale';
 import { XBadge } from '../components/XBadge';
+import { ActivityFeed } from '../components/ActivityFeed';
 import { colors, radius } from '../src/theme';
 import { getLeaderboard, type LeaderEntry } from '../src/demo/traders';
 import { shareText } from '../src/share';
+import type { PulseBundle } from '../src/types';
 
 const RANGES = ['24h', '7d', '30d', 'All'];
 const MEDALS = ['#E3B321', '#B7C0CC', '#C57B3A'];
+type SocialView = 'activity' | 'leaderboard';
 
 /* ---- formatters (no Intl — Hermes-safe) ---- */
 const group = (int: string) => int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -22,10 +25,13 @@ const avatarUri = (h: string) => `https://api.dicebear.com/9.x/avataaars/png?see
 
 export function SocialScreen({
   onOpenTrader,
+  onOpenToken,
 }: {
   onOpenTrader: (t: { handle: string; name: string; color: string; initial: string }) => void;
+  onOpenToken: (b: PulseBundle) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const [view, setView] = useState<SocialView>('activity');
   const [range, setRange] = useState(0);
   const rows = useMemo(() => getLeaderboard(range, 'today'), [range]);
 
@@ -33,9 +39,9 @@ export function SocialScreen({
     <Screen>
       <ScrollView contentContainerStyle={[s.content, { paddingTop: insets.top + 10 }]} showsVerticalScrollIndicator={false}>
         <View style={s.titleRow}>
-          <Text style={s.title}>Leaderboard</Text>
+          <Text style={s.title}>Social</Text>
           <PressScale
-            onPress={() => shareText('🏆 Top traders on Pointer — half your fees back. Catch the board.', 'https://pointer-ton-orcin.vercel.app')}
+            onPress={() => shareText('🏆 Top traders on Pointer — copy their trades, half your fees back.', 'https://pointer-ton-orcin.vercel.app')}
             to={0.85}
             hitSlop={8}
             style={s.shareBtn}
@@ -44,31 +50,50 @@ export function SocialScreen({
           </PressScale>
         </View>
 
-        <View style={s.rankCard}>
-          <View style={s.you}>
-            <Text style={s.youInitial}>P</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.rankLabel}>Your rank</Text>
-            <Text style={s.rankValue}>#—</Text>
-          </View>
-          <Text style={s.rankPnl}>$0</Text>
+        <View style={s.tabsRow}>
+          {(['activity', 'leaderboard'] as SocialView[]).map((v) => (
+            <PressScale key={v} onPress={() => setView(v)} to={0.96} style={[s.tab, view === v && s.tabOn]}>
+              <Ionicons
+                name={v === 'activity' ? 'pulse-outline' : 'trophy-outline'}
+                size={15}
+                color={view === v ? colors.fg : colors.fgMuted}
+              />
+              <Text style={[s.tabText, view === v && s.tabTextOn]}>{v === 'activity' ? 'Activity' : 'Leaderboard'}</Text>
+            </PressScale>
+          ))}
         </View>
 
-        <View style={s.rangeRow}>
-          <Text style={s.section}>Top traders</Text>
-          <View style={s.ranges}>
-            {RANGES.map((r, i) => (
-              <PressScale key={r} onPress={() => setRange(i)} to={0.94} style={[s.range, i === range && s.rangeOn]}>
-                <Text style={[s.rangeText, i === range && s.rangeTextOn]}>{r}</Text>
-              </PressScale>
+        {view === 'activity' ? (
+          <ActivityFeed onOpenToken={onOpenToken} onOpenTrader={onOpenTrader} />
+        ) : (
+          <>
+            <View style={s.rankCard}>
+              <View style={s.you}>
+                <Text style={s.youInitial}>P</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.rankLabel}>Your rank</Text>
+                <Text style={s.rankValue}>#—</Text>
+              </View>
+              <Text style={s.rankPnl}>$0</Text>
+            </View>
+
+            <View style={s.rangeRow}>
+              <Text style={s.section}>Top traders</Text>
+              <View style={s.ranges}>
+                {RANGES.map((r, i) => (
+                  <PressScale key={r} onPress={() => setRange(i)} to={0.94} style={[s.range, i === range && s.rangeOn]}>
+                    <Text style={[s.rangeText, i === range && s.rangeTextOn]}>{r}</Text>
+                  </PressScale>
+                ))}
+              </View>
+            </View>
+
+            {rows.map((t) => (
+              <TraderRow key={t.handle} t={t} onOpen={onOpenTrader} />
             ))}
-          </View>
-        </View>
-
-        {rows.map((t) => (
-          <TraderRow key={t.handle} t={t} onOpen={onOpenTrader} />
-        ))}
+          </>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -128,6 +153,12 @@ const s = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: colors.fg, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   shareBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised },
+
+  tabsRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, borderRadius: radius.md, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
+  tabOn: { backgroundColor: colors.bgRaised2, borderColor: colors.borderStrong },
+  tabText: { color: colors.fgMuted, fontSize: 14, fontWeight: '700' },
+  tabTextOn: { color: colors.fg },
 
   rankCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16, marginTop: 16 },
   you: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E8732A', alignItems: 'center', justifyContent: 'center' },

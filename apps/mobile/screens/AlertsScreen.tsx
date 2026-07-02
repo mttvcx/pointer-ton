@@ -445,5 +445,5 @@ const s = StyleSheet.create({
   chipText: { color: colors.fgSecondary, fontSize: 13, fontWeight: '600' },
   chipTextOn: { color: colors.accentGlow },
   saveBtn: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 22 },
-  saveText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  saveText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 });

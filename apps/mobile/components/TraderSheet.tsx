@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 import { DragSheet } from './DragSheet';
 import { PressScale } from './PressScale';
+import { PnlShareCard } from './PnlShareCard';
 import { colors, radius } from '../src/theme';
 import type { WeeklyTrade } from '../src/demo';
+
+/** "+$77,860.93" / "3,328.67%" / "$2,339.10" → number. */
+const num = (v: string) => Number(String(v).replace(/[^0-9.-]/g, '')) || 0;
 
 const ENTRIES = [
   { x: 18, y: 150 },
@@ -19,6 +23,7 @@ const EXITS = [
 ];
 
 export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onClose: () => void }) {
+  const [share, setShare] = useState(false);
   return (
     <DragSheet visible={!!trade} onClose={onClose}>
       {trade ? (
@@ -32,9 +37,9 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
               <Ionicons name="chevron-forward" size={16} color={colors.fgMuted} />
             </View>
             <View style={s.traderActions}>
-              <View style={s.iconBtn}>
+              <PressScale style={s.iconBtn} onPress={() => setShare(true)} to={0.9}>
                 <Ionicons name="share-outline" size={18} color={colors.fg} />
-              </View>
+              </PressScale>
               <PressScale style={s.follow}>
                 <Text style={s.followText}>Follow</Text>
               </PressScale>
@@ -129,6 +134,16 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
           <PressScale style={s.buy}>
             <Text style={s.buyText}>Deposit to buy</Text>
           </PressScale>
+
+          <PnlShareCard
+            visible={share}
+            onClose={() => setShare(false)}
+            symbol={trade.token}
+            name={trade.name}
+            pnlUsd={num(trade.amt)}
+            pnlPct={num(trade.pnlPct)}
+            investedUsd={num(trade.invested)}
+          />
         </>
       ) : null}
     </DragSheet>
@@ -144,7 +159,7 @@ const s = StyleSheet.create({
   traderActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconBtn: { width: 42, height: 38, borderRadius: 10, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' },
   follow: { backgroundColor: colors.accent, borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10 },
-  followText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  followText: { color: colors.onAccent, fontSize: 15, fontWeight: '600' },
   tokenRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 },
   tokenLeft: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   tokenIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
@@ -174,5 +189,5 @@ const s = StyleSheet.create({
   txnCount: { color: colors.fg, fontSize: 17, fontWeight: '600' },
   txnInvested: { color: colors.fgFaint, fontSize: 14 },
   buy: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 },
-  buyText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  buyText: { color: colors.onAccent, fontSize: 17, fontWeight: '600' },
 });

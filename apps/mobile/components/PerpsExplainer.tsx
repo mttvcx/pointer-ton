@@ -203,7 +203,7 @@ const s = StyleSheet.create({
   btn: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 17, alignItems: 'center', marginTop: 18 },
   btnGo: { backgroundColor: colors.accent },
   btnText: { color: colors.fg, fontSize: 17, fontWeight: '700' },
-  btnTextGo: { color: '#fff' },
+  btnTextGo: { color: colors.onAccent },
 
   longPill: { position: 'absolute', backgroundColor: colors.bull, borderRadius: radius.md, paddingHorizontal: 44, paddingVertical: 15 },
   longText: { color: '#06210F', fontSize: 20, fontWeight: '800' },

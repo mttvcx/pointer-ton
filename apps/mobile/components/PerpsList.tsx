@@ -125,7 +125,7 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 13, flex: 1 },
   iconWrap: { width: 40, height: 40 },
-  hlBadge: { position: 'absolute', right: -4, bottom: -4, borderRadius: 5, borderWidth: 2, borderColor: colors.bg },
+  hlBadge: { position: 'absolute', right: -3, bottom: -3 },
   rowText: { flex: 1 },
   coinLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   coin: { color: colors.fg, fontSize: 18, fontWeight: '700', flexShrink: 1 },

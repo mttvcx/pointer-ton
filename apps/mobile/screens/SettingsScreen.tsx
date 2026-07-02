@@ -295,7 +295,7 @@ const s = StyleSheet.create({
   segItem: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: radius.sm },
   segItemOn: { backgroundColor: colors.accent },
   segText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600' },
-  segTextOn: { color: '#fff' },
+  segTextOn: { color: colors.onAccent, fontWeight: '700' },
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   toggleSub: { color: colors.fgMuted, fontSize: 13, marginTop: 3 },

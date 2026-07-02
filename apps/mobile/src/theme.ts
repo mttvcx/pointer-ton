@@ -1,31 +1,40 @@
 /**
- * FOMO-cloned dark palette. Direction (locked with founder 2026-06-24): clone FOMO
- * 1:1 first, tweak later. Near-pure-black base, periwinkle accent, rounded radii.
- * NO monospace / slashed-zero number fonts anywhere — numbers use the system font.
+ * Invo-inspired dark palette (locked with founder 2026-07-02). ONE mint-green hero:
+ * accent = primary actions = gains (a single green, not two). Orange-red for
+ * down / short / stop. Blue reserved for the brand mark + FAB only. Pure-black
+ * base. Text on mint fills is DARK (`onAccent`) — Invo's signature, higher contrast
+ * than white-on-green. NO monospace / slashed-zero number fonts — numbers use the
+ * system font.
  */
 export const colors = {
-  bg: '#04050A',
-  bgRaised: '#0E1117',
-  bgRaised2: '#15181F',
-  bgSunken: '#02030A',
-  border: '#181C24',
-  borderStrong: '#283143',
+  bg: '#000000',
+  bgRaised: '#121316',
+  bgRaised2: '#1B1D22',
+  bgSunken: '#000000',
+  border: '#232529',
+  borderStrong: '#33373E',
   fg: '#ffffff',
   fgSecondary: '#C9CDD4',
-  fgMuted: '#8C929C',
+  fgMuted: '#8B9099',
   fgFaint: '#5A606B',
-  accent: '#5B6EF5',
-  accentGlow: '#8FA0FF',
-  accentSoft: 'rgba(91,110,245,0.16)',
-  bull: '#1FD760',
-  bullSoft: 'rgba(31,215,96,0.14)',
-  bear: '#FF4E45',
-  bearSoft: 'rgba(255,78,69,0.14)',
+  // Mint hero — used for primary actions AND gains (one green).
+  accent: '#00E0A0',
+  accentGlow: '#57F0C4',
+  accentSoft: 'rgba(0,224,160,0.15)',
+  bull: '#00E0A0',
+  bullSoft: 'rgba(0,224,160,0.14)',
+  // Down / short / stop-loss.
+  bear: '#FF5C45',
+  bearSoft: 'rgba(255,92,69,0.14)',
   warn: '#FFB23E',
   warnSoft: 'rgba(255,178,62,0.14)',
   danger: '#FF6A3D',
-  chartDown: '#FF6A2C',
-  verify: '#3B82F6',
+  chartDown: '#FF6A3D',
+  // Brand blue — logo + FAB only, never a generic action color.
+  brand: '#2F7BF6',
+  verify: '#2F7BF6',
+  // Dark ink that sits on top of mint/green fills (Invo uses dark-on-green).
+  onAccent: '#04140E',
 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;

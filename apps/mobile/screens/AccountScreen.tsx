@@ -179,7 +179,7 @@ const s = StyleSheet.create({
   save: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
   saveDirty: { backgroundColor: colors.accent },
   saveText: { color: colors.fgMuted, fontSize: 16, fontWeight: '700' },
-  saveTextDirty: { color: '#fff' },
+  saveTextDirty: { color: colors.onAccent },
 
   sectionLabel: { color: colors.fgMuted, fontSize: 14, marginTop: 26 },
   loginRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
@@ -196,6 +196,6 @@ const s = StyleSheet.create({
   signinBrand: { color: colors.fg, fontSize: 44, fontWeight: '800', letterSpacing: -1 },
   signinSub: { color: colors.fgSecondary, fontSize: 20, fontWeight: '600', textAlign: 'center', marginTop: 16 },
   signinBtn: { alignSelf: 'stretch', backgroundColor: colors.accent, borderRadius: 16, paddingVertical: 17, alignItems: 'center', marginTop: 28 },
-  signinBtnText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  signinBtnText: { color: colors.onAccent, fontSize: 17, fontWeight: '600' },
   signinCancel: { color: colors.fgMuted, fontSize: 15, fontWeight: '600' },
 });

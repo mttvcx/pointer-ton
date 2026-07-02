@@ -253,7 +253,7 @@ const s = StyleSheet.create({
   optionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   optionTitle: { color: colors.fg, fontSize: 19, fontWeight: '600' },
   badge: { backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  badgeText: { color: colors.onAccent, fontSize: 12, fontWeight: '600' },
   optionSub: { color: colors.fgMuted, fontSize: 14, marginTop: 4 },
 
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -295,7 +295,7 @@ const s = StyleSheet.create({
   noteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 },
   note: { color: colors.fgMuted, fontSize: 13 },
   continueBtn: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 },
-  continueText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  continueText: { color: colors.onAccent, fontSize: 17, fontWeight: '600' },
 
   netSub: { color: colors.fgMuted, fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   netRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 16, marginBottom: 12 },

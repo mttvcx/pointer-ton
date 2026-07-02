@@ -4,10 +4,12 @@
  * cartoon illustrations, so a tracked KOL like @cupseyy renders their actual photo.
  */
 
-/** Real X avatar for a handle (unavatar serves a clean neutral fallback for unknowns). */
+/** Real X avatar for a handle. `fallback=false` → unavatar returns 404 (not its
+ *  cartoon default) for unknown handles, so the UI can render its own clean
+ *  person-icon fallback via onError instead. */
 export function xAvatarUrl(handle: string): string {
   const h = handle.replace(/^@/, '').trim().toLowerCase();
-  return `https://unavatar.io/x/${encodeURIComponent(h)}`;
+  return `https://unavatar.io/x/${encodeURIComponent(h)}?fallback=false`;
 }
 
 /** Compact follower/following count (12.4K, 1.2M) — no currency symbol. */

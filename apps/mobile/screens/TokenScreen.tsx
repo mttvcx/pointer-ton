@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Easing, Linking, PanResponder, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, G, Path, Text as SvgText } from 'react-native-svg';
 import { Screen } from '../components/Screen';
 import { CoinIcon } from '../components/CoinIcon';
 import { PressScale } from '../components/PressScale';
@@ -19,13 +19,24 @@ import { copyText } from '../src/clipboard';
 import { CopyButton } from '../components/CopyButton';
 import { TwitterChip } from '../components/TwitterChip';
 import { RecentTradesDrawer } from '../components/RecentTradesDrawer';
-import { TokenShareCard } from '../components/TokenShareCard';
+import { PnlShareCard } from '../components/PnlShareCard';
 import { useAuth } from '../src/auth';
 import { DEMO_HOLDERS } from '../src/demo';
+import { getTradersOnToken } from '../src/demo/activity';
+import { XBadge } from '../components/XBadge';
 import type { PulseBundle } from '../src/types';
 
 const TIMEFRAMES = ['1H', '4H', '1D', '7D', '1M', 'ALL'];
 const TABS = ['Stats', 'About'];
+
+/** Entry (+, green) / exit (–, red) markers plotted on the demo chart path —
+ *  FOMO's "see where traders bought/sold" chart overlay. Coordinates sit on the
+ *  fixed demo curve below. */
+const CHART_MARKS = [
+  { x: 78, y: 78, buy: true },
+  { x: 158, y: 60, buy: true },
+  { x: 236, y: 48, buy: false },
+];
 
 export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle; onBack: () => void; advanced: boolean }) {
   const insets = useSafeAreaInsets();
@@ -39,6 +50,33 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
   const [tradesOpen, setTradesOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
+  // Slide the whole token view in from the right when it opens (clean push, no hard cut),
+  // and let the user swipe right to drag it back — follows the finger, springs back or dismisses.
+  const W = Dimensions.get('window').width;
+  const tx = useRef(new Animated.Value(W)).current;
+  useEffect(() => {
+    Animated.timing(tx, { toValue: 0, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [tx]);
+  const back = useRef(onBack);
+  back.current = onBack;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 1.6,
+      onPanResponderMove: (_, g) => {
+        if (g.dx > 0) tx.setValue(g.dx);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx > 90 || g.vx > 0.4) {
+          Animated.timing(tx, { toValue: W, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(
+            ({ finished }) => finished && back.current(),
+          );
+        } else {
+          Animated.spring(tx, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 3 }).start();
+        }
+      },
+    }),
+  ).current;
+
   const q = useQuery({ queryKey: ['token', bundle.token.mint], queryFn: () => getToken(bundle.token.mint), staleTime: 20_000 });
 
   const token = q.data?.token ?? bundle.token;
@@ -50,8 +88,25 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
     if (url) Linking.openURL(url).catch(() => {});
   };
 
+  // Demo "your position" numbers for the share card (deterministic per mint).
+  const shareInvested = 800 + seed(token.mint, 11) * 30_000;
+  const sharePnlPct = 40 + seed(token.mint, 12) * 2800;
+  const sharePnlUsd = (shareInvested * sharePnlPct) / 100;
+
+  // A holder's position on this token, shared from the Top holders list.
+  const [holderShare, setHolderShare] = useState<
+    { symbol: string; name?: string | null; image?: string | null; pnlUsd: number; pnlPct: number; investedUsd: number } | null
+  >(null);
+  const shareHolder = (h: (typeof DEMO_HOLDERS)[number]) => {
+    const pct = parseAmt(h.chg) * (h.up ? 1 : -1);
+    const value = parseAmt(h.value);
+    const invested = value / (1 + pct / 100);
+    setHolderShare({ symbol: sym, name: token.name, image: token.image_url, pnlUsd: value - invested, pnlPct: pct, investedUsd: invested });
+  };
+
   return (
     <Screen>
+      <Animated.View {...pan.panHandlers} style={{ flex: 1, transform: [{ translateX: tx }] }}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View style={s.pad}>
           <View style={s.topBar}>
@@ -111,6 +166,15 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
           <Path d="M0 96 C34 92 50 70 78 78 C108 86 124 54 158 60 C190 66 202 40 236 48 C270 56 288 30 360 22" fill="none" stroke={colors.accentGlow} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
           <Circle cx={360} cy={22} r={10} fill={colors.accentGlow} fillOpacity={0.18} />
           <Circle cx={360} cy={22} r={4.5} fill={colors.accentGlow} />
+          {CHART_MARKS.map((m, i) => (
+            <G key={i}>
+              <Circle cx={m.x} cy={m.y} r={7.5} fill={colors.bg} />
+              <Circle cx={m.x} cy={m.y} r={6} fill={m.buy ? colors.bull : colors.bear} />
+              <SvgText x={m.x} y={m.y + 3.4} fontSize={10} fontWeight="bold" fill={colors.bg} textAnchor="middle">
+                {m.buy ? '+' : '–'}
+              </SvgText>
+            </G>
+          ))}
         </Svg>
 
         <View style={s.pad}>
@@ -127,6 +191,10 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
           <View style={{ marginTop: 16 }}>
             <AiVerdictChip bundle={live} />
           </View>
+
+          {/* Who's positioned here + how they're doing (profitability visibility).
+              Copy-trade itself lives on a trader's profile, not here. */}
+          <TradersHere mint={token.mint} price={snap?.price_usd ?? 0} />
 
           {advanced ? (
             <View style={s.console}>
@@ -149,6 +217,9 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
                       <Text style={s.holderValue}>{h.value}</Text>
                       <Text style={[s.holderChg, { color: h.up ? colors.bull : colors.bear }]}>{h.up ? '▲' : '▼'} {h.chg}</Text>
                     </View>
+                    <PressScale onPress={() => shareHolder(h)} hitSlop={8} to={0.85} style={s.holderShare}>
+                      <Ionicons name="share-outline" size={16} color={colors.fgMuted} />
+                    </PressScale>
                   </View>
                 ))}
               </Accordion>
@@ -225,16 +296,48 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
           </PressScale>
         )}
       </View>
+      </Animated.View>
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
-      <BuySheet visible={buy.open} onClose={() => setBuy((b) => ({ ...b, open: false }))} bundle={live} advanced={advanced} initialSide={buy.side} />
+      <BuySheet
+        key={buy.side}
+        visible={buy.open}
+        onClose={() => setBuy((b) => ({ ...b, open: false }))}
+        bundle={live}
+        advanced={advanced}
+        initialSide={buy.side}
+      />
       <RecentTradesDrawer visible={tradesOpen} onClose={() => setTradesOpen(false)} mint={token.mint} wallet={wallet} />
-      <TokenShareCard visible={shareOpen} onClose={() => setShareOpen(false)} bundle={live} wallet={wallet} />
+      <PnlShareCard
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        symbol={sym}
+        name={token.name}
+        image={token.image_url}
+        pnlUsd={sharePnlUsd}
+        pnlPct={sharePnlPct}
+        investedUsd={shareInvested}
+      />
+      {holderShare ? (
+        <PnlShareCard
+          visible
+          onClose={() => setHolderShare(null)}
+          symbol={holderShare.symbol}
+          name={holderShare.name}
+          image={holderShare.image}
+          pnlUsd={holderShare.pnlUsd}
+          pnlPct={holderShare.pnlPct}
+          investedUsd={holderShare.investedUsd}
+        />
+      ) : null}
     </Screen>
   );
 }
 
 // ---- operator console pieces ----
+
+/** "$32,941.70" / "46.54%" → number. */
+const parseAmt = (v: string) => Number(String(v).replace(/[^0-9.-]/g, '')) || 0;
 
 function seed(mint: string, salt: number): number {
   let h = salt * 2654435761;
@@ -337,6 +440,45 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
   );
 }
 
+/** "Traders here" — who's positioned in this token and how they're doing (avg
+ *  entry, P&L, size). Read-only profitability visibility; copy-trade lives on a
+ *  trader's profile. */
+function TradersHere({ mint, price }: { mint: string; price: number }) {
+  const traders = React.useMemo(() => getTradersOnToken(mint, price), [mint, price]);
+  if (!traders.length) return null;
+  return (
+    <View style={s.thCard}>
+      <View style={s.thHead}>
+        <Ionicons name="people-outline" size={15} color={colors.accentGlow} />
+        <Text style={s.thTitle}>Traders here</Text>
+        <Text style={s.thHint}>Their P&L</Text>
+      </View>
+      {traders.map((t) => (
+        <View key={t.handle} style={s.thRow}>
+          <View style={[s.thAvatar, { backgroundColor: t.color }]}>
+            <Text style={s.thAvatarText}>{t.initial}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={s.thNameLine}>
+              <Text style={s.thName} numberOfLines={1}>
+                {t.name}
+              </Text>
+              {t.xConnected ? <XBadge size={13} /> : null}
+            </View>
+            <Text style={s.thMeta} numberOfLines={1}>
+              avg {priceUsd(t.avgEntryUsd)}
+              <Text style={s.thMuted}> · holds {compactUsd(t.holdingUsd)}</Text>
+            </Text>
+          </View>
+          <Text style={[s.thPnl, { color: t.pnlPct >= 0 ? colors.bull : colors.bear }]}>
+            {t.pnlPct >= 0 ? '▲' : '▼'} {Math.abs(t.pnlPct).toFixed(0)}%
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   pad: { paddingHorizontal: 18 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -392,6 +534,7 @@ const s = StyleSheet.create({
   holderHold: { color: colors.fgMuted, fontSize: 12, marginTop: 1 },
   holderValue: { color: colors.fg, fontSize: 14, fontWeight: '600' },
   holderChg: { fontSize: 12, marginTop: 1 },
+  holderShare: { paddingLeft: 10, paddingVertical: 4 },
 
   tape: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   tapeSide: { fontSize: 13, fontWeight: '700', width: 42 },
@@ -399,9 +542,22 @@ const s = StyleSheet.create({
   tapeWallet: { color: colors.fgSecondary, fontSize: 13, flex: 1 },
   tapeAgo: { color: colors.fgMuted, fontSize: 12 },
 
+  thCard: { marginTop: 16, backgroundColor: colors.bgRaised, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingBottom: 6, paddingTop: 12 },
+  thHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 4 },
+  thTitle: { color: colors.fg, fontSize: 15, fontWeight: '700', flex: 1 },
+  thHint: { color: colors.fgMuted, fontSize: 12 },
+  thRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10 },
+  thAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  thAvatarText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  thNameLine: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  thName: { color: colors.fg, fontSize: 14.5, fontWeight: '700', flexShrink: 1 },
+  thMeta: { color: colors.fgSecondary, fontSize: 12.5, marginTop: 2 },
+  thMuted: { color: colors.fgMuted },
+  thPnl: { fontSize: 14, fontWeight: '700' },
+
   buyBar: { position: 'absolute', left: 16, right: 16 },
   buyBtn: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  buyText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  buyText: { color: colors.onAccent, fontSize: 17, fontWeight: '700' },
   buyRow: { flexDirection: 'row', gap: 10 },
   tradeBtn: { flex: 1, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   tradeText: { color: '#04050A', fontSize: 17, fontWeight: '700' },

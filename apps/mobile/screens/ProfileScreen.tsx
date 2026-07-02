@@ -148,5 +148,5 @@ const s = StyleSheet.create({
   cashbackBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#000', borderRadius: radius.md, paddingVertical: 13, marginTop: 14 },
   cashbackBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   deposit: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
-  depositText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  depositText: { color: colors.onAccent, fontSize: 17, fontWeight: '600' },
 });

@@ -52,6 +52,6 @@ const s = StyleSheet.create({
   boxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   btn: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 26 },
   btnOff: { backgroundColor: colors.bgRaised },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  btnText: { color: colors.onAccent, fontSize: 17, fontWeight: '600' },
   btnTextOff: { color: colors.fgMuted },
 });

@@ -27,11 +27,19 @@ const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: st
   { label: 'Gainers', sort: 'vol' },
 ];
 
-export function HomeScreen({ onOpenToken, advanced }: { onOpenToken: (b: PulseBundle) => void; advanced: boolean }) {
-  return advanced ? <PulseBoard onOpenToken={onOpenToken} /> : <SimpleHome onOpenToken={onOpenToken} />;
+export function HomeScreen({
+  onOpenToken,
+  advanced,
+  onOpenEducation,
+}: {
+  onOpenToken: (b: PulseBundle) => void;
+  advanced: boolean;
+  onOpenEducation: () => void;
+}) {
+  return advanced ? <PulseBoard onOpenToken={onOpenToken} /> : <SimpleHome onOpenToken={onOpenToken} onOpenEducation={onOpenEducation} />;
 }
 
-function SimpleHome({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
+function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBundle) => void; onOpenEducation: () => void }) {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(2);
   const [trade, setTrade] = useState<WeeklyTrade | null>(null);
@@ -64,6 +72,26 @@ function SimpleHome({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={q.isFetching && !q.isLoading} onRefresh={() => q.refetch()} tintColor={colors.fgMuted} />}
       >
+        {/* Category row at the very top (Invo-style) — above the balance. */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleedChips}>
+          <PressScale onPress={() => setWatchOnly((v) => !v)} to={0.95} style={[s.chip, s.chipIcon, watchOnly && s.chipActive]}>
+            <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={watchOnly ? '#000' : colors.fg} />
+          </PressScale>
+          {CHIPS.map((c, i) => {
+            const on = !watchOnly && i === active;
+            return (
+              <PressScale key={c.label} onPress={() => { setWatchOnly(false); setActive(i); }} to={0.95} style={[s.chip, on && s.chipActive]}>
+                <Text style={[s.chipText, on && s.chipTextActive]}>{c.label}</Text>
+                {c.badge ? (
+                  <View style={s.newBadge}>
+                    <Text style={s.newText}>{c.badge}</Text>
+                  </View>
+                ) : null}
+              </PressScale>
+            );
+          })}
+        </ScrollView>
+
         <View style={s.pad}>
           <View style={s.balanceRow}>
             <View>
@@ -83,7 +111,7 @@ function SimpleHome({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) 
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.bleed}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleed}>
           {WEEKLY.map((w) => (
             <PressScale key={w.name} onPress={() => setTrade(w)} to={0.97} style={s.weekCard}>
               <View style={s.weekTop}>
@@ -102,25 +130,6 @@ function SimpleHome({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) 
               </View>
             </PressScale>
           ))}
-        </ScrollView>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.bleedChips}>
-          <PressScale onPress={() => setWatchOnly((v) => !v)} to={0.95} style={[s.chip, s.chipIcon, watchOnly && s.chipActive]}>
-            <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={watchOnly ? '#000' : colors.fg} />
-          </PressScale>
-          {CHIPS.map((c, i) => {
-            const on = !watchOnly && i === active;
-            return (
-              <PressScale key={c.label} onPress={() => { setWatchOnly(false); setActive(i); }} to={0.95} style={[s.chip, on && s.chipActive]}>
-                <Text style={[s.chipText, on && s.chipTextActive]}>{c.label}</Text>
-                {c.badge ? (
-                  <View style={s.newBadge}>
-                    <Text style={s.newText}>{c.badge}</Text>
-                  </View>
-                ) : null}
-              </PressScale>
-            );
-          })}
         </ScrollView>
 
         {isPerps ? (
@@ -181,6 +190,9 @@ function SimpleHome({ onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) 
       </ScrollView>
       <View style={[s.topHeader, { paddingTop: insets.top + 8 }]}>
         <Logo size={40} />
+        <PressScale onPress={onOpenEducation} to={0.85} hitSlop={8} style={s.headerBtn}>
+          <Ionicons name="book-outline" size={21} color={colors.fgSecondary} />
+        </PressScale>
       </View>
       <TraderSheet trade={trade} onClose={() => setTrade(null)} />
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
@@ -208,7 +220,8 @@ function SkeletonRow() {
 
 const s = StyleSheet.create({
   pad: { paddingHorizontal: 18 },
-  topHeader: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 18, paddingBottom: 10, backgroundColor: colors.bg, zIndex: 20 },
+  topHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10, backgroundColor: colors.bg, zIndex: 20 },
+  headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised },
   bleed: { gap: 12, paddingTop: 12, paddingHorizontal: 18 },
   bleedChips: { gap: 8, paddingTop: 18, paddingHorizontal: 18 },
 
@@ -217,7 +230,7 @@ const s = StyleSheet.create({
   cents: { color: colors.fgFaint, fontSize: 49, fontWeight: '700' },
   sub: { color: colors.fgFaint, fontSize: 13, marginTop: 6 },
   deposit: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 26, marginTop: 4 },
-  depositText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  depositText: { color: colors.onAccent, fontSize: 17, fontWeight: '700' },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 26 },
   sectionTitle: { color: colors.fg, fontSize: 18, fontWeight: '600' },
@@ -237,7 +250,7 @@ const s = StyleSheet.create({
   chipText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '500' },
   chipTextActive: { color: '#000', fontWeight: '600' },
   newBadge: { backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  newText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  newText: { color: colors.onAccent, fontSize: 11, fontWeight: '700' },
 
   banner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14, marginTop: 18 },
   bannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },

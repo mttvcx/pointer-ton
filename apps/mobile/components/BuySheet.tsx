@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+const SHEET_SCROLL_MAX = Math.round(Dimensions.get('window').height * 0.78);
 import { Ionicons } from '@expo/vector-icons';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
@@ -25,19 +27,27 @@ export function BuySheet({
   bundle,
   advanced,
   initialSide = 'buy',
+  initialAmount = '100',
+  copyOf = null,
+  onPlaced,
 }: {
   visible: boolean;
   onClose: () => void;
   bundle: PulseBundle;
   advanced: boolean;
   initialSide?: OrderSide;
+  initialAmount?: string;
+  /** When set, the sheet frames this as copying a trader's trade (FOMO copy model). */
+  copyOf?: { handle: string; name?: string } | null;
+  /** Fired when an order is actually placed (market fill or limit order created). */
+  onPlaced?: () => void;
 }) {
   const sym = (bundle.token.symbol ?? shortMint(bundle.token.mint)).replace(/^\$/, '');
   const market = bundle.snapshot?.price_usd ?? 0;
 
   const [side, setSide] = useState<OrderSide>(initialSide);
   const [type, setType] = useState<'market' | 'limit'>('market');
-  const [amount, setAmount] = useState('100');
+  const [amount, setAmount] = useState(initialAmount);
   const [mult, setMult] = useState(1); // limit price as a multiple of market
   const [expiry, setExpiry] = useState('24h');
   const [placed, setPlaced] = useState(false);
@@ -55,19 +65,22 @@ export function BuySheet({
   const reset = () => {
     setPlaced(false);
     setType('market');
-    setAmount('100');
+    setAmount(initialAmount);
     setMult(1);
   };
+
+  const copyLabel = copyOf ? (copyOf.name ? `@${copyOf.handle.replace(/^@/, '')}` : copyOf.handle) : null;
 
   const place = () => {
     if (type === 'limit') {
       addOrder({ mint: bundle.token.mint, symbol: sym, side, amountUsd: Number(amount) || 0, limitPrice, expiry });
       setType('market');
-      setAmount('100');
+      setAmount(initialAmount);
       setMult(1);
     } else {
       setPlaced(true);
     }
+    onPlaced?.();
   };
 
   const accent = side === 'buy' ? colors.bull : colors.bear;
@@ -79,16 +92,17 @@ export function BuySheet({
           <View style={[s.doneIcon, { backgroundColor: colors.bullSoft }]}>
             <Ionicons name="checkmark" size={34} color={colors.bull} />
           </View>
-          <Text style={s.doneTitle}>Order placed</Text>
+          <Text style={s.doneTitle}>{copyLabel ? 'Trade copied' : 'Order placed'}</Text>
           <Text style={s.doneSub}>
-            {side === 'buy' ? 'Bought' : 'Sold'} ${amount} of {sym} · demo
+            {side === 'buy' ? 'Bought' : 'Sold'} ${amount} of {sym}
+            {copyLabel ? ` · copied ${copyLabel}` : ''} · demo
           </Text>
           <PressScale style={[s.place, { backgroundColor: colors.accent }]} onPress={reset}>
             <Text style={s.placeText}>Done</Text>
           </PressScale>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ maxHeight: 560 }}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ maxHeight: SHEET_SCROLL_MAX }}>
           <View style={s.header}>
             <View style={s.headLeft}>
               <CoinIcon uri={bundle.token.image_url} symbol={sym} size={40} verified={Boolean(bundle.token.launch_pad)} />
@@ -99,6 +113,15 @@ export function BuySheet({
             </View>
             {advanced ? <Text style={[s.mode, { color: accent }]}>Advanced</Text> : null}
           </View>
+
+          {copyLabel ? (
+            <View style={s.copyBanner}>
+              <Ionicons name="repeat" size={15} color={colors.accentGlow} />
+              <Text style={s.copyBannerText}>
+                Copying {copyLabel}'s {initialSide === 'sell' ? 'sell' : 'buy'} — set your own size
+              </Text>
+            </View>
+          ) : null}
 
           {/* Buy / Sell */}
           <View style={s.seg}>
@@ -159,7 +182,7 @@ export function BuySheet({
           {/* Slippage & MEV moved to Settings → Trading — keep the buy flow Apple-Pay simple */}
 
           <PressScale style={[s.place, { backgroundColor: type === 'limit' ? colors.accent : accent }]} onPress={place}>
-            <Text style={[s.placeText, type !== 'limit' && { color: '#04050A' }]}>
+            <Text style={[s.placeText, side === 'sell' && type !== 'limit' && { color: '#fff' }]}>
               {type === 'limit' ? `Place limit ${side}` : `${side === 'buy' ? 'Buy' : 'Sell'} ${sym}`}
             </Text>
           </PressScale>
@@ -210,6 +233,9 @@ const s = StyleSheet.create({
   price: { color: colors.fgMuted, fontSize: 14, marginTop: 1 },
   mode: { fontSize: 12, fontWeight: '700' },
 
+  copyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, backgroundColor: colors.accentSoft, borderRadius: radius.md, borderWidth: 1, borderColor: colors.accent + '55', paddingHorizontal: 12, paddingVertical: 10 },
+  copyBannerText: { color: colors.accentGlow, fontSize: 13, fontWeight: '600', flex: 1 },
+
   seg: { flexDirection: 'row', gap: 8, marginTop: 16 },
   segBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: radius.md, backgroundColor: colors.bgRaised },
   segText: { color: colors.fgSecondary, fontSize: 16, fontWeight: '700' },
@@ -250,7 +276,7 @@ const s = StyleSheet.create({
   advLabel: { color: colors.fgMuted, fontSize: 12, fontWeight: '600', marginBottom: 2 },
 
   place: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
-  placeText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  placeText: { color: colors.onAccent, fontSize: 17, fontWeight: '700' },
 
   orders: { marginTop: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 },
   ordersTitle: { color: colors.fg, fontSize: 14, fontWeight: '600', marginBottom: 8 },

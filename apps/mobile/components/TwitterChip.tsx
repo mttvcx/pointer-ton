@@ -6,6 +6,9 @@ import { getTwitterProfile } from '../src/api/endpoints';
 import { xAvatarUrl, compactCount } from '../src/social';
 import { colors, radius } from '../src/theme';
 
+/** Clean neutral avatar shown when a token's X handle has no resolvable photo. */
+const X_FALLBACK = require('../assets/x-avatar-fallback.png');
+
 const isTweet = (v: string) => /\/status\//i.test(v);
 function handleOf(v: string): string {
   return (
@@ -21,6 +24,7 @@ function handleOf(v: string): string {
  */
 export function TwitterChip({ value, size = 22 }: { value: string; size?: number }) {
   const [card, setCard] = useState(false);
+  const [failed, setFailed] = useState(false);
   const tweet = isTweet(value);
   const handle = handleOf(value);
   const url = tweet ? value : `https://x.com/${handle}`;
@@ -37,8 +41,14 @@ export function TwitterChip({ value, size = 22 }: { value: string; size?: number
       >
         {tweet ? (
           <Feather name="feather" size={Math.round(size * 0.58)} color={colors.accentGlow} />
+        ) : failed ? (
+          <Image source={X_FALLBACK} style={{ width: size, height: size }} resizeMode="contain" />
         ) : (
-          <Image source={{ uri: xAvatarUrl(handle) }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+          <Image
+            source={{ uri: xAvatarUrl(handle) }}
+            onError={() => setFailed(true)}
+            style={{ width: size, height: size, borderRadius: size / 2 }}
+          />
         )}
       </Pressable>
 
@@ -58,6 +68,7 @@ function ProfileHoldCard({
   url: string;
   onClose: () => void;
 }) {
+  const [failed, setFailed] = useState(false);
   const open = () => {
     onClose();
     Linking.openURL(url).catch(() => undefined);
@@ -84,8 +95,10 @@ function ProfileHoldCard({
                 <View style={[s.avatar, s.avatarFeather]}>
                   <Feather name="feather" size={24} color={colors.accentGlow} />
                 </View>
+              ) : failed ? (
+                <Image source={X_FALLBACK} style={[s.avatar, s.avatarFallback]} resizeMode="contain" />
               ) : (
-                <Image source={{ uri: xAvatarUrl(handle) }} style={s.avatar} />
+                <Image source={{ uri: xAvatarUrl(handle) }} onError={() => setFailed(true)} style={s.avatar} />
               )}
               <View style={{ flex: 1 }} />
               <Pressable style={s.openPill} onPress={open}>
@@ -166,6 +179,7 @@ const s = StyleSheet.create({
     borderColor: colors.bgRaised,
   },
   avatarFeather: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+  avatarFallback: { backgroundColor: colors.bgRaised2 },
   openPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,5 +205,5 @@ const s = StyleSheet.create({
   statN: { color: colors.fg, fontWeight: '800' },
 
   cta: { marginTop: 14, backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center' },
-  ctaText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  ctaText: { color: colors.onAccent, fontSize: 15, fontWeight: '800' },
 });

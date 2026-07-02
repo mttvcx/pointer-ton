@@ -238,6 +238,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   confirmDisabled: { backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: colors.border },
-  confirmText: { color: colors.fg, fontSize: 15, fontWeight: '700' },
+  confirmText: { color: colors.onAccent, fontSize: 15, fontWeight: '700' },
   confirmTextDisabled: { color: colors.fgFaint },
 });

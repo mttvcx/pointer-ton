@@ -1,14 +1,16 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, Easing, PanResponder, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { PressScale } from '../components/PressScale';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { XBadge } from '../components/XBadge';
+import { CopyTradeSheet } from '../components/CopyTradeSheet';
+import { PnlShareCard } from '../components/PnlShareCard';
 import { colors, radius } from '../src/theme';
 import { getDemoTrader, type TraderPosition } from '../src/demo/traders';
-import { toggleFollow, useIsFollowing } from '../src/local';
+import { toggleFollow, useIsFollowing, useCopy } from '../src/local';
 import { shareText } from '../src/share';
 
 const RANGES = ['24h', '7d', '30d'];
@@ -90,6 +92,36 @@ export function TraderProfileScreen({
   const [status, setStatus] = useState<Status>('open');
   const [kind, setKind] = useState<Kind>('all');
   const [sortDesc, setSortDesc] = useState(true);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const copying = useCopy(p.handle);
+  const topPos = p.open[0];
+
+  // Slide-in on open + swipe-right to drag back (matches the token screen).
+  const W = Dimensions.get('window').width;
+  const tx = useRef(new Animated.Value(W)).current;
+  useEffect(() => {
+    Animated.timing(tx, { toValue: 0, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [tx]);
+  const back = useRef(onBack);
+  back.current = onBack;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 1.6,
+      onPanResponderMove: (_, g) => {
+        if (g.dx > 0) tx.setValue(g.dx);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx > 90 || g.vx > 0.4) {
+          Animated.timing(tx, { toValue: W, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(
+            ({ finished }) => finished && back.current(),
+          );
+        } else {
+          Animated.spring(tx, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 3 }).start();
+        }
+      },
+    }),
+  ).current;
 
   const base = status === 'open' ? p.open : p.closed;
   const list = useMemo(() => {
@@ -104,7 +136,7 @@ export function TraderProfileScreen({
   const cents = Math.round((p.portfolioUsd - dollars) * 100);
 
   return (
-    <View style={s.root}>
+    <Animated.View style={[s.root, { transform: [{ translateX: tx }] }]} {...pan.panHandlers}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: insets.top + 6, paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
@@ -118,11 +150,7 @@ export function TraderProfileScreen({
             <PressScale onPress={() => setStatus('closed')} to={0.85} hitSlop={8}>
               <Ionicons name="time-outline" size={22} color={colors.fgSecondary} />
             </PressScale>
-            <PressScale
-              onPress={() => shareText(`Watch ${p.handle} trade on Pointer — ${usd(p.portfolioUsd, 0)} portfolio.`, 'https://pointer-ton-orcin.vercel.app')}
-              to={0.85}
-              hitSlop={8}
-            >
+            <PressScale onPress={() => setShareOpen(true)} to={0.85} hitSlop={8}>
               <Ionicons name="share-outline" size={22} color={colors.fgSecondary} />
             </PressScale>
           </View>
@@ -180,6 +208,19 @@ export function TraderProfileScreen({
           <Meta icon="swap-horizontal" text={`${p.trades} trades`} />
           <Meta icon="calendar-outline" text={p.joined} />
         </View>
+
+        {/* COPY TRADE — the primary thing you do with a trader (FOMO copy model) */}
+        <PressScale onPress={() => setCopyOpen(true)} to={0.97} style={[s.copyCta, copying && s.copyCtaActive]}>
+          <Ionicons name="repeat" size={19} color={copying ? colors.bull : colors.onAccent} />
+          <Text style={[s.copyCtaText, copying && { color: colors.bull }]}>
+            {copying ? `Copying · $${copying.sizeUsd.toLocaleString()}/trade` : `Copy ${p.name}'s trades`}
+          </Text>
+        </PressScale>
+        <Text style={s.copyCtaHint}>
+          {copying
+            ? `You copy @${p.handle.replace(/^@/, '')}'s buys at $${copying.sizeUsd.toLocaleString()} each. Tap to change or stop.`
+            : 'Mirror their buys at a size you choose — you approve each one, nothing auto-fires.'}
+        </Text>
 
         {/* portfolio value + range */}
         <View style={s.pnlRow}>
@@ -253,7 +294,25 @@ export function TraderProfileScreen({
           <Text style={s.noPos}>No {status} positions</Text>
         )}
       </ScrollView>
-    </View>
+
+      <CopyTradeSheet
+        visible={copyOpen}
+        onClose={() => setCopyOpen(false)}
+        trader={{ handle: p.handle, name: p.name, color: p.color, initial: p.initial, xConnected: p.xConnected }}
+      />
+
+      {topPos ? (
+        <PnlShareCard
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          symbol={topPos.sym}
+          name={topPos.name}
+          pnlUsd={topPos.pnlUsd}
+          pnlPct={topPos.pnlPct}
+          investedUsd={Math.max(0, topPos.valueUsd - topPos.pnlUsd)}
+        />
+      ) : null}
+    </Animated.View>
   );
 }
 
@@ -305,9 +364,9 @@ const s = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 24, fontWeight: '700' },
   idActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dmBtn: { width: 48, height: 44, borderRadius: 12, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' },
-  followBtn: { backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 26, height: 44, alignItems: 'center', justifyContent: 'center' },
-  followingBtn: { backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
-  followText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  followBtn: { backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 12, paddingHorizontal: 26, height: 44, alignItems: 'center', justifyContent: 'center' },
+  followingBtn: { backgroundColor: colors.bgRaised, borderColor: colors.border },
+  followText: { color: colors.fg, fontSize: 16, fontWeight: '700' },
   followingText: { color: colors.fgSecondary },
 
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 14 },
@@ -327,6 +386,11 @@ const s = StyleSheet.create({
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 14 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { color: colors.fgMuted, fontSize: 14 },
+
+  copyCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 15, marginTop: 20 },
+  copyCtaActive: { backgroundColor: colors.bullSoft, borderWidth: 1, borderColor: colors.bull + '55' },
+  copyCtaText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
+  copyCtaHint: { color: colors.fgMuted, fontSize: 12.5, lineHeight: 17, marginTop: 8 },
 
   pnlRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 26 },
   value: { color: colors.fg, fontSize: 40, fontWeight: '800', letterSpacing: -1.2 },

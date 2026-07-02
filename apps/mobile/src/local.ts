@@ -34,6 +34,25 @@ export function toggleFollow(handle: string) {
 }
 export const useIsFollowing = (handle: string) => useSyncExternalStore(subscribe, () => store.follows.has(handle));
 export const useFollowCount = () => useSyncExternalStore(subscribe, () => store.follows.size);
+export const useFollows = () => useSyncExternalStore(subscribe, () => store.follows);
+
+// ---- copy trading ----
+// Copying a TRADER (not a token): you allocate a size per copied trade. Demo
+// persistence (in-memory); live mirroring wires to the trade path on the dev build.
+export type CopyRel = { handle: string; name: string; color: string; initial: string; sizeUsd: number };
+let copies: Record<string, CopyRel> = {};
+export function startCopy(rel: CopyRel) {
+  copies = { ...copies, [rel.handle]: rel };
+  emit();
+}
+export function stopCopy(handle: string) {
+  const next = { ...copies };
+  delete next[handle];
+  copies = next;
+  emit();
+}
+export const useCopy = (handle: string): CopyRel | undefined => useSyncExternalStore(subscribe, () => copies[handle]);
+export const useCopies = () => useSyncExternalStore(subscribe, () => copies);
 
 // ---- bio ----
 export function setBio(v: string) {

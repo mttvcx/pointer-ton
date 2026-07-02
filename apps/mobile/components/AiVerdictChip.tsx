@@ -88,7 +88,7 @@ export function AiVerdictChip({ bundle, expandable = true }: { bundle: PulseBund
     return (
       <View style={[s.chip, { backgroundColor: colors.bgRaised }]}>
         <ActivityIndicator size="small" color={colors.fgMuted} />
-        <Text style={[s.label, { color: colors.fgMuted }]}>Pointer AI is reading the chain…</Text>
+        <Text style={[s.label, { color: colors.fgMuted }]}>Reading the chain…</Text>
       </View>
     );
   }
@@ -118,7 +118,6 @@ export function AiVerdictChip({ bundle, expandable = true }: { bundle: PulseBund
           {d.riskFlags.length ? <Section title="Risk flags" items={d.riskFlags} color={colors.bear} /> : null}
           {d.bullCase.length ? <Section title="Bull case" items={d.bullCase} color={colors.bull} /> : null}
           {d.bearCase.length ? <Section title="Bear case" items={d.bearCase} color={colors.fgSecondary} /> : null}
-          <Text style={s.disclaimer}>Pointer AI · confidence {d.confidence}. Not financial advice.</Text>
         </View>
       ) : null}
     </View>
@@ -147,5 +146,4 @@ const s = StyleSheet.create({
   summary: { color: colors.fg, fontSize: 13, lineHeight: 19 },
   secTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   bullet: { color: colors.fgSecondary, fontSize: 12, lineHeight: 17 },
-  disclaimer: { color: colors.fgMuted, fontSize: 10, marginTop: 2 },
 });

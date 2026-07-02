@@ -1,10 +1,18 @@
 import './src/polyfills';
+import './src/fontPatch';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import {
+  useFonts,
+  Sora_400Regular,
+  Sora_500Medium,
+  Sora_600SemiBold,
+  Sora_700Bold,
+  Sora_800ExtraBold,
+} from '@expo-google-fonts/sora';
 import { AppAuthProvider, useAuth } from './src/auth';
 import { HomeScreen } from './screens/HomeScreen';
 import { TokenScreen } from './screens/TokenScreen';
@@ -15,6 +23,7 @@ import { AlertsScreen } from './screens/AlertsScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { OnboardingFlow } from './screens/OnboardingFlow';
+import { EducationScreen } from './screens/EducationScreen';
 import { SettingsScreen, type Section } from './screens/SettingsScreen';
 import { GlassNav, type NavTab } from './components/GlassNav';
 import { ToastHost } from './components/Toast';
@@ -70,6 +79,7 @@ function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<Section | null>(null);
   const [settingsFocusBio, setSettingsFocusBio] = useState(false);
+  const [eduOpen, setEduOpen] = useState(false);
 
   const openSettings = (section: Section | null = null, focusBio = false) => {
     setSettingsSection(section);
@@ -87,6 +97,7 @@ function Shell() {
 
   if (!entered) return <LoginScreen onEnter={() => setEntered(true)} />;
   if (!onboarded) return <OnboardingFlow onDone={() => setOnboarded(true)} />;
+  if (eduOpen) return <EducationScreen onClose={() => setEduOpen(false)} />;
   if (settingsOpen) {
     return (
       <SettingsScreen
@@ -122,11 +133,11 @@ function Shell() {
               onBack={() => setTrader(null)}
             />
           ) : tab === 'home' ? (
-            <HomeScreen onOpenToken={setToken} advanced={adv} />
+            <HomeScreen onOpenToken={setToken} advanced={adv} onOpenEducation={() => setEduOpen(true)} />
           ) : tab === 'search' ? (
             <SearchScreen onOpenToken={setToken} />
           ) : tab === 'social' ? (
-            adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={setTrader} />
+            adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={setTrader} onOpenToken={setToken} />
           ) : (
             <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
           )}
@@ -153,7 +164,7 @@ function Shell() {
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
+  const [fontsLoaded] = useFonts({ Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold });
 
   return (
     <SafeAreaProvider>

@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, LayoutAnimation, Modal, PanResponder, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import { Animated, Dimensions, Easing, LayoutAnimation, Modal, PanResponder, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../src/theme';
+
+const WIN_H = Dimensions.get('window').height;
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -48,7 +50,7 @@ export function DragSheet({ visible, onClose, children }: { visible: boolean; on
         else ty.setValue(tallRef.current ? 0 : g.dy * 0.26); // rubber-band up; clamp once already tall
       },
       onPanResponderRelease: (_, g) => {
-        if (g.dy > 120 || g.vy > 0.8) {
+        if (g.dy > 90 || g.vy > 0.6) {
           close();
           return;
         }
@@ -73,9 +75,12 @@ export function DragSheet({ visible, onClose, children }: { visible: boolean; on
           const h = e.nativeEvent.layout.height;
           if (h > 0) hRef.current = h + 60;
         }}
-        style={[s.sheet, { maxHeight: tall ? '94%' : '86%', transform: [{ translateY: ty }], paddingBottom: insets.bottom + 14 }]}
+        style={[
+          s.sheet,
+          { maxHeight: tall ? WIN_H - insets.top - 6 : Math.round(WIN_H * 0.92), transform: [{ translateY: ty }], paddingBottom: insets.bottom + 14 },
+        ]}
       >
-        <View {...pan.panHandlers} style={s.grab}>
+        <View {...pan.panHandlers} hitSlop={{ top: 10, bottom: 52, left: 90, right: 90 }} style={s.grab}>
           <View style={s.handle} />
         </View>
         {children}
