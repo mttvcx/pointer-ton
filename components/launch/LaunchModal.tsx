@@ -251,11 +251,14 @@ export function LaunchModal() {
         <footer className="shrink-0 border-t border-border-subtle px-4 py-3">
           <button
             type="button"
-            disabled
-            title="On-chain deploy is not wired yet"
-            className="w-full rounded-sm border border-accent-primary/30 bg-accent-primary/15 py-2.5 text-[12px] font-semibold text-fg-primary opacity-60"
+            title="On-chain deploy coming soon"
+            className={cn(
+              'btn-press w-full rounded-sm border border-accent-primary/40 bg-accent-primary/20 py-2.5 text-[12px] font-semibold text-accent-primary',
+              'transition-all duration-150 hover:-translate-y-0.5 hover:border-accent-primary/60 hover:bg-accent-primary/30',
+              'hover:shadow-[0_6px_18px_-6px_rgb(var(--pulse-accent-rgb)/0.5)] active:translate-y-0',
+            )}
           >
-            Deploy (coming soon)
+            Deploy <span className="font-normal text-fg-muted">· coming soon</span>
           </button>
           <p className="mt-2 text-center text-[9px] text-fg-muted">
             Default dev buy {defaultBuySol} SOL · toggle AI launcher in X monitor
