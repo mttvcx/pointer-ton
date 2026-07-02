@@ -24,6 +24,7 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { OnboardingFlow } from './screens/OnboardingFlow';
 import { EducationScreen } from './screens/EducationScreen';
+import { ReferralScreen } from './screens/ReferralScreen';
 import { SettingsScreen, type Section } from './screens/SettingsScreen';
 import { GlassNav, type NavTab } from './components/GlassNav';
 import { ToastHost } from './components/Toast';
@@ -80,6 +81,7 @@ function Shell() {
   const [settingsSection, setSettingsSection] = useState<Section | null>(null);
   const [settingsFocusBio, setSettingsFocusBio] = useState(false);
   const [eduOpen, setEduOpen] = useState(false);
+  const [refOpen, setRefOpen] = useState(false);
 
   const openSettings = (section: Section | null = null, focusBio = false) => {
     setSettingsSection(section);
@@ -98,6 +100,7 @@ function Shell() {
   if (!entered) return <LoginScreen onEnter={() => setEntered(true)} />;
   if (!onboarded) return <OnboardingFlow onDone={() => setOnboarded(true)} />;
   if (eduOpen) return <EducationScreen onClose={() => setEduOpen(false)} />;
+  if (refOpen) return <ReferralScreen onClose={() => setRefOpen(false)} />;
   if (settingsOpen) {
     return (
       <SettingsScreen
@@ -133,7 +136,7 @@ function Shell() {
               onBack={() => setTrader(null)}
             />
           ) : tab === 'home' ? (
-            <HomeScreen onOpenToken={setToken} advanced={adv} onOpenEducation={() => setEduOpen(true)} />
+            <HomeScreen onOpenToken={setToken} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
           ) : tab === 'search' ? (
             <SearchScreen onOpenToken={setToken} />
           ) : tab === 'social' ? (

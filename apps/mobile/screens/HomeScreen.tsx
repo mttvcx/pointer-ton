@@ -21,6 +21,7 @@ import { PulseBoard } from '../components/PulseBoard';
 import { PerpsList } from '../components/PerpsList';
 import { MiniSpark } from '../components/MiniSpark';
 import { GlassFill } from '../components/GlassFill';
+import { ReferralButton } from '../components/ReferralButton';
 import type { PulseBundle } from '../src/types';
 
 const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: string }[] = [
@@ -36,15 +37,29 @@ export function HomeScreen({
   onOpenToken,
   advanced,
   onOpenEducation,
+  onOpenReferral,
 }: {
   onOpenToken: (b: PulseBundle) => void;
   advanced: boolean;
   onOpenEducation: () => void;
+  onOpenReferral: () => void;
 }) {
-  return advanced ? <PulseBoard onOpenToken={onOpenToken} /> : <SimpleHome onOpenToken={onOpenToken} onOpenEducation={onOpenEducation} />;
+  return advanced ? (
+    <PulseBoard onOpenToken={onOpenToken} />
+  ) : (
+    <SimpleHome onOpenToken={onOpenToken} onOpenEducation={onOpenEducation} onOpenReferral={onOpenReferral} />
+  );
 }
 
-function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBundle) => void; onOpenEducation: () => void }) {
+function SimpleHome({
+  onOpenToken,
+  onOpenEducation,
+  onOpenReferral,
+}: {
+  onOpenToken: (b: PulseBundle) => void;
+  onOpenEducation: () => void;
+  onOpenReferral: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(2);
   const [trade, setTrade] = useState<WeeklyTrade | null>(null);
@@ -230,10 +245,13 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
           <View style={s.topHeaderHairline} />
         </Animated.View>
         <Logo size={40} />
-        <PressScale onPress={onOpenEducation} to={0.85} hitSlop={8} style={s.headerBtn}>
-          <GlassFill />
-          <Ionicons name="book-outline" size={21} color={colors.fgSecondary} />
-        </PressScale>
+        <View style={s.headerRight}>
+          <ReferralButton onPress={onOpenReferral} />
+          <PressScale onPress={onOpenEducation} to={0.85} hitSlop={8} style={s.headerBtn}>
+            <GlassFill />
+            <Ionicons name="book-outline" size={21} color={colors.fgSecondary} />
+          </PressScale>
+        </View>
       </View>
       <TraderSheet trade={trade} onClose={() => setTrade(null)} />
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
@@ -282,6 +300,7 @@ const s = StyleSheet.create({
   topHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10, zIndex: 20, overflow: 'hidden' },
   topHeaderTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,19,15,0.42)' },
   topHeaderHairline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   bleed: { gap: 12, paddingTop: 12, paddingHorizontal: 18 },
   bleedChips: { gap: 8, paddingTop: 18, paddingHorizontal: 18 },
