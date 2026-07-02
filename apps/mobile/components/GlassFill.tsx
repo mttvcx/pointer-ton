@@ -1,22 +1,27 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 
 /**
- * Drop-in liquid-glass fill for pills/squares — frosted blur + tint + top hairline,
- * matching the nav island's glass. The PARENT must set `overflow: 'hidden'` and a
- * borderRadius. `active` renders the island-style SELECTOR highlight (brighter
- * glass) — our replacement for a green selected-outline.
+ * Drop-in glass fill for pills/squares/cards — a translucent tint (so the app's
+ * gradient shows through) + a top hairline highlight. The PARENT must set
+ * `overflow: 'hidden'` and a borderRadius. `active` = the island-style SELECTOR
+ * highlight (brighter), our replacement for a green selected-outline.
+ *
+ * PERF: this deliberately does NOT use a live BlurView. Over the dark mint
+ * gradient a real blur is barely perceptible but very GPU-heavy, and there are
+ * dozens of these on screen (chips, cards, presets, rows). A translucent fill +
+ * hairline reads as the same frosted glass for ~free. Live blur is reserved for
+ * the few surfaces where content actually scrolls behind (the home header, the
+ * nav island).
  */
 export function GlassFill({ active = false }: { active?: boolean }) {
   return (
     <>
-      <BlurView intensity={active ? 36 : 16} tint="dark" style={StyleSheet.absoluteFill} />
       <View
         pointerEvents="none"
-        style={[StyleSheet.absoluteFillObject, { backgroundColor: active ? 'rgba(255,255,255,0.13)' : 'rgba(12,18,20,0.4)' }]}
+        style={[StyleSheet.absoluteFillObject, { backgroundColor: active ? 'rgba(255,255,255,0.12)' : 'rgba(18,21,26,0.62)' }]}
       />
-      <View pointerEvents="none" style={[s.hairline, { backgroundColor: active ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.12)' }]} />
+      <View pointerEvents="none" style={[s.hairline, { backgroundColor: active ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.12)' }]} />
     </>
   );
 }
