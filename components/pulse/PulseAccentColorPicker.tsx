@@ -16,10 +16,15 @@ type Props = {
   color: string;
   onChange: (hex: string) => void;
   className?: string;
+  /** Row label (defaults to "Quick buy color"). */
+  label?: string;
+  /** Reset handler + title override; defaults to resetting to the accent green. */
+  onReset?: () => void;
+  resetTitle?: string;
 };
 
 /** Compact hue + swatch row for quick-buy / ultra outline accent (Display panel). */
-export function PulseAccentColorPicker({ color, onChange, className }: Props) {
+export function PulseAccentColorPicker({ color, onChange, className, label = 'Quick buy color', onReset, resetTitle }: Props) {
   const safeColor = normalizeHex(color);
   const [hsv, setHsv] = useState(() => hexToHsv(safeColor));
   const [expanded, setExpanded] = useState(false);
@@ -75,7 +80,7 @@ export function PulseAccentColorPicker({ color, onChange, className }: Props) {
           className="min-w-0 shrink text-left text-[11px] font-medium text-fg-secondary"
           aria-expanded={expanded}
         >
-          Quick buy color
+          {label}
         </button>
 
         <label
@@ -114,9 +119,9 @@ export function PulseAccentColorPicker({ color, onChange, className }: Props) {
 
         <button
           type="button"
-          onClick={() => onChange(DEFAULT_PULSE_ACCENT_HEX)}
+          onClick={() => (onReset ? onReset() : onChange(DEFAULT_PULSE_ACCENT_HEX))}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-muted transition hover:bg-bg-hover/60 hover:text-fg-secondary"
-          title="Reset to default green"
+          title={resetTitle ?? 'Reset to default green'}
         >
           <RotateCcw className="h-3 w-3" strokeWidth={2.25} aria-hidden />
         </button>

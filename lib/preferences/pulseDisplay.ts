@@ -82,6 +82,8 @@ export const PulseDisplayPrefsSchema = z.object({
   secondButtonMode: PulseSecondButtonModeSchema,
   accentHex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   quickBuyUltraChrome: QuickBuyUltraChromeSchema,
+  /** Toast surface colour; null = default dark. Contents invert for contrast. */
+  toastColor: HexColorSchema.nullable(),
 });
 
 export type PulseDisplayPrefs = z.infer<typeof PulseDisplayPrefsSchema>;
@@ -155,6 +157,7 @@ export const DEFAULT_PULSE_DISPLAY_PREFS: PulseDisplayPrefs = {
   secondButtonMode: 'off',
   accentHex: '#34D399',
   quickBuyUltraChrome: 'outline',
+  toastColor: null,
 };
 
 export function withPulseDisplayDefaults(
@@ -232,6 +235,7 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     secondButtonMode,
     accentHex,
     quickBuyUltraChrome,
+    toastColor,
   } = state;
   return withPulseDisplayDefaults({
     activeTab,
@@ -254,5 +258,6 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     secondButtonMode,
     accentHex,
     quickBuyUltraChrome,
+    toastColor,
   });
 }

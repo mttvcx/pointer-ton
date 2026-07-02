@@ -85,7 +85,7 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
     }),
     {
       name: 'pointer.pulse-display',
-      version: 5,
+      version: 6,
       partialize: (s) => pickPulseDisplayPrefs(s),
       migrate: (persisted, fromVersion) => {
         let base = withPulseDisplayDefaults(persisted as Partial<PulseDisplayPrefs> | undefined);
@@ -98,6 +98,9 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
         }
         if (fromVersion < 5 && base.quickBuyUltraChrome == null) {
           base = { ...base, quickBuyUltraChrome: DEFAULT_PULSE_DISPLAY_PREFS.quickBuyUltraChrome };
+        }
+        if (fromVersion < 6 && base.toastColor === undefined) {
+          base = { ...base, toastColor: null };
         }
         return base;
       },

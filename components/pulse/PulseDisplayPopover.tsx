@@ -277,6 +277,14 @@ export function PulseDisplayPopover() {
                 onChange={(hex) => setPrefs({ accentHex: hex })}
               />
 
+              <PulseAccentColorPicker
+                label="Toast color"
+                color={prefs.toastColor ?? '#0f1319'}
+                onChange={(hex) => setPrefs({ toastColor: hex })}
+                onReset={() => setPrefs({ toastColor: null })}
+                resetTitle="Reset to default dark"
+              />
+
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                   Quick buy style

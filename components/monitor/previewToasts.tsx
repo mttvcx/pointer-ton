@@ -6,11 +6,15 @@ import { ArrowDownRight, ArrowUpRight, Hash, Rocket, ShoppingCart } from 'lucide
 import { openDeployForTweet } from '@/lib/launch/openLaunchModal';
 import type { TweetLaunchInput } from '@/lib/launch/types';
 import { CloseButton } from '@/components/ui/CloseButton';
+import { readToastSurface } from '@/lib/ui/toastColor';
 import { cn } from '@/lib/utils/cn';
 
 function tokenHref(mint: string): string {
   return `/token/${encodeURIComponent(mint)}`;
 }
+
+const CARD_BASE =
+  'flex w-[320px] items-start gap-2.5 rounded-lg border p-3 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.85)] transition-colors';
 
 type CaMention = { channel: string; server: string; token: string; ticker: string; ca: string };
 
@@ -31,20 +35,24 @@ let caSeq = 0;
 export function fireCaMentionToast() {
   const m = DEMO_MENTIONS[caSeq % DEMO_MENTIONS.length]!;
   caSeq += 1;
+  const s = readToastSurface();
   toast.custom(
     (id) => (
-      <div className="flex w-[320px] items-start gap-2.5 rounded-lg border border-white/[0.12] bg-bg-raised p-3 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.85)] transition-colors hover:border-white/[0.2]">
+      <div
+        className={cn(CARD_BASE, s.custom ? 'hover:brightness-105' : 'border-white/[0.12] bg-bg-raised text-white hover:border-white/[0.2]')}
+        style={s.custom ? { background: s.bg, color: s.fg, borderColor: s.border } : undefined}
+      >
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#5865F2]/20 text-[#8b95ff]">
           <Hash className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
           <Link href={tokenHref(m.ca)} onClick={() => toast.dismiss(id)} className="block cursor-pointer">
-            <p className="text-[11px] text-fg-muted">
-              <span className="font-semibold text-fg-secondary">{m.server}</span> · #{m.channel}
-              <span className="ml-1 rounded bg-white/[0.06] px-1 text-[8.5px] uppercase tracking-wide text-fg-muted">sample</span>
+            <p className="text-[11px] opacity-60">
+              <span className="font-semibold opacity-90">{m.server}</span> · #{m.channel}
+              <span className="ml-1 rounded bg-current/10 px-1 text-[8.5px] uppercase tracking-wide">sample</span>
             </p>
-            <p className="mt-0.5 truncate text-[12.5px] font-semibold text-white">
-              CA for {m.token} <span className="text-fg-muted">${m.ticker}</span>
+            <p className="mt-0.5 truncate text-[12.5px] font-semibold">
+              CA for {m.token} <span className="opacity-60">${m.ticker}</span>
             </p>
             <p className="mt-0.5 font-mono text-[10px] text-accent-primary">{shortCa(m.ca)}</p>
           </Link>
@@ -101,9 +109,13 @@ export function fireTradeToast() {
   const t = DEMO_TRADES[tradeSeq % DEMO_TRADES.length]!;
   tradeSeq += 1;
   const isBuy = t.side === 'buy';
+  const s = readToastSurface();
   toast.custom(
     (id) => (
-      <div className="flex w-[320px] items-start gap-2.5 rounded-lg border border-white/[0.12] bg-bg-raised p-3 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.85)] transition-colors hover:border-white/[0.2]">
+      <div
+        className={cn(CARD_BASE, s.custom ? 'hover:brightness-105' : 'border-white/[0.12] bg-bg-raised text-white hover:border-white/[0.2]')}
+        style={s.custom ? { background: s.bg, color: s.fg, borderColor: s.border } : undefined}
+      >
         <Link
           href={tokenHref(t.mint)}
           onClick={() => toast.dismiss(id)}
@@ -118,16 +130,16 @@ export function fireTradeToast() {
             {isBuy ? <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2.5} /> : <ArrowDownRight className="h-3.5 w-3.5" strokeWidth={2.5} />}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[11px] text-fg-muted">
+            <span className="block text-[11px] opacity-60">
               Tracked wallet
-              <span className="ml-1 rounded bg-white/[0.06] px-1 text-[8.5px] uppercase tracking-wide text-fg-muted">sample</span>
+              <span className="ml-1 rounded bg-current/10 px-1 text-[8.5px] uppercase tracking-wide">sample</span>
             </span>
-            <span className="mt-0.5 block truncate text-[12.5px] font-semibold text-white">
+            <span className="mt-0.5 block truncate text-[12.5px] font-semibold">
               @{t.handle}{' '}
               <span className={isBuy ? 'text-signal-bull' : 'text-signal-bear'}>{isBuy ? 'bought' : 'sold'}</span>{' '}
-              <span className="text-fg-muted">${t.ticker}</span>
+              <span className="opacity-60">${t.ticker}</span>
             </span>
-            <span className="mt-0.5 block text-[10px] text-fg-muted">
+            <span className="mt-0.5 block text-[10px] opacity-60">
               {t.sol} SOL · {t.mc} MC · now
             </span>
           </span>
