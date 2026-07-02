@@ -6,6 +6,7 @@ import { Screen } from '../components/Screen';
 import { PressScale } from '../components/PressScale';
 import { XBadge } from '../components/XBadge';
 import { ActivityFeed } from '../components/ActivityFeed';
+import { GlassFill } from '../components/GlassFill';
 import { colors, radius } from '../src/theme';
 import { getLeaderboard, type LeaderEntry } from '../src/demo/traders';
 import { shareText } from '../src/share';
@@ -46,6 +47,7 @@ export function SocialScreen({
             hitSlop={8}
             style={s.shareBtn}
           >
+            <GlassFill />
             <Ionicons name="share-outline" size={20} color={colors.fgSecondary} />
           </PressScale>
         </View>
@@ -53,6 +55,7 @@ export function SocialScreen({
         <View style={s.tabsRow}>
           {(['activity', 'leaderboard'] as SocialView[]).map((v) => (
             <PressScale key={v} onPress={() => setView(v)} to={0.96} style={[s.tab, view === v && s.tabOn]}>
+              <GlassFill active={view === v} />
               <Ionicons
                 name={v === 'activity' ? 'pulse-outline' : 'trophy-outline'}
                 size={15}
@@ -68,6 +71,7 @@ export function SocialScreen({
         ) : (
           <>
             <View style={s.rankCard}>
+              <GlassFill />
               <View style={s.you}>
                 <Text style={s.youInitial}>P</Text>
               </View>
@@ -155,15 +159,15 @@ const s = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingBottom: 130 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: colors.fg, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  shareBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised },
+  shareBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
 
   tabsRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, borderRadius: radius.md, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
-  tabOn: { backgroundColor: colors.bgRaised2, borderColor: colors.borderStrong },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  tabOn: { borderColor: 'rgba(255,255,255,0.28)' },
   tabText: { color: colors.fgMuted, fontSize: 14, fontWeight: '700' },
   tabTextOn: { color: colors.fg },
 
-  rankCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16, marginTop: 16, borderWidth: 1, borderColor: colors.border },
+  rankCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.lg, padding: 16, marginTop: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   sectionBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: colors.accent },
   you: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E8732A', alignItems: 'center', justifyContent: 'center' },

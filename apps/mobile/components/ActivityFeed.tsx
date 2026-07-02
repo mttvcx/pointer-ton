@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PressScale } from './PressScale';
 import { CoinIcon } from './CoinIcon';
 import { XBadge } from './XBadge';
+import { GlassFill } from './GlassFill';
 import { colors, radius } from '../src/theme';
 import { shortMint } from '../src/format';
 import { useFollows } from '../src/local';
@@ -42,6 +43,7 @@ export function ActivityFeed({
       <View style={s.filterRow}>
         {(['following', 'all'] as Filter[]).map((f) => (
           <PressScale key={f} onPress={() => setFilter(f)} to={0.95} style={[s.filter, filter === f && s.filterOn]}>
+            <GlassFill active={filter === f} />
             <Text style={[s.filterText, filter === f && s.filterTextOn]}>
               {f === 'following' ? `Following${follows.size ? ` (${follows.size})` : ''}` : 'All traders'}
             </Text>
@@ -125,10 +127,10 @@ function ActivityRow({
 
 const s = StyleSheet.create({
   filterRow: { flexDirection: 'row', gap: 8, marginTop: 16, marginBottom: 8 },
-  filter: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgRaised },
-  filterOn: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  filter: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  filterOn: { borderColor: 'rgba(255,255,255,0.28)' },
   filterText: { color: colors.fgMuted, fontSize: 13, fontWeight: '700' },
-  filterTextOn: { color: colors.accentGlow },
+  filterTextOn: { color: colors.fg },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
   avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
