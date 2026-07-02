@@ -664,6 +664,14 @@ export function XMonitorPanel({
                             <span className="shrink-0 text-[10px] tabular-nums text-fg-muted/80">
                               · {formatListenAge(row.createdAt)}
                             </span>
+                            {hoveredRowId === row.alertId ? (
+                              <span className="ml-auto hidden shrink-0 items-center gap-1 text-[8.5px] font-semibold uppercase tracking-wide text-fg-muted/70 sm:inline-flex">
+                                <kbd className="rounded bg-white/[0.08] px-1 py-px">{keybinds.deploy}</kbd>
+                                deploy
+                                <kbd className="ml-0.5 rounded bg-white/[0.08] px-1 py-px">{keybinds.dismiss}</kbd>
+                                hide
+                              </span>
+                            ) : null}
                           </div>
                           {row.displayName ? (
                             <div className="flex items-center gap-1.5 text-[10px] text-fg-muted">
