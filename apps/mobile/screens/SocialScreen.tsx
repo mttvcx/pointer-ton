@@ -79,7 +79,10 @@ export function SocialScreen({
             </View>
 
             <View style={s.rangeRow}>
-              <Text style={s.section}>Top traders</Text>
+              <View style={s.sectionHead}>
+                <View style={s.sectionBar} />
+                <Text style={s.section}>Top traders</Text>
+              </View>
               <View style={s.ranges}>
                 {RANGES.map((r, i) => (
                   <PressScale key={r} onPress={() => setRange(i)} to={0.94} style={[s.range, i === range && s.rangeOn]}>
@@ -160,7 +163,9 @@ const s = StyleSheet.create({
   tabText: { color: colors.fgMuted, fontSize: 14, fontWeight: '700' },
   tabTextOn: { color: colors.fg },
 
-  rankCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16, marginTop: 16 },
+  rankCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16, marginTop: 16, borderWidth: 1, borderColor: colors.border },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  sectionBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: colors.accent },
   you: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E8732A', alignItems: 'center', justifyContent: 'center' },
   youInitial: { color: '#fff', fontSize: 18, fontWeight: '700' },
   rankLabel: { color: colors.fgMuted, fontSize: 13 },

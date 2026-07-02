@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import { DragSheet } from '../components/DragSheet';
 import { WEEKLY, type WeeklyTrade } from '../src/demo';
 import { PulseBoard } from '../components/PulseBoard';
 import { PerpsList } from '../components/PerpsList';
+import { MiniSpark } from '../components/MiniSpark';
 import type { PulseBundle } from '../src/types';
 
 const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: string }[] = [
@@ -51,6 +52,11 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
   const sort = CHIPS[active].sort;
   const isPerps = !watchOnly && CHIPS[active].label === 'Perps';
 
+  // Scroll feature: the top bar is transparent at rest (the gradient/aura show
+  // behind the mark), then fades to a solid header + hairline as you scroll.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerFade = scrollY.interpolate({ inputRange: [0, 46], outputRange: [0, 1], extrapolate: 'clamp' });
+
   const q = useQuery({ queryKey: ['live-tokens'], queryFn: () => getLiveTokens(), staleTime: 30_000, refetchInterval: 45_000 });
 
   const tokens = useMemo(() => {
@@ -69,15 +75,17 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
 
   return (
     <Screen>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={{ paddingTop: insets.top + 64, paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={q.isFetching && !q.isLoading} onRefresh={() => q.refetch()} tintColor={colors.fgMuted} />}
       >
         {/* Category row at the very top (Invo-style) — above the balance. */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleedChips}>
           <PressScale onPress={() => setWatchOnly((v) => !v)} to={0.95} style={[s.chip, s.chipIcon, watchOnly && s.chipActive]}>
-            <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={watchOnly ? '#000' : colors.fg} />
+            <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={watchOnly ? colors.accentGlow : colors.fg} />
           </PressScale>
           {CHIPS.map((c, i) => {
             const on = !watchOnly && i === active;
@@ -96,19 +104,21 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
 
         <View style={s.pad}>
           <View style={s.balanceRow}>
-            <View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.balanceLabel}>Portfolio value</Text>
               <Text style={s.balance}>
                 $0<Text style={s.cents}>.00</Text>
               </Text>
-              <Text style={s.sub}>-- 24h</Text>
+              <Text style={s.sub}>— · Past 24h</Text>
             </View>
             <PressScale onPress={() => setDeposit(true)} style={s.deposit}>
+              <Ionicons name="add" size={18} color={colors.onAccent} />
               <Text style={s.depositText}>Deposit</Text>
             </PressScale>
           </View>
 
           <View style={s.sectionHead}>
-            <Ionicons name="bulb-outline" size={18} color={colors.fgSecondary} />
+            <View style={s.sectionBar} />
             <Text style={s.sectionTitle}>Weekly Top Trades</Text>
           </View>
         </View>
@@ -175,6 +185,9 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
                       <Text style={s.mc}>{compactUsd(b.snapshot?.market_cap_usd)} MC</Text>
                     </View>
                   </View>
+                  <View style={s.spark}>
+                    <MiniSpark seed={b.token.mint} up={ch.up} width={54} height={26} />
+                  </View>
                   <View style={s.rowRight}>
                     <Text style={s.price}>{priceUsd(b.snapshot?.price_usd)}</Text>
                     <Text style={[s.chg, { color: ch.up ? colors.bull : colors.bear }]}>
@@ -189,8 +202,10 @@ function SimpleHome({ onOpenToken, onOpenEducation }: { onOpenToken: (b: PulseBu
         </View>
           </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
       <View style={[s.topHeader, { paddingTop: insets.top + 8 }]}>
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, s.topHeaderBg, { opacity: headerFade }]} />
+        <Animated.View pointerEvents="none" style={[s.topHeaderHairline, { opacity: headerFade }]} />
         <Logo size={40} />
         <PressScale onPress={onOpenEducation} to={0.85} hitSlop={8} style={s.headerBtn}>
           <Ionicons name="book-outline" size={21} color={colors.fgSecondary} />
@@ -239,21 +254,25 @@ function SkeletonRow() {
 
 const s = StyleSheet.create({
   pad: { paddingHorizontal: 18 },
-  topHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10, backgroundColor: colors.bg, zIndex: 20 },
-  headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised },
+  topHeader: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10, zIndex: 20 },
+  topHeaderBg: { backgroundColor: colors.bgGradient[0] },
+  topHeaderHairline: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, backgroundColor: colors.border },
+  headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border },
   bleed: { gap: 12, paddingTop: 12, paddingHorizontal: 18 },
   bleedChips: { gap: 8, paddingTop: 18, paddingHorizontal: 18 },
 
-  balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 18 },
-  balance: { color: colors.fg, fontSize: 49, fontWeight: '600', letterSpacing: -1.5 },
-  cents: { color: colors.fgFaint, fontSize: 49, fontWeight: '600' },
+  balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
+  balanceLabel: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 4 },
+  balance: { color: colors.fg, fontSize: 46, fontWeight: '600', letterSpacing: -1.5 },
+  cents: { color: colors.fgFaint, fontSize: 46, fontWeight: '600' },
   sub: { color: colors.fgFaint, fontSize: 13, marginTop: 6 },
-  deposit: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 26, marginTop: 4 },
-  depositText: { color: colors.onAccent, fontSize: 17, fontWeight: '700' },
+  deposit: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20 },
+  depositText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 26 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 26 },
+  sectionBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: colors.accent },
   sectionTitle: { color: colors.fg, fontSize: 18, fontWeight: '600' },
-  weekCard: { width: 178, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14 },
+  weekCard: { width: 178, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: colors.border },
   weekTop: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   weekAvatar: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   weekInitial: { color: '#fff', fontSize: 14, fontWeight: '600' },
@@ -263,15 +282,15 @@ const s = StyleSheet.create({
   weekTokenText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   weekAmt: { color: colors.bull, fontSize: 17, fontWeight: '600' },
 
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.bgRaised, borderRadius: radius.pill, paddingVertical: 9, paddingHorizontal: 16 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.bgRaised, borderRadius: radius.pill, paddingVertical: 9, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.border },
   chipIcon: { paddingHorizontal: 11 },
-  chipActive: { backgroundColor: '#fff' },
+  chipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   chipText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '500' },
-  chipTextActive: { color: '#000', fontWeight: '600' },
+  chipTextActive: { color: colors.accentGlow, fontWeight: '700' },
   newBadge: { backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   newText: { color: colors.onAccent, fontSize: 11, fontWeight: '700' },
 
-  banner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14, marginTop: 18 },
+  banner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14, marginTop: 18, borderWidth: 1, borderColor: colors.border },
   bannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   bannerText: { color: colors.fgSecondary, fontSize: 15, flex: 1 },
   bannerAccent: { color: colors.accent, fontWeight: '600' },
@@ -282,7 +301,8 @@ const s = StyleSheet.create({
   rowText: { flex: 1 },
   ticker: { color: colors.fg, fontSize: 18, fontWeight: '600' },
   mc: { color: colors.fgMuted, fontSize: 14, marginTop: 2 },
-  rowRight: { alignItems: 'flex-end' },
+  spark: { marginHorizontal: 12 },
+  rowRight: { alignItems: 'flex-end', minWidth: 88 },
   price: { color: colors.fg, fontSize: 17, fontWeight: '600' },
   chg: { fontSize: 14, marginTop: 2 },
 

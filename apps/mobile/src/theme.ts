@@ -35,6 +35,10 @@ export const colors = {
   verify: '#2F7BF6',
   // Dark ink that sits on top of mint/green fills (Invo uses dark-on-green).
   onAccent: '#04140E',
+  // Our own identity: a deep mint-tinted night gradient (not FOMO's flat black),
+  // + a faint top aura. Subtle — depth, not decoration.
+  bgGradient: ['#08130F', '#04080A', '#000000'] as const,
+  aura: 'rgba(0,224,160,0.06)',
 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
