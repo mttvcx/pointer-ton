@@ -30,11 +30,13 @@ import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { useUIStore } from '@/store/ui';
 import { useXMonitorPreviewStore } from '@/store/xMonitorPreview';
+import { useXMonitorSettings } from '@/store/xMonitorSettings';
 import { XMonitorRules } from '@/components/monitor/XMonitorRules';
+import { XMonitorSettings } from '@/components/monitor/XMonitorSettings';
 import { TweetMediaImage } from '@/components/monitor/TweetMediaImage';
 import { HoverZoomImage } from '@/components/monitor/HoverZoomImage';
 
-type MonitorTab = 'feed' | 'rules';
+type MonitorTab = 'feed' | 'rules' | 'settings';
 
 type ListenRow = {
   alertId: string;
@@ -92,6 +94,17 @@ function EventIcon({ type }: { type: DemoEvent }) {
   if (type === 'followed') return <UserPlus className={cls} strokeWidth={2} aria-hidden />;
   if (type === 'deleted') return <Trash2 className={cls} strokeWidth={2} aria-hidden />;
   return <ArrowUpRight className={cls} strokeWidth={2} aria-hidden />;
+}
+
+/** Hex (#rgb or #rrggbb) → rgba() string for inline launch-rail theming. */
+function hexA(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  if ([r, g, b].some((n) => Number.isNaN(n))) return `rgba(124,92,255,${a})`;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
 function fmtCount(n: number): string {
@@ -256,6 +269,17 @@ export function XMonitorPanel({
   const launchMode = useAutoLaunchStore((s) => s.launchMode);
   const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: false });
 
+  // Operator settings (persisted) — drive filtering + launch-rail appearance.
+  const sources = useXMonitorSettings((s) => s.sources);
+  const mutedKeywords = useXMonitorSettings((s) => s.mutedKeywords);
+  const whitelistHandles = useXMonitorSettings((s) => s.whitelistHandles);
+  const keywordHighlights = useXMonitorSettings((s) => s.keywordHighlights);
+  const aiSuggestionsEnabled = useXMonitorSettings((s) => s.aiSuggestionsEnabled);
+  const aiSuggestionCount = useXMonitorSettings((s) => s.aiSuggestionCount);
+  const launchRailSide = useXMonitorSettings((s) => s.launchRailSide);
+  const launchRailStyle = useXMonitorSettings((s) => s.launchRailStyle);
+  const launchRailColor = useXMonitorSettings((s) => s.launchRailColor);
+
   const serverRows = useMemo(() => {
     const list = data ?? [];
     return list
@@ -290,7 +314,7 @@ export function XMonitorPanel({
     return () => window.clearInterval(id);
   }, [showDemo, activeChain]);
 
-  const { rows, mock, banner } = useMemo(() => {
+  const { rows: allRows, mock, banner } = useMemo(() => {
     if (activeChain !== 'sol') {
       return {
         rows: showDemo ? streamRows : [],
@@ -308,6 +332,25 @@ export function XMonitorPanel({
     }
     return { rows: serverRows, mock: false, banner: null as string | null };
   }, [activeChain, serverRows, showDemo, streamRows]);
+
+  // Apply operator filters: source channels, muted keywords, whitelist.
+  const rows = useMemo(() => {
+    const wl = whitelistHandles.map((h) => h.toLowerCase());
+    const muted = mutedKeywords.map((m) => m.toLowerCase()).filter(Boolean);
+    return allRows.filter((row) => {
+      const platform = (row.platform ?? 'x') as DemoPlatform;
+      if (platform === 'x' && !sources.x) return false;
+      if (platform === 'instagram' && !sources.instagram) return false;
+      if (platform === 'truth' && !sources.truth) return false;
+      const handle = (row.tweet.authorHandle ?? '').replace(/^@/, '').toLowerCase();
+      if (wl.length && !wl.includes(handle)) return false;
+      if (muted.length) {
+        const text = (row.tweet.text ?? '').toLowerCase();
+        if (muted.some((m) => text.includes(m))) return false;
+      }
+      return true;
+    });
+  }, [allRows, sources, whitelistHandles, mutedKeywords]);
 
   const tweets = useMemo(() => rows.map((r) => r.tweet), [rows]);
   const {
@@ -383,6 +426,7 @@ export function XMonitorPanel({
             [
               ['feed', 'Feed'],
               ['rules', 'Rules'],
+              ['settings', 'Settings'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -401,11 +445,13 @@ export function XMonitorPanel({
           ))}
         </nav>
 
-        <AiLauncherToggle />
+        {tab === 'feed' ? <AiLauncherToggle /> : null}
       </header>
 
       {tab === 'rules' ? (
         <XMonitorRules />
+      ) : tab === 'settings' ? (
+        <XMonitorSettings />
       ) : (
         <>
           {banner ? (
@@ -445,6 +491,17 @@ export function XMonitorPanel({
                   row.payload.execution === 'auto_launch';
                 const isDeleted = row.eventType === 'deleted';
                 const ev = eventLine(row);
+                const isHighlighted =
+                  keywordHighlights.length > 0 &&
+                  keywordHighlights.some((k) =>
+                    (row.tweet.text ?? '').toLowerCase().includes(k.toLowerCase()),
+                  );
+                const railMargin = launchRailSide === 'right' ? 'my-2 mr-2' : 'my-2 ml-2';
+                const railCustom = launchRailColor
+                  ? launchRailStyle === 'fill'
+                    ? { backgroundColor: hexA(launchRailColor, isAutoLaunch ? 0.28 : 0.14), color: launchRailColor }
+                    : { border: `1px solid ${hexA(launchRailColor, 0.5)}`, color: launchRailColor }
+                  : undefined;
 
                 return (
                   <li
@@ -452,10 +509,12 @@ export function XMonitorPanel({
                     className={cn(
                       // Carded grey rows (J7-style premium) — lighter grey for legibility.
                       'group flex items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.055] transition-colors hover:border-white/[0.16] hover:bg-white/[0.08]',
+                      launchRailSide === 'right' && 'flex-row-reverse',
                       // Deleted events read red + striped; platform accent otherwise.
                       isDeleted && 'border-signal-bear/25 bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.09)_0_10px,rgba(255,255,255,0.05)_10px_20px)]',
                       row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.07]',
                       row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.07]',
+                      isHighlighted && 'border-accent-primary/40 bg-accent-primary/[0.06] hover:border-accent-primary/55',
                     )}
                   >
                     {/* Left vertical LAUNCH rail — same borderless accent-fill look
@@ -481,11 +540,15 @@ export function XMonitorPanel({
                             ? 'Auto-launch armed for this rule'
                             : 'Launch a token from this tweet'
                       }
+                      style={railCustom}
                       className={cn(
-                        'btn-press focus-ring my-2 ml-2 flex w-8 shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
-                        isAutoLaunch
+                        'btn-press focus-ring flex w-8 shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
+                        railMargin,
+                        !railCustom && launchRailStyle === 'fill' && (isAutoLaunch
                           ? 'bg-accent-primary/25 text-accent-primary hover:bg-accent-primary/[0.32]'
-                          : 'bg-accent-primary/[0.12] text-accent-primary hover:bg-accent-primary/20',
+                          : 'bg-accent-primary/[0.12] text-accent-primary hover:bg-accent-primary/20'),
+                        !railCustom && launchRailStyle === 'outline' &&
+                          'border border-accent-primary/50 text-accent-primary hover:bg-accent-primary/[0.12]',
                       )}
                     >
                       <span className="rotate-180 text-[9.5px] font-semibold uppercase tracking-wide [writing-mode:vertical-rl]">
@@ -608,14 +671,14 @@ export function XMonitorPanel({
                         </Link>
                       ) : null}
 
-                      {row.suggestions?.length ? (
+                      {aiSuggestionsEnabled && row.suggestions?.length ? (
                         <div className="mt-2 space-y-1.5">
                           <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
                             <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
                             Suggestions
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {row.suggestions.map((s, i) => (
+                            {row.suggestions.slice(0, aiSuggestionCount).map((s, i) => (
                               <div
                                 key={`${row.subject}-s${i}`}
                                 className="flex items-stretch overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.05] transition-colors hover:border-white/[0.18]"

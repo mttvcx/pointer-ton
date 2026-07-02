@@ -1,0 +1,33 @@
+{
+  "name": "pointer-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QOVES-style vertical crypto explainer videos for Pointer (Solana trading terminal)",
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render PointerVideo out/pointer.mp4",
+    "build-vo": "tsx scripts/build-vo.ts",
+    "render-all": "tsx scripts/render-all.ts",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/google-fonts": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "@types/node": "^26.0.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "dotenv": "^16.4.5",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

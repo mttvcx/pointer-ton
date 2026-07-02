@@ -1,0 +1,10 @@
+node_modules/
+out/
+stills/
+.env
+*.log
+.DS_Store
+# Generated audio (regenerate with npm run build-vo). The JSON metadata
+# (manifest.json / captions.json) is kept in git so the composition's duration
+# import always resolves; only the heavy/secret-derived audio is ignored.
+public/vo/*.mp3
