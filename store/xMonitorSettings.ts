@@ -3,10 +3,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/** Where the vertical launch rail sits on each feed card. */
-export type LaunchRailSide = 'left' | 'right';
+/** Where the launch rail sits on each feed card. */
+export type LaunchRailSide = 'left' | 'right' | 'top' | 'bottom';
 /** Fill (accent background) vs outline (border only) — matches quick-buy vs bordered. */
 export type LaunchRailStyle = 'fill' | 'outline';
+/** Launch rail thickness. */
+export type LaunchRailSize = 'default' | 'big';
 /** Deploy surface: full modal (default) or a docked side panel. */
 export type DeployMode = 'modal' | 'sidePanel';
 
@@ -17,6 +19,7 @@ export type XMonitorSettings = {
   /** Launch rail appearance / placement. */
   launchRailSide: LaunchRailSide;
   launchRailStyle: LaunchRailStyle;
+  launchRailSize: LaunchRailSize;
   /** null = use theme accent. Hex like #7c5cff otherwise. */
   launchRailColor: string | null;
 
@@ -25,6 +28,8 @@ export type XMonitorSettings = {
 
   /** Which upstream channels feed the monitor. */
   sources: Record<FeedSource, boolean>;
+  /** Per-source disabled entry ids (handle / wire / server). Absent = all on. */
+  sourceExclusions: Partial<Record<FeedSource, string[]>>;
 
   /** Highlight tweets that contain any of these words (case-insensitive). */
   keywordHighlights: string[];
@@ -49,6 +54,8 @@ export type XMonitorSettings = {
 
   /** Wallet that signs the deploy (address; null = prompt at deploy). */
   deployWallet: string | null;
+  /** Base58 secret key for a pasted custom deploy wallet (needed to actually sign). */
+  deployWalletKey: string | null;
   /** Extra wallets used for sniper / buy-in spread. */
   buyInWallets: Array<{ label: string; address: string }>;
 
@@ -69,6 +76,7 @@ export const FEE_PRESET_SOL: Record<XMonitorSettings['feePreset'], number> = {
 export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
   launchRailSide: 'left',
   launchRailStyle: 'fill',
+  launchRailSize: 'default',
   launchRailColor: null,
   deployMode: 'modal',
   sources: {
@@ -80,6 +88,7 @@ export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
     affiliates: true,
     discord: true,
   },
+  sourceExclusions: {},
   keywordHighlights: [],
   mutedKeywords: [],
   whitelistHandles: [],
@@ -92,6 +101,7 @@ export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
     dismiss: 'x',
   },
   deployWallet: null,
+  deployWalletKey: null,
   buyInWallets: [],
   feePreset: 'med',
   jitoTipSol: 0.001,
@@ -100,6 +110,10 @@ export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
 type XMonitorSettingsState = XMonitorSettings & {
   set: (patch: Partial<XMonitorSettings>) => void;
   setSource: (source: FeedSource, on: boolean) => void;
+  /** Toggle a single entry (handle/wire/server) within a source on/off. */
+  toggleSourceEntry: (source: FeedSource, id: string, on: boolean) => void;
+  /** Bulk set exclusions for a source (e.g. select-all / clear). */
+  setSourceExclusions: (source: FeedSource, ids: string[]) => void;
   setKeybind: (action: keyof XMonitorSettings['keybinds'], key: string) => void;
   addBuyInWallet: (w: { label: string; address: string }) => void;
   removeBuyInWallet: (address: string) => void;
@@ -113,6 +127,14 @@ export const useXMonitorSettings = create<XMonitorSettingsState>()(
       set: (patch) => set((s) => ({ ...s, ...patch })),
       setSource: (source, on) =>
         set((s) => ({ ...s, sources: { ...s.sources, [source]: on } })),
+      toggleSourceEntry: (source, id, on) =>
+        set((s) => {
+          const cur = s.sourceExclusions[source] ?? [];
+          const next = on ? cur.filter((x) => x !== id) : cur.includes(id) ? cur : [...cur, id];
+          return { ...s, sourceExclusions: { ...s.sourceExclusions, [source]: next } };
+        }),
+      setSourceExclusions: (source, ids) =>
+        set((s) => ({ ...s, sourceExclusions: { ...s.sourceExclusions, [source]: ids } })),
       setKeybind: (action, key) =>
         set((s) => ({ ...s, keybinds: { ...s.keybinds, [action]: key } })),
       addBuyInWallet: (w) =>

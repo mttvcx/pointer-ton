@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import {
+  Bell,
+  Hash,
   History,
   ListChecks,
   Monitor,
@@ -11,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { fireCaMentionToast, fireTradeToast } from '@/components/monitor/previewToasts';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { useXMonitorPageStore, type XMonitorPage } from '@/store/xMonitorPage';
@@ -136,6 +139,25 @@ export function XMonitorContextBar() {
               </button>
             );
           })}
+          <span className="h-4 w-px bg-white/[0.1]" aria-hidden />
+          <button
+            type="button"
+            onClick={fireCaMentionToast}
+            title="Preview a Discord CA-mention toast"
+            className="btn-press flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold text-fg-muted transition-colors hover:bg-[#5865F2]/15 hover:text-[#8b95ff]"
+          >
+            <Hash className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            CA toast
+          </button>
+          <button
+            type="button"
+            onClick={fireTradeToast}
+            title="Preview a tracked-wallet trade toast"
+            className="btn-press flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold text-fg-muted transition-colors hover:bg-signal-bull/15 hover:text-signal-bull"
+          >
+            <Bell className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            Trade toast
+          </button>
         </div>
       </div>
     </div>

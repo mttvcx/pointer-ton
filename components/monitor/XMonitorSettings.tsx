@@ -1,32 +1,26 @@
 'use client';
 
-import { useState, type KeyboardEvent } from 'react';
-import { Check, Plus, RotateCcw, Wallet, X } from 'lucide-react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
+import { Check, ChevronDown, Plus, RotateCcw, Search, Wallet, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
+import { deriveSolanaAddressFromSecret } from '@/lib/auth/importKeyDerive';
+import { PulseAccentColorPicker } from '@/components/pulse/PulseAccentColorPicker';
+import { DEFAULT_PULSE_ACCENT_HEX } from '@/lib/ui/pulseAccent';
+import { SOURCE_ENTRIES } from '@/lib/xMonitor/sourceEntries';
 import {
   FEE_PRESET_SOL,
   useXMonitorSettings,
   type FeedSource,
   type LaunchRailSide,
   type LaunchRailStyle,
+  type LaunchRailSize,
   type DeployMode,
   type XMonitorSettings as XMonitorSettingsType,
 } from '@/store/xMonitorSettings';
 
 type XMonitorSettingsFeePreset = XMonitorSettingsType['feePreset'];
-
-/** Preset accent options for the launch rail (last = "theme accent" / null). */
-const COLOR_SWATCHES: Array<{ label: string; value: string | null }> = [
-  { label: 'Theme', value: null },
-  { label: 'Violet', value: '#7c5cff' },
-  { label: 'Green', value: '#22c55e' },
-  { label: 'Blue', value: '#3b82f6' },
-  { label: 'Amber', value: '#f59e0b' },
-  { label: 'Pink', value: '#ec4899' },
-  { label: 'Red', value: '#ef4444' },
-];
 
 const SOURCES: Array<{ id: FeedSource; label: string; hint: string }> = [
   { id: 'x', label: 'X / Twitter', hint: '2,012 tracked accounts' },
@@ -86,14 +80,14 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
       aria-checked={on}
       onClick={() => onChange(!on)}
       className={cn(
-        'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-        on ? 'bg-accent-primary/80' : 'bg-white/[0.12]',
+        'inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors',
+        on ? 'bg-accent-primary/80' : 'bg-white/[0.14]',
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-          on ? 'translate-x-[18px]' : 'translate-x-0.5',
+          'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+          on ? 'translate-x-4' : 'translate-x-0',
         )}
       />
     </button>
@@ -176,13 +170,15 @@ export function XMonitorSettings() {
       <Section title="Launch button" desc="How the deploy rail looks on each feed card.">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-fg-secondary">Side</span>
+            <span className="text-[11px] text-fg-secondary">Position</span>
             <Segmented<LaunchRailSide>
               value={s.launchRailSide}
               onChange={(v) => s.set({ launchRailSide: v })}
               options={[
                 { value: 'left', label: 'Left' },
                 { value: 'right', label: 'Right' },
+                { value: 'top', label: 'Top' },
+                { value: 'bottom', label: 'Bottom' },
               ]}
             />
           </div>
@@ -197,30 +193,37 @@ export function XMonitorSettings() {
               ]}
             />
           </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-fg-secondary">Size</span>
+            <Segmented<LaunchRailSize>
+              value={s.launchRailSize}
+              onChange={(v) => s.set({ launchRailSize: v })}
+              options={[
+                { value: 'default', label: 'Default' },
+                { value: 'big', label: 'Big' },
+              ]}
+            />
+          </div>
           <div>
-            <span className="text-[11px] text-fg-secondary">Colour</span>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {COLOR_SWATCHES.map((c) => {
-                const active = s.launchRailColor === c.value;
-                return (
-                  <button
-                    key={c.label}
-                    type="button"
-                    onClick={() => s.set({ launchRailColor: c.value })}
-                    title={c.label}
-                    className={cn(
-                      'h-6 w-6 rounded-md border transition-transform hover:scale-110',
-                      active ? 'border-white ring-1 ring-white/60' : 'border-white/[0.12]',
-                    )}
-                    style={{
-                      background: c.value ?? 'var(--accent-primary, #7c5cff)',
-                    }}
-                  >
-                    {c.value === null ? <span className="text-[8px] font-bold text-white/90">A</span> : null}
-                  </button>
-                );
-              })}
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[11px] text-fg-secondary">Colour</span>
+              <button
+                type="button"
+                onClick={() => s.set({ launchRailColor: null })}
+                className={cn(
+                  'rounded px-2 py-0.5 text-[10px] font-semibold transition-colors',
+                  s.launchRailColor === null
+                    ? 'bg-accent-primary/20 text-accent-primary'
+                    : 'text-fg-muted hover:text-fg-secondary',
+                )}
+              >
+                Theme accent
+              </button>
             </div>
+            <PulseAccentColorPicker
+              color={s.launchRailColor ?? DEFAULT_PULSE_ACCENT_HEX}
+              onChange={(hex) => s.set({ launchRailColor: hex })}
+            />
           </div>
         </div>
       </Section>
@@ -244,19 +247,10 @@ export function XMonitorSettings() {
       <WalletsSection />
 
       {/* Feed sources */}
-      <Section title="Feed accounts" desc="Toggle the channels that stream into the monitor.">
+      <Section title="Feed accounts" desc="Toggle a channel, or open it to pick which accounts stream in.">
         <ul className="space-y-1.5">
           {SOURCES.map((src) => (
-            <li
-              key={src.id}
-              className="flex items-center justify-between gap-2 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-2"
-            >
-              <div className="min-w-0">
-                <p className="text-[11.5px] font-medium text-fg-primary">{src.label}</p>
-                <p className="text-[10px] text-fg-muted">{src.hint}</p>
-              </div>
-              <Toggle on={s.sources[src.id]} onChange={(v) => s.setSource(src.id, v)} />
-            </li>
+            <SourceRow key={src.id} id={src.id} label={src.label} hint={src.hint} />
           ))}
         </ul>
       </Section>
@@ -368,6 +362,114 @@ export function XMonitorSettings() {
   );
 }
 
+function SourceRow({ id, label, hint }: { id: FeedSource; label: string; hint: string }) {
+  const on = useXMonitorSettings((s) => s.sources[id]);
+  const exclusions = useXMonitorSettings((s) => s.sourceExclusions[id]);
+  const setSource = useXMonitorSettings((s) => s.setSource);
+  const toggleSourceEntry = useXMonitorSettings((s) => s.toggleSourceEntry);
+  const setSourceExclusions = useXMonitorSettings((s) => s.setSourceExclusions);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+
+  const entries = SOURCE_ENTRIES[id] ?? [];
+  const excluded = useMemo(() => new Set(exclusions ?? []), [exclusions]);
+  const activeCount = entries.length - excluded.size;
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = needle
+      ? entries.filter((e) => e.label.toLowerCase().includes(needle) || e.id.includes(needle) || (e.sub ?? '').toLowerCase().includes(needle))
+      : entries;
+    return list.slice(0, 200);
+  }, [entries, q]);
+
+  return (
+    <li className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.03]">
+      <div className="flex items-center gap-2 px-2.5 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          aria-expanded={open}
+        >
+          <ChevronDown
+            className={cn('h-3.5 w-3.5 shrink-0 text-fg-muted transition-transform', open && 'rotate-180')}
+            strokeWidth={2.5}
+            aria-hidden
+          />
+          <span className="min-w-0">
+            <span className="block text-[11.5px] font-medium text-fg-primary">{label}</span>
+            <span className="block text-[10px] text-fg-muted">
+              {on ? `${activeCount}/${entries.length} on` : 'off'} · {hint}
+            </span>
+          </span>
+        </button>
+        <Toggle on={on} onChange={(v) => setSource(id, v)} />
+      </div>
+
+      {open ? (
+        <div className="border-t border-white/[0.06] p-2">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1">
+              <Search className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={`Search ${entries.length} entries…`}
+                className="min-w-0 flex-1 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSourceExclusions(id, [])}
+              className="btn-press rounded border border-white/[0.1] px-1.5 py-1 text-[9.5px] font-semibold text-fg-muted hover:text-accent-primary"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setSourceExclusions(id, entries.map((e) => e.id))}
+              className="btn-press rounded border border-white/[0.1] px-1.5 py-1 text-[9.5px] font-semibold text-fg-muted hover:text-signal-bear"
+            >
+              None
+            </button>
+          </div>
+          <ul className="max-h-56 space-y-0.5 overflow-y-auto [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10">
+            {filtered.map((e) => {
+              const active = !excluded.has(e.id);
+              return (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSourceEntry(id, e.id, !active)}
+                    className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left transition-colors hover:bg-white/[0.04]"
+                  >
+                    <span
+                      className={cn(
+                        'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border',
+                        active ? 'border-accent-primary bg-accent-primary/80' : 'border-white/20 bg-transparent',
+                      )}
+                    >
+                      {active ? <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} aria-hidden /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-fg-secondary">{e.label}</span>
+                    {e.sub ? <span className="shrink-0 truncate text-[9.5px] text-fg-muted">{e.sub}</span> : null}
+                  </button>
+                </li>
+              );
+            })}
+            {entries.length > filtered.length ? (
+              <li className="px-1.5 py-1 text-[9.5px] text-fg-muted">
+                +{entries.length - filtered.length} more — refine search
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 function FeesSection() {
   const feePreset = useXMonitorSettings((s) => s.feePreset);
   const jitoTipSol = useXMonitorSettings((s) => s.jitoTipSol);
@@ -434,6 +536,7 @@ function WalletsSection() {
   const embeddedList = Array.from(embedded);
 
   const [custom, setCustom] = useState('');
+  const [keyErr, setKeyErr] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [addr, setAddr] = useState('');
 
@@ -447,7 +550,7 @@ function WalletsSection() {
           <div className="mt-1.5 space-y-1">
             <WalletOption
               active={deployWallet === null}
-              onClick={() => set({ deployWallet: null })}
+              onClick={() => set({ deployWallet: null, deployWalletKey: null })}
               title="Prompt each time"
               sub="Choose a wallet when you deploy"
             />
@@ -455,7 +558,7 @@ function WalletsSection() {
               <WalletOption
                 key={a}
                 active={deployWallet === a}
-                onClick={() => set({ deployWallet: a })}
+                onClick={() => set({ deployWallet: a, deployWalletKey: null })}
                 title={shortenAddress(a, 6)}
                 sub="Pointer embedded wallet"
                 mono
@@ -466,7 +569,7 @@ function WalletsSection() {
                 active
                 onClick={() => {}}
                 title={shortenAddress(deployWallet, 6)}
-                sub="Custom wallet"
+                sub="Custom wallet · key set"
                 mono
               />
             ) : null}
@@ -474,22 +577,38 @@ function WalletsSection() {
           <div className="mt-1.5 flex items-center gap-1.5">
             <input
               value={custom}
-              onChange={(e) => setCustom(e.target.value)}
-              placeholder="Paste a custom deploy address…"
+              onChange={(e) => {
+                setCustom(e.target.value);
+                setKeyErr(null);
+              }}
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Paste private key to deploy from…"
               className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 font-mono text-[10.5px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
             />
             <button
               type="button"
               disabled={custom.trim().length < 32}
               onClick={() => {
-                set({ deployWallet: custom.trim() });
-                setCustom('');
+                try {
+                  const address = deriveSolanaAddressFromSecret(custom);
+                  set({ deployWallet: address, deployWalletKey: custom.trim() });
+                  setCustom('');
+                  setKeyErr(null);
+                } catch {
+                  setKeyErr('Invalid key — paste a base58 / hex / array secret key.');
+                }
               }}
               className="btn-press rounded-md border border-white/[0.1] px-2 py-1 text-[11px] font-semibold text-fg-secondary transition-colors hover:border-accent-primary/40 hover:text-accent-primary disabled:opacity-40"
             >
               Set
             </button>
           </div>
+          {keyErr ? <p className="mt-1 text-[10px] text-signal-bear">{keyErr}</p> : null}
+          <p className="mt-1 text-[9.5px] leading-snug text-fg-muted">
+            The key derives the address on-device and is stored locally so this wallet can sign deploys.
+          </p>
         </div>
 
         <div>

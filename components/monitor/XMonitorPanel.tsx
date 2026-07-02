@@ -279,6 +279,7 @@ export function XMonitorPanel({
   const launchRailSide = useXMonitorSettings((s) => s.launchRailSide);
   const launchRailStyle = useXMonitorSettings((s) => s.launchRailStyle);
   const launchRailColor = useXMonitorSettings((s) => s.launchRailColor);
+  const launchRailSize = useXMonitorSettings((s) => s.launchRailSize);
 
   const serverRows = useMemo(() => {
     const list = data ?? [];
@@ -299,6 +300,13 @@ export function XMonitorPanel({
   // suggestions). Never runs for live data — real events flow via serverRows.
   const [streamRows, setStreamRows] = useState<ListenRow[]>([]);
   const seqRef = useRef(1000);
+  // Pause the incoming stream while the operator hovers the feed (like the
+  // wallet tracker) so cards don't jump under the cursor.
+  const [feedHovered, setFeedHovered] = useState(false);
+  const feedHoveredRef = useRef(false);
+  useEffect(() => {
+    feedHoveredRef.current = feedHovered;
+  }, [feedHovered]);
   useEffect(() => {
     if (!showDemo || activeChain !== 'sol') {
       setStreamRows([]);
@@ -306,6 +314,7 @@ export function XMonitorPanel({
     }
     setStreamRows(seedDemoStream(Date.now()));
     const id = window.setInterval(() => {
+      if (feedHoveredRef.current) return; // paused on hover
       setStreamRows((prev) => {
         const seq = seqRef.current++;
         return [makeDemoStreamRow(seq, seq, Date.now()), ...prev].slice(0, 30);
@@ -465,7 +474,20 @@ export function XMonitorPanel({
             </p>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)] [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5 hover:[&::-webkit-scrollbar-thumb]:bg-white/20">            {isFetching && !mock && rows.length === 0 ? (
+          <div
+            onMouseEnter={() => setFeedHovered(true)}
+            onMouseLeave={() => setFeedHovered(false)}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)] [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+          >
+            {showDemo && feedHovered ? (
+              <div className="pointer-events-none sticky top-1 z-[3] flex justify-center">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[10px] font-semibold text-amber-300 shadow-[0_4px_14px_-4px_rgba(0,0,0,0.6)] backdrop-blur">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+                  Paused — hovering
+                </span>
+              </div>
+            ) : null}
+            {isFetching && !mock && rows.length === 0 ? (
               <p className="px-3 py-4 text-[11px] text-fg-muted">Loading listens…</p>
             ) : null}
 
@@ -496,7 +518,22 @@ export function XMonitorPanel({
                   keywordHighlights.some((k) =>
                     (row.tweet.text ?? '').toLowerCase().includes(k.toLowerCase()),
                   );
-                const railMargin = launchRailSide === 'right' ? 'my-2 mr-2' : 'my-2 ml-2';
+                const isVertRail = launchRailSide === 'left' || launchRailSide === 'right';
+                const railThickness = launchRailSize === 'big'
+                  ? isVertRail
+                    ? 'w-11'
+                    : 'h-11'
+                  : isVertRail
+                    ? 'w-8'
+                    : 'h-8';
+                const railMargin =
+                  launchRailSide === 'left'
+                    ? 'my-2 ml-2'
+                    : launchRailSide === 'right'
+                      ? 'my-2 mr-2'
+                      : launchRailSide === 'top'
+                        ? 'mx-2 mt-2'
+                        : 'mx-2 mb-2';
                 const railCustom = launchRailColor
                   ? launchRailStyle === 'fill'
                     ? { backgroundColor: hexA(launchRailColor, isAutoLaunch ? 0.28 : 0.14), color: launchRailColor }
@@ -510,6 +547,8 @@ export function XMonitorPanel({
                       // Carded grey rows (J7-style premium) — lighter grey for legibility.
                       'group flex items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.055] transition-colors hover:border-white/[0.16] hover:bg-white/[0.08]',
                       launchRailSide === 'right' && 'flex-row-reverse',
+                      launchRailSide === 'top' && 'flex-col',
+                      launchRailSide === 'bottom' && 'flex-col-reverse',
                       // Deleted events read red + striped; platform accent otherwise.
                       isDeleted && 'border-signal-bear/25 bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.09)_0_10px,rgba(255,255,255,0.05)_10px_20px)]',
                       row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.07]',
@@ -542,7 +581,8 @@ export function XMonitorPanel({
                       }
                       style={railCustom}
                       className={cn(
-                        'btn-press focus-ring flex w-8 shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
+                        'btn-press focus-ring flex shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
+                        railThickness,
                         railMargin,
                         !railCustom && launchRailStyle === 'fill' && (isAutoLaunch
                           ? 'bg-accent-primary/25 text-accent-primary hover:bg-accent-primary/[0.32]'
@@ -551,7 +591,13 @@ export function XMonitorPanel({
                           'border border-accent-primary/50 text-accent-primary hover:bg-accent-primary/[0.12]',
                       )}
                     >
-                      <span className="rotate-180 text-[9.5px] font-semibold uppercase tracking-wide [writing-mode:vertical-rl]">
+                      <span
+                        className={cn(
+                          'font-semibold uppercase tracking-wide',
+                          launchRailSize === 'big' ? 'text-[11px]' : 'text-[9.5px]',
+                          isVertRail && 'rotate-180 [writing-mode:vertical-rl]',
+                        )}
+                      >
                         {isAutoLaunch ? 'Auto' : launchMode === 'ai' ? 'AI Launch' : 'Launch'}
                       </span>
                     </button>

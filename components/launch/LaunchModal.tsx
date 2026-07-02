@@ -310,14 +310,14 @@ function FeatureToggle({ on }: { on: boolean }) {
   return (
     <span
       className={cn(
-        'relative h-4 w-7 shrink-0 rounded-full transition-colors',
+        'inline-flex h-4 w-7 shrink-0 items-center rounded-full px-0.5 transition-colors',
         on ? 'bg-accent-primary/80' : 'bg-white/[0.14]',
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform',
-          on ? 'translate-x-[14px]' : 'translate-x-0.5',
+          'inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform',
+          on ? 'translate-x-3' : 'translate-x-0',
         )}
       />
     </span>
