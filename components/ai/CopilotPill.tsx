@@ -10,8 +10,8 @@ import {
   PanelRight,
   Pill,
   Sparkles,
-  X,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import {
   computeCopilotAlertsReadIso,
   selectActiveEntity,
@@ -212,15 +212,11 @@ function CopilotPillExpandedCard({
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            aria-label="Close"
+          <CloseButton
+            label="Close"
             onClick={onClose}
-            className="focus-ring rounded-md p-1.5"
             style={{ color: CHROME.muted }}
-          >
-            <X className="h-4 w-4" strokeWidth={2.25} />
-          </button>
+          />
         </div>
 
         <div

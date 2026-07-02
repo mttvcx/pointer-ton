@@ -17,8 +17,8 @@ import {
   Search,
   Trash2,
   Wallet,
-  X,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
 import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
@@ -1727,14 +1727,7 @@ function TrackedAccountsPanel({
             ) : null}
           </div>
           {onClose ? (
-            <button
-              type="button"
-              className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-              aria-label="Close panel"
-              onClick={onClose}
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
+            <CloseButton label="Close panel" size="sm" onClick={onClose} />
           ) : null}
         </div>
 

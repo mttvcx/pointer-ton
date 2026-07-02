@@ -15,9 +15,9 @@ import {
   Trophy,
   Users,
   Wallet,
-  X,
   type LucideIcon,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { useMobileNavStore } from '@/store/mobileNav';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useAdminMe } from '@/lib/admin/useAdminApi';
@@ -103,14 +103,11 @@ export function MobileDrawer() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
+          <CloseButton
             onClick={close}
-            aria-label="Close"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-          >
-            <X className="h-5 w-5" strokeWidth={2} aria-hidden />
-          </button>
+            label="Close"
+            size="lg"
+          />
         </div>
 
         {/* Navigation */}

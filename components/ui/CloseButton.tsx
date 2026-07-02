@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { ButtonHTMLAttributes } from 'react';
 
 type CloseButtonSize = 'sm' | 'md' | 'lg';
 
@@ -12,34 +12,25 @@ const SIZE: Record<CloseButtonSize, { box: string; icon: string }> = {
   lg: { box: 'h-8 w-8', icon: 'h-[18px] w-[18px]' },
 };
 
+type Props = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
+  label?: string;
+  size?: CloseButtonSize;
+};
+
 /**
  * Universal close button — the rotate-on-hover + red-tint animation from the X
  * Monitor, so every "close" X across Pointer feels the same. Drop-in for any
- * dismiss control: modals, docks, panels, toasts, chips.
+ * dismiss control: modals, docks, panels, toasts, chips. Spreads through any
+ * extra button props (onClick, onPointerDown, data-*, style…).
  */
-export function CloseButton({
-  onClick,
-  onPointerDown,
-  className,
-  label = 'Close',
-  size = 'md',
-  title,
-}: {
-  onClick?: () => void;
-  onPointerDown?: (e: ReactPointerEvent<HTMLButtonElement>) => void;
-  className?: string;
-  label?: string;
-  size?: CloseButtonSize;
-  title?: string;
-}) {
+export function CloseButton({ className, label = 'Close', size = 'md', title, type, ...rest }: Props) {
   const sz = SIZE[size];
   return (
     <button
-      type="button"
+      type={type ?? 'button'}
       aria-label={label}
       title={title ?? label}
-      onClick={onClick}
-      onPointerDown={onPointerDown}
+      {...rest}
       className={cn(
         'btn-press group/close relative flex shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-signal-bear/15 hover:text-signal-bear',
         sz.box,

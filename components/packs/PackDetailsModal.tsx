@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import type { PackPublicConfig } from '@/types/pack';
 import { listPackShowcaseItems } from '@/lib/packs/packShowcase';
 import { formatPackMc } from '@/lib/packs/formatDisplay';
@@ -48,14 +48,7 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
                 Top hits only — sorted from most insane downward. Odds per slot.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-press focus-ring rounded-sm p-2 text-fg-muted hover:bg-white/[0.06] hover:text-fg-primary"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" strokeWidth={2} />
-            </button>
+            <CloseButton onClick={onClose} label="Close pack details" />
           </div>
           <div className="mt-3 flex items-center gap-3 text-[12px] text-fg-muted">
             <span>Price</span>

@@ -7,7 +7,8 @@ import {
   useLoginWithEmail,
   usePrivy,
 } from '@privy-io/react-auth';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import {
   clearLandingEnterPending,
@@ -322,14 +323,11 @@ export function LandingSignInModal({ open, onClose }: LandingSignInModalProps) {
           <h2 id="landing-sign-in-title" className="text-center text-[17px] font-semibold tracking-tight text-fg-primary">
             {title}
           </h2>
-          <button
-            type="button"
+          <CloseButton
             onClick={onClose}
-            className="btn-press focus-ring absolute right-3 top-3 rounded-md p-1 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
+            className="absolute right-3 top-3"
+            label="Close"
+          />
         </div>
 
         <div className="space-y-4 px-5 pb-5 pt-2">

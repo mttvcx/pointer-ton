@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { X, GripVertical, RefreshCw } from 'lucide-react';
+import { GripVertical, RefreshCw } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import type { DockTrackerId } from '@/lib/dock/dockTrackerConfig';
 import { DOCK_TRACKER_IDS, dockTrackerLabel } from '@/lib/dock/dockTrackerConfig';
 import { DOCK_TRACKER_ICON } from '@/components/layout/dockTrackerUi';
@@ -119,14 +120,7 @@ function DockTrackersSettingsModalContent() {
       >
         <header className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5 sm:px-5">
           <h2 className="text-[14px] font-semibold text-fg-primary">Trackers Settings</h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <CloseButton label="Close" onClick={onClose} />
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 pb-4 pt-2.5 sm:px-5">

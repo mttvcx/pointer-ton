@@ -14,7 +14,7 @@ import { getActiveEvent, readStoredRegion, storeRegion } from '@/lib/championshi
 import { useChampionshipDemoMode } from '@/lib/hooks/useChampionshipDemoMode';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { cn } from '@/lib/utils/cn';
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 
 const ARENA_TABS: ChampionshipTab[] = ['overview', 'solo', 'squads'];
@@ -160,14 +160,11 @@ function RegionModal({
         aria-labelledby="ptcs-region-title"
         className="relative w-full max-w-md rounded-md border border-border-subtle bg-bg-raised p-5 shadow-2xl"
       >
-        <button
-          type="button"
+        <CloseButton
           onClick={onClose}
-          className="btn-press absolute right-3 top-3 rounded-sm p-1 text-fg-muted hover:text-fg-secondary"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
+          className="absolute right-3 top-3"
+          label="Close"
+        />
         <h2 id="ptcs-region-title" className="text-base font-semibold text-fg-primary">
           Pick your PTCS region
         </h2>

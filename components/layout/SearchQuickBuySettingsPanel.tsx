@@ -1,6 +1,7 @@
 'use client';
 
-import { Zap, X } from 'lucide-react';
+import { Zap } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { cn } from '@/lib/utils/cn';
 import {
   useSearchModalPrefsStore,
@@ -64,14 +65,7 @@ export function SearchQuickBuySettingsPanel({ onClose }: { onClose: () => void }
           <h3 id="search-qb-settings-title" className="text-[13px] font-semibold text-fg-primary">
             Settings
           </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border-0 bg-transparent p-1 text-fg-muted transition hover:bg-white/[0.08] hover:text-fg-primary"
-            aria-label="Close settings"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton label="Close settings" onClick={onClose} />
         </div>
 
         <div className="space-y-4 p-3.5">

@@ -16,8 +16,8 @@ import {
   Search,
   Settings,
   Shield,
-  X,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
@@ -636,14 +636,7 @@ export function GlobalSearchModal() {
           <p className="text-[11px] text-fg-muted">
             {CHAIN_DROPDOWN_LABEL[activeChain]} · CA or wallet · Enter
           </p>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className={cn(searchModalIconBtnClass, 'p-1')}
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton label="Close" onClick={() => setOpen(false)} />
         </div>
       </div>
     </div>

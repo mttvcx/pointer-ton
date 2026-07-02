@@ -1,7 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import type { PredictionMarket } from '@/lib/predictions/marketsDemo';
 import { PredictionMarketIcon } from '@/components/predictions/PredictionMarketIcon';
 import { PredictionTradeForm } from '@/components/predictions/PredictionTradeForm';
@@ -43,14 +43,7 @@ export function PredictionQuickTradeModal({
               <p className="mt-0.5 text-[11px] text-fg-muted">{market.outcomeLabel}</p>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press rounded-sm p-1 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" />
         </div>
         <PredictionTradeForm
           key={`${market.id}-${initialOutcome}`}

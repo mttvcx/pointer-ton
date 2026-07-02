@@ -14,7 +14,6 @@ import {
   Video as VideoIcon,
   Volume2,
   VolumeX,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PnlShareCard } from '@/components/wallet/analytics/PnlShareCard';
@@ -42,10 +41,10 @@ import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import {
   modalBtnPrimaryClass,
   modalBtnSecondaryClass,
-  modalCloseBtnClass,
 } from '@/lib/ui/modalChrome';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const TOOL_BTN =
   'inline-flex h-8 items-center gap-1.5 rounded-sm border border-border-subtle bg-bg-sunken px-2.5 text-[11px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary disabled:opacity-45';
@@ -412,9 +411,7 @@ export function PnlShareComposer() {
                 : `${d.tokenTicker} · ${shortenAddress(d.walletAddress, 5)}`}
             </p>
           </div>
-          <button type="button" onClick={() => close()} className={modalCloseBtnClass} aria-label="Close">
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <CloseButton onClick={() => close()} label="Close" size="md" />
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">

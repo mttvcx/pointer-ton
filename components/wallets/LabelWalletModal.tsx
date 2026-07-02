@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
@@ -10,6 +10,7 @@ import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useWalletLabelsStore } from '@/store/walletLabels';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 const EMOJI_OPTIONS = [
   '\u{1f40b}',
@@ -180,14 +181,7 @@ function LabelWalletForm({
           </h2>
           <p className="mt-0.5 tabular-nums text-[11px] text-fg-muted">{shortenAddress(address, 6)}</p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="btn-press rounded p-1 text-fg-muted hover:text-fg-primary"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <CloseButton onClick={onClose} label="Close" size="sm" />
       </div>
 
       <label className="mt-3 block text-[10px] font-semibold uppercase tracking-wide text-fg-muted">

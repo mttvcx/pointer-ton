@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 import { PrefField, PrefToggle, SegmentedControl } from '@/components/preferences/controls';
+import { CloseButton } from '@/components/ui/CloseButton';
 import {
   defaultMultiWalletBuySettings,
   persistMultiWalletBuySettings,
@@ -72,14 +72,7 @@ export function MultiWalletBuySettingsModal({
           <h2 id="multi-wallet-buy-settings-title" className="text-sm font-semibold text-fg-primary">
             Multi wallet buy settings
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press rounded p-1 text-fg-muted hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" size="sm" />
         </div>
 
         <div className="border-b border-border-subtle bg-bg-sunken/50 px-4 py-3">

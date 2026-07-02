@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowUpRight, X } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { useWallets } from '@privy-io/react-auth';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { DepositAssetIcon } from '@/components/wallet/DepositAssetIcon';
@@ -68,14 +69,7 @@ export function PerpsExchangeModal({ open, onClose }: Props) {
           <h2 id="perps-fund-title" className={EX.title}>
             Fund Hyperliquid
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press focus-ring rounded-md p-1 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <CloseButton onClick={onClose} label="Close" />
         </div>
 
         <div className={EX.body}>

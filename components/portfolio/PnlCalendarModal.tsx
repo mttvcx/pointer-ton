@@ -8,8 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Share2,
-  X,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import {
   aggregateDayActivity,
   dayHasActivity,
@@ -506,14 +506,7 @@ export function PnlCalendarModal({
               >
                 <Share2 className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white/80"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <CloseButton onClick={onClose} label="Close" size="md" />
             </div>
           </div>
 

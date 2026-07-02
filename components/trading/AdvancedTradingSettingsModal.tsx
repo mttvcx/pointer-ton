@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { CloseButton } from '@/components/ui/CloseButton';
 import type { PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 import { nativePriorityFeeDenomLabel, nativeTicker } from '@/lib/chains/nativeCurrency';
@@ -121,14 +121,7 @@ function FormBody({
           <h2 id="advanced-trading-title" className="text-sm font-semibold text-fg-primary">
             Advanced: {preset.name}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press rounded p-1 text-fg-muted hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" size="sm" />
         </div>
 
         <div className="space-y-3 px-4 py-3 text-xs">

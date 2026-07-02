@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellRing, ChevronRight, X } from 'lucide-react';
+import { BellRing, ChevronRight } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import {
   clampPeekTopLeftWithinViewport,
   DOCK_PEEK_BOTTOM_CSS,
@@ -558,15 +559,12 @@ export function DockWalletTrackerFloatingPanel() {
           >
             <GripDots />
           </div>
-          <button
-            type="button"
+          <CloseButton
             data-no-drag
-            aria-label="Close Wallet Tracker"
-            className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-md border border-white/[0.08] bg-bg-base/80 p-1.5 text-fg-secondary hover:border-white/[0.14] hover:bg-bg-hover hover:text-fg-primary"
+            label="Close Wallet Tracker"
+            className="absolute right-1 top-1/2 z-10 -translate-y-1/2"
             onClick={() => setOpen(false)}
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
+          />
         </header>
 
         <div

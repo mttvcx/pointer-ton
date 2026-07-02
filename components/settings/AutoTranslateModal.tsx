@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { RotateCcw, Search, X } from 'lucide-react';
+import { RotateCcw, Search } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { PrefToggle } from '@/components/preferences/controls';
 import { AUTO_TRANSLATE_LANGUAGES } from '@/lib/translate/autoTranslateLanguages';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
@@ -152,14 +153,7 @@ export function AutoTranslateModal({ open, onClose }: AutoTranslateModalProps) {
           <h2 id="auto-translate-title" className="text-[15px] font-semibold text-fg-primary">
             Auto Translate
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
+          <CloseButton onClick={onClose} label="Close" size="md" />
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

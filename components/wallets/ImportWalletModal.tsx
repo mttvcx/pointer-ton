@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { useImportWallet } from '@/lib/auth/solanaShims';
-import { Eye, EyeOff, Loader2, Plus, X } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { useUIStore } from '@/store/ui';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { cn } from '@/lib/utils/cn';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 /** Per-chain import copy. EVM rails are browse-only this phase (no key import). */
 const CHAIN_IMPORT: Record<AppChainId, { name: string; field: string; hint: string }> = {
@@ -109,14 +110,7 @@ export function ImportWalletModal({
           <h2 id="import-wallet-title" className="flex-1 text-center text-[16px] font-semibold text-[#d1d5db]">
             Import Wallet
           </h2>
-          <button
-            type="button"
-            onClick={() => !busy && onClose()}
-            className="focus-ring rounded p-0.5 text-[#9ca3af] hover:text-white disabled:opacity-50"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={() => !busy && onClose()} label="Close" size="sm" />
         </div>
         <div className="px-4 pb-4">
           <div className="mb-3 flex items-center justify-between">

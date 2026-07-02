@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, Loader2, X } from 'lucide-react';
+import { Copy, Loader2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
@@ -144,9 +145,7 @@ export function SplitNowTransferModal({
               SplitNOW Transfer {walletLabel(source)} → {receiverLabel}
             </h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-fg-muted hover:text-fg-primary">
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" />
         </div>
 
         {!deposit ? (

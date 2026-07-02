@@ -3,7 +3,8 @@
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bug, Camera, ChevronDown, ChevronRight, Loader2, X } from 'lucide-react';
+import { Bug, Camera, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import {
   BUG_CATEGORY_OPTIONS,
@@ -268,14 +269,11 @@ export function BugReportDrawer({
           'animate-in zoom-in-[0.985] fade-in duration-300 ease-out',
         )}
       >
-        <button
-          type="button"
+        <CloseButton
           onClick={handleClose}
-          className="absolute right-3 top-3 z-10 rounded-md p-1.5 text-fg-muted transition-colors hover:bg-white/[0.07] hover:text-fg-primary"
-          aria-label="Close diagnostics"
-        >
-          <X className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </button>
+          className="absolute right-3 top-3 z-10"
+          label="Close diagnostics"
+        />
 
         <header className="shrink-0 border-b border-white/[0.06] px-5 pb-4 pt-5 pr-12">
           <div className="flex items-center justify-between gap-3">
