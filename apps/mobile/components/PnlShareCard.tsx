@@ -1,12 +1,10 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Defs, LinearGradient as SvgGrad, Path, Stop } from 'react-native-svg';
+import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
 import { PressScale } from './PressScale';
-import { Logo } from './Logo';
 import { colors, radius } from '../src/theme';
 import { compactUsd } from '../src/format';
 import { shareText } from '../src/share';
@@ -15,11 +13,10 @@ import { showToast } from '../src/toast';
 import { randomPhrase } from '../src/sharePhrases';
 
 /**
- * Pointer PnL "Share position" card. Custom (NOT a FOMO clone): the color comes
- * from the big mint number + a soft glow, not a hard accent frame or bottom banner.
- * Faint Pointer bird watermark, `pointer.trade` footer with the sharer's referral
- * code (our 50% offer). No chart, no date, no attribution — just a random
- * celebration line. Works for any position (token / trader / weekly / holder).
+ * PnL "Share position" card — mint-framed, candlestick chart + entry markers,
+ * mint footer banner (pointer.trade + the sharer's 50% referral code). Instead of
+ * naming the trader it rotates a random celebration line. Works for any position
+ * (token / trader / weekly / holder). Whole card is draggable (DragSheet fullDrag).
  */
 const DEMO_REF_CODE = 'BullishBarnacle';
 
@@ -38,52 +35,55 @@ function hash(s: string): number {
   return h >>> 0;
 }
 
-/**
- * Custom PnL line — rises for a gain (green), falls for a loss (red). Travel +
- * steepness scale with |pnlPct| (bigger win = more aggressive climb), and the
- * curve SHAPE rotates by seed so tokens don't all look identical. Soft area fill
- * + a glowing end dot.
- */
-function PnlLine({ pct, up, seed }: { pct: number; up: boolean; seed: number }) {
+/** Deterministic candlestick series (green-leaning uptrend) with two entry markers. */
+function CandleChart({ seed, up }: { seed: string; up: boolean }) {
   const W = 320;
-  const H = 92;
-  const color = up ? colors.bull : colors.bear;
-  const { line, area, ex, ey } = useMemo(() => {
-    const strength = Math.min(1, Math.max(0.25, Math.abs(pct) / 600)); // 0.25..1
-    const amp = 0.34 + 0.58 * strength; // fraction of height the line travels
-    const variant = seed % 3;
-    const N = 46;
-    const pts: [number, number][] = [];
+  const H = 150;
+  const N = 30;
+  const slot = W / N;
+  const { candles, marks } = useMemo(() => {
+    let s = hash(seed);
+    const rng = () => {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+    let v = up ? 0.3 + rng() * 0.1 : 0.62 + rng() * 0.1;
+    const out: { x: number; o: number; c: number; hi: number; lo: number; up: boolean }[] = [];
     for (let i = 0; i < N; i++) {
-      const t = i / (N - 1);
-      const shape =
-        variant === 0
-          ? Math.pow(t, 3 - 1.8 * strength) // hockey-stick (late blow-off)
-          : variant === 1
-            ? Math.pow(t, 1.5) // smooth accelerate
-            : t * 0.55 + Math.pow(t, 2.4) * 0.45; // stair-ish
-      const noise = Math.sin(t * Math.PI * (3 + variant)) * 0.02 * (1 - strength * 0.6);
-      const prog = Math.max(0, Math.min(1, shape + noise));
-      const hf = up ? 0.12 + prog * amp : 0.12 + amp - prog * amp; // gain rises, loss falls
-      pts.push([t * W, H - hf * H]);
+      const o = v;
+      const drift = up ? (rng() - 0.4) * 0.08 : (rng() - 0.6) * 0.08;
+      v = Math.max(0.08, Math.min(0.92, v + drift));
+      const c = v;
+      const hi = Math.max(o, c) + rng() * 0.05;
+      const lo = Math.min(o, c) - rng() * 0.05;
+      const toY = (t: number) => H - t * (H - 16) - 8;
+      out.push({ x: i * slot + slot / 2, o: toY(o), c: toY(c), hi: toY(hi), lo: toY(lo), up: c >= o });
     }
-    const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
-    const last = pts[pts.length - 1];
-    return { line, area: `${line} L${W} ${H} L0 ${H} Z`, ex: last[0], ey: last[1] };
-  }, [pct, up, seed]);
+    const marks = [Math.floor(N * 0.28), Math.floor(N * 0.68)].map((i) => ({ x: out[i].x, y: Math.min(out[i].hi, out[i].c) - 13 }));
+    return { candles: out, marks };
+  }, [seed, up]);
 
   return (
     <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      <Defs>
-        <SvgGrad id="pnlfill" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={color} stopOpacity={0.24} />
-          <Stop offset="1" stopColor={color} stopOpacity={0} />
-        </SvgGrad>
-      </Defs>
-      <Path d={area} fill="url(#pnlfill)" />
-      <Path d={line} fill="none" stroke={color} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
-      <Circle cx={ex} cy={ey} r={9} fill={color} fillOpacity={0.18} />
-      <Circle cx={ex} cy={ey} r={4} fill={color} />
+      {candles.map((k, i) => {
+        const col = k.up ? colors.bull : colors.bear;
+        const bodyTop = Math.min(k.o, k.c);
+        const bodyH = Math.max(2, Math.abs(k.c - k.o));
+        return (
+          <React.Fragment key={i}>
+            <Line x1={k.x} y1={k.hi} x2={k.x} y2={k.lo} stroke={col} strokeWidth={1.3} />
+            <Rect x={k.x - slot * 0.3} y={bodyTop} width={slot * 0.6} height={bodyH} rx={1} fill={col} />
+          </React.Fragment>
+        );
+      })}
+      {marks.map((m, i) => (
+        <React.Fragment key={`m${i}`}>
+          <Circle cx={m.x} cy={m.y} r={12} fill={colors.bull} />
+          <SvgText x={m.x} y={m.y + 5} fontSize={16} fontWeight="bold" fill={colors.onAccent} textAnchor="middle">
+            +
+          </SvgText>
+        </React.Fragment>
+      ))}
     </Svg>
   );
 }
@@ -136,10 +136,6 @@ export function PnlShareCard({
       <Text style={s.title}>Share position</Text>
 
       <View style={s.card}>
-        <LinearGradient colors={['#0C0E12', '#000000']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
-        {/* Faint Pointer bird watermark */}
-        <Logo size={150} style={s.watermark} />
-
         <View style={s.head}>
           <CoinIcon uri={image} symbol={sym} size={46} />
           <View style={{ flex: 1 }}>
@@ -154,34 +150,30 @@ export function PnlShareCard({
           </View>
         </View>
 
-        <View style={s.chart}>
-          <PnlLine pct={pnlPct} up={up} seed={hash(sym)} />
-        </View>
+        <CandleChart seed={sym} up={up} />
 
-        <View style={s.hero}>
-          <View style={[s.glow, { backgroundColor: tone }]} />
+        <View style={s.panel}>
           <Text style={s.phrase} numberOfLines={2}>
             {phrase}
           </Text>
-          <Text style={[s.pnl, { color: tone }]}>{money(pnlUsd)}</Text>
-          <Text style={[s.pct, { color: tone }]}>
-            {up ? '▲' : '▼'} {Math.abs(pnlPct).toFixed(2)}%
-          </Text>
-        </View>
-
-        <View style={s.stats}>
-          <Stat label="Invested" value={compactUsd(investedUsd)} />
-          <View style={s.statDivider} />
-          <Stat label="Entry" value={entry} />
-          <View style={s.statDivider} />
-          <Stat label="Current" value={current} />
-        </View>
-
-        <View style={s.cardFooter}>
-          <View style={s.brandRow}>
-            <Logo size={20} />
-            <Text style={s.brand}>pointer.trade</Text>
+          <View style={s.pnlRow}>
+            <Text style={[s.pnl, { color: tone }]}>{money(pnlUsd)}</Text>
+            <Text style={[s.pct, { color: tone }]}>
+              {' '}
+              ({up ? '▲' : '▼'} {Math.abs(pnlPct).toFixed(2)}%)
+            </Text>
           </View>
+          <View style={s.stats}>
+            <Stat label="Invested" value={compactUsd(investedUsd)} />
+            <View style={s.statDivider} />
+            <Stat label="Entry" value={entry} />
+            <View style={s.statDivider} />
+            <Stat label="Current" value={current} />
+          </View>
+        </View>
+
+        <View style={s.footer}>
+          <Text style={s.brand}>pointer.trade</Text>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={s.offer}>50% off fees with code</Text>
             <Text style={s.code}>{refCode}</Text>
@@ -215,31 +207,26 @@ function Stat({ label, value }: { label: string; value: string }) {
 const s = StyleSheet.create({
   title: { color: colors.fg, fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 16 },
 
-  card: { borderRadius: 20, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', backgroundColor: '#000' },
-  watermark: { position: 'absolute', right: -34, bottom: 46, opacity: 0.05, tintColor: '#fff' },
-
-  chart: { marginTop: 14, marginHorizontal: 4 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 18 },
-  sym: { color: colors.fg, fontSize: 21, fontWeight: '800', letterSpacing: -0.3 },
+  card: { borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.accent, overflow: 'hidden', backgroundColor: colors.bgSunken },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 6 },
+  sym: { color: colors.fg, fontSize: 20, fontWeight: '800' },
   name: { color: colors.fgMuted, fontSize: 14, marginTop: 1 },
 
-  hero: { alignItems: 'center', paddingTop: 22, paddingBottom: 20, paddingHorizontal: 16 },
-  glow: { position: 'absolute', top: 34, width: 300, height: 120, borderRadius: 150, opacity: 0.12 },
-  phrase: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600', textAlign: 'center', marginBottom: 12 },
-  pnl: { fontSize: 40, fontWeight: '800', letterSpacing: -1 },
-  pct: { fontSize: 16, fontWeight: '700', marginTop: 4 },
-
-  stats: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 18, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16, paddingBottom: 4 },
+  panel: { backgroundColor: colors.bgRaised2, marginHorizontal: 12, borderRadius: radius.md, paddingVertical: 16, paddingHorizontal: 14, marginTop: 4 },
+  phrase: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600', textAlign: 'center' },
+  pnlRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' },
+  pnl: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
+  pct: { fontSize: 15, fontWeight: '700' },
+  stats: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   stat: { flex: 1, alignItems: 'center', gap: 3 },
   statLabel: { color: colors.fgMuted, fontSize: 12 },
   statValue: { color: colors.fg, fontSize: 15, fontWeight: '700' },
-  statDivider: { width: 1, height: 28, backgroundColor: colors.border },
+  statDivider: { width: 1, height: 30, backgroundColor: colors.border },
 
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brand: { color: colors.fg, fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
-  offer: { color: colors.fgMuted, fontSize: 11 },
-  code: { color: colors.accentGlow, fontSize: 14, fontWeight: '800', marginTop: 1 },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.accent, paddingHorizontal: 16, paddingVertical: 14, marginTop: 12 },
+  brand: { color: colors.onAccent, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  offer: { color: colors.onAccent, fontSize: 12, opacity: 0.75 },
+  code: { color: colors.onAccent, fontSize: 15, fontWeight: '800', marginTop: 1 },
 
   actions: { flexDirection: 'row', gap: 12, marginTop: 18 },
   action: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.bgRaised, borderRadius: 14, paddingVertical: 15, borderWidth: 1, borderColor: colors.border },

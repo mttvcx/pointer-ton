@@ -1,16 +1,13 @@
 /**
- * App-wide font: Sora (Invo-style clean/serious grotesque). RN doesn't map
- * fontWeight → a weighted family for custom fonts, so we patch Text/TextInput to
- * inject the correct `Sora_*` family based on each element's fontWeight. Explicit
- * fontFamily in a style still wins (Ionicons etc. untouched) because our injected
- * family is placed FIRST and the element's own style overrides it.
+ * App-wide font: Sora (Invo vibe). RN 0.81's Text uses the new `component()` syntax
+ * (no patchable `.render`) and React 19 ignores `defaultProps`, so the usual global-
+ * font hacks silently no-op. Instead we patch the JSX runtime (`jsxDEV`/`jsx`/`jsxs`)
+ * + `createElement`: whenever a RN <Text>/<TextInput> element is created, we inject
+ * the correct weighted `Sora_*` family FIRST, so the element's own style still wins
+ * (Ionicons/SVG text keep their own fontFamily and are untouched).
  *
- * Two strategies for robustness: patch the forwardRef `.render` (weight-aware);
- * if that isn't available on this RN build, fall back to a default `Sora_400Regular`
- * base style via defaultProps. Imported once, early in App.tsx.
- *
- * NOTE: this runs as a module side effect at load — it only takes effect on a FULL
- * app reload, not a Fast Refresh. Fully quit + reopen Expo Go after changing it.
+ * Runs once as a module side effect — import it BEFORE anything renders (App.tsx
+ * line 2). Only takes effect on a FULL reload, not a Fast Refresh.
  */
 import { StyleSheet, Text, TextInput } from 'react-native';
 
@@ -34,28 +31,36 @@ function familyFor(style: unknown): string {
   return FAMILY[w] ?? 'Sora_400Regular';
 }
 
-type Patchable = {
-  render?: (props: unknown, ref: unknown) => unknown;
-  defaultProps?: { style?: unknown };
-  __soraPatched?: boolean;
-};
-
-function apply(Comp: unknown) {
-  const c = Comp as Patchable;
-  if (!c || c.__soraPatched) return;
-  if (typeof c.render === 'function') {
-    const orig = c.render;
-    c.render = function (props: unknown, ref: unknown) {
-      const p = (props ?? {}) as { style?: unknown };
-      return orig.call(this, { ...p, style: [{ fontFamily: familyFor(p.style) }, p.style] }, ref);
-    };
-  } else {
-    // Fallback: at least default everything to Sora regular (weights won't map).
-    const base = c.defaultProps?.style;
-    c.defaultProps = { ...(c.defaultProps ?? {}), style: base ? [{ fontFamily: 'Sora_400Regular' }, base] : { fontFamily: 'Sora_400Regular' } };
-  }
-  c.__soraPatched = true;
+/** Wrap a JSX factory so RN Text/TextInput get a default Sora family injected. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function wrap(orig: any): any {
+  if (!orig || orig.__sora) return orig;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wrapped = function (this: any) {
+    // eslint-disable-next-line prefer-rest-params
+    const a: any = arguments;
+    const type = a[0];
+    const props = a[1];
+    if ((type === Text || type === TextInput) && props && typeof props === 'object') {
+      a[1] = { ...props, style: [{ fontFamily: familyFor(props.style) }, props.style] };
+    }
+    return orig.apply(this, a);
+  };
+  wrapped.__sora = true;
+  return wrapped;
 }
 
-apply(Text);
-apply(TextInput);
+/* eslint-disable @typescript-eslint/no-var-requires */
+try {
+  const dev = require('react/jsx-dev-runtime');
+  if (dev && dev.jsxDEV) dev.jsxDEV = wrap(dev.jsxDEV);
+} catch {}
+try {
+  const rt = require('react/jsx-runtime');
+  if (rt && rt.jsx) rt.jsx = wrap(rt.jsx);
+  if (rt && rt.jsxs) rt.jsxs = wrap(rt.jsxs);
+} catch {}
+try {
+  const React = require('react');
+  if (React && React.createElement) React.createElement = wrap(React.createElement);
+} catch {}

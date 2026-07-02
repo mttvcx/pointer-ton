@@ -59,7 +59,7 @@ export function DragSheet({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4 && Math.abs(g.dy) > Math.abs(g.dx) * 1.3,
       onPanResponderMove: (_, g) => {
         if (g.dy >= 0) ty.setValue(g.dy);
-        else ty.setValue(tallRef.current ? 0 : g.dy * 0.26); // rubber-band up; clamp once already tall
+        else ty.setValue(tallRef.current ? g.dy * 0.28 : g.dy * 0.5); // livelier rubber-band up
       },
       onPanResponderRelease: (_, g) => {
         if (g.dy > 90 || g.vy > 0.6) {
@@ -118,6 +118,6 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.border,
   },
-  grab: { alignItems: 'center', paddingTop: 12, paddingBottom: 14 },
-  handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: colors.borderStrong },
+  grab: { alignItems: 'center', paddingTop: 14, paddingBottom: 20 },
+  handle: { width: 48, height: 5, borderRadius: 3, backgroundColor: colors.borderStrong },
 });
