@@ -1,12 +1,38 @@
 'use client';
 
+import { Eye } from 'lucide-react';
 import type { PulseAssetMode } from '@/store/pulseAssetMode';
+import { useXMonitorPreviewStore } from '@/store/xMonitorPreview';
 import { cn } from '@/lib/utils/cn';
 
 const MODES: { id: PulseAssetMode; label: string }[] = [
   { id: 'memes', label: 'Pulse' },
   { id: 'stocks', label: 'Stocks' },
 ];
+
+/** Small X-Monitor sample-preview toggle — lives beside Pulse/Stocks so the panel
+ *  header stays clean. Toggles client-side demo data in the X Monitor. */
+function XMonitorPreviewToggle() {
+  const preview = useXMonitorPreviewStore((s) => s.preview);
+  const toggle = useXMonitorPreviewStore((s) => s.toggle);
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title="Preview X Monitor with sample data"
+      aria-pressed={preview}
+      className={cn(
+        'btn-press ml-1 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors',
+        preview
+          ? 'bg-accent-primary/20 text-accent-primary'
+          : 'text-fg-muted hover:bg-white/[0.06] hover:text-fg-secondary',
+      )}
+    >
+      <Eye className="h-3 w-3" strokeWidth={2} aria-hidden />
+      Preview
+    </button>
+  );
+}
 
 interface PulseModeSelectorProps {
   mode: PulseAssetMode;
@@ -80,6 +106,7 @@ export function PulseModeSelector({
           </button>
         );
       })}
+      {variant === 'label' || variant === 'hero' ? <XMonitorPreviewToggle /> : null}
     </nav>
   );
 }

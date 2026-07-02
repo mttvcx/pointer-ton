@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils/cn';
 import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { useUIStore } from '@/store/ui';
+import { useXMonitorPreviewStore } from '@/store/xMonitorPreview';
 import { XMonitorRules } from '@/components/monitor/XMonitorRules';
 import { TweetMediaImage } from '@/components/monitor/TweetMediaImage';
 
@@ -197,15 +198,15 @@ function AiLauncherToggle() {
   const setPrefs = useAutoLaunchStore((s) => s.setPrefs);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+    <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
       <button
         type="button"
         onClick={() => setPrefs({ launchMode: launchMode === 'ai' ? 'manual' : 'ai' })}
         className={cn(
-          'rounded-sm border px-2 py-1 text-[9px] font-bold uppercase tracking-wide transition',
+          'btn-press rounded-md border px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide transition-colors',
           launchMode === 'ai'
-            ? 'border-accent-primary/40 bg-accent-primary/12 text-accent-primary'
-            : 'border-white/[0.08] text-fg-muted hover:text-fg-secondary',
+            ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
+            : 'border-white/[0.08] text-fg-muted hover:border-accent-primary/40 hover:bg-accent-primary/[0.08] hover:text-accent-primary',
         )}
       >
         AI launcher {launchMode === 'ai' ? 'on' : 'off'}
@@ -214,17 +215,14 @@ function AiLauncherToggle() {
         type="button"
         onClick={() => setPrefs({ autoLaunchEnabled: !autoLaunchEnabled })}
         className={cn(
-          'rounded-sm border px-2 py-1 text-[9px] font-bold uppercase tracking-wide transition',
+          'btn-press rounded-md border px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide transition-colors',
           autoLaunchEnabled
-            ? 'border-accent-primary/40 bg-accent-primary/12 text-accent-primary'
-            : 'border-white/[0.08] text-fg-muted hover:text-fg-secondary',
+            ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
+            : 'border-white/[0.08] text-fg-muted hover:border-accent-primary/40 hover:bg-accent-primary/[0.08] hover:text-accent-primary',
         )}
       >
         Auto rules {autoLaunchEnabled ? 'on' : 'off'}
       </button>
-      <span className="text-[9px] leading-snug text-fg-muted">
-        Deploy uses AI when on · rules with auto-launch fire without clicking
-      </span>
     </div>
   );
 }
@@ -266,10 +264,9 @@ export function XMonitorPanel({
   }, [data]);
 
   const uiDemo = isUiDemoMode();
-  // Per-browser, user-initiated preview so the operator can iterate on the feed UI
-  // even in founder beta (where the global demo flag is hard-locked off). Only
-  // affects this session/tab; always clearly badged "Preview" + per-row "sample".
-  const [localSamples, setLocalSamples] = useState(false);
+  // Preview toggle now lives beside the Pulse/Stocks tabs (shared store), so the
+  // panel header stays clean. Client-side demo only.
+  const localSamples = useXMonitorPreviewStore((s) => s.preview);
   const showDemo = uiDemo || localSamples;
 
   // Streaming preview: while demo is on, fake events arrive on an interval so the
@@ -305,9 +302,7 @@ export function XMonitorPanel({
       return {
         rows: showDemo ? streamRows : [],
         mock: showDemo,
-        banner: showDemo
-          ? 'Preview — sample data streaming in, not live. Add @ rules in the Rules tab.'
-          : 'No live hits yet. Add @ rules in the Rules tab to start monitoring.',
+        banner: showDemo ? null : 'No live hits yet. Add @ rules in the Rules tab to start monitoring.',
       };
     }
     return { rows: serverRows, mock: false, banner: null as string | null };
@@ -340,8 +335,8 @@ export function XMonitorPanel({
       <header className="sticky top-0 z-[2] shrink-0 border-b border-white/[0.1] bg-bg-hover shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05)]">
         <div
           className={cn(
-            'flex min-w-0 items-center justify-between gap-2 px-3 py-2',
-            draggable && 'cursor-grab active:cursor-grabbing',
+            'flex min-w-0 items-center justify-between gap-2 px-3 py-2 transition-colors',
+            draggable && 'cursor-grab hover:bg-white/[0.05] active:cursor-grabbing active:bg-white/[0.08]',
           )}
           title={draggable ? 'Drag to move · snap to screen edge' : undefined}
           aria-label={draggable ? 'Drag X monitor' : undefined}
@@ -358,11 +353,6 @@ export function XMonitorPanel({
             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
               X monitor
             </h2>
-            {mock && tab === 'feed' ? (
-              <span className="rounded-sm bg-white/[0.06] px-1.5 py-px text-[9px] font-semibold uppercase text-fg-muted">
-                Preview
-              </span>
-            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1.5" data-x-monitor-no-drag>
             {tab === 'feed' && packagesLoading ? (
@@ -381,9 +371,9 @@ export function XMonitorPanel({
                 onClose?.();
                 closeXMonitor();
               }}
-              className="btn-press relative z-10 flex h-7 w-7 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
+              className="btn-press group/close relative z-10 flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-signal-bear/15 hover:text-signal-bear"
             >
-              <X className="h-3.5 w-3.5 pointer-events-none" strokeWidth={2} aria-hidden />
+              <X className="pointer-events-none h-4 w-4 transition-transform group-hover/close:rotate-90" strokeWidth={2.25} aria-hidden />
             </button>
           </div>
         </div>
@@ -418,18 +408,9 @@ export function XMonitorPanel({
       ) : (
         <>
           {banner ? (
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2">
-              <p className="text-[10px] leading-snug text-fg-muted">{banner}</p>
-              {!uiDemo ? (
-                <button
-                  type="button"
-                  onClick={() => setLocalSamples((v) => !v)}
-                  className="btn-press shrink-0 rounded-sm border border-white/[0.1] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted transition hover:border-accent-primary/40 hover:text-accent-primary"
-                >
-                  {localSamples ? 'Exit preview' : 'Preview samples'}
-                </button>
-              ) : null}
-            </div>
+            <p className="shrink-0 border-b border-white/[0.06] px-3 py-2 text-[10px] leading-snug text-fg-muted">
+              {banner}
+            </p>
           ) : null}
           {packagesError ? (
             <p className="shrink-0 border-b border-white/[0.06] px-3 py-2 text-[10px] text-fg-muted">
@@ -468,12 +449,12 @@ export function XMonitorPanel({
                   <li
                     key={row.alertId}
                     className={cn(
-                      // Carded grey rows (J7-style premium) instead of a flat list.
-                      'group flex items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.025] transition-colors hover:border-white/[0.12] hover:bg-white/[0.045]',
+                      // Carded grey rows (J7-style premium) — lighter grey for legibility.
+                      'group flex items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.055] transition-colors hover:border-white/[0.16] hover:bg-white/[0.08]',
                       // Deleted events read red + striped; platform accent otherwise.
-                      isDeleted && 'border-signal-bear/25 bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.07)_0_10px,rgba(255,255,255,0.02)_10px_20px)]',
-                      row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.05]',
-                      row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.05]',
+                      isDeleted && 'border-signal-bear/25 bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.09)_0_10px,rgba(255,255,255,0.05)_10px_20px)]',
+                      row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.07]',
+                      row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.07]',
                     )}
                   >
                     {/* Left vertical LAUNCH rail — same borderless accent-fill look
@@ -565,29 +546,25 @@ export function XMonitorPanel({
                             auto_launch
                           </span>
                         ) : null}
-                        {row.isMock ? (
-                          <span className="shrink-0 self-start rounded-sm bg-white/[0.06] px-1 py-px text-[9px] text-fg-muted">
-                            sample
-                          </span>
-                        ) : null}
                       </div>
 
                       {ev ? (
-                        <div
+                        <a
+                          href={row.payload.tweetUrl ?? `https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
                           className={cn(
-                            'mt-1 flex items-center gap-1 text-[11px]',
-                            isDeleted ? 'text-signal-bear' : 'text-fg-muted',
+                            'mt-1 flex items-center gap-1 text-[11.5px] transition-colors hover:underline',
+                            isDeleted ? 'text-signal-bear' : 'text-white',
                           )}
                         >
                           {row.eventType ? <EventIcon type={row.eventType} /> : null}
                           <span className="truncate">
-                            <span className="text-fg-secondary">
-                              @{(row.tweet.authorHandle ?? '').replace(/^@/, '')}
-                            </span>{' '}
-                            {ev.verb}
+                            <span className="font-medium">@{(row.tweet.authorHandle ?? '').replace(/^@/, '')}</span>{' '}
+                            <span className="text-white/70">{ev.verb}</span>
                             {ev.target ? <span className="text-accent-primary"> {ev.target}</span> : null}
                           </span>
-                        </div>
+                        </a>
                       ) : null}
 
                       {row.tweet.text ? (
@@ -636,11 +613,11 @@ export function XMonitorPanel({
                             <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
                             Suggestions
                           </div>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap gap-2">
                             {row.suggestions.map((s, i) => (
                               <div
                                 key={`${row.subject}-s${i}`}
-                                className="flex items-stretch overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.03]"
+                                className="flex items-stretch overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.05] transition-colors hover:border-white/[0.18]"
                               >
                                 {s.image ? (
                                   // eslint-disable-next-line @next/next/no-img-element
@@ -648,23 +625,32 @@ export function XMonitorPanel({
                                     src={s.image}
                                     alt=""
                                     referrerPolicy="no-referrer"
-                                    className="h-full w-7 shrink-0 object-cover"
+                                    title="Click to reverse-image search"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.open(
+                                        `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(s.image!)}`,
+                                        '_blank',
+                                        'noreferrer',
+                                      );
+                                    }}
+                                    className="h-12 w-12 shrink-0 cursor-zoom-in object-cover transition-transform hover:scale-110"
                                   />
                                 ) : (
-                                  <div className="flex w-7 shrink-0 items-center justify-center bg-white/[0.04] text-[9px] font-bold text-fg-muted">
+                                  <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-white/[0.04] text-[12px] font-bold text-fg-secondary">
                                     {s.ticker.replace(/^\$/, '').slice(0, 2).toUpperCase()}
                                   </div>
                                 )}
-                                <div className="min-w-0 px-2 py-1">
-                                  <div className="truncate text-[10px] font-semibold text-fg-primary">{s.name}</div>
-                                  <div className="truncate text-[9px] text-fg-muted">${s.ticker.replace(/^\$/, '')}</div>
+                                <div className="min-w-0 px-2.5 py-1.5">
+                                  <div className="truncate text-[12px] font-semibold text-white">{s.name}</div>
+                                  <div className="truncate text-[11px] text-fg-muted">${s.ticker.replace(/^\$/, '')}</div>
                                 </div>
-                                <div className="flex flex-col border-l border-white/[0.08]">
+                                <div className="flex flex-col border-l border-white/[0.1]">
                                   <button
                                     type="button"
                                     title="Edit and focus name"
                                     onClick={() => openLaunchFromSuggestion(row.subject, row.tweet, s, 'name')}
-                                    className="flex flex-1 items-center justify-center px-1.5 text-[9px] font-bold text-fg-muted transition hover:bg-accent-primary/15 hover:text-accent-primary"
+                                    className="flex flex-1 items-center justify-center px-2.5 text-[11px] font-bold text-fg-muted transition-colors hover:bg-accent-primary/20 hover:text-accent-primary"
                                   >
                                     N
                                   </button>
@@ -672,7 +658,7 @@ export function XMonitorPanel({
                                     type="button"
                                     title="Edit and focus ticker"
                                     onClick={() => openLaunchFromSuggestion(row.subject, row.tweet, s, 'ticker')}
-                                    className="flex flex-1 items-center justify-center border-t border-white/[0.08] px-1.5 text-[9px] font-bold text-fg-muted transition hover:bg-accent-primary/15 hover:text-accent-primary"
+                                    className="flex flex-1 items-center justify-center border-t border-white/[0.1] px-2.5 text-[11px] font-bold text-fg-muted transition-colors hover:bg-accent-primary/20 hover:text-accent-primary"
                                   >
                                     T
                                   </button>
@@ -722,9 +708,9 @@ export function XMonitorPanel({
                           href={row.payload.tweetUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-2 inline-block text-[10px] text-fg-muted hover:text-fg-secondary hover:underline"
+                          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-white transition-colors hover:text-accent-primary hover:underline"
                         >
-                          View on X
+                          View on X <ArrowUpRight className="h-3 w-3" strokeWidth={2} aria-hidden />
                         </a>
                       ) : null}
                     </div>
