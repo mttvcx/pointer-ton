@@ -26,6 +26,7 @@ export function LaunchModal() {
   const defaultBuySol = useAutoLaunchStore((s) => s.launchBuySol);
   const deployWallet = useXMonitorSettings((s) => s.deployWallet);
   const feePreset = useXMonitorSettings((s) => s.feePreset);
+  const deployMode = useXMonitorSettings((s) => s.deployMode);
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
 
   useEffect(() => {
@@ -63,8 +64,16 @@ export function LaunchModal() {
   const inputCls =
     'w-full rounded-sm border border-white/[0.08] bg-bg-sunken px-2.5 py-2 text-[12px] text-fg-primary outline-none focus:border-accent-primary/40';
 
+  const sidePanel = deployMode === 'sidePanel';
+
   return (
-    <div className={cn('fixed inset-0 flex items-center justify-center', Z_APP_MODAL_OVERLAY)}>
+    <div
+      className={cn(
+        'fixed inset-0 flex',
+        sidePanel ? 'items-stretch justify-end' : 'items-center justify-center',
+        Z_APP_MODAL_OVERLAY,
+      )}
+    >
       <button
         type="button"
         aria-label="Close launch modal"
@@ -79,7 +88,10 @@ export function LaunchModal() {
         aria-modal="true"
         aria-labelledby="launch-modal-title"
         className={cn(
-          'relative z-10 mx-3 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-sm border border-border-subtle bg-bg-raised shadow-2xl',
+          'relative z-10 flex flex-col overflow-hidden border border-border-subtle bg-bg-raised shadow-2xl',
+          sidePanel
+            ? 'h-full w-full max-w-md rounded-none border-y-0 border-r-0'
+            : 'mx-3 max-h-[90vh] w-full max-w-lg rounded-sm',
           overlayPanelClasses(visible),
         )}
         onClick={(e) => e.stopPropagation()}

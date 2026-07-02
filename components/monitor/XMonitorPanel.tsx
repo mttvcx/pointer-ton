@@ -269,6 +269,11 @@ export function XMonitorPanel({
   const launchRailStyle = useXMonitorSettings((s) => s.launchRailStyle);
   const launchRailColor = useXMonitorSettings((s) => s.launchRailColor);
   const launchRailSize = useXMonitorSettings((s) => s.launchRailSize);
+  const keybinds = useXMonitorSettings((s) => s.keybinds);
+
+  // Keybinds + dismiss: track the hovered card and locally-dismissed rows.
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
 
   const serverRows = useMemo(() => {
     const list = data ?? [];
@@ -365,6 +370,50 @@ export function XMonitorPanel({
     }
     return map;
   }, [packages]);
+
+  // Locally-dismissed rows drop out of the feed (keybind / future swipe).
+  const visibleRows = useMemo(
+    () => rows.filter((r) => !dismissedIds.has(r.alertId)),
+    [rows, dismissedIds],
+  );
+
+  const runLaunch = (row: ListenRow) => {
+    const pkg = packageBySubject.get(row.subject);
+    if (row.isMock) {
+      openDeployForTweet(row.subject, row.tweet, null);
+      return;
+    }
+    if (launchMode === 'ai' && !pkg?.shouldLaunch) {
+      void openDeployForTweetAsync(row.subject, row.tweet, true);
+      return;
+    }
+    openDeployForTweet(row.subject, row.tweet, pkg, 0);
+  };
+
+  // Single-key shortcuts act on the hovered card (deploy / dismiss).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!hoveredRowId) return;
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        return;
+      }
+      const row = visibleRows.find((r) => r.alertId === hoveredRowId);
+      if (!row) return;
+      const k = e.key.toLowerCase();
+      if (k === keybinds.deploy) {
+        e.preventDefault();
+        runLaunch(row);
+      } else if (k === keybinds.dismiss) {
+        e.preventDefault();
+        setDismissedIds((prev) => new Set(prev).add(row.alertId));
+        setHoveredRowId(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoveredRowId, visibleRows, keybinds, launchMode, packageBySubject]);
 
   return (
     <section
@@ -478,7 +527,7 @@ export function XMonitorPanel({
             ) : null}
 
             <ul className="flex flex-col gap-1.5 p-1.5">
-              {rows.map((row) => {
+              {visibleRows.map((row) => {
                 const pkg = packageBySubject.get(row.subject);
                 const mint = row.payload.mint?.trim() ?? null;
                 const image = row.tweet.imageUrls?.[0] ?? row.payload.coverImageUrl ?? null;
@@ -529,6 +578,8 @@ export function XMonitorPanel({
                 return (
                   <li
                     key={row.alertId}
+                    onMouseEnter={() => setHoveredRowId(row.alertId)}
+                    onMouseLeave={() => setHoveredRowId((cur) => (cur === row.alertId ? null : cur))}
                     className={cn(
                       // Carded grey rows (J7-style premium) — lighter grey for legibility.
                       'group flex items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.055] transition-colors hover:border-white/[0.16] hover:bg-white/[0.08]',
@@ -546,18 +597,7 @@ export function XMonitorPanel({
                         as the Pulse quick-buy pill (no clashing outline). */}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (row.isMock) {
-                          // Preview the deploy panel with the sample tweet (Deploy stays disabled).
-                          openDeployForTweet(row.subject, row.tweet, null);
-                          return;
-                        }
-                        if (launchMode === 'ai' && !pkg?.shouldLaunch) {
-                          void openDeployForTweetAsync(row.subject, row.tweet, true);
-                          return;
-                        }
-                        openDeployForTweet(row.subject, row.tweet, pkg, 0);
-                      }}
+                      onClick={() => runLaunch(row)}
                       title={
                         row.isMock
                           ? 'Sample preview — launch is disabled on demo data'
