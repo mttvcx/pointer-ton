@@ -245,8 +245,8 @@ const s = StyleSheet.create({
   bleedChips: { gap: 8, paddingTop: 18, paddingHorizontal: 18 },
 
   balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 18 },
-  balance: { color: colors.fg, fontSize: 49, fontWeight: '700', letterSpacing: -1.5 },
-  cents: { color: colors.fgFaint, fontSize: 49, fontWeight: '700' },
+  balance: { color: colors.fg, fontSize: 49, fontWeight: '600', letterSpacing: -1.5 },
+  cents: { color: colors.fgFaint, fontSize: 49, fontWeight: '600' },
   sub: { color: colors.fgFaint, fontSize: 13, marginTop: 6 },
   deposit: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 26, marginTop: 4 },
   depositText: { color: colors.onAccent, fontSize: 17, fontWeight: '700' },
