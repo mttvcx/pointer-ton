@@ -103,15 +103,8 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     return;
   }
 
-  // identity: name + label (KOL) — right under X's own name
-  const idRow = document.createElement('div');
-  Object.assign(idRow.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '11px' } as CSSStyleDeclaration);
-  const idNm = document.createElement('span');
-  idNm.textContent = data.name ?? `@${handle}`;
-  Object.assign(idNm.style, { fontSize: '14px', fontWeight: '800' } as CSSStyleDeclaration);
-  idRow.appendChild(idNm);
-  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) idRow.appendChild(pill(l));
-  panel.appendChild(idRow);
+  // No identity line — the name + KOL label already show up in X's own name row
+  // (stamped by twitterLabels). The panel is just the PnL chart.
 
   // header: timeframe toggle (left)
   const head = document.createElement('div');
