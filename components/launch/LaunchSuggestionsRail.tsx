@@ -17,7 +17,7 @@ function variantLabel(v: LaunchPackageVariant, index: number): string {
 }
 
 export function LaunchSuggestionsRail() {
-  const { data: alerts } = useAlertsTickerQuery({ pollAggressively: true });
+  const { data: alerts } = useAlertsTickerQuery({ pollAggressively: false });
 
   const tweetInputs = useMemo(() => {
     const list = alerts ?? [];

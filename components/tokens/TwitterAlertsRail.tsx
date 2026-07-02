@@ -74,7 +74,7 @@ const MOCK_TWITTER_ALERTS: AlertsTickerItem[] = [
 
 export function TwitterAlertsRail({ dock }: { dock: 'left' | 'right' }) {
   const activeChain = useUIStore((s) => s.activeChain);
-  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: true });
+  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: false });
   const setRailSide = usePulseTwitterRailStore((s) => s.setSide);
 
   const serverRows = useMemo(() => {

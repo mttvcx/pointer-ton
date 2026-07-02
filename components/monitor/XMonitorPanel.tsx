@@ -255,7 +255,7 @@ export function XMonitorPanel({
   const [tab, setTab] = useState<MonitorTab>(defaultTab);
   const activeChain = useUIStore((s) => s.activeChain);
   const launchMode = useAutoLaunchStore((s) => s.launchMode);
-  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: true });
+  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: false });
 
   const serverRows = useMemo(() => {
     const list = data ?? [];

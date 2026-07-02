@@ -287,8 +287,10 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
       return json.trades ?? [];
     },
     enabled: authenticated,
-    refetchInterval: paused ? false : 6_000,
-    staleTime: 4_000,
+    refetchInterval: paused ? false : 15_000,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+    retry: 1,
   });
 
   const trades = q.data ?? [];
