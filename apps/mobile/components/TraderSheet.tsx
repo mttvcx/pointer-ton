@@ -5,6 +5,8 @@ import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 import { DragSheet } from './DragSheet';
 import { PressScale } from './PressScale';
 import { PnlShareCard } from './PnlShareCard';
+import { GlassFill } from './GlassFill';
+import { GlossButton } from './GlossButton';
 import { colors, radius } from '../src/theme';
 import type { WeeklyTrade } from '../src/demo';
 
@@ -38,9 +40,11 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
             </View>
             <View style={s.traderActions}>
               <PressScale style={s.iconBtn} onPress={() => setShare(true)} to={0.9}>
+                <GlassFill />
                 <Ionicons name="share-outline" size={18} color={colors.fg} />
               </PressScale>
               <PressScale style={s.follow}>
+                <GlassFill />
                 <Text style={s.followText}>Follow</Text>
               </PressScale>
             </View>
@@ -93,6 +97,7 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
             </Svg>
 
             <View style={s.pnlCard}>
+              <GlassFill />
               <View style={s.pnlTop}>
                 <Text style={s.pnlAmt}>{trade.amt}</Text>
                 <Text style={s.pnlPct}>▲ {trade.pnlPct.replace('+', '')}</Text>
@@ -131,9 +136,9 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
             </View>
           </ScrollView>
 
-          <PressScale style={s.buy}>
+          <GlossButton style={{ marginTop: 12 }}>
             <Text style={s.buyText}>Deposit to buy</Text>
-          </PressScale>
+          </GlossButton>
 
           <PnlShareCard
             visible={share}
@@ -157,9 +162,9 @@ const s = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   traderName: { color: colors.fg, fontSize: 18, fontWeight: '600' },
   traderActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconBtn: { width: 42, height: 38, borderRadius: 10, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' },
-  follow: { backgroundColor: colors.accent, borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10 },
-  followText: { color: colors.onAccent, fontSize: 15, fontWeight: '600' },
+  iconBtn: { width: 42, height: 38, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
+  follow: { borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  followText: { color: colors.fg, fontSize: 15, fontWeight: '600' },
   tokenRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 },
   tokenLeft: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   tokenIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
@@ -169,7 +174,7 @@ const s = StyleSheet.create({
   closedText: { color: colors.fgMuted, fontSize: 12, fontWeight: '600' },
   tokenPrice: { color: colors.fg, fontSize: 18, fontWeight: '600' },
   tokenChange: { color: colors.bull, fontSize: 14, marginTop: 2 },
-  pnlCard: { backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16, marginTop: 10 },
+  pnlCard: { borderRadius: radius.lg, padding: 16, marginTop: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   pnlTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pnlAmt: { color: colors.bull, fontSize: 28, fontWeight: '700' },
   pnlPct: { color: colors.bull, fontSize: 22, fontWeight: '700' },

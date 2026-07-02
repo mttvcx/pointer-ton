@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
 import { PressScale } from './PressScale';
+import { GlassFill } from './GlassFill';
+import { GlossButton } from './GlossButton';
 import { Slide } from './Slide';
 import { colors, radius } from '../src/theme';
 import { getLiveTokens } from '../src/api/endpoints';
@@ -79,6 +81,7 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={s.firstFree}>$0 fee on first buy</Text>
           </View>
           <View style={s.searchBar}>
+            <GlassFill />
             <Ionicons name="search" size={18} color={colors.fgMuted} />
             <TextInput value={query} onChangeText={setQuery} placeholder="Search for a token" placeholderTextColor={colors.fgFaint} style={s.searchInput} autoCorrect={false} autoCapitalize="none" />
           </View>
@@ -136,9 +139,9 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
             <Ionicons name="information-circle-outline" size={15} color={colors.fgMuted} />
             <Text style={s.note}>Debit cards have higher success rates</Text>
           </View>
-          <PressScale style={s.continueBtn} onPress={onClose}>
+          <GlossButton onPress={onClose} style={{ marginTop: 12 }}>
             <Text style={s.continueText}>Continue</Text>
-          </PressScale>
+          </GlossButton>
         </View>
       ) : step === 'cryptoNetwork' ? (
         <View style={s.pb}>
@@ -146,6 +149,7 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
           <Text style={s.netSub}>Choose a network to deposit from.</Text>
           {NETWORKS.map((n) => (
             <PressScale key={n} onPress={() => { setNetwork(n); go('cryptoAddress'); }} to={0.98} style={s.netRow}>
+              <GlassFill />
               <Text style={s.netName}>{n}</Text>
               <View style={s.netBadge}>
                 <Text style={s.netBadgeText}>{n.slice(0, 1)}</Text>
@@ -158,10 +162,12 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
           <StepHeader title={`Deposit on ${network}`} onBack={() => go('cryptoNetwork', -1)} />
           <Text style={s.netSub}>Send USDC on {network} to your address below.</Text>
           <View style={s.addrCard}>
+            <GlassFill />
             <Text style={s.addrLabel}>{network} address</Text>
             <Text style={s.addr}>{auth.walletAddress ?? '—'}</Text>
           </View>
           <PressScale style={s.copyBtn}>
+            <GlassFill />
             <Ionicons name="copy-outline" size={18} color={colors.fg} />
             <Text style={s.copyText}>Copy wallet address</Text>
           </PressScale>
@@ -207,6 +213,7 @@ function Presets({ values, amount, onPick }: { values: number[]; amount: string;
         const on = String(p) === amount;
         return (
           <PressScale key={p} onPress={() => onPick(String(p))} to={0.94} style={[s.preset, on && s.presetOn]}>
+            <GlassFill active={on} />
             <Text style={[s.presetText, on && s.presetTextOn]}>${p.toLocaleString()}</Text>
           </PressScale>
         );
@@ -230,6 +237,7 @@ function Option({
 }) {
   return (
     <PressScale onPress={onPress} to={0.98} style={s.option}>
+      <GlassFill />
       <View style={{ flex: 1 }}>
         <View style={s.optionTitleRow}>
           <Text style={s.optionTitle}>{title}</Text>
@@ -249,7 +257,7 @@ function Option({
 const s = StyleSheet.create({
   pb: { paddingBottom: 4 },
   title: { color: colors.fg, fontSize: 20, fontWeight: '600', textAlign: 'center', marginBottom: 18 },
-  option: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 18, marginBottom: 14 },
+  option: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.lg, padding: 18, marginBottom: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   optionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   optionTitle: { color: colors.fg, fontSize: 19, fontWeight: '600' },
   badge: { backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
@@ -263,7 +271,7 @@ const s = StyleSheet.create({
   payHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   payHeadTitle: { color: colors.fg, fontSize: 18, fontWeight: '600' },
   firstFree: { color: colors.accentGlow, fontSize: 14, fontWeight: '500' },
-  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   searchInput: { flex: 1, color: colors.fg, fontSize: 16, padding: 0 },
 
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
@@ -280,10 +288,10 @@ const s = StyleSheet.create({
   amount: { color: colors.fg, fontSize: 60, fontWeight: '700', letterSpacing: -2, textAlign: 'center', marginTop: 22 },
   amountSub: { color: colors.accentGlow, fontSize: 14, textAlign: 'center', marginTop: 6 },
   presets: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 22 },
-  preset: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 10 },
-  presetOn: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent },
-  presetText: { color: colors.fg, fontSize: 15, fontWeight: '600' },
-  presetTextOn: { color: colors.accentGlow },
+  preset: { borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  presetOn: { borderColor: 'rgba(255,255,255,0.28)' },
+  presetText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600' },
+  presetTextOn: { color: colors.fg, fontWeight: '700' },
   pad: { marginTop: 16 },
   padRow: { flexDirection: 'row' },
   key: { flex: 1, height: 58, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
@@ -298,13 +306,13 @@ const s = StyleSheet.create({
   continueText: { color: colors.onAccent, fontSize: 17, fontWeight: '600' },
 
   netSub: { color: colors.fgMuted, fontSize: 14, textAlign: 'center', marginTop: 4, marginBottom: 16 },
-  netRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 16, marginBottom: 12 },
+  netRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 16, marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   netName: { color: colors.fg, fontSize: 17, fontWeight: '600' },
   netBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.bgRaised2, alignItems: 'center', justifyContent: 'center' },
   netBadgeText: { color: colors.fgSecondary, fontSize: 13, fontWeight: '700' },
-  addrCard: { backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 16 },
+  addrCard: { borderRadius: radius.lg, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   addrLabel: { color: colors.fgMuted, fontSize: 13 },
   addr: { color: colors.fg, fontSize: 15, fontWeight: '500', marginTop: 6 },
-  copyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 14, marginTop: 14 },
+  copyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.md, paddingVertical: 14, marginTop: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   copyText: { color: colors.fg, fontSize: 15, fontWeight: '600' },
 });
