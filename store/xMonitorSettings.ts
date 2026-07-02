@@ -11,7 +11,7 @@ export type LaunchRailStyle = 'fill' | 'outline';
 export type DeployMode = 'modal' | 'sidePanel';
 
 /** Feed source channels the operator can toggle on/off. */
-export type FeedSource = 'x' | 'instagram' | 'truth' | 'caTracker' | 'news' | 'affiliates';
+export type FeedSource = 'x' | 'instagram' | 'truth' | 'caTracker' | 'news' | 'affiliates' | 'discord';
 
 export type XMonitorSettings = {
   /** Launch rail appearance / placement. */
@@ -78,6 +78,7 @@ export const DEFAULT_XMONITOR_SETTINGS: XMonitorSettings = {
     caTracker: true,
     news: true,
     affiliates: true,
+    discord: true,
   },
   keywordHighlights: [],
   mutedKeywords: [],

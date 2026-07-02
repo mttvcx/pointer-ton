@@ -13,6 +13,7 @@ import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { XMonitorContextBar } from '@/components/monitor/XMonitorContextBar';
+import { XMonitorCaToast } from '@/components/monitor/XMonitorCaToast';
 import { DeferredAppShellGate } from '@/components/layout/DeferredAppShellHosts';
 import { useUIStore } from '@/store/ui';
 import { APP_NAME } from '@/lib/utils/constants';
@@ -207,6 +208,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
       {isMobile ? <MobileBottomNav /> : <BottomBar />}
       {!isMobile ? <XMonitorContextBar /> : null}
+      {!isMobile ? <XMonitorCaToast /> : null}
       {isMobile ? <MobileDrawer /> : null}
       <DeferredAppShellGate />
       </div>

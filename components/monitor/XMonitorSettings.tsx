@@ -35,6 +35,7 @@ const SOURCES: Array<{ id: FeedSource; label: string; hint: string }> = [
   { id: 'caTracker', label: 'CA Tracker', hint: 'Contract mentions' },
   { id: 'news', label: 'News', hint: '16 wires' },
   { id: 'affiliates', label: 'Affiliates', hint: '29 tagged sources' },
+  { id: 'discord', label: 'Discord', hint: 'CA mentions in linked servers' },
 ];
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
