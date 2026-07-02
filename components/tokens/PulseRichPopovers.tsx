@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUpRight,
   BadgeCheck,
   Bot,
   Calendar,
+  Check,
   Clock,
   Coins,
   Copy,
@@ -1076,8 +1077,15 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
   const solLabel = sol != null ? formatNumber(sol, { decimals: sol >= 1 ? 2 : 3 }) : '—';
   const ageLabel = at ? formatAgeShort(at) : '—';
 
-  const copyMint = () => {
+  const [copied, setCopied] = useState(false);
+  // Portaled panels still bubble React events to the row's click handler, so we
+  // MUST stopPropagation or copy/open navigates the whole row to the token page.
+  const copyMint = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (typeof navigator !== 'undefined') void navigator.clipboard?.writeText(mint);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
   };
 
   return (
@@ -1091,13 +1099,21 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
           <button
             type="button"
             onClick={copyMint}
-            className="inline-flex h-3.5 w-3.5 items-center justify-center text-white/40 transition-colors hover:text-white/80"
-            aria-label="Copy mint"
+            className={cn(
+              'inline-flex h-3.5 w-3.5 items-center justify-center transition-colors',
+              copied ? 'text-signal-bull' : 'text-white/40 hover:text-white/80',
+            )}
+            aria-label={copied ? 'Copied' : 'Copy mint'}
           >
-            <Copy className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+            {copied ? (
+              <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            ) : (
+              <Copy className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+            )}
           </button>
           <a
             href={`/token/${encodeURIComponent(mint)}`}
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex h-3.5 w-3.5 items-center justify-center text-white/40 transition-colors hover:text-white/80"
             aria-label="Open token workspace"
           >
@@ -1130,6 +1146,7 @@ export function DevFundedHoverPanel({ bundle }: { bundle: PulseTokenBundle }) {
           href={explorerAddressUrl(creator)}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="flex items-center justify-between gap-2 rounded-md bg-white/[0.04] px-2.5 py-2 transition-colors hover:bg-white/[0.07]"
         >
           <ArrowUpRight className="h-3 w-3 shrink-0 text-white/40" strokeWidth={1.5} aria-hidden />
@@ -1157,7 +1174,9 @@ export function DevWalletIntelHoverPanel({ bundle }: { bundle: PulseTokenBundle 
   const fundedAt = token.initial_liquidity_at;
   const locked = token.is_lp_locked === true;
 
-  const copyDev = () => {
+  const copyDev = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     void navigator.clipboard?.writeText(dev);
   };
 
@@ -1185,6 +1204,7 @@ export function DevWalletIntelHoverPanel({ bundle }: { bundle: PulseTokenBundle 
             href={explorer}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#9ca3af] transition hover:bg-white/[0.05] hover:text-white"
             aria-label="Open dev wallet"
           >
@@ -1221,12 +1241,14 @@ export function DevWalletIntelHoverPanel({ bundle }: { bundle: PulseTokenBundle 
       <div className="flex items-center gap-1.5 px-2.5 py-2">
         <button
           type="button"
-          onClick={() =>
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
             openWallet({
               address: dev,
               chain: appChainForWalletAddress(dev),
-            })
-          }
+            });
+          }}
           className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 text-[10px] font-semibold text-[#d1d5db] transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
         >
           <Wallet className="h-3 w-3" strokeWidth={2} />
@@ -1236,6 +1258,7 @@ export function DevWalletIntelHoverPanel({ bundle }: { bundle: PulseTokenBundle 
           href={explorer}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 text-[10px] font-semibold text-[#d1d5db] transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
         >
           <ExternalLink className="h-3 w-3" strokeWidth={2} />

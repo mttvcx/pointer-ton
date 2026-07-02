@@ -522,12 +522,17 @@ export function DockWalletTrackerFloatingPanel() {
         <header
           className={cn(
             'relative flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-hover/40 pr-9',
+            // The WHOLE toolbar is a drag handle (Axiom-style) — tabs/close still
+            // click because the pointerdown guard below skips interactive targets.
+            draggingUi ? 'cursor-grabbing select-none' : 'cursor-grab',
           )}
+          onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest('button, input, textarea, select, a, [data-no-drag]')) return;
+            beginDragFromHeader(e);
+          }}
         >
           <nav
             className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            data-no-drag
-            onPointerDown={(e) => e.stopPropagation()}
           >
             {TAB_ORDER.map((id) => (
               <button
@@ -547,15 +552,8 @@ export function DockWalletTrackerFloatingPanel() {
             ))}
           </nav>
           <div
-            role="presentation"
-            className={cn(
-              'relative flex h-[34px] w-9 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing',
-              draggingUi ? 'bg-white/[0.02]' : '',
-            )}
-            onPointerDown={(e) => {
-              if ((e.target as HTMLElement).closest('button, input, textarea, select, [data-no-drag]')) return;
-              beginDragFromHeader(e);
-            }}
+            className="pointer-events-none relative flex h-[34px] w-9 shrink-0 items-center justify-center"
+            aria-hidden
           >
             <GripDots />
           </div>
