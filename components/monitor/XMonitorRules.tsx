@@ -2,7 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  Crosshair,
+  ImageIcon,
+  Loader2,
+  MessageCircle,
+  Plus,
+  Rocket,
+  Search,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
   AutomationRuleBuilder,
@@ -47,6 +57,124 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** One-tap sniper templates — pre-fill a valid rule draft; user just adds handles. */
+type SniperPreset = {
+  id: string;
+  label: string;
+  desc: string;
+  icon: typeof Crosshair;
+  build: () => AutomationRuleDraft;
+};
+
+function makePreset(over: Partial<AutomationRuleDraft>): AutomationRuleDraft {
+  const base = defaultAutomationDraft();
+  return {
+    ...base,
+    ...over,
+    triggerConfig: over.triggerConfig ?? base.triggerConfig,
+    actionConfig: over.actionConfig ?? base.actionConfig,
+    activityFilter: over.activityFilter ?? base.activityFilter,
+  };
+}
+
+const SNIPER_PRESETS: SniperPreset[] = [
+  {
+    id: 'ca',
+    label: 'CA sniper',
+    desc: 'Auto-buy any contract a watched account drops',
+    icon: Crosshair,
+    build: () =>
+      makePreset({
+        name: 'CA sniper',
+        triggerType: 'ca_detected',
+        triggerConfig: { handlesRaw: '', tweetImageMintMode: 'smart' },
+        actionType: 'buy',
+        actionConfig: { buySolPreset: '', slippageBps: null },
+        activityFilter: { tweets: true, replies: true, quotes: true, retweets: false },
+        cooldownSeconds: 30,
+      }),
+  },
+  {
+    id: 'keyword-buy',
+    label: 'Keyword buy',
+    desc: 'Buy when a watched account posts a phrase',
+    icon: Search,
+    build: () =>
+      makePreset({
+        name: 'Keyword buy',
+        triggerType: 'keyword',
+        triggerConfig: { handlesRaw: '', phrasesRaw: '', phraseMatch: 'substring' },
+        actionType: 'buy',
+        actionConfig: { buySolPreset: '', slippageBps: null },
+        cooldownSeconds: 30,
+      }),
+  },
+  {
+    id: 'auto-launch',
+    label: 'Auto-launch',
+    desc: 'Deploy a token the moment they post',
+    icon: Rocket,
+    build: () =>
+      makePreset({
+        name: 'Auto-launch on post',
+        triggerType: 'keyword',
+        triggerConfig: { handlesRaw: '', phrasesRaw: '', phraseMatch: 'substring' },
+        actionType: 'deploy',
+        actionConfig: {},
+        activityFilter: { tweets: true, replies: false, quotes: false, retweets: false },
+        disableAfterSuccess: true,
+      }),
+  },
+  {
+    id: 'interaction',
+    label: 'Reply / quote',
+    desc: 'Alert when they reply to or quote someone',
+    icon: MessageCircle,
+    build: () =>
+      makePreset({
+        name: 'Reply / quote watcher',
+        triggerType: 'interaction',
+        triggerConfig: { handlesRaw: '', kinds: ['reply', 'quote'] },
+        actionType: 'notify',
+        actionConfig: { openWithTweetMedia: true, tweetImageMintMode: 'smart' },
+      }),
+  },
+  {
+    id: 'image',
+    label: 'Image snipe',
+    desc: 'Buy on a matching image / meme',
+    icon: ImageIcon,
+    build: () =>
+      makePreset({
+        name: 'Image match snipe',
+        triggerType: 'image_match',
+        triggerConfig: {
+          handlesRaw: '',
+          thresholdPreset: 'normal',
+          targetImageHash: '',
+          tweetImageMintMode: 'smart',
+          openWithTweetMedia: true,
+        },
+        actionType: 'buy',
+        actionConfig: { buySolPreset: '', slippageBps: null },
+      }),
+  },
+  {
+    id: 'pfp',
+    label: 'PFP change',
+    desc: 'Alert when they swap avatar',
+    icon: UserRound,
+    build: () =>
+      makePreset({
+        name: 'PFP change alert',
+        triggerType: 'pfp_change',
+        triggerConfig: { handlesRaw: '' },
+        actionType: 'notify',
+        actionConfig: { openWithTweetMedia: true, tweetImageMintMode: 'smart' },
+      }),
+  },
+];
+
 export function XMonitorRules() {
   const { authenticated, getAccessToken } = usePointerAuth();
   const qc = useQueryClient();
@@ -55,6 +183,15 @@ export function XMonitorRules() {
     name: 'Watch @handle',
   }));
   const [showCreate, setShowCreate] = useState(true);
+  // Bumped to force-remount AutomationRuleBuilder (its handle/phrase fields seed
+  // once from the draft) whenever a preset is applied or the form resets.
+  const [builderKey, setBuilderKey] = useState(0);
+
+  function applyPreset(p: SniperPreset) {
+    setDraft(p.build());
+    setShowCreate(true);
+    setBuilderKey((k) => k + 1);
+  }
 
   const listQuery = useQuery({
     queryKey: ['alert-rules'],
@@ -100,6 +237,7 @@ export function XMonitorRules() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['alert-rules'] });
       setDraft({ ...defaultAutomationDraft(), name: 'Watch @handle' });
+      setBuilderKey((k) => k + 1);
       toast.success('Rule saved');
     },
     onError: (e: Error) => {
@@ -200,6 +338,32 @@ export function XMonitorRules() {
         ) : null}
 
         <div className="border-t border-white/[0.06] px-3 py-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+            Quick snipers
+          </p>
+          <div className="mb-3 grid grid-cols-2 gap-1.5">
+            {SNIPER_PRESETS.map((p) => {
+              const Icon = p.icon;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  title={p.desc}
+                  className="btn-press group flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-2 text-left transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/[0.07]"
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-white/[0.05] text-fg-muted transition-colors group-hover:bg-accent-primary/20 group-hover:text-accent-primary">
+                    <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[11px] font-semibold text-fg-primary">{p.label}</span>
+                    <span className="block truncate text-[9px] leading-tight text-fg-muted">{p.desc}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <button
             type="button"
             onClick={() => setShowCreate((v) => !v)}
@@ -222,6 +386,7 @@ export function XMonitorRules() {
               </label>
 
               <AutomationRuleBuilder
+                key={builderKey}
                 draft={draft}
                 onChange={(patch) =>
                   setDraft((d) =>
