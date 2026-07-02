@@ -8,6 +8,8 @@ import { VerifiedBadge } from '../components/VerifiedBadge';
 import { XBadge } from '../components/XBadge';
 import { CopyTradeSheet } from '../components/CopyTradeSheet';
 import { PnlShareCard } from '../components/PnlShareCard';
+import { GlassFill } from '../components/GlassFill';
+import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
 import { getDemoTrader, type TraderPosition } from '../src/demo/traders';
 import { toggleFollow, useIsFollowing, useCopy } from '../src/local';
@@ -167,9 +169,11 @@ export function TraderProfileScreen({
               to={0.9}
               style={s.dmBtn}
             >
+              <GlassFill />
               <Ionicons name="paper-plane-outline" size={20} color={colors.fg} />
             </PressScale>
             <PressScale onPress={() => toggleFollow(p.handle)} to={0.94} style={[s.followBtn, following && s.followingBtn]}>
+              <GlassFill active={following} />
               <Text style={[s.followText, following && s.followingText]}>{following ? 'Following' : 'Follow'}</Text>
             </PressScale>
           </View>
@@ -210,12 +214,18 @@ export function TraderProfileScreen({
         </View>
 
         {/* COPY TRADE — the primary thing you do with a trader (FOMO copy model) */}
-        <PressScale onPress={() => setCopyOpen(true)} to={0.97} style={[s.copyCta, copying && s.copyCtaActive]}>
-          <Ionicons name="repeat" size={19} color={copying ? colors.bull : colors.onAccent} />
-          <Text style={[s.copyCtaText, copying && { color: colors.bull }]}>
-            {copying ? `Copying · $${copying.sizeUsd.toLocaleString()}/trade` : `Copy ${p.name}'s trades`}
-          </Text>
-        </PressScale>
+        {copying ? (
+          <PressScale onPress={() => setCopyOpen(true)} to={0.97} style={s.copyCtaActive}>
+            <GlassFill active />
+            <Ionicons name="repeat" size={19} color={colors.bull} />
+            <Text style={[s.copyCtaText, { color: colors.bull }]}>Copying · ${copying.sizeUsd.toLocaleString()}/trade</Text>
+          </PressScale>
+        ) : (
+          <GlossButton onPress={() => setCopyOpen(true)} style={{ marginTop: 20 }}>
+            <Ionicons name="repeat" size={19} color={colors.onAccent} />
+            <Text style={s.copyCtaText}>Copy {p.name}'s trades</Text>
+          </GlossButton>
+        )}
         <Text style={s.copyCtaHint}>
           {copying
             ? `You copy @${p.handle.replace(/^@/, '')}'s buys at $${copying.sizeUsd.toLocaleString()} each. Tap to change or stop.`
@@ -247,6 +257,7 @@ export function TraderProfileScreen({
         {/* total cash */}
         <View style={s.cashCard}>
           <View style={s.cashIcon}>
+            <GlassFill />
             <Text style={s.cashGlyph}>$</Text>
           </View>
           <View>
@@ -363,9 +374,9 @@ const s = StyleSheet.create({
   avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#fff', fontSize: 24, fontWeight: '700' },
   idActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dmBtn: { width: 48, height: 44, borderRadius: 12, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' },
-  followBtn: { backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 12, paddingHorizontal: 26, height: 44, alignItems: 'center', justifyContent: 'center' },
-  followingBtn: { backgroundColor: colors.bgRaised, borderColor: colors.border },
+  dmBtn: { width: 48, height: 44, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
+  followBtn: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', borderRadius: 12, paddingHorizontal: 26, height: 44, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  followingBtn: { borderColor: 'rgba(255,255,255,0.28)' },
   followText: { color: colors.fg, fontSize: 16, fontWeight: '700' },
   followingText: { color: colors.fgSecondary },
 
@@ -387,8 +398,7 @@ const s = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { color: colors.fgMuted, fontSize: 14 },
 
-  copyCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 15, marginTop: 20 },
-  copyCtaActive: { backgroundColor: colors.bullSoft, borderWidth: 1, borderColor: colors.bull + '55' },
+  copyCtaActive: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, borderRadius: 14, paddingVertical: 15, marginTop: 20, overflow: 'hidden', borderWidth: 1, borderColor: colors.bull + '66' },
   copyCtaText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
   copyCtaHint: { color: colors.fgMuted, fontSize: 12.5, lineHeight: 17, marginTop: 8 },
 
@@ -408,7 +418,7 @@ const s = StyleSheet.create({
   rangeTextOn: { color: colors.fg },
 
   cashCard: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 18 },
-  cashIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' },
+  cashIcon: { width: 52, height: 52, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
   cashGlyph: { color: colors.fg, fontSize: 22, fontWeight: '700' },
   cashLabel: { color: colors.fgMuted, fontSize: 15 },
   cashValue: { color: colors.fg, fontSize: 22, fontWeight: '700', marginTop: 2 },

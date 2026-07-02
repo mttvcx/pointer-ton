@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { DragSheet } from './DragSheet';
 import { PressScale } from './PressScale';
 import { XBadge } from './XBadge';
+import { GlassFill } from './GlassFill';
+import { GlossButton } from './GlossButton';
 import { colors, radius } from '../src/theme';
 import { startCopy, stopCopy, useCopy } from '../src/local';
 
@@ -59,6 +61,7 @@ export function CopyTradeSheet({
       {done ? (
         <View style={s.doneWrap}>
           <View style={s.doneIcon}>
+            <GlassFill />
             <Ionicons name="repeat" size={32} color={colors.accentGlow} />
           </View>
           <Text style={s.doneTitle}>Copying @{handle}</Text>
@@ -87,11 +90,15 @@ export function CopyTradeSheet({
           <Text style={s.fieldLabel}>Size per copied trade</Text>
           <Text style={s.amount}>${amount}</Text>
           <View style={s.presets}>
-            {PRESETS.map((p) => (
-              <PressScale key={p} onPress={() => setAmount(String(p))} to={0.94} style={[s.preset, String(p) === amount && s.presetOn]}>
-                <Text style={[s.presetText, String(p) === amount && s.presetTextOn]}>${p.toLocaleString()}</Text>
-              </PressScale>
-            ))}
+            {PRESETS.map((p) => {
+              const on = String(p) === amount;
+              return (
+                <PressScale key={p} onPress={() => setAmount(String(p))} to={0.94} style={[s.preset, on && s.presetOn]}>
+                  <GlassFill active={on} />
+                  <Text style={[s.presetText, on && s.presetTextOn]}>${p.toLocaleString()}</Text>
+                </PressScale>
+              );
+            })}
           </View>
 
           <Keypad onPress={press} />
@@ -100,9 +107,9 @@ export function CopyTradeSheet({
             Every time @{handle} buys, you'll copy it at this size. You approve each one — nothing fires on its own.
           </Text>
 
-          <PressScale style={[s.primary, size <= 0 && { opacity: 0.5 }]} onPress={confirm}>
+          <GlossButton onPress={confirm} style={{ marginTop: 18, opacity: size <= 0 ? 0.5 : 1 }}>
             <Text style={s.primaryText}>{existing ? `Update copy · $${size.toLocaleString()}/trade` : `Copy @${handle} · $${size.toLocaleString()}/trade`}</Text>
-          </PressScale>
+          </GlossButton>
 
           {existing ? (
             <PressScale style={s.stopBtn} onPress={stop}>
@@ -142,10 +149,10 @@ const s = StyleSheet.create({
   fieldLabel: { color: colors.fgSecondary, fontSize: 13, fontWeight: '700', marginTop: 20, textAlign: 'center' },
   amount: { color: colors.fg, fontSize: 56, fontWeight: '700', letterSpacing: -2, textAlign: 'center', marginTop: 6 },
   presets: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 16 },
-  preset: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 15, paddingVertical: 9 },
-  presetOn: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent },
-  presetText: { color: colors.fg, fontSize: 15, fontWeight: '600' },
-  presetTextOn: { color: colors.accentGlow },
+  preset: { borderRadius: radius.md, paddingHorizontal: 15, paddingVertical: 9, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  presetOn: { borderColor: 'rgba(255,255,255,0.28)' },
+  presetText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600' },
+  presetTextOn: { color: colors.fg, fontWeight: '700' },
 
   pad: { marginTop: 14 },
   padRow: { flexDirection: 'row' },
@@ -161,7 +168,7 @@ const s = StyleSheet.create({
   stopText: { color: colors.bear, fontSize: 14, fontWeight: '600' },
 
   doneWrap: { alignItems: 'center', paddingVertical: 26 },
-  doneIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  doneIcon: { width: 72, height: 72, borderRadius: 36, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   doneTitle: { color: colors.fg, fontSize: 22, fontWeight: '700', marginTop: 16 },
   doneSub: { color: colors.fgMuted, fontSize: 14, marginTop: 6, textAlign: 'center', paddingHorizontal: 16 },
 });
