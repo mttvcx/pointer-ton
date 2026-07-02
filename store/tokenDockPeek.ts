@@ -66,7 +66,7 @@ export const DEFAULT_WALLET_TRACKER_PEEK_SIZE: PulsePeekPanelSize = {
   height: 480,
 };
 /** Max dock peek width — matches embedded Pulse X-monitor rail (`PulsePageLayout`). */
-export const DOCK_PEEK_MAX_PANEL_W = 420;
+export const DOCK_PEEK_MAX_PANEL_W = 560;
 
 export function clampDockPeekWidth(width: number, minW = 320): number {
   const floor = Math.max(280, minW);

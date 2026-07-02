@@ -25,8 +25,8 @@ import { XMonitorPanel } from '@/components/monitor/XMonitorPanel';
 const MIN_PANEL_W = 320;
 const MIN_PANEL_H = 360;
 const EDGE_GHOST_W_PX = 72;
-const BODY_GUTTER_PX = 10;
-const BODY_GUTTER_EXTRA_PX = 10;
+const BODY_GUTTER_PX = 6;
+const BODY_GUTTER_EXTRA_PX = 4;
 
 function GripDots() {
   return (
@@ -487,9 +487,9 @@ export function DockXMonitorFloatingPanel() {
         ) : (
           <div
             className={cn(
-              'absolute top-[24%] bottom-[24%] z-[5] cursor-ew-resize',
+              'group/resize absolute top-0 bottom-0 z-[5] w-3 cursor-ew-resize',
               draggingUi ? 'pointer-events-none' : '',
-              dockSnap === 'left' ? 'right-0 w-[10px]' : 'left-0 w-[10px]',
+              dockSnap === 'left' ? 'right-0' : 'left-0',
             )}
             style={{ touchAction: 'none' }}
             onPointerDown={(e) => {
@@ -511,6 +511,15 @@ export function DockXMonitorFloatingPanel() {
               shellRef.current?.setPointerCapture(e.pointerId);
             }}
           >
+            {/* Visible grab bar — highlights on hover / while dragging. */}
+            <div
+              className={cn(
+                'pointer-events-none absolute top-[8%] bottom-[8%] w-[3px] rounded-full transition-colors',
+                draggingUi ? 'bg-accent-primary/80' : 'bg-white/15 group-hover/resize:bg-accent-primary/70',
+                dockSnap === 'left' ? 'right-[3px]' : 'left-[3px]',
+              )}
+              aria-hidden
+            />
             <span className="sr-only">Resize docked X monitor width</span>
           </div>
         )}

@@ -418,7 +418,7 @@ export function XMonitorPanel({
             </p>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)]">            {isFetching && !mock && rows.length === 0 ? (
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)] [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5 hover:[&::-webkit-scrollbar-thumb]:bg-white/20">            {isFetching && !mock && rows.length === 0 ? (
               <p className="px-3 py-4 text-[11px] text-fg-muted">Loading listens…</p>
             ) : null}
 
