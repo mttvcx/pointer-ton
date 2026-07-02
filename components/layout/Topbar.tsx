@@ -574,10 +574,22 @@ export function Topbar() {
                 </span>
               </button>
               {avatarMenuPresence.mounted ? (
+                <>
+                  {/* Scrim: fade everything (incl. docks) so the menu is the one
+                      focused thing and never gets covered by a floating dock. */}
+                  <button
+                    type="button"
+                    aria-label="Close account menu"
+                    onClick={() => setAvatarMenuOpen(false)}
+                    className={cn(
+                      'fixed inset-0 z-[290] cursor-default bg-black/45 backdrop-blur-[2px] transition-opacity duration-200',
+                      avatarMenuPresence.visible ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
                 <div
                   role="menu"
                   className={cn(
-                    'absolute right-0 top-[calc(100%+8px)] z-[200] w-52 overflow-hidden rounded-xl border border-[#2e2e32] bg-[#1a1a1e] py-1.5 text-[#c4c4c8] shadow-[0_12px_40px_rgba(0,0,0,0.55)]',
+                    'absolute right-0 top-[calc(100%+8px)] z-[300] w-52 overflow-hidden rounded-xl border border-[#2e2e32] bg-[#1a1a1e] py-1.5 text-[#c4c4c8] shadow-[0_12px_40px_rgba(0,0,0,0.55)]',
                     popoverPanelClasses(avatarMenuPresence.visible),
                   )}
                 >
@@ -672,6 +684,7 @@ export function Topbar() {
                     </button>
                   </div>
                 </div>
+                </>
               ) : null}
             </div>
           </div>

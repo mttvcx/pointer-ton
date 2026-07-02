@@ -5,7 +5,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { DEFAULT_APP_CHAIN, isAppChainId } from '@/lib/chains/appChain';
 import { withTimeout } from '@/lib/utils/withTimeout';
 
-const FEED_TIMEOUT_MS = 18_000;
+const FEED_TIMEOUT_MS = 11_000;
 
 const QuerySchema = z.object({
   column: z.enum(['new', 'stretch', 'migrated']).default('new'),
