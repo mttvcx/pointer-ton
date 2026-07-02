@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
 import { PressScale } from './PressScale';
+import { GlassFill } from './GlassFill';
 import { colors, radius } from '../src/theme';
 import { priceUsd, shortMint } from '../src/format';
 import { addOrder, cancelOrder, useOrders, type OrderSide } from '../src/local';
@@ -145,15 +146,20 @@ export function BuySheet({
 
           <Text style={s.amount}>${amount}</Text>
           <View style={s.presets}>
-            {PRESETS.map((p) => (
-              <PressScale key={p} onPress={() => setAmount(String(p))} to={0.94} style={[s.preset, String(p) === amount && s.presetOn]}>
-                <Text style={[s.presetText, String(p) === amount && s.presetTextOn]}>${p.toLocaleString()}</Text>
-              </PressScale>
-            ))}
+            {PRESETS.map((p) => {
+              const on = String(p) === amount;
+              return (
+                <PressScale key={p} onPress={() => setAmount(String(p))} to={0.94} style={[s.preset, on && s.presetOn]}>
+                  <GlassFill active={on} />
+                  <Text style={[s.presetText, on && s.presetTextOn]}>${p.toLocaleString()}</Text>
+                </PressScale>
+              );
+            })}
           </View>
 
           {type === 'limit' ? (
             <View style={s.limitBox}>
+              <GlassFill />
               <View style={s.limitHead}>
                 <Text style={s.limitLabel}>Limit price</Text>
                 <Text style={s.limitVal}>{priceUsd(limitPrice)}</Text>
@@ -248,10 +254,10 @@ const s = StyleSheet.create({
 
   amount: { color: colors.fg, fontSize: 56, fontWeight: '700', letterSpacing: -2, textAlign: 'center', marginTop: 18 },
   presets: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 16 },
-  preset: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 15, paddingVertical: 9 },
-  presetOn: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent },
-  presetText: { color: colors.fg, fontSize: 15, fontWeight: '600' },
-  presetTextOn: { color: colors.accentGlow },
+  preset: { borderRadius: radius.md, paddingHorizontal: 15, paddingVertical: 9, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  presetOn: { borderColor: 'rgba(255,255,255,0.28)' },
+  presetText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '600' },
+  presetTextOn: { color: colors.fg, fontWeight: '700' },
 
   pad: { marginTop: 14 },
   padRow: { flexDirection: 'row' },
@@ -259,7 +265,7 @@ const s = StyleSheet.create({
   keyPressed: { backgroundColor: colors.bgRaised },
   keyText: { color: colors.fg, fontSize: 27, fontWeight: '600' },
 
-  limitBox: { marginTop: 18, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14 },
+  limitBox: { marginTop: 18, borderRadius: radius.lg, padding: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   limitHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   limitLabel: { color: colors.fgSecondary, fontSize: 14, fontWeight: '600' },
   limitVal: { color: colors.fg, fontSize: 17, fontWeight: '700' },

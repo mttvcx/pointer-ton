@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../components/Screen';
 import { PressScale } from '../components/PressScale';
+import { GlassFill } from '../components/GlassFill';
+import { GlossButton } from '../components/GlossButton';
 import { DragSheet } from '../components/DragSheet';
 import { PickerSheet } from '../components/PickerSheet';
 import { SolAmount } from '../components/SolAmount';
@@ -99,6 +101,7 @@ export function AlertsScreen() {
 
         {/* Kill switch */}
         <View style={[s.killRow, kill && s.killRowOn]}>
+          {kill ? null : <GlassFill />}
           <Ionicons name="power" size={18} color={kill ? colors.bear : colors.bull} />
           <View style={s.rowText}>
             <Text style={s.rowTitle}>{kill ? 'Automation paused' : 'Automation armed'}</Text>
@@ -115,6 +118,7 @@ export function AlertsScreen() {
         {/* Phone notifications */}
         <Text style={s.sectionLabel}>Push to my phone</Text>
         <View style={s.card}>
+          <GlassFill />
           {NOTIF_ROWS.map((r, i) => (
             <View key={r.key} style={[s.row, i > 0 && s.rowDivider]}>
               <View style={s.rowIcon}>
@@ -143,6 +147,7 @@ export function AlertsScreen() {
           </PressScale>
         </View>
         <View style={s.card}>
+          <GlassFill />
           {rules.length === 0 ? (
             <Text style={s.emptyRules}>No rules yet — tap New to arm one.</Text>
           ) : (
@@ -347,9 +352,9 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
             </>
           ) : null}
 
-          <PressScale style={[s.saveBtn, !valid && { opacity: 0.5 }]} onPress={save}>
+          <GlossButton onPress={save} style={{ marginTop: 22, opacity: valid ? 1 : 0.5 }}>
             <Text style={s.saveText}>Add rule</Text>
-          </PressScale>
+          </GlossButton>
         </ScrollView>
       </DragSheet>
 
@@ -407,7 +412,7 @@ const s = StyleSheet.create({
   opBadgeText: { color: colors.accentGlow, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   sub: { color: colors.fgMuted, fontSize: 13, marginTop: 6 },
 
-  killRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, backgroundColor: colors.bgRaised, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12 },
+  killRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 14, paddingVertical: 12 },
   killRowOn: { borderColor: colors.bear + '66', backgroundColor: colors.bearSoft },
 
   sectionLabel: { color: colors.fgSecondary, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 22, marginBottom: 9 },
@@ -415,7 +420,7 @@ const s = StyleSheet.create({
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: 11, paddingVertical: 6, marginTop: 16 },
   addText: { color: colors.accentGlow, fontSize: 12, fontWeight: '700' },
 
-  card: { backgroundColor: colors.bgRaised, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14 },
+  card: { borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 13 },
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   rowIcon: { width: 28, alignItems: 'center' },
