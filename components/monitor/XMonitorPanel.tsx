@@ -1,10 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Loader2, Sparkles, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { ArrowUpRight, BadgeCheck, Loader2, MessageCircle, Quote, Repeat2, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
 import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import { isUiDemoMode } from '@/lib/dev/uiDemoMode';
+import {
+  makeDemoStreamRow,
+  seedDemoStream,
+  type DemoEvent,
+  type DemoPlatform,
+  type DemoStreamFields,
+} from '@/lib/dev/xMonitorDemoStream';
 import {
   tweetInputFromAlertPayload,
   type TwitterListenAlertPayload,
@@ -34,123 +41,7 @@ type ListenRow = {
   subject: string;
   payload: TwitterListenAlertPayload;
   isMock: boolean;
-};
-
-const MOCK_ROWS: ListenRow[] = [
-  {
-    alertId: 'ux-mock-twitter-1',
-    createdAt: new Date(Date.now() - 1 * 60_000).toISOString(),
-    subject: 'demo-1',
-    isMock: true,
-    payload: {
-      handle: 'elonmusk',
-      tweetText: 'Introducing Grok 4.5 — our most capable model yet. Built different.',
-      tweetUrl: 'https://x.com/i/web/status/1234567890123456789',
-      execution: 'notify',
-    },
-    tweet: {
-      id: '1234567890123456789',
-      authorHandle: 'elonmusk',
-      text: 'Introducing Grok 4.5 — our most capable model yet. Built different.',
-      tweetUrl: 'https://x.com/i/web/status/1234567890123456789',
-    },
-  },
-  {
-    alertId: 'ux-mock-twitter-auto',
-    createdAt: new Date(Date.now() - 2 * 60_000).toISOString(),
-    subject: 'demo-auto',
-    isMock: true,
-    payload: {
-      handle: 'a1lon9',
-      tweetText: 'wif hat but for the AI era. deploying this myself. wagmi',
-      tweetUrl: 'https://x.com/i/web/status/1111111111111111111',
-      execution: 'auto_launch',
-      requestedExecution: 'auto_launch',
-    },
-    tweet: {
-      id: '1111111111111111111',
-      authorHandle: 'a1lon9',
-      text: 'wif hat but for the AI era. deploying this myself. wagmi',
-      tweetUrl: 'https://x.com/i/web/status/1111111111111111111',
-    },
-  },
-  {
-    alertId: 'ux-mock-twitter-2',
-    createdAt: new Date(Date.now() - 8 * 60_000).toISOString(),
-    subject: 'demo-2',
-    isMock: true,
-    payload: {
-      handle: 'sol_whale_demo',
-      tweetText: 'New meta just dropped. $WHALE launching on pump today 🐋',
-      tweetUrl: 'https://x.com/i/web/status/9876543210987654321',
-      mint: 'So11111111111111111111111111111111111111112',
-      execution: 'auto_buy',
-      autoHeldReason: 'preview_only',
-    },
-    tweet: {
-      id: '9876543210987654321',
-      authorHandle: 'sol_whale_demo',
-      text: 'New meta just dropped. $WHALE launching on pump today 🐋',
-      tweetUrl: 'https://x.com/i/web/status/9876543210987654321',
-    },
-  },
-  {
-    alertId: 'ux-mock-twitter-3',
-    createdAt: new Date(Date.now() - 14 * 60_000).toISOString(),
-    subject: 'demo-3',
-    isMock: true,
-    payload: {
-      handle: 'kol_demo',
-      tweetText: 'This chart is sending it. Someone should tokenize this moment.',
-      coverImageUrl: 'https://picsum.photos/seed/pointer-demo-cover/96/96',
-      execution: 'notify',
-    },
-    tweet: {
-      authorHandle: 'kol_demo',
-      text: 'This chart is sending it. Someone should tokenize this moment.',
-      imageUrls: ['https://picsum.photos/seed/pointer-demo-cover/96/96'],
-    },
-  },
-  {
-    alertId: 'ux-mock-twitter-4',
-    createdAt: new Date(Date.now() - 21 * 60_000).toISOString(),
-    subject: 'demo-4',
-    isMock: true,
-    payload: {
-      handle: 'realDonaldTrump',
-      tweetText:
-        'The United Saints of America is the #1 song in the Country. A GREAT anthem for America 250. Everyone should listen!',
-      tweetUrl: 'https://x.com/i/web/status/2222222222222222222',
-      execution: 'notify',
-    },
-    tweet: {
-      id: '2222222222222222222',
-      authorHandle: 'realDonaldTrump',
-      text:
-        'The United Saints of America is the #1 song in the Country. A GREAT anthem for America 250. Everyone should listen!',
-      tweetUrl: 'https://x.com/i/web/status/2222222222222222222',
-    },
-  },
-  {
-    alertId: 'ux-mock-twitter-5',
-    createdAt: new Date(Date.now() - 34 * 60_000).toISOString(),
-    subject: 'demo-5',
-    isMock: true,
-    payload: {
-      handle: 'frankdegods',
-      tweetText: 'CA: 7xKq...pump — aping a bag, might be nothing. NFA.',
-      tweetUrl: 'https://x.com/i/web/status/3333333333333333333',
-      mint: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-      execution: 'notify',
-    },
-    tweet: {
-      id: '3333333333333333333',
-      authorHandle: 'frankdegods',
-      text: 'CA: 7xKq...pump — aping a bag, might be nothing. NFA.',
-      tweetUrl: 'https://x.com/i/web/status/3333333333333333333',
-    },
-  },
-];
+} & Partial<DemoStreamFields>;
 
 function formatListenAge(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -161,6 +52,50 @@ function formatListenAge(iso: string): string {
   const h = Math.floor(min / 60);
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
+}
+
+const PLATFORM_LABEL: Record<DemoPlatform, string> = {
+  x: 'X',
+  truth: 'Truth Social',
+  instagram: 'Instagram',
+};
+
+/** J7-style event line: "replied to @x" / "posted on Truth Social" / "followed @x". */
+function eventLine(row: ListenRow): { verb: string; target: string | null } | null {
+  if (!row.eventType) return null;
+  const target = row.targetHandle ? `@${row.targetHandle}` : null;
+  switch (row.eventType) {
+    case 'posted':
+      return { verb: row.platform && row.platform !== 'x' ? `posted on ${PLATFORM_LABEL[row.platform]}` : 'posted', target: null };
+    case 'replied':
+      return { verb: 'replied to', target };
+    case 'quoted':
+      return { verb: 'quoted', target };
+    case 'retweeted':
+      return { verb: 'retweeted', target };
+    case 'followed':
+      return { verb: 'followed', target };
+    case 'deleted':
+      return { verb: 'deleted a post', target: null };
+    default:
+      return null;
+  }
+}
+
+function EventIcon({ type }: { type: DemoEvent }) {
+  const cls = 'h-3 w-3 shrink-0';
+  if (type === 'replied') return <MessageCircle className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'quoted') return <Quote className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'retweeted') return <Repeat2 className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'followed') return <UserPlus className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'deleted') return <Trash2 className={cls} strokeWidth={2} aria-hidden />;
+  return <ArrowUpRight className={cls} strokeWidth={2} aria-hidden />;
+}
+
+function fmtCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
 }
 
 function alertToListenRow(a: AlertsTickerItem): ListenRow | null {
@@ -280,10 +215,31 @@ export function XMonitorPanel({
   // affects this session/tab; always clearly badged "Preview" + per-row "sample".
   const [localSamples, setLocalSamples] = useState(false);
   const showDemo = uiDemo || localSamples;
+
+  // Streaming preview: while demo is on, fake events arrive on an interval so the
+  // operator can watch real feed behavior (new cards prepend, pause-on-hover,
+  // suggestions). Never runs for live data — real events flow via serverRows.
+  const [streamRows, setStreamRows] = useState<ListenRow[]>([]);
+  const seqRef = useRef(1000);
+  useEffect(() => {
+    if (!showDemo || activeChain !== 'sol') {
+      setStreamRows([]);
+      return;
+    }
+    setStreamRows(seedDemoStream(Date.now()));
+    const id = window.setInterval(() => {
+      setStreamRows((prev) => {
+        const seq = seqRef.current++;
+        return [makeDemoStreamRow(seq, seq, Date.now()), ...prev].slice(0, 30);
+      });
+    }, 5500);
+    return () => window.clearInterval(id);
+  }, [showDemo, activeChain]);
+
   const { rows, mock, banner } = useMemo(() => {
     if (activeChain !== 'sol') {
       return {
-        rows: showDemo ? MOCK_ROWS : [],
+        rows: showDemo ? streamRows : [],
         mock: showDemo,
         banner: 'Live X listens are Solana-only — switch chain to SOL.',
       };
@@ -291,15 +247,15 @@ export function XMonitorPanel({
     if (serverRows.length === 0) {
       /** Live mode: honest empty feed — samples only when explicitly previewed. */
       return {
-        rows: showDemo ? MOCK_ROWS : [],
+        rows: showDemo ? streamRows : [],
         mock: showDemo,
         banner: showDemo
-          ? 'Preview — sample data, not live. Add @ rules in the Rules tab.'
+          ? 'Preview — sample data streaming in, not live. Add @ rules in the Rules tab.'
           : 'No live hits yet. Add @ rules in the Rules tab to start monitoring.',
       };
     }
     return { rows: serverRows, mock: false, banner: null as string | null };
-  }, [activeChain, serverRows, showDemo]);
+  }, [activeChain, serverRows, showDemo, streamRows]);
 
   const tweets = useMemo(() => rows.map((r) => r.tweet), [rows]);
   const {
@@ -449,13 +405,19 @@ export function XMonitorPanel({
                 const isAutoLaunch =
                   row.payload.requestedExecution === 'auto_launch' ||
                   row.payload.execution === 'auto_launch';
+                const isDeleted = row.eventType === 'deleted';
+                const ev = eventLine(row);
 
                 return (
                   <li
                     key={row.alertId}
                     className={cn(
                       'group flex items-stretch gap-0 transition-colors hover:bg-white/[0.02]',
-                      row.isMock && 'bg-bg-sunken/20',
+                      row.isMock && !isDeleted && 'bg-bg-sunken/20',
+                      // Deleted events read red + striped (J7); platform accent otherwise.
+                      isDeleted && 'bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.06)_0_10px,transparent_10px_20px)]',
+                      row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.03]',
+                      row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.03]',
                     )}
                   >
                     {/* Left vertical outlined LAUNCH rail (Terminal-style) */}
@@ -490,36 +452,93 @@ export function XMonitorPanel({
                     </button>
 
                     <div className="min-w-0 flex-1 px-3 py-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-[11px] font-bold text-fg-secondary">
                           {handleInitial(row.tweet.authorHandle)}
                         </div>
-                        <span className="truncate text-[12px] font-semibold text-fg-primary">
-                          @{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}
-                        </span>
-                        <span className="shrink-0 text-[10px] tabular-nums text-fg-muted/80">
-                          · {formatListenAge(row.createdAt)}
-                        </span>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate text-[12px] font-semibold text-fg-primary">
+                              {row.displayName ?? `@${(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}`}
+                            </span>
+                            {row.verified ? (
+                              <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-sky-400" strokeWidth={2} aria-hidden />
+                            ) : null}
+                            {row.platform && row.platform !== 'x' ? (
+                              <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[8px] font-semibold uppercase text-fg-muted">
+                                {PLATFORM_LABEL[row.platform]}
+                              </span>
+                            ) : null}
+                            <span className="shrink-0 text-[10px] tabular-nums text-fg-muted/80">
+                              · {formatListenAge(row.createdAt)}
+                            </span>
+                          </div>
+                          {row.displayName ? (
+                            <div className="flex items-center gap-1.5 text-[10px] text-fg-muted">
+                              <span className="truncate">@{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}</span>
+                              {row.followers ? (
+                                <span className="shrink-0 tabular-nums">· {fmtCount(row.followers)} followers</span>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                         {row.payload.execution === 'auto_buy' ? (
-                          <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[9px] font-semibold text-fg-muted">
+                          <span className="shrink-0 self-start rounded-sm bg-white/[0.06] px-1 py-px text-[9px] font-semibold text-fg-muted">
                             auto_buy
                           </span>
                         ) : null}
                         {isAutoLaunch ? (
-                          <span className="shrink-0 rounded-sm bg-accent-primary/12 px-1 py-px text-[9px] font-semibold text-accent-primary">
+                          <span className="shrink-0 self-start rounded-sm bg-accent-primary/12 px-1 py-px text-[9px] font-semibold text-accent-primary">
                             auto_launch
                           </span>
                         ) : null}
                         {row.isMock ? (
-                          <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[9px] text-fg-muted">
+                          <span className="shrink-0 self-start rounded-sm bg-white/[0.06] px-1 py-px text-[9px] text-fg-muted">
                             sample
                           </span>
                         ) : null}
                       </div>
 
-                      <p className="mt-1.5 text-[12px] leading-snug text-fg-primary/95">
-                        {row.tweet.text}
-                      </p>
+                      {ev ? (
+                        <div
+                          className={cn(
+                            'mt-1 flex items-center gap-1 text-[11px]',
+                            isDeleted ? 'text-signal-bear' : 'text-fg-muted',
+                          )}
+                        >
+                          {row.eventType ? <EventIcon type={row.eventType} /> : null}
+                          <span className="truncate">
+                            <span className="text-fg-secondary">
+                              @{(row.tweet.authorHandle ?? '').replace(/^@/, '')}
+                            </span>{' '}
+                            {ev.verb}
+                            {ev.target ? <span className="text-accent-primary"> {ev.target}</span> : null}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {row.tweet.text ? (
+                        <p
+                          className={cn(
+                            'mt-1.5 text-[12px] leading-snug',
+                            isDeleted
+                              ? 'text-fg-muted line-through decoration-signal-bear/50'
+                              : 'text-fg-primary/95',
+                          )}
+                        >
+                          {row.tweet.text}
+                        </p>
+                      ) : null}
+
+                      {row.quoted ? (
+                        <div className="mt-1.5 rounded-md border-l-2 border-white/[0.12] bg-white/[0.02] px-2.5 py-1.5">
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <span className="font-semibold text-fg-secondary">{row.quoted.name}</span>
+                            <span className="text-fg-muted">@{row.quoted.handle}</span>
+                          </div>
+                          <p className="mt-0.5 text-[11px] leading-snug text-fg-muted">{row.quoted.text}</p>
+                        </div>
+                      ) : null}
 
                       {image ? <TweetMediaImage src={image} /> : null}
 
@@ -532,7 +551,46 @@ export function XMonitorPanel({
                         </Link>
                       ) : null}
 
-                      {pkg?.shouldLaunch ? (
+                      {row.suggestions?.length ? (
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
+                            <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
+                            Suggestions
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {row.suggestions.map((s, i) => (
+                              <div
+                                key={`${row.subject}-s${i}`}
+                                className="flex items-stretch overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.03]"
+                              >
+                                <div className="flex w-7 shrink-0 items-center justify-center bg-white/[0.04] text-[9px] font-bold text-fg-muted">
+                                  {s.ticker.replace(/^\$/, '').slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="min-w-0 px-2 py-1">
+                                  <div className="truncate text-[10px] font-semibold text-fg-primary">{s.name}</div>
+                                  <div className="truncate text-[9px] text-fg-muted">${s.ticker.replace(/^\$/, '')}</div>
+                                </div>
+                                <div className="flex flex-col border-l border-white/[0.08]">
+                                  <button
+                                    type="button"
+                                    title="Edit and focus name"
+                                    className="flex flex-1 items-center justify-center px-1.5 text-[9px] font-bold text-fg-muted transition hover:bg-accent-primary/15 hover:text-accent-primary"
+                                  >
+                                    N
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Edit and focus ticker"
+                                    className="flex flex-1 items-center justify-center border-t border-white/[0.08] px-1.5 text-[9px] font-bold text-fg-muted transition hover:bg-accent-primary/15 hover:text-accent-primary"
+                                  >
+                                    T
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : pkg?.shouldLaunch ? (
                         <div className="mt-2 space-y-1.5">
                           <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
                             <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
