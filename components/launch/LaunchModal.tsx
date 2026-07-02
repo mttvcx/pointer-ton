@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Rocket, X } from 'lucide-react';
+import { BadgePercent, Layers, ListChecks, Rocket, Split, Users, X, Zap } from 'lucide-react';
 import {
   LAUNCH_PACKAGE_LAUNCHPADS,
   type LaunchPackageLaunchpad,
@@ -13,7 +13,7 @@ import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMot
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
-import { useLaunchModalStore } from '@/store/launchModal';
+import { DEFAULT_LAUNCH_FEATURES, useLaunchModalStore, type LaunchFeatures } from '@/store/launchModal';
 
 export function LaunchModal() {
   const open = useLaunchModalStore((s) => s.open);
@@ -259,6 +259,13 @@ export function LaunchModal() {
             </div>
           </label>
 
+          <DeployFeatures
+            features={draft.features ?? DEFAULT_LAUNCH_FEATURES}
+            onChange={(patch) =>
+              patchDraft({ features: { ...(draft.features ?? DEFAULT_LAUNCH_FEATURES), ...patch } })
+            }
+          />
+
           {draft.reasoning ? (
             <p className="rounded-sm border border-accent-primary/20 bg-accent-primary/8 px-2.5 py-2 text-[10px] leading-snug text-fg-secondary">
               <span className="font-semibold text-accent-primary">
@@ -285,6 +292,169 @@ export function LaunchModal() {
             Default dev buy {defaultBuySol} SOL · toggle AI launcher in X monitor
           </p>
         </footer>
+      </div>
+    </div>
+  );
+}
+
+/** Small pill toggle used inside the feature cards. */
+function FeatureToggle({ on }: { on: boolean }) {
+  return (
+    <span
+      className={cn(
+        'relative h-4 w-7 shrink-0 rounded-full transition-colors',
+        on ? 'bg-accent-primary/80' : 'bg-white/[0.14]',
+      )}
+    >
+      <span
+        className={cn(
+          'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform',
+          on ? 'translate-x-[14px]' : 'translate-x-0.5',
+        )}
+      />
+    </span>
+  );
+}
+
+function Stepper({
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-sm border border-white/[0.1] bg-bg-sunken px-1">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, value - 1))}
+        className="btn-press px-1.5 text-[13px] font-bold text-fg-muted hover:text-fg-primary"
+      >
+        −
+      </button>
+      <span className="w-4 text-center text-[12px] font-semibold tabular-nums text-fg-primary">{value}</span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(max, value + 1))}
+        className="btn-press px-1.5 text-[13px] font-bold text-fg-muted hover:text-fg-primary"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+type FeatureDef = {
+  key: keyof LaunchFeatures;
+  label: string;
+  desc: string;
+  icon: typeof Zap;
+};
+
+const FEATURE_DEFS: FeatureDef[] = [
+  { key: 'cashback', label: 'Cashback', desc: '50% of creator fees back to you', icon: BadgePercent },
+  { key: 'mayhem', label: 'Mayhem', desc: 'Aggressive volume + auto-boosts', icon: Zap },
+  { key: 'tasks', label: 'Tasks', desc: 'Attach community quests to the page', icon: ListChecks },
+  { key: 'feeSplit', label: 'Fee split', desc: 'Route a share of fees to a wallet', icon: Split },
+  { key: 'multi', label: 'Multi-wallet', desc: 'Spread the dev buy for organic look', icon: Users },
+  { key: 'bundle', label: 'Bundle', desc: 'Jito-bundle the buy · anti-snipe', icon: Layers },
+];
+
+function DeployFeatures({
+  features,
+  onChange,
+}: {
+  features: LaunchFeatures;
+  onChange: (patch: Partial<LaunchFeatures>) => void;
+}) {
+  return (
+    <div>
+      <span className="mb-1.5 block text-[10px] font-medium text-fg-muted">Advanced</span>
+      <div className="grid grid-cols-2 gap-1.5">
+        {FEATURE_DEFS.map((f) => {
+          const on = Boolean(features[f.key]);
+          const Icon = f.icon;
+          return (
+            <div
+              key={f.key}
+              className={cn(
+                'rounded-sm border transition-colors',
+                on ? 'border-accent-primary/40 bg-accent-primary/[0.07]' : 'border-border-subtle bg-bg-sunken/40',
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => onChange({ [f.key]: !on } as Partial<LaunchFeatures>)}
+                className="flex w-full items-center gap-2 px-2 py-2 text-left"
+              >
+                <span
+                  className={cn(
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-sm',
+                    on ? 'bg-accent-primary/20 text-accent-primary' : 'bg-white/[0.05] text-fg-muted',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[11px] font-semibold text-fg-primary">{f.label}</span>
+                  <span className="block truncate text-[9.5px] leading-tight text-fg-muted">{f.desc}</span>
+                </span>
+                <FeatureToggle on={on} />
+              </button>
+
+              {on && f.key === 'feeSplit' ? (
+                <div className="space-y-1.5 border-t border-white/[0.06] px-2 py-2">
+                  <input
+                    value={features.feeSplitWallet}
+                    onChange={(e) => onChange({ feeSplitWallet: e.target.value.trim() })}
+                    placeholder="Wallet address"
+                    className="w-full rounded-sm border border-white/[0.08] bg-bg-sunken px-2 py-1 font-mono text-[10px] text-fg-primary outline-none focus:border-accent-primary/40"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-fg-muted">Split {features.feeSplitPct}%</span>
+                    <input
+                      type="range"
+                      min={5}
+                      max={95}
+                      step={5}
+                      value={features.feeSplitPct}
+                      onChange={(e) => onChange({ feeSplitPct: Number(e.target.value) })}
+                      className="h-1 flex-1 accent-accent-primary"
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {on && f.key === 'multi' ? (
+                <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] px-2 py-2">
+                  <span className="text-[10px] text-fg-muted">Wallets</span>
+                  <Stepper
+                    value={features.multiWallets}
+                    min={2}
+                    max={20}
+                    onChange={(n) => onChange({ multiWallets: n })}
+                  />
+                </div>
+              ) : null}
+
+              {on && f.key === 'bundle' ? (
+                <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] px-2 py-2">
+                  <span className="text-[10px] text-fg-muted">Bundle wallets</span>
+                  <Stepper
+                    value={features.bundleWallets}
+                    min={2}
+                    max={20}
+                    onChange={(n) => onChange({ bundleWallets: n })}
+                  />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
