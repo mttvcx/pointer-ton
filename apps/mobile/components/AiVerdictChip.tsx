@@ -121,53 +121,39 @@ export function AiVerdictChip({ bundle, expandable = true }: { bundle: PulseBund
         {expandable ? <Text style={[s.why, { color: m.fg }]}>{open ? 'Hide' : 'Why?'}</Text> : null}
       </Pressable>
 
-      <Reveal open={open}>
-        <View style={s.detail}>
-          <GlassFill />
-          <Text style={s.summary}>{d.summary}</Text>
-          {d.riskFlags.length ? <Section title="Risk flags" items={d.riskFlags} color={colors.bear} /> : null}
-          {d.bullCase.length ? <Section title="Bull case" items={d.bullCase} color={colors.bull} /> : null}
-          {d.bearCase.length ? <Section title="Bear case" items={d.bearCase} color={colors.fgSecondary} /> : null}
-        </View>
-      </Reveal>
+      {open ? (
+        <AiReveal>
+          <View style={s.detail}>
+            <GlassFill />
+            <Text style={s.summary}>{d.summary}</Text>
+            {d.riskFlags.length ? <Section title="Risk flags" items={d.riskFlags} color={colors.bear} /> : null}
+            {d.bullCase.length ? <Section title="Bull case" items={d.bullCase} color={colors.bull} /> : null}
+            {d.bearCase.length ? <Section title="Bear case" items={d.bearCase} color={colors.fgSecondary} /> : null}
+          </View>
+        </AiReveal>
+      ) : null}
     </View>
   );
 }
 
 /**
- * Height + fade reveal. Measures the content once (hidden), then animates height
- * 0 ⇆ measured and opacity 0 ⇆ 1 whenever `open` flips. Height is a layout prop so
- * this runs on the JS thread, but it's a single short one-shot per token — smooth
- * even in Expo Go, and it makes the AI read "unfold" instead of popping in.
+ * Fade + slight slide-in when the AI read appears (native driver → smooth even in
+ * Expo Go). Mount-based so it's dead simple and never gets stuck: the detail is
+ * conditionally rendered, and this just animates its entrance.
  */
-function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
-  const [measured, setMeasured] = useState(0);
+function AiReveal({ children }: { children: React.ReactNode }) {
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (!measured) return;
-    Animated.timing(anim, {
-      toValue: open ? 1 : 0,
-      duration: open ? 360 : 200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [open, measured, anim]);
+    Animated.timing(anim, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [anim]);
   return (
     <Animated.View
       style={{
-        height: measured ? anim.interpolate({ inputRange: [0, 1], outputRange: [0, measured] }) : 0,
-        opacity: measured ? anim : 0,
-        overflow: 'hidden',
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-5, 0] }) }],
       }}
     >
-      <View
-        onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          if (h && Math.abs(h - measured) > 0.5) setMeasured(h);
-        }}
-      >
-        {children}
-      </View>
+      {children}
     </Animated.View>
   );
 }
