@@ -16,7 +16,11 @@ export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1' || !PRIVY_APP_ID;
 export type AuthState = {
   ready: boolean;
   isLoggedIn: boolean;
+  /** Embedded Solana wallet address (for SOL tokens). */
   walletAddress: string | null;
+  /** Embedded EVM wallet address (for ETH / Base / BNB tokens). Both are created
+   *  automatically at signup so the one account trades on every chain. */
+  evmAddress: string | null;
   demo: boolean;
   getToken: () => Promise<string | null>;
   sendCode: (email: string) => Promise<void>;
@@ -51,6 +55,7 @@ function DemoAuthProvider({ children }: { children: React.ReactNode }) {
     ready: true,
     isLoggedIn: true,
     walletAddress: 'Demo1111111111111111111111111111111111111111',
+    evmAddress: '0xDeM00000000000000000000000000000000000000',
     demo: true,
     getToken: async () => null,
     sendCode: async () => {},
