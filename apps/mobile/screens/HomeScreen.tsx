@@ -54,6 +54,13 @@ function fmtBalance(v: number | null): { dollars: string; cents: string } {
   return { dollars: groupInt(dollars), cents: String(cents).padStart(2, '0') };
 }
 
+/** "+3,328.67%" → the trade multiple ("34x" / "1.9x") — our depth-first framing. */
+function multStr(w: WeeklyTrade): string {
+  const pct = Number(w.pnlPct.replace(/[^0-9.-]/g, '')) || 0;
+  const m = 1 + pct / 100;
+  return m >= 10 ? `${Math.round(m)}x` : `${m.toFixed(1)}x`;
+}
+
 export function HomeScreen({
   onOpenToken,
   advanced,
@@ -200,27 +207,70 @@ function SimpleHome({
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleed}>
-          {WEEKLY.map((w) => (
-            <PressScale key={w.name} onPress={() => setTrade(w)} to={0.97} style={s.weekCard}>
+        {WEEKLY.length ? (
+          <View style={[s.pad, { marginTop: 2 }]}>
+            {/* Hero — Trade of the Week (lead with the multiple, our depth angle) */}
+            <PressScale onPress={() => setTrade(WEEKLY[0])} to={0.98} style={s.wHero}>
               <GlassFill />
-              <View style={s.weekTop}>
-                <View style={[s.weekAvatar, { backgroundColor: w.color }]}>
-                  <Text style={s.weekInitial}>{w.initial}</Text>
+              <View style={s.wHeroHead}>
+                <View style={s.wHeroTag}>
+                  <Ionicons name="flame" size={12} color={colors.accentGlow} />
+                  <Text style={s.wHeroTagText}>Trade of the week</Text>
                 </View>
-                <Text style={s.weekName} numberOfLines={1}>
-                  {w.name}
+                <View style={s.wTokenRow}>
+                  <View style={[s.wTokenBadge, { backgroundColor: WEEKLY[0].tokenColor }]}>
+                    <Text style={s.wTokenText}>{WEEKLY[0].tokenInitial}</Text>
+                  </View>
+                  <Text style={s.wTokenSym}>{WEEKLY[0].token}</Text>
+                </View>
+              </View>
+              <View style={s.wHeroMid}>
+                <Text style={s.wMult}>{multStr(WEEKLY[0])}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={s.wAmt}>{WEEKLY[0].amt}</Text>
+                  <Text style={s.wEntry}>
+                    {WEEKLY[0].avgEntry} → {WEEKLY[0].avgExit}
+                  </Text>
+                </View>
+              </View>
+              <View style={s.wHeroFoot}>
+                <View style={[s.wAvatar, { backgroundColor: WEEKLY[0].color }]}>
+                  <Text style={s.wInitial}>{WEEKLY[0].initial}</Text>
+                </View>
+                <Text style={s.wName} numberOfLines={1}>
+                  {WEEKLY[0].name}
+                </Text>
+                <Text style={s.wThesis} numberOfLines={1}>
+                  {WEEKLY[0].thesis}
                 </Text>
               </View>
-              <View style={s.weekBottom}>
-                <View style={[s.weekToken, { backgroundColor: w.tokenColor }]}>
-                  <Text style={s.weekTokenText}>{w.tokenInitial}</Text>
-                </View>
-                <Text style={s.weekAmt}>{w.amt}</Text>
-              </View>
             </PressScale>
-          ))}
-        </ScrollView>
+
+            {/* Ranked #2..#5 */}
+            {WEEKLY.slice(1, 5).map((w, i) => (
+              <PressScale key={w.name} onPress={() => setTrade(w)} to={0.99} style={s.wRow}>
+                <GlassFill />
+                <Text style={s.wRank}>{i + 2}</Text>
+                <View style={[s.wAvatar, { backgroundColor: w.color }]}>
+                  <Text style={s.wInitial}>{w.initial}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.wRowName} numberOfLines={1}>
+                    {w.name}
+                  </Text>
+                  <View style={s.wRowTokenLine}>
+                    <View style={[s.wTokenDot, { backgroundColor: w.tokenColor }]} />
+                    <Text style={s.wRowToken}>{w.token}</Text>
+                  </View>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={s.wRowMult}>{multStr(w)}</Text>
+                  <Text style={s.wRowAmt}>{w.amt}</Text>
+                </View>
+              </PressScale>
+            ))}
+          </View>
+        ) : null}
 
         {isPerps ? (
           <View style={s.pad}>
@@ -357,6 +407,34 @@ const s = StyleSheet.create({
   cents: { color: colors.fgFaint, fontSize: 46, fontWeight: '600' },
   sub: { color: colors.fgFaint, fontSize: 13, marginTop: 6 },
   cashLine: { color: colors.accentGlow, fontSize: 12.5, fontWeight: '600', marginTop: 6 },
+
+  // Weekly Top Trades — hero + ranked list (our own layout, not FOMO's carousel).
+  wHero: { borderRadius: radius.lg, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.accent + '3D' },
+  wHeroHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  wHeroTag: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
+  wHeroTagText: { color: colors.accentGlow, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.3 },
+  wTokenRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  wTokenBadge: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  wTokenText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  wTokenSym: { color: colors.fg, fontSize: 14, fontWeight: '700' },
+  wHeroMid: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 14 },
+  wMult: { color: colors.accentGlow, fontSize: 46, fontWeight: '800', letterSpacing: -1.5 },
+  wAmt: { color: colors.bull, fontSize: 18, fontWeight: '800' },
+  wEntry: { color: colors.fgMuted, fontSize: 12.5, marginTop: 2 },
+  wHeroFoot: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  wAvatar: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  wInitial: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  wName: { color: colors.fg, fontSize: 14, fontWeight: '700' },
+  wThesis: { color: colors.fgMuted, fontSize: 12.5, flex: 1, textAlign: 'right' },
+
+  wRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 12, marginTop: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  wRank: { color: colors.fgFaint, fontSize: 14, fontWeight: '800', width: 16, textAlign: 'center' },
+  wRowName: { color: colors.fg, fontSize: 15, fontWeight: '700' },
+  wRowTokenLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  wTokenDot: { width: 12, height: 12, borderRadius: 6 },
+  wRowToken: { color: colors.fgMuted, fontSize: 13 },
+  wRowMult: { color: colors.accentGlow, fontSize: 17, fontWeight: '800' },
+  wRowAmt: { color: colors.bull, fontSize: 13, fontWeight: '600', marginTop: 1 },
   depositWrap: { borderRadius: 15, shadowColor: colors.accent, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
   deposit: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 15, paddingVertical: 14, paddingHorizontal: 20, overflow: 'hidden', backgroundColor: colors.accent },
   depositSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '62%' },
