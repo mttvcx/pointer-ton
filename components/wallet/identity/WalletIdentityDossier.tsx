@@ -9,6 +9,8 @@ import { explorerAddressUrl, shortenAddress } from '@/lib/utils/addresses';
 import { formatCompactUsd, formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import type { MockWideStatsShape } from '@/lib/walletIdentity/mockWalletWideStats';
 import { WalletIdentityBadges } from '@/components/wallet/identity/WalletIdentityBadges';
+import { TopHolderPills } from '@/components/wallet/identity/TopHolderCredentials';
+import type { TopHolderCredential } from '@/lib/walletIdentity/topHolder';
 import { cn } from '@/lib/utils/cn';
 import { labelColorClass } from '@/lib/hooks/useWalletLabels';
 import {
@@ -58,6 +60,7 @@ export function WalletIdentityDossier({
   tokenCtx,
   mintStats,
   wide,
+  topHoldings = [],
   onTrack,
   onLabel,
 }: {
@@ -65,6 +68,7 @@ export function WalletIdentityDossier({
   tokenCtx: WalletTokenContextView | null;
   mintStats: TraderMintHoverStats | null | undefined;
   wide?: MockWideStatsShape | null;
+  topHoldings?: TopHolderCredential[];
   onTrack: () => void;
   onLabel: () => void;
 }) {
@@ -163,6 +167,13 @@ export function WalletIdentityDossier({
             </button>
           </div>
         </div>
+
+        {topHoldings.length > 0 ? (
+          <div>
+            <p className={modalSectionLabelClass}>Top Holder</p>
+            <TopHolderPills credentials={topHoldings} className="mt-1" />
+          </div>
+        ) : null}
 
         {tokenCtx ? (
           <div className="rounded-md border border-border-subtle bg-bg-sunken px-2.5 py-2">
