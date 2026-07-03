@@ -10,6 +10,9 @@ import { Sparkline } from './Sparkline';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
+import { setCardFrozen, setCardInWallet } from '../src/financial/store';
+import { addToApplePay } from '../src/financial/wallet';
+import type { CardInfo } from '../src/financial/types';
 import type { CapitalModel, CapitalStates, StateKey } from '../src/demo/capital';
 
 // Presentational meta for the four states (label + accent), mirrors the screen.
@@ -68,9 +71,32 @@ function Note({ children }: { children: React.ReactNode }) {
 
 /* ── Card ────────────────────────────────────────────────── */
 
-export function CardSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }) {
-  const [frozen, setFrozen] = useState(false);
+export function CardSheet({ m, card, onClose }: { m: CapitalModel; card?: CardInfo | null; onClose: () => void }) {
+  const [frozen, setFrozen] = useState(card?.state === 'frozen');
+  const [inWallet, setInWallet] = useState(!!card?.inWallet);
+  const [adding, setAdding] = useState(false);
   const swipes = useMemo(() => m.activity.filter((a) => a.kind === 'swipe'), [m.activity]);
+  const last4 = card?.last4 ?? m.cardLast4;
+  const limit = card?.monthlyLimit ?? m.cardSpendLimit;
+
+  const toggleFreeze = (v: boolean) => {
+    setFrozen(v);
+    setCardFrozen(v);
+  };
+  const addWallet = async () => {
+    if (inWallet) return;
+    setAdding(true);
+    const r = await addToApplePay();
+    setAdding(false);
+    if (r.ok) {
+      setInWallet(true);
+      setCardInWallet(true);
+      showToast(r.simulated ? 'Added to Apple Pay (demo)' : 'Added to Apple Pay', { kind: 'success' });
+    } else {
+      showToast('Apple Pay setup is coming soon', { kind: 'info' });
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
       <SheetTitle icon="card" tint={colors.brand} kicker="POINTER CARD" title="Your card" />
@@ -82,9 +108,9 @@ export function CardSheet({ m, onClose }: { m: CapitalModel; onClose: () => void
             <Logo size={20} style={{ tintColor: '#fff' }} />
             <Text style={s.cardBrandText}>Pointer</Text>
           </View>
-          <Text style={s.cardVirtual}>{m.cardType}</Text>
+          <Text style={s.cardVirtual}>{frozen ? 'Frozen' : m.cardType}</Text>
         </View>
-        <Text style={s.cardNum}>•••• •••• •••• {m.cardLast4}</Text>
+        <Text style={s.cardNum}>•••• •••• •••• {last4}</Text>
         <View style={s.cardBottom}>
           <Text style={s.cardSpend}>{usd(m.states.spendable)}</Text>
           <Text style={s.cardSpendLabel}>spendable</Text>
@@ -93,9 +119,9 @@ export function CardSheet({ m, onClose }: { m: CapitalModel; onClose: () => void
       {frozen ? <Text style={s.frozenTag}>❄  Card frozen — no new charges</Text> : null}
 
       <View style={s.pillRow}>
-        <PressScale style={s.pill} onPress={() => showToast('Added to Apple Pay', { kind: 'success' })}>
-          <Ionicons name="logo-apple" size={16} color={colors.fg} />
-          <Text style={s.pillText}>Add to Pay</Text>
+        <PressScale style={[s.pill, inWallet && { opacity: 0.6 }]} onPress={addWallet}>
+          <Ionicons name={inWallet ? 'checkmark' : 'logo-apple'} size={16} color={colors.fg} />
+          <Text style={s.pillText}>{adding ? 'Adding…' : inWallet ? 'In Apple Pay' : 'Add to Pay'}</Text>
         </PressScale>
         <PressScale style={s.pill} onPress={() => showToast('Card details are demo-only', { kind: 'info' })}>
           <Ionicons name="eye-outline" size={16} color={colors.fg} />
@@ -104,8 +130,8 @@ export function CardSheet({ m, onClose }: { m: CapitalModel; onClose: () => void
       </View>
 
       <View style={s.group}>
-        <ToggleRow first label="Freeze card" sub="Instantly block new charges" value={frozen} onValueChange={setFrozen} />
-        <Row label="Monthly limit" value={usd(m.cardSpendLimit, 0)} />
+        <ToggleRow first label="Freeze card" sub="Instantly block new charges" value={frozen} onValueChange={toggleFreeze} />
+        <Row label="Monthly limit" value={usd(limit, 0)} />
         <Row label="Funds from" value="Spendable balance" />
       </View>
 

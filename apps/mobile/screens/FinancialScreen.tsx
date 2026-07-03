@@ -12,10 +12,12 @@ import { DepositFlow } from '../components/DepositFlow';
 import { DragSheet } from '../components/DragSheet';
 import { Sparkline } from '../components/Sparkline';
 import { AiSheet, CardSheet, MoveSheet, PointsSheet, TaxSheet, YieldSheet } from '../components/FinancialSheets';
+import { FinancialActivation, FinancialIntro } from './FinancialOnboarding';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
 import { getDemoCapital, type CapitalModel, type FinActivityKind, type StateKey as CapKey } from '../src/demo/capital';
+import { loadFinancialStatus, useFinancial } from '../src/financial/store';
 import type { PulseBundle } from '../src/types';
 
 // The four states of capital — the product's spine.
@@ -93,6 +95,12 @@ const STATE_ACTION: Record<StateKey, Panel | null> = { trading: null, earning: '
 
 export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
+  const fin = useFinancial();
+  const [activating, setActivating] = useState(false);
+  useEffect(() => {
+    loadFinancialStatus();
+  }, []);
+
   // Mutable so moving capital between states visibly rebalances the bar.
   const [m, setM] = useState<CapitalModel>(() => getDemoCapital());
   const moveCapital = (from: CapKey, to: CapKey, amount: number) => {
@@ -131,6 +139,12 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const dollars = Math.floor(shownTotal);
   const cents = String(Math.round((shownTotal - dollars) * 100) % 100).padStart(2, '0');
   const covered = m.taxReserve >= m.taxLiability;
+  const cardLast4 = fin.card?.last4 ?? m.cardLast4;
+  const cardFrozen = fin.card?.state === 'frozen';
+
+  // First-run journey: pitch → activation → funded dashboard.
+  if (activating) return <FinancialActivation onClose={() => setActivating(false)} />;
+  if (fin.status !== 'active') return <FinancialIntro onStart={() => setActivating(true)} />;
 
   return (
     <Screen>
@@ -186,9 +200,9 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Logo size={22} style={{ tintColor: '#fff' }} />
               <Text style={s.cardBrandText}>Pointer</Text>
             </View>
-            <Text style={s.cardVirtual}>Virtual</Text>
+            <Text style={s.cardVirtual}>{cardFrozen ? 'Frozen' : 'Virtual'}</Text>
           </View>
-          <Text style={s.cardNum}>•••• •••• •••• {m.cardLast4}</Text>
+          <Text style={s.cardNum}>•••• •••• •••• {cardLast4}</Text>
           <View style={s.cardBottom}>
             <View>
               <Text style={s.cardSpendLabel}>Spendable</Text>
@@ -309,7 +323,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             }}
           />
         ) : sheet?.panel === 'card' ? (
-          <CardSheet m={m} onClose={closeSheet} />
+          <CardSheet m={m} card={fin.card} onClose={closeSheet} />
         ) : sheet?.panel === 'yield' ? (
           <YieldSheet m={m} onClose={closeSheet} />
         ) : sheet?.panel === 'tax' ? (

@@ -1,0 +1,33 @@
+/**
+ * Client for the Pointer Financial backend facade (`/api/financial/*`). The
+ * backend wraps the card/rails provider (Bridge) behind a key gate: when it isn't
+ * configured yet it replies `{ configured: false }`, and the app stays on the
+ * local simulation. Never throws into the UI — callers treat a throw as
+ * "not configured".
+ */
+import { authToken } from '../auth';
+import { api } from '../api/client';
+import type { CardInfo, FinStatus } from './types';
+
+export type ActivateInput = { legalName: string; country: string; fullKyc: boolean };
+
+type StatusResponse = { configured: boolean; status: FinStatus; card: CardInfo | null };
+type ActivateResponse = { configured: boolean; card: CardInfo | null };
+type ProvisionResponse = {
+  configured: boolean;
+  // Opaque PassKit push-provisioning payload from the issuer, forwarded to the
+  // native add-to-wallet call. Absent when unconfigured / not yet approved.
+  provisioning?: { cardholderName: string; primaryAccountSuffix: string; payload: unknown } | null;
+};
+
+export async function fetchFinancialStatus(): Promise<StatusResponse> {
+  return api<StatusResponse>('/api/financial/status', { token: await authToken() });
+}
+
+export async function activateFinancial(input: ActivateInput): Promise<ActivateResponse> {
+  return api<ActivateResponse>('/api/financial/activate', { token: await authToken(), method: 'POST', body: input });
+}
+
+export async function provisionCard(): Promise<ProvisionResponse> {
+  return api<ProvisionResponse>('/api/financial/card/provision', { token: await authToken(), method: 'POST', body: {} });
+}
