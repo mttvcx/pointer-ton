@@ -3,7 +3,7 @@
 Living status doc for the mobile app on branch **`claude/reverent-mayer-2b1a14`**
 (worktree). If a chat is lost, start here + `git log --oneline` to resume.
 
-_Last updated: 2026-07-03 (mobile caught up on all unblocked work — see "▶ Resume when DB is back")._
+_Last updated: 2026-07-03 (Pointer Financial — Capital Dashboard page shipped; see "Pointer Financial" below)._
 
 ## ▶ Resume when the DB is back (do this first)
 Mobile is **feature-complete for everything that doesn't touch the pending backend.**
@@ -79,6 +79,24 @@ its own liquid-glass identity.
   (swipe-back returns correctly + locked horizontal), clickable trader positions,
   AI verdict auto-opens, perp rows → live detail sheet, referral own-code, share =
   referral invite, **Squads tab** (demo membership).
+
+## Pointer Financial (NEW — the capital layer)
+The financial layer as its own **card-icon nav-island tab** → a **Capital
+Dashboard**, not a banking app. Spec: `docs/POINTER_FINANCIAL.md`. Core model =
+**Four States of Capital: Trading · Earning · Spendable · Reserved — never idle.**
+- `screens/FinancialScreen.tsx` — Total Capital hero, the **four-state segmented
+  bar** (each segment/legend row tappable → a state-detail sheet explaining what's
+  inside it and the trading-context *why*), **Pointer Card** visual + Add-to-Pay,
+  live-ticking **Smart Yield** + APY + sparkline, **tax-reserve** strip, **PTR
+  Points**, an **AI insight**, and a capital **activity** feed.
+- `src/demo/capital.ts` — `getDemoCapital()` deterministic demo model (states,
+  apy, earned, card, points, tax, activity, insights).
+- **Provider choice (users never see names):** Bridge = card + bank rails + ramp,
+  Blend = yield, Crossmint = buys. One-vendor-heavy on purpose (the "how easy it is
+  to start" thesis; distribution is the moat).
+- **Backend-pending** to make it real: virtual-account/card issuance + rails
+  (Bridge), yield sweep (Blend), and surfacing balances through `/api/*`. All demo
+  numbers until then. Card/yield/action buttons currently toast "coming soon".
 
 ## BLOCKED on web backend + DB restore
 The web team confirmed these are all **DB-write features**, blocked until the
