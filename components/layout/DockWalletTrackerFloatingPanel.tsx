@@ -81,6 +81,31 @@ function DockPeekWidthHandle({
   );
 }
 
+function DockPeekHeightHandle({
+  draggingUi,
+  onPointerDown,
+}: {
+  draggingUi: boolean;
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'absolute bottom-0 left-0 right-0 z-20 h-4 cursor-ns-resize',
+        draggingUi ? 'pointer-events-none' : 'group/resizeY',
+      )}
+      style={{ touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+    >
+      <div
+        className="pointer-events-none absolute bottom-[5px] left-[12%] right-[12%] h-px bg-white/0 transition-colors group-hover/resizeY:bg-white/30"
+        aria-hidden
+      />
+      <span className="sr-only">Resize panel height</span>
+    </div>
+  );
+}
+
 /** Center grip — mirrored from Pulse peek */
 function GripDots() {
   return (
@@ -129,7 +154,7 @@ export function DockWalletTrackerFloatingPanel() {
     oh: number;
     startX: number;
     startY: number;
-    axis: 'both' | 'ew';
+    axis: 'both' | 'ew' | 'ns';
   };
   const resizePhaseRef = useRef<ResizePhase | null>(null);
 
@@ -310,6 +335,10 @@ export function DockWalletTrackerFloatingPanel() {
         if (rz.axis === 'ew') {
           const { w: cw } = clampPanelSize(nw, rz.oh);
           transientSizeRef.current = { w: cw, h: rz.oh };
+        } else if (rz.axis === 'ns') {
+          const nh = rz.oh + (e.clientY - rz.startY);
+          const { h: ch } = clampPanelSize(rz.ow, nh);
+          transientSizeRef.current = { w: rz.ow, h: ch };
         } else {
           const nh = rz.oh + (e.clientY - rz.startY);
           const { w: cw, h: ch } = clampPanelSize(nw, nh);
@@ -655,10 +684,31 @@ export function DockWalletTrackerFloatingPanel() {
                 shellRef.current?.setPointerCapture(e.pointerId);
               }}
             />
+            <DockPeekHeightHandle
+              draggingUi={draggingUi}
+              onPointerDown={(e) => {
+                if (draggingUi) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const d = floatDimsFromRefs();
+                resizingRef.current = true;
+                resizePhaseRef.current = {
+                  pointerId: e.pointerId,
+                  ow: d.w,
+                  oh: d.h,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  axis: 'ns',
+                };
+                transientSizeRef.current = { w: d.w, h: d.h };
+                document.body.style.setProperty('user-select', 'none');
+                shellRef.current?.setPointerCapture(e.pointerId);
+              }}
+            />
             <div
               role="separator"
               className={cn(
-                'absolute bottom-0 right-0 z-[5] cursor-nwse-resize rounded-tl-md',
+                'group/corner absolute bottom-0 right-0 z-[21] cursor-nwse-resize rounded-tl-md',
                 draggingUi ? 'pointer-events-none' : '',
               )}
               style={{ touchAction: 'none', width: 20, height: 20 }}
@@ -681,6 +731,11 @@ export function DockWalletTrackerFloatingPanel() {
                 shellRef.current?.setPointerCapture(e.pointerId);
               }}
             >
+              {/* Visible diagonal grip so the corner resize is discoverable. */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute bottom-[3px] right-[3px] h-[8px] w-[8px] rounded-br-[3px] border-b border-r border-white/25 transition-colors group-hover/corner:border-white/55"
+              />
               <span className="sr-only">Resize Tracker panel</span>
             </div>
           </>
