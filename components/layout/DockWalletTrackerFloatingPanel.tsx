@@ -868,13 +868,6 @@ function GroupsTab() {
         onSelectGroup={onSelectGroup}
         className="px-2 py-2"
       />
-      <p className="px-3 pb-3 text-[10px] leading-snug text-fg-muted">
-        Click a group to trade with its wallets. Assign wallets to groups here or in{' '}
-        <Link href="/portfolio?tab=wallets" className="font-semibold text-accent-primary hover:underline">
-          Portfolio → Wallets
-        </Link>
-        .
-      </p>
     </div>
   );
 }

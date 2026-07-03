@@ -637,7 +637,6 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
       <div className="flex shrink-0 items-center justify-between px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
         <span className="inline-flex items-center gap-1.5">
           Tracked wallets
-          {preview ? <span className="rounded bg-white/[0.08] px-1 text-[8.5px] normal-case tracking-normal">sample</span> : null}
         </span>
         <span className="inline-flex items-center gap-1">
           <span className={cn('h-1.5 w-1.5 rounded-full', paused ? 'bg-fg-muted' : 'animate-pulse bg-signal-bull')} />
@@ -654,7 +653,7 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
       />
 
       <div
-        className="min-h-0 flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:thin]"
+        className="min-h-0 flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
