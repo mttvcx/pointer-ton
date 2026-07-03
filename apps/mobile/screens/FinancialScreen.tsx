@@ -11,7 +11,7 @@ import { GlossButton } from '../components/GlossButton';
 import { DepositFlow } from '../components/DepositFlow';
 import { DragSheet } from '../components/DragSheet';
 import { Sparkline } from '../components/Sparkline';
-import { CardSheet, PointsSheet, TaxSheet, YieldSheet } from '../components/FinancialSheets';
+import { AiSheet, CardSheet, PointsSheet, TaxSheet, YieldSheet } from '../components/FinancialSheets';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
@@ -84,7 +84,7 @@ const ACT_ICON: Record<FinActivityKind, React.ComponentProps<typeof Ionicons>['n
   receive: 'arrow-down-outline',
 };
 
-type Panel = 'card' | 'yield' | 'tax' | 'points';
+type Panel = 'card' | 'yield' | 'tax' | 'points' | 'ai';
 type Sheet = { kind: 'state'; key: StateKey } | { kind: 'panel'; panel: Panel };
 
 // A state's action button routes to the matching deep panel (or, for trading,
@@ -118,10 +118,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         {/* Header */}
         <View style={s.head}>
           <Text style={s.title}>Financial</Text>
-          <View style={s.aiPill}>
+          <PressScale style={s.aiPill} onPress={() => openPanel('ai')}>
             <Ionicons name="sparkles" size={13} color={colors.accentGlow} />
             <Text style={s.aiPillText}>AI</Text>
-          </View>
+          </PressScale>
         </View>
 
         {/* Total capital hero */}
@@ -225,12 +225,13 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <Ionicons name="chevron-forward" size={16} color={colors.fgFaint} style={{ marginLeft: 6 }} />
         </PressScale>
 
-        {/* AI insight */}
-        <View style={s.insight}>
+        {/* AI insight → opens the capital co-pilot */}
+        <PressScale to={0.98} style={s.insight} onPress={() => openPanel('ai')}>
           <GlassFill active />
           <Ionicons name="sparkles" size={15} color={colors.accentGlow} style={{ marginTop: 1 }} />
           <Text style={s.insightText}>{m.insights[0]}</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={15} color={colors.accentGlow} style={{ marginTop: 2 }} />
+        </PressScale>
 
         {/* Add capital */}
         <GlossButton onPress={() => setDeposit(true)} style={{ marginTop: 16 }}>
@@ -291,6 +292,8 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <TaxSheet m={m} onClose={closeSheet} />
         ) : sheet?.panel === 'points' ? (
           <PointsSheet m={m} onClose={closeSheet} />
+        ) : sheet?.panel === 'ai' ? (
+          <AiSheet m={m} onClose={closeSheet} />
         ) : null}
       </DragSheet>
     </Screen>

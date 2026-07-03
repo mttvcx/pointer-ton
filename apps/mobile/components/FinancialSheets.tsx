@@ -254,6 +254,45 @@ export function PointsSheet({ m, onClose }: { m: CapitalModel; onClose: () => vo
   );
 }
 
+/* ── Capital co-pilot (AI) ───────────────────────────────── */
+
+export function AiSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }) {
+  const covered = m.taxReserve >= m.taxLiability;
+  const reads = [
+    { icon: 'leaf' as const, tint: colors.bull, text: `${usd(m.states.earning, 0)} is earning ${m.apy.toFixed(1)}% — that’s ${usd((m.states.earning * (m.apy / 100)) / 12, 0)}/mo, fully liquid.` },
+    { icon: covered ? ('shield-checkmark' as const) : ('alert-circle' as const), tint: colors.warn, text: covered ? `I’ve reserved ${usd(m.taxReserve, 0)} for taxes on your ${usd(m.realizedGainsYtd, 0)} of realized gains. You’re covered.` : `You’re under-reserved for taxes by ${usd(m.taxLiability - m.taxReserve, 0)}.` },
+    { icon: 'card' as const, tint: colors.brand, text: `${usd(m.states.spendable, 0)} is spendable right now — the rest keeps working until you swipe.` },
+  ];
+  return (
+    <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+      <SheetTitle icon="sparkles" tint={colors.accentGlow} kicker="POINTER AI" title="Your capital, read for you" />
+
+      <Text style={s.aiLede}>Here’s what your money is doing right now — and what I’m handling so you don’t have to.</Text>
+
+      <View style={{ marginTop: 8 }}>
+        {reads.map((r, i) => (
+          <View key={i} style={s.aiRead}>
+            <View style={[s.aiReadIcon, { backgroundColor: r.tint + '22' }]}>
+              <Ionicons name={r.icon} size={16} color={r.tint} />
+            </View>
+            <Text style={s.aiReadText}>{r.text}</Text>
+          </View>
+        ))}
+      </View>
+
+      <PressScale style={s.askBar} onPress={() => showToast('Ask Pointer AI — coming soon', { kind: 'info' })}>
+        <Ionicons name="chatbubble-ellipses-outline" size={17} color={colors.accentGlow} />
+        <Text style={s.askText}>Ask about your capital…</Text>
+        <Ionicons name="arrow-forward-circle" size={20} color={colors.accent} />
+      </PressScale>
+
+      <GlossButton onPress={onClose} style={{ marginTop: 14 }}>
+        <Text style={s.cta}>Done</Text>
+      </GlossButton>
+    </ScrollView>
+  );
+}
+
 const s = StyleSheet.create({
   body: { paddingHorizontal: 20, paddingBottom: 12 },
 
@@ -313,4 +352,12 @@ const s = StyleSheet.create({
   srcRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   srcTrack: { height: 5, borderRadius: 3, backgroundColor: colors.bg, overflow: 'hidden', marginTop: 7 },
   srcFill: { height: 5, borderRadius: 3, backgroundColor: colors.accentGlow },
+
+  // AI co-pilot
+  aiLede: { color: colors.fgSecondary, fontSize: 14.5, lineHeight: 21, marginTop: -6, marginBottom: 4 },
+  aiRead: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', paddingVertical: 11 },
+  aiReadIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  aiReadText: { color: colors.fg, fontSize: 14.5, lineHeight: 21, flex: 1 },
+  askBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bgRaised2, borderRadius: radius.pill, paddingVertical: 13, paddingHorizontal: 16, marginTop: 16, borderWidth: 1, borderColor: colors.accent + '3D' },
+  askText: { color: colors.fgMuted, fontSize: 14.5, flex: 1 },
 });
