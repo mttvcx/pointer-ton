@@ -46,6 +46,9 @@ export type PulseFeed = { column: string; chain: string; items: PulseBundle[]; w
 
 export type TokenDetail = { token: TokenRow; snapshot: TokenSnapshot; dev: unknown };
 
+/** One OHLC bar from /api/tokens/:mint/chart. `time` is a unix seconds bucket. */
+export type ChartBar = { time: number; open: number; high: number; low: number; close: number };
+
 /** One row of /api/tokens/:mint/holders (on-chain holder distribution). */
 export type TokenHolder = {
   wallet_address: string;

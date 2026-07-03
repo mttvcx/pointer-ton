@@ -1,6 +1,7 @@
 import { authToken } from '../auth';
 import { api } from './client';
 import type {
+  ChartBar,
   ExplainTokenResponse,
   MeUser,
   MyWallet,
@@ -54,6 +55,12 @@ export function getToken(mint: string): Promise<TokenDetail> {
  *  with sniper/dev flags — the rug-check view. */
 export async function getTokenHolders(mint: string): Promise<TokenHoldersResponse> {
   return api<TokenHoldersResponse>(`/api/tokens/${encodeURIComponent(mint)}/holders`);
+}
+
+/** OHLC candles for a token at the given bar interval (public). */
+export async function getTokenChart(mint: string, interval: string): Promise<ChartBar[]> {
+  const r = await api<{ bars?: ChartBar[] }>(`/api/tokens/${encodeURIComponent(mint)}/chart?interval=${encodeURIComponent(interval)}`);
+  return r.bars ?? [];
 }
 
 /** Hyperliquid perp markets (public, vol-sorted server-side). Read-only — order

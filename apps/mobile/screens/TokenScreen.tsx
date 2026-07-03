@@ -13,6 +13,7 @@ import { BuySheet } from '../components/BuySheet';
 import { CrossmintBuySheet } from '../components/CrossmintBuySheet';
 import { CROSSMINT_READY } from '../src/crossmint';
 import { AiVerdictChip } from '../components/AiVerdictChip';
+import { TokenChart } from '../components/TokenChart';
 import { Accordion } from '../components/Accordion';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
@@ -189,21 +190,28 @@ export function TokenScreen({
           </View>
         </View>
 
-        <Svg width="100%" height={150} viewBox="0 0 360 150" preserveAspectRatio="none" style={s.chart}>
-          <Path d="M0 96 C34 92 50 70 78 78 C108 86 124 54 158 60 C190 66 202 40 236 48 C270 56 288 30 360 22 L360 150 L0 150 Z" fill={colors.accent} fillOpacity={0.06} />
-          <Path d="M0 96 C34 92 50 70 78 78 C108 86 124 54 158 60 C190 66 202 40 236 48 C270 56 288 30 360 22" fill="none" stroke={colors.accentGlow} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
-          <Circle cx={360} cy={22} r={10} fill={colors.accentGlow} fillOpacity={0.18} />
-          <Circle cx={360} cy={22} r={4.5} fill={colors.accentGlow} />
-          {CHART_MARKS.map((m, i) => (
-            <G key={i}>
-              <Circle cx={m.x} cy={m.y} r={7.5} fill={colors.bg} />
-              <Circle cx={m.x} cy={m.y} r={6} fill={m.buy ? colors.bull : colors.bear} />
-              <SvgText x={m.x} y={m.y + 3.4} fontSize={10} fontWeight="bold" fill={colors.bg} textAnchor="middle">
-                {m.buy ? '+' : '–'}
-              </SvgText>
-            </G>
-          ))}
-        </Svg>
+        <TokenChart
+          mint={token.mint}
+          tf={tfActive}
+          style={s.chart}
+          fallback={
+            <Svg width="100%" height={150} viewBox="0 0 360 150" preserveAspectRatio="none">
+              <Path d="M0 96 C34 92 50 70 78 78 C108 86 124 54 158 60 C190 66 202 40 236 48 C270 56 288 30 360 22 L360 150 L0 150 Z" fill={colors.accent} fillOpacity={0.06} />
+              <Path d="M0 96 C34 92 50 70 78 78 C108 86 124 54 158 60 C190 66 202 40 236 48 C270 56 288 30 360 22" fill="none" stroke={colors.accentGlow} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+              <Circle cx={360} cy={22} r={10} fill={colors.accentGlow} fillOpacity={0.18} />
+              <Circle cx={360} cy={22} r={4.5} fill={colors.accentGlow} />
+              {CHART_MARKS.map((m, i) => (
+                <G key={i}>
+                  <Circle cx={m.x} cy={m.y} r={7.5} fill={colors.bg} />
+                  <Circle cx={m.x} cy={m.y} r={6} fill={m.buy ? colors.bull : colors.bear} />
+                  <SvgText x={m.x} y={m.y + 3.4} fontSize={10} fontWeight="bold" fill={colors.bg} textAnchor="middle">
+                    {m.buy ? '+' : '–'}
+                  </SvgText>
+                </G>
+              ))}
+            </Svg>
+          }
+        />
 
         <View style={s.pad}>
           <View style={s.tfRow}>
