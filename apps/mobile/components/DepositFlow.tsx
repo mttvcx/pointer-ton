@@ -18,6 +18,20 @@ import { CrossmintBuy, CROSSMINT_READY } from '../src/crossmint';
 import type { PulseBundle } from '../src/types';
 
 type Step = 'choose' | 'pickToken' | 'payToken' | 'depositCash' | 'cryptoNetwork' | 'cryptoAddress';
+
+// USDC is pinned to the top of the buy list — it's the cash you put to work + spend,
+// so it's the default. It still filters normally when you search.
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const USDC_BUNDLE = {
+  token: {
+    mint: USDC_MINT,
+    symbol: 'USDC',
+    name: 'USD Coin',
+    image_url: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
+    launch_pad: null,
+  },
+  snapshot: { price_usd: 1, market_cap_usd: null },
+} as unknown as PulseBundle;
 const NETWORKS = ['Solana', 'Base', 'BNB Chain', 'Monad', 'Hyperliquid', 'Ethereum'];
 // Chain icon per network name (Monad/Hyperliquid have no logo asset → letter).
 const NET_ICON: Record<string, string> = { Solana: 'sol', Ethereum: 'eth', Base: 'base', 'BNB Chain': 'bnb' };
@@ -53,10 +67,14 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
   }, [visible]);
 
   const tokens = useMemo(() => {
-    const all = q.data ?? [];
+    const all = (q.data ?? []).filter((b) => b.token.mint !== USDC_MINT);
     const t = query.trim().toLowerCase();
-    if (!t) return all;
-    return all.filter((b) => (b.token.symbol ?? '').toLowerCase().includes(t) || (b.token.name ?? '').toLowerCase().includes(t));
+    const list = t
+      ? all.filter((b) => (b.token.symbol ?? '').toLowerCase().includes(t) || (b.token.name ?? '').toLowerCase().includes(t))
+      : all;
+    // Pin USDC first — always by default, and while searching if it matches.
+    const usdcMatches = !t || 'usdc'.includes(t) || 'usd coin'.includes(t);
+    return usdcMatches ? [USDC_BUNDLE, ...list] : list;
   }, [q.data, query]);
 
   const press = (k: string) => {
@@ -92,7 +110,7 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
         <View style={s.pb}>
           <Text style={s.title}>Deposit with</Text>
           <Option icon="qr-code-outline" title="Crypto" sub="Receive USDC from a crypto wallet" onPress={() => go('cryptoNetwork')} />
-          <Option icon="logo-apple" title="Apple Pay" badge="New" sub="Buy PENGU, WIF, GIGA, and 20+ tokens" onPress={() => go('pickToken')} />
+          <Option icon="logo-apple" title="Apple Pay" badge="New" sub="Buy USDC, PENGU, WIF, and 20+ tokens" onPress={() => go('pickToken')} />
           <Option icon="card-outline" title="Debit" sub="Deposit cash with a debit card" onPress={() => { setAmount('0'); go('depositCash'); }} />
         </View>
       ) : step === 'pickToken' ? (
@@ -113,19 +131,24 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
           <ScrollView style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {tokens.map((b) => {
               const sym = (b.token.symbol ?? '?').replace(/^\$/, '');
+              const isUsdc = b.token.mint === USDC_MINT;
               const ch = pseudoChange(b.token.mint);
               return (
                 <PressScale key={b.token.mint} onPress={() => { setPicked(b); setAmount('50'); go('payToken'); }} to={0.985} style={s.row}>
                   <View style={s.rowLeft}>
-                    <CoinIcon uri={b.token.image_url} symbol={sym} verified={Boolean(b.token.launch_pad)} />
+                    <CoinIcon uri={b.token.image_url} symbol={sym} verified={isUsdc || Boolean(b.token.launch_pad)} />
                     <View style={s.rowText}>
                       <Text style={s.ticker} numberOfLines={1}>{sym}</Text>
-                      <Text style={s.mc}>{compactUsd(b.snapshot?.market_cap_usd)} MC</Text>
+                      <Text style={s.mc}>{isUsdc ? 'Cash to spend & earn' : `${compactUsd(b.snapshot?.market_cap_usd)} MC`}</Text>
                     </View>
                   </View>
                   <View style={s.rowRight}>
-                    <Text style={s.price}>{priceUsd(b.snapshot?.price_usd)}</Text>
-                    <Text style={[s.ch, { color: ch.up ? colors.bull : colors.bear }]}>{ch.up ? '▲' : '▼'} {ch.pct}</Text>
+                    <Text style={s.price}>{isUsdc ? '$1.00' : priceUsd(b.snapshot?.price_usd)}</Text>
+                    {isUsdc ? (
+                      <Text style={[s.ch, { color: colors.fgMuted }]}>Stablecoin</Text>
+                    ) : (
+                      <Text style={[s.ch, { color: ch.up ? colors.bull : colors.bear }]}>{ch.up ? '▲' : '▼'} {ch.pct}</Text>
+                    )}
                   </View>
                 </PressScale>
               );
