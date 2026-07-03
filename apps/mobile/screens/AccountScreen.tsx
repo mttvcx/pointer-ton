@@ -12,6 +12,7 @@ import { setBio, useBio } from '../src/local';
 import { useMe } from '../src/account';
 import { updateProfile } from '../src/api/endpoints';
 import { shortMint } from '../src/format';
+import { showToast } from '../src/toast';
 
 export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean }) {
   const auth = useAuth();
@@ -84,7 +85,11 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
       <ScrollView ref={scrollRef} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={s.h1}>Account</Text>
 
-        <PressScale to={0.98} style={s.xCard}>
+        <PressScale
+          to={0.98}
+          style={s.xCard}
+          onPress={() => showToast('X connect is coming soon', { sub: 'Link your handle once the social update ships', kind: 'info' })}
+        >
           <View style={s.xMark}>
             <Text style={s.xText}>X</Text>
           </View>
