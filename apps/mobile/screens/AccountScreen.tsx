@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Logo } from '../components/Logo';
 import { PressScale } from '../components/PressScale';
 import { GlassFill } from '../components/GlassFill';
@@ -8,24 +9,36 @@ import { ExportKeysSheet } from '../components/ExportKeysSheet';
 import { colors, radius } from '../src/theme';
 import { useAuth } from '../src/auth';
 import { setBio, useBio } from '../src/local';
+import { useMe } from '../src/account';
+import { updateProfile } from '../src/api/endpoints';
 import { shortMint } from '../src/format';
-
-const EVM = '0x65574B2fA1c3d9E70b1aF4d2E8b90F789948Fa3';
 
 export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean }) {
   const auth = useAuth();
+  const qc = useQueryClient();
+  const me = useMe();
   const storedBio = useBio();
-  const [username, setUsername] = useState('pointer');
-  const [display, setDisplay] = useState('pointer');
+  const [username, setUsername] = useState('');
+  const [display, setDisplay] = useState('');
   const [desc, setDesc] = useState(storedBio);
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [exportSheet, setExportSheet] = useState(false);
   const [exportSignin, setExportSignin] = useState(false);
+
+  // Seed the fields from the real account once it loads (real build).
+  const loaded = useRef(false);
+  useEffect(() => {
+    if (loaded.current || !me.data) return;
+    loaded.current = true;
+    setUsername(me.data.username ?? '');
+    setDisplay(me.data.username ?? '');
+  }, [me.data]);
 
   const scrollRef = useRef<ScrollView>(null);
   const descRef = useRef<TextInput>(null);
   const descY = useRef(0);
-  const dirty = desc.trim() !== storedBio;
+  const dirty = desc.trim() !== storedBio || username.trim() !== (me.data?.username ?? '');
 
   // Arriving from "Add a bio": land on the description, after the slide settles.
   useEffect(() => {
@@ -37,18 +50,33 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
     return () => clearTimeout(t);
   }, [autoFocusBio]);
 
-  const save = () => {
+  const save = async () => {
     setBio(desc.trim());
+    // Username persists to the real Pointer account (same as web) via /api/auth/sync.
+    const uname = username.trim();
+    if (!auth.demo && uname && uname !== (me.data?.username ?? '')) {
+      setBusy(true);
+      try {
+        await updateProfile({ username: uname });
+        qc.invalidateQueries({ queryKey: ['me'] });
+      } catch (e) {
+        setBusy(false);
+        Alert.alert('Couldn’t save username', e instanceof Error ? e.message : 'That username may be taken. Try another.');
+        return;
+      }
+      setBusy(false);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 1400);
   };
 
+  const evm = auth.evmAddress ?? '—';
   const addrs = [
     { label: 'Solana address', value: auth.walletAddress ?? '—' },
-    { label: 'Base address', value: EVM },
-    { label: 'Ethereum address', value: EVM },
-    { label: 'BNB Chain address', value: EVM },
-    { label: 'Monad address', value: EVM },
+    { label: 'Base address', value: evm },
+    { label: 'Ethereum address', value: evm },
+    { label: 'BNB Chain address', value: evm },
+    { label: 'Monad address', value: evm },
   ];
 
   return (
@@ -80,7 +108,7 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
         <View style={s.field}>
           <GlassFill />
           <Text style={s.at}>@</Text>
-          <TextInput value={username} onChangeText={setUsername} style={s.input} autoCapitalize="none" autoCorrect={false} />
+          <TextInput value={username} onChangeText={(t) => setUsername(t.replace(/[^A-Za-z0-9_]/g, '').slice(0, 64))} placeholder="username" placeholderTextColor={colors.fgMuted} style={s.input} autoCapitalize="none" autoCorrect={false} />
         </View>
 
         <Text style={s.label}>Display name</Text>
@@ -108,13 +136,13 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
 
         <PressScale style={[s.save, dirty && s.saveDirty]} onPress={save}>
           <GlassFill active={dirty} />
-          <Text style={[s.saveText, dirty && s.saveTextDirty]}>{saved ? 'Saved ✓' : 'Save changes'}</Text>
+          <Text style={[s.saveText, dirty && s.saveTextDirty]}>{busy ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}</Text>
         </PressScale>
 
         <Text style={s.sectionLabel}>Account login</Text>
         <View style={s.loginRow}>
           <Ionicons name="logo-apple" size={20} color={colors.fg} />
-          <Text style={s.loginText}>you@privaterelay.appleid.com</Text>
+          <Text style={s.loginText}>{me.data?.email ?? 'you@privaterelay.appleid.com'}</Text>
         </View>
 
         <View style={s.divider} />
