@@ -3,9 +3,12 @@ import { PublicKey } from '@solana/web3.js';
 import { z } from 'zod';
 import { requirePointerUser } from '@/lib/api/privyUser';
 import { lulo, USDC_SOLANA_MINT } from '@/lib/financial/luloClient';
+import { topUpGasIfNeeded } from '@/lib/solana/sponsor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Allow time for the gas top-up transfer to confirm before we return.
+export const maxDuration = 30;
 
 const Body = z
   .object({
@@ -44,6 +47,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Gas sponsorship: make sure the wallet has SOL to pay the deposit's fee, so
+    // the user never has to hold SOL. Best-effort — proceeds even if it no-ops.
+    const gas = await topUpGasIfNeeded(owner);
+
     const { transaction } = await lulo.generateDeposit({
       owner,
       mintAddress: USDC_SOLANA_MINT,
@@ -52,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (!transaction) {
       return NextResponse.json({ configured: true, transaction: null, error: 'no_transaction' }, { status: 502 });
     }
-    return NextResponse.json({ configured: true, transaction });
+    return NextResponse.json({ configured: true, transaction, gasSponsored: gas.topped });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'deposit_failed';
     return NextResponse.json({ configured: true, transaction: null, error: message }, { status: 502 });
