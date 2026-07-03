@@ -5,8 +5,8 @@ import { useSyncExternalStore } from 'react';
  * watchlist (token mints), follows (trader handles), and the profile bio. Demo
  * mode: lives in memory (resets on reload). Swap for AsyncStorage/API later.
  */
-type Store = { watchlist: Set<string>; follows: Set<string>; bio: string };
-const store: Store = { watchlist: new Set(), follows: new Set(), bio: '' };
+type Store = { watchlist: Set<string>; follows: Set<string>; bio: string; referralCode: string };
+const store: Store = { watchlist: new Set(), follows: new Set(), bio: '', referralCode: '' };
 
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
@@ -60,6 +60,13 @@ export function setBio(v: string) {
   emit();
 }
 export const useBio = () => useSyncExternalStore(subscribe, () => store.bio);
+
+// ---- referral code (user-chosen; empty until they claim one) ----
+export function setReferralCode(v: string) {
+  store.referralCode = v.trim();
+  emit();
+}
+export const useReferralCode = () => useSyncExternalStore(subscribe, () => store.referralCode);
 
 // ---- advanced quick-buy prefs ----
 // `ultra` = one-tap instant buy straight from a screener row (outline button).

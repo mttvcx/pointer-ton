@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Easing, LayoutChangeEvent, PanResponder, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Easing, LayoutChangeEvent, PanResponder, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgGrad, Path, Stop } from 'react-native-svg';
@@ -11,6 +11,7 @@ import { colors, radius } from '../src/theme';
 import { copyText } from '../src/clipboard';
 import { shareText } from '../src/share';
 import { showToast } from '../src/toast';
+import { useReferralCode, setReferralCode } from '../src/local';
 
 /**
  * Refer & earn. You earn 30% of your friends' trading fees, forever. Fee model
@@ -22,8 +23,6 @@ import { showToast } from '../src/toast';
 const TAKE_FEE = 0.005; // 0.5%
 const REFERRAL_SHARE = 0.3; // 30%
 const REFERRER_RATE = TAKE_FEE * REFERRAL_SHARE; // 0.0015 → 0.15% of referred volume
-
-const REF_CODE = 'BullishBarnacle';
 
 const TIERS = [
   { vol: 250_000, label: '$250K' },
@@ -55,8 +54,11 @@ export function ReferralScreen({ onClose }: { onClose: () => void }) {
   close.current = onClose;
   const pan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 1.6,
-      onPanResponderMove: (_, g) => g.dx > 0 && tx.setValue(g.dx),
+      onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 2.2,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_, g) => {
+        if (g.dx > 0) tx.setValue(g.dx);
+      },
       onPanResponderRelease: (_, g) => {
         if (g.dx > 90 || g.vx > 0.4) {
           Animated.timing(tx, { toValue: W, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(
@@ -68,6 +70,18 @@ export function ReferralScreen({ onClose }: { onClose: () => void }) {
       },
     }),
   ).current;
+
+  const code = useReferralCode();
+  const [draft, setDraft] = useState('');
+  const claim = () => {
+    const clean = draft.replace(/[^A-Za-z0-9_]/g, '').slice(0, 20);
+    if (clean.length < 3) {
+      showToast('Pick at least 3 letters/numbers', { kind: 'error' });
+      return;
+    }
+    setReferralCode(clean);
+    showToast(`Your code is ${clean}`, { kind: 'success' });
+  };
 
   const [tier, setTier] = useState(0);
   const [chartW, setChartW] = useState(0);
@@ -108,10 +122,10 @@ export function ReferralScreen({ onClose }: { onClose: () => void }) {
   const lineHeight = Math.max(0, dotY(tier) - lineTop - 6);
 
   const onCopy = async () => {
-    const ok = await copyText(REF_CODE);
+    const ok = await copyText(code);
     showToast(ok ? 'Referral code copied' : 'Copy failed', { kind: ok ? 'success' : 'error' });
   };
-  const onShare = () => void shareText(`Trade on Pointer with my code ${REF_CODE} — 50% of your fees back, and I earn 30% of yours. Everybody wins.`);
+  const onShare = () => void shareText(`Trade on Pointer with my code ${code} — 50% of your fees back, and I earn 30% of yours. Everybody wins.`);
 
   return (
     <Screen>
@@ -125,24 +139,50 @@ export function ReferralScreen({ onClose }: { onClose: () => void }) {
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
-          <View style={s.codeCard}>
-            <GlassFill />
-            <Text style={s.codeLabel}>Your referral code</Text>
-            <View style={s.codeRow}>
-              <Text style={s.code} numberOfLines={1}>
-                {REF_CODE}
-              </Text>
-              <PressScale onPress={onCopy} to={0.9} hitSlop={8} style={s.copyChip}>
-                <Ionicons name="copy-outline" size={15} color={colors.accentGlow} />
-                <Text style={s.copyChipText}>Copy</Text>
-              </PressScale>
-            </View>
-          </View>
+          {code ? (
+            <>
+              <View style={s.codeCard}>
+                <GlassFill />
+                <Text style={s.codeLabel}>Your referral code</Text>
+                <View style={s.codeRow}>
+                  <Text style={s.code} numberOfLines={1}>
+                    {code}
+                  </Text>
+                  <PressScale onPress={onCopy} to={0.9} hitSlop={8} style={s.copyChip}>
+                    <Ionicons name="copy-outline" size={15} color={colors.accentGlow} />
+                    <Text style={s.copyChipText}>Copy</Text>
+                  </PressScale>
+                </View>
+              </View>
 
-          <GlossButton onPress={onShare} style={{ marginTop: 14 }}>
-            <Ionicons name="share-outline" size={18} color={colors.onAccent} />
-            <Text style={s.shareText}>Share referral</Text>
-          </GlossButton>
+              <GlossButton onPress={onShare} style={{ marginTop: 14 }}>
+                <Ionicons name="share-outline" size={18} color={colors.onAccent} />
+                <Text style={s.shareText}>Share referral</Text>
+              </GlossButton>
+            </>
+          ) : (
+            <View style={s.codeCard}>
+              <GlassFill />
+              <Text style={s.codeLabel}>Claim your referral code</Text>
+              <View style={s.claimRow}>
+                <TextInput
+                  value={draft}
+                  onChangeText={(t) => setDraft(t.replace(/[^A-Za-z0-9_]/g, '').slice(0, 20))}
+                  placeholder="yourcode"
+                  placeholderTextColor={colors.fgFaint}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={s.claimInput}
+                  onSubmitEditing={claim}
+                  returnKeyType="done"
+                />
+                <PressScale onPress={claim} to={0.92} style={s.claimBtn}>
+                  <Text style={s.claimBtnText}>Claim</Text>
+                </PressScale>
+              </View>
+              <Text style={s.claimHint}>Pick a code friends will use at signup. Letters & numbers, 3–20 chars.</Text>
+            </View>
+          )}
 
           <Text style={s.pitch}>Invite friends and earn commissions — get up to</Text>
           <View style={s.bigRow}>
@@ -209,6 +249,12 @@ const s = StyleSheet.create({
   code: { color: colors.fg, fontSize: 22, fontWeight: '800', letterSpacing: 0.3, flex: 1 },
   copyChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: colors.accent + '55' },
   copyChipText: { color: colors.accentGlow, fontSize: 13, fontWeight: '700' },
+
+  claimRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  claimInput: { flex: 1, color: colors.fg, fontSize: 18, fontWeight: '700', backgroundColor: colors.bgRaised2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12 },
+  claimBtn: { backgroundColor: colors.accent, borderRadius: radius.md, paddingHorizontal: 18, paddingVertical: 13 },
+  claimBtnText: { color: colors.onAccent, fontSize: 15, fontWeight: '800' },
+  claimHint: { color: colors.fgFaint, fontSize: 12, lineHeight: 17, marginTop: 10 },
 
   shareText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 

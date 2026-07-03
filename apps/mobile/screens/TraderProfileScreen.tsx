@@ -154,9 +154,12 @@ export function TraderProfileScreen({
   back.current = onBack;
   const pan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 1.6,
+      // Only claim a clearly horizontal drag, and once claimed don't yield to the
+      // ScrollView — so a diagonal finger can't scroll the page up/down mid-swipe.
+      onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 2.2,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, g) => {
-        if (g.dx > 0) tx.setValue(g.dx);
+        if (g.dx > 0) tx.setValue(g.dx); // horizontal only — never translate on Y
       },
       onPanResponderRelease: (_, g) => {
         if (g.dx > 90 || g.vx > 0.4) {

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { DragSheet } from './DragSheet';
 import { CoinIcon } from './CoinIcon';
+import { ChainIcon } from './ChainIcon';
 import { PressScale } from './PressScale';
 import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
@@ -16,6 +17,8 @@ import type { PulseBundle } from '../src/types';
 
 type Step = 'choose' | 'pickToken' | 'payToken' | 'depositCash' | 'cryptoNetwork' | 'cryptoAddress';
 const NETWORKS = ['Solana', 'Base', 'BNB Chain', 'Monad', 'Hyperliquid', 'Ethereum'];
+// Chain icon per network name (Monad/Hyperliquid have no logo asset → letter).
+const NET_ICON: Record<string, string> = { Solana: 'sol', Ethereum: 'eth', Base: 'base', 'BNB Chain': 'bnb' };
 const KEY_ROWS = [
   ['1', '2', '3'],
   ['4', '5', '6'],
@@ -151,9 +154,13 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
             <PressScale key={n} onPress={() => { setNetwork(n); go('cryptoAddress'); }} to={0.98} style={s.netRow}>
               <GlassFill />
               <Text style={s.netName}>{n}</Text>
-              <View style={s.netBadge}>
-                <Text style={s.netBadgeText}>{n.slice(0, 1)}</Text>
-              </View>
+              {NET_ICON[n] ? (
+                <ChainIcon id={NET_ICON[n]} size={26} />
+              ) : (
+                <View style={s.netBadge}>
+                  <Text style={s.netBadgeText}>{n.slice(0, 1)}</Text>
+                </View>
+              )}
             </PressScale>
           ))}
         </View>
@@ -164,7 +171,7 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
           <View style={s.addrCard}>
             <GlassFill />
             <Text style={s.addrLabel}>{network} address</Text>
-            <Text style={s.addr}>{auth.walletAddress ?? '—'}</Text>
+            <Text style={s.addr}>{(network === 'Solana' ? auth.walletAddress : auth.evmAddress) ?? '—'}</Text>
           </View>
           <PressScale style={s.copyBtn}>
             <GlassFill />
