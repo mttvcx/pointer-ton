@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -108,8 +108,19 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
     return () => clearInterval(id);
   }, [perSec]);
 
-  const dollars = Math.floor(m.total);
-  const cents = String(Math.round((m.total - dollars) * 100)).padStart(2, '0');
+  // Count-up on the flagship number when the page first mounts — a beat of
+  // "here's everything you've got, working." Ease-out over ~850ms.
+  const rise = useRef(new Animated.Value(0)).current;
+  const [shownTotal, setShownTotal] = useState(m.total);
+  useEffect(() => {
+    rise.setValue(0);
+    const id = rise.addListener(({ value }) => setShownTotal(value * m.total));
+    Animated.timing(rise, { toValue: 1, duration: 850, useNativeDriver: false }).start();
+    return () => rise.removeListener(id);
+  }, [m.total]);
+
+  const dollars = Math.floor(shownTotal);
+  const cents = String(Math.round((shownTotal - dollars) * 100) % 100).padStart(2, '0');
   const covered = m.taxReserve >= m.taxLiability;
 
   return (
