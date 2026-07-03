@@ -20,6 +20,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.pointer.app',
+    // Sign in with Apple (Privy OAuth) — the plugin wires the entitlement.
+    usesAppleSignIn: true,
     // 17+ (crypto/finance); finalize rating during App Store setup.
     config: { usesNonExemptEncryption: false },
   },
@@ -31,11 +33,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   plugins: [
-    // Privy embedded-wallet + auth native modules (added during setup — see README).
-    // '@privy-io/expo',
     'expo-font',
     'expo-secure-store',
     'expo-web-browser',
+    // Sign in with Apple entitlement for Privy OAuth.
+    'expo-apple-authentication',
+    // Note: @privy-io/expo, @crossmint/client-sdk-react-native-ui, react-native-webview
+    // and @privy-io/expo-native-extensions autolink — they need no config plugin.
   ],
   extra: {
     // Read by src/env.ts. Set via .env (EXPO_PUBLIC_*) or EAS build profile env.
