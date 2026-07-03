@@ -20,6 +20,7 @@ import { SearchScreen } from './screens/SearchScreen';
 import { SocialScreen } from './screens/SocialScreen';
 import { TraderProfileScreen } from './screens/TraderProfileScreen';
 import { AlertsScreen } from './screens/AlertsScreen';
+import { FinancialScreen } from './screens/FinancialScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { OnboardingFlow } from './screens/OnboardingFlow';
@@ -132,6 +133,8 @@ function Shell() {
       <HomeScreen onOpenToken={pushToken} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
     ) : tab === 'search' ? (
       <SearchScreen onOpenToken={pushToken} />
+    ) : tab === 'financial' ? (
+      <FinancialScreen onOpenToken={pushToken} />
     ) : tab === 'social' ? (
       adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={pushTrader} onOpenToken={pushToken} />
     ) : (

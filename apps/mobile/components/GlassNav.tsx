@@ -17,10 +17,11 @@ try {
   liquid = false;
 }
 
-export type NavTab = 'home' | 'search' | 'social' | 'profile';
+export type NavTab = 'home' | 'search' | 'financial' | 'social' | 'profile';
 
-// Slot order: 0 home · 1 search · 2 brand(→home) · 3 people(social) · 4 profile.
-const SLOT_OF: Record<NavTab, number> = { home: 0, search: 1, social: 3, profile: 4 };
+// Slot order: 0 home · 1 search · 2 brand(Adv) · 3 financial(card) · 4 social · 5 profile.
+const SLOT_OF: Record<NavTab, number> = { home: 0, search: 1, financial: 3, social: 4, profile: 5 };
+const SLOTS = 6;
 const HEIGHT = 64;
 const SEL_H = 58;
 
@@ -39,7 +40,7 @@ export function GlassNav({
 }) {
   const [w, setW] = useState(0);
   const tx = useRef(new Animated.Value(0)).current;
-  const cell = w / 5;
+  const cell = w / SLOTS;
   const slot = SLOT_OF[active];
 
   useEffect(() => {
@@ -72,6 +73,9 @@ export function GlassNav({
           <Logo size={56} style={{ tintColor: advanced ? colors.accent : colors.fgMuted }} />
           <Text style={[s.advExp, { color: advanced ? colors.accentGlow : colors.fgSecondary }]}>Adv.</Text>
         </View>
+      </Slot>
+      <Slot onPress={() => onSelect('financial')}>
+        <Ionicons name={active === 'financial' ? 'card' : 'card-outline'} size={23} color={color('financial')} />
       </Slot>
       <Slot onPress={() => onSelect('social')}>
         <Ionicons name={advanced ? 'notifications' : 'people'} size={23} color={color('social')} />

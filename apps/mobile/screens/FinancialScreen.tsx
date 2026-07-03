@@ -1,0 +1,301 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, LinearGradient as SvgGrad, Path, Stop } from 'react-native-svg';
+import { Screen } from '../components/Screen';
+import { Logo } from '../components/Logo';
+import { PressScale } from '../components/PressScale';
+import { GlassFill } from '../components/GlassFill';
+import { GlossButton } from '../components/GlossButton';
+import { DepositFlow } from '../components/DepositFlow';
+import { colors, radius } from '../src/theme';
+import { showToast } from '../src/toast';
+import { getDemoCapital, type FinActivityKind } from '../src/demo/capital';
+import type { PulseBundle } from '../src/types';
+
+/* ---- Hermes-safe money formatting ---- */
+const group = (s: string) => s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+function usd(n: number, dec = 2): string {
+  const neg = n < 0;
+  const [i, f] = Math.abs(n).toFixed(dec).split('.');
+  return `${neg ? '-' : ''}$${group(i)}${dec ? '.' + f : ''}`;
+}
+
+// The four states of capital — the product's spine.
+const STATES = [
+  { key: 'trading', label: 'Trading', color: colors.accentGlow, icon: 'trending-up' },
+  { key: 'earning', label: 'Earning', color: colors.bull, icon: 'leaf' },
+  { key: 'spendable', label: 'Spendable', color: colors.brand, icon: 'card' },
+  { key: 'reserved', label: 'Reserved', color: colors.warn, icon: 'shield-checkmark' },
+] as const;
+
+const ACT_ICON: Record<FinActivityKind, React.ComponentProps<typeof Ionicons>['name']> = {
+  swipe: 'card-outline',
+  yield: 'leaf-outline',
+  deposit: 'add-circle-outline',
+  reserve: 'shield-checkmark-outline',
+  trade: 'swap-horizontal',
+  receive: 'arrow-down-outline',
+};
+
+export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
+  const insets = useSafeAreaInsets();
+  const m = useMemo(() => getDemoCapital(), []);
+  const [deposit, setDeposit] = useState(false);
+
+  // Live "earning" tick — the money-is-working heartbeat.
+  const [earned, setEarned] = useState(m.earnedToday);
+  const perSec = (m.total * (m.apy / 100)) / (365 * 24 * 60 * 60);
+  useEffect(() => {
+    const id = setInterval(() => setEarned((e) => e + perSec), 1000);
+    return () => clearInterval(id);
+  }, [perSec]);
+
+  const dollars = Math.floor(m.total);
+  const cents = String(Math.round((m.total - dollars) * 100)).padStart(2, '0');
+  const covered = m.taxReserve >= m.taxLiability;
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={s.head}>
+          <Text style={s.title}>Financial</Text>
+          <View style={s.aiPill}>
+            <Ionicons name="sparkles" size={13} color={colors.accentGlow} />
+            <Text style={s.aiPillText}>AI</Text>
+          </View>
+        </View>
+
+        {/* Total capital hero */}
+        <Text style={s.capLabel}>TOTAL CAPITAL</Text>
+        <Text style={s.cap}>
+          {usd(dollars, 0)}
+          <Text style={s.capCents}>.{cents}</Text>
+        </Text>
+        <Text style={s.capSub}>Every dollar working · none idle</Text>
+
+        {/* Four-state bar */}
+        <View style={s.bar}>
+          {STATES.map((st) => {
+            const val = m.states[st.key];
+            const pct = m.total > 0 ? val / m.total : 0;
+            return <View key={st.key} style={{ flex: pct, backgroundColor: st.color }} />;
+          })}
+        </View>
+        <View style={s.legend}>
+          {STATES.map((st) => (
+            <View key={st.key} style={s.legendItem}>
+              <View style={[s.dot, { backgroundColor: st.color }]} />
+              <Text style={s.legendLabel}>{st.label}</Text>
+              <Text style={s.legendVal}>{usd(m.states[st.key], 0)}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Pointer Card */}
+        <PressScale to={0.99} onPress={() => showToast('Card details coming soon', { kind: 'info' })} style={s.card}>
+          <LinearGradient colors={['#0E241C', '#0A1512', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <View style={s.cardTop}>
+            <View style={s.cardBrand}>
+              <Logo size={22} style={{ tintColor: '#fff' }} />
+              <Text style={s.cardBrandText}>Pointer</Text>
+            </View>
+            <Text style={s.cardVirtual}>Virtual</Text>
+          </View>
+          <Text style={s.cardNum}>•••• •••• •••• {m.cardLast4}</Text>
+          <View style={s.cardBottom}>
+            <View>
+              <Text style={s.cardSpendLabel}>Spendable</Text>
+              <Text style={s.cardSpend}>{usd(m.states.spendable)}</Text>
+            </View>
+            <View style={s.applePay}>
+              <Ionicons name="logo-apple" size={15} color="#000" />
+              <Text style={s.applePayText}>Add to Pay</Text>
+            </View>
+          </View>
+        </PressScale>
+
+        {/* Smart Yield */}
+        <View style={s.panel}>
+          <GlassFill />
+          <View style={s.panelHead}>
+            <View style={s.panelTitleRow}>
+              <Ionicons name="leaf" size={16} color={colors.bull} />
+              <Text style={s.panelTitle}>Smart Yield</Text>
+            </View>
+            <View style={s.apyPill}>
+              <Text style={s.apyText}>{m.apy.toFixed(1)}% APY</Text>
+            </View>
+          </View>
+          <Text style={s.yieldEarned}>{usd(earned)}</Text>
+          <Text style={s.yieldSub}>earned today · {usd(m.earnedTotal)} all-time</Text>
+          <Sparkline data={m.yieldHistory} />
+          <Text style={s.yieldProj}>Projected ~{usd((m.states.earning * (m.apy / 100)) / 12, 0)}/mo at today’s rate</Text>
+        </View>
+
+        {/* Tax reserve */}
+        <View style={s.reserveRow}>
+          <GlassFill />
+          <View style={[s.reserveIcon, { backgroundColor: covered ? colors.bullSoft : colors.warnSoft }]}>
+            <Ionicons name="shield-checkmark" size={17} color={covered ? colors.bull : colors.warn} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.reserveLabel}>Tax reserve</Text>
+            <Text style={s.reserveSub}>{covered ? 'You’re covered for estimated taxes' : `Under by ${usd(m.taxLiability - m.taxReserve, 0)}`}</Text>
+          </View>
+          <Text style={s.reserveVal}>{usd(m.taxReserve, 0)}</Text>
+        </View>
+
+        {/* PTR Points */}
+        <View style={s.pointsRow}>
+          <GlassFill />
+          <View style={s.pointsIcon}>
+            <Ionicons name="diamond" size={16} color={colors.accentGlow} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.reserveLabel}>PTR Points</Text>
+            <Text style={s.reserveSub}>+{m.pointsThisWeek} this week · spend + earn + hold</Text>
+          </View>
+          <Text style={[s.reserveVal, { color: colors.accentGlow }]}>{group(String(m.points))}</Text>
+        </View>
+
+        {/* AI insight */}
+        <View style={s.insight}>
+          <GlassFill active />
+          <Ionicons name="sparkles" size={15} color={colors.accentGlow} style={{ marginTop: 1 }} />
+          <Text style={s.insightText}>{m.insights[0]}</Text>
+        </View>
+
+        {/* Add capital */}
+        <GlossButton onPress={() => setDeposit(true)} style={{ marginTop: 16 }}>
+          <Ionicons name="add" size={19} color={colors.onAccent} />
+          <Text style={s.addText}>Add capital</Text>
+        </GlossButton>
+
+        {/* Activity */}
+        <View style={s.sectionHead}>
+          <View style={s.sectionBar} />
+          <Text style={s.sectionTitle}>Activity</Text>
+        </View>
+        {m.activity.map((a) => {
+          const pos = a.amountUsd >= 0;
+          return (
+            <View key={a.id} style={s.act}>
+              <View style={s.actIcon}>
+                <Ionicons name={ACT_ICON[a.kind]} size={17} color={colors.fgSecondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.actTitle} numberOfLines={1}>{a.title}</Text>
+                <Text style={s.actSub} numberOfLines={1}>{a.sub}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[s.actAmt, { color: pos ? colors.bull : colors.fg }]}>{pos ? '+' : ''}{usd(a.amountUsd)}</Text>
+                <Text style={s.actWhen}>{a.when}</Text>
+              </View>
+            </View>
+          );
+        })}
+
+        <Text style={s.foot}>Trading · Earning · Spendable · Reserved. Never idle.</Text>
+      </ScrollView>
+
+      <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
+    </Screen>
+  );
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  const W = 320;
+  const H = 46;
+  const line = useMemo(() => {
+    const pts = data.map((v, i) => {
+      const x = (i / Math.max(1, data.length - 1)) * W;
+      const y = H - v * (H - 4) - 2;
+      return `${x.toFixed(1)} ${y.toFixed(1)}`;
+    });
+    return { line: `M${pts.join(' L')}`, area: `M${pts.join(' L')} L${W} ${H} L0 ${H} Z` };
+  }, [data]);
+  return (
+    <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ marginTop: 12 }}>
+      <Defs>
+        <SvgGrad id="ygrad" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colors.bull} stopOpacity={0.22} />
+          <Stop offset="1" stopColor={colors.bull} stopOpacity={0} />
+        </SvgGrad>
+      </Defs>
+      <Path d={line.area} fill="url(#ygrad)" />
+      <Path d={line.line} fill="none" stroke={colors.bull} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+const s = StyleSheet.create({
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { color: colors.fg, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  aiPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  aiPillText: { color: colors.accentGlow, fontSize: 12, fontWeight: '800' },
+
+  capLabel: { color: colors.fgMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 18 },
+  cap: { color: colors.fg, fontSize: 46, fontWeight: '700', letterSpacing: -1.6, marginTop: 4 },
+  capCents: { color: colors.fgFaint },
+  capSub: { color: colors.accentGlow, fontSize: 13, fontWeight: '600', marginTop: 4 },
+
+  bar: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', marginTop: 18, gap: 2, backgroundColor: colors.bg },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14, gap: 14 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6, width: '45%' },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+  legendLabel: { color: colors.fgMuted, fontSize: 13, flex: 1 },
+  legendVal: { color: colors.fg, fontSize: 13.5, fontWeight: '700' },
+
+  card: { borderRadius: radius.lg, overflow: 'hidden', marginTop: 22, padding: 18, borderWidth: 1, borderColor: colors.accent + '33', height: 190, justifyContent: 'space-between' },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardBrandText: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  cardVirtual: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700' },
+  cardNum: { color: 'rgba(255,255,255,0.9)', fontSize: 18, fontWeight: '600', letterSpacing: 2 },
+  cardBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  cardSpendLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
+  cardSpend: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 2 },
+  applePay: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9 },
+  applePayText: { color: '#000', fontSize: 13.5, fontWeight: '700' },
+
+  panel: { borderRadius: radius.lg, overflow: 'hidden', padding: 16, marginTop: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  panelTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  panelTitle: { color: colors.fg, fontSize: 15.5, fontWeight: '700' },
+  apyPill: { backgroundColor: colors.bullSoft, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  apyText: { color: colors.bull, fontSize: 12.5, fontWeight: '800' },
+  yieldEarned: { color: colors.fg, fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 12 },
+  yieldSub: { color: colors.fgMuted, fontSize: 13, marginTop: 2 },
+  yieldProj: { color: colors.fgFaint, fontSize: 12.5, marginTop: 10 },
+
+  reserveRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 14, marginTop: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  reserveIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  reserveLabel: { color: colors.fg, fontSize: 15, fontWeight: '700' },
+  reserveSub: { color: colors.fgMuted, fontSize: 12.5, marginTop: 2 },
+  reserveVal: { color: colors.fg, fontSize: 17, fontWeight: '800' },
+
+  pointsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 14, marginTop: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  pointsIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+
+  insight: { flexDirection: 'row', gap: 10, borderRadius: radius.md, padding: 14, marginTop: 14, overflow: 'hidden', borderWidth: 1, borderColor: colors.accent + '3D' },
+  insightText: { color: colors.fg, fontSize: 14, fontWeight: '600', lineHeight: 20, flex: 1 },
+
+  addText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
+
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 28, marginBottom: 4 },
+  sectionBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: colors.accent },
+  sectionTitle: { color: colors.fg, fontSize: 17, fontWeight: '700' },
+
+  act: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  actIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.bgRaised2, alignItems: 'center', justifyContent: 'center' },
+  actTitle: { color: colors.fg, fontSize: 15, fontWeight: '600' },
+  actSub: { color: colors.fgMuted, fontSize: 12.5, marginTop: 1 },
+  actAmt: { fontSize: 15, fontWeight: '700' },
+  actWhen: { color: colors.fgFaint, fontSize: 12, marginTop: 1 },
+
+  foot: { color: colors.fgFaint, fontSize: 12.5, textAlign: 'center', marginTop: 22 },
+});
