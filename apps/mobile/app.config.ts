@@ -14,6 +14,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   owner: 'mttvcx',
   scheme: 'pointer',
   version: '0.1.0',
+  // EAS Update (dynamic config can't be auto-written, so set explicitly).
+  runtimeVersion: { policy: 'appVersion' },
+  updates: { url: 'https://u.expo.dev/782edf66-e786-4d79-9522-bddbba8f4c19' },
   orientation: 'portrait',
   userInterfaceStyle: 'dark',
   backgroundColor: '#080D14',
