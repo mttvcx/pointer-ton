@@ -14,6 +14,48 @@ import { colors, radius } from '../src/theme';
 import { getDemoTrader, type TraderPosition } from '../src/demo/traders';
 import { toggleFollow, useIsFollowing, useCopy } from '../src/local';
 import { shareText } from '../src/share';
+import type { PulseBundle } from '../src/types';
+
+/** Build a token bundle from one of a trader's positions so tapping it opens the
+ *  full token screen (demo — the position doesn't carry a live mint/snapshot). */
+function positionToBundle(pos: TraderPosition): PulseBundle {
+  const price = pos.heldAmount && pos.heldAmount > 0 ? pos.valueUsd / pos.heldAmount : Math.max(1e-8, pos.valueUsd / 1e6);
+  const mc = price * 1e9;
+  const mint = `D3mo${pos.sym.replace(/[^A-Za-z0-9]/g, '')}`.padEnd(24, '1').slice(0, 24);
+  return {
+    token: {
+      mint,
+      chain: 'sol',
+      symbol: pos.sym,
+      name: pos.name,
+      decimals: 6,
+      image_url: null,
+      description: null,
+      twitter_handle: null,
+      telegram_url: null,
+      website_url: null,
+      creator_wallet: null,
+      launch_pad: pos.verified ? 'pump' : null,
+      raw_metadata: null,
+      is_lp_locked: true,
+      mint_authority: null,
+      freeze_authority: null,
+      bonding_progress: null,
+      created_at: null,
+    },
+    snapshot: {
+      market_cap_usd: mc,
+      price_usd: price,
+      liquidity_usd: mc * 0.12,
+      volume_24h_usd: mc * 0.5,
+      holder_count: 5_000,
+      top10_holder_pct: null,
+      dev_holding_pct: null,
+      extended_metrics: null,
+      snapshot_at: null,
+    },
+  };
+}
 
 const RANGES = ['24h', '7d', '30d'];
 const RANGE_MULT = [1, 3.1, 6.6];
@@ -80,12 +122,14 @@ export function TraderProfileScreen({
   color,
   initial,
   onBack,
+  onOpenToken,
 }: {
   handle: string;
   name?: string;
   color?: string;
   initial?: string;
   onBack: () => void;
+  onOpenToken: (b: PulseBundle) => void;
 }) {
   const insets = useSafeAreaInsets();
   const p = useMemo(() => getDemoTrader(handle, { name, color, initial }), [handle, name, color, initial]);
@@ -96,6 +140,7 @@ export function TraderProfileScreen({
   const [sortDesc, setSortDesc] = useState(true);
   const [copyOpen, setCopyOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [sharePos, setSharePos] = useState<TraderPosition | null>(null);
   const copying = useCopy(p.handle);
   const topPos = p.open[0];
 
@@ -300,7 +345,15 @@ export function TraderProfileScreen({
         </View>
 
         {list.length ? (
-          list.map((pos, i) => <PositionRow key={`${pos.sym}-${i}`} pos={pos} status={status} />)
+          list.map((pos, i) => (
+            <PositionRow
+              key={`${pos.sym}-${i}`}
+              pos={pos}
+              status={status}
+              onOpen={() => onOpenToken(positionToBundle(pos))}
+              onShare={() => setSharePos(pos)}
+            />
+          ))
         ) : (
           <Text style={s.noPos}>No {status} positions</Text>
         )}
@@ -323,35 +376,62 @@ export function TraderProfileScreen({
           investedUsd={Math.max(0, topPos.valueUsd - topPos.pnlUsd)}
         />
       ) : null}
+
+      {sharePos ? (
+        <PnlShareCard
+          visible
+          onClose={() => setSharePos(null)}
+          symbol={sharePos.sym}
+          name={sharePos.name}
+          pnlUsd={sharePos.pnlUsd}
+          pnlPct={sharePos.pnlPct}
+          investedUsd={Math.max(0, sharePos.valueUsd - sharePos.pnlUsd)}
+        />
+      ) : null}
     </Animated.View>
   );
 }
 
-function PositionRow({ pos, status }: { pos: TraderPosition; status: Status }) {
+function PositionRow({
+  pos,
+  status,
+  onOpen,
+  onShare,
+}: {
+  pos: TraderPosition;
+  status: Status;
+  onOpen: () => void;
+  onShare: () => void;
+}) {
   return (
     <View style={s.posRow}>
-      <View style={[s.posIcon, { backgroundColor: pos.color }]}>
-        <Text style={s.posInitial}>{pos.initial}</Text>
-        {pos.verified ? (
-          <View style={s.posVerified}>
-            <VerifiedBadge size={16} />
-          </View>
-        ) : null}
-      </View>
-      <View style={s.posMid}>
-        <Text style={s.posSym} numberOfLines={1}>
-          {pos.sym}
-        </Text>
-        <Text style={s.posSub} numberOfLines={1}>
-          {status === 'closed' ? pos.dateLabel : `${fmtAmount(pos.heldAmount ?? 0)} ${pos.sym}`}
-        </Text>
-      </View>
-      <View style={s.posRight}>
-        <Text style={[s.posValue, status === 'closed' && s.posValueGain]}>
-          {status === 'closed' ? `+${usd(pos.pnlUsd)}` : usd(pos.valueUsd)}
-        </Text>
+      <PressScale onPress={onOpen} to={0.98} style={s.posTapZone}>
+        <View style={[s.posIcon, { backgroundColor: pos.color }]}>
+          <Text style={s.posInitial}>{pos.initial}</Text>
+          {pos.verified ? (
+            <View style={s.posVerified}>
+              <VerifiedBadge size={16} />
+            </View>
+          ) : null}
+        </View>
+        <View style={s.posMid}>
+          <Text style={s.posSym} numberOfLines={1}>
+            {pos.sym}
+          </Text>
+          <Text style={s.posSub} numberOfLines={1}>
+            {status === 'closed' ? pos.dateLabel : `${fmtAmount(pos.heldAmount ?? 0)} ${pos.sym}`}
+          </Text>
+        </View>
+      </PressScale>
+      <PressScale onPress={onShare} to={0.9} hitSlop={8} style={s.posRight}>
+        <View style={s.posValueLine}>
+          <Text style={[s.posValue, status === 'closed' && s.posValueGain]}>
+            {status === 'closed' ? `+${usd(pos.pnlUsd)}` : usd(pos.valueUsd)}
+          </Text>
+          <Ionicons name="share-outline" size={12} color={colors.fgMuted} />
+        </View>
         <Text style={s.posPct}>▲ {pos.pnlPct.toFixed(2)}%</Text>
-      </View>
+      </PressScale>
     </View>
   );
 }
@@ -446,6 +526,7 @@ const s = StyleSheet.create({
   noPos: { color: colors.fgFaint, fontSize: 15, textAlign: 'center', paddingVertical: 40 },
 
   posRow: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13 },
+  posTapZone: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13 },
   posIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   posInitial: { color: '#fff', fontSize: 18, fontWeight: '700' },
   posVerified: { position: 'absolute', bottom: -1, right: -2 },
@@ -453,6 +534,7 @@ const s = StyleSheet.create({
   posSym: { color: colors.fg, fontSize: 18, fontWeight: '700' },
   posSub: { color: colors.fgMuted, fontSize: 13.5 },
   posRight: { alignItems: 'flex-end', gap: 3 },
+  posValueLine: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   posValue: { color: colors.fg, fontSize: 18, fontWeight: '700' },
   posValueGain: { color: colors.bull },
   posPct: { color: colors.bull, fontSize: 14, fontWeight: '600' },

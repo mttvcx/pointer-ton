@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import Svg, { Circle, G, Path, Text as SvgText } from 'react-native-svg';
 import { Screen } from '../components/Screen';
 import { CoinIcon } from '../components/CoinIcon';
+import { ChainIcon } from '../components/ChainIcon';
 import { PressScale } from '../components/PressScale';
 import { DepositFlow } from '../components/DepositFlow';
 import { BuySheet } from '../components/BuySheet';
@@ -145,7 +146,10 @@ export function TokenScreen({
           </View>
 
           <View style={s.head}>
-            <CoinIcon uri={token.image_url} symbol={sym} size={46} verified={Boolean(token.launch_pad)} />
+            <View style={s.coinWrap}>
+              <CoinIcon uri={token.image_url} symbol={sym} size={46} verified={Boolean(token.launch_pad)} />
+              {token.chain ? <ChainIcon id={token.chain} size={19} style={s.coinChain} /> : null}
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={s.symbol} numberOfLines={1}>{sym}</Text>
               <CopyButton value={token.mint} label={token.name ?? shortMint(token.mint)} size={13} color={colors.fgMuted} style={s.subRow} />
@@ -526,6 +530,8 @@ const s = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', gap: 18 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
+  coinWrap: { width: 46, height: 46 },
+  coinChain: { position: 'absolute', top: -3, right: -3, borderWidth: 2, borderColor: colors.bg },
   symbol: { color: colors.fg, fontSize: 21, fontWeight: '600' },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   name: { color: colors.fgMuted, fontSize: 13 },

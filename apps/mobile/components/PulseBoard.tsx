@@ -27,13 +27,13 @@ import { ChainIcon } from './ChainIcon';
 import { TwitterChip } from './TwitterChip';
 import { xAvatarUrl, DEMO_KOL_TWEETS } from '../src/social';
 import { getPulseFeed, explainToken } from '../src/api/endpoints';
-import { getDemoPulse, makeLiveDemoToken } from '../src/demo/pulseDemo';
+import { getDemoPulse, getDemoPulseAll, makeLiveDemoToken } from '../src/demo/pulseDemo';
 import { useTradeSubmit } from '../src/trade/useTradeSubmit';
 import { useQuickBuyPrefs, usePulseSound, type SecondButton } from '../src/local';
 import { showToast } from '../src/toast';
 import { ageShort, compactUsd } from '../src/format';
 import { colors, radius } from '../src/theme';
-import type { PulseBundle, PulseColumn, PulseFeed } from '../src/types';
+import type { ChainId, PulseBundle, PulseColumn, PulseFeed } from '../src/types';
 
 /**
  * ADVANCED-MODE HOME — the operator screener. DexScreener-style dense list with
@@ -52,9 +52,9 @@ const COLS: ColDef[] = [
 ];
 
 type ChainDef = { id: string; label: string; color: string };
-// Solana-first: only `sol`/`all` carry demo data; other chains render an honest
-// "coming" state until the backend serves their feeds. USDC routes the buy on any
-// chain (FOMO-style), so this only gates which tokens you VIEW.
+// Cross-chain board: every chain carries its own token feed and "All" aggregates
+// them into one tape (ranked by volume). One USD balance routes the buy on any
+// chain, so the selector only gates which chain's tokens you VIEW.
 const CHAINS: ChainDef[] = [
   { id: 'all', label: 'All', color: colors.fgSecondary },
   { id: 'sol', label: 'SOL', color: '#14F195' },
@@ -163,17 +163,18 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
   const q = useQuery({
     queryKey: ['pulse-board', chain],
     queryFn: async () => {
-      // `all` uses Solana data for now (Solana-first); demo fallback only for the
-      // chains we actually have demo tokens for.
-      const fetchChain = chain === 'all' ? 'sol' : chain;
-      const allowDemo = chain === 'sol' || chain === 'all';
+      // Live feeds are Solana-backed today; "All" and every single chain fall back
+      // to that chain's demo tokens so the cross-chain board is always populated.
+      const liveChain = chain === 'all' ? 'sol' : chain;
       const fetchCol = (c: PulseColumn) =>
-        getPulseFeed(c, fetchChain).catch(() => ({ items: [] } as unknown as PulseFeed));
+        getPulseFeed(c, liveChain).catch(() => ({ items: [] } as unknown as PulseFeed));
       const [n, st, m] = await Promise.all(COLS.map((c) => fetchCol(c.key)));
+      const demoFor = (col: PulseColumn) =>
+        chain === 'all' ? getDemoPulseAll(col) : getDemoPulse(col, chain as ChainId);
       return [
-        n.items?.length ? n.items : allowDemo ? getDemoPulse('new') : [],
-        st.items?.length ? st.items : allowDemo ? getDemoPulse('stretch') : [],
-        m.items?.length ? m.items : allowDemo ? getDemoPulse('migrated') : [],
+        n.items?.length ? n.items : demoFor('new'),
+        st.items?.length ? st.items : demoFor('stretch'),
+        m.items?.length ? m.items : demoFor('migrated'),
       ] as PulseBundle[][];
     },
     refetchInterval: 15_000,
@@ -314,11 +315,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
             <View style={s.empty}>
               <Ionicons name={items.length ? 'options-outline' : 'pulse'} size={22} color={colors.fgFaint} />
               <Text style={s.emptyText}>
-                {items.length
-                  ? 'No tokens match your filters.'
-                  : chain === 'sol' || chain === 'all'
-                    ? `Quiet in ${COLS[active].label} right now.`
-                    : `Solana-first for now — ${CHAINS.find((c) => c.id === chain)?.label ?? 'this chain'} feeds coming soon.`}
+                {items.length ? 'No tokens match your filters.' : `Quiet in ${COLS[active].label} right now.`}
               </Text>
               {items.length ? (
                 <Pressable onPress={() => setFilters(NO_FILTERS)} style={s.emptyClear}>
@@ -432,6 +429,7 @@ function TokenRow({
         >
           <CoinIcon uri={token.image_url} symbol={sym} size={42} />
           <ProtocolIcon launchPad={token.launch_pad} size={16} style={s.protoBadge} />
+          {token.chain ? <ChainIcon id={token.chain} size={15} style={s.chainBadge} /> : null}
         </Pressable>
 
         <View style={s.mid}>
@@ -840,6 +838,7 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10 },
   coinWrap: { width: 42, height: 42 },
   protoBadge: { position: 'absolute', bottom: -1, right: -1, borderWidth: 2, borderColor: colors.bgRaised },
+  chainBadge: { position: 'absolute', top: -2, right: -2, borderWidth: 2, borderColor: colors.bg },
 
   mid: { flex: 1, gap: 3 },
   midTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },

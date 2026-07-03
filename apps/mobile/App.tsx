@@ -67,12 +67,16 @@ function AnimatedMount({ routeKey, children }: { routeKey: string; children: Rea
   return <Animated.View style={{ flex: 1, opacity, transform: [{ translateY: ty }] }}>{children}</Animated.View>;
 }
 
+type TraderRef = { handle: string; name?: string; color?: string; initial?: string };
+type StackRoute = { kind: 'token'; bundle: PulseBundle } | ({ kind: 'trader' } & TraderRef);
+
 function Shell() {
   const auth = useAuth();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<NavTab>('home');
-  const [token, setToken] = useState<PulseBundle | null>(null);
-  const [trader, setTrader] = useState<{ handle: string; name?: string; color?: string; initial?: string } | null>(null);
+  // A real navigation stack so token → trader → token → … back-navigates one level
+  // (revealing the screen you came from) instead of dumping you back on a tab.
+  const [stack, setStack] = useState<StackRoute[]>([]);
   const [advanced, setAdvanced] = useState(false);
   const { opacity: modeOpacity, committed: adv } = useModeCrossfade(advanced);
   const [entered, setEntered] = useState(false);
@@ -115,47 +119,55 @@ function Shell() {
     );
   }
 
+  const pushToken = (bundle: PulseBundle) => setStack((s) => [...s, { kind: 'token', bundle }]);
+  const pushTrader = (t: TraderRef) => setStack((s) => [...s, { kind: 'trader', ...t }]);
+  const pop = () => setStack((s) => s.slice(0, -1));
   const go = (t: NavTab) => {
-    setToken(null);
-    setTrader(null);
+    setStack([]);
     setTab(t);
   };
+
+  const tabScreen =
+    tab === 'home' ? (
+      <HomeScreen onOpenToken={pushToken} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
+    ) : tab === 'search' ? (
+      <SearchScreen onOpenToken={pushToken} />
+    ) : tab === 'social' ? (
+      adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={pushTrader} onOpenToken={pushToken} />
+    ) : (
+      <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
+    );
 
   return (
     <View style={s.root}>
       <Animated.View style={{ flex: 1, opacity: modeOpacity }}>
-        <AnimatedMount routeKey={token ? `token-${token.token.mint}` : trader ? `trader-${trader.handle}` : tab}>
-          {token ? (
-            <TokenScreen
-              bundle={token}
-              onBack={() => setToken(null)}
-              advanced={adv}
-              onOpenTrader={(t) => {
-                setToken(null);
-                setTrader(t);
-              }}
-            />
-          ) : trader ? (
-            <TraderProfileScreen
-              handle={trader.handle}
-              name={trader.name}
-              color={trader.color}
-              initial={trader.initial}
-              onBack={() => setTrader(null)}
-            />
-          ) : tab === 'home' ? (
-            <HomeScreen onOpenToken={setToken} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
-          ) : tab === 'search' ? (
-            <SearchScreen onOpenToken={setToken} />
-          ) : tab === 'social' ? (
-            adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={setTrader} onOpenToken={setToken} />
-          ) : (
-            <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
-          )}
-        </AnimatedMount>
+        {/* Base tab layer — always mounted so a full swipe-back reveals it in place. */}
+        <AnimatedMount routeKey={tab}>{tabScreen}</AnimatedMount>
+
+        {/* Overlay stack — each pushed screen sits above the one it came from and
+            slides itself in/out, so popping reveals the previous screen underneath. */}
+        {stack.map((route, i) => (
+          <View
+            key={`${route.kind}-${route.kind === 'token' ? route.bundle.token.mint : route.handle}-${i}`}
+            style={StyleSheet.absoluteFill}
+          >
+            {route.kind === 'token' ? (
+              <TokenScreen bundle={route.bundle} onBack={pop} advanced={adv} onOpenTrader={pushTrader} />
+            ) : (
+              <TraderProfileScreen
+                handle={route.handle}
+                name={route.name}
+                color={route.color}
+                initial={route.initial}
+                onBack={pop}
+                onOpenToken={pushToken}
+              />
+            )}
+          </View>
+        ))}
       </Animated.View>
 
-      {!token && !trader ? (
+      {stack.length === 0 ? (
         <GlassNav
           active={tab}
           onSelect={go}

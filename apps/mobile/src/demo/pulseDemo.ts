@@ -15,7 +15,7 @@
  * XGIFT, world.xyz, trust-me-bro, RTM, …). Different tokens per column.
  */
 
-import type { PulseBundle, PulseColumn, TokenRow, TokenSnapshot } from '../types';
+import type { ChainId, PulseBundle, PulseColumn, TokenRow, TokenSnapshot } from '../types';
 
 // Stamped once at module load so the relative ISO ages stay stable per session.
 const NOW = Date.now();
@@ -51,6 +51,21 @@ function fakeMint(seed: string): string {
   return out.slice(0, 44);
 }
 
+const HEX = '0123456789abcdef';
+/** Fake 0x…-style address for EVM chains (eth/base/bnb) so their "contracts" read
+ *  right — deterministic per seed, obviously not a real account. */
+function fakeEvm(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  let x = Math.abs(h) || 7;
+  let out = '0x';
+  while (out.length < 42) {
+    x = (x * 1103515245 + 12345) & 0x7fffffff;
+    out += HEX[x % 16];
+  }
+  return out.slice(0, 42);
+}
+
 type Pad = 'pump' | 'bonk' | 'moonshot';
 
 type DemoSpec = {
@@ -69,14 +84,18 @@ type DemoSpec = {
   liq: number;
   vol: number;
   holders: number;
+  /** Chain this demo token lives on (default sol). */
+  chain?: ChainId;
 };
 
 function toBundle(d: DemoSpec): PulseBundle {
+  const chain: ChainId = d.chain ?? 'sol';
   const token: TokenRow = {
-    mint: fakeMint(d.seed),
+    mint: chain === 'sol' ? fakeMint(d.seed) : fakeEvm(`${chain}${d.seed}`),
+    chain,
     symbol: d.symbol,
     name: d.name,
-    decimals: 6,
+    decimals: chain === 'sol' ? 6 : 18,
     image_url: demoPic(d.symbol),
     description: null,
     twitter_handle: d.twitter,
@@ -141,17 +160,151 @@ const MIGRATED: DemoSpec[] = [
   { seed: 'RETARDIO', symbol: '$RETARDIO', name: 'retardio', pad: 'moonshot', twitter: 'retardiocoin', website: null, telegram: 'https://t.me/retardio', bonding: null, ageMins: 2_160, mc: 6_900_000, price: 0.0069, liq: 842_000, vol: 3_720_000, holders: 14_033 },
 ];
 
-/** Demo bundles keyed by Pulse column. */
-export const DEMO_PULSE: Record<PulseColumn, PulseBundle[]> = {
-  new: NEW.map(toBundle),
-  stretch: STRETCH.map(toBundle),
-  migrated: MIGRATED.map(toBundle),
+/* ---- EVM chains (eth / base / bnb): generated, chain-tagged demo feeds -------
+ * Real memecoin names per chain so the cross-chain board reads authentically.
+ * Numbers are generated deterministically per (chain, column) — no live backend
+ * for these chains yet, so this is what powers the "All" toggle today. */
+type PoolItem = { sym: string; name: string; twitter: string | null; website: string | null };
+const mk = (sym: string, name: string, twitter: string | null = null, website: string | null = null): PoolItem => ({
+  sym,
+  name,
+  twitter,
+  website,
+});
+
+const EVM_POOLS: Record<Exclude<ChainId, 'sol'>, PoolItem[]> = {
+  eth: [
+    mk('PEPE', 'pepe', 'pepecoineth', 'https://pepe.vip'),
+    mk('MOG', 'mog coin', 'mogcoin'),
+    mk('SPX', 'spx6900', 'spx6900', 'https://spx6900.com'),
+    mk('TURBO', 'turbo', 'turbotoadtoken', 'https://turbotoad.com'),
+    mk('LADYS', 'milady', 'miladymemecoin'),
+    mk('ANDY', 'andy', 'andyerc'),
+    mk('NEIRO', 'neiro', 'neiro_eth'),
+    mk('APU', 'apu apustaja', 'apuapustajaerc'),
+    mk('WOJAK', 'wojak', null),
+    mk('BITCOIN', 'harrypotterobamasonic10inu', 'hpos10ieth'),
+    mk('REMILIO', 'remilio', null),
+    mk('BOBO', 'bobo', null),
+  ],
+  base: [
+    mk('BRETT', 'brett', 'basedbrett', 'https://basedbrett.com'),
+    mk('DEGEN', 'degen', 'degentokenbase', 'https://degen.tips'),
+    mk('TOSHI', 'toshi', 'toshithecat', 'https://toshithecat.com'),
+    mk('KEYCAT', 'keyboard cat', 'keycatonbase'),
+    mk('MIGGLES', 'mister miggles', 'mistermigglesx'),
+    mk('NORMIE', 'normie', 'normieonbase'),
+    mk('DOGINME', 'doginme', 'doginmebase'),
+    mk('HIGHER', 'higher', 'higher___base'),
+    mk('MOCHI', 'mochi', 'mochithecatgirl'),
+    mk('TYBG', 'base god', 'thankyoubasegod'),
+    mk('SKI', 'ski mask dog', null),
+    mk('CRASH', 'crash', null),
+  ],
+  bnb: [
+    mk('FLOKI', 'floki', 'realflokiinu', 'https://floki.com'),
+    mk('BABYDOGE', 'baby doge', 'babydogecoin', 'https://babydoge.com'),
+    mk('TST', 'test', 'tst_bnb'),
+    mk('BROCCOLI', 'broccoli', 'broccolibnb'),
+    mk('MUBARAK', 'mubarak', 'mubarakbnb'),
+    mk('PALU', 'palu', null),
+    mk('TUT', 'tutorial', 'tutorialbnb'),
+    mk('BROG', 'brog', null),
+    mk('SHELL', 'myshell', 'myshell_ai'),
+    mk('BANANA', 'banana gun', 'bananagunbot'),
+    mk('ROCK', 'rocky', null),
+    mk('CGPT', 'chaingpt', 'chain_gpt'),
+  ],
 };
 
-/** Fresh demo bundles for a Pulse column. Always returns a non-empty array. */
-export function getDemoPulse(column: PulseColumn): PulseBundle[] {
-  const specs = column === 'new' ? NEW : column === 'stretch' ? STRETCH : MIGRATED;
-  return specs.map(toBundle);
+function pdHash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function pdRng(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+type ColRange = {
+  mc: [number, number];
+  holders: [number, number];
+  bonding: [number, number] | null;
+  age: [number, number];
+  volMult: [number, number];
+  liqFrac: number;
+};
+const COL_RANGE: Record<PulseColumn, ColRange> = {
+  new: { mc: [7_000, 60_000], holders: [50, 470], bonding: [9, 74], age: [2, 19], volMult: [1.6, 3.2], liqFrac: 0.42 },
+  stretch: { mc: [98_000, 224_000], holders: [700, 1_640], bonding: [78, 96], age: [27, 64], volMult: [2.0, 2.9], liqFrac: 0.4 },
+  migrated: { mc: [2_900_000, 27_800_000], holders: [7_000, 41_000], bonding: null, age: [372, 6_120], volMult: [0.4, 0.62], liqFrac: 0.12 },
+};
+
+const PADS: Pad[] = ['pump', 'bonk', 'moonshot'];
+
+/** Generate a chain's column feed from its name pool — deterministic per (chain, column). */
+function genChainSpecs(chain: Exclude<ChainId, 'sol'>, column: PulseColumn): DemoSpec[] {
+  const pool = EVM_POOLS[chain];
+  const r = COL_RANGE[column];
+  const rng = pdRng(pdHash(`${chain}-${column}`));
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const n = 6 + Math.floor(rng() * 2); // 6–7 per column
+  return shuffled.slice(0, n).map((p) => {
+    const mc = Math.round(lerp(r.mc[0], r.mc[1], rng()));
+    return {
+      seed: `${chain}-${p.sym}`,
+      symbol: `$${p.sym}`,
+      name: p.name,
+      pad: PADS[Math.floor(rng() * PADS.length)] ?? 'pump',
+      twitter: p.twitter,
+      website: p.website,
+      telegram: null,
+      bonding: r.bonding ? Math.round(lerp(r.bonding[0], r.bonding[1], rng())) : null,
+      ageMins: Math.round(lerp(r.age[0], r.age[1], rng())),
+      mc,
+      price: mc / 1e9,
+      liq: Math.round(mc * r.liqFrac),
+      vol: Math.round(mc * lerp(r.volMult[0], r.volMult[1], rng())),
+      holders: Math.round(lerp(r.holders[0], r.holders[1], rng())),
+      chain,
+    } as DemoSpec;
+  });
+}
+
+/** Demo bundles keyed by Pulse column (Solana). */
+export const DEMO_PULSE: Record<PulseColumn, PulseBundle[]> = {
+  new: NEW.map((d) => toBundle(d)),
+  stretch: STRETCH.map((d) => toBundle(d)),
+  migrated: MIGRATED.map((d) => toBundle(d)),
+};
+
+/** Fresh demo bundles for a Pulse column on a given chain. Always non-empty. */
+export function getDemoPulse(column: PulseColumn, chain: ChainId = 'sol'): PulseBundle[] {
+  if (chain === 'sol') {
+    const specs = column === 'new' ? NEW : column === 'stretch' ? STRETCH : MIGRATED;
+    return specs.map((d) => toBundle({ ...d, chain: 'sol' }));
+  }
+  return genChainSpecs(chain, column).map((d) => toBundle(d));
+}
+
+/** Cross-chain "All" feed for a column — every chain's tokens, ranked by 24h
+ *  volume so the board reads like one aggregated cross-chain tape. */
+export function getDemoPulseAll(column: PulseColumn): PulseBundle[] {
+  const chains: ChainId[] = ['sol', 'eth', 'base', 'bnb'];
+  const merged = chains.flatMap((c) => getDemoPulse(column, c));
+  return merged.sort((a, b) => (b.snapshot?.volume_24h_usd ?? 0) - (a.snapshot?.volume_24h_usd ?? 0));
 }
 
 const LIVE_POOL: { sym: string; name: string; pad: Pad }[] = [
@@ -186,5 +339,6 @@ export function makeLiveDemoToken(): PulseBundle {
     liq: Math.floor(mc * 0.4),
     vol: Math.floor(mc * (1 + Math.random() * 3)),
     holders: 10 + Math.floor(Math.random() * 200),
+    chain: 'sol',
   });
 }

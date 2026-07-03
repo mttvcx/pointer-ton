@@ -4,8 +4,13 @@
  * lands these move to packages/shared-types and are imported by both apps.
  */
 
+/** Chains the app trades across — one USD balance routes the buy on any of them. */
+export type ChainId = 'sol' | 'eth' | 'base' | 'bnb';
+
 export type TokenRow = {
   mint: string;
+  /** Which chain this token lives on (defaults to sol when a feed omits it). */
+  chain?: ChainId;
   symbol: string | null;
   name: string | null;
   decimals: number;
