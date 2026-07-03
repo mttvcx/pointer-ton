@@ -274,6 +274,7 @@ function WalletHoverCard({
 
 function WalletNameCell({ t }: { t: TrackerTrade }) {
   const [open, setOpen] = useState(false);
+  const openWallet = useWalletIntelStore((s) => s.openWallet);
   const ref = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clear = () => {
@@ -300,12 +301,20 @@ function WalletNameCell({ t }: { t: TrackerTrade }) {
       <span className="text-[13px] leading-none" aria-hidden>
         {walletEmoji(t.wallet)}
       </span>
-      <span
-        className={cn('truncate text-[11.5px] font-medium', t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear')}
-        title={t.wallet}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          openWallet({ address: t.wallet, chain: appChainForWalletAddress(t.wallet) });
+        }}
+        className={cn(
+          'cursor-pointer truncate text-left text-[11.5px] font-medium underline decoration-dotted decoration-1 underline-offset-2 transition hover:decoration-solid hover:brightness-110',
+          t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear',
+        )}
+        title={`Open ${name} overview`}
       >
         {name}
-      </span>
+      </button>
       {open ? <WalletHoverCard anchor={ref} t={t} onEnter={scheduleOpen} onLeave={scheduleClose} /> : null}
     </span>
   );
