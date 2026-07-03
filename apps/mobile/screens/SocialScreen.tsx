@@ -6,6 +6,7 @@ import { Screen } from '../components/Screen';
 import { PressScale } from '../components/PressScale';
 import { XBadge } from '../components/XBadge';
 import { ActivityFeed } from '../components/ActivityFeed';
+import { SquadsView } from '../components/SquadsView';
 import { GlassFill } from '../components/GlassFill';
 import { colors, radius } from '../src/theme';
 import { getLeaderboard, type LeaderEntry } from '../src/demo/traders';
@@ -15,7 +16,12 @@ import type { PulseBundle } from '../src/types';
 
 const RANGES = ['24h', '7d', '30d', 'All'];
 const MEDALS = ['#E3B321', '#B7C0CC', '#C57B3A'];
-type SocialView = 'activity' | 'leaderboard';
+type SocialView = 'activity' | 'leaderboard' | 'squads';
+const TAB_META: Record<SocialView, { icon: React.ComponentProps<typeof Ionicons>['name']; label: string }> = {
+  activity: { icon: 'pulse-outline', label: 'Activity' },
+  leaderboard: { icon: 'trophy-outline', label: 'Ranks' },
+  squads: { icon: 'people-outline', label: 'Squads' },
+};
 
 /* ---- formatters (no Intl — Hermes-safe) ---- */
 const group = (int: string) => int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -50,21 +56,19 @@ export function SocialScreen({
         </View>
 
         <View style={s.tabsRow}>
-          {(['activity', 'leaderboard'] as SocialView[]).map((v) => (
+          {(['activity', 'leaderboard', 'squads'] as SocialView[]).map((v) => (
             <PressScale key={v} onPress={() => setView(v)} to={0.96} style={[s.tab, view === v && s.tabOn]}>
               <GlassFill active={view === v} />
-              <Ionicons
-                name={v === 'activity' ? 'pulse-outline' : 'trophy-outline'}
-                size={15}
-                color={view === v ? colors.fg : colors.fgMuted}
-              />
-              <Text style={[s.tabText, view === v && s.tabTextOn]}>{v === 'activity' ? 'Activity' : 'Leaderboard'}</Text>
+              <Ionicons name={TAB_META[v].icon} size={15} color={view === v ? colors.fg : colors.fgMuted} />
+              <Text style={[s.tabText, view === v && s.tabTextOn]}>{TAB_META[v].label}</Text>
             </PressScale>
           ))}
         </View>
 
         {view === 'activity' ? (
           <ActivityFeed onOpenToken={onOpenToken} onOpenTrader={onOpenTrader} />
+        ) : view === 'squads' ? (
+          <SquadsView />
         ) : (
           <>
             <View style={s.rankCard}>
