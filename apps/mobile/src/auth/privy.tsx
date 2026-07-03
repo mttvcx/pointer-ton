@@ -4,6 +4,7 @@ import {
   usePrivy,
   useLoginWithEmail,
   useLoginWithOAuth,
+  useLinkWithOAuth,
   useEmbeddedSolanaWallet,
   useEmbeddedEthereumWallet,
   getAccessToken,
@@ -33,10 +34,20 @@ export function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Pull the connected X/Twitter @handle out of a Privy user's linked accounts. */
+function twitterOf(u: unknown): string | null {
+  const asObj = u as { linked_accounts?: Array<{ type?: string; username?: string }>; user?: { linked_accounts?: Array<{ type?: string; username?: string }> } } | null | undefined;
+  const accts = asObj?.linked_accounts ?? asObj?.user?.linked_accounts;
+  const tw = accts?.find((a) => a?.type === 'twitter_oauth');
+  return tw?.username ?? null;
+}
+
 function Bridge({ children }: { children: React.ReactNode }) {
   const { user, isReady, logout } = usePrivy();
   const { sendCode, loginWithCode } = useLoginWithEmail();
   const { login: loginOAuth } = useLoginWithOAuth();
+  const linkedHandle = useRef<string | null>(null);
+  const { link: linkOAuth } = useLinkWithOAuth({ onSuccess: (u: unknown) => { linkedHandle.current = twitterOf(u); } });
   const solana = useEmbeddedSolanaWallet();
   const wallet = solana?.wallets?.[0] ?? null;
   const ethereum = useEmbeddedEthereumWallet();
@@ -87,6 +98,12 @@ function Bridge({ children }: { children: React.ReactNode }) {
     },
     loginWithOAuth: async (provider) => {
       await loginOAuth({ provider });
+    },
+    twitterHandle: twitterOf(user),
+    linkTwitter: async () => {
+      linkedHandle.current = null;
+      await linkOAuth({ provider: 'twitter' });
+      return linkedHandle.current ?? twitterOf(user);
     },
     logout: () => logout(),
     signAndSend: async (txBase64, rpcUrl, token) => {

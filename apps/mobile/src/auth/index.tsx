@@ -27,6 +27,11 @@ export type AuthState = {
   verifyCode: (email: string, code: string) => Promise<void>;
   /** Apple/Google OAuth via Privy (REAL only; no-op in demo). */
   loginWithOAuth: (provider: 'google' | 'apple') => Promise<void>;
+  /** The connected X/Twitter handle (from Privy linked accounts), or null. */
+  twitterHandle: string | null;
+  /** Link an X/Twitter account to the signed-in user; resolves with the handle
+   *  (REAL only; no-op → null in demo). */
+  linkTwitter: () => Promise<string | null>;
   logout: () => Promise<void>;
   /** Sign + broadcast a base64 tx via the RPC the app provides (REAL only). */
   signAndSend: (txBase64: string, rpcUrl: string, token: string) => Promise<string>;
@@ -61,6 +66,8 @@ function DemoAuthProvider({ children }: { children: React.ReactNode }) {
     sendCode: async () => {},
     verifyCode: async () => {},
     loginWithOAuth: async () => {},
+    twitterHandle: null,
+    linkTwitter: async () => null,
     logout: async () => {},
     signAndSend: async () => {
       throw new Error('Trading is off in demo. Sign in with the real build to trade.');

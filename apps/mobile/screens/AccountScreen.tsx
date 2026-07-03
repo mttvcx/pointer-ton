@@ -71,6 +71,24 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
     setTimeout(() => setSaved(false), 1400);
   };
 
+  const connectX = async () => {
+    if (auth.demo) {
+      showToast('X connect runs in the app build', { kind: 'info' });
+      return;
+    }
+    try {
+      const handle = await auth.linkTwitter();
+      if (handle) {
+        setUsername(handle);
+        await updateProfile({ username: handle });
+        qc.invalidateQueries({ queryKey: ['me'] });
+        showToast(`Connected @${handle}`, { kind: 'success' });
+      }
+    } catch {
+      showToast('Couldn’t connect X', { kind: 'error' });
+    }
+  };
+
   const evm = auth.evmAddress ?? '—';
   const addrs = [
     { label: 'Solana address', value: auth.walletAddress ?? '—' },
@@ -85,11 +103,7 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
       <ScrollView ref={scrollRef} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={s.h1}>Account</Text>
 
-        <PressScale
-          to={0.98}
-          style={s.xCard}
-          onPress={() => showToast('X connect is coming soon', { sub: 'Link your handle once the social update ships', kind: 'info' })}
-        >
+        <PressScale to={0.98} style={s.xCard} onPress={connectX}>
           <View style={s.xMark}>
             <Text style={s.xText}>X</Text>
           </View>

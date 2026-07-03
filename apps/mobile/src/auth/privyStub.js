@@ -13,4 +13,5 @@ module.exports = {
   useEmbeddedEthereumWallet: disabled,
   getAccessToken: disabled,
   useLoginWithOAuth: disabled,
+  useLinkWithOAuth: disabled,
 };

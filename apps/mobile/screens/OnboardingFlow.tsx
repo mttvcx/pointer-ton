@@ -8,6 +8,9 @@ import { PressScale } from '../components/PressScale';
 import { Slide } from '../components/Slide';
 import { colors, radius } from '../src/theme';
 import { ONBOARD_TRADERS } from '../src/demo';
+import { useAuth } from '../src/auth';
+import { updateProfile } from '../src/api/endpoints';
+import { showToast } from '../src/toast';
 
 const X_LOGO = require('../assets/x-logo.png');
 
@@ -27,11 +30,47 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
   const [ref, setRef] = useState('');
   const [following, setFollowing] = useState<Record<string, boolean>>({});
   const [invest, setInvest] = useState(481);
+  const auth = useAuth();
+  const [linking, setLinking] = useState(false);
 
-  const next = () => {
+  const saveUsername = async (uname: string) => {
+    const clean = uname.trim();
+    if (!auth.demo && clean) {
+      try {
+        await updateProfile({ username: clean });
+      } catch {
+        // non-blocking during onboarding
+      }
+    }
+  };
+
+  const next = async () => {
+    if (step === 1) await saveUsername(username); // persist the manual username
     if (step >= 4) return onDone();
     setDir(1);
     setStep((s) => s + 1);
+  };
+
+  // Connect X → use the @handle AS the username and skip the manual step (FOMO-style).
+  const connectX = async () => {
+    if (auth.demo) return next(); // demo → manual username
+    setLinking(true);
+    try {
+      const handle = await auth.linkTwitter();
+      if (handle) {
+        setUsername(handle);
+        await saveUsername(handle);
+        setDir(1);
+        setStep(2); // X gave us the username — skip "Create your username"
+      } else {
+        next(); // linked but no handle → fall back to manual
+      }
+    } catch {
+      showToast('Couldn’t connect X', { sub: 'Set a username instead', kind: 'error' });
+      next();
+    } finally {
+      setLinking(false);
+    }
   };
   const back = () => {
     if (step === 0) return;
@@ -148,9 +187,17 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
         <PressScale onPress={next} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 8 }}>
           <Text style={s.skip}>{step === 4 ? "I don't have a code" : "I'll do this later"}</Text>
         </PressScale>
-        <PressScale onPress={next} style={s.primary}>
+        <PressScale onPress={step === 0 ? connectX : next} style={s.primary}>
           <Text style={s.primaryText}>
-            {step === 0 ? 'Claim username' : step === 3 ? 'Start with these traders' : step === 4 ? 'Apply code' : 'Continue'}
+            {step === 0
+              ? linking
+                ? 'Connecting…'
+                : 'Connect X'
+              : step === 3
+                ? 'Start with these traders'
+                : step === 4
+                  ? 'Apply code'
+                  : 'Continue'}
           </Text>
         </PressScale>
       </View>
