@@ -13,6 +13,7 @@ import { colors, radius } from '../src/theme';
 import { getLiveTokens } from '../src/api/endpoints';
 import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useAuth } from '../src/auth';
+import { CrossmintBuy, CROSSMINT_READY } from '../src/crossmint';
 import type { PulseBundle } from '../src/types';
 
 type Step = 'choose' | 'pickToken' | 'payToken' | 'depositCash' | 'cryptoNetwork' | 'cryptoAddress';
@@ -124,13 +125,28 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={s.price}>{priceUsd(picked.snapshot?.price_usd)}</Text>
           </View>
           <Text style={s.amount}>${amount}</Text>
-          <Text style={s.amountSub}>$0 fee on your first buy</Text>
+          <Text style={s.amountSub}>$0 fee on your first buy · delivered to your wallet</Text>
           <Presets values={[50, 100, 500, 1500]} amount={amount} onPick={setAmount} />
-          <Keypad onPress={press} />
-          <PressScale style={s.payBtn} onPress={onClose}>
-            <Ionicons name="logo-apple" size={20} color="#000" />
-            <Text style={s.payText}>Pay</Text>
-          </PressScale>
+          {CROSSMINT_READY && (picked.token.chain === 'sol' || !picked.token.chain ? auth.walletAddress : auth.evmAddress) ? (
+            // Real Apple Pay → token via Crossmint (delivered to the Privy wallet).
+            <View style={{ marginTop: 16, minHeight: 110 }}>
+              <CrossmintBuy
+                chain={picked.token.chain ?? 'sol'}
+                mint={picked.token.mint}
+                amountUsd={amount}
+                recipientWallet={((picked.token.chain === 'sol' || !picked.token.chain ? auth.walletAddress : auth.evmAddress) ?? '') as string}
+                onCompleted={onClose}
+              />
+            </View>
+          ) : (
+            <>
+              <Keypad onPress={press} />
+              <PressScale style={s.payBtn} onPress={onClose}>
+                <Ionicons name="logo-apple" size={20} color="#000" />
+                <Text style={s.payText}>Pay (demo)</Text>
+              </PressScale>
+            </>
+          )}
         </View>
       ) : step === 'depositCash' ? (
         <View style={s.pb}>
