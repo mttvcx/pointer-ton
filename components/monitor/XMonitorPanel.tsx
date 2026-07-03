@@ -580,9 +580,20 @@ export function XMonitorPanel({
                     key={row.alertId}
                     onMouseEnter={() => setHoveredRowId(row.alertId)}
                     onMouseLeave={() => setHoveredRowId((cur) => (cur === row.alertId ? null : cur))}
+                    // "Ultra" launch button: the whole card is the launch button —
+                    // any click that ISN'T on an interactive child (link / button /
+                    // input) fires the launch. Text selections are ignored.
+                    onClick={(e) => {
+                      const el = e.target as HTMLElement;
+                      if (el.closest('a, button, input, textarea, select, [data-no-launch]')) return;
+                      if (typeof window !== 'undefined' && (window.getSelection()?.toString().length ?? 0) > 0) return;
+                      runLaunch(row);
+                    }}
+                    title="Click anywhere to launch · links & buttons stay clickable"
                     className={cn(
-                      // Carded grey rows (J7-style premium) — lighter grey for legibility.
-                      'group flex items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.055] transition-colors hover:border-white/[0.16] hover:bg-white/[0.08]',
+                      // Carded grey rows (J7-style premium) — the whole card is the
+                      // ultra launch button, so it reads as one on hover (accent ring).
+                      'group flex cursor-pointer items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.055] transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/[0.05] hover:shadow-[inset_0_0_0_1px_rgb(var(--pulse-accent-rgb)/0.25)]',
                       launchRailSide === 'right' && 'flex-row-reverse',
                       launchRailSide === 'top' && 'flex-col',
                       launchRailSide === 'bottom' && 'flex-col-reverse',
