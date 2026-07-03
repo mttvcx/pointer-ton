@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, LayoutAnimation, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,11 +11,11 @@ import { GlossButton } from '../components/GlossButton';
 import { DepositFlow } from '../components/DepositFlow';
 import { DragSheet } from '../components/DragSheet';
 import { Sparkline } from '../components/Sparkline';
-import { AiSheet, CardSheet, PointsSheet, TaxSheet, YieldSheet } from '../components/FinancialSheets';
+import { AiSheet, CardSheet, MoveSheet, PointsSheet, TaxSheet, YieldSheet } from '../components/FinancialSheets';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
-import { getDemoCapital, type CapitalModel, type FinActivityKind } from '../src/demo/capital';
+import { getDemoCapital, type CapitalModel, type FinActivityKind, type StateKey as CapKey } from '../src/demo/capital';
 import type { PulseBundle } from '../src/types';
 
 // The four states of capital — the product's spine.
@@ -84,7 +84,7 @@ const ACT_ICON: Record<FinActivityKind, React.ComponentProps<typeof Ionicons>['n
   receive: 'arrow-down-outline',
 };
 
-type Panel = 'card' | 'yield' | 'tax' | 'points' | 'ai';
+type Panel = 'card' | 'yield' | 'tax' | 'points' | 'ai' | 'move';
 type Sheet = { kind: 'state'; key: StateKey } | { kind: 'panel'; panel: Panel };
 
 // A state's action button routes to the matching deep panel (or, for trading,
@@ -93,7 +93,16 @@ const STATE_ACTION: Record<StateKey, Panel | null> = { trading: null, earning: '
 
 export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
-  const m = useMemo(() => getDemoCapital(), []);
+  // Mutable so moving capital between states visibly rebalances the bar.
+  const [m, setM] = useState<CapitalModel>(() => getDemoCapital());
+  const moveCapital = (from: CapKey, to: CapKey, amount: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.create(320, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.scaleXY));
+    setM((prev) => {
+      const amt = Math.min(amount, prev.states[from]);
+      const states = { ...prev.states, [from]: prev.states[from] - amt, [to]: prev.states[to] + amt };
+      return { ...prev, states };
+    });
+  };
   const [deposit, setDeposit] = useState(false);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const openState = (key: StateKey) => setSheet({ kind: 'state', key });
@@ -164,6 +173,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             </PressScale>
           ))}
         </View>
+        <PressScale to={0.97} onPress={() => openPanel('move')} style={s.moveBtn}>
+          <Ionicons name="swap-horizontal" size={16} color={colors.accentGlow} />
+          <Text style={s.moveText}>Move capital</Text>
+        </PressScale>
 
         {/* Pointer Card */}
         <PressScale to={0.99} onPress={() => openPanel('card')} style={s.card}>
@@ -305,6 +318,8 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <PointsSheet m={m} onClose={closeSheet} />
         ) : sheet?.panel === 'ai' ? (
           <AiSheet m={m} onClose={closeSheet} />
+        ) : sheet?.panel === 'move' ? (
+          <MoveSheet states={m.states} onMove={moveCapital} onClose={closeSheet} />
         ) : null}
       </DragSheet>
     </Screen>
@@ -373,6 +388,8 @@ const s = StyleSheet.create({
   dot: { width: 9, height: 9, borderRadius: 5 },
   legendLabel: { color: colors.fgMuted, fontSize: 13, flex: 1 },
   legendVal: { color: colors.fg, fontSize: 13.5, fontWeight: '700' },
+  moveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16, paddingVertical: 11, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.accent + '3D', backgroundColor: colors.accentSoft },
+  moveText: { color: colors.accentGlow, fontSize: 14, fontWeight: '700' },
 
   card: { borderRadius: radius.lg, overflow: 'hidden', marginTop: 22, padding: 18, borderWidth: 1, borderColor: colors.accent + '33', height: 190, justifyContent: 'space-between' },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

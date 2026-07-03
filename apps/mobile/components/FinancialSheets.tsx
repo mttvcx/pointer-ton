@@ -10,7 +10,15 @@ import { Sparkline } from './Sparkline';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
-import type { CapitalModel } from '../src/demo/capital';
+import type { CapitalModel, CapitalStates, StateKey } from '../src/demo/capital';
+
+// Presentational meta for the four states (label + accent), mirrors the screen.
+const STATE_META: { key: StateKey; label: string; color: string }[] = [
+  { key: 'trading', label: 'Trading', color: colors.accentGlow },
+  { key: 'earning', label: 'Earning', color: colors.bull },
+  { key: 'spendable', label: 'Spendable', color: colors.brand },
+  { key: 'reserved', label: 'Reserved', color: colors.warn },
+];
 
 /* ── shared bits ─────────────────────────────────────────── */
 
@@ -293,6 +301,79 @@ export function AiSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }
   );
 }
 
+/* ── Move capital between states ─────────────────────────── */
+
+export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; onMove: (from: StateKey, to: StateKey, amount: number) => void; onClose: () => void }) {
+  const [from, setFrom] = useState<StateKey>('spendable');
+  const [to, setTo] = useState<StateKey>('earning');
+  const [pct, setPct] = useState(0.5);
+
+  const pickFrom = (k: StateKey) => {
+    setFrom(k);
+    if (k === to) setTo(STATE_META.find((x) => x.key !== k)!.key);
+  };
+  const pickTo = (k: StateKey) => {
+    if (k === from) return;
+    setTo(k);
+  };
+
+  const avail = states[from];
+  const amount = Math.round(avail * pct);
+  const toLabel = STATE_META.find((x) => x.key === to)!.label;
+  const canMove = amount > 0 && from !== to;
+
+  return (
+    <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+      <SheetTitle icon="swap-horizontal" tint={colors.accent} kicker="MOVE CAPITAL" title="Never idle" />
+
+      <Text style={s.section}>From</Text>
+      <View style={s.chipWrap}>
+        {STATE_META.map((st) => (
+          <PressScale key={st.key} to={0.95} onPress={() => pickFrom(st.key)} style={[s.stateChip, from === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
+            <View style={[s.chipDot, { backgroundColor: st.color }]} />
+            <Text style={s.chipLabel}>{st.label}</Text>
+            <Text style={s.chipVal}>{usd(states[st.key], 0)}</Text>
+          </PressScale>
+        ))}
+      </View>
+
+      <View style={s.arrowRow}>
+        <Ionicons name="arrow-down" size={18} color={colors.fgMuted} />
+      </View>
+
+      <Text style={s.section}>To</Text>
+      <View style={s.chipWrap}>
+        {STATE_META.map((st) => {
+          const disabled = st.key === from;
+          return (
+            <PressScale key={st.key} to={0.95} onPress={() => pickTo(st.key)} style={[s.stateChip, disabled && { opacity: 0.35 }, to === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
+              <View style={[s.chipDot, { backgroundColor: st.color }]} />
+              <Text style={s.chipLabel}>{st.label}</Text>
+              <Text style={s.chipVal}>{usd(states[st.key], 0)}</Text>
+            </PressScale>
+          );
+        })}
+      </View>
+
+      <View style={s.amountBox}>
+        <GlassFill />
+        <Text style={s.amountBig}>{usd(amount, 0)}</Text>
+        <View style={s.pctRow}>
+          {[0.25, 0.5, 0.75, 1].map((p) => (
+            <PressScale key={p} to={0.93} onPress={() => setPct(p)} style={[s.pctChip, pct === p && s.pctChipOn]}>
+              <Text style={[s.pctText, pct === p && s.pctTextOn]}>{p === 1 ? 'Max' : `${p * 100}%`}</Text>
+            </PressScale>
+          ))}
+        </View>
+      </View>
+
+      <GlossButton onPress={() => { if (!canMove) return; onMove(from, to, amount); onClose(); showToast(`Moved ${usd(amount, 0)} to ${toLabel}`, { kind: 'success' }); }} style={{ marginTop: 18, opacity: canMove ? 1 : 0.5 }}>
+        <Text style={s.cta}>{canMove ? `Move to ${toLabel}` : 'Choose an amount'}</Text>
+      </GlossButton>
+    </ScrollView>
+  );
+}
+
 const s = StyleSheet.create({
   body: { paddingHorizontal: 20, paddingBottom: 12 },
 
@@ -352,6 +433,21 @@ const s = StyleSheet.create({
   srcRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   srcTrack: { height: 5, borderRadius: 3, backgroundColor: colors.bg, overflow: 'hidden', marginTop: 7 },
   srcFill: { height: 5, borderRadius: 3, backgroundColor: colors.accentGlow },
+
+  // Move capital
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  stateChip: { width: '47%', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bgRaised2, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 12, borderWidth: 1.5, borderColor: colors.border },
+  chipDot: { width: 9, height: 9, borderRadius: 5 },
+  chipLabel: { color: colors.fg, fontSize: 13.5, fontWeight: '600', flex: 1 },
+  chipVal: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '600' },
+  arrowRow: { alignItems: 'center', paddingVertical: 8 },
+  amountBox: { borderRadius: radius.lg, overflow: 'hidden', padding: 18, marginTop: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  amountBig: { color: colors.fg, fontSize: 38, fontWeight: '800', letterSpacing: -1.2 },
+  pctRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  pctChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border },
+  pctChipOn: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  pctText: { color: colors.fgMuted, fontSize: 13.5, fontWeight: '700' },
+  pctTextOn: { color: colors.accentGlow },
 
   // AI co-pilot
   aiLede: { color: colors.fgSecondary, fontSize: 14.5, lineHeight: 21, marginTop: -6, marginBottom: 4 },

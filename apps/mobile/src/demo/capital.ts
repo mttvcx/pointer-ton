@@ -12,6 +12,8 @@ export type CapitalStates = {
   reserved: number;
 };
 
+export type StateKey = keyof CapitalStates;
+
 export type FinActivityKind = 'swipe' | 'yield' | 'deposit' | 'reserve' | 'trade' | 'receive';
 export type FinActivity = { id: string; kind: FinActivityKind; title: string; sub: string; amountUsd: number; when: string };
 
