@@ -22,7 +22,7 @@ export function WalletQuickBuyAmount() {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const W = 168;
+    const W = 212;
     setPos({ left: Math.min(Math.max(8, r.left), window.innerWidth - W - 8), top: r.bottom + 6 });
   }, [open]);
 
@@ -34,6 +34,14 @@ export function WalletQuickBuyAmount() {
     window.addEventListener('mousedown', onDown);
     return () => window.removeEventListener('mousedown', onDown);
   }, [open]);
+
+  const customValid = Number.isFinite(Number(custom)) && Number(custom) > 0;
+  const applyCustom = () => {
+    if (!customValid) return;
+    setAmount(Number(custom));
+    setCustom('');
+    setOpen(false);
+  };
 
   return (
     <>
@@ -55,59 +63,62 @@ export function WalletQuickBuyAmount() {
         ? createPortal(
             <div
               data-wqb
-              className="fixed z-[260] w-[168px] rounded-lg border border-white/[0.1] bg-[#0a0a0a] p-1.5 shadow-2xl shadow-black/60"
+              className="fixed z-[260] w-[212px] overflow-hidden rounded-xl border border-border-subtle bg-bg-raised p-2.5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)]"
               style={{ left: pos.left, top: pos.top }}
             >
-              <div className="mb-1 px-1 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">Quick buy · SOL</div>
-              <div className="grid grid-cols-3 gap-1">
-                {PRESETS.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => {
-                      setAmount(p);
-                      setOpen(false);
-                    }}
-                    className={cn(
-                      'btn-press rounded-md py-1 text-[11px] font-semibold tabular-nums transition-colors',
-                      amountSol === p
-                        ? 'bg-accent-primary/25 text-accent-primary'
-                        : 'bg-white/[0.04] text-fg-secondary hover:bg-white/[0.08] hover:text-fg-primary',
-                    )}
-                  >
-                    {p}
-                  </button>
-                ))}
+              <div className="mb-2 flex items-center justify-between px-0.5">
+                <span className="flex items-center gap-1.5 text-[10.5px] font-semibold text-fg-secondary">
+                  <Zap className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2.5} aria-hidden />
+                  Quick Buy
+                </span>
+                <span className="rounded-md bg-white/[0.05] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-fg-muted">
+                  SOL
+                </span>
               </div>
-              <div className="mt-1.5 flex items-center gap-1">
-                <input
-                  value={custom}
-                  onChange={(e) => setCustom(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const n = Number(custom);
-                      if (Number.isFinite(n) && n > 0) {
-                        setAmount(n);
-                        setCustom('');
+              <div className="grid grid-cols-3 gap-1.5">
+                {PRESETS.map((p) => {
+                  const on = amountSol === p;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => {
+                        setAmount(p);
                         setOpen(false);
-                      }
-                    }
-                  }}
-                  inputMode="decimal"
-                  placeholder="Custom"
-                  className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 text-[11px] tabular-nums text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
-                />
+                      }}
+                      className={cn(
+                        'btn-press rounded-lg border py-1.5 text-[12px] font-semibold tabular-nums transition',
+                        on
+                          ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
+                          : 'border-border-subtle bg-bg-sunken text-fg-secondary hover:border-white/20 hover:bg-bg-hover hover:text-fg-primary',
+                      )}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <div className="relative min-w-0 flex-1">
+                  <input
+                    value={custom}
+                    onChange={(e) => setCustom(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') applyCustom();
+                    }}
+                    inputMode="decimal"
+                    placeholder="Custom"
+                    className="w-full rounded-lg border border-border-subtle bg-bg-sunken py-1.5 pl-2.5 pr-9 text-[12px] tabular-nums text-fg-primary outline-none transition-colors placeholder:text-fg-muted focus:border-accent-primary/50"
+                  />
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-wider text-fg-muted">
+                    SOL
+                  </span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const n = Number(custom);
-                    if (Number.isFinite(n) && n > 0) {
-                      setAmount(n);
-                      setCustom('');
-                      setOpen(false);
-                    }
-                  }}
-                  className="btn-press rounded-md bg-accent-primary/20 px-2 py-1 text-[11px] font-bold text-accent-primary hover:bg-accent-primary/30"
+                  onClick={applyCustom}
+                  disabled={!customValid}
+                  className="btn-press shrink-0 rounded-lg bg-accent-primary px-3 py-1.5 text-[11px] font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Set
                 </button>
