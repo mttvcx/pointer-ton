@@ -17,7 +17,7 @@ import { Accordion } from '../components/Accordion';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
-import { getToken } from '../src/api/endpoints';
+import { getToken, getTokenTrades, getTokenHolders } from '../src/api/endpoints';
 import { ageShort, compactUsd, priceUsd, shortMint } from '../src/format';
 import { toggleWatch, useIsWatched, useChartTf, setChartTf, useChartAxis, setChartAxis, type OrderSide } from '../src/local';
 import { copyText } from '../src/clipboard';
@@ -231,36 +231,32 @@ export function TokenScreen({
               </Accordion>
 
               <Accordion title="Top holders" badge={snap?.holder_count != null ? snap.holder_count.toLocaleString() : undefined}>
-                {DEMO_HOLDERS.map((h, i) => (
-                  <View key={i} style={s.holder}>
-                    <Text style={s.holderRank}>#{i + 1}</Text>
-                    <View style={[s.holderAvatar, { backgroundColor: h.color }]}>
-                      <Text style={s.holderInitial}>{h.initial}</Text>
+                <TopHolders
+                  mint={token.mint}
+                  fallback={DEMO_HOLDERS.map((h, i) => (
+                    <View key={i} style={s.holder}>
+                      <Text style={s.holderRank}>#{i + 1}</Text>
+                      <View style={[s.holderAvatar, { backgroundColor: h.color }]}>
+                        <Text style={s.holderInitial}>{h.initial}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.holderName}>{h.name}</Text>
+                        <Text style={s.holderHold}>{h.hold}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={s.holderValue}>{h.value}</Text>
+                        <Text style={[s.holderChg, { color: h.up ? colors.bull : colors.bear }]}>{h.up ? '▲' : '▼'} {h.chg}</Text>
+                      </View>
+                      <PressScale onPress={() => shareHolder(h)} hitSlop={8} to={0.85} style={s.holderShare}>
+                        <Ionicons name="share-outline" size={16} color={colors.fgMuted} />
+                      </PressScale>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.holderName}>{h.name}</Text>
-                      <Text style={s.holderHold}>{h.hold}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={s.holderValue}>{h.value}</Text>
-                      <Text style={[s.holderChg, { color: h.up ? colors.bull : colors.bear }]}>{h.up ? '▲' : '▼'} {h.chg}</Text>
-                    </View>
-                    <PressScale onPress={() => shareHolder(h)} hitSlop={8} to={0.85} style={s.holderShare}>
-                      <Ionicons name="share-outline" size={16} color={colors.fgMuted} />
-                    </PressScale>
-                  </View>
-                ))}
+                  ))}
+                />
               </Accordion>
 
               <Accordion title="Live trades">
-                {tradeTape(token.mint).map((t, i) => (
-                  <View key={i} style={s.tape}>
-                    <Text style={[s.tapeSide, { color: t.buy ? colors.bull : colors.bear }]}>{t.buy ? 'Buy' : 'Sell'}</Text>
-                    <Text style={s.tapeAmt}>${t.usd.toLocaleString()}</Text>
-                    <Text style={s.tapeWallet}>{t.wallet}</Text>
-                    <Text style={s.tapeAgo}>{t.ago}</Text>
-                  </View>
-                ))}
+                <LiveTrades mint={token.mint} />
               </Accordion>
 
               <Accordion title="Token stats">
@@ -384,6 +380,90 @@ function tradeTape(mint: string) {
       ago: `${Math.round(3 + seed(mint, 70 + i) * 140)}s`,
     };
   });
+}
+
+/** Real recent trades for this token (public `/api/tokens/:mint/trades`, newest
+ *  first). Falls back to the demo tape when the feed is empty so the section is
+ *  never blank. */
+function LiveTrades({ mint }: { mint: string }) {
+  const q = useQuery({
+    queryKey: ['token-trades', mint],
+    queryFn: () => getTokenTrades(mint, 30),
+    staleTime: 8_000,
+    refetchInterval: 12_000,
+  });
+  const rows = q.data ?? [];
+
+  if (q.isLoading && !rows.length) {
+    return <Text style={s.advHint}>Loading trades…</Text>;
+  }
+  if (!rows.length) {
+    return (
+      <>
+        {tradeTape(mint).map((t, i) => (
+          <View key={i} style={s.tape}>
+            <Text style={[s.tapeSide, { color: t.buy ? colors.bull : colors.bear }]}>{t.buy ? 'Buy' : 'Sell'}</Text>
+            <Text style={s.tapeAmt}>{compactUsd(t.usd)}</Text>
+            <Text style={s.tapeWallet}>{t.wallet}</Text>
+            <Text style={s.tapeAgo}>{t.ago}</Text>
+          </View>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {rows.map((t, i) => {
+        const buy = t.side === 'buy';
+        const usd = (t.price_usd_at_fill ?? 0) * (t.amount_token ?? 0);
+        return (
+          <View key={`${t.tx_signature}-${i}`} style={s.tape}>
+            <Text style={[s.tapeSide, { color: buy ? colors.bull : colors.bear }]}>{buy ? 'Buy' : 'Sell'}</Text>
+            <Text style={s.tapeAmt}>{usd > 0 ? compactUsd(usd) : `${(t.amount_sol ?? 0).toFixed(2)} SOL`}</Text>
+            <Text style={s.tapeWallet}>{t.wallet_address ? shortMint(t.wallet_address) : '—'}</Text>
+            <Text style={s.tapeAgo}>{ageShort(t.submitted_at) || 'now'}</Text>
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+const HOLDER_COLORS = ['#7A1F1F', '#B5392B', '#C9A21E', '#33373D', '#6E56CF', '#B5521E', '#9AA4B2', '#3A2E4A', '#3D3DCF', '#1A1A1A'];
+
+/** Real on-chain holder distribution (top wallets by % of supply, sniper/dev
+ *  flags). Falls back to the demo holder list when the feed is unavailable
+ *  (e.g. demo tokens in Expo Go). */
+function TopHolders({ mint, fallback }: { mint: string; fallback: React.ReactNode }) {
+  const q = useQuery({
+    queryKey: ['token-holders', mint],
+    queryFn: () => getTokenHolders(mint),
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const holders = q.data?.holders ?? [];
+  if (q.isLoading && !holders.length) return <Text style={s.advHint}>Loading holders…</Text>;
+  if (!holders.length) return <>{fallback}</>;
+  return (
+    <>
+      {holders.slice(0, 20).map((h, i) => {
+        const flag = h.is_dev ? 'Dev' : h.is_sniper ? 'Sniper' : null;
+        return (
+          <View key={h.wallet_address} style={s.holder}>
+            <Text style={s.holderRank}>#{h.rank ?? i + 1}</Text>
+            <View style={[s.holderAvatar, { backgroundColor: HOLDER_COLORS[i % HOLDER_COLORS.length] }]}>
+              <Text style={s.holderInitial}>{h.wallet_address.slice(0, 2).toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.holderName}>{shortMint(h.wallet_address)}</Text>
+              {flag ? <Text style={[s.holderHold, { color: flag === 'Dev' ? colors.warn : colors.bear }]}>{flag}</Text> : null}
+            </View>
+            <Text style={s.holderValue}>{h.pct_of_supply != null ? `${h.pct_of_supply.toFixed(2)}%` : '—'}</Text>
+          </View>
+        );
+      })}
+    </>
+  );
 }
 
 function tone(v: number, good: number, warn: number): string {

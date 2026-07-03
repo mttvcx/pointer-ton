@@ -11,6 +11,7 @@ import type {
   PulseColumn,
   PulseFeed,
   TokenDetail,
+  TokenHoldersResponse,
   Verdict,
 } from '../types';
 
@@ -47,6 +48,12 @@ export async function getLiveTokens(chain = 'sol'): Promise<PulseBundle[]> {
 
 export function getToken(mint: string): Promise<TokenDetail> {
   return api<TokenDetail>(`/api/tokens/${encodeURIComponent(mint)}`);
+}
+
+/** On-chain holder distribution for a token (public). Top wallets by % of supply,
+ *  with sniper/dev flags — the rug-check view. */
+export async function getTokenHolders(mint: string): Promise<TokenHoldersResponse> {
+  return api<TokenHoldersResponse>(`/api/tokens/${encodeURIComponent(mint)}/holders`);
 }
 
 /** Hyperliquid perp markets (public, vol-sorted server-side). Read-only — order

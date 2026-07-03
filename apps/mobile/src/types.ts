@@ -46,6 +46,20 @@ export type PulseFeed = { column: string; chain: string; items: PulseBundle[]; w
 
 export type TokenDetail = { token: TokenRow; snapshot: TokenSnapshot; dev: unknown };
 
+/** One row of /api/tokens/:mint/holders (on-chain holder distribution). */
+export type TokenHolder = {
+  wallet_address: string;
+  pct_of_supply: number | null;
+  rank: number;
+  is_sniper?: boolean;
+  is_dev?: boolean;
+};
+export type TokenHoldersResponse = {
+  holders: TokenHolder[];
+  holderCount?: number | null;
+  top10HolderPct?: number | null;
+};
+
 /* ---------- authed account shapes (mirror the web /api responses) ---------- */
 
 /** GET /api/me → { user } */
