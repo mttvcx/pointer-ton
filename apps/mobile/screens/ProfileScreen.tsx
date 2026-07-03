@@ -9,9 +9,9 @@ import { DepositFlow } from '../components/DepositFlow';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
-import { useBio, useFollowCount } from '../src/local';
+import { useBio, useFollowCount, useReferralCode } from '../src/local';
 import { useMe } from '../src/account';
-import { shareText } from '../src/share';
+import { shareReferral } from '../src/share';
 
 /** "ABcd…WXyz" short form for a wallet address. */
 function shortAddr(a: string): string {
@@ -26,6 +26,7 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
   const [deposit, setDeposit] = useState(false);
   const bio = useBio();
   const following = useFollowCount();
+  const refCode = useReferralCode();
 
   // Real identity once signed in (real build); demo keeps the "pointer" placeholder.
   const me = useMe();
@@ -44,7 +45,7 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
             <Logo size={30} />
           </View>
           <View style={s.topIcons}>
-            <PressScale onPress={() => shareText('Trade with me on Pointer — half your fees back. @pointer', 'https://pointer-ton.vercel.app')} to={0.85} hitSlop={8}>
+            <PressScale onPress={() => shareReferral(refCode)} to={0.85} hitSlop={8}>
               <Ionicons name="share-outline" size={22} color={colors.fgSecondary} />
             </PressScale>
             <Ionicons name="gift-outline" size={22} color={colors.fgSecondary} />

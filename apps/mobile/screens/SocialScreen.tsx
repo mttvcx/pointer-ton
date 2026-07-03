@@ -9,7 +9,8 @@ import { ActivityFeed } from '../components/ActivityFeed';
 import { GlassFill } from '../components/GlassFill';
 import { colors, radius } from '../src/theme';
 import { getLeaderboard, type LeaderEntry } from '../src/demo/traders';
-import { shareText } from '../src/share';
+import { shareReferral } from '../src/share';
+import { useReferralCode } from '../src/local';
 import type { PulseBundle } from '../src/types';
 
 const RANGES = ['24h', '7d', '30d', 'All'];
@@ -35,18 +36,14 @@ export function SocialScreen({
   const [view, setView] = useState<SocialView>('activity');
   const [range, setRange] = useState(0);
   const rows = useMemo(() => getLeaderboard(range, 'today'), [range]);
+  const refCode = useReferralCode();
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={[s.content, { paddingTop: insets.top + 10 }]} showsVerticalScrollIndicator={false}>
         <View style={s.titleRow}>
           <Text style={s.title}>Social</Text>
-          <PressScale
-            onPress={() => shareText('🏆 Top traders on Pointer — copy their trades, half your fees back.', 'https://pointer-ton-orcin.vercel.app')}
-            to={0.85}
-            hitSlop={8}
-            style={s.shareBtn}
-          >
+          <PressScale onPress={() => shareReferral(refCode)} to={0.85} hitSlop={8} style={s.shareBtn}>
             <GlassFill />
             <Ionicons name="share-outline" size={20} color={colors.fgSecondary} />
           </PressScale>
