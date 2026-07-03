@@ -19,6 +19,12 @@ Everything left needs the Supabase restore + social schema applied. In order:
    Expo push token (needs `expo-notifications` → a rebuild), and swap the
    leaderboard / "Traders here" demos to real named-trader data.
 6. **Rebuild** (`eas build`) picks up: new icon/splash + push module.
+7. **Pointer Financial (real):** run `scripts/financial-accounts.sql`, set
+   `BRIDGE_API_KEY` (+ `BRIDGE_API_BASE`), verify the Bridge REST paths in
+   `lib/financial/bridgeClient.ts` against their live API. Then request the Apple
+   Pay `payment-pass-provisioning` entitlement + wire the PassKit native module in
+   `src/financial/wallet.ts`. Until keys are set the whole layer stays in local
+   simulation (safe — no real accounts).
 
 ---
 
@@ -108,10 +114,31 @@ Dashboard**, not a banking app. Spec: `docs/POINTER_FINANCIAL.md`. Core model =
 - **Provider choice (users never see names):** Bridge = card + bank rails + ramp,
   Blend = yield, Crossmint = buys. One-vendor-heavy on purpose (the "how easy it is
   to start" thesis; distribution is the moat).
-- **Backend-pending** to make it real: virtual-account/card issuance + rails
-  (Bridge), yield sweep (Blend), and surfacing balances through `/api/*`. All demo
-  numbers until then; real-action buttons (Add-to-Pay, export, ask AI) toast
-  "coming soon". Move Capital mutates the demo model only (no on-chain effect yet).
+- **First-run journey** (`screens/FinancialOnboarding.tsx`): a fresh account sees
+  `FinancialIntro` (pitch) → `FinancialActivation` (just-in-time KYC: legal name +
+  country → virtual card issued instantly; animated provisioning; celebratory
+  card-ready with Add-to-Apple-Pay). Driven by `src/financial/store.ts`
+  (unactivated → active); issued card's last4/frozen thread into the dashboard +
+  Card sheet. **DEMO always starts unactivated** so the journey is re-demoable.
+- **Backend facade (built, key-gated):** `app/api/financial/{status,activate,
+  card/provision}/route.ts` + `lib/financial/bridgeClient.ts` (Bridge:
+  customers, virtual accounts, card issuance, Apple Pay provisioning). With no
+  `BRIDGE_API_KEY` every route returns `{ configured:false }` and the app uses its
+  local simulation — **no faked money**. `lib/financial/db.ts` persists to
+  `financial_accounts` (inert until `scripts/financial-accounts.sql` runs).
+  Mobile client: `src/financial/api.ts`.
+- **Add-to-Apple-Pay** (`src/financial/wallet.ts`): flow wired end-to-end
+  (mobile → `POST /api/financial/card/provision` → native PassKit). Simulated in
+  demo. **Still needs** (external): a PassKit provisioning native module + Apple's
+  `com.apple.developer.payment-pass-provisioning` entitlement (Apple approval) +
+  issuer approval. `walletAvailable()` stays false until then; NOT added to
+  app.config yet (an unapproved entitlement would break signing).
+- **Provider choice (users never see names):** Bridge = card + bank rails + ramp,
+  Blend = yield, Crossmint = buys.
+- **To make it fully real:** set `BRIDGE_API_KEY` (+ base), run
+  `scripts/financial-accounts.sql`, verify the Bridge REST paths in
+  `bridgeClient.ts` against their live API, then request the Apple Pay entitlement.
+  Move Capital mutates the demo model only (no on-chain effect yet).
 
 ## BLOCKED on web backend + DB restore
 The web team confirmed these are all **DB-write features**, blocked until the
