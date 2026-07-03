@@ -26,6 +26,9 @@ export function isLuloConfigured(): boolean {
   return !!process.env.LULO_API_KEY?.trim();
 }
 
+// USDC on Solana mainnet — what Smart Yield deposits/earns in.
+export const USDC_SOLANA_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
 function luloBase(): string {
   return process.env.LULO_API_BASE?.trim() || 'https://api.lulo.fi';
 }
@@ -77,14 +80,23 @@ export const lulo = {
     };
   },
 
-  /** Unsigned deposit transaction (base64) for the user's wallet to sign. Not yet
-   *  surfaced in the app — kept ready for the auto-sweep flow. */
-  async generateDeposit(input: { owner: string; mintAddress: string; depositAmount: string; priorityFee?: number }): Promise<unknown> {
+  /** Unsigned deposit transaction (base64) for the user's Solana wallet to sign.
+   *  Defensive about where Lulo nests the tx in the response (verify against the
+   *  dev-dashboard schema before trusting at scale). Returns null if not found. */
+  async generateDeposit(input: { owner: string; mintAddress: string; depositAmount: string; priorityFee?: number }): Promise<{ transaction: string | null }> {
     const fee = input.priorityFee ?? 50000;
-    return luloFetch(`/v1/generate.transactions.deposit?priorityFee=${fee}`, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw: any = await luloFetch(`/v1/generate.transactions.deposit?priorityFee=${fee}`, {
       method: 'POST',
       walletPubkey: input.owner,
       body: { owner: input.owner, mintAddress: input.mintAddress, depositAmount: input.depositAmount },
     });
+    const tx =
+      raw?.data?.data?.transactionMeta?.[0]?.transaction ??
+      raw?.data?.transactionMeta?.[0]?.transaction ??
+      raw?.data?.transaction ??
+      raw?.transaction ??
+      (Array.isArray(raw?.transactions) ? raw.transactions[0] : null);
+    return { transaction: typeof tx === 'string' ? tx : null };
   },
 };

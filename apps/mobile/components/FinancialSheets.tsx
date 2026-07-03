@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Logo } from './Logo';
@@ -12,6 +12,7 @@ import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
 import { setCardFrozen, setCardInWallet } from '../src/financial/store';
+import { useYieldDeposit } from '../src/financial/hooks';
 import { addToApplePay } from '../src/financial/wallet';
 import type { CardInfo } from '../src/financial/types';
 import type { CapitalModel, CapitalStates, StateKey } from '../src/demo/capital';
@@ -159,6 +160,28 @@ export function YieldSheet({ m, apyOverride, onClose }: { m: CapitalModel; apyOv
   const apy = apyOverride ?? m.apy;
   const perMonth = (m.states.earning * (apy / 100)) / 12;
   const perYear = m.states.earning * (apy / 100);
+
+  const { deposit } = useYieldDeposit();
+  const [amt, setAmt] = useState(50);
+  const [busy, setBusy] = useState(false);
+  const runDeposit = async () => {
+    setBusy(true);
+    try {
+      await deposit(amt);
+      showToast(`Putting ${usd(amt, 0)} to work`, { kind: 'success' });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Deposit failed', { kind: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const putToWork = () => {
+    Alert.alert(`Put ${usd(amt, 0)} to work?`, `This moves ${usd(amt, 0)} of USDC into Smart Yield, earning ${apy.toFixed(1)}% and fully liquid.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', onPress: runDeposit },
+    ]);
+  };
+
   return (
     <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
       <SheetTitle icon="leaf" tint={colors.bull} kicker="SMART YIELD" title="Your money at work" />
@@ -186,9 +209,22 @@ export function YieldSheet({ m, apyOverride, onClose }: { m: CapitalModel; apyOv
 
       <Note>Yield stays fully liquid. The instant you place a trade, Pointer pulls exactly what you need back out — so earning never costs you a fill.</Note>
 
-      <GlossButton onPress={onClose} style={{ marginTop: 18 }}>
-        <Text style={s.cta}>Done</Text>
+      {/* Put to work — real USDC deposit into Lulo (mirrors the trade sign+send path). */}
+      <Text style={s.section}>Put money to work</Text>
+      <View style={s.pctRow}>
+        {[10, 50, 100].map((v) => (
+          <PressScale key={v} to={0.93} onPress={() => setAmt(v)} style={[s.pctChip, amt === v && s.pctChipOn]}>
+            <Text style={[s.pctText, amt === v && s.pctTextOn]}>{usd(v, 0)}</Text>
+          </PressScale>
+        ))}
+      </View>
+      <GlossButton onPress={busy ? () => {} : putToWork} style={{ marginTop: 12, opacity: busy ? 0.6 : 1 }}>
+        {busy ? <ActivityIndicator color={colors.onAccent} /> : <Text style={s.cta}>Put {usd(amt, 0)} to work</Text>}
       </GlossButton>
+
+      <PressScale onPress={onClose} style={{ marginTop: 14, alignItems: 'center' }} to={0.97}>
+        <Text style={s.doneText}>Done</Text>
+      </PressScale>
     </ScrollView>
   );
 }
@@ -431,6 +467,7 @@ const s = StyleSheet.create({
   noteText: { color: colors.fgMuted, fontSize: 13, lineHeight: 19, flex: 1 },
   section: { color: colors.fgSecondary, fontSize: 13, fontWeight: '700', letterSpacing: 0.3, marginTop: 20, marginBottom: -2 },
   cta: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
+  doneText: { color: colors.fgMuted, fontSize: 15, fontWeight: '600' },
 
   // card visual
   card: { borderRadius: radius.lg, overflow: 'hidden', padding: 18, height: 172, justifyContent: 'space-between', borderWidth: 1, borderColor: colors.brand + '33' },

@@ -37,3 +37,10 @@ type YieldResponse = { configured: boolean; apyPct: number | null };
 export async function fetchYieldRate(): Promise<YieldResponse> {
   return api<YieldResponse>('/api/financial/yield', { token: await authToken() });
 }
+
+type YieldDepositResponse = { configured: boolean; transaction: string | null; error?: string };
+
+/** Prepare the unsigned Lulo deposit tx (the app signs + sends it). */
+export async function prepareYieldDeposit(owner: string, amountUsd: number): Promise<YieldDepositResponse> {
+  return api<YieldDepositResponse>('/api/financial/yield/deposit', { token: await authToken(), method: 'POST', body: { owner, amountUsd } });
+}
