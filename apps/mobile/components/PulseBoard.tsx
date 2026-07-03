@@ -63,6 +63,11 @@ const CHAINS: ChainDef[] = [
   { id: 'bnb', label: 'BNB', color: '#F0B90B' },
 ];
 
+// A quick-buy is denominated in the chain's native gas token (Base uses ETH), so
+// the demo fill never mislabels a Base/BNB buy as "SOL".
+const NATIVE_UNIT: Record<string, string> = { sol: 'SOL', eth: 'ETH', base: 'ETH', bnb: 'BNB' };
+const CHAIN_LABEL: Record<string, string> = { sol: 'Solana', eth: 'Ethereum', base: 'Base', bnb: 'BNB Chain' };
+
 type Filters = { minVol: number; minMc: number; minHolders: number };
 const NO_FILTERS: Filters = { minVol: 0, minMc: 0, minHolders: 0 };
 const VOL_OPTS = [
@@ -210,10 +215,19 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
     async (b: PulseBundle, side: 'buy' | 'sell', amountSol?: number) => {
       const sym = (b.token.symbol ?? '?').replace(/^\$/, '');
       const amt = amountSol ?? qb.sol;
+      const chain = b.token.chain ?? 'sol';
+      const unit = NATIVE_UNIT[chain] ?? 'SOL';
       // No real wallet (demo / not signed in) → simulate the fill + drop into the token.
       if (!hasWallet) {
         Vibration.vibrate(12);
-        showToast(`${side === 'buy' ? 'Bought' : 'Sold'} ${amt} SOL of ${sym}`, { sub: 'Demo order filled', kind: 'success' });
+        showToast(`${side === 'buy' ? 'Bought' : 'Sold'} ${amt} ${unit} of ${sym}`, { sub: 'Demo order filled', kind: 'success' });
+        onOpenToken(b);
+        return;
+      }
+      // Only Solana execution is wired today. Don't fire a Solana trade for an EVM
+      // token — be honest that cross-chain execution isn't live yet.
+      if (chain !== 'sol') {
+        showToast(`${CHAIN_LABEL[chain] ?? 'This chain'} trading is coming soon`, { sub: 'Solana trades are live today', kind: 'info' });
         onOpenToken(b);
         return;
       }
@@ -222,7 +236,7 @@ export function PulseBoard({ onOpenToken }: { onOpenToken: (b: PulseBundle) => v
         Vibration.vibrate(8);
         await submit({ mint: b.token.mint, side, amountSol: amt });
         Vibration.vibrate(18);
-        showToast(`${side === 'buy' ? 'Bought' : 'Sold'} ${amt} SOL of ${sym}`, { kind: 'success' });
+        showToast(`${side === 'buy' ? 'Bought' : 'Sold'} ${amt} ${unit} of ${sym}`, { kind: 'success' });
       } catch (e) {
         Alert.alert(side === 'buy' ? 'Buy failed' : 'Sell failed', e instanceof Error ? e.message : 'Try again.');
       } finally {
