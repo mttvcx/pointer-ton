@@ -2,7 +2,11 @@ import { authToken } from '../auth';
 import { api } from './client';
 import type {
   ExplainTokenResponse,
+  MeUser,
+  MyWallet,
   PerpMarket,
+  PointsSummary,
+  Portfolio,
   PulseBundle,
   PulseColumn,
   PulseFeed,
@@ -96,8 +100,27 @@ export function getTwitterProfile(handle: string): Promise<TwitterProfile> {
 
 /* ---------- authed (token from the auth layer) ---------- */
 
-export async function getMe(): Promise<unknown> {
-  return api('/api/me', { token: await authToken() });
+/** The signed-in Pointer user (same account as web, keyed by privy_id). */
+export async function getMe(): Promise<MeUser> {
+  const r = await api<{ user: MeUser }>('/api/me', { token: await authToken() });
+  return r.user;
+}
+
+/** The user's wallets (embedded Solana/EVM + any imported), with SOL balances. */
+export async function getMyWallets(): Promise<MyWallet[]> {
+  const r = await api<{ wallets?: MyWallet[] }>('/api/wallets/my', { token: await authToken() });
+  return r.wallets ?? [];
+}
+
+/** Aggregate portfolio (value, uPnL, positions) for a wallet, or the primary. */
+export async function getPortfolio(wallet?: string): Promise<Portfolio> {
+  const q = wallet ? `?wallet=${encodeURIComponent(wallet)}` : '';
+  return api<Portfolio>(`/api/portfolio${q}`, { token: await authToken() });
+}
+
+/** Points balance + leaderboard rank for the signed-in user. */
+export async function getPoints(): Promise<PointsSummary> {
+  return api<PointsSummary>('/api/points/me', { token: await authToken() });
 }
 
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';

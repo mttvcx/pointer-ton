@@ -46,6 +46,72 @@ export type PulseFeed = { column: string; chain: string; items: PulseBundle[]; w
 
 export type TokenDetail = { token: TokenRow; snapshot: TokenSnapshot; dev: unknown };
 
+/* ---------- authed account shapes (mirror the web /api responses) ---------- */
+
+/** GET /api/me → { user } */
+export type MeUser = {
+  id: string;
+  privyId: string;
+  walletAddress: string | null;
+  email: string | null;
+  username: string | null;
+  tierId: string;
+  createdAt: string;
+  onboardingCompletedAt: string | null;
+  onboardingStep: number;
+};
+
+/** GET /api/wallets/my → { wallets: [...] } */
+export type MyWallet = {
+  id: string;
+  label: string;
+  wallet_address: string;
+  is_primary: boolean;
+  slot: number;
+  is_archived: boolean;
+  is_active: boolean;
+  is_imported: boolean;
+  /** SOL balance in lamports (decimal string). */
+  balance_lamports: string | null;
+  balance_updated_at: string;
+  created_at: string;
+};
+
+export type PortfolioPosition = {
+  mint: string;
+  balanceRaw: string;
+  decimals: number;
+  symbol: string | null;
+  imageUrl: string | null;
+  costBasisUsd: number;
+  valueUsd: number;
+  unrealizedPnlUsd: number;
+};
+
+export type PortfolioSummary = {
+  totalValue: number;
+  costBasis: number;
+  unrealizedPnl: number;
+  unrealizedPnlPct: number;
+  realizedPnl: number;
+};
+
+/** GET /api/portfolio → aggregate holdings + PnL for a wallet. */
+export type Portfolio = {
+  walletAddress: string | null;
+  solLamports: string | null;
+  solUsd: number;
+  summary: PortfolioSummary;
+  positions: PortfolioPosition[];
+};
+
+/** GET /api/points/me → points balance + rank. */
+export type PointsSummary = {
+  totalPoints: number;
+  breakdown: { source: string; total: number }[];
+  rank: number | null;
+};
+
 /** /api/ai/explain-token → { data: ExplainTokenOutput, ... } */
 export type ExplainTokenOutput = {
   summary: string;

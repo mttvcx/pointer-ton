@@ -10,7 +10,13 @@ import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
 import { useBio, useFollowCount } from '../src/local';
+import { useMe } from '../src/account';
 import { shareText } from '../src/share';
+
+/** "ABcd…WXyz" short form for a wallet address. */
+function shortAddr(a: string): string {
+  return a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a;
+}
 
 const RANGES = ['24h', '7d', '30d', 'All'];
 
@@ -20,6 +26,15 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
   const [deposit, setDeposit] = useState(false);
   const bio = useBio();
   const following = useFollowCount();
+
+  // Real identity once signed in (real build); demo keeps the "pointer" placeholder.
+  const me = useMe();
+  const displayName = me.data?.username?.trim() || me.data?.email?.split('@')[0] || 'pointer';
+  const displayHandle = me.data?.username
+    ? `@${me.data.username}`
+    : me.data?.walletAddress
+      ? shortAddr(me.data.walletAddress)
+      : '@pointer';
 
   return (
     <Screen>
@@ -39,8 +54,8 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
           </View>
         </View>
 
-        <Text style={s.name}>pointer</Text>
-        <Text style={s.handle}>@pointer</Text>
+        <Text style={s.name}>{displayName}</Text>
+        <Text style={s.handle}>{displayHandle}</Text>
 
         <PressScale onPress={onEditProfile} to={0.98} hitSlop={6}>
           <Text style={bio ? s.bioText : s.bio}>{bio || '+ Add a bio'}</Text>

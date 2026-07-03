@@ -13,6 +13,7 @@ import { colors, radius } from '../src/theme';
 import { getLiveTokens } from '../src/api/endpoints';
 import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useWatchlist } from '../src/local';
+import { usePortfolio } from '../src/account';
 import { TraderSheet } from '../components/TraderSheet';
 import { DepositFlow } from '../components/DepositFlow';
 import { DragSheet } from '../components/DragSheet';
@@ -34,6 +35,24 @@ const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: st
   { label: 'Most held', sort: 'holders' },
   { label: 'Graduated', sort: 'new' },
 ];
+
+/** Hermes-safe thousands grouping (no Intl). */
+function groupInt(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/** Split a USD amount into grouped dollars + 2-digit cents; null → 0.00. */
+function fmtBalance(v: number | null): { dollars: string; cents: string } {
+  if (v == null || !Number.isFinite(v)) return { dollars: '0', cents: '00' };
+  const abs = Math.abs(v);
+  let dollars = Math.floor(abs);
+  let cents = Math.round((abs - dollars) * 100);
+  if (cents === 100) {
+    dollars += 1;
+    cents = 0;
+  }
+  return { dollars: groupInt(dollars), cents: String(cents).padStart(2, '0') };
+}
 
 export function HomeScreen({
   onOpenToken,
@@ -70,6 +89,13 @@ function SimpleHome({
   const [watchOnly, setWatchOnly] = useState(false);
   const watchlist = useWatchlist();
   const sort = CHIPS[active].sort;
+
+  // Real portfolio value once signed in (real build); demo stays $0.00 honestly.
+  const portfolio = usePortfolio();
+  const totalUsd = portfolio.data ? (portfolio.data.summary?.totalValue ?? 0) + (portfolio.data.solUsd ?? 0) : null;
+  const uPnl = portfolio.data?.summary?.unrealizedPnl ?? null;
+  const uPnlPct = portfolio.data?.summary?.unrealizedPnlPct ?? null;
+  const bal = fmtBalance(totalUsd);
   const isPerps = !watchOnly && CHIPS[active].label === 'Perps';
 
   // Scroll feature: the top bar is transparent at rest (the gradient/aura show
@@ -130,9 +156,19 @@ function SimpleHome({
             <View style={{ flex: 1 }}>
               <Text style={s.balanceLabel}>Portfolio value</Text>
               <Text style={s.balance}>
-                $0<Text style={s.cents}>.00</Text>
+                ${bal.dollars}<Text style={s.cents}>.{bal.cents}</Text>
               </Text>
-              <Text style={s.sub}>— · Past 24h</Text>
+              <Text style={s.sub}>
+                {uPnl != null ? (
+                  <Text style={{ color: uPnl >= 0 ? colors.bull : colors.bear }}>
+                    {uPnl >= 0 ? '+' : '−'}${groupInt(Math.abs(Math.round(uPnl)))}
+                    {uPnlPct != null ? ` (${uPnl >= 0 ? '+' : '−'}${Math.abs(uPnlPct).toFixed(1)}%)` : ''}
+                  </Text>
+                ) : (
+                  '—'
+                )}
+                <Text style={{ color: colors.fgMuted }}>{uPnl != null ? ' · unrealized' : ' · Past 24h'}</Text>
+              </Text>
             </View>
             <PressScale onPress={() => setDeposit(true)} style={s.depositWrap}>
               <View style={s.deposit}>
