@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils/cn';
 import { toastWalletTrackedTradeDemo } from '@/lib/walletTracker/walletTrackerToast';
 import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
 import { WalletQuickBuyAmount } from '@/components/trackers/WalletQuickBuyAmount';
+import { WalletTrackerKolsTab } from '@/components/trackers/WalletTrackerKolsTab';
 
 type WalletTrackerTab = 'manager' | 'trades' | 'groups' | 'kols';
 
@@ -580,7 +581,7 @@ export function DockWalletTrackerFloatingPanel() {
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col',
-            tab === 'trades' || tab === 'groups' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
+            tab === 'trades' || tab === 'groups' || tab === 'kols' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
           )}
           style={{ minHeight: 220 }}
         >
@@ -588,6 +589,8 @@ export function DockWalletTrackerFloatingPanel() {
             <TrackerTradesFeed />
           ) : tab === 'groups' ? (
             <GroupsTab />
+          ) : tab === 'kols' ? (
+            <WalletTrackerKolsTab />
           ) : (
             <p className="px-3 py-3 text-[11px] leading-relaxed text-fg-secondary">
               <strong className="text-fg-primary">{TAB_LABEL[tab]}</strong> plugs into the tracker pipeline next — use{' '}
