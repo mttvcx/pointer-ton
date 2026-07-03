@@ -855,6 +855,24 @@
   border-color: rgb(var(--border-subtle-rgb) / 0.4);
 }
 
+/* Transparent rows — Display → Layout → "Transparent rows". Strips the card
+ * surface + border + elevation glow so rows sit flush on the column (Axiom look).
+ * A faint hover still reads so rows stay interactive. Wins over row-elevation. */
+:root[data-pulse-transparent-rows='true'] .pulse-column .pulse-row,
+:root[data-pulse-transparent-rows='true'][data-row-elevation='true'] .pulse-column .pulse-row,
+:root[data-pulse-transparent-rows='true'][data-row-elevation='false'] .pulse-column .pulse-row {
+  background-color: transparent;
+  border-color: transparent;
+}
+:root[data-pulse-transparent-rows='true'] .pulse-column .pulse-row::before {
+  background-color: transparent;
+}
+:root[data-pulse-transparent-rows='true'] .pulse-column .pulse-row:hover {
+  border-color: rgb(255 255 255 / 0.1);
+  background-color: rgb(var(--bg-hover-rgb) / 0.55);
+  box-shadow: none;
+}
+
 /* Protocol row tint — Display → Row → Color row (enabled launchpads only). */
 :root[data-pulse-color-row='true'] .pulse-column .pulse-row[data-protocol-tint] {
   --pulse-protocol-tint: transparent;

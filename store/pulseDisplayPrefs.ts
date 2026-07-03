@@ -47,6 +47,7 @@ function syncPulseDisplaySideEffects(prefs: PulseDisplayPrefs) {
     root.setAttribute('data-pulse-circle-avatars', String(prefs.circleAvatars));
     root.setAttribute('data-pulse-no-decimals', String(prefs.noDecimals));
     root.setAttribute('data-pulse-color-row', String(prefs.colorRowByProtocol));
+    root.setAttribute('data-pulse-transparent-rows', String(prefs.transparentRows));
     root.setAttribute('data-pulse-qb-chrome', prefs.quickBuyUltraChrome);
     applyPulseAccentToDocument(prefs.accentHex);
   }

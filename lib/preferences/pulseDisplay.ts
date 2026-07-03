@@ -86,6 +86,8 @@ export const PulseDisplayPrefsSchema = z.object({
   toastColor: HexColorSchema.nullable(),
   /** Token-image hover: false = enlarged image (default), true = detailed card (metrics + quick buy). */
   tokenHoverDetail: z.boolean(),
+  /** Strip the grey card background + border off token rows so they sit flush on the column. */
+  transparentRows: z.boolean(),
 });
 
 export type PulseDisplayPrefs = z.infer<typeof PulseDisplayPrefsSchema>;
@@ -161,6 +163,7 @@ export const DEFAULT_PULSE_DISPLAY_PREFS: PulseDisplayPrefs = {
   quickBuyUltraChrome: 'outline',
   toastColor: null,
   tokenHoverDetail: false,
+  transparentRows: false,
 };
 
 export function withPulseDisplayDefaults(
@@ -240,6 +243,7 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     quickBuyUltraChrome,
     toastColor,
     tokenHoverDetail,
+    transparentRows,
   } = state;
   return withPulseDisplayDefaults({
     activeTab,
@@ -264,5 +268,6 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     quickBuyUltraChrome,
     toastColor,
     tokenHoverDetail,
+    transparentRows,
   });
 }
