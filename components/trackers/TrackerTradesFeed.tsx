@@ -18,10 +18,11 @@ import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import { appChainForMintNavigation } from '@/lib/chains/mintKind';
 import { formatCompactUsd, formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import { shortenAddress } from '@/lib/utils/addresses';
-import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
 import { cn } from '@/lib/utils/cn';
 import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
+import { useWalletQuickBuyStore } from '@/store/walletQuickBuy';
 import { makeDemoTrackerTrade, seedDemoTrackerTrades, type TokenPositionStats } from '@/lib/dev/walletTradesDemo';
+import { HoverZoomImage } from '@/components/monitor/HoverZoomImage';
 
 type TrackerTrade = {
   signature: string;
@@ -40,7 +41,6 @@ type TrackerTrade = {
   tokenStats?: TokenPositionStats;
 };
 
-const QUICK_BUY_SOL = BUY_PRESETS_SOL[1] ?? BUY_PRESETS_SOL[0] ?? 0.5;
 const WALLET_EMOJIS = ['🦊', '🐳', '🐸', '🦍', '🐝', '🦅', '🐙', '🦈', '🐺', '🦉', '🐊', '🦂'];
 
 function walletEmoji(addr: string): string {
@@ -59,9 +59,10 @@ function useQuickBuy() {
   return (e: ReactMouseEvent, mint: string) => {
     e.preventDefault();
     e.stopPropagation();
+    const amountSol = useWalletQuickBuyStore.getState().amountSol;
     const chain = appChainForMintNavigation(mint, activeChain);
     useUIStore.getState().setActiveChain(chain);
-    router.push(`/token/${encodeURIComponent(mint)}?buySol=${encodeURIComponent(String(QUICK_BUY_SOL))}`);
+    router.push(`/token/${encodeURIComponent(mint)}?buySol=${encodeURIComponent(String(amountSol))}`);
   };
 }
 
@@ -80,6 +81,7 @@ function WalletHoverCard({
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [unit, setUnit] = useState<'USD' | 'SOL'>('USD');
+  const quickBuyAmount = useWalletQuickBuyStore((s) => s.amountSol);
   const openWallet = useWalletIntelStore((s) => s.openWallet);
   const router = useRouter();
   const quickBuy = useQuickBuy();
@@ -194,10 +196,10 @@ function WalletHoverCard({
           type="button"
           onClick={(e) => quickBuy(e, t.mint)}
           className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-accent-primary/20 text-[11px] font-bold text-accent-primary transition hover:bg-accent-primary/30"
-          title={`Quick buy ${QUICK_BUY_SOL} SOL`}
+          title={`Quick buy ${quickBuyAmount} SOL`}
         >
           <Zap className="h-3 w-3" strokeWidth={2.5} />
-          {QUICK_BUY_SOL}
+          {quickBuyAmount}
         </button>
         <button
           type="button"
@@ -276,6 +278,7 @@ function WalletNameCell({ t }: { t: TrackerTrade }) {
 function TradeRow({ t }: { t: TrackerTrade }) {
   const quickBuy = useQuickBuy();
   const router = useRouter();
+  const quickBuyAmount = useWalletQuickBuyStore((s) => s.amountSol);
   return (
     <div className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.03]">
       <div className="flex min-w-0 items-center gap-2">
@@ -287,17 +290,26 @@ function TradeRow({ t }: { t: TrackerTrade }) {
         <WalletNameCell t={t} />
       </div>
 
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          router.push(`/token/${encodeURIComponent(t.mint)}`);
-        }}
-        className="shrink-0 truncate text-[11px] font-semibold text-fg-secondary transition-colors hover:text-fg-primary"
-        title={t.mint}
-      >
-        {tokenLabel(t)}
-      </button>
+      <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+        {t.imageUrl ? (
+          <HoverZoomImage src={t.imageUrl} className="h-6 w-6 shrink-0 rounded-md" previewW={200} />
+        ) : (
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-[9px] font-bold text-fg-muted">
+            {(t.symbol ?? '?').replace(/^\$/, '').slice(0, 2).toUpperCase()}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/token/${encodeURIComponent(t.mint)}`);
+          }}
+          className="truncate text-[11px] font-semibold text-fg-secondary transition-colors hover:text-fg-primary"
+          title={t.mint}
+        >
+          {tokenLabel(t)}
+        </button>
+      </div>
 
       <div className="flex shrink-0 items-center gap-2">
         <div className="text-right leading-tight">
@@ -313,7 +325,7 @@ function TradeRow({ t }: { t: TrackerTrade }) {
           type="button"
           onClick={(e) => quickBuy(e, t.mint)}
           className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-primary/[0.14] text-accent-primary opacity-0 transition group-hover:opacity-100 hover:bg-accent-primary/30"
-          title={`Quick buy ${QUICK_BUY_SOL} SOL`}
+          title={`Quick buy ${quickBuyAmount} SOL`}
           aria-label={`Quick buy ${tokenLabel(t)}`}
         >
           <Zap className="h-3 w-3" strokeWidth={2.5} />

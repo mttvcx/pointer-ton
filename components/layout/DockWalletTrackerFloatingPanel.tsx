@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils/cn';
 import { openXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { toastWalletTrackedTradeDemo } from '@/lib/walletTracker/walletTrackerToast';
 import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
+import { WalletQuickBuyAmount } from '@/components/trackers/WalletQuickBuyAmount';
 
 type WalletTrackerTab = 'manager' | 'trades' | 'monitor' | 'kols';
 
@@ -553,6 +554,11 @@ export function DockWalletTrackerFloatingPanel() {
               </button>
             ))}
           </nav>
+          {tab === 'trades' ? (
+            <div className="shrink-0 pr-1" data-no-drag>
+              <WalletQuickBuyAmount />
+            </div>
+          ) : null}
           <div
             className="pointer-events-none relative flex h-[34px] w-9 shrink-0 items-center justify-center"
             aria-hidden
