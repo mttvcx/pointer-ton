@@ -13,7 +13,7 @@ import { colors, radius } from '../src/theme';
 import { getLiveTokens } from '../src/api/endpoints';
 import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useWatchlist } from '../src/local';
-import { usePortfolio } from '../src/account';
+import { usePortfolio, useCashBalance } from '../src/account';
 import { TraderSheet } from '../components/TraderSheet';
 import { DepositFlow } from '../components/DepositFlow';
 import { DragSheet } from '../components/DragSheet';
@@ -96,6 +96,9 @@ function SimpleHome({
   const uPnl = portfolio.data?.summary?.unrealizedPnl ?? null;
   const uPnlPct = portfolio.data?.summary?.unrealizedPnlPct ?? null;
   const bal = fmtBalance(totalUsd);
+  // Spendable USD cash = wallet USDC (real build); the "one balance" you buy from.
+  const cash = useCashBalance();
+  const cashStr = cash.data != null ? fmtBalance(cash.data) : null;
   const isPerps = !watchOnly && CHIPS[active].label === 'Perps';
 
   // Scroll feature: the top bar is transparent at rest (the gradient/aura show
@@ -169,6 +172,11 @@ function SimpleHome({
                 )}
                 <Text style={{ color: colors.fgMuted }}>{uPnl != null ? ' · unrealized' : ' · Past 24h'}</Text>
               </Text>
+              {cashStr ? (
+                <Text style={s.cashLine}>
+                  <Ionicons name="cash-outline" size={12} color={colors.accentGlow} /> ${cashStr.dollars}.{cashStr.cents} cash to spend
+                </Text>
+              ) : null}
             </View>
             <PressScale onPress={() => setDeposit(true)} style={s.depositWrap}>
               <View style={s.deposit}>
@@ -348,6 +356,7 @@ const s = StyleSheet.create({
   balance: { color: colors.fg, fontSize: 46, fontWeight: '600', letterSpacing: -1.5 },
   cents: { color: colors.fgFaint, fontSize: 46, fontWeight: '600' },
   sub: { color: colors.fgFaint, fontSize: 13, marginTop: 6 },
+  cashLine: { color: colors.accentGlow, fontSize: 12.5, fontWeight: '600', marginTop: 6 },
   depositWrap: { borderRadius: 15, shadowColor: colors.accent, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
   deposit: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 15, paddingVertical: 14, paddingHorizontal: 20, overflow: 'hidden', backgroundColor: colors.accent },
   depositSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '62%' },

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { DEMO, useAuth } from './auth';
-import { getMe, getMyWallets, getPortfolio, getPoints } from './api/endpoints';
+import { getMe, getMyWallets, getPortfolio, getPoints, getCashBalance } from './api/endpoints';
 
 /**
  * Real-account hooks. All are DISABLED in demo (Expo Go) and until the user is
@@ -49,6 +49,18 @@ export function usePoints() {
     queryFn: getPoints,
     enabled: !DEMO && auth.isLoggedIn,
     staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+/** Spendable USD cash balance (the wallet's on-chain USDC). */
+export function useCashBalance() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ['cash-balance', auth.walletAddress],
+    queryFn: () => getCashBalance(auth.walletAddress as string),
+    enabled: !DEMO && auth.isLoggedIn && Boolean(auth.walletAddress),
+    staleTime: 20_000,
     retry: 1,
   });
 }

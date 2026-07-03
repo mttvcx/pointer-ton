@@ -157,6 +157,13 @@ export async function getTokenBalance(mint: string, wallet: string): Promise<{ r
   );
 }
 
+/** Spendable USD "cash" = the wallet's on-chain USDC (6 decimals). This is the
+ *  unified balance card + Onramper/Crossmint deposits land here. */
+export async function getCashBalance(wallet: string): Promise<number> {
+  const r = await getTokenBalance(USDC_MINT, wallet);
+  return (Number(r.rawAmount) || 0) / 1e6;
+}
+
 /** The wedge: AI safety read for a token. `fast` is cheap + cached server-side. */
 export async function explainToken(mint: string, mode: 'fast' | 'deep' = 'fast'): Promise<ExplainTokenResponse> {
   return api<ExplainTokenResponse>('/api/ai/explain-token', {
