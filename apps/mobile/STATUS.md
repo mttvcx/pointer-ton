@@ -3,7 +3,22 @@
 Living status doc for the mobile app on branch **`claude/reverent-mayer-2b1a14`**
 (worktree). If a chat is lost, start here + `git log --oneline` to resume.
 
-_Last updated: 2026-07-03._
+_Last updated: 2026-07-03 (mobile caught up on all unblocked work — see "▶ Resume when DB is back")._
+
+## ▶ Resume when the DB is back (do this first)
+Mobile is **feature-complete for everything that doesn't touch the pending backend.**
+Everything left needs the Supabase restore + social schema applied. In order:
+1. **Apply the social DB schema** (web Claude already wired follow/friend/Expo-push
+   routes on main — inert until the tables exist). Provision `squads`/`squad_members` too.
+2. **Build `POST /api/crossmint/webhook`** (Svix verify → mirror `/api/trade/execute`;
+   Solana-only v1) so Apple Pay buys record cost-basis/points/cashback.
+3. Add `users.twitter_handle` in `/api/wallets/sync-privy`; expose in `/api/me`.
+4. Add `POST /api/push/register` for Expo push tokens.
+5. **Then, on mobile (same-day):** wire follow/unfollow + friends UI to `/api/social/*`,
+   real squad membership to `/api/squads/*`, show the connected X handle, register the
+   Expo push token (needs `expo-notifications` → a rebuild), and swap the
+   leaderboard / "Traders here" demos to real named-trader data.
+6. **Rebuild** (`eas build`) picks up: new icon/splash + push module.
 
 ---
 
@@ -53,7 +68,13 @@ its own liquid-glass identity.
   on-chain holdings.
 - **Debit deposit → Onramper** card on-ramp (cash → USDC).
 - Token page real: **Live trades** (`/api/tokens/:mint/trades`) + **Top holders**
-  distribution w/ dev/sniper flags (`/api/tokens/:mint/holders`).
+  distribution w/ dev/sniper flags (`/api/tokens/:mint/holders`) + **real OHLC
+  candlestick chart** (`/api/tokens/:mint/chart`, interval per range chip).
+- **Connect X** in onboarding + Account really links via Privy `useLinkWithOAuth`
+  and uses the @handle AS the username (skips manual step); username persists via
+  `/api/auth/sync` (the twitter_handle link itself is still backend-pending).
+- **Weekly Top Trades** redesigned off FOMO's carousel → hero + ranked list,
+  multiple-first (`Nx`).
 - Cross-chain "All" board (SOL/ETH/Base/BNB demo feeds + chain badges), nav stack
   (swipe-back returns correctly + locked horizontal), clickable trader positions,
   AI verdict auto-opens, perp rows → live detail sheet, referral own-code, share =
