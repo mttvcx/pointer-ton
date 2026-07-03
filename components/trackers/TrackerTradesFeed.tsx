@@ -10,7 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownRight, ArrowUpRight, Check, Copy, ExternalLink, Wallet, Zap } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, BarChart3, Check, Copy, ExternalLink, TrendingUp, Zap } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useUIStore } from '@/store/ui';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
@@ -21,7 +21,7 @@ import { shortenAddress } from '@/lib/utils/addresses';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
 import { cn } from '@/lib/utils/cn';
 import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
-import { makeDemoTrackerTrade, seedDemoTrackerTrades } from '@/lib/dev/walletTradesDemo';
+import { makeDemoTrackerTrade, seedDemoTrackerTrades, type TokenPositionStats } from '@/lib/dev/walletTradesDemo';
 
 type TrackerTrade = {
   signature: string;
@@ -36,6 +36,8 @@ type TrackerTrade = {
   usdAmount: number | null;
   marketCapUsd: number | null;
   blockTime: string | null;
+  /** The wallet's aggregate position in this token (hover card). Demo-only for now. */
+  tokenStats?: TokenPositionStats;
 };
 
 const QUICK_BUY_SOL = BUY_PRESETS_SOL[1] ?? BUY_PRESETS_SOL[0] ?? 0.5;
@@ -77,6 +79,7 @@ function WalletHoverCard({
 }) {
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [unit, setUnit] = useState<'USD' | 'SOL'>('USD');
   const openWallet = useWalletIntelStore((s) => s.openWallet);
   const router = useRouter();
   const quickBuy = useQuickBuy();
@@ -85,29 +88,28 @@ function WalletHoverCard({
     const el = anchor.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const W = 232;
+    const W = 264;
     const left = Math.min(Math.max(8, r.left), window.innerWidth - W - 8);
     setPos({ left, top: r.bottom + 6 });
   }, [anchor]);
 
   if (!pos) return null;
-  const name = t.walletLabel || shortenAddress(t.wallet, 4);
+  const s = t.tokenStats;
+  const fmtVal = (usd: number, sol: number) =>
+    unit === 'USD'
+      ? `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 1000 ? 1 : 0 })}`
+      : `${formatNumber(sol, { decimals: sol >= 1 ? 2 : 3 })}◎`;
 
   return createPortal(
     <div
-      className="fixed z-[240] w-[232px] overflow-hidden rounded-lg border border-white/[0.08] bg-[#0a0a0a] shadow-2xl shadow-black/60"
+      className="fixed z-[240] w-[264px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-2 shadow-2xl shadow-black/60"
       style={{ left: pos.left, top: pos.top }}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       role="dialog"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-white/[0.07] px-2.5 py-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span aria-hidden>{walletEmoji(t.wallet)}</span>
-          <span className="truncate text-[12px] font-semibold text-white" title={t.wallet}>
-            {name}
-          </span>
-        </div>
+      {/* Header: token this position is for + address copy + SOL/USD toggle */}
+      <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
         <button
           type="button"
           onClick={(e) => {
@@ -117,32 +119,82 @@ function WalletHoverCard({
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
           }}
-          className={cn(
-            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition',
-            copied ? 'text-signal-bull' : 'text-fg-muted hover:bg-white/[0.05] hover:text-white',
-          )}
-          aria-label={copied ? 'Copied' : 'Copy wallet address'}
+          className="inline-flex min-w-0 items-center gap-1 text-[11px] font-medium text-fg-secondary transition hover:text-white"
+          title={t.wallet}
         >
-          {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />}
+          <span className="font-mono">{shortenAddress(t.wallet, 4)}</span>
+          {copied ? <Check className="h-3 w-3 text-signal-bull" strokeWidth={2} /> : <Copy className="h-3 w-3 opacity-70" strokeWidth={1.8} />}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUnit((u) => (u === 'USD' ? 'SOL' : 'USD'));
+          }}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-fg-muted transition hover:text-fg-secondary"
+        >
+          {unit}
         </button>
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-2.5 py-2 text-[11px]">
-        <span className="text-fg-muted">Last trade</span>
-        <span className="flex items-center gap-1 font-semibold text-fg-secondary">
-          <span className={t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear'}>
-            {t.side === 'buy' ? 'Bought' : 'Sold'}
+      {s ? (
+        <>
+          <div className="grid grid-cols-3 gap-1">
+            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+              <div className="flex items-center gap-1 text-[12px] font-bold tabular-nums text-signal-bull">
+                <ArrowDownRight className="h-3 w-3" strokeWidth={2.5} />
+                {fmtVal(s.buysUsd, s.buysSol)}
+              </div>
+              <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.buysCount} Buy{s.buysCount === 1 ? '' : 's'}</div>
+            </div>
+            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+              <div className="flex items-center gap-1 text-[12px] font-bold tabular-nums text-signal-bear">
+                <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} />
+                {fmtVal(s.sellsUsd, s.sellsSol)}
+              </div>
+              <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.sellsCount} Sell{s.sellsCount === 1 ? '' : 's'}</div>
+            </div>
+            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+              <div className={cn('flex items-center gap-1 text-[12px] font-bold tabular-nums', s.pnlUsd >= 0 ? 'text-signal-bull' : 'text-signal-bear')}>
+                <TrendingUp className="h-3 w-3" strokeWidth={2.5} />
+                {s.pnlUsd >= 0 ? '+' : ''}
+                {fmtVal(Math.abs(s.pnlUsd), Math.abs(s.pnlSol))}
+              </div>
+              <div className="mt-0.5 text-[9.5px] text-fg-muted">PnL</div>
+            </div>
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+              <div className="text-[12px] font-bold tabular-nums text-fg-primary">
+                {unit === 'USD' ? `$${s.holdingUsd.toLocaleString('en-US')}` : `${formatNumber(s.holdingUsd / 168, { decimals: 2 })}◎`}
+              </div>
+              <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.holdingPct}% holding</div>
+            </div>
+            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+              <div className="text-[12px] font-bold tabular-nums text-fg-primary">{s.holderSince}</div>
+              <div className="mt-0.5 text-[9.5px] text-fg-muted">Holder since</div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-2.5 py-2 text-[11px]">
+          <span className="text-fg-muted">Last trade</span>
+          <span className="flex items-center gap-1 font-semibold text-fg-secondary">
+            <span className={t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear'}>{t.side === 'buy' ? 'Bought' : 'Sold'}</span>
+            {tokenLabel(t)}
+            {t.solAmount != null ? <span className="tabular-nums text-fg-muted">· {formatNumber(t.solAmount, { decimals: t.solAmount >= 1 ? 2 : 3 })}◎</span> : null}
           </span>
-          {tokenLabel(t)}
-          {t.solAmount != null ? <span className="tabular-nums text-fg-muted">· {formatNumber(t.solAmount, { decimals: t.solAmount >= 1 ? 2 : 3 })}◎</span> : null}
-        </span>
-      </div>
+        </div>
+      )}
 
-      <div className="flex items-center gap-1.5 px-2 pb-2">
+      {/* Bottom actions: quick buy + open wallet dossier + token page */}
+      <div className="mt-1.5 flex items-center gap-1">
         <button
           type="button"
           onClick={(e) => quickBuy(e, t.mint)}
           className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-accent-primary/20 text-[11px] font-bold text-accent-primary transition hover:bg-accent-primary/30"
+          title={`Quick buy ${QUICK_BUY_SOL} SOL`}
         >
           <Zap className="h-3 w-3" strokeWidth={2.5} />
           {QUICK_BUY_SOL}
@@ -154,10 +206,11 @@ function WalletHoverCard({
             e.stopPropagation();
             openWallet({ address: t.wallet, chain: appChainForWalletAddress(t.wallet) });
           }}
-          className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 text-[10px] font-semibold text-[#d1d5db] transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
+          className="inline-flex h-7 w-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.025] text-fg-muted transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
+          title="Open wallet dossier"
+          aria-label="Open wallet dossier"
         >
-          <Wallet className="h-3 w-3" strokeWidth={2} />
-          Wallet
+          <BarChart3 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
         <button
           type="button"
@@ -166,10 +219,11 @@ function WalletHoverCard({
             e.stopPropagation();
             router.push(`/token/${encodeURIComponent(t.mint)}`);
           }}
-          className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.025] px-2 text-[10px] font-semibold text-[#d1d5db] transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
+          className="inline-flex h-7 w-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.025] text-fg-muted transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
+          title="Open token page"
+          aria-label="Open token page"
         >
-          <ExternalLink className="h-3 w-3" strokeWidth={2} />
-          Token
+          <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
       </div>
     </div>,
