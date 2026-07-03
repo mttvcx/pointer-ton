@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { DragSheet } from './DragSheet';
@@ -10,7 +10,8 @@ import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
 import { Slide } from './Slide';
 import { colors, radius } from '../src/theme';
-import { getLiveTokens } from '../src/api/endpoints';
+import { getLiveTokens, getOnramperUrl } from '../src/api/endpoints';
+import { showToast } from '../src/toast';
 import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useAuth } from '../src/auth';
 import { CrossmintBuy, CROSSMINT_READY } from '../src/crossmint';
@@ -62,6 +63,26 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
     if (k === 'del') setAmount((a) => (a.length <= 1 ? '0' : a.slice(0, -1)));
     else if (k === '.') setAmount((a) => (a.includes('.') ? a : `${a}.`));
     else setAmount((a) => (a === '0' ? k : a + k));
+  };
+
+  const [cashBusy, setCashBusy] = useState(false);
+  const depositCash = async () => {
+    const wallet = auth.walletAddress;
+    if (auth.demo || !wallet) {
+      showToast('Card deposits run in the app build', { sub: 'Sign in on the real build to deposit', kind: 'info' });
+      onClose();
+      return;
+    }
+    setCashBusy(true);
+    try {
+      const url = await getOnramperUrl(wallet, Number(amount) || undefined);
+      onClose();
+      await Linking.openURL(url);
+    } catch (e) {
+      Alert.alert('Deposit unavailable', e instanceof Error ? e.message : 'Card deposits aren’t available right now.');
+    } finally {
+      setCashBusy(false);
+    }
   };
 
   return (
@@ -156,10 +177,10 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
           <Keypad onPress={press} />
           <View style={s.noteRow}>
             <Ionicons name="information-circle-outline" size={15} color={colors.fgMuted} />
-            <Text style={s.note}>Debit cards have higher success rates</Text>
+            <Text style={s.note}>Debit cards have higher success rates · funds arrive as USDC</Text>
           </View>
-          <GlossButton onPress={onClose} style={{ marginTop: 12 }}>
-            <Text style={s.continueText}>Continue</Text>
+          <GlossButton onPress={depositCash} style={{ marginTop: 12 }}>
+            <Text style={s.continueText}>{cashBusy ? 'Opening…' : 'Continue'}</Text>
           </GlossButton>
         </View>
       ) : step === 'cryptoNetwork' ? (

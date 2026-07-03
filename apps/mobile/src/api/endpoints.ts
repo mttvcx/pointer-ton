@@ -123,6 +123,30 @@ export async function getPoints(): Promise<PointsSummary> {
   return api<PointsSummary>('/api/points/me', { token: await authToken() });
 }
 
+/**
+ * A signed Onramper widget URL to buy USDC with a debit/credit card — the real
+ * "deposit cash" path (funds land in the user's wallet as USDC). Opens in the
+ * browser. Throws if the backend on-ramp isn't configured.
+ */
+export async function getOnramperUrl(walletAddress: string, fiatAmount?: number): Promise<string> {
+  const r = await api<{ widgetUrl: string }>('/api/onramper/signature', {
+    token: await authToken(),
+    method: 'POST',
+    body: {
+      activeChain: 'sol',
+      walletAddress,
+      defaultFiat: 'USD',
+      ...(fiatAmount && fiatAmount > 0 ? { fiatAmount } : {}),
+    },
+  });
+  return r.widgetUrl;
+}
+
+/** Persist profile fields (username) to the Pointer account via the sync route. */
+export async function updateProfile(fields: { username?: string }): Promise<void> {
+  await api('/api/auth/sync', { token: await authToken(), method: 'POST', body: fields });
+}
+
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 /** Raw token balance for a wallet (USDC = spendable USD balance). */
