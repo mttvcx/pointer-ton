@@ -19,6 +19,7 @@ import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
 import { getDemoCapital, type CapitalModel, type FinActivityKind, type StateKey as CapKey } from '../src/demo/capital';
 import { loadFinancialStatus, useFinancial } from '../src/financial/store';
+import { useYieldRate } from '../src/financial/hooks';
 import type { PulseBundle } from '../src/types';
 
 // The four states of capital — the product's spine.
@@ -97,6 +98,7 @@ const STATE_ACTION: Record<StateKey, Panel | null> = { trading: null, earning: '
 export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
   const fin = useFinancial();
+  const liveApy = useYieldRate(); // real Lulo APY when the backend is keyed, else null
   const [activating, setActivating] = useState(false);
   useEffect(() => {
     loadFinancialStatus();
@@ -140,6 +142,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const dollars = Math.floor(shownTotal);
   const cents = String(Math.round((shownTotal - dollars) * 100) % 100).padStart(2, '0');
   const covered = m.taxReserve >= m.taxLiability;
+  const apy = liveApy ?? m.apy; // prefer the live rate
   const cardLast4 = fin.card?.last4 ?? m.cardLast4;
   const cardFrozen = fin.card?.state === 'frozen';
 
@@ -232,7 +235,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Text style={s.panelTitle}>Smart Yield</Text>
             </View>
             <View style={s.apyPill}>
-              <Text style={s.apyText}>{m.apy.toFixed(1)}% APY</Text>
+              <Text style={s.apyText}>{apy.toFixed(1)}% APY</Text>
             </View>
           </View>
           <Text style={s.yieldEarned}>{usd(earned)}</Text>
@@ -240,7 +243,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <View style={{ marginTop: 12 }}>
             <Sparkline data={m.yieldHistory} />
           </View>
-          <Text style={s.yieldProj}>Projected ~{usd((m.states.earning * (m.apy / 100)) / 12, 0)}/mo at today’s rate</Text>
+          <Text style={s.yieldProj}>Projected ~{usd((m.states.earning * (apy / 100)) / 12, 0)}/mo at today’s rate</Text>
         </PressScale>
         </Rise>
 
@@ -340,7 +343,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         ) : sheet?.panel === 'card' ? (
           <CardSheet m={m} card={fin.card} onClose={closeSheet} />
         ) : sheet?.panel === 'yield' ? (
-          <YieldSheet m={m} onClose={closeSheet} />
+          <YieldSheet m={m} apyOverride={liveApy} onClose={closeSheet} />
         ) : sheet?.panel === 'tax' ? (
           <TaxSheet m={m} onClose={closeSheet} />
         ) : sheet?.panel === 'points' ? (

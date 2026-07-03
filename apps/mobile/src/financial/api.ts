@@ -31,3 +31,9 @@ export async function activateFinancial(input: ActivateInput): Promise<ActivateR
 export async function provisionCard(): Promise<ProvisionResponse> {
   return api<ProvisionResponse>('/api/financial/card/provision', { token: await authToken(), method: 'POST', body: {} });
 }
+
+type YieldResponse = { configured: boolean; apyPct: number | null };
+
+export async function fetchYieldRate(): Promise<YieldResponse> {
+  return api<YieldResponse>('/api/financial/yield', { token: await authToken() });
+}

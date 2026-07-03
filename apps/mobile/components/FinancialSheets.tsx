@@ -154,10 +154,11 @@ export function CardSheet({ m, card, onClose }: { m: CapitalModel; card?: CardIn
 
 /* ── Smart Yield ─────────────────────────────────────────── */
 
-export function YieldSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }) {
+export function YieldSheet({ m, apyOverride, onClose }: { m: CapitalModel; apyOverride?: number | null; onClose: () => void }) {
   const [auto, setAuto] = useState(m.autoSweep);
-  const perMonth = (m.states.earning * (m.apy / 100)) / 12;
-  const perYear = m.states.earning * (m.apy / 100);
+  const apy = apyOverride ?? m.apy;
+  const perMonth = (m.states.earning * (apy / 100)) / 12;
+  const perYear = m.states.earning * (apy / 100);
   return (
     <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
       <SheetTitle icon="leaf" tint={colors.bull} kicker="SMART YIELD" title="Your money at work" />
@@ -172,7 +173,7 @@ export function YieldSheet({ m, onClose }: { m: CapitalModel; onClose: () => voi
       </View>
 
       <View style={s.group}>
-        <Row first label="Current rate" value={`${m.apy.toFixed(1)}% APY`} tint={colors.bull} />
+        <Row first label="Current rate" value={`${apy.toFixed(1)}% APY`} tint={colors.bull} />
         <Row label="Principal earning" value={usd(m.states.earning, 0)} />
         <Row label="Projected" value={`${usd(perMonth, 0)}/mo · ${usd(perYear, 0)}/yr`} />
       </View>
