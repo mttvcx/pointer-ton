@@ -95,7 +95,6 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
                   </PressScale>
                 );
               })}
-              <Text style={s.showMore}>Show more</Text>
             </ScrollView>
           </>
         ) : step === 3 ? (
@@ -191,6 +190,9 @@ function EarningsSlider({ value, min, max, onChange }: { value: number; min: num
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      // Hold the gesture against the parent ScrollView so the thumb actually drags.
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: (e) => setFromX(e.nativeEvent.locationX),
       onPanResponderMove: (e) => setFromX(e.nativeEvent.locationX),
     }),
