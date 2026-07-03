@@ -10,9 +10,10 @@ import { PressScale } from '../components/PressScale';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { DepositFlow } from '../components/DepositFlow';
+import { DragSheet } from '../components/DragSheet';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
-import { getDemoCapital, type FinActivityKind } from '../src/demo/capital';
+import { getDemoCapital, type CapitalModel, type FinActivityKind } from '../src/demo/capital';
 import type { PulseBundle } from '../src/types';
 
 /* ---- Hermes-safe money formatting ---- */
@@ -31,6 +32,55 @@ const STATES = [
   { key: 'reserved', label: 'Reserved', color: colors.warn, icon: 'shield-checkmark' },
 ] as const;
 
+type StateKey = (typeof STATES)[number]['key'];
+type StateDetail = { blurb: string; rows: { label: string; value: string }[]; action: string };
+
+// The "why" behind each state — what's in it, and what makes it different from a
+// contextless bank balance. Values derive from the live model.
+function stateDetail(key: StateKey, m: CapitalModel): StateDetail {
+  const covered = m.taxReserve >= m.taxLiability;
+  switch (key) {
+    case 'trading':
+      return {
+        blurb: 'Capital deployed in open positions plus the balance staged to trade. This is the money doing the work you came here for.',
+        rows: [
+          { label: 'In open positions', value: usd(m.states.trading * 0.72, 0) },
+          { label: 'Ready to trade', value: usd(m.states.trading * 0.28, 0) },
+        ],
+        action: 'View positions',
+      };
+    case 'earning':
+      return {
+        blurb: 'Idle USDC swept into Smart Yield automatically. It stays fully liquid — pulled back the instant you place a trade, so earning never costs you a fill.',
+        rows: [
+          { label: 'Principal earning', value: usd(m.states.earning, 0) },
+          { label: 'Rate', value: `${m.apy.toFixed(1)}% APY` },
+          { label: 'Earned today', value: usd(m.earnedToday) },
+        ],
+        action: 'Yield settings',
+      };
+    case 'spendable':
+      return {
+        blurb: 'Instantly ready to spend on your Pointer Card or send out. No unstaking, no waiting — this is your everyday balance.',
+        rows: [
+          { label: 'On your card', value: usd(m.states.spendable) },
+          { label: 'Card', value: `•••• ${m.cardLast4}` },
+        ],
+        action: 'Manage card',
+      };
+    case 'reserved':
+      return {
+        blurb: 'Set aside to cover estimated taxes on realized gains. Pointer knows your cost basis and lots, so it reserves the right amount as you trade — quietly, in the background.',
+        rows: [
+          { label: 'Reserved', value: usd(m.taxReserve, 0) },
+          { label: 'Estimated liability', value: usd(m.taxLiability, 0) },
+          { label: 'Status', value: covered ? 'Covered' : 'Under-reserved' },
+        ],
+        action: 'Tax details',
+      };
+  }
+}
+
 const ACT_ICON: Record<FinActivityKind, React.ComponentProps<typeof Ionicons>['name']> = {
   swipe: 'card-outline',
   yield: 'leaf-outline',
@@ -44,6 +94,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const insets = useSafeAreaInsets();
   const m = useMemo(() => getDemoCapital(), []);
   const [deposit, setDeposit] = useState(false);
+  const [openState, setOpenState] = useState<StateKey | null>(null);
 
   // Live "earning" tick — the money-is-working heartbeat.
   const [earned, setEarned] = useState(m.earnedToday);
@@ -77,21 +128,25 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </Text>
         <Text style={s.capSub}>Every dollar working · none idle</Text>
 
-        {/* Four-state bar */}
+        {/* Four-state bar — each segment tappable to reveal what's inside it. */}
         <View style={s.bar}>
           {STATES.map((st) => {
             const val = m.states[st.key];
             const pct = m.total > 0 ? val / m.total : 0;
-            return <View key={st.key} style={{ flex: pct, backgroundColor: st.color }} />;
+            return (
+              <PressScale key={st.key} to={0.94} onPress={() => setOpenState(st.key)} style={{ flex: pct }}>
+                <View style={{ height: 12, backgroundColor: st.color }} />
+              </PressScale>
+            );
           })}
         </View>
         <View style={s.legend}>
           {STATES.map((st) => (
-            <View key={st.key} style={s.legendItem}>
+            <PressScale key={st.key} to={0.97} onPress={() => setOpenState(st.key)} style={s.legendItem}>
               <View style={[s.dot, { backgroundColor: st.color }]} />
               <Text style={s.legendLabel}>{st.label}</Text>
               <Text style={s.legendVal}>{usd(m.states[st.key], 0)}</Text>
-            </View>
+            </PressScale>
           ))}
         </View>
 
@@ -203,7 +258,67 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
       </ScrollView>
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
+
+      <DragSheet visible={openState !== null} onClose={() => setOpenState(null)} fullDrag>
+        {openState ? (
+          <StateSheet
+            state={STATES.find((x) => x.key === openState)!}
+            detail={stateDetail(openState, m)}
+            amount={m.states[openState]}
+            pct={m.total > 0 ? m.states[openState] / m.total : 0}
+            onAction={() => {
+              setOpenState(null);
+              showToast('Coming soon', { kind: 'info' });
+            }}
+          />
+        ) : null}
+      </DragSheet>
     </Screen>
+  );
+}
+
+function StateSheet({
+  state,
+  detail,
+  amount,
+  pct,
+  onAction,
+}: {
+  state: (typeof STATES)[number];
+  detail: StateDetail;
+  amount: number;
+  pct: number;
+  onAction: () => void;
+}) {
+  return (
+    <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
+      <View style={s.sheetHead}>
+        <View style={[s.sheetIcon, { backgroundColor: state.color + '22' }]}>
+          <Ionicons name={state.icon} size={20} color={state.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.sheetKicker}>{state.label.toUpperCase()}</Text>
+          <Text style={s.sheetAmt}>{usd(amount, 0)}</Text>
+        </View>
+        <Text style={s.sheetPct}>{Math.round(pct * 100)}%</Text>
+      </View>
+
+      <Text style={s.sheetBlurb}>{detail.blurb}</Text>
+
+      <View style={s.sheetRows}>
+        {detail.rows.map((r, i) => (
+          <View key={r.label} style={[s.sheetRow, i > 0 && s.sheetRowBorder]}>
+            <Text style={s.sheetRowLabel}>{r.label}</Text>
+            <Text style={s.sheetRowValue}>{r.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      <GlossButton onPress={onAction} style={{ marginTop: 18 }}>
+        <Text style={s.addText}>{detail.action}</Text>
+        <Ionicons name="chevron-forward" size={17} color={colors.onAccent} />
+      </GlossButton>
+    </View>
   );
 }
 
@@ -298,4 +413,16 @@ const s = StyleSheet.create({
   actWhen: { color: colors.fgFaint, fontSize: 12, marginTop: 1 },
 
   foot: { color: colors.fgFaint, fontSize: 12.5, textAlign: 'center', marginTop: 22 },
+
+  sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 6 },
+  sheetIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  sheetKicker: { color: colors.fgMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  sheetAmt: { color: colors.fg, fontSize: 26, fontWeight: '800', letterSpacing: -0.6, marginTop: 1 },
+  sheetPct: { color: colors.fgFaint, fontSize: 18, fontWeight: '700' },
+  sheetBlurb: { color: colors.fgSecondary, fontSize: 14.5, lineHeight: 21, marginTop: 16 },
+  sheetRows: { borderRadius: radius.md, backgroundColor: colors.bgRaised2, marginTop: 18, paddingHorizontal: 14 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
+  sheetRowBorder: { borderTopWidth: 1, borderTopColor: colors.border },
+  sheetRowLabel: { color: colors.fgMuted, fontSize: 14 },
+  sheetRowValue: { color: colors.fg, fontSize: 15, fontWeight: '700' },
 });
