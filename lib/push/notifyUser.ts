@@ -5,6 +5,8 @@ import {
   deletePushSubscriptionByEndpoint,
   listPushSubscriptionsForUser,
 } from '@/lib/db/pushSubscriptions';
+import { listFollowerUserIds } from '@/lib/db/socialGraph';
+import { notifyUserExpo } from '@/lib/push/expo';
 import { configureWebPushIfNeeded } from '@/lib/push/vapid';
 
 export interface WebPushPayload {
@@ -55,4 +57,30 @@ export async function notifyUserWebPush(userId: string, message: WebPushPayload)
       }
     }),
   );
+}
+
+/**
+ * Unified fan-out: one message to a user across BOTH transports —
+ * web push (browser, VAPID) and Expo push (mobile). Both are best-effort.
+ */
+export async function notifyUser(userId: string, message: WebPushPayload): Promise<void> {
+  await Promise.allSettled([
+    notifyUserWebPush(userId, message),
+    notifyUserExpo(userId, { title: message.title, body: message.body, url: message.url }),
+  ]);
+}
+
+/**
+ * Follow-triggered fan-out. Notifies everyone who follows `actorUserId`.
+ * Call this from the trade-execute / Crossmint accrual path, e.g.
+ *   notifyFollowersOf(user.id, { title: '@alice bought', body: '2.1 SOL of $WIF', url: `/token/${mint}` })
+ */
+export async function notifyFollowersOf(actorUserId: string, message: WebPushPayload): Promise<void> {
+  let followerIds: string[];
+  try {
+    followerIds = await listFollowerUserIds(actorUserId);
+  } catch {
+    return;
+  }
+  await Promise.allSettled(followerIds.map((id) => notifyUser(id, message)));
 }
