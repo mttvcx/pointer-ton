@@ -84,19 +84,34 @@ its own liquid-glass identity.
 The financial layer as its own **card-icon nav-island tab** → a **Capital
 Dashboard**, not a banking app. Spec: `docs/POINTER_FINANCIAL.md`. Core model =
 **Four States of Capital: Trading · Earning · Spendable · Reserved — never idle.**
-- `screens/FinancialScreen.tsx` — Total Capital hero, the **four-state segmented
-  bar** (each segment/legend row tappable → a state-detail sheet explaining what's
-  inside it and the trading-context *why*), **Pointer Card** visual + Add-to-Pay,
-  live-ticking **Smart Yield** + APY + sparkline, **tax-reserve** strip, **PTR
-  Points**, an **AI insight**, and a capital **activity** feed.
-- `src/demo/capital.ts` — `getDemoCapital()` deterministic demo model (states,
-  apy, earned, card, points, tax, activity, insights).
+- `screens/FinancialScreen.tsx` — Total Capital hero (**counts up** on open), the
+  **four-state segmented bar** (each segment/legend row tappable → a state-detail
+  sheet explaining what's inside + the trading-context *why*), **Pointer Card**
+  visual, live-ticking **Smart Yield** + APY + sparkline, **tax-reserve** strip,
+  **PTR Points** row, an **AI insight** card, and a capital **activity** feed.
+- **Deep sheets** (`components/FinancialSheets.tsx`): every section opens a real
+  management panel —
+  - **Card**: freeze toggle, Add-to-Pay, monthly limit, recent card activity.
+  - **Smart Yield**: earned + sparkline, rate/principal/projection, auto-sweep +
+    keep-liquid controls.
+  - **Tax Reserve**: covered banner, realized-gains/liability/reserved, auto-reserve
+    toggle, "Export for taxes" → Pointer Taxes handoff.
+  - **PTR Points**: tier progress + points-by-source (spend/earn/hold) bars.
+  - **AI co-pilot**: reads the user's capital in plain language + "ask" affordance
+    (opened by the header AI pill and the insight card).
+  - **Move Capital**: shift money between any two states (from/to chips +
+    25/50/75/Max); the bar **rebalances with a spring** (model is mutable local
+    state). This is the "never idle" interaction made literal.
+- `src/demo/capital.ts` — `getDemoCapital()` deterministic model (states, apy,
+  earned, card, points/tier/by-source, tax + realized gains, activity, insights).
+  `components/Sparkline.tsx` shared; `usd`/`group` money helpers in `src/format.ts`.
 - **Provider choice (users never see names):** Bridge = card + bank rails + ramp,
   Blend = yield, Crossmint = buys. One-vendor-heavy on purpose (the "how easy it is
   to start" thesis; distribution is the moat).
 - **Backend-pending** to make it real: virtual-account/card issuance + rails
   (Bridge), yield sweep (Blend), and surfacing balances through `/api/*`. All demo
-  numbers until then. Card/yield/action buttons currently toast "coming soon".
+  numbers until then; real-action buttons (Add-to-Pay, export, ask AI) toast
+  "coming soon". Move Capital mutates the demo model only (no on-chain effect yet).
 
 ## BLOCKED on web backend + DB restore
 The web team confirmed these are all **DB-write features**, blocked until the
