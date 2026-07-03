@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   MousePointerClick,
   Search,
+  Sparkles,
   Zap,
 } from 'lucide-react';
 import { PulseAccentColorPicker } from '@/components/pulse/PulseAccentColorPicker';
@@ -371,6 +372,12 @@ export function PulseDisplayPopover() {
                     label="Progress bar"
                     value={prefs.showBondingProgress}
                     onChange={(v) => setPrefs({ showBondingProgress: v })}
+                  />
+                  <LayoutToggleRow
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                    label="Detailed token hover"
+                    value={prefs.tokenHoverDetail}
+                    onChange={(v) => setPrefs({ tokenHoverDetail: v })}
                   />
                   <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                     Customize rows

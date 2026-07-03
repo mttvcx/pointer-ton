@@ -19,6 +19,8 @@ import { formatAgeShort, formatCompactUsd } from '@/lib/utils/formatters';
 import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { resolvePulseTokenImageUrl } from '@/lib/tokens/pulseTokenImageUrl';
 import { useUIStore } from '@/store/ui';
+import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
+import { PulseTokenDetailedHoverCard } from '@/components/tokens/PulseTokenDetailedHoverCard';
 
 function absImageUrl(src: string): string {
   if (src.startsWith('http://') || src.startsWith('https://')) return src;
@@ -117,6 +119,7 @@ export function PulseTokenAvatarHover({
   const activeChain = useUIStore((s) => s.activeChain);
   const { token } = bundle;
   const imageUrl = resolvePulseTokenImageUrl(bundle, activeChain);
+  const detailed = usePulseDisplayPrefsStore((s) => s.tokenHoverDetail);
   const hideToken = usePulseHiddenMintsStore((s) => s.hideToken);
   const blacklistDev = usePulseHiddenMintsStore((s) => s.blacklistDev);
   const blacklistTwitter = usePulseHiddenMintsStore((s) => s.blacklistTwitter);
@@ -133,7 +136,7 @@ export function PulseTokenAvatarHover({
   );
 
   const reusedQuery = useReusedImageTokens(imageUrl, token.mint, {
-    enabled: hovered && Boolean(imageUrl),
+    enabled: hovered && !detailed && Boolean(imageUrl),
   });
   const reusedTotal = reusedQuery.data?.total ?? 0;
   const reusedItems = reusedQuery.data?.items ?? [];
@@ -180,8 +183,8 @@ export function PulseTokenAvatarHover({
   const computePos = useCallback(
     (r: DOMRect): { left: number; top?: number; bottom?: number } => {
       const gap = 8;
-      const w = Math.min(280, Math.max(size * 2.4, 160));
-      const estH = w + 28; // image preview ≈ its width; enough to decide a flip
+      const w = detailed ? 320 : Math.min(280, Math.max(size * 2.4, 160));
+      const estH = detailed ? 300 : w + 28; // detailed card ≈ fixed height; else image ≈ its width
       const spaceBelow = window.innerHeight - r.bottom;
       const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
       if (spaceBelow < estH && r.top > spaceBelow) {
@@ -189,7 +192,7 @@ export function PulseTokenAvatarHover({
       }
       return { left, top: r.bottom + gap };
     },
-    [size],
+    [size, detailed],
   );
 
   const syncPanelPos = useCallback(() => {
@@ -238,7 +241,7 @@ export function PulseTokenAvatarHover({
     syncPanelPos();
   }, [hovered, syncPanelPos]);
 
-  const previewPx = Math.min(280, Math.max(size * 2.4, 160));
+  const previewPx = detailed ? 320 : Math.min(280, Math.max(size * 2.4, 160));
   const actionBtnPx = Math.max(16, Math.min(20, Math.round(size * 0.34)));
   const iconPx = Math.max(10, Math.round(actionBtnPx * 0.58));
 
@@ -249,21 +252,16 @@ export function PulseTokenAvatarHover({
     return computePos(el.getBoundingClientRect());
   })();
 
-  const previewPanel =
-    hovered && imageUrl && resolvedPanelPos && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className="pointer-events-auto fixed z-[260] overflow-hidden rounded-lg border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)]"
-            style={{
-              top: resolvedPanelPos.top,
-              bottom: resolvedPanelPos.bottom,
-              left: resolvedPanelPos.left,
-              width: previewPx,
-            }}
-            data-row-click-skip="true"
-            onMouseEnter={scheduleOpen}
-            onMouseLeave={scheduleClose}
-          >
+  const detailedContent = (
+    <PulseTokenDetailedHoverCard
+      bundle={bundle}
+      imageUrl={imageUrl}
+      onNavigate={(m) => router.push(`/token/${m}`)}
+    />
+  );
+
+  const imagePreviewContent = imageUrl ? (
+    <div className="overflow-hidden rounded-lg border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)]">
             <button
               type="button"
               aria-label="Search this image on Google Lens"
@@ -317,6 +315,25 @@ export function PulseTokenAvatarHover({
                 <p className="text-[10px] text-white/35">Checking reused images…</p>
               </div>
             ) : null}
+    </div>
+  ) : null;
+
+  const previewPanel =
+    hovered && resolvedPanelPos && (detailed || imageUrl) && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="pointer-events-auto fixed z-[260]"
+            style={{
+              top: resolvedPanelPos.top,
+              bottom: resolvedPanelPos.bottom,
+              left: resolvedPanelPos.left,
+              width: previewPx,
+            }}
+            data-row-click-skip="true"
+            onMouseEnter={scheduleOpen}
+            onMouseLeave={scheduleClose}
+          >
+            {detailed ? detailedContent : imagePreviewContent}
           </div>,
           document.body,
         )
