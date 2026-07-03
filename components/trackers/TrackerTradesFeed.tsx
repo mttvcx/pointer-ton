@@ -331,7 +331,7 @@ function TimeCell({ t }: { t: TrackerTrade }) {
           setTip(null);
           window.open(solscanTxUrl(t.signature), '_blank', 'noopener,noreferrer');
         }}
-        className="justify-self-start text-[10px] tabular-nums text-fg-muted underline decoration-dotted decoration-fg-muted/40 underline-offset-2 transition-colors hover:text-fg-secondary"
+        className="justify-self-start text-[10px] font-medium tabular-nums text-fg-secondary underline decoration-dotted decoration-fg-muted/50 underline-offset-2 transition-colors hover:text-fg-primary"
       >
         {agoShort(t.blockTime)}
       </button>
@@ -377,10 +377,10 @@ function TradeRow({
   return (
     <div
       className={cn(
-        'group relative grid items-center gap-2 border-b border-l-2 border-b-white/[0.04] px-2 py-1.5 transition-colors',
+        'group relative grid items-center gap-2 border-b border-l-[3px] border-b-white/[0.06] px-2 py-2 transition-colors',
         buy
-          ? 'border-l-signal-bull/50 bg-signal-bull/[0.02] hover:bg-signal-bull/[0.07]'
-          : 'border-l-signal-bear/50 bg-signal-bear/[0.02] hover:bg-signal-bear/[0.07]',
+          ? 'border-l-signal-bull/80 bg-signal-bull/[0.06] hover:bg-signal-bull/[0.13]'
+          : 'border-l-signal-bear/80 bg-signal-bear/[0.06] hover:bg-signal-bear/[0.13]',
       )}
       style={{ gridTemplateColumns: template }}
     >
@@ -417,12 +417,12 @@ function TradeRow({
                 e.stopPropagation();
                 router.push(`/token/${encodeURIComponent(t.mint)}`);
               }}
-              className="truncate text-left text-[11px] font-semibold text-fg-secondary transition-colors hover:text-fg-primary"
+              className="truncate text-left text-[11.5px] font-semibold text-fg-primary transition-colors hover:text-accent-primary"
               title={t.mint}
             >
               {tokenLabel(t)}
             </button>
-            {t.tokenAgeLabel ? <span className="text-[9px] tabular-nums text-fg-muted">{t.tokenAgeLabel}</span> : null}
+            {t.tokenAgeLabel ? <span className="text-[9px] tabular-nums text-fg-muted/90">{t.tokenAgeLabel}</span> : null}
           </span>
         </div>
       ) : null}
@@ -434,7 +434,7 @@ function TradeRow({
       ) : null}
 
       {columns.marketCap ? (
-        <div className="justify-self-end text-right text-[10.5px] tabular-nums text-fg-muted">
+        <div className="justify-self-end text-right text-[10.5px] font-medium tabular-nums text-fg-secondary">
           {t.marketCapUsd != null ? formatCompactUsd(t.marketCapUsd) : '—'}
         </div>
       ) : null}
@@ -479,10 +479,10 @@ function TradesHeader({
   onToggleUnit: () => void;
   onOpenSettings: () => void;
 }) {
-  const hcls = 'text-[9px] font-semibold uppercase tracking-wide text-fg-muted';
+  const hcls = 'text-[9px] font-semibold uppercase tracking-wide text-fg-secondary';
   return (
     <div
-      className="grid items-center gap-2 border-b border-white/[0.08] bg-bg-hover/40 px-2 py-1.5"
+      className="grid items-center gap-2 border-b border-white/[0.12] bg-bg-hover/70 px-2 py-1.5"
       style={{ gridTemplateColumns: template }}
     >
       <button
@@ -544,18 +544,19 @@ function TradesSettingsModal({ open, onClose }: { open: boolean; onClose: () => 
         </header>
         <div className="space-y-1 px-3 py-3">
           {COL_LABELS.map(({ key, label }) => (
-            <label key={key} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-white/[0.03]">
+            <button
+              key={key}
+              type="button"
+              role="switch"
+              aria-checked={columns[key]}
+              onClick={() => setColumn(key, !columns[key])}
+              className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/[0.03]"
+            >
               <span className="text-[12.5px] text-fg-secondary">{label}</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={columns[key]}
-                onClick={() => setColumn(key, !columns[key])}
-                className={cn('inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors', columns[key] ? 'bg-accent-primary/80' : 'bg-white/[0.14]')}
-              >
+              <span className={cn('inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors', columns[key] ? 'bg-accent-primary/80' : 'bg-white/[0.14]')}>
                 <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', columns[key] ? 'translate-x-4' : 'translate-x-0')} />
-              </button>
-            </label>
+              </span>
+            </button>
           ))}
         </div>
         <div className="px-3 pb-3">

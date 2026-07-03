@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellRing, ChevronRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { BellRing } from 'lucide-react';
+import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
+import { WalletGroupsSidebar } from '@/components/portfolio/WalletGroupsSidebar';
+import { useWalletGroupsStore } from '@/store/walletGroups';
+import { useTradingStore } from '@/store/trading';
+import { UNGROUPED_GROUP_ID } from '@/lib/trade/walletGroups';
 import { CloseButton } from '@/components/ui/CloseButton';
 import {
   clampPeekTopLeftWithinViewport,
@@ -22,20 +29,19 @@ import {
 } from '@/store/tokenDockPeek';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
-import { openXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { toastWalletTrackedTradeDemo } from '@/lib/walletTracker/walletTrackerToast';
 import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
 import { WalletQuickBuyAmount } from '@/components/trackers/WalletQuickBuyAmount';
 
-type WalletTrackerTab = 'manager' | 'trades' | 'monitor' | 'kols';
+type WalletTrackerTab = 'manager' | 'trades' | 'groups' | 'kols';
 
 const TAB_LABEL: Record<WalletTrackerTab, string> = {
   manager: 'Manager',
   trades: 'Trades',
-  monitor: 'Monitor',
+  groups: 'Groups',
   kols: 'KOLs',
 };
-const TAB_ORDER: WalletTrackerTab[] = ['manager', 'trades', 'monitor', 'kols'];
+const TAB_ORDER: WalletTrackerTab[] = ['manager', 'trades', 'groups', 'kols'];
 
 const MIN_PANEL_W = 300;
 const MIN_PANEL_H = 300;
@@ -104,9 +110,7 @@ export function DockWalletTrackerFloatingPanel() {
   const panelSize = useTokenDockPeekStore((s) => s.dockWalletPanelSize ?? DEFAULT_WALLET_TRACKER_PEEK_SIZE);
   const setPanelSize = useTokenDockPeekStore((s) => s.setWalletPanelSize);
 
-  const [tab, setTab] = useState<WalletTrackerTab>(() =>
-    pathname?.startsWith('/pulse') ? 'monitor' : 'trades',
-  );
+  const [tab, setTab] = useState<WalletTrackerTab>('trades');
 
   const onWalletMgmtPage = pathname?.startsWith('/wallets') ?? false;
 
@@ -576,31 +580,14 @@ export function DockWalletTrackerFloatingPanel() {
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col',
-            tab === 'monitor' || tab === 'trades' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
+            tab === 'trades' || tab === 'groups' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
           )}
-          style={{ minHeight: tab === 'monitor' ? 280 : 220 }}
+          style={{ minHeight: 220 }}
         >
           {tab === 'trades' ? (
             <TrackerTradesFeed />
-          ) : tab === 'monitor' ? (
-            <div className="flex flex-col gap-3 px-3 py-3">
-              <p className="text-[11px] leading-relaxed text-fg-secondary">
-                X monitor lives on <strong className="text-fg-primary">Pulse</strong> — full-height side rail with
-                feed, rules, and AI deploy.
-              </p>
-              <button
-                type="button"
-                data-no-drag
-                className="btn-press inline-flex w-fit items-center gap-1 rounded-sm border border-white/[0.1] bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-semibold text-accent-primary hover:bg-white/[0.08]"
-                onClick={() => {
-                  setOpen(false);
-                  openXMonitorOnPulse('left');
-                }}
-              >
-                Open X monitor on Pulse
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-            </div>
+          ) : tab === 'groups' ? (
+            <GroupsTab />
           ) : (
             <p className="px-3 py-3 text-[11px] leading-relaxed text-fg-secondary">
               <strong className="text-fg-primary">{TAB_LABEL[tab]}</strong> plugs into the tracker pipeline next — use{' '}
@@ -721,5 +708,63 @@ export function DockWalletTrackerFloatingPanel() {
         )}
       </aside>
     </>
+  );
+}
+
+/**
+ * Groups tab — replaces the redundant "Monitor" tab (X monitor is its own thing
+ * on Pulse). Create/organise wallet groups and click one to switch the active
+ * instant-trade wallets to that group. Wallet assignment needs the wallet list.
+ */
+function GroupsTab() {
+  const { authenticated, getAccessToken } = usePointerAuth();
+  const activeGroupId = useWalletGroupsStore((s) => s.activeGroupId);
+  const groups = useWalletGroupsStore((s) => s.groups);
+  const setActiveGroupId = useWalletGroupsStore((s) => s.setActiveGroupId);
+  const touchGroup = useWalletGroupsStore((s) => s.touchGroup);
+  const setShortlist = useTradingStore((s) => s.setInstantTradeWalletShortlist);
+  const clearShortlist = useTradingStore((s) => s.clearInstantTradeWalletShortlist);
+
+  const walletsQ = useQuery({
+    queryKey: ['wallets-my'],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const res = await fetch('/api/wallets/my', { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error('wallets');
+      return res.json() as Promise<{ wallets: MyWalletRow[] }>;
+    },
+    enabled: authenticated,
+    staleTime: 30_000,
+  });
+
+  const onSelectGroup = (id: string | null) => {
+    if (!id || id === UNGROUPED_GROUP_ID) {
+      setActiveGroupId(null);
+      clearShortlist();
+      return;
+    }
+    setActiveGroupId(id);
+    touchGroup(id);
+    const g = groups.find((x) => x.id === id);
+    setShortlist(g?.walletAddresses ?? []);
+  };
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:thin]">
+      <WalletGroupsSidebar
+        wallets={walletsQ.data?.wallets ?? []}
+        selectedGroupId={activeGroupId}
+        onSelectGroup={onSelectGroup}
+        className="px-2 py-2"
+      />
+      <p className="px-3 pb-3 text-[10px] leading-snug text-fg-muted">
+        Click a group to trade with its wallets. Assign wallets to groups here or in{' '}
+        <Link href="/portfolio?tab=wallets" className="font-semibold text-accent-primary hover:underline">
+          Portfolio → Wallets
+        </Link>
+        .
+      </p>
+    </div>
   );
 }
