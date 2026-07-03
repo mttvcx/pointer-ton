@@ -11,6 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Pointer',
   slug: 'pointer-mobile',
+  owner: 'mttvcx',
   scheme: 'pointer',
   version: '0.1.0',
   orientation: 'portrait',
@@ -48,5 +49,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     privyClientId: process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID ?? '',
     // Crossmint client-side key (ck_…) for the Apple Pay → token checkout.
     crossmintClientKey: process.env.EXPO_PUBLIC_CROSSMINT_CLIENT_KEY ?? '',
+    // EAS project link (dynamic config can't be auto-written, so it's set here).
+    eas: { projectId: '782edf66-e786-4d79-9522-bddbba8f4c19' },
   },
 });
