@@ -188,8 +188,10 @@ export function CopilotBriefPanel({
             className={cn(
               scrollH,
               'relative z-10 overflow-y-auto overflow-x-hidden rounded-lg px-2.5 py-2 text-center',
-              'bg-bg-base/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.28)]',
-              'ring-1 ring-white/[0.05]',
+              // Glassy: keep the inner transparent so the liquid-glass refraction shows through.
+              aiPanelStyle === 'glassy'
+                ? 'bg-white/[0.02] ring-1 ring-white/[0.06]'
+                : 'bg-bg-base/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.05]',
               textCls,
               '[scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]',
             )}
@@ -239,12 +241,14 @@ export function CopilotBriefPanel({
           className={cn(
             scrollH,
             'relative z-10 overflow-y-auto overflow-x-hidden rounded-lg px-2.5 py-2 text-center',
-            pulseCard
-              ? 'bg-bg-base/40'
-              : cn(
-                  'bg-bg-base/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.28)]',
-                  'ring-1 ring-white/[0.05]',
-                ),
+            aiPanelStyle === 'glassy'
+              ? 'bg-white/[0.02] ring-1 ring-white/[0.06]'
+              : pulseCard
+                ? 'bg-bg-base/40'
+                : cn(
+                    'bg-bg-base/30 shadow-[inset_0_2px_8px_rgba(0,0,0,0.28)]',
+                    'ring-1 ring-white/[0.05]',
+                  ),
             textCls,
             '[scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]',
           )}
