@@ -111,12 +111,13 @@ Dashboard**, not a banking app. Spec: `docs/POINTER_FINANCIAL.md`. Core model =
 - `src/demo/capital.ts` — `getDemoCapital()` deterministic model (states, apy,
   earned, card, points/tier/by-source, tax + realized gains, activity, insights).
   `components/Sparkline.tsx` shared; `usd`/`group` money helpers in `src/format.ts`.
-- **Provider choice (users never see names, all API-verified 2026-07-03):**
-  Bridge (Stripe-owned) = card issuing + Apple/Google Pay push-provisioning + virtual
-  accounts + on/off ramp; **Lulo** (lulo.fi, RESTful API, Solana-native, aggregates
-  Kamino/Morpho/Maple w/ principal protection) = yield on idle USDC; Crossmint =
-  fiat→token buys (already wired). Earlier notes said "Blend" for yield — loose name,
-  Lulo is the real pick. One-vendor-light on purpose (the "how easy to start" thesis).
+- **Provider choice (users never see names, verified 2026-07-03):**
+  **Card = Gnosis Pay** — PERMISSIONLESS API (start now, no sales; SIWE→JWT; white-label
+  virtual USDC/EURC cards; EVM/Gnosis via our Privy EVM wallet). Chosen over Bridge for the
+  card because **Bridge sandbox needs a support@bridge.xyz onboarding email** (not
+  self-serve). **Yield = Lulo** (Solana, key in hand). **Buys/ramp = Crossmint + Onramper**
+  (done). **Bridge = optional later** (US ACH rails only); its scaffold stays. A Gnosis Pay
+  client is the next card build. (Earlier "Blend" for yield was a loose name → Lulo.)
 - **First-run journey** (`screens/FinancialOnboarding.tsx`): a fresh account sees
   `FinancialIntro` (pitch) → `FinancialActivation` (just-in-time KYC: legal name +
   country → virtual card issued instantly; animated provisioning; celebratory
