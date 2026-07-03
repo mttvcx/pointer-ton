@@ -159,7 +159,7 @@ export const DEFAULT_PULSE_DISPLAY_PREFS: PulseDisplayPrefs = {
   quickBuyClickBehavior: 'nothing',
   walletGroupsInHeader: true,
   secondButtonMode: 'off',
-  accentHex: '#34D399',
+  accentHex: '#3D8BFF',
   quickBuyUltraChrome: 'outline',
   toastColor: null,
   tokenHoverDetail: false,

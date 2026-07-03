@@ -1,7 +1,10 @@
 import { hexToRgb, normalizeHex } from '@/lib/ui/colorMath';
 
-/** Default quick-buy accent — matches legacy emerald Pulse buttons. */
-export const DEFAULT_PULSE_ACCENT_HEX = '#34D399';
+/** Axiom's signature blue Quick-Buy button — the default so Axiom users feel at home. */
+export const AXIOM_BUY_ACCENT_HEX = '#3D8BFF';
+
+/** Default quick-buy accent. Axiom-blue by default ('#34D399' was the legacy emerald). */
+export const DEFAULT_PULSE_ACCENT_HEX = AXIOM_BUY_ACCENT_HEX;
 
 export function hexToRgbTriplet(hex: string): string {
   const { r, g, b } = hexToRgb(normalizeHex(hex));
