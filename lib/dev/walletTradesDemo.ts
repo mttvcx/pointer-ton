@@ -32,6 +32,8 @@ export type DemoTrackerTrade = {
   usdAmount: number | null;
   marketCapUsd: number | null;
   blockTime: string | null;
+  /** Age of the token itself (e.g. "22s", "6m") — shown next to the token. */
+  tokenAgeLabel: string | null;
   tokenStats: TokenPositionStats;
 };
 
@@ -99,6 +101,10 @@ export function makeDemoTrackerTrade(seq: number, nowMs: number): DemoTrackerTra
     usdAmount: usd,
     marketCapUsd: mc,
     blockTime: new Date(nowMs - ageSec * 1000).toISOString(),
+    tokenAgeLabel: (() => {
+      const m = 1 + ((seq * 5) % 30);
+      return m >= 60 ? `${Math.floor(m / 60)}h` : `${m}m`;
+    })(),
     tokenStats,
   };
 }

@@ -10,17 +10,18 @@ import {
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownRight, ArrowUpRight, BarChart3, Check, Copy, ExternalLink, TrendingUp, Zap } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, BarChart3, Check, Copy, ExternalLink, Settings2, TrendingUp, X, Zap } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useUIStore } from '@/store/ui';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import { appChainForMintNavigation } from '@/lib/chains/mintKind';
-import { formatCompactUsd, formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
+import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
 import { useWalletQuickBuyStore } from '@/store/walletQuickBuy';
+import { useTradesTableSettings, type TradesColumn } from '@/store/tradesTableSettings';
 import { makeDemoTrackerTrade, seedDemoTrackerTrades, type TokenPositionStats } from '@/lib/dev/walletTradesDemo';
 import { HoverZoomImage } from '@/components/monitor/HoverZoomImage';
 
@@ -37,6 +38,7 @@ type TrackerTrade = {
   usdAmount: number | null;
   marketCapUsd: number | null;
   blockTime: string | null;
+  tokenAgeLabel?: string | null;
   /** The wallet's aggregate position in this token (hover card). Demo-only for now. */
   tokenStats?: TokenPositionStats;
 };
@@ -53,6 +55,48 @@ function tokenLabel(t: TrackerTrade): string {
   return t.symbol ? `$${t.symbol}` : shortenAddress(t.mint, 4);
 }
 
+function solscanTxUrl(sig: string): string {
+  return `https://solscan.io/tx/${encodeURIComponent(sig)}`;
+}
+
+/** Compact "3s / 48s / 6m / 2h" since a timestamp. */
+function agoShort(iso: string | null): string {
+  if (!iso) return '—';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return 'now';
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function fmtAmount(usd: number | null, sol: number | null, unit: 'SOL' | 'USD'): string {
+  if (unit === 'USD') return usd != null ? `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 1000 ? 2 : 0 })}` : '—';
+  return sol != null ? `${formatNumber(sol, { decimals: sol >= 1 ? 2 : 3 })}◎` : '—';
+}
+
+/* ── column layout ─────────────────────────────────────────────────────── */
+type ColKey = 'time' | TradesColumn;
+const COL_WIDTH: Record<ColKey, string> = {
+  time: '44px',
+  status: '16px',
+  name: 'minmax(60px, 1fr)',
+  token: 'minmax(92px, 1.35fr)',
+  amount: 'minmax(66px, auto)',
+  marketCap: 'minmax(50px, auto)',
+  averageBuy: 'minmax(54px, auto)',
+  averageSell: 'minmax(54px, auto)',
+};
+const COL_ORDER: ColKey[] = ['time', 'status', 'name', 'token', 'amount', 'marketCap', 'averageBuy', 'averageSell'];
+
+function useGridTemplate(columns: Record<TradesColumn, boolean>): { template: string; visible: ColKey[] } {
+  const visible = COL_ORDER.filter((c) => c === 'time' || columns[c]);
+  return { template: visible.map((c) => COL_WIDTH[c]).join(' '), visible };
+}
+
 function useQuickBuy() {
   const router = useRouter();
   const activeChain = useUIStore((s) => s.activeChain);
@@ -66,7 +110,7 @@ function useQuickBuy() {
   };
 }
 
-/* ── wallet-name hover popover (portaled, so it never clips the scroll box) ── */
+/* ── wallet-name hover popover (token-specific, Axiom-style) ─────────────── */
 function WalletHoverCard({
   anchor,
   t,
@@ -110,7 +154,6 @@ function WalletHoverCard({
       onMouseLeave={onLeave}
       role="dialog"
     >
-      {/* Header: token this position is for + address copy + SOL/USD toggle */}
       <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
         <button
           type="button"
@@ -185,12 +228,10 @@ function WalletHoverCard({
           <span className="flex items-center gap-1 font-semibold text-fg-secondary">
             <span className={t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear'}>{t.side === 'buy' ? 'Bought' : 'Sold'}</span>
             {tokenLabel(t)}
-            {t.solAmount != null ? <span className="tabular-nums text-fg-muted">· {formatNumber(t.solAmount, { decimals: t.solAmount >= 1 ? 2 : 3 })}◎</span> : null}
           </span>
         </div>
       )}
 
-      {/* Bottom actions: quick buy + open wallet dossier + token page */}
       <div className="mt-1.5 flex items-center gap-1">
         <button
           type="button"
@@ -210,7 +251,6 @@ function WalletHoverCard({
           }}
           className="inline-flex h-7 w-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.025] text-fg-muted transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
           title="Open wallet dossier"
-          aria-label="Open wallet dossier"
         >
           <BarChart3 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -223,7 +263,6 @@ function WalletHoverCard({
           }}
           className="inline-flex h-7 w-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.025] text-fg-muted transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
           title="Open token page"
-          aria-label="Open token page"
         >
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -262,10 +301,7 @@ function WalletNameCell({ t }: { t: TrackerTrade }) {
         {walletEmoji(t.wallet)}
       </span>
       <span
-        className={cn(
-          'truncate text-[11.5px] font-medium',
-          t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear',
-        )}
+        className={cn('truncate text-[11.5px] font-medium', t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear')}
         title={t.wallet}
       >
         {name}
@@ -275,75 +311,245 @@ function WalletNameCell({ t }: { t: TrackerTrade }) {
   );
 }
 
-function TradeRow({ t }: { t: TrackerTrade }) {
+/* ── one trade row ─────────────────────────────────────────────────────── */
+function TradeRow({
+  t,
+  template,
+  columns,
+  unit,
+}: {
+  t: TrackerTrade;
+  template: string;
+  columns: Record<TradesColumn, boolean>;
+  unit: 'SOL' | 'USD';
+}) {
   const quickBuy = useQuickBuy();
   const router = useRouter();
-  const quickBuyAmount = useWalletQuickBuyStore((s) => s.amountSol);
+  const buy = t.side === 'buy';
+  const stats = t.tokenStats;
+  const avgBuy = stats && stats.buysCount ? stats.buysSol / stats.buysCount : null;
+  const avgBuyUsd = stats && stats.buysCount ? stats.buysUsd / stats.buysCount : null;
+  const avgSell = stats && stats.sellsCount ? stats.sellsSol / stats.sellsCount : null;
+  const avgSellUsd = stats && stats.sellsCount ? stats.sellsUsd / stats.sellsCount : null;
+
   return (
-    <div className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.03]">
-      <div className="flex min-w-0 items-center gap-2">
-        {t.side === 'buy' ? (
-          <ArrowDownRight className="h-3.5 w-3.5 shrink-0 text-signal-bull" strokeWidth={2.5} aria-label="Buy" />
-        ) : (
-          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-signal-bear" strokeWidth={2.5} aria-label="Sell" />
-        )}
-        <WalletNameCell t={t} />
-      </div>
+    <div
+      className={cn(
+        'group relative grid items-center gap-2 border-b border-l-2 border-b-white/[0.04] px-2 py-1.5 transition-colors',
+        buy
+          ? 'border-l-signal-bull/50 bg-signal-bull/[0.02] hover:bg-signal-bull/[0.07]'
+          : 'border-l-signal-bear/50 bg-signal-bear/[0.02] hover:bg-signal-bear/[0.07]',
+      )}
+      style={{ gridTemplateColumns: template }}
+    >
+      {/* Time — click opens Solscan; hover shows the hint */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          window.open(solscanTxUrl(t.signature), '_blank', 'noopener,noreferrer');
+        }}
+        title="Open in Solscan"
+        className="justify-self-start text-[10px] tabular-nums text-fg-muted underline decoration-dotted decoration-fg-muted/40 underline-offset-2 transition-colors hover:text-fg-secondary"
+      >
+        {agoShort(t.blockTime)}
+      </button>
 
-      <div className="flex min-w-0 shrink-0 items-center gap-1.5">
-        {t.imageUrl ? (
-          <HoverZoomImage src={t.imageUrl} className="h-6 w-6 shrink-0 rounded-md" previewW={200} />
+      {columns.status ? (
+        buy ? (
+          <ArrowDownRight className="h-3.5 w-3.5 text-signal-bull" strokeWidth={2.5} aria-label="Buy" />
         ) : (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-[9px] font-bold text-fg-muted">
-            {(t.symbol ?? '?').replace(/^\$/, '').slice(0, 2).toUpperCase()}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/token/${encodeURIComponent(t.mint)}`);
-          }}
-          className="truncate text-[11px] font-semibold text-fg-secondary transition-colors hover:text-fg-primary"
-          title={t.mint}
-        >
-          {tokenLabel(t)}
-        </button>
-      </div>
+          <ArrowUpRight className="h-3.5 w-3.5 text-signal-bear" strokeWidth={2.5} aria-label="Sell" />
+        )
+      ) : null}
 
-      <div className="flex shrink-0 items-center gap-2">
-        <div className="text-right leading-tight">
-          <div className="text-[11px] font-semibold tabular-nums text-fg-primary">
-            {t.solAmount != null ? `${formatNumber(t.solAmount, { decimals: t.solAmount >= 1 ? 2 : 3 })}◎` : t.usdAmount != null ? formatCompactUsd(t.usdAmount) : '—'}
-          </div>
-          <div className="text-[9px] tabular-nums text-fg-muted">
-            {t.usdAmount != null ? formatCompactUsd(t.usdAmount) : ''}
-            {t.blockTime ? <span className="ml-1">{formatRelativeTime(t.blockTime)}</span> : null}
-          </div>
+      {columns.name ? (
+        <div className="min-w-0">
+          <WalletNameCell t={t} />
         </div>
-        <button
-          type="button"
-          onClick={(e) => quickBuy(e, t.mint)}
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-primary/[0.14] text-accent-primary opacity-0 transition group-hover:opacity-100 hover:bg-accent-primary/30"
-          title={`Quick buy ${quickBuyAmount} SOL`}
-          aria-label={`Quick buy ${tokenLabel(t)}`}
-        >
-          <Zap className="h-3 w-3" strokeWidth={2.5} />
-        </button>
-      </div>
+      ) : null}
+
+      {columns.token ? (
+        <div className="flex min-w-0 items-center gap-1.5">
+          {t.imageUrl ? (
+            <HoverZoomImage src={t.imageUrl} className="h-6 w-6 shrink-0 rounded-md" previewW={200} />
+          ) : (
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-[9px] font-bold text-fg-muted">
+              {(t.symbol ?? '?').replace(/^\$/, '').slice(0, 2).toUpperCase()}
+            </span>
+          )}
+          <span className="flex min-w-0 flex-col leading-tight">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/token/${encodeURIComponent(t.mint)}`);
+              }}
+              className="truncate text-left text-[11px] font-semibold text-fg-secondary transition-colors hover:text-fg-primary"
+              title={t.mint}
+            >
+              {tokenLabel(t)}
+            </button>
+            {t.tokenAgeLabel ? <span className="text-[9px] tabular-nums text-fg-muted">{t.tokenAgeLabel}</span> : null}
+          </span>
+        </div>
+      ) : null}
+
+      {columns.amount ? (
+        <div className={cn('justify-self-end text-right text-[11px] font-semibold tabular-nums', buy ? 'text-signal-bull' : 'text-signal-bear')}>
+          {fmtAmount(t.usdAmount, t.solAmount, unit)}
+        </div>
+      ) : null}
+
+      {columns.marketCap ? (
+        <div className="justify-self-end text-right text-[10.5px] tabular-nums text-fg-muted">
+          {t.marketCapUsd != null ? formatCompactUsd(t.marketCapUsd) : '—'}
+        </div>
+      ) : null}
+
+      {columns.averageBuy ? (
+        <div className="justify-self-end text-right text-[10.5px] tabular-nums text-signal-bull/90">
+          {avgBuy != null ? fmtAmount(avgBuyUsd, avgBuy, unit) : '—'}
+        </div>
+      ) : null}
+
+      {columns.averageSell ? (
+        <div className="justify-self-end text-right text-[10.5px] tabular-nums text-signal-bear/90">
+          {avgSell != null ? fmtAmount(avgSellUsd, avgSell, unit) : '—'}
+        </div>
+      ) : null}
+
+      {/* Quick buy — floats in on hover (Axiom ⚡) */}
+      <button
+        type="button"
+        onClick={(e) => quickBuy(e, t.mint)}
+        className="absolute right-1 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md bg-accent-primary/[0.16] text-accent-primary opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-accent-primary/30"
+        title="Quick buy"
+        aria-label={`Quick buy ${tokenLabel(t)}`}
+      >
+        <Zap className="h-3 w-3" strokeWidth={2.5} />
+      </button>
     </div>
   );
 }
 
+/* ── column header ─────────────────────────────────────────────────────── */
+function TradesHeader({
+  template,
+  columns,
+  unit,
+  onToggleUnit,
+  onOpenSettings,
+}: {
+  template: string;
+  columns: Record<TradesColumn, boolean>;
+  unit: 'SOL' | 'USD';
+  onToggleUnit: () => void;
+  onOpenSettings: () => void;
+}) {
+  const hcls = 'text-[9px] font-semibold uppercase tracking-wide text-fg-muted';
+  return (
+    <div
+      className="grid items-center gap-2 border-b border-white/[0.08] bg-bg-hover/40 px-2 py-1.5"
+      style={{ gridTemplateColumns: template }}
+    >
+      <button
+        type="button"
+        onClick={onOpenSettings}
+        title="Live trades table settings"
+        aria-label="Table settings"
+        className="justify-self-start text-fg-muted transition-colors hover:text-fg-secondary"
+      >
+        <Settings2 className="h-3.5 w-3.5" strokeWidth={2} />
+      </button>
+      {columns.status ? <span /> : null}
+      {columns.name ? <span className={hcls}>Name</span> : null}
+      {columns.token ? <span className={hcls}>Token</span> : null}
+      {columns.amount ? (
+        <button
+          type="button"
+          onClick={onToggleUnit}
+          title="Toggle SOL / USD"
+          className={cn(hcls, 'inline-flex items-center gap-1 justify-self-end transition-colors hover:text-fg-secondary')}
+        >
+          Amount
+          <span className="rounded bg-white/[0.08] px-1 py-px text-[8px] normal-case tracking-normal text-fg-secondary">
+            {unit === 'SOL' ? '◎' : '$'}
+          </span>
+        </button>
+      ) : null}
+      {columns.marketCap ? <span className={cn(hcls, 'justify-self-end')}>$MC</span> : null}
+      {columns.averageBuy ? <span className={cn(hcls, 'justify-self-end')}>Avg Buy</span> : null}
+      {columns.averageSell ? <span className={cn(hcls, 'justify-self-end')}>Avg Sell</span> : null}
+    </div>
+  );
+}
+
+/* ── settings modal (column visibility) ────────────────────────────────── */
+const COL_LABELS: Array<{ key: TradesColumn; label: string }> = [
+  { key: 'status', label: 'Status' },
+  { key: 'name', label: 'Name' },
+  { key: 'token', label: 'Token' },
+  { key: 'amount', label: 'Amount' },
+  { key: 'marketCap', label: 'Market Cap' },
+  { key: 'averageBuy', label: 'Average Buy' },
+  { key: 'averageSell', label: 'Average Sell' },
+];
+
+function TradesSettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const columns = useTradesTableSettings((s) => s.columns);
+  const setColumn = useTradesTableSettings((s) => s.setColumn);
+  if (!open || typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm" />
+      <div className="relative z-10 w-full max-w-[320px] overflow-hidden rounded-xl border border-white/[0.1] bg-bg-raised shadow-2xl">
+        <header className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3">
+          <h3 className="text-[13px] font-semibold text-fg-primary">Live Trades Table Settings</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="btn-press group/close flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-signal-bear/15 hover:text-signal-bear">
+            <X className="h-4 w-4 transition-transform group-hover/close:rotate-90" strokeWidth={2.25} />
+          </button>
+        </header>
+        <div className="space-y-1 px-3 py-3">
+          {COL_LABELS.map(({ key, label }) => (
+            <label key={key} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-white/[0.03]">
+              <span className="text-[12.5px] text-fg-secondary">{label}</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={columns[key]}
+                onClick={() => setColumn(key, !columns[key])}
+                className={cn('inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors', columns[key] ? 'bg-accent-primary/80' : 'bg-white/[0.14]')}
+              >
+                <span className={cn('inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform', columns[key] ? 'translate-x-4' : 'translate-x-0')} />
+              </button>
+            </label>
+          ))}
+        </div>
+        <div className="px-3 pb-3">
+          <button type="button" onClick={onClose} className="btn-press w-full rounded-lg bg-accent-primary py-2 text-[12px] font-bold text-fg-inverse hover:bg-accent-glow">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /**
- * Live trades from the user's tracked wallets. Real parsed swaps (mint_swaps);
- * auto-refreshes every few seconds but PAUSES the refresh while the cursor is
- * over the list so rows don't jump under you (Axiom-style hover-to-inspect).
+ * Live trades from the user's tracked wallets — Axiom-style color-coded table.
+ * Auto-refreshes but PAUSES while hovered; Preview streams sample trades.
  */
 export function TrackerTradesFeed({ className }: { className?: string }) {
   const [paused, setPaused] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { authenticated, getAccessToken } = usePointerAuth();
   const preview = useWalletTrackerPreviewStore((s) => s.preview);
+  const columns = useTradesTableSettings((s) => s.columns);
+  const amountUnit = useTradesTableSettings((s) => s.amountUnit);
+  const toggleAmountUnit = useTradesTableSettings((s) => s.toggleAmountUnit);
+  const { template } = useGridTemplate(columns);
 
   const q = useQuery({
     queryKey: ['tracker-trades'],
@@ -363,7 +569,6 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
     retry: 1,
   });
 
-  // Preview: stream sample trades in (prepend), pausing while hovered like live.
   const [demoTrades, setDemoTrades] = useState<TrackerTrade[]>([]);
   const seqRef = useRef(1000);
   const pausedRef = useRef(false);
@@ -387,21 +592,24 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
-      <div className="flex shrink-0 items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-        <span>
-          Live trades · tracked wallets
-          {preview ? <span className="ml-1 rounded bg-white/[0.08] px-1 text-[8.5px] normal-case tracking-normal">sample</span> : null}
+      <div className="flex shrink-0 items-center justify-between px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
+        <span className="inline-flex items-center gap-1.5">
+          Tracked wallets
+          {preview ? <span className="rounded bg-white/[0.08] px-1 text-[8.5px] normal-case tracking-normal">sample</span> : null}
         </span>
         <span className="inline-flex items-center gap-1">
-          <span
-            className={cn(
-              'h-1.5 w-1.5 rounded-full',
-              paused ? 'bg-fg-muted' : 'animate-pulse bg-signal-bull',
-            )}
-          />
+          <span className={cn('h-1.5 w-1.5 rounded-full', paused ? 'bg-fg-muted' : 'animate-pulse bg-signal-bull')} />
           {paused ? 'Paused' : 'Live'}
         </span>
       </div>
+
+      <TradesHeader
+        template={template}
+        columns={columns}
+        unit={amountUnit}
+        onToggleUnit={toggleAmountUnit}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
 
       <div
         className="min-h-0 flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:thin]"
@@ -409,7 +617,9 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
         onMouseLeave={() => setPaused(false)}
       >
         {preview ? (
-          trades.map((t) => <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} />)
+          trades.map((t) => (
+            <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} template={template} columns={columns} unit={amountUnit} />
+          ))
         ) : !authenticated ? (
           <p className="px-3 py-6 text-center text-[11px] text-fg-muted">Connect your wallet to see tracked trades.</p>
         ) : q.isLoading ? (
@@ -421,9 +631,13 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
             No trades from your tracked wallets yet.<br />They&apos;ll stream in here as your wallets trade.
           </p>
         ) : (
-          trades.map((t) => <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} />)
+          trades.map((t) => (
+            <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} template={template} columns={columns} unit={amountUnit} />
+          ))
         )}
       </div>
+
+      <TradesSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }
