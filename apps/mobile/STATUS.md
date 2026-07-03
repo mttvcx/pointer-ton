@@ -111,9 +111,12 @@ Dashboard**, not a banking app. Spec: `docs/POINTER_FINANCIAL.md`. Core model =
 - `src/demo/capital.ts` — `getDemoCapital()` deterministic model (states, apy,
   earned, card, points/tier/by-source, tax + realized gains, activity, insights).
   `components/Sparkline.tsx` shared; `usd`/`group` money helpers in `src/format.ts`.
-- **Provider choice (users never see names):** Bridge = card + bank rails + ramp,
-  Blend = yield, Crossmint = buys. One-vendor-heavy on purpose (the "how easy it is
-  to start" thesis; distribution is the moat).
+- **Provider choice (users never see names, all API-verified 2026-07-03):**
+  Bridge (Stripe-owned) = card issuing + Apple/Google Pay push-provisioning + virtual
+  accounts + on/off ramp; **Lulo** (lulo.fi, RESTful API, Solana-native, aggregates
+  Kamino/Morpho/Maple w/ principal protection) = yield on idle USDC; Crossmint =
+  fiat→token buys (already wired). Earlier notes said "Blend" for yield — loose name,
+  Lulo is the real pick. One-vendor-light on purpose (the "how easy to start" thesis).
 - **First-run journey** (`screens/FinancialOnboarding.tsx`): a fresh account sees
   `FinancialIntro` (pitch) → `FinancialActivation` (just-in-time KYC: legal name +
   country → virtual card issued instantly; animated provisioning; celebratory
