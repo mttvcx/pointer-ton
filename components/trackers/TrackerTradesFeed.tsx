@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -19,6 +20,8 @@ import { formatCompactUsd, formatNumber, formatRelativeTime } from '@/lib/utils/
 import { shortenAddress } from '@/lib/utils/addresses';
 import { BUY_PRESETS_SOL } from '@/lib/utils/constants';
 import { cn } from '@/lib/utils/cn';
+import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
+import { makeDemoTrackerTrade, seedDemoTrackerTrades } from '@/lib/dev/walletTradesDemo';
 
 type TrackerTrade = {
   signature: string;
@@ -274,6 +277,7 @@ function TradeRow({ t }: { t: TrackerTrade }) {
 export function TrackerTradesFeed({ className }: { className?: string }) {
   const [paused, setPaused] = useState(false);
   const { authenticated, getAccessToken } = usePointerAuth();
+  const preview = useWalletTrackerPreviewStore((s) => s.preview);
 
   const q = useQuery({
     queryKey: ['tracker-trades'],
@@ -286,19 +290,42 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
       const json = (await res.json()) as { trades?: TrackerTrade[] };
       return json.trades ?? [];
     },
-    enabled: authenticated,
-    refetchInterval: paused ? false : 15_000,
+    enabled: authenticated && !preview,
+    refetchInterval: paused || preview ? false : 15_000,
     refetchIntervalInBackground: false,
     staleTime: 10_000,
     retry: 1,
   });
 
-  const trades = q.data ?? [];
+  // Preview: stream sample trades in (prepend), pausing while hovered like live.
+  const [demoTrades, setDemoTrades] = useState<TrackerTrade[]>([]);
+  const seqRef = useRef(1000);
+  const pausedRef = useRef(false);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+  useEffect(() => {
+    if (!preview) {
+      setDemoTrades([]);
+      return;
+    }
+    setDemoTrades(seedDemoTrackerTrades(Date.now()));
+    const id = window.setInterval(() => {
+      if (pausedRef.current) return;
+      setDemoTrades((prev) => [makeDemoTrackerTrade(seqRef.current++, Date.now()), ...prev].slice(0, 50));
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, [preview]);
+
+  const trades = preview ? demoTrades : q.data ?? [];
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
       <div className="flex shrink-0 items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
-        <span>Live trades · tracked wallets</span>
+        <span>
+          Live trades · tracked wallets
+          {preview ? <span className="ml-1 rounded bg-white/[0.08] px-1 text-[8.5px] normal-case tracking-normal">sample</span> : null}
+        </span>
         <span className="inline-flex items-center gap-1">
           <span
             className={cn(
@@ -315,7 +342,9 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
-        {!authenticated ? (
+        {preview ? (
+          trades.map((t) => <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} />)
+        ) : !authenticated ? (
           <p className="px-3 py-6 text-center text-[11px] text-fg-muted">Connect your wallet to see tracked trades.</p>
         ) : q.isLoading ? (
           <p className="px-3 py-6 text-center text-[11px] text-fg-muted">Loading trades…</p>

@@ -1,8 +1,9 @@
 'use client';
 
-import { Eye } from 'lucide-react';
+import { Eye, Wallet } from 'lucide-react';
 import type { PulseAssetMode } from '@/store/pulseAssetMode';
 import { useXMonitorPreviewStore } from '@/store/xMonitorPreview';
+import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
 import { cn } from '@/lib/utils/cn';
 
 const MODES: { id: PulseAssetMode; label: string }[] = [
@@ -30,6 +31,30 @@ function XMonitorPreviewToggle() {
     >
       <Eye className="h-3 w-3" strokeWidth={2} aria-hidden />
       Preview
+    </button>
+  );
+}
+
+/** Sample-data toggle for the wallet-tracker trades feed — sits beside the X
+ *  Monitor preview so both demo modes are toggled from one spot. */
+function WalletTrackerPreviewToggle() {
+  const preview = useWalletTrackerPreviewStore((s) => s.preview);
+  const toggle = useWalletTrackerPreviewStore((s) => s.toggle);
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title="Preview wallet-tracker trades with sample data"
+      aria-pressed={preview}
+      className={cn(
+        'btn-press inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors',
+        preview
+          ? 'bg-accent-primary/20 text-accent-primary'
+          : 'text-fg-muted hover:bg-white/[0.06] hover:text-fg-secondary',
+      )}
+    >
+      <Wallet className="h-3 w-3" strokeWidth={2} aria-hidden />
+      Trades
     </button>
   );
 }
@@ -106,7 +131,12 @@ export function PulseModeSelector({
           </button>
         );
       })}
-      {variant === 'label' || variant === 'hero' ? <XMonitorPreviewToggle /> : null}
+      {variant === 'label' || variant === 'hero' ? (
+        <>
+          <XMonitorPreviewToggle />
+          <WalletTrackerPreviewToggle />
+        </>
+      ) : null}
     </nav>
   );
 }
