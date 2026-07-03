@@ -126,7 +126,15 @@ function Shell() {
       <Animated.View style={{ flex: 1, opacity: modeOpacity }}>
         <AnimatedMount routeKey={token ? `token-${token.token.mint}` : trader ? `trader-${trader.handle}` : tab}>
           {token ? (
-            <TokenScreen bundle={token} onBack={() => setToken(null)} advanced={adv} />
+            <TokenScreen
+              bundle={token}
+              onBack={() => setToken(null)}
+              advanced={adv}
+              onOpenTrader={(t) => {
+                setToken(null);
+                setTrader(t);
+              }}
+            />
           ) : trader ? (
             <TraderProfileScreen
               handle={trader.handle}
@@ -146,8 +154,6 @@ function Shell() {
           )}
         </AnimatedMount>
       </Animated.View>
-
-      <View style={[s.topBar, { height: insets.top }]} pointerEvents="none" />
 
       {!token && !trader ? (
         <GlassNav

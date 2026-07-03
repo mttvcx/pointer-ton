@@ -24,13 +24,15 @@ import { GlassFill } from '../components/GlassFill';
 import { ReferralButton } from '../components/ReferralButton';
 import type { PulseBundle } from '../src/types';
 
+// Order intentionally NOT FOMO's (they lead Crypto·Perps·Trending): Trending leads,
+// Perps sits mid-row. Our own rhythm.
 const CHIPS: { label: string; sort: 'mc' | 'vol' | 'holders' | 'new'; badge?: string }[] = [
-  { label: 'Crypto', sort: 'mc' },
-  { label: 'Perps', sort: 'vol', badge: 'New' },
   { label: 'Trending', sort: 'mc' },
+  { label: 'Crypto', sort: 'mc' },
+  { label: 'Gainers', sort: 'vol' },
+  { label: 'Perps', sort: 'vol', badge: 'New' },
   { label: 'Most held', sort: 'holders' },
   { label: 'Graduated', sort: 'new' },
-  { label: 'Gainers', sort: 'vol' },
 ];
 
 export function HomeScreen({
@@ -61,7 +63,7 @@ function SimpleHome({
   onOpenReferral: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [active, setActive] = useState(2);
+  const [active, setActive] = useState(0);
   const [trade, setTrade] = useState<WeeklyTrade | null>(null);
   const [deposit, setDeposit] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);

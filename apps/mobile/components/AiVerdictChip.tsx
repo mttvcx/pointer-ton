@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { explainToken, deriveVerdict } from '../src/api/endpoints';
 import { DEMO } from '../src/auth';
@@ -85,6 +85,14 @@ export function AiVerdictChip({ bundle, expandable = true }: { bundle: PulseBund
     initialData: DEMO ? demoVerdict(bundle) : undefined,
   });
 
+  // Auto-reveal the read shortly after the token page settles — the AI "opens up"
+  // on its own so the user never has to think to tap. They can still Hide it.
+  useEffect(() => {
+    if (!expandable) return;
+    const t = setTimeout(() => setOpen(true), 340);
+    return () => clearTimeout(t);
+  }, [expandable]);
+
   if (!DEMO && q.isLoading) {
     return (
       <View style={[s.chip, { backgroundColor: colors.bgRaised }]}>
@@ -113,7 +121,7 @@ export function AiVerdictChip({ bundle, expandable = true }: { bundle: PulseBund
         {expandable ? <Text style={[s.why, { color: m.fg }]}>{open ? 'Hide' : 'Why?'}</Text> : null}
       </Pressable>
 
-      {open ? (
+      <Reveal open={open}>
         <View style={s.detail}>
           <GlassFill />
           <Text style={s.summary}>{d.summary}</Text>
@@ -121,8 +129,46 @@ export function AiVerdictChip({ bundle, expandable = true }: { bundle: PulseBund
           {d.bullCase.length ? <Section title="Bull case" items={d.bullCase} color={colors.bull} /> : null}
           {d.bearCase.length ? <Section title="Bear case" items={d.bearCase} color={colors.fgSecondary} /> : null}
         </View>
-      ) : null}
+      </Reveal>
     </View>
+  );
+}
+
+/**
+ * Height + fade reveal. Measures the content once (hidden), then animates height
+ * 0 ⇆ measured and opacity 0 ⇆ 1 whenever `open` flips. Height is a layout prop so
+ * this runs on the JS thread, but it's a single short one-shot per token — smooth
+ * even in Expo Go, and it makes the AI read "unfold" instead of popping in.
+ */
+function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [measured, setMeasured] = useState(0);
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!measured) return;
+    Animated.timing(anim, {
+      toValue: open ? 1 : 0,
+      duration: open ? 360 : 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [open, measured, anim]);
+  return (
+    <Animated.View
+      style={{
+        height: measured ? anim.interpolate({ inputRange: [0, 1], outputRange: [0, measured] }) : 0,
+        opacity: measured ? anim : 0,
+        overflow: 'hidden',
+      }}
+    >
+      <View
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h && Math.abs(h - measured) > 0.5) setMeasured(h);
+        }}
+      >
+        {children}
+      </View>
+    </Animated.View>
   );
 }
 

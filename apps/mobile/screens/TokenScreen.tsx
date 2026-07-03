@@ -24,7 +24,7 @@ import { RecentTradesDrawer } from '../components/RecentTradesDrawer';
 import { PnlShareCard } from '../components/PnlShareCard';
 import { useAuth } from '../src/auth';
 import { DEMO_HOLDERS } from '../src/demo';
-import { getTradersOnToken } from '../src/demo/activity';
+import { getTradersOnToken, type TokenTrader } from '../src/demo/activity';
 import { XBadge } from '../components/XBadge';
 import type { PulseBundle } from '../src/types';
 
@@ -40,7 +40,17 @@ const CHART_MARKS = [
   { x: 236, y: 48, buy: false },
 ];
 
-export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle; onBack: () => void; advanced: boolean }) {
+export function TokenScreen({
+  bundle,
+  onBack,
+  advanced,
+  onOpenTrader,
+}: {
+  bundle: PulseBundle;
+  onBack: () => void;
+  advanced: boolean;
+  onOpenTrader: (t: { handle: string; name?: string; color?: string; initial?: string }) => void;
+}) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [deposit, setDeposit] = useState(false);
@@ -104,6 +114,12 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
     const value = parseAmt(h.value);
     const invested = value / (1 + pct / 100);
     setHolderShare({ symbol: sym, name: token.name, image: token.image_url, pnlUsd: value - invested, pnlPct: pct, investedUsd: invested });
+  };
+
+  // Share a "Traders here" position as a P&L card (tap their P&L pill).
+  const shareTrader = (t: TokenTrader) => {
+    const invested = t.holdingUsd / (1 + t.pnlPct / 100);
+    setHolderShare({ symbol: sym, name: token.name, image: token.image_url, pnlUsd: t.holdingUsd - invested, pnlPct: t.pnlPct, investedUsd: invested });
   };
 
   return (
@@ -196,7 +212,7 @@ export function TokenScreen({ bundle, onBack, advanced }: { bundle: PulseBundle;
 
           {/* Who's positioned here + how they're doing (profitability visibility).
               Copy-trade itself lives on a trader's profile, not here. */}
-          <TradersHere mint={token.mint} price={snap?.price_usd ?? 0} />
+          <TradersHere mint={token.mint} price={snap?.price_usd ?? 0} onOpenTrader={onOpenTrader} onShare={shareTrader} />
 
           {advanced ? (
             <View style={s.console}>
@@ -445,39 +461,62 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 /** "Traders here" — who's positioned in this token and how they're doing (avg
  *  entry, P&L, size). Read-only profitability visibility; copy-trade lives on a
  *  trader's profile. */
-function TradersHere({ mint, price }: { mint: string; price: number }) {
+function TradersHere({
+  mint,
+  price,
+  onOpenTrader,
+  onShare,
+}: {
+  mint: string;
+  price: number;
+  onOpenTrader: (t: { handle: string; name?: string; color?: string; initial?: string }) => void;
+  onShare: (t: TokenTrader) => void;
+}) {
   const traders = React.useMemo(() => getTradersOnToken(mint, price), [mint, price]);
   if (!traders.length) return null;
+  const openX = (handle: string) => Linking.openURL(`https://x.com/${handle}`).catch(() => {});
   return (
     <View style={s.thCard}>
       <GlassFill />
       <View style={s.thHead}>
         <Ionicons name="people-outline" size={15} color={colors.accentGlow} />
         <Text style={s.thTitle}>Traders here</Text>
-        <Text style={s.thHint}>Their P&L</Text>
+        <Text style={s.thHint}>Tap P&L to share</Text>
       </View>
-      {traders.map((t) => (
-        <View key={t.handle} style={s.thRow}>
-          <View style={[s.thAvatar, { backgroundColor: t.color }]}>
-            <Text style={s.thAvatarText}>{t.initial}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={s.thNameLine}>
-              <Text style={s.thName} numberOfLines={1}>
-                {t.name}
+      {traders.map((t) => {
+        const profile = { handle: t.handle, name: t.name, color: t.color, initial: t.initial };
+        return (
+          <View key={t.handle} style={s.thRow}>
+            <PressScale onPress={() => onOpenTrader(profile)} to={0.9} hitSlop={4} style={[s.thAvatar, { backgroundColor: t.color }]}>
+              <Text style={s.thAvatarText}>{t.initial}</Text>
+            </PressScale>
+            <View style={{ flex: 1 }}>
+              <View style={s.thNameLine}>
+                <PressScale onPress={() => onOpenTrader(profile)} to={0.94} hitSlop={4} style={{ flexShrink: 1 }}>
+                  <Text style={s.thName} numberOfLines={1}>
+                    {t.name}
+                  </Text>
+                </PressScale>
+                {t.xConnected ? (
+                  <PressScale onPress={() => openX(t.handle)} to={0.85} hitSlop={8}>
+                    <XBadge size={13} />
+                  </PressScale>
+                ) : null}
+              </View>
+              <Text style={s.thMeta} numberOfLines={1}>
+                avg {priceUsd(t.avgEntryUsd)}
+                <Text style={s.thMuted}> · holds {compactUsd(t.holdingUsd)}</Text>
               </Text>
-              {t.xConnected ? <XBadge size={13} /> : null}
             </View>
-            <Text style={s.thMeta} numberOfLines={1}>
-              avg {priceUsd(t.avgEntryUsd)}
-              <Text style={s.thMuted}> · holds {compactUsd(t.holdingUsd)}</Text>
-            </Text>
+            <PressScale onPress={() => onShare(t)} to={0.88} hitSlop={8} style={s.thPnlBtn}>
+              <Text style={[s.thPnl, { color: t.pnlPct >= 0 ? colors.bull : colors.bear }]}>
+                {t.pnlPct >= 0 ? '▲' : '▼'} {Math.abs(t.pnlPct).toFixed(0)}%
+              </Text>
+              <Ionicons name="share-outline" size={12} color={colors.fgMuted} />
+            </PressScale>
           </View>
-          <Text style={[s.thPnl, { color: t.pnlPct >= 0 ? colors.bull : colors.bear }]}>
-            {t.pnlPct >= 0 ? '▲' : '▼'} {Math.abs(t.pnlPct).toFixed(0)}%
-          </Text>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -556,6 +595,7 @@ const s = StyleSheet.create({
   thName: { color: colors.fg, fontSize: 14.5, fontWeight: '700', flexShrink: 1 },
   thMeta: { color: colors.fgSecondary, fontSize: 12.5, marginTop: 2 },
   thMuted: { color: colors.fgMuted },
+  thPnlBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 8, paddingVertical: 2 },
   thPnl: { fontSize: 14, fontWeight: '700' },
 
   buyBar: { position: 'absolute', left: 16, right: 16 },

@@ -440,7 +440,7 @@ function TokenRow({
               {sym}
             </Text>
             {age ? <Text style={s.age}>{age}</Text> : null}
-            {x ? <TwitterChip value={x} size={22} /> : null}
+            {x ? <TwitterChip value={x} size={22} forceIcon /> : null}
             {token.website_url ? <LinkChip icon="globe-outline" url={token.website_url} /> : null}
             {token.telegram_url ? <LinkChip icon="paper-plane-outline" url={token.telegram_url} /> : null}
           </View>
@@ -499,13 +499,14 @@ function QuickBtn({
   onPress: () => void;
 }) {
   const buy = kind === 'buy';
-  const fg = buy ? (outline ? colors.bull : '#04050A') : colors.bear;
+  const fg = buy ? colors.accentGlow : colors.bear;
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
       style={[s.qbtn, big && s.qbtnBig, buy ? (outline ? s.qbtnBuyOutline : s.qbtnBuy) : s.qbtnSell, busy && { opacity: 0.6 }]}
     >
+      <GlassFill active={buy && !outline} />
       {busy ? (
         <ActivityIndicator size="small" color={fg} />
       ) : buy ? (
@@ -546,26 +547,29 @@ function UltraDock({
     <View style={s.ultraDock}>
       {secondButton === 'sell' ? (
         <Pressable style={[s.ultraCell, s.ultraCellSell]} onPress={onSell} disabled={busySell}>
+          <GlassFill />
           {busySell ? <ActivityIndicator size="small" color={colors.bear} /> : <Text style={s.ultraSellText}>Sell</Text>}
         </Pressable>
       ) : secondButton === 'buy' ? (
         <Pressable style={[s.ultraCell, s.ultraCellBuy]} onPress={() => onBuy(secondSol)} disabled={busyBuy}>
+          <GlassFill active />
           {busyBuy ? (
-            <ActivityIndicator size="small" color={colors.bull} />
+            <ActivityIndicator size="small" color={colors.accentGlow} />
           ) : (
             <>
-              <Ionicons name="flash" size={13} color={colors.bull} />
+              <Ionicons name="flash" size={13} color={colors.accentGlow} />
               <Text style={s.ultraBuyText}>{secondSol}</Text>
             </>
           )}
         </Pressable>
       ) : null}
       <Pressable style={[s.ultraCell, s.ultraCellBuy, s.ultraCellPrimary]} onPress={() => onBuy(primarySol)} disabled={busyBuy}>
+        <GlassFill active />
         {busyBuy ? (
-          <ActivityIndicator color={colors.bull} />
+          <ActivityIndicator color={colors.accentGlow} />
         ) : (
           <>
-            <Ionicons name="flash" size={16} color={colors.bull} />
+            <Ionicons name="flash" size={16} color={colors.accentGlow} />
             <Text style={s.ultraBuyTextBig}>{primarySol}</Text>
           </>
         )}
@@ -852,18 +856,18 @@ const s = StyleSheet.create({
   // Ultra: reserve the right column so token text stops just before the dock.
   rowUltraPad: { paddingRight: 124 },
   ultraDock: { position: 'absolute', top: 6, right: 6, bottom: 6, width: 108, flexDirection: 'column', gap: 6 },
-  ultraCell: { flex: 1, borderRadius: 11, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
-  ultraCellBuy: { borderColor: colors.bull, backgroundColor: colors.bull + '12' },
-  ultraCellSell: { borderColor: colors.bear + '99', backgroundColor: colors.bear + '10' },
+  ultraCell: { flex: 1, borderRadius: 11, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, overflow: 'hidden' },
+  ultraCellBuy: { borderColor: colors.accent + '66' },
+  ultraCellSell: { borderColor: colors.bear + '4D' },
   ultraCellPrimary: { flexGrow: 1.6 },
-  ultraBuyText: { color: colors.bull, fontSize: 14, fontWeight: '800' },
-  ultraBuyTextBig: { color: colors.bull, fontSize: 18, fontWeight: '800' },
+  ultraBuyText: { color: colors.accentGlow, fontSize: 14, fontWeight: '800' },
+  ultraBuyTextBig: { color: colors.accentGlow, fontSize: 18, fontWeight: '800' },
   ultraSellText: { color: colors.bear, fontSize: 14, fontWeight: '800' },
-  qbtn: { minWidth: 54, height: 32, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 11 },
+  qbtn: { minWidth: 54, height: 32, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 11, overflow: 'hidden' },
   qbtnBig: { minWidth: 86, height: 40, borderRadius: 12, paddingHorizontal: 16, gap: 5 },
-  qbtnBuy: { backgroundColor: colors.bull },
-  qbtnBuyOutline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.bull },
-  qbtnSell: { backgroundColor: colors.bearSoft, borderWidth: 1, borderColor: colors.bear + '55' },
+  qbtnBuy: { borderWidth: 1, borderColor: colors.accent + '66' },
+  qbtnBuyOutline: { borderWidth: 1, borderColor: colors.accent + '55' },
+  qbtnSell: { borderWidth: 1, borderColor: colors.bear + '4D' },
   qbtnText: { fontSize: 14, fontWeight: '800', color: '#04050A' },
   qbtnTextBig: { fontSize: 16 },
 

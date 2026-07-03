@@ -22,7 +22,7 @@ function handleOf(v: string): string {
  * a rich profile card (mobile translation of the web Twitter hover card) that
  * fetches the real name / bio / follower counts and never shows fake numbers.
  */
-export function TwitterChip({ value, size = 22 }: { value: string; size?: number }) {
+export function TwitterChip({ value, size = 22, forceIcon = false }: { value: string; size?: number; forceIcon?: boolean }) {
   const [card, setCard] = useState(false);
   const [failed, setFailed] = useState(false);
   const tweet = isTweet(value);
@@ -41,7 +41,7 @@ export function TwitterChip({ value, size = 22 }: { value: string; size?: number
       >
         {tweet ? (
           <Feather name="feather" size={Math.round(size * 0.58)} color={colors.accentGlow} />
-        ) : failed ? (
+        ) : failed || forceIcon ? (
           <Image source={X_FALLBACK} style={{ width: size, height: size }} resizeMode="contain" />
         ) : (
           <Image
