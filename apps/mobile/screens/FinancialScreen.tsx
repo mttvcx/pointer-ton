@@ -11,6 +11,7 @@ import { GlossButton } from '../components/GlossButton';
 import { DepositFlow } from '../components/DepositFlow';
 import { DragSheet } from '../components/DragSheet';
 import { Sparkline } from '../components/Sparkline';
+import { Rise } from '../components/Rise';
 import { AiSheet, CardSheet, MoveSheet, PointsSheet, TaxSheet, YieldSheet } from '../components/FinancialSheets';
 import { FinancialActivation, FinancialIntro } from './FinancialOnboarding';
 import { colors, radius } from '../src/theme';
@@ -159,40 +160,45 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </View>
 
         {/* Total capital hero */}
-        <Text style={s.capLabel}>TOTAL CAPITAL</Text>
-        <Text style={s.cap}>
-          {usd(dollars, 0)}
-          <Text style={s.capCents}>.{cents}</Text>
-        </Text>
-        <Text style={s.capSub}>Every dollar working · none idle</Text>
+        <Rise delay={40}>
+          <Text style={s.capLabel}>TOTAL CAPITAL</Text>
+          <Text style={s.cap}>
+            {usd(dollars, 0)}
+            <Text style={s.capCents}>.{cents}</Text>
+          </Text>
+          <Text style={s.capSub}>Every dollar working · none idle</Text>
+        </Rise>
 
         {/* Four-state bar — each segment tappable to reveal what's inside it. */}
-        <View style={s.bar}>
-          {STATES.map((st) => {
-            const val = m.states[st.key];
-            const pct = m.total > 0 ? val / m.total : 0;
-            return (
-              <PressScale key={st.key} to={0.94} onPress={() => openState(st.key)} style={{ flex: pct }}>
-                <View style={{ height: 12, backgroundColor: st.color }} />
+        <Rise delay={100}>
+          <View style={s.bar}>
+            {STATES.map((st) => {
+              const val = m.states[st.key];
+              const pct = m.total > 0 ? val / m.total : 0;
+              return (
+                <PressScale key={st.key} to={0.94} onPress={() => openState(st.key)} style={{ flex: pct }}>
+                  <View style={{ height: 12, backgroundColor: st.color }} />
+                </PressScale>
+              );
+            })}
+          </View>
+          <View style={s.legend}>
+            {STATES.map((st) => (
+              <PressScale key={st.key} to={0.97} onPress={() => openState(st.key)} style={s.legendItem}>
+                <View style={[s.dot, { backgroundColor: st.color }]} />
+                <Text style={s.legendLabel}>{st.label}</Text>
+                <Text style={s.legendVal}>{usd(m.states[st.key], 0)}</Text>
               </PressScale>
-            );
-          })}
-        </View>
-        <View style={s.legend}>
-          {STATES.map((st) => (
-            <PressScale key={st.key} to={0.97} onPress={() => openState(st.key)} style={s.legendItem}>
-              <View style={[s.dot, { backgroundColor: st.color }]} />
-              <Text style={s.legendLabel}>{st.label}</Text>
-              <Text style={s.legendVal}>{usd(m.states[st.key], 0)}</Text>
-            </PressScale>
-          ))}
-        </View>
-        <PressScale to={0.97} onPress={() => openPanel('move')} style={s.moveBtn}>
-          <Ionicons name="swap-horizontal" size={16} color={colors.accentGlow} />
-          <Text style={s.moveText}>Move capital</Text>
-        </PressScale>
+            ))}
+          </View>
+          <PressScale to={0.97} onPress={() => openPanel('move')} style={s.moveBtn}>
+            <Ionicons name="swap-horizontal" size={16} color={colors.accentGlow} />
+            <Text style={s.moveText}>Move capital</Text>
+          </PressScale>
+        </Rise>
 
         {/* Pointer Card */}
+        <Rise delay={170}>
         <PressScale to={0.99} onPress={() => openPanel('card')} style={s.card}>
           <LinearGradient colors={['#0E241C', '#0A1512', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <View style={s.cardTop}>
@@ -214,8 +220,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             </View>
           </View>
         </PressScale>
+        </Rise>
 
         {/* Smart Yield */}
+        <Rise delay={230}>
         <PressScale to={0.99} onPress={() => openPanel('yield')} style={s.panel}>
           <GlassFill />
           <View style={s.panelHead}>
@@ -234,8 +242,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           </View>
           <Text style={s.yieldProj}>Projected ~{usd((m.states.earning * (m.apy / 100)) / 12, 0)}/mo at today’s rate</Text>
         </PressScale>
+        </Rise>
 
         {/* Tax reserve */}
+        <Rise delay={290}>
         <PressScale to={0.98} onPress={() => openPanel('tax')} style={s.reserveRow}>
           <GlassFill />
           <View style={[s.reserveIcon, { backgroundColor: covered ? colors.bullSoft : colors.warnSoft }]}>
@@ -262,8 +272,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <Text style={[s.reserveVal, { color: colors.accentGlow }]}>{group(String(m.points))}</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.fgFaint} style={{ marginLeft: 6 }} />
         </PressScale>
+        </Rise>
 
         {/* AI insight → opens the capital co-pilot */}
+        <Rise delay={340}>
         <PressScale to={0.98} style={s.insight} onPress={() => openPanel('ai')}>
           <GlassFill active />
           <Ionicons name="sparkles" size={15} color={colors.accentGlow} style={{ marginTop: 1 }} />
@@ -276,8 +288,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <Ionicons name="add" size={19} color={colors.onAccent} />
           <Text style={s.addText}>Add capital</Text>
         </GlossButton>
+        </Rise>
 
         {/* Activity */}
+        <Rise delay={400}>
         <View style={s.sectionHead}>
           <View style={s.sectionBar} />
           <Text style={s.sectionTitle}>Activity</Text>
@@ -302,6 +316,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         })}
 
         <Text style={s.foot}>Trading · Earning · Spendable · Reserved. Never idle.</Text>
+        </Rise>
       </ScrollView>
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />

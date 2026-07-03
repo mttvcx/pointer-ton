@@ -8,6 +8,7 @@ import { Logo } from '../components/Logo';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { PressScale } from '../components/PressScale';
+import { Rise } from '../components/Rise';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { usd } from '../src/format';
@@ -49,16 +50,18 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
         <Text style={s.introLede}>Not a bank account — the capital layer of your trading. Every dollar is trading, earning, spendable, or reserved. Never idle.</Text>
 
         <View style={{ marginTop: 22 }}>
-          {PERKS.map((p) => (
-            <View key={p.title} style={s.perk}>
-              <View style={[s.perkIcon, { backgroundColor: p.tint + '22' }]}>
-                <Ionicons name={p.icon} size={19} color={p.tint} />
+          {PERKS.map((p, i) => (
+            <Rise key={p.title} delay={120 + i * 90} from={12}>
+              <View style={s.perk}>
+                <View style={[s.perkIcon, { backgroundColor: p.tint + '22' }]}>
+                  <Ionicons name={p.icon} size={19} color={p.tint} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.perkTitle}>{p.title}</Text>
+                  <Text style={s.perkSub}>{p.sub}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.perkTitle}>{p.title}</Text>
-                <Text style={s.perkSub}>{p.sub}</Text>
-              </View>
-            </View>
+            </Rise>
           ))}
         </View>
 

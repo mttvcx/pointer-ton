@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Logo } from './Logo';
@@ -7,6 +7,7 @@ import { PressScale } from './PressScale';
 import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
 import { Sparkline } from './Sparkline';
+import { Rise } from './Rise';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
@@ -305,12 +306,14 @@ export function AiSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }
 
       <View style={{ marginTop: 8 }}>
         {reads.map((r, i) => (
-          <View key={i} style={s.aiRead}>
-            <View style={[s.aiReadIcon, { backgroundColor: r.tint + '22' }]}>
-              <Ionicons name={r.icon} size={16} color={r.tint} />
+          <Rise key={i} delay={120 + i * 130} from={10}>
+            <View style={s.aiRead}>
+              <View style={[s.aiReadIcon, { backgroundColor: r.tint + '22' }]}>
+                <Ionicons name={r.icon} size={16} color={r.tint} />
+              </View>
+              <Text style={s.aiReadText}>{r.text}</Text>
             </View>
-            <Text style={s.aiReadText}>{r.text}</Text>
-          </View>
+          </Rise>
         ))}
       </View>
 
@@ -348,6 +351,13 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
   const toLabel = STATE_META.find((x) => x.key === to)!.label;
   const canMove = amount > 0 && from !== to;
 
+  // Pulse the amount whenever the selection changes.
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    pulse.setValue(1.07);
+    Animated.spring(pulse, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 9 }).start();
+  }, [pct, from, to]);
+
   return (
     <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
       <SheetTitle icon="swap-horizontal" tint={colors.accent} kicker="MOVE CAPITAL" title="Never idle" />
@@ -383,7 +393,7 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
 
       <View style={s.amountBox}>
         <GlassFill />
-        <Text style={s.amountBig}>{usd(amount, 0)}</Text>
+        <Animated.Text style={[s.amountBig, { transform: [{ scale: pulse }] }]}>{usd(amount, 0)}</Animated.Text>
         <View style={s.pctRow}>
           {[0.25, 0.5, 0.75, 1].map((p) => (
             <PressScale key={p} to={0.93} onPress={() => setPct(p)} style={[s.pctChip, pct === p && s.pctChipOn]}>
