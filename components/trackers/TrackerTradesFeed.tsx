@@ -311,6 +311,48 @@ function WalletNameCell({ t }: { t: TrackerTrade }) {
   );
 }
 
+/* ── time cell with styled Solscan tooltip ─────────────────────────────── */
+function TimeCell({ t }: { t: TrackerTrade }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [tip, setTip] = useState<{ left: number; top: number } | null>(null);
+  const show = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (r) setTip({ left: r.left + r.width / 2, top: r.top });
+  };
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onMouseEnter={show}
+        onMouseLeave={() => setTip(null)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setTip(null);
+          window.open(solscanTxUrl(t.signature), '_blank', 'noopener,noreferrer');
+        }}
+        className="justify-self-start text-[10px] tabular-nums text-fg-muted underline decoration-dotted decoration-fg-muted/40 underline-offset-2 transition-colors hover:text-fg-secondary"
+      >
+        {agoShort(t.blockTime)}
+      </button>
+      {tip && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="pointer-events-none fixed z-[280] flex -translate-x-1/2 -translate-y-full flex-col items-center"
+              style={{ left: tip.left, top: tip.top - 6 }}
+            >
+              <span className="whitespace-nowrap rounded-md border border-white/[0.1] bg-[#0a0a0a] px-2 py-1 text-[10px] font-medium text-fg-secondary shadow-xl shadow-black/60">
+                Open in Solscan
+              </span>
+              <span className="-mt-[3px] h-1.5 w-1.5 rotate-45 border-b border-r border-white/[0.1] bg-[#0a0a0a]" aria-hidden />
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
 /* ── one trade row ─────────────────────────────────────────────────────── */
 function TradeRow({
   t,
@@ -342,18 +384,8 @@ function TradeRow({
       )}
       style={{ gridTemplateColumns: template }}
     >
-      {/* Time — click opens Solscan; hover shows the hint */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          window.open(solscanTxUrl(t.signature), '_blank', 'noopener,noreferrer');
-        }}
-        title="Open in Solscan"
-        className="justify-self-start text-[10px] tabular-nums text-fg-muted underline decoration-dotted decoration-fg-muted/40 underline-offset-2 transition-colors hover:text-fg-secondary"
-      >
-        {agoShort(t.blockTime)}
-      </button>
+      {/* Time — click opens Solscan; hover shows the styled hint */}
+      <TimeCell t={t} />
 
       {columns.status ? (
         buy ? (
