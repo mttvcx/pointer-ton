@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, LinearGradient as SvgGrad, Path, Stop } from 'react-native-svg';
 import { Screen } from '../components/Screen';
 import { Logo } from '../components/Logo';
 import { PressScale } from '../components/PressScale';
@@ -11,18 +10,13 @@ import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { DepositFlow } from '../components/DepositFlow';
 import { DragSheet } from '../components/DragSheet';
+import { Sparkline } from '../components/Sparkline';
+import { CardSheet, PointsSheet, TaxSheet, YieldSheet } from '../components/FinancialSheets';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
+import { group, usd } from '../src/format';
 import { getDemoCapital, type CapitalModel, type FinActivityKind } from '../src/demo/capital';
 import type { PulseBundle } from '../src/types';
-
-/* ---- Hermes-safe money formatting ---- */
-const group = (s: string) => s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-function usd(n: number, dec = 2): string {
-  const neg = n < 0;
-  const [i, f] = Math.abs(n).toFixed(dec).split('.');
-  return `${neg ? '-' : ''}$${group(i)}${dec ? '.' + f : ''}`;
-}
 
 // The four states of capital — the product's spine.
 const STATES = [
@@ -90,11 +84,21 @@ const ACT_ICON: Record<FinActivityKind, React.ComponentProps<typeof Ionicons>['n
   receive: 'arrow-down-outline',
 };
 
+type Panel = 'card' | 'yield' | 'tax' | 'points';
+type Sheet = { kind: 'state'; key: StateKey } | { kind: 'panel'; panel: Panel };
+
+// A state's action button routes to the matching deep panel (or, for trading,
+// back to where positions actually live).
+const STATE_ACTION: Record<StateKey, Panel | null> = { trading: null, earning: 'yield', spendable: 'card', reserved: 'tax' };
+
 export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
   const m = useMemo(() => getDemoCapital(), []);
   const [deposit, setDeposit] = useState(false);
-  const [openState, setOpenState] = useState<StateKey | null>(null);
+  const [sheet, setSheet] = useState<Sheet | null>(null);
+  const openState = (key: StateKey) => setSheet({ kind: 'state', key });
+  const openPanel = (panel: Panel) => setSheet({ kind: 'panel', panel });
+  const closeSheet = () => setSheet(null);
 
   // Live "earning" tick — the money-is-working heartbeat.
   const [earned, setEarned] = useState(m.earnedToday);
@@ -134,7 +138,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             const val = m.states[st.key];
             const pct = m.total > 0 ? val / m.total : 0;
             return (
-              <PressScale key={st.key} to={0.94} onPress={() => setOpenState(st.key)} style={{ flex: pct }}>
+              <PressScale key={st.key} to={0.94} onPress={() => openState(st.key)} style={{ flex: pct }}>
                 <View style={{ height: 12, backgroundColor: st.color }} />
               </PressScale>
             );
@@ -142,7 +146,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </View>
         <View style={s.legend}>
           {STATES.map((st) => (
-            <PressScale key={st.key} to={0.97} onPress={() => setOpenState(st.key)} style={s.legendItem}>
+            <PressScale key={st.key} to={0.97} onPress={() => openState(st.key)} style={s.legendItem}>
               <View style={[s.dot, { backgroundColor: st.color }]} />
               <Text style={s.legendLabel}>{st.label}</Text>
               <Text style={s.legendVal}>{usd(m.states[st.key], 0)}</Text>
@@ -151,7 +155,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </View>
 
         {/* Pointer Card */}
-        <PressScale to={0.99} onPress={() => showToast('Card details coming soon', { kind: 'info' })} style={s.card}>
+        <PressScale to={0.99} onPress={() => openPanel('card')} style={s.card}>
           <LinearGradient colors={['#0E241C', '#0A1512', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <View style={s.cardTop}>
             <View style={s.cardBrand}>
@@ -174,7 +178,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </PressScale>
 
         {/* Smart Yield */}
-        <View style={s.panel}>
+        <PressScale to={0.99} onPress={() => openPanel('yield')} style={s.panel}>
           <GlassFill />
           <View style={s.panelHead}>
             <View style={s.panelTitleRow}>
@@ -187,12 +191,14 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           </View>
           <Text style={s.yieldEarned}>{usd(earned)}</Text>
           <Text style={s.yieldSub}>earned today · {usd(m.earnedTotal)} all-time</Text>
-          <Sparkline data={m.yieldHistory} />
+          <View style={{ marginTop: 12 }}>
+            <Sparkline data={m.yieldHistory} />
+          </View>
           <Text style={s.yieldProj}>Projected ~{usd((m.states.earning * (m.apy / 100)) / 12, 0)}/mo at today’s rate</Text>
-        </View>
+        </PressScale>
 
         {/* Tax reserve */}
-        <View style={s.reserveRow}>
+        <PressScale to={0.98} onPress={() => openPanel('tax')} style={s.reserveRow}>
           <GlassFill />
           <View style={[s.reserveIcon, { backgroundColor: covered ? colors.bullSoft : colors.warnSoft }]}>
             <Ionicons name="shield-checkmark" size={17} color={covered ? colors.bull : colors.warn} />
@@ -202,10 +208,11 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             <Text style={s.reserveSub}>{covered ? 'You’re covered for estimated taxes' : `Under by ${usd(m.taxLiability - m.taxReserve, 0)}`}</Text>
           </View>
           <Text style={s.reserveVal}>{usd(m.taxReserve, 0)}</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.fgFaint} style={{ marginLeft: 6 }} />
+        </PressScale>
 
         {/* PTR Points */}
-        <View style={s.pointsRow}>
+        <PressScale to={0.98} onPress={() => openPanel('points')} style={s.pointsRow}>
           <GlassFill />
           <View style={s.pointsIcon}>
             <Ionicons name="diamond" size={16} color={colors.accentGlow} />
@@ -215,7 +222,8 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             <Text style={s.reserveSub}>+{m.pointsThisWeek} this week · spend + earn + hold</Text>
           </View>
           <Text style={[s.reserveVal, { color: colors.accentGlow }]}>{group(String(m.points))}</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.fgFaint} style={{ marginLeft: 6 }} />
+        </PressScale>
 
         {/* AI insight */}
         <View style={s.insight}>
@@ -259,18 +267,30 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
 
-      <DragSheet visible={openState !== null} onClose={() => setOpenState(null)} fullDrag>
-        {openState ? (
+      <DragSheet visible={sheet !== null} onClose={closeSheet} fullDrag={sheet?.kind === 'state'}>
+        {sheet?.kind === 'state' ? (
           <StateSheet
-            state={STATES.find((x) => x.key === openState)!}
-            detail={stateDetail(openState, m)}
-            amount={m.states[openState]}
-            pct={m.total > 0 ? m.states[openState] / m.total : 0}
+            state={STATES.find((x) => x.key === sheet.key)!}
+            detail={stateDetail(sheet.key, m)}
+            amount={m.states[sheet.key]}
+            pct={m.total > 0 ? m.states[sheet.key] / m.total : 0}
             onAction={() => {
-              setOpenState(null);
-              showToast('Coming soon', { kind: 'info' });
+              const target = STATE_ACTION[sheet.key];
+              if (target) openPanel(target);
+              else {
+                closeSheet();
+                showToast('Your positions live in Portfolio', { kind: 'info' });
+              }
             }}
           />
+        ) : sheet?.panel === 'card' ? (
+          <CardSheet m={m} onClose={closeSheet} />
+        ) : sheet?.panel === 'yield' ? (
+          <YieldSheet m={m} onClose={closeSheet} />
+        ) : sheet?.panel === 'tax' ? (
+          <TaxSheet m={m} onClose={closeSheet} />
+        ) : sheet?.panel === 'points' ? (
+          <PointsSheet m={m} onClose={closeSheet} />
         ) : null}
       </DragSheet>
     </Screen>
@@ -319,31 +339,6 @@ function StateSheet({
         <Ionicons name="chevron-forward" size={17} color={colors.onAccent} />
       </GlossButton>
     </View>
-  );
-}
-
-function Sparkline({ data }: { data: number[] }) {
-  const W = 320;
-  const H = 46;
-  const line = useMemo(() => {
-    const pts = data.map((v, i) => {
-      const x = (i / Math.max(1, data.length - 1)) * W;
-      const y = H - v * (H - 4) - 2;
-      return `${x.toFixed(1)} ${y.toFixed(1)}`;
-    });
-    return { line: `M${pts.join(' L')}`, area: `M${pts.join(' L')} L${W} ${H} L0 ${H} Z` };
-  }, [data]);
-  return (
-    <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ marginTop: 12 }}>
-      <Defs>
-        <SvgGrad id="ygrad" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={colors.bull} stopOpacity={0.22} />
-          <Stop offset="1" stopColor={colors.bull} stopOpacity={0} />
-        </SvgGrad>
-      </Defs>
-      <Path d={line.area} fill="url(#ygrad)" />
-      <Path d={line.line} fill="none" stroke={colors.bull} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
   );
 }
 

@@ -15,6 +15,8 @@ export type CapitalStates = {
 export type FinActivityKind = 'swipe' | 'yield' | 'deposit' | 'reserve' | 'trade' | 'receive';
 export type FinActivity = { id: string; kind: FinActivityKind; title: string; sub: string; amountUsd: number; when: string };
 
+export type PointsTier = { name: string; multiplier: string; nextName: string | null; toNext: number; progress: number };
+
 export type CapitalModel = {
   states: CapitalStates;
   total: number;
@@ -22,11 +24,19 @@ export type CapitalModel = {
   earnedToday: number;
   earnedTotal: number;
   yieldHistory: number[]; // normalized 0..1, oldest → newest
+  autoSweep: boolean;
+  keepLiquid: number; // buffer kept OUT of yield, instantly spendable
   cardLast4: string;
+  cardType: string;
+  cardSpendLimit: number;
   points: number;
   pointsThisWeek: number;
+  pointsBySource: { spend: number; earn: number; hold: number };
+  tier: PointsTier;
   taxReserve: number;
   taxLiability: number;
+  realizedGainsYtd: number;
+  jurisdiction: string;
   activity: FinActivity[];
   insights: string[];
 };
@@ -41,11 +51,19 @@ export function getDemoCapital(): CapitalModel {
     earnedToday: 18.21,
     earnedTotal: 412.66,
     yieldHistory: [0.22, 0.3, 0.28, 0.41, 0.38, 0.52, 0.49, 0.63, 0.6, 0.71, 0.68, 0.82, 0.79, 0.9, 0.96],
+    autoSweep: true,
+    keepLiquid: 3115,
     cardLast4: '9318',
+    cardType: 'Virtual',
+    cardSpendLimit: 5000,
     points: 12480,
     pointsThisWeek: 640,
+    pointsBySource: { spend: 5120, earn: 4360, hold: 3000 },
+    tier: { name: 'Silver', multiplier: '1.5×', nextName: 'Gold', toNext: 2520, progress: 0.72 },
     taxReserve: 940,
     taxLiability: 940,
+    realizedGainsYtd: 4200,
+    jurisdiction: 'United States',
     activity: [
       { id: 'a1', kind: 'yield', title: 'Smart Yield', sub: 'Overnight earnings', amountUsd: 18.21, when: '2m' },
       { id: 'a2', kind: 'swipe', title: 'Blue Bottle Coffee', sub: 'Pointer Card', amountUsd: -6.4, when: '3h' },

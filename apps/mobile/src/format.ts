@@ -1,3 +1,15 @@
+/** Hermes-safe thousands grouping (no Intl). "12345" → "12,345". */
+export function group(s: string): string {
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/** Exact dollar amount with grouped thousands. `dec` = decimal places (default 2). */
+export function usd(n: number, dec = 2): string {
+  const neg = n < 0;
+  const [i, f] = Math.abs(n).toFixed(dec).split('.');
+  return `${neg ? '-' : ''}$${group(i)}${dec ? '.' + f : ''}`;
+}
+
 export function compactUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return '—';
   if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
