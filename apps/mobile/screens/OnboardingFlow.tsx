@@ -3,8 +3,11 @@ import { Image, KeyboardAvoidingView, PanResponder, Platform, ScrollView, StyleS
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgGrad, Path, Stop } from 'react-native-svg';
+import { Screen } from '../components/Screen';
 import { Logo } from '../components/Logo';
 import { PressScale } from '../components/PressScale';
+import { GlassFill } from '../components/GlassFill';
+import { GlossButton } from '../components/GlossButton';
 import { Slide } from '../components/Slide';
 import { colors, radius } from '../src/theme';
 import { ONBOARD_TRADERS } from '../src/demo';
@@ -16,10 +19,15 @@ const X_LOGO = require('../assets/x-logo.png');
 
 /** Demo portfolio gain used for the "Potential Earnings" projection. */
 const PROJ_PCT = 1112.66;
+// Hermes has no Intl — group thousands by hand (never toLocaleString).
 const group = (int: string) => int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 function fmtUsd(n: number): string {
   const [i, f] = n.toFixed(2).split('.');
   return `$${group(i)}.${f}`;
+}
+function fmtPct(n: number): string {
+  const [i, f] = n.toFixed(2).split('.');
+  return `${group(i)}.${f}`;
 }
 
 export function OnboardingFlow({ onDone }: { onDone: () => void }) {
@@ -79,6 +87,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
   };
 
   return (
+    <Screen>
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
         <Logo size={40} />
@@ -90,15 +99,22 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
       <Slide key={step} dir={dir} style={s.body}>
         {step === 0 ? (
           <>
-            <Text style={s.title}>Connect X (Twitter)</Text>
+            <Text style={s.title}>Connect X</Text>
             <Text style={s.sub}>Claim your username and find friends</Text>
             <View style={s.xWrap}>
               <View style={s.glow} />
-              <View style={[s.appCard, { backgroundColor: '#0A0A0A' }]}>
-                <Image source={X_LOGO} style={s.xImg} />
-              </View>
-              <View style={[s.appCard, s.pointerCard]}>
-                <Logo size={70} />
+              <View style={s.connectRow}>
+                <View style={s.xCard}>
+                  <Image source={X_LOGO} style={s.xImg} />
+                </View>
+                <View style={s.linkPill}>
+                  <GlassFill />
+                  <Ionicons name="add" size={20} color={colors.accentGlow} />
+                </View>
+                <View style={s.pCard}>
+                  <GlassFill />
+                  <Logo size={60} />
+                </View>
               </View>
             </View>
           </>
@@ -107,6 +123,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
             <Text style={s.title}>Create your username</Text>
             <Text style={s.sub}>You can always change this later.</Text>
             <View style={s.inputRow}>
+              <GlassFill />
               <Text style={s.at}>@</Text>
               <TextInput value={username} onChangeText={setUsername} style={s.input} placeholder="" placeholderTextColor={colors.fgFaint} autoCapitalize="none" autoCorrect={false} />
             </View>
@@ -120,6 +137,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
                 const on = following[t.handle];
                 return (
                   <PressScale key={t.handle} onPress={() => setFollowing((f) => ({ ...f, [t.handle]: !f[t.handle] }))} to={0.99} style={[s.trader, on && s.traderOn]}>
+                    <GlassFill active={on} />
                     <View style={[s.tAvatar, { backgroundColor: t.color }]}>
                       <Text style={s.tInitial}>{t.initial}</Text>
                     </View>
@@ -141,11 +159,12 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
             <Text style={s.title}>Your potential earnings</Text>
             <Text style={s.sub}>If you'd copied every move from these traders, this is what you'd have made.</Text>
             <View style={s.earnCard}>
+              <GlassFill />
               <View style={s.earnHead}>
                 <Text style={s.earnPortfolio}>Top Traders Portfolio</Text>
                 <View style={s.earnPnlPill}>
                   <Ionicons name="trending-up" size={13} color={colors.accent} />
-                  <Text style={s.earnPnlPillText}>{PROJ_PCT.toLocaleString()}%</Text>
+                  <Text style={s.earnPnlPillText}>{fmtPct(PROJ_PCT)}%</Text>
                 </View>
               </View>
               <Text style={s.earnShared}>190 shared trades · Profit & Loss</Text>
@@ -155,14 +174,14 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
               <Text style={s.earnLabel}>Projected earnings</Text>
               <Text style={s.earnBig}>{fmtUsd(invest * (PROJ_PCT / 100))}</Text>
               <View style={s.earnBadge}>
-                <Text style={s.earnBadgeText}>+{PROJ_PCT.toLocaleString()}%</Text>
+                <Text style={s.earnBadgeText}>+{fmtPct(PROJ_PCT)}%</Text>
               </View>
 
               <EarnCurve />
 
               <View style={s.investRow}>
                 <Text style={s.earnLabel}>Initial investment</Text>
-                <Text style={s.investVal}>${invest.toLocaleString()}</Text>
+                <Text style={s.investVal}>${group(String(invest))}</Text>
               </View>
               <EarningsSlider value={invest} min={50} max={2000} onChange={setInvest} />
             </View>
@@ -174,9 +193,12 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
               Get a <Text style={s.accent}>10% discount</Text> on trading fees for a limited time.
             </Text>
             <View style={s.codeBox}>
+              <GlassFill />
               <TextInput value={ref} onChangeText={setRef} style={s.codeInput} autoCapitalize="characters" autoCorrect={false} />
             </View>
             <PressScale onPress={next} style={s.paste}>
+              <GlassFill />
+              <Ionicons name="clipboard-outline" size={16} color={colors.fgSecondary} />
               <Text style={s.pasteText}>Paste from clipboard</Text>
             </PressScale>
           </>
@@ -187,7 +209,8 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
         <PressScale onPress={next} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 8 }}>
           <Text style={s.skip}>{step === 4 ? "I don't have a code" : "I'll do this later"}</Text>
         </PressScale>
-        <PressScale onPress={step === 0 ? connectX : next} style={s.primary}>
+        <GlossButton onPress={step === 0 ? connectX : next} radius={16}>
+          {step === 0 ? <Image source={X_LOGO} style={s.ctaXImg} /> : null}
           <Text style={s.primaryText}>
             {step === 0
               ? linking
@@ -199,9 +222,10 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
                   ? 'Apply code'
                   : 'Continue'}
           </Text>
-        </PressScale>
+        </GlossButton>
       </View>
     </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
@@ -258,58 +282,63 @@ function EarningsSlider({ value, min, max, onChange }: { value: number; min: num
   );
 }
 
+const HAIR = 'rgba(255,255,255,0.10)';
+const HAIR_STRONG = 'rgba(255,255,255,0.12)';
+
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: 'transparent' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 8 },
   body: { flex: 1, paddingHorizontal: 22, paddingTop: 14 },
-  title: { color: colors.fg, fontSize: 32, fontWeight: '700', letterSpacing: -0.5 },
+  title: { color: colors.fg, fontSize: 32, fontWeight: '700', letterSpacing: -0.6 },
   sub: { color: colors.fgMuted, fontSize: 17, lineHeight: 24, marginTop: 12 },
   accent: { color: colors.accentGlow, fontWeight: '600' },
 
-  xWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 14 },
-  glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: colors.accentSoft },
-  appCard: { width: 116, height: 116, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  pointerCard: { backgroundColor: '#0A0A0A', borderWidth: 1, borderColor: colors.border },
-  xImg: { width: 52, height: 52, resizeMode: 'contain' },
+  // Connect X — two glass tiles linked by a mint "+", over a soft aura.
+  xWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  glow: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: colors.accentSoft, opacity: 0.7 },
+  connectRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  xCard: { width: 112, height: 112, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0A0A', borderWidth: 1, borderColor: HAIR_STRONG },
+  linkPill: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: colors.accent + '55' },
+  pCard: { width: 112, height: 112, borderRadius: 28, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: colors.accent + '3D' },
+  xImg: { width: 50, height: 50, resizeMode: 'contain' },
 
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 16, marginTop: 24, borderWidth: 1, borderColor: colors.borderStrong },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 16, marginTop: 24, overflow: 'hidden', borderWidth: 1, borderColor: HAIR_STRONG },
   at: { color: colors.fgMuted, fontSize: 22, fontWeight: '600' },
   input: { flex: 1, color: colors.fg, fontSize: 22, fontWeight: '600', padding: 0 },
 
-  trader: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.bgRaised, borderRadius: radius.lg, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: 'transparent' },
-  traderOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  trader: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.lg, padding: 14, marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: HAIR },
+  traderOn: { borderColor: colors.accent },
   tAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   tInitial: { color: '#fff', fontSize: 18, fontWeight: '700' },
   tName: { color: colors.fg, fontSize: 17, fontWeight: '700' },
   tHandle: { color: colors.fgMuted, fontSize: 14, marginTop: 1 },
   tPnl: { color: colors.bull, fontSize: 16, fontWeight: '700' },
   tFollowers: { color: colors.fgMuted, fontSize: 13, marginTop: 1 },
-  showMore: { color: colors.fgSecondary, fontSize: 14, fontWeight: '600', textAlign: 'center', backgroundColor: colors.bgRaised, alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 8, borderRadius: radius.pill, marginTop: 4 },
 
-  codeBox: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 18, marginTop: 24, borderWidth: 1, borderColor: colors.borderStrong },
-  codeInput: { color: colors.fg, fontSize: 22, fontWeight: '600', padding: 0 },
-  paste: { backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
+  codeBox: { borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 18, marginTop: 24, overflow: 'hidden', borderWidth: 1, borderColor: HAIR_STRONG },
+  codeInput: { color: colors.fg, fontSize: 22, fontWeight: '600', padding: 0, letterSpacing: 2 },
+  paste: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.md, paddingVertical: 16, marginTop: 20, overflow: 'hidden', borderWidth: 1, borderColor: HAIR },
   pasteText: { color: colors.fg, fontSize: 16, fontWeight: '700' },
 
-  earnCard: { backgroundColor: colors.bgRaised, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 18, marginTop: 22 },
+  earnCard: { borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: HAIR, padding: 18, marginTop: 22 },
   earnHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   earnPortfolio: { color: colors.fg, fontSize: 19, fontWeight: '700' },
   earnPnlPill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   earnPnlPillText: { color: colors.accent, fontSize: 15, fontWeight: '800' },
   earnShared: { color: colors.fgMuted, fontSize: 13.5, marginTop: 4 },
-  earnDivider: { height: 1, backgroundColor: colors.border, marginVertical: 16 },
+  earnDivider: { height: 1, backgroundColor: HAIR, marginVertical: 16 },
   earnLabel: { color: colors.fgMuted, fontSize: 14 },
   earnBig: { color: colors.fg, fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 4 },
   earnBadge: { alignSelf: 'flex-start', backgroundColor: colors.accent, borderRadius: radius.sm, paddingHorizontal: 9, paddingVertical: 4, marginTop: 10 },
   earnBadgeText: { color: colors.onAccent, fontSize: 13, fontWeight: '800' },
   investRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   investVal: { color: colors.fg, fontSize: 17, fontWeight: '700' },
-  sliderTrack: { height: 12, borderRadius: 6, backgroundColor: colors.bgRaised2, marginTop: 12, justifyContent: 'center' },
+  sliderTrack: { height: 12, borderRadius: 6, backgroundColor: colors.bg, marginTop: 12, justifyContent: 'center' },
   sliderFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 6, backgroundColor: colors.accent },
   sliderThumb: { position: 'absolute', width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff', marginLeft: -12, borderWidth: 2, borderColor: colors.accent },
 
   footer: { paddingHorizontal: 22, gap: 6 },
   skip: { color: colors.fgSecondary, fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  primary: { backgroundColor: colors.accent, borderRadius: 16, paddingVertical: 17, alignItems: 'center' },
   primaryText: { color: colors.onAccent, fontSize: 17, fontWeight: '600' },
+  ctaXImg: { width: 18, height: 18, resizeMode: 'contain', tintColor: colors.onAccent },
 });
