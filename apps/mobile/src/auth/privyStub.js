@@ -10,6 +10,7 @@ module.exports = {
   usePrivy: disabled,
   useLoginWithEmail: disabled,
   useEmbeddedSolanaWallet: disabled,
+  useEmbeddedEthereumWallet: disabled,
   getAccessToken: disabled,
   useLoginWithOAuth: disabled,
 };

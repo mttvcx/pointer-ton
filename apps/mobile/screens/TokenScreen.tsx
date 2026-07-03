@@ -10,6 +10,8 @@ import { ChainIcon } from '../components/ChainIcon';
 import { PressScale } from '../components/PressScale';
 import { DepositFlow } from '../components/DepositFlow';
 import { BuySheet } from '../components/BuySheet';
+import { CrossmintBuySheet } from '../components/CrossmintBuySheet';
+import { CROSSMINT_READY } from '../src/crossmint';
 import { AiVerdictChip } from '../components/AiVerdictChip';
 import { Accordion } from '../components/Accordion';
 import { GlassFill } from '../components/GlassFill';
@@ -62,6 +64,7 @@ export function TokenScreen({
   const wallet = useAuth().walletAddress;
   const [tradesOpen, setTradesOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [cmBuy, setCmBuy] = useState(false);
 
   // Slide the whole token view in from the right when it opens (clean push, no hard cut),
   // and let the user swipe right to drag it back — follows the finger, springs back or dismisses.
@@ -313,14 +316,15 @@ export function TokenScreen({
             </PressScale>
           </View>
         ) : (
-          <GlossButton onPress={() => setDeposit(true)}>
-            <Text style={s.buyText}>Deposit to buy</Text>
+          <GlossButton onPress={() => (CROSSMINT_READY ? setCmBuy(true) : setDeposit(true))}>
+            <Text style={s.buyText}>{CROSSMINT_READY ? `Buy ${sym} with Apple Pay` : 'Deposit to buy'}</Text>
           </GlossButton>
         )}
       </View>
       </Animated.View>
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
+      <CrossmintBuySheet visible={cmBuy} onClose={() => setCmBuy(false)} bundle={live} />
       <BuySheet
         key={buy.side}
         visible={buy.open}

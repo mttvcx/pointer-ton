@@ -13,6 +13,7 @@
     "submit:ios": "eas submit --platform ios"
   },
   "dependencies": {
+    "@crossmint/client-sdk-react-native-ui": "^1.4.0",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/sora": "^0.4.2",
     "@privy-io/expo": "*",

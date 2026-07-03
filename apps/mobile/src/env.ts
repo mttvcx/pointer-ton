@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-type Extra = { apiUrl: string; privyAppId: string; privyClientId: string };
+type Extra = { apiUrl: string; privyAppId: string; privyClientId: string; crossmintClientKey: string };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Partial<Extra>;
 
@@ -19,3 +19,11 @@ export const PRIVY_APP_ID = extra.privyAppId ?? '';
 
 /** Privy "Expo app client" id (create one in the Privy dashboard — see README). */
 export const PRIVY_CLIENT_ID = extra.privyClientId ?? '';
+
+/**
+ * Crossmint CLIENT-side key (ck_staging_… / ck_production_…) for the embedded
+ * Apple Pay → token checkout. This is the public app key — safe to ship in the
+ * bundle. The SERVER key (sk_…) never lives here; it stays on the web backend for
+ * order webhooks. Create a client-side key in the Crossmint dashboard.
+ */
+export const CROSSMINT_CLIENT_KEY = extra.crossmintClientKey ?? '';
