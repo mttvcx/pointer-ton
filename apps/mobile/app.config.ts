@@ -45,6 +45,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Full-bleed launch image (bird over the field). `cover` fills the screen;
     // the teal bg matches the sky for any brief edge before the image paints.
     ['expo-splash-screen', { image: './assets/splash.png', resizeMode: 'cover', backgroundColor: '#B4D4CC' }],
+    // Remote push (follows/friends notifications). Takes effect on the next build.
+    'expo-notifications',
     // Note: @privy-io/expo, @crossmint/client-sdk-react-native-ui, react-native-webview
     // and @privy-io/expo-native-extensions autolink — they need no config plugin.
   ],

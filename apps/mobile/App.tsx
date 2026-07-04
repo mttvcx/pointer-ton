@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/sora';
 import { AppAuthProvider, useAuth } from './src/auth';
 import { isOnboarded, markOnboarded } from './src/onboarded';
+import { registerForPush } from './src/push';
 import { HomeScreen } from './screens/HomeScreen';
 import { TokenScreen } from './screens/TokenScreen';
 import { SearchScreen } from './screens/SearchScreen';
@@ -115,6 +116,12 @@ function Shell() {
     if (id) markOnboarded(id);
     setOnboarded(true);
   };
+
+  // Register for push once signed in (real build only; no-op until a rebuild
+  // includes expo-notifications).
+  useEffect(() => {
+    if (entered && auth.isLoggedIn && !auth.demo) registerForPush();
+  }, [entered, auth.isLoggedIn, auth.demo]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<Section | null>(null);
   const [settingsFocusBio, setSettingsFocusBio] = useState(false);
