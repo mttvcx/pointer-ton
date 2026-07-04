@@ -5,39 +5,37 @@ import { TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useXMonitorPreviewStore } from '@/store/xMonitorPreview';
 
-type SellRow = {
+/**
+ * X-Monitor Sell feed = YOUR OWN automation sells — the exits taken by the
+ * X-monitor auto-buy / auto-launch pipeline (take-profit, trailing/stop, manual
+ * close of an auto-bought bag). NOT a feed of other traders' buys/sells (that's
+ * the wallet tracker). Real data lands here when the delegated auto-exec engine
+ * fires (auto_exec_ledger, kind='sell'); until then it's empty + a preview sample.
+ */
+
+type AutoSellRow = {
   id: number;
-  handle: string;
-  token: string;
   ticker: string;
+  source: string;
   sol: number;
   usd: number;
   pnlPct: number;
   ageSec: number;
 };
 
-const NAMES = ['cupsey', 'orangie', 'euris', 'mrfrog', 'waddles', 'jidn', 'kev', 'assasin', 'gh0stee', 'dv'];
-const TOKENS: Array<[string, string]> = [
-  ['Retardio', 'RETARDIO'],
-  ['Fartcoin', 'FART'],
-  ['Peanut', 'PNUT'],
-  ['Moo Deng', 'MOODENG'],
-  ['Goatseus', 'GOAT'],
-  ['Chill Guy', 'CHILL'],
-  ['Pudgy', 'PENGU'],
-  ['Book of Meme', 'BOME'],
-];
+const TICKERS = ['MOODENG', 'FART', 'PNUT', 'GOAT', 'CHILL', 'PENGU', 'BOME', 'RETARDIO'];
+/** Which automation produced the exit. */
+const SOURCES = ['CA rule', 'Keyword rule', 'Auto-launch', 'Trailing stop', 'Take-profit'];
 
-function makeSell(seq: number): SellRow {
-  const n = NAMES[seq % NAMES.length] ?? 'trader';
-  const [token, ticker] = TOKENS[(seq * 3) % TOKENS.length] ?? ['Token', 'TOKEN'];
+function makeAutoSell(seq: number): AutoSellRow {
+  const ticker = TICKERS[(seq * 3) % TICKERS.length] ?? 'TOKEN';
+  const source = SOURCES[seq % SOURCES.length] ?? 'Rule';
   const sol = Number((0.4 + ((seq * 7) % 90) / 10).toFixed(2));
   const pnl = (((seq * 37) % 400) - 120) / 10;
   return {
     id: seq,
-    handle: n,
-    token,
     ticker,
+    source,
     sol,
     usd: Math.round(sol * 168),
     pnlPct: Number(pnl.toFixed(1)),
@@ -47,7 +45,7 @@ function makeSell(seq: number): SellRow {
 
 export function XMonitorSellFeed() {
   const preview = useXMonitorPreviewStore((s) => s.preview);
-  const [rows, setRows] = useState<SellRow[]>([]);
+  const [rows, setRows] = useState<AutoSellRow[]>([]);
   const seqRef = useRef(1);
 
   useEffect(() => {
@@ -55,10 +53,10 @@ export function XMonitorSellFeed() {
       setRows([]);
       return;
     }
-    setRows(Array.from({ length: 8 }, (_, i) => makeSell(i + 1)));
+    setRows(Array.from({ length: 8 }, (_, i) => makeAutoSell(i + 1)));
     seqRef.current = 9;
     const id = window.setInterval(() => {
-      setRows((prev) => [makeSell(seqRef.current++), ...prev].slice(0, 40));
+      setRows((prev) => [makeAutoSell(seqRef.current++), ...prev].slice(0, 40));
     }, 4200);
     return () => window.clearInterval(id);
   }, [preview]);
@@ -66,7 +64,8 @@ export function XMonitorSellFeed() {
   if (!preview) {
     return (
       <p className="px-3 py-6 text-center text-[11px] leading-relaxed text-fg-muted">
-        No sells yet. Sells from tracked accounts appear here in real time once the feed is live.
+        No automation sells yet. When your X-monitor auto-buys and auto-launches take profit or stop
+        out, those exits show here.
         <br />
         <span className="text-fg-muted/70">Turn on Preview (beside Pulse/Stocks) to see sample flow.</span>
       </p>
@@ -87,12 +86,12 @@ export function XMonitorSellFeed() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[11.5px] text-white">
-                <span className="font-semibold">@{r.handle}</span>{' '}
-                <span className="text-fg-muted">sold</span>{' '}
-                <span className="font-semibold">${r.ticker}</span>
+                <span className="text-fg-muted">Auto-sold</span>{' '}
+                <span className="font-semibold">${r.ticker}</span>{' '}
+                <span className="text-fg-muted">· via {r.source}</span>
               </p>
               <p className="text-[10px] text-fg-muted">
-                {r.sol} SOL · ${r.usd.toLocaleString('en-US')} · {r.ageSec}s ago
+                {r.sol} SOL out · ${r.usd.toLocaleString('en-US')} · {r.ageSec}s ago
               </p>
             </div>
             <span
