@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
+import { useWalletNativeBalance } from '@/lib/hooks/useWalletNativeBalance';
 import { usePortfolioRefreshListener } from '@/lib/hooks/usePortfolioRefreshListener';
 import { parseLamportsStringToSol } from '@/lib/utils/formatters';
 import { useUIStore } from '@/store/ui';
@@ -49,6 +50,20 @@ export function usePnlTrackerData() {
   const scopedWallet =
     portfolioScope !== null ? portfolioScope.walletAddress : activeAddress ?? null;
 
+  // Live native SOL balance for the wallet in view — same source the topbar uses,
+  // so the widget's Balance always matches the header (the portfolio query below is
+  // gated on backendReady + pnlOpen and would otherwise leave Balance stuck at 0).
+  const balanceWalletAddress = scopedWallet ?? activeAddress ?? null;
+  const balanceWalletRow = walletsQ.data?.wallets?.find(
+    (w) => w.wallet_address === balanceWalletAddress,
+  );
+  const nativeBalanceQ = useWalletNativeBalance({
+    enabled: authenticated && activeChain === 'sol' && Boolean(balanceWalletRow?.id),
+    walletId: balanceWalletRow?.id,
+    fallbackLamports: balanceWalletRow?.balance_lamports,
+    getAccessToken,
+  });
+
   const portfolioEnabled = Boolean(
     authenticated &&
       backendReady &&
@@ -72,7 +87,11 @@ export function usePnlTrackerData() {
 
   usePortfolioRefreshListener(refreshPortfolio, portfolioEnabled);
 
-  const solBalance = parseLamportsStringToSol(portfolioQ.data?.solLamports) ?? 0;
+  // Prefer the live native balance; fall back to the portfolio snapshot's SOL.
+  const solBalance =
+    (nativeBalanceQ.data?.ui ?? null) ??
+    parseLamportsStringToSol(portfolioQ.data?.solLamports) ??
+    0;
   const solUsd = portfolioQ.data?.solUsd ?? null;
   const totalPnlUsd = portfolioQ.data?.summary?.totalPnlUsd ?? 0;
   const totalPnlSol =
