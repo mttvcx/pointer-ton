@@ -20,6 +20,7 @@ import {
   pickTwitterListenMint,
 } from '@/lib/alerts/twitterListenMintPick';
 import { notifyUserWebPush } from '@/lib/push/notifyUser';
+import { autoLaunchDeployEnabled, autoLaunchFromTweet } from '@/lib/launch/deployPumpToken';
 
 export type TwitterListenIngestTweet = {
   id: string;
@@ -268,6 +269,20 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
           },
         });
         inserts += 1;
+
+        // Auto-launch: deploy a token from this tweet via the server burner.
+        // Gated behind POINTER_AUTO_LAUNCH_ENABLED + a configured deploy wallet;
+        // fire-and-forget so it never blocks the alert loop. Deduped per tweet.
+        if (requested === 'auto_launch' && autoLaunchDeployEnabled()) {
+          void autoLaunchFromTweet(
+            { id: t.id, text: t.text ?? '', authorHandle: handleNorm, imageUrls, tweetUrl: t.tweetUrl ?? null },
+            config.userId,
+          )
+            .then((res) => {
+              if (res) console.log('[auto-launch] deployed', res.mint, res.signature);
+            })
+            .catch((e) => console.warn('[auto-launch] failed:', e instanceof Error ? e.message : e));
+        }
 
         if (config.disableAfterSuccess && actionSucceeded) {
           try {
