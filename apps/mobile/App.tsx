@@ -160,7 +160,12 @@ function Shell() {
         autoFocusBio={settingsFocusBio}
         onClose={() => setSettingsOpen(false)}
         onLogout={() => {
+          // Clear the Privy session too — otherwise LoginScreen sees isLoggedIn and
+          // auto-advances right back in, so you could never reach login / a new account.
+          void auth.logout();
           setSettingsOpen(false);
+          setOnboarded(false);
+          setObReady(false);
           setEntered(false);
         }}
       />
