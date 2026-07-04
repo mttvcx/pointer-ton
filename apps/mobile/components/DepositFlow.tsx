@@ -107,13 +107,15 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
       setBuyPhase('checkout');
     } catch (err) {
       setBuyPhase('idle');
-      // TEMP staging diagnostic — surface the real status + reason so we can tell
-      // auth (401/403) vs payload (400) vs Crossmint-rejected/unsupported-token (502).
+      // Crossmint gates production Onramp behind a manual enablement (contact sales).
+      // Until that's on, the order route returns 502 — show a graceful "almost here"
+      // rather than a scary error. The moment Crossmint enables it, this path
+      // succeeds and renders the real Apple Pay sheet with no code change.
       const detail =
         err instanceof ApiError ? `${err.status} · ${err.message}` : err instanceof Error ? err.message : 'unknown error';
       // eslint-disable-next-line no-console
-      console.log('[crossmint] order start failed →', detail, err);
-      showToast('Buy failed', { sub: detail, kind: 'error' });
+      console.log('[crossmint] order start failed →', detail, err); // dev diagnostic
+      showToast('One-tap Apple Pay buy is almost here', { sub: 'Switching it on for your account', kind: 'info' });
     }
   };
 

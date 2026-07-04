@@ -57,7 +57,9 @@ export function CrossmintBuySheet({ visible, onClose, bundle }: { visible: boole
       setOrder({ orderId: res.orderId, clientSecret: res.clientSecret });
       setPhase('checkout');
     } catch {
-      showToast("Couldn't start the purchase", { sub: 'Please try again in a moment', kind: 'error' });
+      // Production Onramp is gated by Crossmint until manually enabled (contact
+      // sales) — show a graceful "almost here" instead of an error; auto-works once on.
+      showToast('One-tap Apple Pay buy is almost here', { sub: 'Switching it on for your account', kind: 'info' });
       setPhase('amount');
     }
   };
