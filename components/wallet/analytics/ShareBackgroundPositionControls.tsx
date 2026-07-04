@@ -16,7 +16,7 @@ export function ShareBackgroundPositionControls({
   onReset: () => void;
 }) {
   return (
-    <div className="rounded-md border border-border-subtle bg-bg-sunken p-3">
+    <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
       <div className="flex items-center justify-between gap-2">
         <p className={modalSectionLabelClass}>Background position</p>
         <button
@@ -88,7 +88,7 @@ function FrameSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1.5 w-full accent-accent-primary"
+        className="mt-1.5 w-full accent-white"
       />
     </label>
   );

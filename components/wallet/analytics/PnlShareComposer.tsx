@@ -8,6 +8,7 @@ import {
   Download,
   Image as ImageIcon,
   Loader2,
+  Music,
   Pause,
   Play,
   Trash2,
@@ -23,8 +24,9 @@ import { ShareBackgroundPositionControls } from '@/components/wallet/analytics/S
 import { ShareCustomizePanel } from '@/components/wallet/analytics/ShareCustomizePanel';
 import { copyShareImagePng, exportShareImagePng } from '@/lib/share/exportShareImage';
 import { exportShareVideoWebm } from '@/lib/share/exportShareVideo';
-import { IDB_IMAGE_KEY, IDB_VIDEO_KEY } from '@/lib/share/sharePersistenceKeys';
+import { IDB_AUDIO_KEY, IDB_IMAGE_KEY, IDB_VIDEO_KEY } from '@/lib/share/sharePersistenceKeys';
 import {
+  SHARE_AUDIO_MAX_BYTES,
   SHARE_VIDEO_MAX_BYTES,
   SHARE_VIDEO_MAX_DURATION_SEC,
   SHARE_IMAGE_MAX_BYTES,
@@ -87,6 +89,8 @@ export function PnlShareComposer() {
   }, [open, shareKind, shareCalendarCurrency, composer.setChainTicker]);
   const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
   const [customVideoUrl, setCustomVideoUrl] = useState<string | null>(null);
+  const [customAudioUrl, setCustomAudioUrl] = useState<string | null>(null);
+  const [customAudioName, setCustomAudioName] = useState<string | null>(null);
   const [busy, setBusy] = useState<'png' | 'copy' | 'video' | null>(null);
   const [videoProg, setVideoProg] = useState(0);
   const [videoMuted, setVideoMuted] = useState(false);
@@ -124,6 +128,7 @@ export function PnlShareComposer() {
     (async () => {
       const imgBuf = await idbGetBlob(IDB_IMAGE_KEY);
       const vidBuf = await idbGetBlob(IDB_VIDEO_KEY);
+      const audBuf = await idbGetBlob(IDB_AUDIO_KEY);
       if (imgBuf) {
         const blob = new Blob([imgBuf], { type: 'image/jpeg' });
         const url = URL.createObjectURL(blob);
@@ -135,6 +140,12 @@ export function PnlShareComposer() {
         const url = URL.createObjectURL(blob);
         revoked.push(url);
         setCustomVideoUrl(url);
+      }
+      if (audBuf) {
+        const blob = new Blob([audBuf], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        revoked.push(url);
+        setCustomAudioUrl(url);
       }
     })().catch(() => {});
     return () => {
@@ -207,6 +218,33 @@ export function PnlShareComposer() {
       return null;
     });
     toast.message('Video background removed');
+  }, []);
+
+  const onPickAudio = useCallback(async (file: File) => {
+    if (file.size > SHARE_AUDIO_MAX_BYTES) {
+      toast.error(`Audio too large (max ${SHARE_AUDIO_MAX_BYTES / (1024 * 1024)}MB)`);
+      return;
+    }
+    const buf = await file.arrayBuffer();
+    await idbPutBlob(IDB_AUDIO_KEY, buf);
+    const blob = new Blob([buf], { type: file.type || 'audio/mpeg' });
+    const url = URL.createObjectURL(blob);
+    setCustomAudioUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+    setCustomAudioName(file.name || 'audio track');
+    toast.success('Music added — mixed into the exported video');
+  }, []);
+
+  const clearAudio = useCallback(async () => {
+    await idbDeleteBlob(IDB_AUDIO_KEY).catch(() => {});
+    setCustomAudioUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setCustomAudioName(null);
+    toast.message('Music removed');
   }, []);
 
   const seekPreviewVideo = useCallback((time: number) => {
@@ -348,6 +386,8 @@ export function PnlShareComposer() {
         videoPan: composer.videoPan,
         videoZoom: composer.videoZoom,
         muted: videoMuted,
+        customAudioUrl,
+        audioVolume: 1,
         onProgress: (p) => setVideoProg(p),
       });
       const url = URL.createObjectURL(blob);
@@ -395,7 +435,7 @@ export function PnlShareComposer() {
         aria-modal="true"
         aria-labelledby="pnl-share-title"
         className={cn(
-          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0d13]/70 fill-mode-forwards shadow-2xl backdrop-blur-2xl',
+          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#191919]/80 fill-mode-forwards shadow-2xl backdrop-blur-2xl',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
@@ -415,7 +455,7 @@ export function PnlShareComposer() {
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-          <div className="overflow-hidden">
+          <div className="overflow-hidden rounded-2xl ring-1 ring-white/10">
             <PnlShareCard
                 ref={cardRef}
                 payload={d}
@@ -493,7 +533,7 @@ export function PnlShareComposer() {
               disabled={Boolean(busy)}
             />
           ) : (
-            <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 backdrop-blur-md">
+            <div className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
               <div className="flex flex-wrap items-center gap-2">
                 <label className={cn(TOOL_BTN, 'cursor-pointer')}>
                   Upload video
@@ -546,6 +586,54 @@ export function PnlShareComposer() {
             </div>
           )}
 
+          {composer.mode === 'video' ? (
+            <div className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+                  <Music className="h-3.5 w-3.5" strokeWidth={2} /> Music
+                </p>
+                {customAudioUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => void clearAudio()}
+                    className="text-[11px] font-medium text-fg-secondary transition hover:text-fg-primary"
+                  >
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+              {customAudioUrl ? (
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+                  <Music className="h-4 w-4 shrink-0 text-fg-secondary" strokeWidth={2} />
+                  <span className="min-w-0 flex-1 truncate text-[12px] text-fg-secondary">
+                    {customAudioName ?? 'Music track'}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-fg-muted">mixed on export</span>
+                </div>
+              ) : (
+                <label className={cn(TOOL_BTN, 'cursor-pointer')}>
+                  <Music className="h-3.5 w-3.5" strokeWidth={2} />
+                  Add music
+                  <input
+                    type="file"
+                    accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/aac,audio/mp4"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (f) void onPickAudio(f);
+                    }}
+                  />
+                </label>
+              )}
+              <p className="text-[11px] text-fg-muted">
+                MP3/WAV up to {(SHARE_AUDIO_MAX_BYTES / (1024 * 1024)).toFixed(0)}MB. Plays over your clip in the
+                exported video{customAudioUrl && !videoMuted ? ", mixed with the clip's own sound" : ''}. Saved on this
+                device.
+              </p>
+            </div>
+          ) : null}
+
           {hasUploadedMedia ? (
             <ShareBackgroundPositionControls
               pan={composer.mode === 'video' ? composer.videoPan : composer.imagePan}
@@ -568,7 +656,7 @@ export function PnlShareComposer() {
             />
           ) : null}
 
-          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 backdrop-blur-md">
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
             <ShareCustomizePanel
               overlay={composer.overlay}
               onChange={composer.patchOverlay}
@@ -663,7 +751,7 @@ function VideoScrubber({
         onChange={(e) => {
           onSeek(Number(e.target.value));
         }}
-        className="h-1 flex-1 accent-accent-primary"
+        className="h-1 flex-1 accent-white"
       />
     </div>
   );

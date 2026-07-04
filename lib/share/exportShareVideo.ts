@@ -77,6 +77,77 @@ function mergeCanvasAndVideoAudio(canvasStream: MediaStream, video: HTMLVideoEle
   return out;
 }
 
+type AudioMix = {
+  stream: MediaStream;
+  audioEl: HTMLAudioElement;
+  start: () => Promise<void>;
+  cleanup: () => void;
+};
+
+/**
+ * Mixes an uploaded music track (fresh, loopable `<audio>` element) — and, when
+ * `includeVideoAudio`, the video's own sound — into a single WebAudio destination,
+ * then bolts that one audio track onto the canvas video track. One audio track out,
+ * so MediaRecorder encodes the full mix. The fresh element sidesteps the
+ * "MediaElementSource already connected" throw on repeat exports.
+ */
+function buildAudioMixedStream(
+  canvasStream: MediaStream,
+  videoEl: HTMLVideoElement,
+  customAudioUrl: string,
+  opts: { includeVideoAudio: boolean; audioVolume: number },
+): AudioMix {
+  const AC: typeof AudioContext =
+    window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const actx = new AC();
+  const dest = actx.createMediaStreamDestination();
+
+  const audioEl = new Audio(customAudioUrl);
+  audioEl.loop = true;
+  audioEl.crossOrigin = 'anonymous';
+  const aSrc = actx.createMediaElementSource(audioEl);
+  const aGain = actx.createGain();
+  aGain.gain.value = Math.max(0, Math.min(1.5, opts.audioVolume));
+  aSrc.connect(aGain).connect(dest);
+
+  if (opts.includeVideoAudio) {
+    const cap = (videoEl as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.call(
+      videoEl,
+    );
+    const vTracks = cap?.getAudioTracks() ?? [];
+    if (vTracks.length > 0) {
+      const vSrc = actx.createMediaStreamSource(new MediaStream(vTracks));
+      vSrc.connect(dest);
+    }
+  }
+
+  const stream = new MediaStream();
+  for (const t of canvasStream.getVideoTracks()) stream.addTrack(t);
+  for (const t of dest.stream.getAudioTracks()) stream.addTrack(t);
+
+  return {
+    stream,
+    audioEl,
+    start: async () => {
+      try {
+        await actx.resume();
+      } catch {
+        /* resume may reject if already running */
+      }
+      audioEl.currentTime = 0;
+      await audioEl.play().catch(() => {});
+    },
+    cleanup: () => {
+      try {
+        audioEl.pause();
+      } catch {
+        /* ignore */
+      }
+      void actx.close().catch(() => {});
+    },
+  };
+}
+
 /**
  * Export duration policy:
  * - Uses the shorter of (user cap) and (background metadata duration) so we never encode past real media.
@@ -117,8 +188,12 @@ export async function exportShareVideoWebm(params: {
   maxDurationSec?: number;
   videoPan?: { x: number; y: number };
   videoZoom?: number;
-  /** When true, no audio tracks are muxed (matches Sound off). */
+  /** When true, the original video's own audio is not muxed (matches Sound off). */
   muted?: boolean;
+  /** Optional music track mixed on top of the video (object URL). Loops to fill. */
+  customAudioUrl?: string | null;
+  /** Gain for the custom audio track (0–1.5). */
+  audioVolume?: number;
   onProgress?: VideoExportProgress;
 }): Promise<Blob> {
   const {
@@ -131,6 +206,8 @@ export async function exportShareVideoWebm(params: {
     videoPan = { x: 0, y: 0 },
     videoZoom = 1,
     muted = false,
+    customAudioUrl = null,
+    audioVolume = 1,
     onProgress,
   } = params;
 
@@ -155,7 +232,17 @@ export async function exportShareVideoWebm(params: {
   };
 
   const canvasStream = canvas.captureStream(fps);
-  const stream = muted ? canvasStream : mergeCanvasAndVideoAudio(canvasStream, videoEl);
+  const audioMix = customAudioUrl
+    ? buildAudioMixedStream(canvasStream, videoEl, customAudioUrl, {
+        includeVideoAudio: !muted,
+        audioVolume,
+      })
+    : null;
+  const stream = audioMix
+    ? audioMix.stream
+    : muted
+      ? canvasStream
+      : mergeCanvasAndVideoAudio(canvasStream, videoEl);
   const mime = pickRecorderMime();
 
   const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
@@ -176,8 +263,9 @@ export async function exportShareVideoWebm(params: {
   /**
    * Sound off — deterministic frame-by-frame seek at 30fps (no reliance on real-time playback).
    * Avoids decoder stalls that commonly hit 1×1 off-screen `<video>` elements.
+   * Skipped when a music track is present — audio needs the real-time path below.
    */
-  if (muted) {
+  if (muted && !audioMix) {
     videoEl.muted = true;
     videoEl.loop = false;
     videoEl.pause();
@@ -206,9 +294,10 @@ export async function exportShareVideoWebm(params: {
   }
 
   /**
-   * Sound on — real-time playback so audio stays continuous; large off-screen element avoids throttle.
+   * Sound on (or a music track is present) — real-time playback so audio stays
+   * continuous; large off-screen element avoids throttle.
    */
-  videoEl.muted = false;
+  videoEl.muted = muted; // with a music track, Sound-off silences the clip but keeps the music
   videoEl.loop = false;
   videoEl.pause();
 
@@ -216,6 +305,7 @@ export async function exportShareVideoWebm(params: {
 
   await seekToTime(videoEl, 0, durationSec);
   await videoEl.play().catch(() => {});
+  if (audioMix) await audioMix.start();
 
   await new Promise<void>((resolve) => {
     const draw = () => {
@@ -242,5 +332,7 @@ export async function exportShareVideoWebm(params: {
   drawFrame(Math.min(durationSec, videoEl.currentTime || durationSec));
   recorder.stop();
   onProgress?.(100, 'Done');
-  return await blobPromise;
+  const outBlob = await blobPromise;
+  audioMix?.cleanup();
+  return outBlob;
 }

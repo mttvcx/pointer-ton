@@ -91,4 +91,5 @@ export type PnlSharePayload = {
 
 export const SHARE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const SHARE_VIDEO_MAX_BYTES = 25 * 1024 * 1024;
+export const SHARE_AUDIO_MAX_BYTES = 10 * 1024 * 1024;
 export const SHARE_VIDEO_MAX_DURATION_SEC = 30;

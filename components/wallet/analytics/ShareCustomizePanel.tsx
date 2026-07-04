@@ -36,10 +36,10 @@ export function ShareCustomizePanel({
               type="button"
               onClick={() => onChange({ pnlFormat: m })}
               className={cn(
-                'rounded-md border px-3 py-1.5 text-[11px] font-medium backdrop-blur-md transition',
+                'rounded-lg border px-3 py-1.5 text-[11px] font-medium backdrop-blur-md transition',
                 overlay.pnlFormat === m
-                  ? 'border-accent-primary/50 bg-accent-primary/10 text-fg-primary'
-                  : 'border-white/10 bg-white/[0.05] text-fg-muted hover:border-white/20 hover:bg-white/[0.1] hover:text-fg-secondary',
+                  ? 'border-white/25 bg-white/[0.14] text-fg-primary'
+                  : 'border-white/[0.08] bg-white/[0.05] text-fg-muted hover:border-white/20 hover:bg-white/[0.1] hover:text-fg-secondary',
               )}
             >
               {m === 'both' ? 'Amount + %' : m === 'pct' ? '% only' : 'Amount'}
@@ -100,10 +100,10 @@ export function ShareCustomizePanel({
               type="button"
               onClick={() => onChange({ overlayAlign: a })}
               className={cn(
-                'rounded-md border px-3 py-1.5 text-[11px] font-medium capitalize backdrop-blur-md transition',
+                'rounded-lg border px-3 py-1.5 text-[11px] font-medium capitalize backdrop-blur-md transition',
                 overlay.overlayAlign === a
-                  ? 'border-accent-primary/50 bg-accent-primary/10 text-fg-primary'
-                  : 'border-white/10 bg-white/[0.05] text-fg-muted hover:border-white/20 hover:bg-white/[0.1]',
+                  ? 'border-white/25 bg-white/[0.14] text-fg-primary'
+                  : 'border-white/[0.08] bg-white/[0.05] text-fg-muted hover:border-white/20 hover:bg-white/[0.1]',
               )}
             >
               {a}
@@ -160,7 +160,7 @@ function SliderRow({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1.5 w-full accent-accent-primary"
+        className="mt-1.5 w-full accent-white"
       />
     </div>
   );
@@ -179,13 +179,13 @@ function ToggleRow({
     <button
       type="button"
       onClick={onToggle}
-      className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.04] px-3 py-2.5 text-left text-[12px] text-fg-secondary backdrop-blur-md transition hover:border-white/20 hover:bg-white/[0.09]"
+      className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-left text-[12px] text-fg-secondary backdrop-blur-md transition hover:border-white/20 hover:bg-white/[0.09]"
     >
       {label}
       <span
         className={cn(
           'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-          on ? 'bg-accent-primary/15 text-fg-primary' : 'bg-white/[0.08] text-fg-muted',
+          on ? 'bg-white/20 text-fg-primary' : 'bg-white/[0.08] text-fg-muted',
         )}
       >
         {on ? 'On' : 'Off'}
