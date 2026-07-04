@@ -37,7 +37,7 @@
     },
     {
       "path": "/api/cron/check-limit-alerts",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/refresh-leaderboard",
@@ -45,15 +45,15 @@
     },
     {
       "path": "/api/cron/drain-webhooks",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/self-heal",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/x-monitor-ingest",
-      "schedule": "* * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
