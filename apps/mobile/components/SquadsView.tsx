@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PressScale } from './PressScale';
 import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
+import { DragSheet } from './DragSheet';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { useSquads } from '../src/account';
+import { createSquad, joinSquad, leaveSquad, type CreateSquadInput } from '../src/api/social';
 
 /**
  * Squads — trading crews. A squad is a GROUP (join a crew, see its combined
@@ -32,17 +34,28 @@ const DEMO_SQUADS: Squad[] = [
 export function SquadsView() {
   const [joined, setJoined] = useState<Record<string, boolean>>({ bunker: true });
   const yourSquad = DEMO_SQUADS.find((sq) => joined[sq.id]);
-  const soon = () => showToast('Squad creation is coming soon', { sub: 'Crews go live with the social update', kind: 'info' });
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Real squads once any crews exist (table's live now, just empty). Until then
   // the demo roster below stands in so the tab is never blank.
-  const real = useSquads().data;
+  const squadsQ = useSquads();
+  const real = squadsQ.data;
   const realSquads = real?.provisioned ? real.squads : [];
+
+  const doJoin = async (id: string, isMember: boolean) => {
+    try {
+      await (isMember ? leaveSquad(id) : joinSquad(id));
+      showToast(isMember ? 'Left squad' : 'Joined squad', { kind: isMember ? 'info' : 'success' });
+      squadsQ.refetch();
+    } catch {
+      showToast('Couldn’t update squad', { kind: 'error' });
+    }
+  };
 
   if (realSquads.length > 0) {
     return (
       <View style={s.wrap}>
-        <GlossButton onPress={soon} style={{ marginTop: 4 }}>
+        <GlossButton onPress={() => setCreateOpen(true)} style={{ marginTop: 4 }}>
           <Ionicons name="add" size={19} color={colors.onAccent} />
           <Text style={s.createText}>Create a squad</Text>
         </GlossButton>
@@ -65,11 +78,14 @@ export function SquadsView() {
               </View>
               <Text style={s.meta}>{sq.memberCount} member{sq.memberCount === 1 ? '' : 's'}</Text>
             </View>
-            <View style={[s.joinBtn, sq.isMember && s.joinedBtn]}>
+            <PressScale onPress={() => doJoin(sq.id, sq.isMember)} to={0.9} style={[s.joinBtn, sq.isMember && s.joinedBtn]}>
               <Text style={[s.joinText, sq.isMember && s.joinedText]}>{sq.isMember ? 'Joined' : 'Join'}</Text>
-            </View>
+            </PressScale>
           </View>
         ))}
+        <DragSheet visible={createOpen} onClose={() => setCreateOpen(false)}>
+          <CreateSquadSheet onClose={() => setCreateOpen(false)} onCreated={() => squadsQ.refetch()} />
+        </DragSheet>
       </View>
     );
   }
@@ -93,10 +109,14 @@ export function SquadsView() {
         </View>
       ) : null}
 
-      <GlossButton onPress={soon} style={{ marginTop: yourSquad ? 14 : 4 }}>
+      <GlossButton onPress={() => setCreateOpen(true)} style={{ marginTop: yourSquad ? 14 : 4 }}>
         <Ionicons name="add" size={19} color={colors.onAccent} />
         <Text style={s.createText}>Create a squad</Text>
       </GlossButton>
+
+      <DragSheet visible={createOpen} onClose={() => setCreateOpen(false)}>
+        <CreateSquadSheet onClose={() => setCreateOpen(false)} onCreated={() => squadsQ.refetch()} />
+      </DragSheet>
 
       <View style={s.head}>
         <View style={s.bar} />
@@ -157,6 +177,104 @@ function Avatars({ members, count }: { members: Member[]; count: number }) {
   );
 }
 
+const CHAIN_OPTS = [
+  { k: 'sol', l: 'Solana' },
+  { k: 'base', l: 'Base' },
+  { k: 'bnb', l: 'BNB' },
+  { k: 'multi', l: 'Multi' },
+];
+const STYLE_OPTS = [
+  { k: 'trenches', l: 'Trenches' },
+  { k: 'perps', l: 'Perps' },
+  { k: 'ai', l: 'AI' },
+  { k: 'new_pairs', l: 'New pairs' },
+  { k: 'long_term', l: 'Long-term' },
+];
+
+function CreateSquadSheet({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('');
+  const [chains, setChains] = useState<string[]>(['sol']);
+  const [styles, setStyles] = useState<string[]>(['trenches']);
+  const [pub, setPub] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const toggle = (arr: string[], set: (v: string[]) => void, k: string) =>
+    set(arr.includes(k) ? arr.filter((x) => x !== k) : [...arr, k]);
+  const canCreate = name.trim().length >= 2 && chains.length > 0 && styles.length > 0;
+
+  const create = async () => {
+    if (!canCreate || busy) return;
+    setBusy(true);
+    try {
+      const input: CreateSquadInput = {
+        name: name.trim(),
+        chainFocus: chains,
+        tradingStyles: styles,
+        visibility: pub ? 'public' : 'invite_only',
+      };
+      await createSquad(input);
+      showToast('Squad created', { kind: 'success' });
+      onCreated();
+      onClose();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Couldn’t create squad', { kind: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={s.createBody}>
+      <Text style={s.createTitle}>Create a squad</Text>
+
+      <Text style={s.createLabel}>Name</Text>
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        placeholder="Degen Bunker"
+        placeholderTextColor={colors.fgFaint}
+        style={s.createInput}
+        autoCapitalize="words"
+        maxLength={48}
+      />
+
+      <Text style={s.createLabel}>Chains</Text>
+      <View style={s.chipRow}>
+        {CHAIN_OPTS.map((c) => (
+          <PressScale key={c.k} to={0.94} onPress={() => toggle(chains, setChains, c.k)} style={[s.chip, chains.includes(c.k) && s.chipOn]}>
+            <Text style={[s.chipText, chains.includes(c.k) && s.chipTextOn]}>{c.l}</Text>
+          </PressScale>
+        ))}
+      </View>
+
+      <Text style={s.createLabel}>Style</Text>
+      <View style={s.chipRow}>
+        {STYLE_OPTS.map((c) => (
+          <PressScale key={c.k} to={0.94} onPress={() => toggle(styles, setStyles, c.k)} style={[s.chip, styles.includes(c.k) && s.chipOn]}>
+            <Text style={[s.chipText, styles.includes(c.k) && s.chipTextOn]}>{c.l}</Text>
+          </PressScale>
+        ))}
+      </View>
+
+      <Text style={s.createLabel}>Visibility</Text>
+      <View style={s.visRow}>
+        <PressScale to={0.96} onPress={() => setPub(true)} style={[s.visBtn, pub && s.visBtnOn]}>
+          <Ionicons name="globe-outline" size={15} color={pub ? colors.accentGlow : colors.fgMuted} />
+          <Text style={[s.visText, pub && s.visTextOn]}>Public</Text>
+        </PressScale>
+        <PressScale to={0.96} onPress={() => setPub(false)} style={[s.visBtn, !pub && s.visBtnOn]}>
+          <Ionicons name="lock-closed-outline" size={15} color={!pub ? colors.accentGlow : colors.fgMuted} />
+          <Text style={[s.visText, !pub && s.visTextOn]}>Invite-only</Text>
+        </PressScale>
+      </View>
+
+      <GlossButton onPress={create} style={{ marginTop: 22, opacity: canCreate && !busy ? 1 : 0.5 }}>
+        {busy ? <ActivityIndicator color={colors.onAccent} /> : <Text style={s.createText}>Create squad</Text>}
+      </GlossButton>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   wrap: { marginTop: 16 },
   yourCard: { borderRadius: radius.lg, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.accent + '55' },
@@ -198,4 +316,19 @@ const s = StyleSheet.create({
   avatarMoreText: { color: colors.fgSecondary, fontSize: 10.5, fontWeight: '700' },
 
   note: { color: colors.fgFaint, fontSize: 12, lineHeight: 17, marginTop: 20, textAlign: 'center' },
+
+  createBody: { paddingHorizontal: 20, paddingBottom: 10 },
+  createTitle: { color: colors.fg, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  createLabel: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '700', letterSpacing: 0.3, marginTop: 18, marginBottom: 9 },
+  createInput: { backgroundColor: colors.bgRaised2, borderRadius: radius.md, paddingHorizontal: 15, paddingVertical: 14, color: colors.fg, fontSize: 17, borderWidth: 1, borderColor: colors.border },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: colors.border },
+  chipOn: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  chipText: { color: colors.fgSecondary, fontSize: 13.5, fontWeight: '600' },
+  chipTextOn: { color: colors.accentGlow },
+  visRow: { flexDirection: 'row', gap: 10 },
+  visBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 12, borderRadius: radius.md, backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: colors.border },
+  visBtnOn: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  visText: { color: colors.fgMuted, fontSize: 14, fontWeight: '700' },
+  visTextOn: { color: colors.accentGlow },
 });

@@ -122,3 +122,25 @@ export async function discoverSquads(): Promise<{ squads: SquadSummary[]; provis
     return { squads: [], provisioned: false };
   }
 }
+
+export type CreateSquadInput = {
+  name: string;
+  description?: string;
+  chainFocus: string[];
+  tradingStyles: string[];
+  visibility: string;
+};
+
+export async function createSquad(input: CreateSquadInput): Promise<{ squad?: SquadSummary }> {
+  return api('/api/squads/create', {
+    token: await authToken(),
+    method: 'POST',
+    body: { ...input, joinRequirements: {} },
+  });
+}
+export async function joinSquad(id: string): Promise<{ ok: boolean }> {
+  return api(`/api/squads/${id}/join`, { token: await authToken(), method: 'POST', body: {} });
+}
+export async function leaveSquad(id: string): Promise<{ ok: boolean }> {
+  return api(`/api/squads/${id}/leave`, { token: await authToken(), method: 'POST', body: {} });
+}
