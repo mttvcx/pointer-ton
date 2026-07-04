@@ -114,6 +114,7 @@ function Shell() {
   const finishOnboarding = () => {
     const id = auth.demo ? 'demo' : auth.walletAddress;
     if (id) markOnboarded(id);
+    setTab('home'); // land on Home after onboarding, not wherever the tab last was
     setOnboarded(true);
   };
 

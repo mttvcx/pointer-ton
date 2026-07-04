@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { DragSheet } from './DragSheet';
@@ -14,7 +15,6 @@ import { getLiveTokens, getOnramperUrl } from '../src/api/endpoints';
 import { showToast } from '../src/toast';
 import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useAuth } from '../src/auth';
-import { CrossmintBuy, CROSSMINT_READY } from '../src/crossmint';
 import type { PulseBundle } from '../src/types';
 
 type Step = 'choose' | 'pickToken' | 'payToken' | 'depositCash' | 'cryptoNetwork' | 'cryptoAddress';
@@ -171,26 +171,14 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
           <Text style={s.amount}>${amount}</Text>
           <Text style={s.amountSub}>$0 fee on your first buy · delivered to your wallet</Text>
           <Presets values={[50, 100, 500, 1500]} amount={amount} onPick={setAmount} />
-          {CROSSMINT_READY && (picked.token.chain === 'sol' || !picked.token.chain ? auth.walletAddress : auth.evmAddress) ? (
-            // Real Apple Pay → token via Crossmint (delivered to the Privy wallet).
-            <View style={{ marginTop: 16, minHeight: 110 }}>
-              <CrossmintBuy
-                chain={picked.token.chain ?? 'sol'}
-                mint={picked.token.mint}
-                amountUsd={amount}
-                recipientWallet={((picked.token.chain === 'sol' || !picked.token.chain ? auth.walletAddress : auth.evmAddress) ?? '') as string}
-                onCompleted={onClose}
-              />
-            </View>
-          ) : (
-            <>
-              <Keypad onPress={press} />
-              <PressScale style={s.payBtn} onPress={onClose}>
-                <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text style={s.payText}>Pay (demo)</Text>
-              </PressScale>
-            </>
-          )}
+          {/* One-tap Apple Pay → token needs a server-created order (embedded
+              onramp can't create it client-side); that flow is being finished, so
+              we don't render the raw checkout here. */}
+          <Keypad onPress={press} />
+          <PressScale style={s.payBtn} onPress={() => showToast('One-tap Apple Pay buy is almost here', { kind: 'info' })}>
+            <Ionicons name="logo-apple" size={20} color="#000" />
+            <Text style={s.payText}>Pay</Text>
+          </PressScale>
         </View>
       ) : step === 'depositCash' ? (
         <View style={s.pb}>
@@ -233,7 +221,15 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={s.addrLabel}>{network} address</Text>
             <Text style={s.addr}>{(network === 'Solana' ? auth.walletAddress : auth.evmAddress) ?? '—'}</Text>
           </View>
-          <PressScale style={s.copyBtn}>
+          <PressScale
+            style={s.copyBtn}
+            onPress={async () => {
+              const addr = (network === 'Solana' ? auth.walletAddress : auth.evmAddress) ?? '';
+              if (!addr) return;
+              await Clipboard.setStringAsync(addr);
+              showToast('Address copied', { kind: 'success' });
+            }}
+          >
             <GlassFill />
             <Ionicons name="copy-outline" size={18} color={colors.fg} />
             <Text style={s.copyText}>Copy wallet address</Text>

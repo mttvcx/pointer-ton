@@ -9,8 +9,6 @@ import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
 import { colors, radius } from '../src/theme';
 import { priceUsd, shortMint } from '../src/format';
-import { useAuth } from '../src/auth';
-import { CrossmintBuy, CROSSMINT_READY } from '../src/crossmint';
 import type { PulseBundle } from '../src/types';
 
 const PRESETS = ['5', '25', '50', '100'];
@@ -22,15 +20,11 @@ const PRESETS = ['5', '25', '50', '100'];
  * "runs in the dev build" note instead of faking a charge.
  */
 export function CrossmintBuySheet({ visible, onClose, bundle }: { visible: boolean; onClose: () => void; bundle: PulseBundle }) {
-  const auth = useAuth();
   const [amount, setAmount] = useState('5');
   const [done, setDone] = useState(false);
 
   const token = bundle.token;
-  const chain = token.chain ?? 'sol';
   const sym = (token.symbol ?? shortMint(token.mint)).replace(/^\$/, '');
-  const recipient = chain === 'sol' ? auth.walletAddress : auth.evmAddress;
-  const canCheckout = CROSSMINT_READY && Boolean(recipient);
 
   const close = () => {
     setDone(false);
@@ -81,33 +75,22 @@ export function CrossmintBuySheet({ visible, onClose, bundle }: { visible: boole
             })}
           </View>
 
-          {canCheckout ? (
-            <View style={s.checkoutWrap}>
-              {/* Crossmint's native embedded checkout renders the Apple Pay button. */}
-              <CrossmintBuy
-                chain={chain}
-                mint={token.mint}
-                amountUsd={amount}
-                recipientWallet={recipient as string}
-                onCompleted={() => setDone(true)}
-              />
+          {/* Apple Pay onramp requires a server-created order (embedded onramp
+              can't create it client-side) — that backend flow is being finished.
+              We show a clean "almost there" state rather than a broken checkout. */}
+          <View style={s.fallback}>
+            <GlassFill />
+            <View style={s.applePayBtn}>
+              <Ionicons name="logo-apple" size={19} color="#000" />
+              <Text style={s.applePayText}>Pay</Text>
             </View>
-          ) : (
-            <View style={s.fallback}>
-              <GlassFill />
-              <Ionicons name="logo-apple" size={22} color={colors.fgSecondary} />
-              <Text style={s.fallbackTitle}>Apple Pay checkout runs in the app build</Text>
-              <Text style={s.fallbackBody}>
-                Buying ${amount} of {sym} with Apple Pay is powered by Crossmint and needs the native build (and a
-                signed-in wallet). In this preview it's simulated.
-              </Text>
-              <GlossButton onPress={() => setDone(true)} style={{ marginTop: 14 }}>
-                <Text style={s.payText}>Simulate buy</Text>
-              </GlossButton>
-            </View>
-          )}
+            <Text style={s.fallbackTitle}>One-tap buy is almost here</Text>
+            <Text style={s.fallbackBody}>
+              Buy ${amount} of {sym} with Apple Pay, delivered straight to your wallet. We’re finishing the last mile so it lands seamlessly.
+            </Text>
+          </View>
 
-          <Text style={s.terms}>Cross-chain buy delivered to your wallet · powered by Crossmint</Text>
+          <Text style={s.terms}>Delivered straight to your wallet.</Text>
         </ScrollView>
       )}
     </DragSheet>
@@ -132,8 +115,10 @@ const s = StyleSheet.create({
 
   checkoutWrap: { marginTop: 20, minHeight: 120 },
 
-  fallback: { marginTop: 20, borderRadius: radius.lg, padding: 18, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
-  fallbackTitle: { color: colors.fg, fontSize: 15, fontWeight: '700', marginTop: 10, textAlign: 'center' },
+  fallback: { marginTop: 20, borderRadius: radius.lg, padding: 20, alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  applePayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: radius.pill, paddingHorizontal: 18, paddingVertical: 9 },
+  applePayText: { color: '#000', fontSize: 15, fontWeight: '700' },
+  fallbackTitle: { color: colors.fg, fontSize: 15, fontWeight: '700', marginTop: 12, textAlign: 'center' },
   fallbackBody: { color: colors.fgMuted, fontSize: 13, lineHeight: 18, marginTop: 6, textAlign: 'center' },
 
   terms: { color: colors.fgFaint, fontSize: 11.5, textAlign: 'center', marginTop: 16, lineHeight: 16 },
