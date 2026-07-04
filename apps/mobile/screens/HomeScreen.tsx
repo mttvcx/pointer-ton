@@ -63,15 +63,19 @@ function multStr(w: WeeklyTrade): string {
   return m >= 10 ? `${Math.round(m)}x` : `${m.toFixed(1)}x`;
 }
 
+type TraderRef = { handle: string; name?: string; color?: string; initial?: string };
+
 export function HomeScreen({
   onOpenToken,
   onOpenPerp,
+  onOpenTrader,
   advanced,
   onOpenEducation,
   onOpenReferral,
 }: {
   onOpenToken: (b: PulseBundle) => void;
   onOpenPerp: (m: PerpMarket) => void;
+  onOpenTrader: (t: TraderRef) => void;
   advanced: boolean;
   onOpenEducation: () => void;
   onOpenReferral: () => void;
@@ -79,18 +83,20 @@ export function HomeScreen({
   return advanced ? (
     <PulseBoard onOpenToken={onOpenToken} />
   ) : (
-    <SimpleHome onOpenToken={onOpenToken} onOpenPerp={onOpenPerp} onOpenEducation={onOpenEducation} onOpenReferral={onOpenReferral} />
+    <SimpleHome onOpenToken={onOpenToken} onOpenPerp={onOpenPerp} onOpenTrader={onOpenTrader} onOpenEducation={onOpenEducation} onOpenReferral={onOpenReferral} />
   );
 }
 
 function SimpleHome({
   onOpenToken,
   onOpenPerp,
+  onOpenTrader,
   onOpenEducation,
   onOpenReferral,
 }: {
   onOpenToken: (b: PulseBundle) => void;
   onOpenPerp: (m: PerpMarket) => void;
+  onOpenTrader: (t: TraderRef) => void;
   onOpenEducation: () => void;
   onOpenReferral: () => void;
 }) {
@@ -352,7 +358,7 @@ function SimpleHome({
           </PressScale>
         </View>
       </View>
-      <TraderSheet trade={trade} onClose={() => setTrade(null)} />
+      <TraderSheet trade={trade} onClose={() => setTrade(null)} onOpenTrader={onOpenTrader} />
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
 
       <DragSheet visible={feeInfo} onClose={() => setFeeInfo(false)} fullDrag>

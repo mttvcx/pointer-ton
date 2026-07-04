@@ -197,7 +197,7 @@ function Shell() {
 
   const tabScreen =
     tab === 'home' ? (
-      <HomeScreen onOpenToken={pushToken} onOpenPerp={pushPerp} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
+      <HomeScreen onOpenToken={pushToken} onOpenPerp={pushPerp} onOpenTrader={pushTrader} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
     ) : tab === 'search' ? (
       <SearchScreen onOpenToken={pushToken} />
     ) : tab === 'financial' ? (

@@ -27,22 +27,35 @@ const EXITS = [
   { x: 278, y: 74 },
 ];
 
-export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onClose: () => void }) {
+export function TraderSheet({
+  trade,
+  onClose,
+  onOpenTrader,
+}: {
+  trade: WeeklyTrade | null;
+  onClose: () => void;
+  onOpenTrader?: (t: { handle: string; name?: string; color?: string; initial?: string }) => void;
+}) {
   const [share, setShare] = useState(false);
   const [deposit, setDeposit] = useState(false);
   const following = useIsFollowing(trade?.name ?? '');
+  const openProfile = () => {
+    if (!trade) return;
+    onOpenTrader?.({ handle: trade.handle, name: trade.name, color: trade.color, initial: trade.initial });
+    onClose();
+  };
   return (
     <DragSheet visible={!!trade} onClose={onClose}>
       {trade ? (
         <>
           <View style={s.traderRow}>
-            <View style={s.traderLeft}>
+            <PressScale style={s.traderLeft} to={0.96} hitSlop={6} onPress={openProfile}>
               <View style={[s.avatar, { backgroundColor: trade.color }]}>
                 <Text style={s.avatarText}>{trade.initial}</Text>
               </View>
               <Text style={s.traderName}>{trade.name}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.fgMuted} />
-            </View>
+            </PressScale>
             <View style={s.traderActions}>
               <PressScale style={s.iconBtn} onPress={() => setShare(true)} to={0.9}>
                 <GlassFill />
@@ -126,12 +139,16 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
             </View>
 
             <View style={s.thesis}>
-              <View style={[s.thesisAvatar, { backgroundColor: trade.color }]}>
-                <Text style={s.thesisInitial}>{trade.initial}</Text>
-              </View>
+              <PressScale to={0.9} hitSlop={6} onPress={openProfile}>
+                <View style={[s.thesisAvatar, { backgroundColor: trade.color }]}>
+                  <Text style={s.thesisInitial}>{trade.initial}</Text>
+                </View>
+              </PressScale>
               <View style={{ flex: 1 }}>
                 <View style={s.thesisHead}>
-                  <Text style={s.thesisName}>{trade.name}</Text>
+                  <PressScale to={0.96} hitSlop={6} onPress={openProfile}>
+                    <Text style={s.thesisName}>{trade.name}</Text>
+                  </PressScale>
                   <View style={s.thesisBadge}>
                     <Text style={s.thesisBadgeText}>Thesis</Text>
                   </View>
