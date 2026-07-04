@@ -5,9 +5,9 @@ import { Activity, ShieldCheck, ShieldOff, Zap } from 'lucide-react';
 import { ChainIcon } from '@/components/squads/ChainIcon';
 import { SquadSortShell } from '@/components/squads/squadsPrimitives';
 import { cn } from '@/lib/utils/cn';
+import { useDiscoverSquads } from '@/lib/hooks/useDiscoverSquads';
 import {
   SAMPLE_RIGHT_RAIL,
-  SAMPLE_SQUADS,
   SAMPLE_TRADERS,
 } from '@/lib/squads/sampleData';
 import {
@@ -35,6 +35,7 @@ export function DiscoverTradersView() {
   const [sort, setSort] = useState('signal');
   const [mode, setMode] = useState<SquadsViewMode>('traders');
   const [railIdx, setRailIdx] = useState(0);
+  const discoverSquads = useDiscoverSquads();
 
   const toggleFilter = (k: FilterKey) => {
     setFilters((prev) => {
@@ -69,7 +70,7 @@ export function DiscoverTradersView() {
   }, [filters, sort]);
 
   const squadsFiltered = useMemo(() => {
-    let rows = SAMPLE_SQUADS.filter((s) => !s.isPrivate);
+    let rows = (discoverSquads.data ?? []).filter((s) => !s.isPrivate);
     if (!filters.has('all')) {
       rows = rows.filter((s) => {
         if (filters.has('ethos_verified') && !s.ethosVerified) return false;
@@ -85,7 +86,7 @@ export function DiscoverTradersView() {
       sort === 'volume' ? b.volume30d - a.volume30d : b.pnl30d - a.pnl30d,
     );
     return rows;
-  }, [filters, sort]);
+  }, [filters, sort, discoverSquads.data]);
 
   const railWidgets =
     mode === 'traders'
@@ -195,8 +196,16 @@ export function DiscoverTradersView() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {squadsFiltered.length === 0 ? (
-              <EmptyState />
+            {discoverSquads.isLoading ? (
+              <EmptyState text="Loading squads…" />
+            ) : squadsFiltered.length === 0 ? (
+              <EmptyState
+                text={
+                  (discoverSquads.data?.length ?? 0) === 0
+                    ? 'No public squads yet. Create one to get started.'
+                    : 'No squads match these filters.'
+                }
+              />
             ) : (
               <>
                 {squadsFiltered.slice(0, 3).map((s, i) => (
@@ -238,10 +247,10 @@ export function DiscoverTradersView() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ text = 'No matches.' }: { text?: string }) {
   return (
     <div className="rounded-lg border border-border-subtle bg-bg-raised px-4 py-5 text-center">
-      <p className="text-xs text-fg-muted">No matches.</p>
+      <p className="text-xs text-fg-muted">{text}</p>
     </div>
   );
 }

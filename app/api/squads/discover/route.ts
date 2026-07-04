@@ -1,16 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireSyncedUser } from '@/lib/ai/auth';
-import { isMissingSquadsTable, listDiscoverSquads } from '@/lib/db/squads';
+import { isMissingSquadsTable, listDiscoverSquadCards } from '@/lib/db/squads';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** GET /api/squads/discover — public / request-to-join squads (isMember flagged). */
+/** GET /api/squads/discover — public / request-to-join squads with real member-derived stats. */
 export async function GET(req: NextRequest) {
   const auth = await requireSyncedUser(req);
   if (!auth.ok) return auth.response;
   try {
-    const squads = await listDiscoverSquads(auth.user.id);
+    const squads = await listDiscoverSquadCards(auth.user.id);
     return NextResponse.json({ squads, provisioned: true });
   } catch (err) {
     if (isMissingSquadsTable(err)) {

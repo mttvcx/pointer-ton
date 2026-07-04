@@ -12,6 +12,7 @@ export const APP_NAV: AppNavItem[] = [
   { label: 'Portfolio', href: '/portfolio' },
   { label: 'Track', href: '/track' },
   { label: 'Squads', href: '/squads' },
+  { label: 'Social', href: '/social' },
   { label: 'Championship', href: '/championship' },
   { label: '$PTR', href: '/points' },
 ];
