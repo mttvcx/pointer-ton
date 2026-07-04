@@ -6,9 +6,10 @@ import {
   twitterListenViewFromAutomation,
 } from '@/lib/alerts/automationRuleModel';
 import { normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
-import { getLatestIngestedTweetId } from '@/lib/db/twitterIngestTweets';
+import { getLatestIngestedTweetId, upsertTwitterIngestTweet } from '@/lib/db/twitterIngestTweets';
 import { emitTwitterListenAlerts } from '@/lib/alerts/emitTwitterListenAlerts';
 import { fetchRecentTweetsFromHandles, xApiConfigured } from '@/lib/twitter/xApiClient';
+import { DEFAULT_MONITOR_HANDLES } from '@/lib/twitter/defaultKols';
 
 export type XMonitorIngestResult = {
   ok: boolean;
@@ -28,8 +29,14 @@ export type XMonitorIngestResult = {
 export async function runXMonitorIngest(): Promise<XMonitorIngestResult> {
   if (!xApiConfigured()) return { ok: true, skipped: 'no_token' };
 
-  const rules = await listActiveSolTwitterListenRules();
+  // Always poll the default KOL set so the feed streams out of the box; add every
+  // user's active-rule handles on top.
   const handles = new Set<string>();
+  for (const h of DEFAULT_MONITOR_HANDLES) {
+    const n = normalizeTwitterHandle(h);
+    if (n) handles.add(n);
+  }
+  const rules = await listActiveSolTwitterListenRules();
   for (const rule of rules) {
     const automation = parseAutomationRuleFromRow(rule);
     if (!automation) continue;
@@ -45,6 +52,25 @@ export async function runXMonitorIngest(): Promise<XMonitorIngestResult> {
   const sinceId = await getLatestIngestedTweetId();
   const tweets = await fetchRecentTweetsFromHandles([...handles], sinceId);
   if (tweets.length === 0) return { ok: true, handles: handles.size, fetched: 0, alerts: 0 };
+
+  // Store EVERY fetched tweet (incl. text-only) so the raw feed has them — the
+  // alert pass below only persists image tweets (with perceptual hashes).
+  await Promise.allSettled(
+    tweets.map((t) => {
+      const handle = normalizeTwitterHandle(t.handle);
+      if (!handle) return Promise.resolve();
+      return upsertTwitterIngestTweet({
+        tweetId: t.id,
+        authorHandle: handle,
+        text: t.text,
+        imageUrls: t.imageUrls,
+        imageHashes: [],
+        tweetKind: t.tweetKind,
+        tweetUrl: t.tweetUrl,
+        rawJson: null,
+      }).catch(() => {});
+    }),
+  );
 
   const alerts = await emitTwitterListenAlerts(
     tweets.map((t) => ({

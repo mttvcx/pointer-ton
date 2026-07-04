@@ -32,6 +32,18 @@ export async function getLatestIngestedTweetId(): Promise<string | null> {
   return data?.tweet_id ?? null;
 }
 
+/** Recent ingested tweets for the raw X Monitor feed (newest first). */
+export async function listRecentIngestTweets(limit = 40): Promise<TwitterIngestTweetRow[]> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('twitter_ingest_tweets')
+    .select('tweet_id, author_handle, text, image_urls, image_hashes, tweet_kind, tweet_url, raw_json, received_at')
+    .order('received_at', { ascending: false })
+    .limit(Math.min(80, Math.max(1, limit)));
+  if (error) throw new Error(`listRecentIngestTweets failed: ${error.message}`);
+  return (data ?? []) as TwitterIngestTweetRow[];
+}
+
 export async function upsertTwitterIngestTweet(row: {
   tweetId: string;
   authorHandle: string;

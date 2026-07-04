@@ -17,6 +17,7 @@ import {
   type TwitterListenAlertPayload,
 } from '@/lib/launch/alertTweet';
 import { openDeployForTweet, openDeployForTweetAsync, openLaunchFromSuggestion } from '@/lib/launch/openLaunchModal';
+import { useQuery } from '@tanstack/react-query';
 import { tweetLaunchCacheSubject } from '@/lib/launch/tweetLaunchSubject';
 import type { LaunchPackage, TweetLaunchInput } from '@/lib/launch/types';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
@@ -172,6 +173,37 @@ function alertToListenRow(a: AlertsTickerItem): ListenRow | null {
   };
 }
 
+type RawFeedTweet = {
+  id: string;
+  handle: string;
+  text: string;
+  imageUrls?: string[];
+  tweetUrl?: string | null;
+  tweetKind?: string | null;
+  receivedAt: string;
+};
+
+/** Map a raw ingested tweet (default-KOL feed) into the panel's row shape. */
+function feedTweetToListenRow(t: RawFeedTweet): ListenRow {
+  const tweet = {
+    id: t.id,
+    text: t.text ?? '',
+    authorHandle: t.handle,
+    imageUrls: t.imageUrls ?? [],
+    tweetUrl: t.tweetUrl ?? null,
+  };
+  return {
+    alertId: `feed-${t.id}`,
+    createdAt: t.receivedAt,
+    tweet,
+    subject: tweetLaunchCacheSubject(tweet),
+    payload: { handle: t.handle, tweetId: t.id, tweetText: t.text } as unknown as TwitterListenAlertPayload,
+    isMock: false,
+    platform: 'x',
+    displayName: `@${(t.handle ?? '').replace(/^@/, '')}`,
+  };
+}
+
 function GripDots() {
   return (
     <div
@@ -258,6 +290,18 @@ export function XMonitorPanel({
   const launchMode = useAutoLaunchStore((s) => s.launchMode);
   const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: false });
 
+  // Raw default-KOL tweet stream (streams once TWITTER_BEARER_TOKEN is set).
+  const { data: feedData } = useQuery({
+    queryKey: ['x-monitor-feed'],
+    queryFn: async (): Promise<{ tweets: RawFeedTweet[] }> => {
+      const res = await fetch('/api/monitor/feed?limit=40');
+      if (!res.ok) return { tweets: [] };
+      return res.json() as Promise<{ tweets: RawFeedTweet[] }>;
+    },
+    refetchInterval: 10_000,
+    staleTime: 8_000,
+  });
+
   // Operator settings (persisted) — drive filtering + launch-rail appearance.
   const sources = useXMonitorSettings((s) => s.sources);
   const mutedKeywords = useXMonitorSettings((s) => s.mutedKeywords);
@@ -277,11 +321,18 @@ export function XMonitorPanel({
 
   const serverRows = useMemo(() => {
     const list = data ?? [];
-    return list
+    const alertRows = list
       .filter((a) => a.type === ALERT_TYPE_TWITTER_LISTEN)
       .map(alertToListenRow)
       .filter(Boolean) as ListenRow[];
-  }, [data]);
+    // Merge rule-hit alerts with the raw default-KOL feed; dedupe by tweet id
+    // (alerts win — they carry rule/launch context), newest first.
+    const feedRows = (feedData?.tweets ?? []).map(feedTweetToListenRow);
+    const seen = new Set(alertRows.map((r) => r.tweet.id ?? r.alertId));
+    const merged = [...alertRows, ...feedRows.filter((r) => !seen.has(r.tweet.id ?? r.alertId))];
+    merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return merged;
+  }, [data, feedData]);
 
   const uiDemo = isUiDemoMode();
   // Preview toggle now lives beside the Pulse/Stocks tabs (shared store), so the
