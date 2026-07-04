@@ -13,6 +13,8 @@ import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
 import { getDemoTrader, type TraderPosition } from '../src/demo/traders';
 import { toggleFollow, useIsFollowing, useCopy } from '../src/local';
+import { follow as apiFollow, unfollow as apiUnfollow } from '../src/api/social';
+import { useAuth } from '../src/auth';
 import { shareText } from '../src/share';
 import type { PulseBundle } from '../src/types';
 
@@ -133,7 +135,19 @@ export function TraderProfileScreen({
 }) {
   const insets = useSafeAreaInsets();
   const p = useMemo(() => getDemoTrader(handle, { name, color, initial }), [handle, name, color, initial]);
+  const auth = useAuth();
   const following = useIsFollowing(p.handle);
+  // Local toggle for instant UI + the real one-way follow (drives notifications)
+  // against the backend when signed in. Follow by X handle since that's what we
+  // have for a trader; best-effort so a provisioning gap never blocks the tap.
+  const onToggleFollow = () => {
+    const wasFollowing = following;
+    toggleFollow(p.handle);
+    if (!auth.demo) {
+      const ref = p.handle.replace(/^@/, '');
+      (wasFollowing ? apiUnfollow('twitter', ref) : apiFollow('twitter', ref)).catch(() => {});
+    }
+  };
   const [range, setRange] = useState(0);
   const [status, setStatus] = useState<Status>('open');
   const [kind, setKind] = useState<Kind>('all');
@@ -220,7 +234,7 @@ export function TraderProfileScreen({
               <GlassFill />
               <Ionicons name="paper-plane-outline" size={20} color={colors.fg} />
             </PressScale>
-            <PressScale onPress={() => toggleFollow(p.handle)} to={0.94} style={[s.followBtn, following && s.followingBtn]}>
+            <PressScale onPress={onToggleFollow} to={0.94} style={[s.followBtn, following && s.followingBtn]}>
               <GlassFill active={following} />
               <Text style={[s.followText, following && s.followingText]}>{following ? 'Following' : 'Follow'}</Text>
             </PressScale>
