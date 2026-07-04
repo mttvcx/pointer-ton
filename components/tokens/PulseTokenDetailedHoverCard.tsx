@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { ChevronLeft, ChevronRight, Globe, Search, Send } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Globe, Search, Send } from 'lucide-react';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
 import { useTokenExtendedMetrics } from '@/lib/hooks/useTokenExtendedMetrics';
 import { formatAgeShort, formatCompactUsd } from '@/lib/utils/formatters';
@@ -152,17 +152,44 @@ export function PulseTokenDetailedHoverCard({
       {/* Body: image + buy/sell (left) · chart (right) */}
       <div className="flex">
         <div className="flex w-[140px] shrink-0 flex-col gap-2 border-r border-border-subtle p-2">
-          <button
-            type="button"
-            data-row-click-skip="true"
-            onClick={(e) => { e.stopPropagation(); onNavigate(token.mint); }}
-            className="aspect-square w-full overflow-hidden rounded-lg bg-bg-sunken ring-1 ring-border-subtle transition hover:ring-accent-primary/40"
-          >
+          <div className="group/img relative aspect-square w-full overflow-hidden rounded-lg bg-bg-sunken ring-1 ring-border-subtle transition hover:ring-accent-primary/40">
+            <button
+              type="button"
+              data-row-click-skip="true"
+              title="Open token"
+              onClick={(e) => { e.stopPropagation(); onNavigate(token.mint); }}
+              className="block h-full w-full"
+            >
+              {imageUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className="h-full w-full object-cover transition-transform duration-200 ease-out group-hover/img:scale-[1.35]"
+                  draggable={false}
+                />
+              ) : null}
+            </button>
             {imageUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />
+              /* Reverse image search — spot recycled / stolen token art (Axiom-style). */
+              <button
+                type="button"
+                data-row-click-skip="true"
+                title="Reverse image search (Google Lens)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(
+                    `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`,
+                    '_blank',
+                    'noopener,noreferrer',
+                  );
+                }}
+                className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-md border border-white/20 bg-black/60 text-white opacity-0 backdrop-blur-sm transition group-hover/img:opacity-100 hover:bg-black/80"
+              >
+                <Camera className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              </button>
             ) : null}
-          </button>
+          </div>
 
           <div>
             <p className="mb-1 text-[8.5px] font-semibold uppercase tracking-wider text-fg-muted">Buy · SOL</p>
