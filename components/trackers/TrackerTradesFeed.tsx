@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils/cn';
 import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
 import { useWalletQuickBuyStore } from '@/store/walletQuickBuy';
 import { useTradesTableSettings, type TradesColumn } from '@/store/tradesTableSettings';
+import { SolGlyph } from '@/components/chains/SolGlyph';
 import { makeDemoTrackerTrade, seedDemoTrackerTrades, type TokenPositionStats } from '@/lib/dev/walletTradesDemo';
 import { HoverZoomImage } from '@/components/monitor/HoverZoomImage';
 
@@ -73,9 +74,18 @@ function agoShort(iso: string | null): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-function fmtAmount(usd: number | null, sol: number | null, unit: 'SOL' | 'USD'): string {
-  if (unit === 'USD') return usd != null ? `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 1000 ? 2 : 0 })}` : '—';
-  return sol != null ? `${formatNumber(sol, { decimals: sol >= 1 ? 2 : 3 })}◎` : '—';
+/** Amount with the official Solana mark (SOL) or a $ prefix (USD). */
+function AmountValue({ usd, sol, unit }: { usd: number | null; sol: number | null; unit: 'SOL' | 'USD' }) {
+  if (unit === 'USD') {
+    return <>{usd != null ? `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 1000 ? 2 : 0 })}` : '—'}</>;
+  }
+  if (sol == null) return <>—</>;
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {formatNumber(sol, { decimals: sol >= 1 ? 2 : 3 })}
+      <SolGlyph size={11} />
+    </span>
+  );
 }
 
 /* ── column layout ─────────────────────────────────────────────────────── */
@@ -142,9 +152,14 @@ function WalletHoverCard({
   if (!pos) return null;
   const s = t.tokenStats;
   const fmtVal = (usd: number, sol: number) =>
-    unit === 'USD'
-      ? `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 1000 ? 1 : 0 })}`
-      : `${formatNumber(sol, { decimals: sol >= 1 ? 2 : 3 })}◎`;
+    unit === 'USD' ? (
+      `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 1000 ? 1 : 0 })}`
+    ) : (
+      <span className="inline-flex items-center gap-0.5">
+        {formatNumber(sol, { decimals: sol >= 1 ? 2 : 3 })}
+        <SolGlyph size={10} />
+      </span>
+    );
 
   return createPortal(
     <div
@@ -212,7 +227,14 @@ function WalletHoverCard({
           <div className="mt-1 grid grid-cols-2 gap-1">
             <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
               <div className="text-[12px] font-bold tabular-nums text-fg-primary">
-                {unit === 'USD' ? `$${s.holdingUsd.toLocaleString('en-US')}` : `${formatNumber(s.holdingUsd / 168, { decimals: 2 })}◎`}
+                {unit === 'USD' ? (
+                  `$${s.holdingUsd.toLocaleString('en-US')}`
+                ) : (
+                  <span className="inline-flex items-center gap-0.5">
+                    {formatNumber(s.holdingUsd / 168, { decimals: 2 })}
+                    <SolGlyph size={11} />
+                  </span>
+                )}
               </div>
               <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.holdingPct}% holding</div>
             </div>
@@ -438,7 +460,7 @@ function TradeRow({
 
       {columns.amount ? (
         <div className={cn('justify-self-end text-right text-[11px] font-semibold tabular-nums', buy ? 'text-signal-bull' : 'text-signal-bear')}>
-          {fmtAmount(t.usdAmount, t.solAmount, unit)}
+          <AmountValue usd={t.usdAmount} sol={t.solAmount} unit={unit} />
         </div>
       ) : null}
 
@@ -450,13 +472,13 @@ function TradeRow({
 
       {columns.averageBuy ? (
         <div className="justify-self-end text-right text-[10.5px] tabular-nums text-signal-bull/90">
-          {avgBuy != null ? fmtAmount(avgBuyUsd, avgBuy, unit) : '—'}
+          {avgBuy != null ? <AmountValue usd={avgBuyUsd} sol={avgBuy} unit={unit} /> : '—'}
         </div>
       ) : null}
 
       {columns.averageSell ? (
         <div className="justify-self-end text-right text-[10.5px] tabular-nums text-signal-bear/90">
-          {avgSell != null ? fmtAmount(avgSellUsd, avgSell, unit) : '—'}
+          {avgSell != null ? <AmountValue usd={avgSellUsd} sol={avgSell} unit={unit} /> : '—'}
         </div>
       ) : null}
 
@@ -514,8 +536,8 @@ function TradesHeader({
           className={cn(hcls, 'inline-flex items-center gap-1 justify-self-end transition-colors hover:text-fg-secondary')}
         >
           Amount
-          <span className="rounded bg-white/[0.08] px-1 py-px text-[8px] normal-case tracking-normal text-fg-secondary">
-            {unit === 'SOL' ? '◎' : '$'}
+          <span className="inline-flex items-center rounded bg-white/[0.08] px-1 py-px text-[8px] normal-case tracking-normal text-fg-secondary">
+            {unit === 'SOL' ? <SolGlyph size={10} /> : '$'}
           </span>
         </button>
       ) : null}
