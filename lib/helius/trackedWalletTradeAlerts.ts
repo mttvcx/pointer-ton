@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { insertAlert } from '@/lib/db/alerts';
-import { notifyUserWebPush } from '@/lib/push/notifyUser';
+import { notifyUser } from '@/lib/push/notifyUser';
 import { getTrackedWallet, listUserIdsTrackingWallet } from '@/lib/db/wallets';
 import { getTokenByMint } from '@/lib/db/tokens';
 import { parseTrackedWalletSwapsFromTx } from '@/lib/helius/parseTrackedWalletSwaps';
@@ -68,7 +68,7 @@ export async function processTrackedWalletTradeAlerts(
 
       const sym = token?.symbol ? `$${token.symbol}` : swap.mint.slice(0, 8);
       const action = swap.side === 'buy' ? 'bought' : 'sold';
-      await notifyUserWebPush(userId, {
+      await notifyUser(userId, {
         title: `${walletLabel} ${action}`,
         body: `${swap.solAmount.toFixed(3)} SOL · ${sym}`,
         url: `/token/${encodeURIComponent(swap.mint)}`,

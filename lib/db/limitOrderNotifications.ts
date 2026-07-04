@@ -1,6 +1,6 @@
 import 'server-only';
 import { insertAlert } from '@/lib/db/alerts';
-import { notifyUserWebPush } from '@/lib/push/notifyUser';
+import { notifyUser } from '@/lib/push/notifyUser';
 
 export async function notifyLimitOrderTriggered(args: {
   userId: string;
@@ -25,7 +25,7 @@ export async function notifyLimitOrderTriggered(args: {
   });
 
   const url = `/token/${args.mint}?limitOrder=${encodeURIComponent(args.orderId)}`;
-  await notifyUserWebPush(args.userId, {
+  await notifyUser(args.userId, {
     title: 'Limit order hit',
     body: `${args.side.toUpperCase()} near $${args.spotUsd.toFixed(6)} (target $${args.triggerUsd.toFixed(6)})`,
     url,

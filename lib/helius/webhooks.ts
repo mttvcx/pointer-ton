@@ -1,7 +1,7 @@
 import 'server-only';
 import { timingSafeEqual } from 'node:crypto';
 import { insertAlert } from '@/lib/db/alerts';
-import { notifyUserWebPush } from '@/lib/push/notifyUser';
+import { notifyUser } from '@/lib/push/notifyUser';
 import {
   listEnabledTrackerRulesForWallet,
 } from '@/lib/db/trackerRules';
@@ -142,7 +142,7 @@ export async function processHeliusWebhookBody(
                 },
               });
               const ruleSym = ev.symbol ? `$${ev.symbol}` : ev.mint.slice(0, 8);
-              await notifyUserWebPush(userId, {
+              await notifyUser(userId, {
                 title: 'Tracker match',
                 body: `${rule.summary} · ${ruleSym}`,
                 url: `/token/${encodeURIComponent(ev.mint)}`,
@@ -163,7 +163,7 @@ export async function processHeliusWebhookBody(
             },
           });
           const launchSym = ev.symbol ? `$${ev.symbol}` : ev.mint.slice(0, 8);
-          await notifyUserWebPush(userId, {
+          await notifyUser(userId, {
             title: 'Tracked wallet launched',
             body: launchSym,
             url: `/token/${encodeURIComponent(ev.mint)}`,

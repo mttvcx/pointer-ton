@@ -19,7 +19,7 @@ import {
   mintCandidatesFromTweetParts,
   pickTwitterListenMint,
 } from '@/lib/alerts/twitterListenMintPick';
-import { notifyUserWebPush } from '@/lib/push/notifyUser';
+import { notifyUser } from '@/lib/push/notifyUser';
 import { autoLaunchDeployEnabled, autoLaunchFromTweet } from '@/lib/launch/deployPumpToken';
 
 export type TwitterListenIngestTweet = {
@@ -293,7 +293,7 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
         }
 
         try {
-          await notifyUserWebPush(config.userId, {
+          await notifyUser(config.userId, {
             title: `@${handleNorm}`,
             body: mint ? `${summary}` : summary,
             url: mint ? `/token/${encodeURIComponent(mint)}` : '/pulse',

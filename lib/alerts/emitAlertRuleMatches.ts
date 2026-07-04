@@ -7,7 +7,7 @@ import {
   parsePulseLaunchpadRuleConfig,
 } from '@/lib/alerts/alertRuleModel';
 import type { PulseNewTokenAlertInput } from '@/lib/alerts/pulseNewTokenTypes';
-import { notifyUserWebPush } from '@/lib/push/notifyUser';
+import { notifyUser } from '@/lib/push/notifyUser';
 import { alertProtocolFilterMatches } from '@/lib/protocol/alertProtocolMatch';
 
 /**
@@ -79,7 +79,7 @@ export async function emitMatchingPulseLaunchpadAlertRules(
           input.symbol || input.name
             ? [input.symbol, input.name].filter(Boolean).join(' - ')
             : 'New listing matched your rule';
-        await notifyUserWebPush(rule.user_id, {
+        await notifyUser(rule.user_id, {
           title: `Rule: ${rule.name}`,
           body,
           url: `/token/${encodeURIComponent(input.mint)}`,
