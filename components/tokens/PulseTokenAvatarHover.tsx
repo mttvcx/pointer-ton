@@ -183,8 +183,8 @@ export function PulseTokenAvatarHover({
   const computePos = useCallback(
     (r: DOMRect): { left: number; top?: number; bottom?: number } => {
       const gap = 8;
-      const w = detailed ? 320 : Math.min(280, Math.max(size * 2.4, 160));
-      const estH = detailed ? 300 : w + 28; // detailed card ≈ fixed height; else image ≈ its width
+      const w = detailed ? 540 : Math.min(280, Math.max(size * 2.4, 160));
+      const estH = detailed ? 380 : w + 28; // detailed card ≈ fixed height; else image ≈ its width
       const spaceBelow = window.innerHeight - r.bottom;
       const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
       if (spaceBelow < estH && r.top > spaceBelow) {
@@ -241,7 +241,7 @@ export function PulseTokenAvatarHover({
     syncPanelPos();
   }, [hovered, syncPanelPos]);
 
-  const previewPx = detailed ? 320 : Math.min(280, Math.max(size * 2.4, 160));
+  const previewPx = detailed ? 540 : Math.min(280, Math.max(size * 2.4, 160));
   const actionBtnPx = Math.max(16, Math.min(20, Math.round(size * 0.34)));
   const iconPx = Math.max(10, Math.round(actionBtnPx * 0.58));
 
