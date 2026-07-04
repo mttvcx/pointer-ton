@@ -48,7 +48,9 @@ export const DEFAULT_ACTIVITY_FILTER: ActivityFilter = {
   retweets: true,
 };
 
-const handlesSchema = z.array(z.string().trim().min(1).max(72)).min(1).max(64);
+// min(0): a keyword/CA rule may carry no explicit handles — empty = watch the
+// default monitor set (DEFAULT_MONITOR_HANDLES) once the engine wires it.
+const handlesSchema = z.array(z.string().trim().min(1).max(72)).max(64);
 
 export const KeywordTriggerConfigSchema = z
   .object({
@@ -139,6 +141,8 @@ export const BuyActionConfigSchema = z
   .object({
     buySolPreset: z.number().positive().max(420).nullable().optional(),
     slippageBps: z.number().int().min(50).max(5000).nullable().optional(),
+    /** Chain the auto-buy executes on (multi-chain). Lives here — it's an action property. */
+    chain: z.enum(['sol', 'eth', 'base', 'bnb']).optional(),
   })
   .strict();
 

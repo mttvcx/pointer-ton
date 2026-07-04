@@ -129,6 +129,21 @@ export async function getUserById(id: string): Promise<UserRow | null> {
   return data;
 }
 
+/** Case-insensitive username lookup — for P2P recipient resolution. */
+export async function getUserByUsername(username: string): Promise<UserRow | null> {
+  const u = username.trim().replace(/^@/, '');
+  if (!u) return null;
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .ilike('username', u)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`getUserByUsername failed: ${error.message}`);
+  return data;
+}
+
 export async function completeUserOnboarding(userId: string): Promise<UserRow> {
   return updateUser(userId, {
     onboarding_completed_at: new Date().toISOString(),

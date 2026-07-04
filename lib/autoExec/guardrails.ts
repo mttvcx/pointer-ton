@@ -29,7 +29,9 @@ export type ReserveResult =
 /** Kill switch: a per-account freeze (scope trading|all) halts all firing instantly. Fail-closed. */
 export async function isHalted(userId: string): Promise<boolean> {
   try {
-    const { frozen } = await isActivityFrozen(userId, 'trading');
+    // auto-execution IS automation — the automation kill switch pauses it without
+    // touching the user's manual trading.
+    const { frozen } = await isActivityFrozen(userId, 'automation');
     return frozen;
   } catch {
     return true; // can't read freeze state → treat as halted

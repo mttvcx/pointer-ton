@@ -14,6 +14,7 @@ import {
 } from '@/lib/alerts/automationRuleModel';
 import { insertAlertRule, listAlertRulesForUser } from '@/lib/db/alertRules';
 import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
+import { fetchUsdPricesForMints } from '@/lib/jupiter/priceTickers';
 import type { Json } from '@/lib/supabase/types';
 
 export const runtime = 'nodejs';
@@ -81,6 +82,25 @@ export async function POST(req: NextRequest) {
     }
 
     const d = parsed.data;
+
+    // Price rule with an Nx multiple but no captured base → snapshot spot now so the
+    // cron can evaluate `basePriceUsd * targetMultiple`. Best-effort; rule still saves.
+    if (d.triggerType === 'price') {
+      const tc = validated.triggerConfig as {
+        mint?: string;
+        targetMultiple?: number;
+        basePriceUsd?: number;
+        targetPriceUsd?: number;
+      };
+      if (tc.mint && tc.targetMultiple != null && tc.basePriceUsd == null && tc.targetPriceUsd == null) {
+        try {
+          const spot = (await fetchUsdPricesForMints([tc.mint])).get(tc.mint)?.usdPrice;
+          if (spot != null && Number.isFinite(spot) && spot > 0) tc.basePriceUsd = spot;
+        } catch {
+          /* leave basePriceUsd unset — rule saves, just won't fire until set */
+        }
+      }
+    }
     try {
       const row = await insertAlertRule({
         user_id: auth.user.id,
