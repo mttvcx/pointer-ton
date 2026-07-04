@@ -556,19 +556,20 @@ export function XMonitorPanel({
                 const isVertRail = launchRailSide === 'left' || launchRailSide === 'right';
                 const railThickness = launchRailSize === 'big'
                   ? isVertRail
-                    ? 'w-11'
-                    : 'h-11'
+                    ? 'w-14'
+                    : 'h-14'
                   : isVertRail
-                    ? 'w-8'
-                    : 'h-8';
+                    ? 'w-10'
+                    : 'h-10';
+                // Tighter to the card edges (Axiom ultra-buy feel) — minimal inset.
                 const railMargin =
                   launchRailSide === 'left'
-                    ? 'my-2 ml-2'
+                    ? 'my-1 ml-1'
                     : launchRailSide === 'right'
-                      ? 'my-2 mr-2'
+                      ? 'my-1 mr-1'
                       : launchRailSide === 'top'
-                        ? 'mx-2 mt-2'
-                        : 'mx-2 mb-2';
+                        ? 'mx-1 mt-1'
+                        : 'mx-1 mb-1';
                 // Custom colour drives a --rail CSS var; hover fill/outline is done
                 // with color-mix arbitrary classes so it reacts like the default accent.
                 const railStyle: CSSProperties | undefined = launchRailColor
@@ -618,7 +619,7 @@ export function XMonitorPanel({
                       }
                       style={railStyle}
                       className={cn(
-                        'btn-press focus-ring flex shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
+                        'peer/launchRail btn-press focus-ring flex shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
                         railThickness,
                         railMargin,
                         // Default accent
@@ -648,7 +649,7 @@ export function XMonitorPanel({
                       </span>
                     </button>
 
-                    <div className="min-w-0 flex-1 px-3 py-2.5">
+                    <div className="min-w-0 flex-1 px-3 py-2.5 transition-[filter,opacity] duration-200 ease-out peer-hover/launchRail:opacity-45 peer-hover/launchRail:blur-[4px]">
                       <div className="flex items-start gap-2">
                         <a
                           href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}

@@ -35,7 +35,9 @@ export function SettingsPopoverPortal({
   children,
   role = 'dialog',
   'aria-label': ariaLabel,
-  zIndexClass = 'z-[200]',
+  // Above the floating docks (wallet-tracker / X-Monitor are z-[221]) so the dim
+  // backdrop covers them too — otherwise they stay bright over the settings fade.
+  zIndexClass = 'z-[230]',
 }: SettingsPopoverPortalProps) {
   if (!mounted) return null;
 
