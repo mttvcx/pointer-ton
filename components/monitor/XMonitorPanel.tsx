@@ -700,7 +700,7 @@ export function XMonitorPanel({
                       </span>
                     </button>
 
-                    <div className="min-w-0 flex-1 px-3 py-2.5 transition-[filter,opacity] duration-200 ease-out peer-hover/launchRail:opacity-45 peer-hover/launchRail:blur-[4px]">
+                    <div className="min-w-0 flex-1 px-3 py-2.5">
                       <div className="flex items-start gap-2">
                         <a
                           href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
