@@ -8,6 +8,7 @@ import { VerifiedBadge } from '../components/VerifiedBadge';
 import { XBadge } from '../components/XBadge';
 import { CopyTradeSheet } from '../components/CopyTradeSheet';
 import { PnlShareCard } from '../components/PnlShareCard';
+import { SendMoneySheet } from '../components/SendMoneySheet';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
@@ -15,7 +16,6 @@ import { getDemoTrader, type TraderPosition } from '../src/demo/traders';
 import { toggleFollow, useIsFollowing, useCopy } from '../src/local';
 import { follow as apiFollow, unfollow as apiUnfollow } from '../src/api/social';
 import { useAuth } from '../src/auth';
-import { shareText } from '../src/share';
 import type { PulseBundle } from '../src/types';
 
 /** Build a token bundle from one of a trader's positions so tapping it opens the
@@ -154,6 +154,7 @@ export function TraderProfileScreen({
   const [sortDesc, setSortDesc] = useState(true);
   const [copyOpen, setCopyOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
   const [sharePos, setSharePos] = useState<TraderPosition | null>(null);
   const copying = useCopy(p.handle);
   const topPos = p.open[0];
@@ -226,13 +227,9 @@ export function TraderProfileScreen({
             <Text style={s.avatarText}>{p.initial}</Text>
           </View>
           <View style={s.idActions}>
-            <PressScale
-              onPress={() => shareText(`Watch ${p.handle} on Pointer.`, 'https://pointer-ton-orcin.vercel.app')}
-              to={0.9}
-              style={s.dmBtn}
-            >
+            <PressScale onPress={() => setSendOpen(true)} to={0.9} style={s.dmBtn}>
               <GlassFill />
-              <Ionicons name="paper-plane-outline" size={20} color={colors.fg} />
+              <Ionicons name="paper-plane" size={19} color={colors.accentGlow} />
             </PressScale>
             <PressScale onPress={onToggleFollow} to={0.94} style={[s.followBtn, following && s.followingBtn]}>
               <GlassFill active={following} />
@@ -405,6 +402,12 @@ export function TraderProfileScreen({
           investedUsd={Math.max(0, sharePos.valueUsd - sharePos.pnlUsd)}
         />
       ) : null}
+
+      <SendMoneySheet
+        visible={sendOpen}
+        onClose={() => setSendOpen(false)}
+        recipient={{ name: p.name, handle: p.handle, color: p.color, initial: p.initial }}
+      />
     </Animated.View>
   );
 }

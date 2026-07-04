@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, Vibration, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Logo } from '../components/Logo';
@@ -14,6 +14,7 @@ import { saveXUsername } from '../src/api/social';
 import { updateProfile } from '../src/api/endpoints';
 import { shortMint } from '../src/format';
 import { showToast } from '../src/toast';
+import { copyText } from '../src/clipboard';
 
 export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean }) {
   const auth = useAuth();
@@ -185,15 +186,31 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
 
         <View style={s.divider} />
 
-        {addrs.map((a) => (
-          <View key={a.label} style={s.addrBlock}>
-            <Text style={s.addrLabel}>{a.label}</Text>
-            <View style={s.addrRow}>
-              <Text style={s.addr}>{shortMint(a.value)}</Text>
-              <Ionicons name="copy-outline" size={15} color={colors.fgMuted} />
-            </View>
-          </View>
-        ))}
+        {addrs.map((a) => {
+          const copyable = a.value && a.value !== '—';
+          return (
+            <PressScale
+              key={a.label}
+              style={s.addrBlock}
+              to={0.98}
+              onPress={
+                copyable
+                  ? async () => {
+                      await copyText(a.value);
+                      Vibration.vibrate(8);
+                      showToast(`${a.label} copied`, { kind: 'success' });
+                    }
+                  : undefined
+              }
+            >
+              <Text style={s.addrLabel}>{a.label}</Text>
+              <View style={s.addrRow}>
+                <Text style={s.addr}>{shortMint(a.value)}</Text>
+                <Ionicons name="copy-outline" size={15} color={colors.fgMuted} />
+              </View>
+            </PressScale>
+          );
+        })}
 
         <PressScale style={s.export} onPress={() => setExportSheet(true)}>
           <Text style={s.exportText}>Export</Text>
