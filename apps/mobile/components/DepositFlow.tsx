@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
@@ -33,8 +33,11 @@ const USDC_BUNDLE = {
   snapshot: { price_usd: 1, market_cap_usd: null },
 } as unknown as PulseBundle;
 const NETWORKS = ['Solana', 'Base', 'BNB Chain', 'Monad', 'Hyperliquid', 'Ethereum'];
-// Chain icon per network name (Monad/Hyperliquid have no logo asset → letter).
+// Chain icon per network name. Hyperliquid uses its real protocol logo; Monad has
+// no logo asset, so it gets a brand-purple lettered badge (not a plain gray one).
 const NET_ICON: Record<string, string> = { Solana: 'sol', Ethereum: 'eth', Base: 'base', 'BNB Chain': 'bnb' };
+const NET_IMG: Record<string, number> = { Hyperliquid: require('../assets/protocols/hyperliquid.png') };
+const NET_TINT: Record<string, string> = { Monad: '#836EF9' };
 const KEY_ROWS = [
   ['1', '2', '3'],
   ['4', '5', '6'],
@@ -204,8 +207,10 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
               <Text style={s.netName}>{n}</Text>
               {NET_ICON[n] ? (
                 <ChainIcon id={NET_ICON[n]} size={26} />
+              ) : NET_IMG[n] ? (
+                <Image source={NET_IMG[n]} style={s.netImg} />
               ) : (
-                <View style={s.netBadge}>
+                <View style={[s.netBadge, NET_TINT[n] ? { backgroundColor: NET_TINT[n] } : null]}>
                   <Text style={s.netBadgeText}>{n.slice(0, 1)}</Text>
                 </View>
               )}
@@ -372,6 +377,7 @@ const s = StyleSheet.create({
   netRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 16, marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   netName: { color: colors.fg, fontSize: 17, fontWeight: '600' },
   netBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.bgRaised2, alignItems: 'center', justifyContent: 'center' },
+  netImg: { width: 26, height: 26, borderRadius: 13 },
   netBadgeText: { color: colors.fgSecondary, fontSize: 13, fontWeight: '700' },
   addrCard: { borderRadius: radius.lg, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   addrLabel: { color: colors.fgMuted, fontSize: 13 },

@@ -7,7 +7,10 @@ import { PressScale } from './PressScale';
 import { PnlShareCard } from './PnlShareCard';
 import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
+import { DepositFlow } from './DepositFlow';
 import { colors, radius } from '../src/theme';
+import { useIsFollowing, toggleFollow } from '../src/local';
+import { showToast } from '../src/toast';
 import type { WeeklyTrade } from '../src/demo';
 
 /** "+$77,860.93" / "3,328.67%" / "$2,339.10" → number. */
@@ -26,6 +29,8 @@ const EXITS = [
 
 export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onClose: () => void }) {
   const [share, setShare] = useState(false);
+  const [deposit, setDeposit] = useState(false);
+  const following = useIsFollowing(trade?.name ?? '');
   return (
     <DragSheet visible={!!trade} onClose={onClose}>
       {trade ? (
@@ -43,9 +48,15 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
                 <GlassFill />
                 <Ionicons name="share-outline" size={18} color={colors.fg} />
               </PressScale>
-              <PressScale style={s.follow}>
-                <GlassFill />
-                <Text style={s.followText}>Follow</Text>
+              <PressScale
+                style={[s.follow, following && s.followOn]}
+                onPress={() => {
+                  toggleFollow(trade.name);
+                  showToast(following ? `Unfollowed ${trade.name}` : `Following ${trade.name}`, { kind: 'success' });
+                }}
+              >
+                <GlassFill active={following} />
+                <Text style={[s.followText, following && s.followTextOn]}>{following ? 'Following' : 'Follow'}</Text>
               </PressScale>
             </View>
           </View>
@@ -136,9 +147,11 @@ export function TraderSheet({ trade, onClose }: { trade: WeeklyTrade | null; onC
             </View>
           </ScrollView>
 
-          <GlossButton style={{ marginTop: 12 }}>
+          <GlossButton style={{ marginTop: 12 }} onPress={() => setDeposit(true)}>
             <Text style={s.buyText}>Deposit to buy</Text>
           </GlossButton>
+
+          <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
 
           <PnlShareCard
             visible={share}
@@ -164,7 +177,9 @@ const s = StyleSheet.create({
   traderActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconBtn: { width: 42, height: 38, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center' },
   follow: { borderRadius: 10, paddingHorizontal: 22, paddingVertical: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  followOn: { borderColor: colors.accent },
   followText: { color: colors.fg, fontSize: 15, fontWeight: '600' },
+  followTextOn: { color: colors.accentGlow },
   tokenRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 },
   tokenLeft: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   tokenIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
