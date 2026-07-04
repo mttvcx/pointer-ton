@@ -6,6 +6,7 @@ import { pnlMomentSnapshot, PNL_MOMENT_DURATION_SEC } from '@/lib/share/pnlMomen
 import { PNL_SHARE_CARD_REF, PNL_SHARE_POS, pnlShareContentOffset } from '@/lib/share/pnlShareLayout';
 import { formatCompactUsd } from '@/lib/utils/formatters';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
 
 export { PNL_SHARE_CARD_REF };
@@ -54,6 +55,17 @@ export function preloadPointerLogoForExport(): Promise<HTMLImageElement | null> 
 }
 
 export const POINTER_BIRD_LOGO_SRC = '/branding/pointer-bird.png';
+
+/** Preload the Solana mark so the hero token can be drawn as the glyph in video exports. */
+export function preloadSolLogoForExport(): Promise<HTMLImageElement | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = CHAIN_ICON_PNG.sol;
+  });
+}
 
 function drawCodeBackground(
   ctx: CanvasRenderingContext2D,
@@ -214,12 +226,13 @@ export function drawPnlCardFrame(
   overlay: ShareOverlaySettings,
   logoImg: HTMLImageElement | null,
   moment?: { tSec: number } | null,
-  options?: { overlayOnly?: boolean },
+  options?: { overlayOnly?: boolean; solLogo?: HTMLImageElement | null },
 ): void {
   const scale = w / PNL_SHARE_CARD_REF.w;
   const ts = scale * overlay.textScale;
   const bgId = args.backgroundId ?? 'midnight';
   const overlayOnly = options?.overlayOnly === true;
+  const solLogo = options?.solLogo ?? null;
   const pos = PNL_SHARE_POS;
   const accent = args.accentHex;
   const colX = pnlShareContentOffset(overlay.overlayAlign) * scale;
@@ -299,16 +312,16 @@ export function drawPnlCardFrame(
   );
   drawChromeText(ctx, amountPart, boxX + 36 * scale, boxY + boxH * 0.64, heroFont, '900', accent, bgId);
   if (overlay.pnlFormat !== 'pct' && !heroDisplay.includes('%')) {
-    drawChromeText(
-      ctx,
-      tokenPart.toUpperCase(),
-      boxX + 36 * scale + ctx.measureText(amountPart).width + 18 * scale,
-      boxY + boxH * 0.64,
-      Math.round(pos.heroAmount.tokenSize * ts * (heroFont / (pos.heroAmount.fontSize * ts))),
-      '700',
-      accent,
-      bgId,
-    );
+    const tokenFontPx = Math.round(pos.heroAmount.tokenSize * ts * (heroFont / (pos.heroAmount.fontSize * ts)));
+    const tokenX = boxX + 36 * scale + ctx.measureText(amountPart).width + 18 * scale;
+    if (tokenPart.toUpperCase() === 'SOL' && solLogo) {
+      // Solana glyph instead of the "SOL" text — matches the DOM preview + PNG.
+      const iconSize = Math.round(tokenFontPx * 1.02);
+      const iconY = boxY + boxH * 0.5 - iconSize / 2;
+      ctx.drawImage(solLogo, tokenX, iconY, iconSize, iconSize);
+    } else {
+      drawChromeText(ctx, tokenPart.toUpperCase(), tokenX, boxY + boxH * 0.64, tokenFontPx, '700', accent, bgId);
+    }
   }
   ctx.restore();
 

@@ -3,6 +3,7 @@
 import type { ShareOverlaySettings } from '@/lib/share/types';
 import {
   drawPnlCardFrame,
+  preloadSolLogoForExport,
   type CardFrameArgs,
 } from '@/lib/share/videoCanvasFrame';
 
@@ -224,10 +225,13 @@ export async function exportShareVideoWebm(params: {
   const fps = 30;
   const frameMs = 1000 / fps;
 
+  const solLogo = await preloadSolLogoForExport();
+
   const drawFrame = (momentT: number) => {
     drawVideoCover(ctx, videoEl, width, height, videoPan, videoZoom);
     drawPnlCardFrame(ctx, width, height, cardArgs, overlay, null, { tSec: momentT }, {
       overlayOnly: true,
+      solLogo,
     });
   };
 
