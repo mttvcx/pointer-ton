@@ -7,6 +7,7 @@ import { PressScale } from '../components/PressScale';
 import { XBadge } from '../components/XBadge';
 import { ActivityFeed } from '../components/ActivityFeed';
 import { SquadsView } from '../components/SquadsView';
+import { FriendsView } from '../components/FriendsView';
 import { GlassFill } from '../components/GlassFill';
 import { colors, radius } from '../src/theme';
 import { getLeaderboard, type LeaderEntry } from '../src/demo/traders';
@@ -16,11 +17,12 @@ import type { PulseBundle } from '../src/types';
 
 const RANGES = ['24h', '7d', '30d', 'All'];
 const MEDALS = ['#E3B321', '#B7C0CC', '#C57B3A'];
-type SocialView = 'activity' | 'leaderboard' | 'squads';
+type SocialView = 'activity' | 'leaderboard' | 'squads' | 'friends';
 const TAB_META: Record<SocialView, { icon: React.ComponentProps<typeof Ionicons>['name']; label: string }> = {
   activity: { icon: 'pulse-outline', label: 'Activity' },
   leaderboard: { icon: 'trophy-outline', label: 'Ranks' },
   squads: { icon: 'people-outline', label: 'Squads' },
+  friends: { icon: 'person-add-outline', label: 'Friends' },
 };
 
 /* ---- formatters (no Intl — Hermes-safe) ---- */
@@ -56,7 +58,7 @@ export function SocialScreen({
         </View>
 
         <View style={s.tabsRow}>
-          {(['activity', 'leaderboard', 'squads'] as SocialView[]).map((v) => (
+          {(['activity', 'leaderboard', 'squads', 'friends'] as SocialView[]).map((v) => (
             <PressScale key={v} onPress={() => setView(v)} to={0.96} style={[s.tab, view === v && s.tabOn]}>
               <GlassFill active={view === v} />
               <Ionicons name={TAB_META[v].icon} size={15} color={view === v ? colors.fg : colors.fgMuted} />
@@ -67,6 +69,8 @@ export function SocialScreen({
 
         {view === 'activity' ? (
           <ActivityFeed onOpenToken={onOpenToken} onOpenTrader={onOpenTrader} />
+        ) : view === 'friends' ? (
+          <FriendsView />
         ) : view === 'squads' ? (
           <SquadsView />
         ) : (
@@ -162,10 +166,10 @@ const s = StyleSheet.create({
   title: { color: colors.fg, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   shareBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
 
-  tabsRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  tabsRow: { flexDirection: 'row', gap: 6, marginTop: 16 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11, paddingHorizontal: 2, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   tabOn: { borderColor: 'rgba(255,255,255,0.28)' },
-  tabText: { color: colors.fgMuted, fontSize: 14, fontWeight: '700' },
+  tabText: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '700' },
   tabTextOn: { color: colors.fg },
 
   rankCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.lg, padding: 16, marginTop: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },

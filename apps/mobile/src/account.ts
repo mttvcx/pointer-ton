@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { DEMO, useAuth } from './auth';
 import { getMe, getMyWallets, getPortfolio, getPoints, getCashBalance } from './api/endpoints';
-import { getPointerIdentity, getSquads } from './api/social';
+import { getPointerIdentity, getSquads, getFriends, getFriendRequests } from './api/social';
 
 /**
  * Real-account hooks. All are DISABLED in demo (Expo Go) and until the user is
@@ -43,6 +43,15 @@ export function useSquads() {
     staleTime: 30_000,
     retry: 1,
   });
+}
+
+export function useFriends() {
+  const auth = useAuth();
+  return useQuery({ queryKey: ['friends'], queryFn: getFriends, enabled: !DEMO && auth.isLoggedIn, staleTime: 20_000, retry: 1 });
+}
+export function useFriendRequests() {
+  const auth = useAuth();
+  return useQuery({ queryKey: ['friend-requests'], queryFn: getFriendRequests, enabled: !DEMO && auth.isLoggedIn, staleTime: 20_000, retry: 1 });
 }
 
 export function useMyWallets() {
