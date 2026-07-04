@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Image, KeyboardAvoidingView, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Image, KeyboardAvoidingView, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgGrad, Path, Stop } from 'react-native-svg';
@@ -174,7 +174,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
               <View style={s.earnDivider} />
 
               <Text style={s.earnLabel}>Projected earnings</Text>
-              <Text style={s.earnBig}>{fmtUsd(invest * (PROJ_PCT / 100))}</Text>
+              <EarningsBig value={invest * (PROJ_PCT / 100)} />
               <View style={s.earnBadge}>
                 <Text style={s.earnBadgeText}>+{fmtPct(PROJ_PCT)}%</Text>
               </View>
@@ -282,6 +282,26 @@ function EarningsSlider({ value, min, max, onChange }: { value: number; min: num
       <View style={[s.sliderThumb, { left: `${pct * 100}%` }]} />
     </View>
   );
+}
+
+/**
+ * The projected-earnings number: on mount (i.e. when step 3 slides in) it counts
+ * up from $0 to the value over ~2.3s — the "boom, look at these numbers" beat.
+ * While dragging the slider it just tracks quickly so it stays responsive.
+ */
+function EarningsBig({ value }: { value: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  const [shown, setShown] = useState(0);
+  const first = useRef(true);
+  useEffect(() => {
+    const id = anim.addListener(({ value: v }) => setShown(v));
+    return () => anim.removeListener(id);
+  }, []);
+  useEffect(() => {
+    Animated.timing(anim, { toValue: value, duration: first.current ? 2300 : 200, useNativeDriver: false }).start();
+    first.current = false;
+  }, [value]);
+  return <Text style={s.earnBig}>{fmtUsd(shown)}</Text>;
 }
 
 const HAIR = 'rgba(255,255,255,0.10)';

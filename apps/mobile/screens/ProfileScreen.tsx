@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../components/Screen';
@@ -11,6 +11,7 @@ import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
 import { useBio, useFollowCount, useReferralCode } from '../src/local';
 import { useMe, usePointerIdentity } from '../src/account';
+import { useAuth } from '../src/auth';
 import { shareReferral } from '../src/share';
 
 /** "ABcd…WXyz" short form for a wallet address. */
@@ -30,7 +31,9 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
 
   // Real identity once signed in (real build); demo keeps the "pointer" placeholder.
   const me = useMe();
+  const auth = useAuth();
   const xHandle = usePointerIdentity().data?.xUsername?.replace(/^@/, '') || null;
+  const avatarUrl = auth.avatarUrl;
   const displayName = me.data?.username?.trim() || me.data?.email?.split('@')[0] || 'pointer';
   const displayHandle = me.data?.username
     ? `@${me.data.username}`
@@ -43,7 +46,7 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
       <ScrollView contentContainerStyle={[s.content, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={s.topRow}>
           <View style={s.avatar}>
-            <Logo size={30} />
+            {avatarUrl ? <Image source={{ uri: avatarUrl }} style={s.avatarImg} /> : <Logo size={30} />}
           </View>
           <View style={s.topIcons}>
             <PressScale onPress={() => shareReferral(refCode)} to={0.85} hitSlop={8}>
@@ -145,7 +148,8 @@ function Meta({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>['nam
 const s = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingBottom: 130 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#E8732A', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#E8732A', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg: { width: 64, height: 64, borderRadius: 32 },
   topIcons: { flexDirection: 'row', gap: 20 },
   name: { color: colors.fg, fontSize: 26, fontWeight: '700', marginTop: 14 },
   handleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },

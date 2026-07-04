@@ -29,6 +29,8 @@ export type AuthState = {
   loginWithOAuth: (provider: 'google' | 'apple') => Promise<void>;
   /** The connected X/Twitter handle (from Privy linked accounts), or null. */
   twitterHandle: string | null;
+  /** The connected X/Twitter profile picture URL, or null (used as the avatar). */
+  avatarUrl: string | null;
   /** Link an X/Twitter account to the signed-in user; resolves with the handle
    *  (REAL only; no-op → null in demo). */
   linkTwitter: () => Promise<string | null>;
@@ -67,6 +69,7 @@ function DemoAuthProvider({ children }: { children: React.ReactNode }) {
     verifyCode: async () => {},
     loginWithOAuth: async () => {},
     twitterHandle: null,
+    avatarUrl: null,
     linkTwitter: async () => null,
     logout: async () => {},
     signAndSend: async () => {

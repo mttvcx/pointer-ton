@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Logo } from '../components/Logo';
@@ -9,7 +9,8 @@ import { ExportKeysSheet } from '../components/ExportKeysSheet';
 import { colors, radius } from '../src/theme';
 import { useAuth } from '../src/auth';
 import { setBio, useBio } from '../src/local';
-import { useMe } from '../src/account';
+import { useMe, usePointerIdentity } from '../src/account';
+import { saveXUsername } from '../src/api/social';
 import { updateProfile } from '../src/api/endpoints';
 import { shortMint } from '../src/format';
 import { showToast } from '../src/toast';
@@ -18,6 +19,7 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
   const auth = useAuth();
   const qc = useQueryClient();
   const me = useMe();
+  const xIdentity = usePointerIdentity();
   const storedBio = useBio();
   const [username, setUsername] = useState('');
   const [display, setDisplay] = useState('');
@@ -81,7 +83,9 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
       if (handle) {
         setUsername(handle);
         await updateProfile({ username: handle });
+        saveXUsername(handle).catch(() => {});
         qc.invalidateQueries({ queryKey: ['me'] });
+        qc.invalidateQueries({ queryKey: ['pointer-identity'] });
         showToast(`Connected @${handle}`, { kind: 'success' });
       }
     } catch {
@@ -98,25 +102,40 @@ export function AccountScreen({ autoFocusBio = false }: { autoFocusBio?: boolean
     { label: 'Monad address', value: evm },
   ];
 
+  const xHandle = (xIdentity.data?.xUsername || auth.twitterHandle || '').replace(/^@/, '') || null;
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView ref={scrollRef} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={s.h1}>Account</Text>
 
-        <PressScale to={0.98} style={s.xCard} onPress={connectX}>
-          <View style={s.xMark}>
-            <Text style={s.xText}>X</Text>
+        {xHandle ? (
+          <View style={s.xCard}>
+            <View style={[s.xMark, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="logo-twitter" size={18} color={colors.accentGlow} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.xTitle}>X connected</Text>
+              <Text style={s.xSub}>@{xHandle}</Text>
+            </View>
+            <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.xTitle}>Connect your X account</Text>
-            <Text style={s.xSub}>Claim your username and find friends</Text>
-          </View>
-          <Ionicons name="arrow-up" size={18} color={colors.accentGlow} style={{ transform: [{ rotate: '45deg' }] }} />
-        </PressScale>
+        ) : (
+          <PressScale to={0.98} style={s.xCard} onPress={connectX}>
+            <View style={s.xMark}>
+              <Text style={s.xText}>X</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.xTitle}>Connect your X account</Text>
+              <Text style={s.xSub}>Claim your username and find friends</Text>
+            </View>
+            <Ionicons name="arrow-up" size={18} color={colors.accentGlow} style={{ transform: [{ rotate: '45deg' }] }} />
+          </PressScale>
+        )}
 
         <View style={s.avatarWrap}>
           <View style={s.avatar}>
-            <Logo size={42} />
+            {auth.avatarUrl ? <Image source={{ uri: auth.avatarUrl }} style={s.avatarImg} /> : <Logo size={42} />}
           </View>
           <View style={s.pencil}>
             <Ionicons name="pencil" size={13} color="#fff" />
@@ -216,7 +235,8 @@ const s = StyleSheet.create({
   xSub: { color: colors.fgSecondary, fontSize: 14, marginTop: 2 },
 
   avatarWrap: { alignSelf: 'flex-start', marginTop: 26 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#E760A0', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#E760A0', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg: { width: 80, height: 80, borderRadius: 40 },
   pencil: { position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, backgroundColor: '#1A1E27', borderWidth: 2, borderColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
 
   label: { color: colors.fgMuted, fontSize: 14, marginTop: 22, marginBottom: 8 },

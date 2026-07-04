@@ -35,11 +35,18 @@ export function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 /** Pull the connected X/Twitter @handle out of a Privy user's linked accounts. */
+type LinkedAcct = { type?: string; username?: string; profile_picture_url?: string; profilePictureUrl?: string };
+function linkedAccounts(u: unknown): LinkedAcct[] | undefined {
+  const asObj = u as { linked_accounts?: LinkedAcct[]; user?: { linked_accounts?: LinkedAcct[] } } | null | undefined;
+  return asObj?.linked_accounts ?? asObj?.user?.linked_accounts;
+}
 function twitterOf(u: unknown): string | null {
-  const asObj = u as { linked_accounts?: Array<{ type?: string; username?: string }>; user?: { linked_accounts?: Array<{ type?: string; username?: string }> } } | null | undefined;
-  const accts = asObj?.linked_accounts ?? asObj?.user?.linked_accounts;
-  const tw = accts?.find((a) => a?.type === 'twitter_oauth');
-  return tw?.username ?? null;
+  return linkedAccounts(u)?.find((a) => a?.type === 'twitter_oauth')?.username ?? null;
+}
+/** Twitter/X profile picture (Privy stores it on the linked twitter_oauth account). */
+function avatarOf(u: unknown): string | null {
+  const tw = linkedAccounts(u)?.find((a) => a?.type === 'twitter_oauth');
+  return tw?.profile_picture_url ?? tw?.profilePictureUrl ?? null;
 }
 
 function Bridge({ children }: { children: React.ReactNode }) {
@@ -100,6 +107,7 @@ function Bridge({ children }: { children: React.ReactNode }) {
       await loginOAuth({ provider });
     },
     twitterHandle: twitterOf(user),
+    avatarUrl: avatarOf(user),
     linkTwitter: async () => {
       linkedHandle.current = null;
       await linkOAuth({ provider: 'twitter' });

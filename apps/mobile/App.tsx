@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import {
   useFonts,
   Sora_400Regular,
@@ -75,6 +75,7 @@ type StackRoute = { kind: 'token'; bundle: PulseBundle } | ({ kind: 'trader' } &
 
 function Shell() {
   const auth = useAuth();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<NavTab>('home');
   // A real navigation stack so token → trader → token → … back-navigates one level
@@ -165,6 +166,7 @@ function Shell() {
           // renders while isLoggedIn is briefly still true and auto-advances right
           // back in (the "had to click Log out twice" bug).
           setSettingsOpen(false);
+          queryClient.clear(); // drop the old account's cached data (portfolio, me, identity…)
           void (async () => {
             try {
               await auth.logout();
