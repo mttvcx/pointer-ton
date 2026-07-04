@@ -371,9 +371,14 @@ export function PortfolioDashboard({
     };
   }, [funderPickerOpen]);
 
+  // NOTE: intentionally NOT gated on `backendReady`. `/api/portfolio` resolves the
+  // user from the Privy token itself (requirePointerUser), so a returning user's
+  // snapshot — including token-position values, which is the whole point of Total
+  // Value — loads even when the client-side sync flag lags/stalls. Brand-new users
+  // (no DB row yet) get a `user_not_synced` 403 that the retry below rides out until
+  // AuthSyncGate provisions the row.
   const portfolioEnabled =
     authenticated &&
-    backendReady &&
     walletsReady &&
     activeChain === 'sol' &&
     (selectedPortfolioWalletId === 'all' ||
@@ -382,7 +387,10 @@ export function PortfolioDashboard({
   const query = useQuery({
     queryKey: portfolioQueryKey(selectedWalletAddress),
     enabled: portfolioEnabled,
-    retry: (count, err) => count < 2 && err instanceof Error && /sync/i.test(err.message),
+    retry: (count, err) =>
+      count < 3 &&
+      err instanceof Error &&
+      /sync|sign.?in|not.?synced|user row/i.test(err.message),
     queryFn: () => fetchPortfolioJson<PortfolioJson>(getAccessToken, selectedWalletAddress),
     staleTime: 15_000,
     refetchInterval: portfolioEnabled ? 15_000 : false,
@@ -396,9 +404,10 @@ export function PortfolioDashboard({
 
   usePortfolioRefreshListener(refreshPortfolio, portfolioEnabled);
 
+  // Key loading off the query itself — not `backendReady`, which can stall and would
+  // otherwise pin this true forever (blank Total Value) even after data arrives.
   const portfolioDataLoading =
-    (authenticated && !backendReady && !authSyncError) ||
-    (portfolioEnabled && !query.data && (query.isPending || query.isFetching));
+    portfolioEnabled && !query.data && (query.isPending || query.isFetching);
 
   useEffect(() => {
     if (!query.isError) return;
@@ -616,6 +625,24 @@ export function PortfolioDashboard({
 
   const portfolio = query.data ?? EMPTY_PORTFOLIO;
   const positions = portfolio.positions ?? EMPTY_POSITIONS;
+
+  // Total Value = every priced position (SOL + token holdings) summed. Prefer the
+  // server's number; if it's null (e.g. a transient SOL-price miss) fall back to
+  // summing the position values we did receive so tokens still count and the field
+  // never shows a bare dash while holdings exist.
+  const totalValueDisplayUsd = useMemo(() => {
+    const server = portfolio.summary.totalValueUsd;
+    if (server != null && Number.isFinite(server)) return server;
+    let sum = 0;
+    let any = false;
+    for (const p of positions) {
+      if (p.valueUsd != null && Number.isFinite(p.valueUsd)) {
+        sum += p.valueUsd;
+        any = true;
+      }
+    }
+    return any ? sum : null;
+  }, [portfolio.summary.totalValueUsd, positions]);
   const tokenPositions = useMemo(() => filterTradeTokenPositions(positions), [positions]);
   const closed = portfolio.closedSells ?? EMPTY_CLOSED_SELLS;
   const trades = portfolio.trades ?? EMPTY_TRADES;
@@ -957,7 +984,7 @@ export function PortfolioDashboard({
                 <div>
                   <p className="text-[10px] text-fg-secondary">Total Value</p>
                   <p className="mt-0.5 font-sans text-2xl font-bold tabular-nums leading-none text-fg-primary">
-                    {formatBalancePrimary(portfolio.summary.totalValueUsd, true)}
+                    {formatBalancePrimary(totalValueDisplayUsd, true)}
                   </p>
                 </div>
 
