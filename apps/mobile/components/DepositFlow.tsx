@@ -12,6 +12,7 @@ import { GlossButton } from './GlossButton';
 import { Slide } from './Slide';
 import { colors, radius } from '../src/theme';
 import { getLiveTokens, getOnramperUrl, createCrossmintOrder } from '../src/api/endpoints';
+import { ApiError } from '../src/api/client';
 import { showToast } from '../src/toast';
 import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useAuth } from '../src/auth';
@@ -104,9 +105,15 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
       }
       setOrder({ orderId: res.orderId, clientSecret: res.clientSecret });
       setBuyPhase('checkout');
-    } catch {
+    } catch (err) {
       setBuyPhase('idle');
-      showToast("Couldn't start the purchase", { sub: 'Please try again in a moment', kind: 'error' });
+      // TEMP staging diagnostic — surface the real status + reason so we can tell
+      // auth (401/403) vs payload (400) vs Crossmint-rejected/unsupported-token (502).
+      const detail =
+        err instanceof ApiError ? `${err.status} · ${err.message}` : err instanceof Error ? err.message : 'unknown error';
+      // eslint-disable-next-line no-console
+      console.log('[crossmint] order start failed →', detail, err);
+      showToast('Buy failed', { sub: detail, kind: 'error' });
     }
   };
 
