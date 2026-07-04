@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -24,6 +24,8 @@ import { MiniSpark } from '../components/MiniSpark';
 import { GlassFill } from '../components/GlassFill';
 import { ReferralButton } from '../components/ReferralButton';
 import type { PulseBundle, PerpMarket } from '../src/types';
+
+const SCREEN_W = Dimensions.get('window').width;
 
 // Order intentionally NOT FOMO's (they lead Crypto·Perps·Trending): Trending leads,
 // Perps sits mid-row. Our own rhythm.
@@ -95,6 +97,7 @@ function SimpleHome({
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(0);
   const [trade, setTrade] = useState<WeeklyTrade | null>(null);
+  const [weekIdx, setWeekIdx] = useState(0);
   const [deposit, setDeposit] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
   const [watchOnly, setWatchOnly] = useState(false);
@@ -212,67 +215,63 @@ function SimpleHome({
         </View>
 
         {WEEKLY.length ? (
-          <View style={[s.pad, { marginTop: 2 }]}>
-            {/* Hero — Trade of the Week (lead with the multiple, our depth angle) */}
-            <PressScale onPress={() => setTrade(WEEKLY[0])} to={0.98} style={s.wHero}>
-              <GlassFill />
-              <View style={s.wHeroHead}>
-                <View style={s.wHeroTag}>
-                  <Ionicons name="flame" size={12} color={colors.accentGlow} />
-                  <Text style={s.wHeroTagText}>Trade of the week</Text>
+          <View style={{ marginTop: 2 }}>
+            {/* Horizontal pager — one trade card per page, swipe sideways to flip
+                through the ranking (keeps the section one card tall so the token
+                list below stays on-screen when you change category chips). */}
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onMomentumScrollEnd={(e) => setWeekIdx(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W))}
+            >
+              {WEEKLY.slice(0, 5).map((w, i) => (
+                <View key={w.name} style={{ width: SCREEN_W, paddingHorizontal: 18 }}>
+                  <PressScale onPress={() => setTrade(w)} to={0.98} style={s.wHero}>
+                    <GlassFill />
+                    <View style={s.wHeroHead}>
+                      <View style={s.wHeroTag}>
+                        <Ionicons name={i === 0 ? 'flame' : 'trophy'} size={12} color={colors.accentGlow} />
+                        <Text style={s.wHeroTagText}>{i === 0 ? 'Trade of the week' : `#${i + 1} this week`}</Text>
+                      </View>
+                      <View style={s.wTokenRow}>
+                        <View style={[s.wTokenBadge, { backgroundColor: w.tokenColor }]}>
+                          <Text style={s.wTokenText}>{w.tokenInitial}</Text>
+                        </View>
+                        <Text style={s.wTokenSym}>{w.token}</Text>
+                      </View>
+                    </View>
+                    <View style={s.wHeroMid}>
+                      <Text style={s.wMult}>{multStr(w)}</Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={s.wAmt}>{w.amt}</Text>
+                        <Text style={s.wEntry}>
+                          {w.avgEntry} → {w.avgExit}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={s.wHeroFoot}>
+                      <View style={[s.wAvatar, { backgroundColor: w.color }]}>
+                        <Text style={s.wInitial}>{w.initial}</Text>
+                      </View>
+                      <Text style={s.wName} numberOfLines={1}>
+                        {w.name}
+                      </Text>
+                      <Text style={s.wThesis} numberOfLines={1}>
+                        {w.thesis}
+                      </Text>
+                    </View>
+                  </PressScale>
                 </View>
-                <View style={s.wTokenRow}>
-                  <View style={[s.wTokenBadge, { backgroundColor: WEEKLY[0].tokenColor }]}>
-                    <Text style={s.wTokenText}>{WEEKLY[0].tokenInitial}</Text>
-                  </View>
-                  <Text style={s.wTokenSym}>{WEEKLY[0].token}</Text>
-                </View>
-              </View>
-              <View style={s.wHeroMid}>
-                <Text style={s.wMult}>{multStr(WEEKLY[0])}</Text>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={s.wAmt}>{WEEKLY[0].amt}</Text>
-                  <Text style={s.wEntry}>
-                    {WEEKLY[0].avgEntry} → {WEEKLY[0].avgExit}
-                  </Text>
-                </View>
-              </View>
-              <View style={s.wHeroFoot}>
-                <View style={[s.wAvatar, { backgroundColor: WEEKLY[0].color }]}>
-                  <Text style={s.wInitial}>{WEEKLY[0].initial}</Text>
-                </View>
-                <Text style={s.wName} numberOfLines={1}>
-                  {WEEKLY[0].name}
-                </Text>
-                <Text style={s.wThesis} numberOfLines={1}>
-                  {WEEKLY[0].thesis}
-                </Text>
-              </View>
-            </PressScale>
-
-            {/* Ranked #2..#5 */}
-            {WEEKLY.slice(1, 5).map((w, i) => (
-              <PressScale key={w.name} onPress={() => setTrade(w)} to={0.99} style={s.wRow}>
-                <GlassFill />
-                <Text style={s.wRank}>{i + 2}</Text>
-                <View style={[s.wAvatar, { backgroundColor: w.color }]}>
-                  <Text style={s.wInitial}>{w.initial}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.wRowName} numberOfLines={1}>
-                    {w.name}
-                  </Text>
-                  <View style={s.wRowTokenLine}>
-                    <View style={[s.wTokenDot, { backgroundColor: w.tokenColor }]} />
-                    <Text style={s.wRowToken}>{w.token}</Text>
-                  </View>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={s.wRowMult}>{multStr(w)}</Text>
-                  <Text style={s.wRowAmt}>{w.amt}</Text>
-                </View>
-              </PressScale>
-            ))}
+              ))}
+            </ScrollView>
+            {/* page dots */}
+            <View style={s.dots}>
+              {WEEKLY.slice(0, 5).map((w, i) => (
+                <View key={w.name} style={[s.dot, i === weekIdx && s.dotOn]} />
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -413,6 +412,9 @@ const s = StyleSheet.create({
   cashLine: { color: colors.accentGlow, fontSize: 12.5, fontWeight: '600', marginTop: 6 },
 
   // Weekly Top Trades — hero + ranked list (our own layout, not FOMO's carousel).
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.borderStrong },
+  dotOn: { backgroundColor: colors.accent, width: 18 },
   wHero: { borderRadius: radius.lg, padding: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.accent + '3D' },
   wHeroHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wHeroTag: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
