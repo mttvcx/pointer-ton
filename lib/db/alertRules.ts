@@ -56,6 +56,19 @@ export async function listActiveSolTwitterListenRules(): Promise<AlertRuleRow[]>
   return [...byId.values()];
 }
 
+/** Active automation rules of one trigger type (e.g. 'tracked_wallet', 'price') — for the cron engine. */
+export async function listActiveAutomationRulesByTrigger(triggerType: string): Promise<AlertRuleRow[]> {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase
+    .from('alert_rules')
+    .select('*')
+    .eq('is_active', true)
+    .eq('rule_type', 'automation')
+    .eq('trigger_type', triggerType);
+  if (error) throw new Error(`listActiveAutomationRulesByTrigger failed: ${error.message}`);
+  return data ?? [];
+}
+
 export async function getAlertRuleForUser(
   userId: string,
   id: string,

@@ -7,6 +7,7 @@ import {
   markLimitOrderTriggered,
 } from '@/lib/db/limitOrders';
 import { notifyLimitOrderTriggered } from '@/lib/db/limitOrderNotifications';
+import { firePriceRules } from '@/lib/alerts/automationEngine';
 import { withOpsSpan } from '@/lib/ops/events';
 
 export const runtime = 'nodejs';
@@ -56,7 +57,11 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        return { expired, checked: open.length, triggered };
+        // Price automation rules (alert_rules trigger_type='price') fire from the
+        // same tick — detect + notify + push; execution is Layer C.
+        const priceRulesFired = await firePriceRules().catch(() => 0);
+
+        return { expired, checked: open.length, triggered, priceRulesFired };
       },
       { metric: 'cron.duration_ms' },
     );

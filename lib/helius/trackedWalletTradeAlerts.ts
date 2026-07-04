@@ -2,6 +2,7 @@ import 'server-only';
 
 import { insertAlert } from '@/lib/db/alerts';
 import { notifyUser } from '@/lib/push/notifyUser';
+import { fireTrackedWalletRulesForSwap } from '@/lib/alerts/automationEngine';
 import { getTrackedWallet, listUserIdsTrackingWallet } from '@/lib/db/wallets';
 import { getTokenByMint } from '@/lib/db/tokens';
 import { parseTrackedWalletSwapsFromTx } from '@/lib/helius/parseTrackedWalletSwaps';
@@ -29,6 +30,17 @@ export async function processTrackedWalletTradeAlerts(
   const seenUserWallet = new Set<string>();
 
   for (const swap of swaps) {
+    // Fire tracked_wallet automation rules (alert_rules) — matched by the rule's
+    // configured wallet, independent of the plain tracked_wallets notify list below.
+    alerts += await fireTrackedWalletRulesForSwap({
+      wallet: swap.wallet,
+      mint: swap.mint,
+      side: swap.side === 'sell' ? 'sell' : 'buy',
+      solAmount: swap.solAmount,
+      symbol: null,
+      signature: txSignature || swap.signature,
+    });
+
     const userIds = await listUserIdsTrackingWallet(swap.wallet);
     if (userIds.length === 0) continue;
 
