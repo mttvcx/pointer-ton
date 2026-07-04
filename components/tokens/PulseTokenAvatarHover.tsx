@@ -124,6 +124,7 @@ export function PulseTokenAvatarHover({
   const blacklistDev = usePulseHiddenMintsStore((s) => s.blacklistDev);
   const blacklistTwitter = usePulseHiddenMintsStore((s) => s.blacklistTwitter);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovered, setHovered] = useState(false);
   const [panelPos, setPanelPos] = useState<{ left: number; top?: number; bottom?: number } | null>(
@@ -219,12 +220,15 @@ export function PulseTokenAvatarHover({
     hoverTimer.current = setTimeout(() => {
       setHovered(false);
       setPanelPos(null);
-    }, 120);
+    }, 220);
   };
 
   useEffect(() => {
     if (!hovered) return;
-    const close = () => {
+    const close = (e?: Event) => {
+      // Ignore scrolls that originate INSIDE the card (its chart / metrics strip) —
+      // otherwise interacting with the card dismisses it while the cursor is still on it.
+      if (e?.type === 'scroll' && e.target instanceof Node && panelRef.current?.contains(e.target)) return;
       setHovered(false);
       setPanelPos(null);
     };
@@ -322,6 +326,7 @@ export function PulseTokenAvatarHover({
     hovered && resolvedPanelPos && (detailed || imageUrl) && typeof document !== 'undefined'
       ? createPortal(
           <div
+            ref={panelRef}
             className="pointer-events-auto fixed z-[260]"
             style={{
               top: resolvedPanelPos.top,

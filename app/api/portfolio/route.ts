@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 
   let holdingsMeta = new Map<
     string,
-    { symbol: string | null; decimals: number; image_url: string | null }
+    { symbol: string | null; name: string | null; decimals: number; image_url: string | null }
   >();
 
   if (wallet) {
@@ -130,6 +130,7 @@ export async function GET(req: NextRequest) {
         balanceRaw: p.balanceRaw,
         decimals: p.decimals,
         symbol: p.symbol,
+        name: holdingsMeta.get(p.mint)?.name ?? null,
         imageUrl: p.imageUrl,
         costBasisSol: p.costBasisSol,
         costBasisUsd: p.costBasisUsd,
@@ -142,6 +143,7 @@ export async function GET(req: NextRequest) {
         return {
           ...c,
           symbol: t?.symbol ?? null,
+          name: t?.name ?? null,
           decimals: t?.decimals ?? 9,
         };
       }),

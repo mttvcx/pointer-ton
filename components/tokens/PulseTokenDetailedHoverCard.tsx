@@ -174,9 +174,9 @@ export function PulseTokenDetailedHoverCard({
                   disabled={!canTrade}
                   data-row-click-skip="true"
                   onClick={(e) => { e.stopPropagation(); void buyToken(token.mint, amt); }}
-                  className="flex items-center justify-center gap-0.5 rounded-md border border-signal-bull/30 bg-signal-bull/10 py-1.5 text-[11px] font-bold text-signal-bull transition hover:border-signal-bull/50 hover:bg-signal-bull/20 disabled:pointer-events-none disabled:opacity-40"
+                  className="flex items-center justify-center rounded-md border border-signal-bull/30 bg-signal-bull/10 py-1.5 text-[11px] font-bold text-signal-bull transition hover:border-signal-bull/50 hover:bg-signal-bull/20 disabled:pointer-events-none disabled:opacity-40"
                 >
-                  <span className="text-[8px] opacity-70">⚡</span>{amt}
+                  {amt}
                 </button>
               ))}
             </div>

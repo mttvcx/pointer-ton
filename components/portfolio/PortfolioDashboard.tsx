@@ -41,8 +41,11 @@ import {
 } from '@/components/portfolio/PortfolioLoadingSkeleton';
 import { fetchPortfolioJson, portfolioQueryKey } from '@/lib/portfolio/portfolioQuery';
 import { explorerUrlSolanaTx } from '@/lib/chains/explorerUrls';
+import { useRouter } from 'next/navigation';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
+import { SharePnlRowButton } from '@/components/wallet/analytics/SharePnlRowButton';
+import type { PnlSharePayload } from '@/lib/share/types';
 import { useUIStore } from '@/store/ui';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { usePnlTrackerStore } from '@/store/pnlTracker';
@@ -88,6 +91,7 @@ type PositionRow = {
   balanceRaw: string;
   decimals: number;
   symbol: string | null;
+  name: string | null;
   imageUrl: string | null;
   costBasisSol: number;
   costBasisUsd: number;
@@ -106,6 +110,7 @@ type ClosedSellRow = {
   costBasisSol: number;
   realizedPnlUsd: number;
   symbol: string | null;
+  name: string | null;
   decimals: number;
 };
 
@@ -228,6 +233,8 @@ export function PortfolioDashboard({
   const authSyncError = useAuthSyncStore((s) => s.lastError);
   const activeChain = useUIStore((s) => s.activeChain);
   const openWalletIntel = useWalletIntelStore((s) => s.openWallet);
+  const openShare = useWalletIntelStore((s) => s.openShare);
+  const router = useRouter();
   const openPnlFromPortfolio = usePnlTrackerStore((s) => s.openFromPortfolio);
   const setPnlPortfolioScope = usePnlTrackerStore((s) => s.setPortfolioScope);
   const pnlTrackerOpen = usePnlTrackerStore((s) => s.open);
@@ -1269,10 +1276,23 @@ export function PortfolioDashboard({
                       const soldPrimary = usdMode ? formatUsd(sold) : `${formatNumber(sold, { decimals: 4 })} ${nativeSym}`;
                       const pnlPrimary =
                         usdMode ? formatUsd(pnl) : `${formatNumber((pnl ?? 0) / Math.max(1, portfolio.solUsd ?? 150), { decimals: 4 })} ${nativeSym}`;
+                      const tokenName = 'name' in row ? row.name : null;
+                      const solUsd = portfolio.solUsd ?? 150;
+                      const investedUsdShare =
+                        'costBasisUsd' in row ? row.costBasisUsd
+                        : 'costBasisSol' in row ? row.costBasisSol * solUsd : null;
+                      const positionUsdShare =
+                        'valueUsd' in row ? row.valueUsd
+                        : 'solProceeds' in row ? row.solProceeds * solUsd : null;
+                      const pnlPctNum =
+                        'unrealizedPnlUsd' in row && row.costBasisUsd > 0 && row.unrealizedPnlUsd != null
+                          ? (row.unrealizedPnlUsd / row.costBasisUsd) * 100
+                          : null;
                       return (
                         <tr
                           key={`${mint}-${i}`}
-                          className={cn('h-12 border-b transition-colors hover:bg-bg-hover/70', OS.spotHairline)}
+                          onClick={() => router.push(`/token/${mint}`)}
+                          className={cn('h-12 cursor-pointer border-b transition-colors hover:bg-bg-hover/70', OS.spotHairline)}
                         >
                           <td className="px-4 align-middle">
                             <div className="flex items-center gap-2">
@@ -1288,7 +1308,7 @@ export function PortfolioDashboard({
                               )}
                               <div className="min-w-0">
                                 <div className="text-sm font-semibold text-fg-primary">{symbol}</div>
-                                <div className="truncate text-xs text-fg-secondary">{shortenAddress(mint, 8)}</div>
+                                <div className="truncate text-xs text-fg-secondary">{tokenName ?? shortenAddress(mint, 8)}</div>
                               </div>
                             </div>
                           </td>
@@ -1331,7 +1351,8 @@ export function PortfolioDashboard({
                             <div className="inline-flex items-center gap-1 text-fg-secondary">
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   void navigator.clipboard.writeText(mint);
                                   toast.success('Token address copied');
                                 }}
@@ -1340,8 +1361,30 @@ export function PortfolioDashboard({
                               >
                                 <Copy className="h-3.5 w-3.5" />
                               </button>
+                              <SharePnlRowButton
+                                className="h-7 w-7"
+                                onClick={() =>
+                                  openShare({
+                                    walletAddress: portfolio.walletAddress ?? '',
+                                    walletLabel: null,
+                                    tokenMint: mint,
+                                    tokenTicker: symbol,
+                                    tokenName,
+                                    tokenIconUrl: imgUrl ?? null,
+                                    chain: activeChain,
+                                    timeframe: '30d',
+                                    pnlUsd: pnl,
+                                    pnlPct: pnlPctNum,
+                                    investedUsd: investedUsdShare,
+                                    positionUsd: positionUsdShare,
+                                    realizedUsd: null,
+                                    unrealizedUsd: null,
+                                  } satisfies PnlSharePayload)
+                                }
+                              />
                               <Link
                                 href={`/token/${mint}`}
+                                onClick={(e) => e.stopPropagation()}
                                 className="rounded p-1 transition-colors hover:bg-bg-hover hover:text-fg-primary"
                                 title="Open token"
                               >
