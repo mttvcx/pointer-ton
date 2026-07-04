@@ -464,11 +464,11 @@ function TradeRow({
       <button
         type="button"
         onClick={(e) => quickBuy(e, t.mint)}
-        className="absolute right-1 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md bg-accent-primary/[0.16] text-accent-primary opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-accent-primary/30"
+        className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg bg-accent-primary/[0.16] text-accent-primary opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-accent-primary/30"
         title="Quick buy"
         aria-label={`Quick buy ${tokenLabel(t)}`}
       >
-        <Zap className="h-3 w-3" strokeWidth={2.5} />
+        <Zap className="h-[18px] w-[18px]" strokeWidth={2.5} />
       </button>
     </div>
   );
@@ -499,9 +499,9 @@ function TradesHeader({
         onClick={onOpenSettings}
         title="Live trades table settings"
         aria-label="Table settings"
-        className="justify-self-start text-fg-muted transition-colors hover:text-fg-secondary"
+        className="justify-self-start text-fg-muted transition-colors hover:text-fg-primary"
       >
-        <Settings2 className="h-3.5 w-3.5" strokeWidth={2} />
+        <Settings2 className="h-[18px] w-[18px]" strokeWidth={2} />
       </button>
       {columns.status ? <span /> : null}
       {columns.name ? <span className={hcls}>Name</span> : null}
