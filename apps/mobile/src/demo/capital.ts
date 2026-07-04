@@ -77,8 +77,8 @@ export function getDemoCapital(): CapitalModel {
     ],
     insights: [
       'You earned $18.21 while you slept.',
-      'You realized $4,200 in gains — I reserved $940. You’re covered for taxes.',
-      '$3,115 is spendable and instantly ready — the rest is busy earning at 6.2%.',
+      'You realized $4,200 in gains. I reserved $940, so you’re covered for taxes.',
+      '$3,115 is spendable and instantly ready. The rest is busy earning at 6.2%.',
     ],
   };
 }

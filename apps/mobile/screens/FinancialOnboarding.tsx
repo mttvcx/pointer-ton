@@ -9,6 +9,7 @@ import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { PressScale } from '../components/PressScale';
 import { Rise } from '../components/Rise';
+import { Slide } from '../components/Slide';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { usd } from '../src/format';
@@ -20,7 +21,7 @@ import type { CardInfo } from '../src/financial/types';
 
 const PERKS = [
   { icon: 'card' as const, tint: colors.brand, title: 'A card that spends your capital', sub: 'Virtual instantly · Apple Pay · no credit check' },
-  { icon: 'leaf' as const, tint: colors.bull, title: 'Idle cash earns automatically', sub: 'Smart Yield, fully liquid — pulled back when you trade' },
+  { icon: 'leaf' as const, tint: colors.bull, title: 'Idle cash earns automatically', sub: 'Smart Yield, fully liquid, pulled back when you trade' },
   { icon: 'shield-checkmark' as const, tint: colors.warn, title: 'Taxes reserved as you go', sub: 'Pointer knows your gains and sets aside the right amount' },
   { icon: 'diamond' as const, tint: colors.accentGlow, title: 'Points on everything', sub: 'Spend, earn, and hold all feed one flywheel' },
 ];
@@ -29,7 +30,7 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
   const insets = useSafeAreaInsets();
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 190 }} showsVerticalScrollIndicator={false}>
         {/* Floating card */}
         <View style={s.introCardWrap}>
           <View style={s.introCard}>
@@ -47,7 +48,7 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
 
         <Text style={s.introKicker}>POINTER FINANCIAL</Text>
         <Text style={s.introTitle}>Put your money to work.</Text>
-        <Text style={s.introLede}>Not a bank account — the capital layer of your trading. Every dollar is trading, earning, spendable, or reserved. Never idle.</Text>
+        <Text style={s.introLede}>Trade and spend from the same place.</Text>
 
         <View style={{ marginTop: 22 }}>
           {PERKS.map((p, i) => (
@@ -64,13 +65,16 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
             </Rise>
           ))}
         </View>
+      </ScrollView>
 
-        <GlossButton onPress={onStart} style={{ marginTop: 26 }}>
+      {/* Fixed CTA above the nav island so it's never hidden under the glass. */}
+      <View style={[s.introFooter, { bottom: insets.bottom + 82 }]} pointerEvents="box-none">
+        <GlossButton onPress={onStart}>
           <Text style={s.cta}>Get started</Text>
           <Ionicons name="arrow-forward" size={18} color={colors.onAccent} />
         </GlossButton>
         <Text style={s.introFine}>Virtual card issued instantly · higher limits with a quick ID check later</Text>
-      </ScrollView>
+      </View>
     </Screen>
   );
 }
@@ -78,7 +82,13 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
 /* ── Activation flow ─────────────────────────────────────── */
 
 type Step = 'identity' | 'provisioning' | 'done';
-const COUNTRIES = ['United States', 'United Kingdom', 'Canada', 'Australia', 'Other'];
+const COUNTRIES = [
+  { name: 'United States', flag: '🇺🇸' },
+  { name: 'Canada', flag: '🇨🇦' },
+  { name: 'United Kingdom', flag: '🇬🇧' },
+  { name: 'Australia', flag: '🇦🇺' },
+  { name: 'Other', flag: '🌍' },
+];
 const PROV_STEPS = ['Creating your account', 'Issuing your virtual card', 'Turning on Smart Yield'];
 
 export function FinancialActivation({ onClose }: { onClose: () => void }) {
@@ -113,6 +123,7 @@ export function FinancialActivation({ onClose }: { onClose: () => void }) {
           <View style={s.close} />
         </View>
 
+        <Slide key={step} style={{ flex: 1 }}>
         {step === 'identity' ? (
           <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Text style={s.stepKicker}>QUICK CHECK</Text>
@@ -133,8 +144,8 @@ export function FinancialActivation({ onClose }: { onClose: () => void }) {
             <Text style={s.label}>Country</Text>
             <View style={s.countryWrap}>
               {COUNTRIES.map((c) => (
-                <PressScale key={c} to={0.95} onPress={() => setCountry(c)} style={[s.countryChip, country === c && s.countryChipOn]}>
-                  <Text style={[s.countryText, country === c && s.countryTextOn]}>{c}</Text>
+                <PressScale key={c.name} to={0.95} onPress={() => setCountry(c.name)} style={[s.countryChip, country === c.name && s.countryChipOn]}>
+                  <Text style={[s.countryText, country === c.name && s.countryTextOn]}>{c.flag}  {c.name}</Text>
                 </PressScale>
               ))}
             </View>
@@ -144,7 +155,7 @@ export function FinancialActivation({ onClose }: { onClose: () => void }) {
               <Text style={s.reassureText}>Encrypted and shared only with our card issuer to open your account. No credit check.</Text>
             </View>
 
-            <GlossButton onPress={runProvision} style={{ marginTop: 24, opacity: canContinue ? 1 : 0.5 }}>
+            <GlossButton onPress={canContinue ? runProvision : () => {}} style={{ marginTop: 24, opacity: canContinue ? 1 : 0.5 }}>
               <Text style={s.cta}>Issue my card</Text>
             </GlossButton>
           </ScrollView>
@@ -153,6 +164,7 @@ export function FinancialActivation({ onClose }: { onClose: () => void }) {
         ) : (
           <Done card={card} busy={busy} setBusy={setBusy} onClose={onClose} />
         )}
+        </Slide>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -272,7 +284,8 @@ const s = StyleSheet.create({
   perkIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   perkTitle: { color: colors.fg, fontSize: 15, fontWeight: '700' },
   perkSub: { color: colors.fgMuted, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
-  introFine: { color: colors.fgFaint, fontSize: 12, textAlign: 'center', marginTop: 14, lineHeight: 17 },
+  introFooter: { position: 'absolute', left: 22, right: 22 },
+  introFine: { color: colors.fgFaint, fontSize: 12, textAlign: 'center', marginTop: 12, lineHeight: 17 },
 
   // top bar
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 10 },

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, LayoutAnimation, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -49,7 +49,7 @@ function stateDetail(key: StateKey, m: CapitalModel): StateDetail {
       };
     case 'earning':
       return {
-        blurb: 'Idle USDC swept into Smart Yield automatically. It stays fully liquid — pulled back the instant you place a trade, so earning never costs you a fill.',
+        blurb: 'Idle USDC swept into Smart Yield automatically. It stays fully liquid, pulled back the instant you place a trade, so earning never costs you a fill.',
         rows: [
           { label: 'Principal earning', value: usd(m.states.earning, 0) },
           { label: 'Rate', value: `${m.apy.toFixed(1)}% APY` },
@@ -59,7 +59,7 @@ function stateDetail(key: StateKey, m: CapitalModel): StateDetail {
       };
     case 'spendable':
       return {
-        blurb: 'Instantly ready to spend on your Pointer Card or send out. No unstaking, no waiting — this is your everyday balance.',
+        blurb: 'Instantly ready to spend on your Pointer Card or send out. No unstaking, no waiting. This is your everyday balance.',
         rows: [
           { label: 'On your card', value: usd(m.states.spendable) },
           { label: 'Card', value: `•••• ${m.cardLast4}` },
@@ -68,7 +68,7 @@ function stateDetail(key: StateKey, m: CapitalModel): StateDetail {
       };
     case 'reserved':
       return {
-        blurb: 'Set aside to cover estimated taxes on realized gains. Pointer knows your cost basis and lots, so it reserves the right amount as you trade — quietly, in the background.',
+        blurb: 'Set aside to cover estimated taxes on realized gains. Pointer knows your cost basis and lots, so it reserves the right amount as you trade, quietly, in the background.',
         rows: [
           { label: 'Reserved', value: usd(m.taxReserve, 0) },
           { label: 'Estimated liability', value: usd(m.taxLiability, 0) },
@@ -107,7 +107,6 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   // Mutable so moving capital between states visibly rebalances the bar.
   const [m, setM] = useState<CapitalModel>(() => getDemoCapital());
   const moveCapital = (from: CapKey, to: CapKey, amount: number) => {
-    LayoutAnimation.configureNext(LayoutAnimation.create(320, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.scaleXY));
     setM((prev) => {
       const amt = Math.min(amount, prev.states[from]);
       const states = { ...prev.states, [from]: prev.states[from] - amt, [to]: prev.states[to] + amt };
@@ -156,10 +155,6 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         {/* Header */}
         <View style={s.head}>
           <Text style={s.title}>Financial</Text>
-          <PressScale style={s.aiPill} onPress={() => openPanel('ai')}>
-            <Ionicons name="sparkles" size={13} color={colors.accentGlow} />
-            <Text style={s.aiPillText}>AI</Text>
-          </PressScale>
         </View>
 
         {/* Total capital hero */}
@@ -187,11 +182,13 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           </View>
           <View style={s.legend}>
             {STATES.map((st) => (
-              <PressScale key={st.key} to={0.97} onPress={() => openState(st.key)} style={s.legendItem}>
-                <View style={[s.dot, { backgroundColor: st.color }]} />
-                <Text style={s.legendLabel}>{st.label}</Text>
-                <Text style={s.legendVal}>{usd(m.states[st.key], 0)}</Text>
-              </PressScale>
+              <View key={st.key} style={s.legendCell}>
+                <PressScale to={0.97} onPress={() => openState(st.key)} style={s.legendItem}>
+                  <View style={[s.dot, { backgroundColor: st.color }]} />
+                  <Text style={s.legendLabel} numberOfLines={1}>{st.label}</Text>
+                  <Text style={s.legendVal} numberOfLines={1}>{usd(m.states[st.key], 0)}</Text>
+                </PressScale>
+              </View>
             ))}
           </View>
           <PressScale to={0.97} onPress={() => openPanel('move')} style={s.moveBtn}>
@@ -281,7 +278,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         <Rise delay={340}>
         <PressScale to={0.98} style={s.insight} onPress={() => openPanel('ai')}>
           <GlassFill active />
-          <Ionicons name="sparkles" size={15} color={colors.accentGlow} style={{ marginTop: 1 }} />
+          <Ionicons name="cash-outline" size={16} color={colors.accentGlow} style={{ marginTop: 1 }} />
           <Text style={s.insightText}>{m.insights[0]}</Text>
           <Ionicons name="chevron-forward" size={15} color={colors.accentGlow} style={{ marginTop: 2 }} />
         </PressScale>
@@ -415,8 +412,9 @@ const s = StyleSheet.create({
   capSub: { color: colors.accentGlow, fontSize: 13, fontWeight: '600', marginTop: 4 },
 
   bar: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', marginTop: 18, gap: 2, backgroundColor: colors.bg },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14, gap: 14 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6, width: '45%' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14 },
+  legendCell: { width: '50%', paddingVertical: 6, paddingRight: 10 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 7, width: '100%' },
   dot: { width: 9, height: 9, borderRadius: 5 },
   legendLabel: { color: colors.fgMuted, fontSize: 13, flex: 1 },
   legendVal: { color: colors.fg, fontSize: 13.5, fontWeight: '700' },

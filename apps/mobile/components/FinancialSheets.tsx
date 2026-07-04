@@ -118,7 +118,7 @@ export function CardSheet({ m, card, onClose }: { m: CapitalModel; card?: CardIn
           <Text style={s.cardSpendLabel}>spendable</Text>
         </View>
       </View>
-      {frozen ? <Text style={s.frozenTag}>❄  Card frozen — no new charges</Text> : null}
+      {frozen ? <Text style={s.frozenTag}>❄  Card frozen · no new charges</Text> : null}
 
       <View style={s.pillRow}>
         <PressScale style={[s.pill, inWallet && { opacity: 0.6 }]} onPress={addWallet}>
@@ -207,7 +207,7 @@ export function YieldSheet({ m, apyOverride, onClose }: { m: CapitalModel; apyOv
         <Row label="Withdrawal" value="Instant · no lockup" />
       </View>
 
-      <Note>Yield stays fully liquid. The instant you place a trade, Pointer pulls exactly what you need back out — so earning never costs you a fill.</Note>
+      <Note>Yield stays fully liquid. The instant you place a trade, Pointer pulls exactly what you need back out, so earning never costs you a fill.</Note>
 
       {/* Put to work — real USDC deposit into Lulo (mirrors the trade sign+send path). */}
       <Text style={s.section}>Put money to work</Text>
@@ -317,7 +317,7 @@ export function PointsSheet({ m, onClose }: { m: CapitalModel; onClose: () => vo
         ))}
       </View>
 
-      <Note>Spending, earning, and holding all feed the same points balance — the more of your capital lives in Pointer, the faster it compounds.</Note>
+      <Note>Spending, earning, and holding all feed the same points balance. The more of your capital lives in Pointer, the faster it compounds.</Note>
 
       <GlossButton onPress={onClose} style={{ marginTop: 18 }}>
         <Text style={s.cta}>Done</Text>
@@ -331,15 +331,15 @@ export function PointsSheet({ m, onClose }: { m: CapitalModel; onClose: () => vo
 export function AiSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }) {
   const covered = m.taxReserve >= m.taxLiability;
   const reads = [
-    { icon: 'leaf' as const, tint: colors.bull, text: `${usd(m.states.earning, 0)} is earning ${m.apy.toFixed(1)}% — that’s ${usd((m.states.earning * (m.apy / 100)) / 12, 0)}/mo, fully liquid.` },
+    { icon: 'leaf' as const, tint: colors.bull, text: `${usd(m.states.earning, 0)} is earning ${m.apy.toFixed(1)}%, that’s ${usd((m.states.earning * (m.apy / 100)) / 12, 0)}/mo, fully liquid.` },
     { icon: covered ? ('shield-checkmark' as const) : ('alert-circle' as const), tint: colors.warn, text: covered ? `I’ve reserved ${usd(m.taxReserve, 0)} for taxes on your ${usd(m.realizedGainsYtd, 0)} of realized gains. You’re covered.` : `You’re under-reserved for taxes by ${usd(m.taxLiability - m.taxReserve, 0)}.` },
-    { icon: 'card' as const, tint: colors.brand, text: `${usd(m.states.spendable, 0)} is spendable right now — the rest keeps working until you swipe.` },
+    { icon: 'card' as const, tint: colors.brand, text: `${usd(m.states.spendable, 0)} is spendable right now. The rest keeps working until you swipe.` },
   ];
   return (
     <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-      <SheetTitle icon="sparkles" tint={colors.accentGlow} kicker="POINTER AI" title="Your capital, read for you" />
+      <SheetTitle icon="cash-outline" tint={colors.accentGlow} kicker="POINTER AI" title="Your capital, read for you" />
 
-      <Text style={s.aiLede}>Here’s what your money is doing right now — and what I’m handling so you don’t have to.</Text>
+      <Text style={s.aiLede}>Here’s what your money is doing right now, and what I’m handling so you don’t have to.</Text>
 
       <View style={{ marginTop: 8 }}>
         {reads.map((r, i) => (
@@ -354,7 +354,7 @@ export function AiSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }
         ))}
       </View>
 
-      <PressScale style={s.askBar} onPress={() => showToast('Ask Pointer AI — coming soon', { kind: 'info' })}>
+      <PressScale style={s.askBar} onPress={() => showToast('Chat with Pointer AI is coming', { kind: 'info' })}>
         <Ionicons name="chatbubble-ellipses-outline" size={17} color={colors.accentGlow} />
         <Text style={s.askText}>Ask about your capital…</Text>
         <Ionicons name="arrow-forward-circle" size={20} color={colors.accent} />
@@ -402,11 +402,13 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
       <Text style={s.section}>From</Text>
       <View style={s.chipWrap}>
         {STATE_META.map((st) => (
-          <PressScale key={st.key} to={0.95} onPress={() => pickFrom(st.key)} style={[s.stateChip, from === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
-            <View style={[s.chipDot, { backgroundColor: st.color }]} />
-            <Text style={s.chipLabel}>{st.label}</Text>
-            <Text style={s.chipVal}>{usd(states[st.key], 0)}</Text>
-          </PressScale>
+          <View key={st.key} style={s.chipCell}>
+            <PressScale to={0.95} onPress={() => pickFrom(st.key)} style={[s.stateChip, from === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
+              <View style={[s.chipDot, { backgroundColor: st.color }]} />
+              <Text style={s.chipLabel} numberOfLines={1}>{st.label}</Text>
+              <Text style={s.chipVal} numberOfLines={1}>{usd(states[st.key], 0)}</Text>
+            </PressScale>
+          </View>
         ))}
       </View>
 
@@ -419,11 +421,13 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
         {STATE_META.map((st) => {
           const disabled = st.key === from;
           return (
-            <PressScale key={st.key} to={0.95} onPress={() => pickTo(st.key)} style={[s.stateChip, disabled && { opacity: 0.35 }, to === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
-              <View style={[s.chipDot, { backgroundColor: st.color }]} />
-              <Text style={s.chipLabel}>{st.label}</Text>
-              <Text style={s.chipVal}>{usd(states[st.key], 0)}</Text>
-            </PressScale>
+            <View key={st.key} style={s.chipCell}>
+              <PressScale to={0.95} onPress={() => pickTo(st.key)} style={[s.stateChip, disabled && { opacity: 0.35 }, to === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
+                <View style={[s.chipDot, { backgroundColor: st.color }]} />
+                <Text style={s.chipLabel} numberOfLines={1}>{st.label}</Text>
+                <Text style={s.chipVal} numberOfLines={1}>{usd(states[st.key], 0)}</Text>
+              </PressScale>
+            </View>
           );
         })}
       </View>
@@ -509,8 +513,9 @@ const s = StyleSheet.create({
   srcFill: { height: 5, borderRadius: 3, backgroundColor: colors.accentGlow },
 
   // Move capital
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
-  stateChip: { width: '47%', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bgRaised2, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 12, borderWidth: 1.5, borderColor: colors.border },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  chipCell: { width: '50%', padding: 5 },
+  stateChip: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bgRaised2, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 12, borderWidth: 1.5, borderColor: colors.border },
   chipDot: { width: 9, height: 9, borderRadius: 5 },
   chipLabel: { color: colors.fg, fontSize: 13.5, fontWeight: '600', flex: 1 },
   chipVal: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '600' },
