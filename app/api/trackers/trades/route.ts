@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { listTrackedWalletTradesForUser } from '@/lib/db/trackerTrades';
+import { NextResponse, type NextRequest, after } from 'next/server';
+import { listTrackedWalletTradesForUser, mintsMissingMetadata } from '@/lib/db/trackerTrades';
+import { ensureTokenRowFromDas } from '@/lib/helius/feed';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 
@@ -36,6 +37,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const trades = await listTrackedWalletTradesForUser(user.id, limit);
+
+    // Progressive enrichment: fill the token cache for mints still missing
+    // symbol/image so the next poll shows them. Post-response, capped, and
+    // cache-safe (already-enriched mints don't re-hit DAS).
+    const missing = mintsMissingMetadata(trades).slice(0, 8);
+    if (missing.length) {
+      after(() => Promise.allSettled(missing.map((m) => ensureTokenRowFromDas(m))));
+    }
+
     return NextResponse.json({ trades });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'trades_failed';

@@ -73,6 +73,22 @@ export async function listTrackedWalletTradesForUser(
       tokenByMint.set(t.mint, { symbol: t.symbol, name: t.name, image_url: t.image_url });
   }
 
+  // MC fallback: latest market-cap snapshot per mint when the swap row has none.
+  const mcFallbackByMint = new Map<string, number>();
+  if (mints.length) {
+    const { data: snaps } = await supabase
+      .from('token_market_snapshots')
+      .select('mint, market_cap_usd, snapshot_at')
+      .in('mint', mints)
+      .order('snapshot_at', { ascending: false })
+      .limit(mints.length * 3);
+    for (const s of snaps ?? []) {
+      if (s.market_cap_usd != null && !mcFallbackByMint.has(s.mint)) {
+        mcFallbackByMint.set(s.mint, Number(s.market_cap_usd));
+      }
+    }
+  }
+
   return deduped.map((r) => {
     const tok = tokenByMint.get(r.mint);
     return {
@@ -86,8 +102,17 @@ export async function listTrackedWalletTradesForUser(
       side: r.side === 'sell' ? 'sell' : 'buy',
       solAmount: num(r.sol_amount),
       usdAmount: num(r.usd_amount),
-      marketCapUsd: num(r.market_cap_usd),
+      marketCapUsd: num(r.market_cap_usd) ?? mcFallbackByMint.get(r.mint) ?? null,
       blockTime: r.block_time,
     };
   });
+}
+
+/** Mints in this trade list that still lack token metadata (symbol/image). */
+export function mintsMissingMetadata(trades: TrackerTradeRow[]): string[] {
+  return [
+    ...new Set(
+      trades.filter((t) => !t.symbol?.trim() || !t.imageUrl?.trim()).map((t) => t.mint),
+    ),
+  ];
 }
