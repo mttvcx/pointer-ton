@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { DEMO, useAuth } from './auth';
 import { getMe, getMyWallets, getPortfolio, getPoints, getCashBalance } from './api/endpoints';
+import { getPointerIdentity } from './api/social';
 
 /**
  * Real-account hooks. All are DISABLED in demo (Expo Go) and until the user is
@@ -14,6 +15,18 @@ export function useMe() {
   return useQuery({
     queryKey: ['me'],
     queryFn: getMe,
+    enabled: !DEMO && auth.isLoggedIn,
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+/** Pointer identity (connected X handle, bio, socials) — Redis-backed, live now. */
+export function usePointerIdentity() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ['pointer-identity'],
+    queryFn: getPointerIdentity,
     enabled: !DEMO && auth.isLoggedIn,
     staleTime: 60_000,
     retry: 1,

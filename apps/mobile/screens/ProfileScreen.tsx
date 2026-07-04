@@ -10,7 +10,7 @@ import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
 import { useBio, useFollowCount, useReferralCode } from '../src/local';
-import { useMe } from '../src/account';
+import { useMe, usePointerIdentity } from '../src/account';
 import { shareReferral } from '../src/share';
 
 /** "ABcd…WXyz" short form for a wallet address. */
@@ -30,6 +30,7 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
 
   // Real identity once signed in (real build); demo keeps the "pointer" placeholder.
   const me = useMe();
+  const xHandle = usePointerIdentity().data?.xUsername?.replace(/^@/, '') || null;
   const displayName = me.data?.username?.trim() || me.data?.email?.split('@')[0] || 'pointer';
   const displayHandle = me.data?.username
     ? `@${me.data.username}`
@@ -56,7 +57,15 @@ export function ProfileScreen({ onOpenSettings, onEditProfile }: { onOpenSetting
         </View>
 
         <Text style={s.name}>{displayName}</Text>
-        <Text style={s.handle}>{displayHandle}</Text>
+        <View style={s.handleRow}>
+          <Text style={s.handle}>{displayHandle}</Text>
+          {xHandle ? (
+            <View style={s.xBadge}>
+              <Ionicons name="logo-twitter" size={11} color={colors.accentGlow} />
+              <Text style={s.xBadgeText}>@{xHandle}</Text>
+            </View>
+          ) : null}
+        </View>
 
         <PressScale onPress={onEditProfile} to={0.98} hitSlop={6}>
           <Text style={bio ? s.bioText : s.bio}>{bio || '+ Add a bio'}</Text>
@@ -139,7 +148,10 @@ const s = StyleSheet.create({
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#E8732A', alignItems: 'center', justifyContent: 'center' },
   topIcons: { flexDirection: 'row', gap: 20 },
   name: { color: colors.fg, fontSize: 26, fontWeight: '700', marginTop: 14 },
-  handle: { color: colors.fgMuted, fontSize: 15, marginTop: 2 },
+  handleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  handle: { color: colors.fgMuted, fontSize: 15 },
+  xBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
+  xBadgeText: { color: colors.accentGlow, fontSize: 12, fontWeight: '700' },
   bio: { color: colors.accentGlow, fontSize: 15, fontWeight: '500', marginTop: 12 },
   bioText: { color: colors.fgSecondary, fontSize: 15, lineHeight: 21, marginTop: 12 },
   followRow: { flexDirection: 'row', gap: 22, marginTop: 12 },

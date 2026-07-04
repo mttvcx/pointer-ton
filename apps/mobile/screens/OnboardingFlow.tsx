@@ -13,6 +13,7 @@ import { colors, radius } from '../src/theme';
 import { ONBOARD_TRADERS } from '../src/demo';
 import { useAuth } from '../src/auth';
 import { updateProfile } from '../src/api/endpoints';
+import { saveXUsername } from '../src/api/social';
 import { showToast } from '../src/toast';
 
 const X_LOGO = require('../assets/x-logo.png');
@@ -68,6 +69,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
       if (handle) {
         setUsername(handle);
         await saveUsername(handle);
+        saveXUsername(handle).catch(() => {}); // persist the linked @handle to the Pointer identity
         setDir(1);
         setStep(2); // X gave us the username — skip "Create your username"
       } else {

@@ -10,7 +10,7 @@ import { API_URL } from '../env';
  */
 export type ApiOptions = {
   token?: string | null;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT';
   body?: unknown;
   signal?: AbortSignal;
 };
