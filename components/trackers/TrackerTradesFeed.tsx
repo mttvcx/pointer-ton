@@ -16,7 +16,8 @@ import { useUIStore } from '@/store/ui';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import { appChainForMintNavigation } from '@/lib/chains/mintKind';
-import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
+import { formatCompactUsd, formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
+import { useTraderMintHoverStats } from '@/lib/hooks/useTraderMintHoverStats';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { cn } from '@/lib/utils/cn';
 import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
@@ -149,8 +150,39 @@ function WalletHoverCard({
     setPos({ left, top: r.bottom + 6 });
   }, [anchor]);
 
+  // Real per-(wallet, mint) stats for the hovered trade's token — how this wallet
+  // has traded THIS token (buys/sells/PnL). Demo rows carry `tokenStats` inline.
+  const { stats: realStats, isLoading: statsLoading } = useTraderMintHoverStats(
+    t.mint,
+    t.wallet,
+    true,
+  );
+  const SOL_USD = 165; // rough conversion for the SOL toggle (amounts are real in USD)
+  const s: {
+    buysUsd: number; buysSol: number; buysCount: number;
+    sellsUsd: number; sellsSol: number; sellsCount: number;
+    pnlUsd: number; pnlSol: number;
+    holdingUsd: number | null; holdingPct: number | null;
+    holderSince: string;
+  } | null = t.tokenStats
+    ? { ...t.tokenStats, holdingUsd: t.tokenStats.holdingUsd, holdingPct: t.tokenStats.holdingPct }
+    : realStats
+      ? {
+          buysUsd: realStats.buy_usd,
+          buysSol: realStats.buy_usd / SOL_USD,
+          buysCount: realStats.buy_count,
+          sellsUsd: realStats.sell_usd,
+          sellsSol: realStats.sell_usd / SOL_USD,
+          sellsCount: realStats.sell_count,
+          pnlUsd: realStats.realized_pnl_usd,
+          pnlSol: realStats.realized_pnl_usd / SOL_USD,
+          holdingUsd: null,
+          holdingPct: null,
+          holderSince: realStats.first_trade_at ? formatRelativeTime(realStats.first_trade_at) : '—',
+        }
+      : null;
+
   if (!pos) return null;
-  const s = t.tokenStats;
   const fmtVal = (usd: number, sol: number) =>
     unit === 'USD' ? (
       `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 1000 ? 1 : 0 })}`
@@ -163,7 +195,7 @@ function WalletHoverCard({
 
   return createPortal(
     <div
-      className="fixed z-[240] w-[264px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-2 shadow-2xl shadow-black/60"
+      className="fixed z-[240] w-[264px] overflow-hidden rounded-xl border border-border-subtle bg-bg-raised p-2 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)]"
       style={{ left: pos.left, top: pos.top }}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
@@ -198,24 +230,30 @@ function WalletHoverCard({
         </button>
       </div>
 
+      {/* This wallet's activity on the hovered token. */}
+      <div className="mb-1 flex items-center gap-1 px-0.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
+        <span className="truncate">{tokenLabel(t)}</span>
+        <span className="text-fg-muted/50">· this wallet</span>
+      </div>
+
       {s ? (
         <>
           <div className="grid grid-cols-3 gap-1">
-            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+            <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-1.5">
               <div className="flex items-center gap-1 text-[12px] font-bold tabular-nums text-signal-bull">
                 <ArrowDownRight className="h-3 w-3" strokeWidth={2.5} />
                 {fmtVal(s.buysUsd, s.buysSol)}
               </div>
               <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.buysCount} Buy{s.buysCount === 1 ? '' : 's'}</div>
             </div>
-            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+            <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-1.5">
               <div className="flex items-center gap-1 text-[12px] font-bold tabular-nums text-signal-bear">
                 <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} />
                 {fmtVal(s.sellsUsd, s.sellsSol)}
               </div>
               <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.sellsCount} Sell{s.sellsCount === 1 ? '' : 's'}</div>
             </div>
-            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+            <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-1.5">
               <div className={cn('flex items-center gap-1 text-[12px] font-bold tabular-nums', s.pnlUsd >= 0 ? 'text-signal-bull' : 'text-signal-bear')}>
                 <TrendingUp className="h-3 w-3" strokeWidth={2.5} />
                 {s.pnlUsd >= 0 ? '+' : ''}
@@ -224,33 +262,31 @@ function WalletHoverCard({
               <div className="mt-0.5 text-[9.5px] text-fg-muted">PnL</div>
             </div>
           </div>
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
-              <div className="text-[12px] font-bold tabular-nums text-fg-primary">
-                {unit === 'USD' ? (
-                  `$${s.holdingUsd.toLocaleString('en-US')}`
-                ) : (
-                  <span className="inline-flex items-center gap-0.5">
-                    {formatNumber(s.holdingUsd / 168, { decimals: 2 })}
-                    <SolGlyph size={11} />
-                  </span>
-                )}
+          <div className={cn('mt-1 grid gap-1', s.holdingUsd != null ? 'grid-cols-2' : 'grid-cols-1')}>
+            {s.holdingUsd != null ? (
+              <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-1.5">
+                <div className="text-[12px] font-bold tabular-nums text-fg-primary">
+                  {unit === 'USD' ? (
+                    `$${s.holdingUsd.toLocaleString('en-US')}`
+                  ) : (
+                    <span className="inline-flex items-center gap-0.5">
+                      {formatNumber(s.holdingUsd / SOL_USD, { decimals: 2 })}
+                      <SolGlyph size={11} />
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.holdingPct ?? 0}% holding</div>
               </div>
-              <div className="mt-0.5 text-[9.5px] text-fg-muted">{s.holdingPct}% holding</div>
-            </div>
-            <div className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+            ) : null}
+            <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-1.5">
               <div className="text-[12px] font-bold tabular-nums text-fg-primary">{s.holderSince}</div>
-              <div className="mt-0.5 text-[9.5px] text-fg-muted">Holder since</div>
+              <div className="mt-0.5 text-[9.5px] text-fg-muted">First traded</div>
             </div>
           </div>
         </>
       ) : (
-        <div className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-2.5 py-2 text-[11px]">
-          <span className="text-fg-muted">Last trade</span>
-          <span className="flex items-center gap-1 font-semibold text-fg-secondary">
-            <span className={t.side === 'buy' ? 'text-signal-bull' : 'text-signal-bear'}>{t.side === 'buy' ? 'Bought' : 'Sold'}</span>
-            {tokenLabel(t)}
-          </span>
+        <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2.5 py-3 text-center text-[11px] text-fg-muted">
+          {statsLoading ? 'Loading token activity…' : 'No prior trades on this token.'}
         </div>
       )}
 

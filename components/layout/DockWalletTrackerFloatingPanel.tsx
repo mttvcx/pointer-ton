@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { BellRing } from 'lucide-react';
@@ -34,15 +33,14 @@ import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
 import { WalletQuickBuyAmount } from '@/components/trackers/WalletQuickBuyAmount';
 import { WalletTrackerKolsTab } from '@/components/trackers/WalletTrackerKolsTab';
 
-type WalletTrackerTab = 'manager' | 'trades' | 'groups' | 'kols';
+type WalletTrackerTab = 'trades' | 'groups' | 'kols';
 
 const TAB_LABEL: Record<WalletTrackerTab, string> = {
-  manager: 'Manager',
   trades: 'Trades',
   groups: 'Groups',
   kols: 'KOLs',
 };
-const TAB_ORDER: WalletTrackerTab[] = ['manager', 'trades', 'groups', 'kols'];
+const TAB_ORDER: WalletTrackerTab[] = ['trades', 'groups', 'kols'];
 
 const MIN_PANEL_W = 300;
 const MIN_PANEL_H = 300;
@@ -752,16 +750,8 @@ export function DockWalletTrackerFloatingPanel() {
             <TrackerTradesFeed />
           ) : tab === 'groups' ? (
             <GroupsTab />
-          ) : tab === 'kols' ? (
-            <WalletTrackerKolsTab />
           ) : (
-            <p className="px-3 py-3 text-[11px] leading-relaxed text-fg-secondary">
-              <strong className="text-fg-primary">{TAB_LABEL[tab]}</strong> plugs into the tracker pipeline next — use{' '}
-              <Link href="/track" className="font-semibold text-accent-primary underline-offset-2 hover:underline">
-                Track
-              </Link>{' '}
-              for now.
-            </p>
+            <WalletTrackerKolsTab />
           )}
         </div>
 

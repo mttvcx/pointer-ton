@@ -9,7 +9,6 @@ import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useWalletGroupsStore } from '@/store/walletGroups';
 import { useKolPrefsStore } from '@/store/kolPrefs';
-import { useWalletTrackerPreviewStore } from '@/store/walletTrackerPreview';
 import { DEMO_KOLS, type DemoKol } from '@/lib/dev/kolsDemo';
 
 function KolAvatar({ handle }: { handle: string }) {
@@ -262,9 +261,9 @@ function KolRow({ k }: { k: DemoKol }) {
  * min-buy amount for chart bubbles. Sample data while the DB is unavailable.
  */
 export function WalletTrackerKolsTab() {
-  const preview = useWalletTrackerPreviewStore((s) => s.preview);
   const [q, setQ] = useState('');
-  const list = preview ? DEMO_KOLS : [];
+  // Curated KOL directory — always shown (no longer gated behind Trades preview).
+  const list = DEMO_KOLS;
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return list;
@@ -287,13 +286,7 @@ export function WalletTrackerKolsTab() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:thin]">
-        {!preview ? (
-          <p className="px-3 py-6 text-center text-[11px] leading-relaxed text-fg-muted">
-            KOL directory loads here.
-            <br />
-            <span className="text-fg-muted/70">Turn on Preview (Trades) to see the sample list.</span>
-          </p>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <p className="px-3 py-6 text-center text-[11px] text-fg-muted">No KOLs match “{q}”.</p>
         ) : (
           filtered.map((k) => <KolRow key={k.wallet} k={k} />)
