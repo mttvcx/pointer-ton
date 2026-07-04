@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import { CoinIcon } from './CoinIcon';
 import { HlBadge } from './HlBadge';
 import { PerpsExplainer } from './PerpsExplainer';
-import { PerpDetailSheet } from './PerpDetailSheet';
 import { PressScale } from './PressScale';
 import { GlassFill } from './GlassFill';
 import { getPerpMarkets } from '../src/api/endpoints';
@@ -41,9 +40,8 @@ function iconUriFor(m: PerpMarket): string | null {
  * (real HL data), so it's never hand-faked. Read-only, matching web's Preview
  * state: order signing isn't shipped, so rows show market data, not a trade panel.
  */
-export function PerpsList() {
+export function PerpsList({ onOpenPerp }: { onOpenPerp?: (m: PerpMarket) => void }) {
   const [explain, setExplain] = useState(false);
-  const [selected, setSelected] = useState<PerpMarket | null>(null);
   const q = useQuery({
     queryKey: ['perp-markets'],
     queryFn: getPerpMarkets,
@@ -81,10 +79,8 @@ export function PerpsList() {
           <Text style={s.emptyText}>No perp markets right now.</Text>
         </View>
       ) : (
-        markets.map((m) => <Row key={m.id} m={m} onOpen={() => setSelected(m)} />)
+        markets.map((m) => <Row key={m.id} m={m} onOpen={() => onOpenPerp?.(m)} />)
       )}
-
-      <PerpDetailSheet market={selected} onClose={() => setSelected(null)} />
     </View>
   );
 }

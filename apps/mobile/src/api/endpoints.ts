@@ -1,6 +1,7 @@
 import { authToken } from '../auth';
 import { api } from './client';
 import type {
+  ChainId,
   ChartBar,
   ExplainTokenResponse,
   MeUser,
@@ -159,6 +160,27 @@ export async function getOnramperUrl(walletAddress: string, fiatAmount?: number)
 /** Persist profile fields (username) to the Pointer account via the sync route. */
 export async function updateProfile(fields: { username?: string }): Promise<void> {
   await api('/api/auth/sync', { token: await authToken(), method: 'POST', body: fields });
+}
+
+/**
+ * Create a Crossmint onramp order server-side (fiat → token via Apple Pay). Onramp
+ * orders can't be built client-side, so the app asks the backend to mint one and
+ * gets back an orderId + clientSecret to render the native Apple Pay sheet against.
+ * `configured: false` = the server key isn't set yet → the app shows its honest
+ * "almost here" state instead of a broken checkout.
+ */
+export type CrossmintOrder = { configured: boolean; orderId?: string; clientSecret?: string };
+export async function createCrossmintOrder(input: {
+  chain?: ChainId;
+  mint: string;
+  amountUsd: string;
+  recipient: string;
+}): Promise<CrossmintOrder> {
+  return api<CrossmintOrder>('/api/crossmint/order', {
+    token: await authToken(),
+    method: 'POST',
+    body: input,
+  });
 }
 
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';

@@ -6,62 +6,54 @@ import {
   useCrossmintCheckout,
 } from '@crossmint/client-sdk-react-native-ui';
 import { CROSSMINT_CLIENT_KEY } from '../env';
-import { tokenLocator } from './locator';
-import type { ChainId } from '../types';
 
 /**
- * REAL Crossmint embedded checkout — "$X of a token via Apple Pay, delivered to
- * the user's wallet." Loaded ONLY in real mode (native SDK) via a lazy require in
- * ./index, so Expo Go / demo never touches it.
+ * REAL Crossmint checkout — Apple-Pay-ONLY, delivered to the user's wallet.
  *
- * The token is a fiat "exact-in" line item (spend $amount, receive as many tokens
- * as that buys); Crossmint runs the fiat→token conversion + on-chain delivery to
- * `recipientWallet` (the user's Privy embedded wallet on that chain).
+ * The order is created SERVER-side (onramp orders can't be built client-side), so
+ * this renders the *existing-order* flow: we pass the `orderId` + `clientSecret`
+ * the backend minted and Crossmint shows just the Apple Pay sheet — NO card form,
+ * no "powered by" chrome. Loaded only in real mode via a lazy require in ./index.
  */
 export type CrossmintCheckoutProps = {
-  chain: ChainId | undefined;
-  mint: string;
-  /** USD amount to spend, as a plain string ("5", "25"). */
-  amountUsd: string;
-  /** Where the token is delivered — the Privy Solana or EVM wallet for the chain. */
-  recipientWallet: string;
-  /** Optional; Apple Pay/Google Pay supply the email automatically when omitted. */
-  email?: string | null;
+  orderId: string;
+  clientSecret: string;
+  /** Fires once the order reaches the delivered/completed phase. */
   onCompleted: (order: unknown) => void;
+  /** Fires if the order fails (so the sheet can show an honest error). */
+  onFailed?: () => void;
 };
 
-/** Watches the checkout order and fires once it reaches the delivered/completed phase. */
-function CompletionWatcher({ onCompleted }: { onCompleted: (o: unknown) => void }) {
+/** Watches the order and fires on terminal phases (completed / failed). */
+function PhaseWatcher({ onCompleted, onFailed }: { onCompleted: (o: unknown) => void; onFailed?: () => void }) {
   const { order } = useCrossmintCheckout();
   useEffect(() => {
     const phase = (order as { phase?: string } | undefined)?.phase;
     if (phase === 'completed') onCompleted(order);
-  }, [order, onCompleted]);
+    else if (phase === 'failed') onFailed?.();
+  }, [order, onCompleted, onFailed]);
   return null;
 }
 
-export function CrossmintCheckout({ chain, mint, amountUsd, recipientWallet, email, onCompleted }: CrossmintCheckoutProps) {
+export function CrossmintCheckout({ orderId, clientSecret, onCompleted, onFailed }: CrossmintCheckoutProps) {
   return (
     <CrossmintProvider apiKey={CROSSMINT_CLIENT_KEY} consoleLogLevel="silent">
       <CrossmintCheckoutProvider>
         <CrossmintEmbeddedCheckout
-          lineItems={{
-            tokenLocator: tokenLocator(chain, mint),
-            executionParameters: { mode: 'exact-in', amount: amountUsd, maxSlippageBps: '500' },
-          }}
-          recipient={{ walletAddress: recipientWallet }}
+          orderId={orderId}
+          clientSecret={clientSecret}
           payment={{
-            ...(email ? { receiptEmail: email } : {}),
             crypto: { enabled: false },
             fiat: {
               enabled: true,
               defaultCurrency: 'usd',
-              allowedMethods: { applePay: true, googlePay: true, card: true },
+              // Apple Pay ONLY — no card form, no Google Pay chrome.
+              allowedMethods: { applePay: true, googlePay: false, card: false },
             },
             defaultMethod: 'fiat',
           }}
         />
-        <CompletionWatcher onCompleted={onCompleted} />
+        <PhaseWatcher onCompleted={onCompleted} onFailed={onFailed} />
       </CrossmintCheckoutProvider>
     </CrossmintProvider>
   );

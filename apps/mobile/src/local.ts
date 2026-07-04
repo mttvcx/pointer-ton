@@ -68,6 +68,32 @@ export function setReferralCode(v: string) {
 }
 export const useReferralCode = () => useSyncExternalStore(subscribe, () => store.referralCode);
 
+// ---- perps cash + jurisdiction gate ----
+// Perps run on a SEPARATE cash balance from spot tokens (FOMO model): you move
+// USD from "tokens cash" into "perps cash" before you can open a position. Demo
+// persistence (in-memory) — the live balance comes from the perps account on the
+// dev build. `geoAccepted` records the one-time "I'm not a U.S. person" gate.
+type PerpsStore = { cash: number; tokensCash: number; geoAccepted: boolean };
+const perps: PerpsStore = { cash: 0, tokensCash: 250, geoAccepted: false };
+
+/** Move USD from tokens cash → perps cash (both clamped at 0). */
+export function transferToPerps(amountUsd: number) {
+  const amt = Math.max(0, Math.min(amountUsd, perps.tokensCash));
+  perps.tokensCash = Math.round((perps.tokensCash - amt) * 100) / 100;
+  perps.cash = Math.round((perps.cash + amt) * 100) / 100;
+  emit();
+}
+export const usePerpsCash = () => useSyncExternalStore(subscribe, () => perps.cash);
+export const useTokensCash = () => useSyncExternalStore(subscribe, () => perps.tokensCash);
+export const perpsCashNow = () => perps.cash;
+
+export function acceptGeo() {
+  perps.geoAccepted = true;
+  emit();
+}
+export const useGeoAccepted = () => useSyncExternalStore(subscribe, () => perps.geoAccepted);
+export const geoAcceptedNow = () => perps.geoAccepted;
+
 // ---- advanced quick-buy prefs ----
 // `ultra` = one-tap instant buy straight from a screener row (outline button).
 // `sol`   = the amount each quick-buy spends. Demo persistence (in-memory).

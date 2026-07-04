@@ -23,7 +23,7 @@ import { PerpsList } from '../components/PerpsList';
 import { MiniSpark } from '../components/MiniSpark';
 import { GlassFill } from '../components/GlassFill';
 import { ReferralButton } from '../components/ReferralButton';
-import type { PulseBundle } from '../src/types';
+import type { PulseBundle, PerpMarket } from '../src/types';
 
 // Order intentionally NOT FOMO's (they lead Crypto·Perps·Trending): Trending leads,
 // Perps sits mid-row. Our own rhythm.
@@ -63,11 +63,13 @@ function multStr(w: WeeklyTrade): string {
 
 export function HomeScreen({
   onOpenToken,
+  onOpenPerp,
   advanced,
   onOpenEducation,
   onOpenReferral,
 }: {
   onOpenToken: (b: PulseBundle) => void;
+  onOpenPerp: (m: PerpMarket) => void;
   advanced: boolean;
   onOpenEducation: () => void;
   onOpenReferral: () => void;
@@ -75,16 +77,18 @@ export function HomeScreen({
   return advanced ? (
     <PulseBoard onOpenToken={onOpenToken} />
   ) : (
-    <SimpleHome onOpenToken={onOpenToken} onOpenEducation={onOpenEducation} onOpenReferral={onOpenReferral} />
+    <SimpleHome onOpenToken={onOpenToken} onOpenPerp={onOpenPerp} onOpenEducation={onOpenEducation} onOpenReferral={onOpenReferral} />
   );
 }
 
 function SimpleHome({
   onOpenToken,
+  onOpenPerp,
   onOpenEducation,
   onOpenReferral,
 }: {
   onOpenToken: (b: PulseBundle) => void;
+  onOpenPerp: (m: PerpMarket) => void;
   onOpenEducation: () => void;
   onOpenReferral: () => void;
 }) {
@@ -274,7 +278,7 @@ function SimpleHome({
 
         {isPerps ? (
           <View style={s.pad}>
-            <PerpsList />
+            <PerpsList onOpenPerp={onOpenPerp} />
           </View>
         ) : (
           <>

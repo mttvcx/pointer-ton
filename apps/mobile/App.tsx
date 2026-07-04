@@ -18,6 +18,7 @@ import { isOnboarded, markOnboarded } from './src/onboarded';
 import { registerForPush } from './src/push';
 import { HomeScreen } from './screens/HomeScreen';
 import { TokenScreen } from './screens/TokenScreen';
+import { PerpScreen } from './screens/PerpScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SocialScreen } from './screens/SocialScreen';
 import { TraderProfileScreen } from './screens/TraderProfileScreen';
@@ -32,7 +33,7 @@ import { SettingsScreen, type Section } from './screens/SettingsScreen';
 import { GlassNav, type NavTab } from './components/GlassNav';
 import { ToastHost } from './components/Toast';
 import { colors } from './src/theme';
-import type { PulseBundle } from './src/types';
+import type { PulseBundle, PerpMarket } from './src/types';
 
 /**
  * Crossfades the whole shell when `target` flips (Simple ⇄ Advanced): fade out →
@@ -71,7 +72,10 @@ function AnimatedMount({ routeKey, children }: { routeKey: string; children: Rea
 }
 
 type TraderRef = { handle: string; name?: string; color?: string; initial?: string };
-type StackRoute = { kind: 'token'; bundle: PulseBundle } | ({ kind: 'trader' } & TraderRef);
+type StackRoute =
+  | { kind: 'token'; bundle: PulseBundle }
+  | { kind: 'perp'; market: PerpMarket }
+  | ({ kind: 'trader' } & TraderRef);
 
 function Shell() {
   const auth = useAuth();
@@ -183,6 +187,7 @@ function Shell() {
   }
 
   const pushToken = (bundle: PulseBundle) => setStack((s) => [...s, { kind: 'token', bundle }]);
+  const pushPerp = (market: PerpMarket) => setStack((s) => [...s, { kind: 'perp', market }]);
   const pushTrader = (t: TraderRef) => setStack((s) => [...s, { kind: 'trader', ...t }]);
   const pop = () => setStack((s) => s.slice(0, -1));
   const go = (t: NavTab) => {
@@ -192,7 +197,7 @@ function Shell() {
 
   const tabScreen =
     tab === 'home' ? (
-      <HomeScreen onOpenToken={pushToken} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
+      <HomeScreen onOpenToken={pushToken} onOpenPerp={pushPerp} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
     ) : tab === 'search' ? (
       <SearchScreen onOpenToken={pushToken} />
     ) : tab === 'financial' ? (
@@ -213,11 +218,13 @@ function Shell() {
             slides itself in/out, so popping reveals the previous screen underneath. */}
         {stack.map((route, i) => (
           <View
-            key={`${route.kind}-${route.kind === 'token' ? route.bundle.token.mint : route.handle}-${i}`}
+            key={`${route.kind}-${route.kind === 'token' ? route.bundle.token.mint : route.kind === 'perp' ? route.market.id : route.handle}-${i}`}
             style={StyleSheet.absoluteFill}
           >
             {route.kind === 'token' ? (
               <TokenScreen bundle={route.bundle} onBack={pop} advanced={adv} onOpenTrader={pushTrader} />
+            ) : route.kind === 'perp' ? (
+              <PerpScreen market={route.market} onBack={pop} />
             ) : (
               <TraderProfileScreen
                 handle={route.handle}
