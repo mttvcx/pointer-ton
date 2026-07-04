@@ -6,6 +6,7 @@ import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
+import { useSquads } from '../src/account';
 
 /**
  * Squads — trading crews. A squad is a GROUP (join a crew, see its combined
@@ -32,6 +33,46 @@ export function SquadsView() {
   const [joined, setJoined] = useState<Record<string, boolean>>({ bunker: true });
   const yourSquad = DEMO_SQUADS.find((sq) => joined[sq.id]);
   const soon = () => showToast('Squad creation is coming soon', { sub: 'Crews go live with the social update', kind: 'info' });
+
+  // Real squads once any crews exist (table's live now, just empty). Until then
+  // the demo roster below stands in so the tab is never blank.
+  const real = useSquads().data;
+  const realSquads = real?.provisioned ? real.squads : [];
+
+  if (realSquads.length > 0) {
+    return (
+      <View style={s.wrap}>
+        <GlossButton onPress={soon} style={{ marginTop: 4 }}>
+          <Ionicons name="add" size={19} color={colors.onAccent} />
+          <Text style={s.createText}>Create a squad</Text>
+        </GlossButton>
+        <View style={s.head}>
+          <View style={s.bar} />
+          <Text style={s.headText}>Squads</Text>
+        </View>
+        {realSquads.map((sq) => (
+          <View key={sq.id} style={s.row}>
+            <GlassFill />
+            <View style={s.emoji}>
+              <Ionicons name="people" size={20} color={colors.accentGlow} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={s.nameRow}>
+                <Text style={s.name} numberOfLines={1}>{sq.name}</Text>
+                {sq.visibility === 'public' ? (
+                  <View style={[s.tag, s.tagPublic]}><Text style={[s.tagText, s.tagTextPublic]}>Public</Text></View>
+                ) : null}
+              </View>
+              <Text style={s.meta}>{sq.memberCount} member{sq.memberCount === 1 ? '' : 's'}</Text>
+            </View>
+            <View style={[s.joinBtn, sq.isMember && s.joinedBtn]}>
+              <Text style={[s.joinText, sq.isMember && s.joinedText]}>{sq.isMember ? 'Joined' : 'Join'}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  }
 
   return (
     <View style={s.wrap}>

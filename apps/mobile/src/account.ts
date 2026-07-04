@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { DEMO, useAuth } from './auth';
 import { getMe, getMyWallets, getPortfolio, getPoints, getCashBalance } from './api/endpoints';
-import { getPointerIdentity } from './api/social';
+import { getPointerIdentity, getSquads } from './api/social';
 
 /**
  * Real-account hooks. All are DISABLED in demo (Expo Go) and until the user is
@@ -29,6 +29,18 @@ export function usePointerIdentity() {
     queryFn: getPointerIdentity,
     enabled: !DEMO && auth.isLoggedIn,
     staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+/** Real squads the user is in / can discover (empty until crews get created). */
+export function useSquads() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ['squads', 'list'],
+    queryFn: getSquads,
+    enabled: !DEMO && auth.isLoggedIn,
+    staleTime: 30_000,
     retry: 1,
   });
 }
