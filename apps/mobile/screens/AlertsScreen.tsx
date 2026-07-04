@@ -12,19 +12,17 @@ import { SolAmount } from '../components/SolAmount';
 import { ChainIcon } from '../components/ChainIcon';
 import { colors, radius } from '../src/theme';
 import { shortMint } from '../src/format';
+import { showToast } from '../src/toast';
 import {
   useNotifPrefs,
   setNotifPref,
   type NotifPrefs,
-  useAutoRules,
-  addRule,
-  toggleRule,
-  removeRule,
   useKillSwitch,
   setKillSwitch,
   type RuleTrigger,
   type RuleChain,
 } from '../src/local';
+import { useRules, type NewRuleInput } from '../src/api/automations';
 
 const CHAINS: { id: RuleChain; label: string }[] = [
   { id: 'sol', label: 'Solana' },
@@ -95,7 +93,7 @@ function dedupeOpts(opts: RuleOption[]): RuleOption[] {
 export function AlertsScreen() {
   const insets = useSafeAreaInsets();
   const notif = useNotifPrefs();
-  const rules = useAutoRules();
+  const { rules, toggle, remove, add } = useRules();
   const kill = useKillSwitch();
   const [builder, setBuilder] = useState(false);
 
@@ -186,11 +184,11 @@ export function AlertsScreen() {
                   </View>
                   <Switch
                     value={r.enabled}
-                    onValueChange={() => toggleRule(r.id)}
+                    onValueChange={(v) => void toggle(r.id, v)}
                     trackColor={{ false: colors.bgRaised2, true: colors.bull }}
                     thumbColor="#fff"
                   />
-                  <PressScale onPress={() => removeRule(r.id)} hitSlop={8} to={0.85} style={s.del}>
+                  <PressScale onPress={() => void remove(r.id)} hitSlop={8} to={0.85} style={s.del}>
                     <Ionicons name="trash-outline" size={16} color={colors.fgMuted} />
                   </PressScale>
                 </View>
@@ -205,7 +203,7 @@ export function AlertsScreen() {
         </Text>
       </ScrollView>
 
-      <RuleBuilder visible={builder} onClose={() => setBuilder(false)} />
+      <RuleBuilder visible={builder} onClose={() => setBuilder(false)} onAdd={add} />
     </Screen>
   );
 }
@@ -221,7 +219,15 @@ function SelectButton({ label, set, onPress }: { label: string; set: boolean; on
   );
 }
 
-function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function RuleBuilder({
+  visible,
+  onClose,
+  onAdd,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onAdd: (input: NewRuleInput) => Promise<void>;
+}) {
   const [trigger, setTrigger] = useState<RuleTrigger>('x_ca');
   const [target, setTarget] = useState(''); // value: mint / handle / keyword
   const [targetLabel, setTargetLabel] = useState(''); // display label
@@ -257,16 +263,34 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
         ? isValidHandle(t)
         : isValidKeyword(t); // x_keyword
 
-  const save = () => {
-    if (!valid) return;
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!valid || saving) return;
     let display: string;
-    if (trigger === 'price') display = `${targetLabel || shortMint(t)} → ${priceMult}x`;
-    else if (trigger === 'tracked_wallet') display = targetLabel || shortMint(t);
-    else if (trigger === 'x_ca') display = '@' + normalizeHandle(t);
-    else display = sanitizeText(t); // x_keyword
-    addRule({ trigger, target: display, buySol, cooldownSec: cooldown, dailyCapSol: cap, enabled: true, chain: buySol > 0 ? chain : undefined });
-    reset();
-    onClose();
+    let rawTarget: string;
+    if (trigger === 'price') {
+      display = `${targetLabel || shortMint(t)} → ${priceMult}x`;
+      rawTarget = t;
+    } else if (trigger === 'tracked_wallet') {
+      display = targetLabel || shortMint(t);
+      rawTarget = t;
+    } else if (trigger === 'x_ca') {
+      rawTarget = normalizeHandle(t);
+      display = '@' + rawTarget;
+    } else {
+      rawTarget = sanitizeText(t);
+      display = rawTarget; // x_keyword
+    }
+    setSaving(true);
+    try {
+      await onAdd({ trigger, rawTarget, display, priceMult, buySol, cooldownSec: cooldown, dailyCapSol: cap, chain });
+      reset();
+      onClose();
+    } catch {
+      showToast("Couldn't save the rule", { sub: 'Please try again', kind: 'error' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tokenOptions = dedupeOpts([...RECENT_TOKENS, ...POPULAR_TOKENS]);
@@ -419,8 +443,8 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
             </>
           ) : null}
 
-          <GlossButton onPress={save} style={{ marginTop: 22, opacity: valid ? 1 : 0.5 }}>
-            <Text style={s.saveText}>Add rule</Text>
+          <GlossButton onPress={save} style={{ marginTop: 22, opacity: valid && !saving ? 1 : 0.5 }}>
+            <Text style={s.saveText}>{saving ? 'Saving…' : 'Add rule'}</Text>
           </GlossButton>
         </ScrollView>
       </DragSheet>
