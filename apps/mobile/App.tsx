@@ -160,13 +160,20 @@ function Shell() {
         autoFocusBio={settingsFocusBio}
         onClose={() => setSettingsOpen(false)}
         onLogout={() => {
-          // Clear the Privy session too — otherwise LoginScreen sees isLoggedIn and
-          // auto-advances right back in, so you could never reach login / a new account.
-          void auth.logout();
+          // AWAIT the Privy logout before showing login — otherwise LoginScreen
+          // renders while isLoggedIn is briefly still true and auto-advances right
+          // back in (the "had to click Log out twice" bug).
           setSettingsOpen(false);
-          setOnboarded(false);
-          setObReady(false);
-          setEntered(false);
+          void (async () => {
+            try {
+              await auth.logout();
+            } catch {
+              /* clear local state regardless */
+            }
+            setOnboarded(false);
+            setObReady(false);
+            setEntered(false);
+          })();
         }}
       />
     );

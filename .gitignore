@@ -61,5 +61,6 @@ anchor/**/*.so
 
 .vercel
 
-# Untracked sibling app (separate project; never commit here)
-apps/
+# NOTE: main ignores `apps/` (mobile is a "sibling project" there). This is the
+# mobile branch, which OWNS apps/mobile — so it is NOT ignored here. Do not carry
+# this line back to main (the mobile app stays out of main; merge backend files only).
