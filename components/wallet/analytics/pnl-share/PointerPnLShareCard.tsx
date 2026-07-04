@@ -58,7 +58,7 @@ export function PointerPnLShareCard({
         style={{
           right: pos.wordmark.right * scale,
           top: pos.wordmark.y * scale,
-          maxWidth: 320 * scale,
+          maxWidth: 520 * scale,
         }}
       >
         <PointerWordmark

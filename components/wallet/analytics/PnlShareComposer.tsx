@@ -47,7 +47,7 @@ import { cn } from '@/lib/utils/cn';
 import { CloseButton } from '@/components/ui/CloseButton';
 
 const TOOL_BTN =
-  'inline-flex h-8 items-center gap-1.5 rounded-sm border border-border-subtle bg-bg-sunken px-2.5 text-[11px] font-medium text-fg-secondary transition hover:bg-bg-hover hover:text-fg-primary disabled:opacity-45';
+  'inline-flex h-8 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2.5 text-[11px] font-medium text-fg-secondary backdrop-blur-md transition hover:border-white/20 hover:bg-white/[0.12] hover:text-fg-primary disabled:opacity-45';
 
 function filenameBase(token: string, wallet: string) {
   const ts = Date.now();
@@ -395,7 +395,7 @@ export function PnlShareComposer() {
         aria-modal="true"
         aria-labelledby="pnl-share-title"
         className={cn(
-          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#080a0e]/90 fill-mode-forwards shadow-2xl backdrop-blur-xl',
+          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0d13]/70 fill-mode-forwards shadow-2xl backdrop-blur-2xl',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
@@ -451,14 +451,14 @@ export function PnlShareComposer() {
           />
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="inline-flex rounded-sm border border-border-subtle bg-bg-sunken p-0.5">
+            <div className="inline-flex rounded-md border border-white/10 bg-white/[0.05] p-0.5 backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => composer.setMode('image')}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-sm px-2.5 text-[11px] font-medium transition',
+                  'inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-medium transition',
                   composer.mode === 'image'
-                    ? 'bg-bg-hover text-fg-primary'
+                    ? 'bg-white/[0.12] text-fg-primary'
                     : 'text-fg-muted hover:text-fg-secondary',
                 )}
               >
@@ -469,9 +469,9 @@ export function PnlShareComposer() {
                 type="button"
                 onClick={() => composer.setMode('video')}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-sm px-2.5 text-[11px] font-medium transition',
+                  'inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-medium transition',
                   composer.mode === 'video'
-                    ? 'bg-bg-hover text-fg-primary'
+                    ? 'bg-white/[0.12] text-fg-primary'
                     : 'text-fg-muted hover:text-fg-secondary',
                 )}
               >
@@ -493,7 +493,7 @@ export function PnlShareComposer() {
               disabled={Boolean(busy)}
             />
           ) : (
-            <div className="space-y-3 rounded-md border border-border-subtle bg-bg-sunken p-3">
+            <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 backdrop-blur-md">
               <div className="flex flex-wrap items-center gap-2">
                 <label className={cn(TOOL_BTN, 'cursor-pointer')}>
                   Upload video
@@ -516,7 +516,7 @@ export function PnlShareComposer() {
                 ) : null}
               </div>
               {customVideoUrl ? (
-                <div className="space-y-3 border-t border-border-subtle pt-3">
+                <div className="space-y-3 border-t border-white/10 pt-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <button type="button" onClick={toggleVideoPlay} className={TOOL_BTN}>
                       {videoPlaying ? (
@@ -568,7 +568,7 @@ export function PnlShareComposer() {
             />
           ) : null}
 
-          <div className="rounded-md border border-border-subtle bg-bg-sunken p-3">
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 backdrop-blur-md">
             <ShareCustomizePanel
               overlay={composer.overlay}
               onChange={composer.patchOverlay}
@@ -578,12 +578,15 @@ export function PnlShareComposer() {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border-subtle bg-bg-raised px-4 py-3 sm:px-5">
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-md sm:px-5">
           <button
             type="button"
             onClick={() => void onCopyPng()}
             disabled={busy !== null || composer.mode === 'video'}
-            className={cn(modalBtnSecondaryClass, 'inline-flex h-9 shrink-0 items-center gap-1.5 px-4 text-[12px]')}
+            className={cn(
+              modalBtnSecondaryClass,
+              'inline-flex h-9 shrink-0 items-center gap-1.5 border-white/10 bg-white/[0.06] px-4 text-[12px] backdrop-blur-md hover:border-white/20 hover:bg-white/[0.12]',
+            )}
           >
             {busy === 'copy' ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

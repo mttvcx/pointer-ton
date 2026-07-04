@@ -36,7 +36,7 @@ export function ShareBackgroundPicker({
       ))}
       <label
         className={cn(
-          'flex h-14 w-[4.5rem] shrink-0 cursor-pointer flex-col items-center justify-center rounded-sm border border-dashed border-border-subtle bg-bg-base text-[9px] text-fg-muted transition hover:border-border-default hover:text-fg-secondary',
+          'flex h-14 w-[4.5rem] shrink-0 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-white/15 bg-white/[0.04] text-[9px] text-fg-muted backdrop-blur-md transition hover:border-white/30 hover:bg-white/[0.08] hover:text-fg-secondary',
           disabled && 'pointer-events-none opacity-50',
         )}
       >

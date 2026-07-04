@@ -36,10 +36,10 @@ export function ShareCustomizePanel({
               type="button"
               onClick={() => onChange({ pnlFormat: m })}
               className={cn(
-                'rounded-sm border px-3 py-1.5 text-[11px] font-medium transition',
+                'rounded-md border px-3 py-1.5 text-[11px] font-medium backdrop-blur-md transition',
                 overlay.pnlFormat === m
                   ? 'border-accent-primary/50 bg-accent-primary/10 text-fg-primary'
-                  : 'border-border-subtle text-fg-muted hover:border-border-default hover:text-fg-secondary',
+                  : 'border-white/10 bg-white/[0.05] text-fg-muted hover:border-white/20 hover:bg-white/[0.1] hover:text-fg-secondary',
               )}
             >
               {m === 'both' ? 'Amount + %' : m === 'pct' ? '% only' : 'Amount'}
@@ -100,10 +100,10 @@ export function ShareCustomizePanel({
               type="button"
               onClick={() => onChange({ overlayAlign: a })}
               className={cn(
-                'rounded-sm border px-3 py-1.5 text-[11px] font-medium capitalize transition',
+                'rounded-md border px-3 py-1.5 text-[11px] font-medium capitalize backdrop-blur-md transition',
                 overlay.overlayAlign === a
                   ? 'border-accent-primary/50 bg-accent-primary/10 text-fg-primary'
-                  : 'border-border-subtle text-fg-muted hover:border-border-default',
+                  : 'border-white/10 bg-white/[0.05] text-fg-muted hover:border-white/20 hover:bg-white/[0.1]',
               )}
             >
               {a}
@@ -179,13 +179,13 @@ function ToggleRow({
     <button
       type="button"
       onClick={onToggle}
-      className="flex items-center justify-between rounded-sm border border-border-subtle bg-bg-base px-3 py-2.5 text-left text-[12px] text-fg-secondary transition hover:bg-bg-hover"
+      className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.04] px-3 py-2.5 text-left text-[12px] text-fg-secondary backdrop-blur-md transition hover:border-white/20 hover:bg-white/[0.09]"
     >
       {label}
       <span
         className={cn(
           'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-          on ? 'bg-accent-primary/15 text-fg-primary' : 'bg-bg-sunken text-fg-muted',
+          on ? 'bg-accent-primary/15 text-fg-primary' : 'bg-white/[0.08] text-fg-muted',
         )}
       >
         {on ? 'On' : 'Off'}
