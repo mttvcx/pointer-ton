@@ -47,6 +47,11 @@ import {
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
 import { CloseButton } from '@/components/ui/CloseButton';
+import { SolGlyph } from '@/components/chains/SolGlyph';
+
+/** Shared floating-surface skin — every editor cluster is its own disconnected glass panel. */
+const FLOAT_SURFACE =
+  'rounded-2xl border border-white/10 bg-[#191919]/80 shadow-2xl backdrop-blur-2xl';
 
 const TOOL_BTN =
   'inline-flex h-8 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2.5 text-[11px] font-medium text-fg-secondary backdrop-blur-md transition hover:border-white/20 hover:bg-white/[0.12] hover:text-fg-primary disabled:opacity-45';
@@ -435,13 +440,14 @@ export function PnlShareComposer() {
         aria-modal="true"
         aria-labelledby="pnl-share-title"
         className={cn(
-          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#191919]/80 fill-mode-forwards shadow-2xl backdrop-blur-2xl',
+          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col gap-3 overflow-y-auto overflow-x-hidden fill-mode-forwards [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-3 sm:px-5">
-          <div className="min-w-0">
+        {/* Header — floats on its own, disconnected from the card */}
+        <div className="flex items-start justify-between gap-3">
+          <div className={cn(FLOAT_SURFACE, 'min-w-0 px-4 py-2.5')}>
             <h2 id="pnl-share-title" className="text-[14px] font-medium text-fg-primary">
               {shareKind === 'monthly' ? 'Share monthly PNL' : 'Share PNL'}
             </h2>
@@ -451,11 +457,13 @@ export function PnlShareComposer() {
                 : `${d.tokenTicker} · ${shortenAddress(d.walletAddress, 5)}`}
             </p>
           </div>
-          <CloseButton onClick={() => close()} label="Close" size="md" />
+          <div className={cn(FLOAT_SURFACE, 'flex items-center justify-center p-1')}>
+            <CloseButton onClick={() => close()} label="Close" size="md" />
+          </div>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
-          <div className="overflow-hidden rounded-2xl ring-1 ring-white/10">
+        <div className="flex flex-col gap-3">
+          <div className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10">
             <PnlShareCard
                 ref={cardRef}
                 payload={d}
@@ -491,14 +499,14 @@ export function PnlShareComposer() {
           />
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="inline-flex rounded-md border border-white/10 bg-white/[0.05] p-0.5 backdrop-blur-md">
+            <div className={cn(FLOAT_SURFACE, 'inline-flex p-1')}>
               <button
                 type="button"
                 onClick={() => composer.setMode('image')}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-medium transition',
+                  'inline-flex h-7 items-center gap-1.5 rounded-xl px-3 text-[11px] font-medium transition',
                   composer.mode === 'image'
-                    ? 'bg-white/[0.12] text-fg-primary'
+                    ? 'bg-white/[0.14] text-fg-primary'
                     : 'text-fg-muted hover:text-fg-secondary',
                 )}
               >
@@ -509,9 +517,9 @@ export function PnlShareComposer() {
                 type="button"
                 onClick={() => composer.setMode('video')}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[11px] font-medium transition',
+                  'inline-flex h-7 items-center gap-1.5 rounded-xl px-3 text-[11px] font-medium transition',
                   composer.mode === 'video'
-                    ? 'bg-white/[0.12] text-fg-primary'
+                    ? 'bg-white/[0.14] text-fg-primary'
                     : 'text-fg-muted hover:text-fg-secondary',
                 )}
               >
@@ -519,9 +527,14 @@ export function PnlShareComposer() {
                 Video
               </button>
             </div>
-            <button type="button" onClick={toggleChain} className={TOOL_BTN}>
+            <button
+              type="button"
+              onClick={toggleChain}
+              aria-label={`Currency: ${composer.chainTicker}`}
+              className={cn(FLOAT_SURFACE, 'inline-flex h-9 items-center gap-1.5 px-3 text-[12px] font-medium text-fg-secondary transition hover:text-fg-primary')}
+            >
               <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={2} />
-              {composer.chainTicker}
+              {composer.chainTicker === 'SOL' ? <SolGlyph size={15} /> : 'USD'}
             </button>
           </div>
 
@@ -533,7 +546,7 @@ export function PnlShareComposer() {
               disabled={Boolean(busy)}
             />
           ) : (
-            <div className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-[#191919]/80 p-4 shadow-2xl backdrop-blur-2xl">
               <div className="flex flex-wrap items-center gap-2">
                 <label className={cn(TOOL_BTN, 'cursor-pointer')}>
                   Upload video
@@ -587,7 +600,7 @@ export function PnlShareComposer() {
           )}
 
           {composer.mode === 'video' ? (
-            <div className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-[#191919]/80 p-4 shadow-2xl backdrop-blur-2xl">
               <div className="flex items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
                   <Music className="h-3.5 w-3.5" strokeWidth={2} /> Music
@@ -656,7 +669,7 @@ export function PnlShareComposer() {
             />
           ) : null}
 
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
+          <div className="rounded-2xl border border-white/10 bg-[#191919]/80 p-4 shadow-2xl backdrop-blur-2xl">
             <ShareCustomizePanel
               overlay={composer.overlay}
               onChange={composer.patchOverlay}
@@ -666,14 +679,14 @@ export function PnlShareComposer() {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-md sm:px-5">
+        <div className="flex items-center justify-end gap-3 pb-1">
           <button
             type="button"
             onClick={() => void onCopyPng()}
             disabled={busy !== null || composer.mode === 'video'}
             className={cn(
               modalBtnSecondaryClass,
-              'inline-flex h-9 shrink-0 items-center gap-1.5 border-white/10 bg-white/[0.06] px-4 text-[12px] backdrop-blur-md hover:border-white/20 hover:bg-white/[0.12]',
+              'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl border-white/10 bg-[#191919]/80 px-4 text-[12px] shadow-2xl backdrop-blur-2xl hover:border-white/20 hover:bg-[#232323]/85',
             )}
           >
             {busy === 'copy' ? (
@@ -689,7 +702,10 @@ export function PnlShareComposer() {
               composer.mode === 'video' ? void onExportVideo() : void onDownloadPng()
             }
             disabled={busy !== null || (composer.mode === 'video' && !customVideoUrl)}
-            className={cn(modalBtnPrimaryClass, 'inline-flex h-9 shrink-0 items-center gap-1.5 px-4 text-[12px]')}
+            className={cn(
+              modalBtnPrimaryClass,
+              'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-[#191919]/80 px-4 text-[12px] shadow-2xl backdrop-blur-2xl',
+            )}
           >
             {busy === 'png' || busy === 'video' ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

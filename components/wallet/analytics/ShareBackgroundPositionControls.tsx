@@ -16,7 +16,7 @@ export function ShareBackgroundPositionControls({
   onReset: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 backdrop-blur-md">
+    <div className="rounded-2xl border border-white/10 bg-[#191919]/80 p-4 shadow-2xl backdrop-blur-2xl">
       <div className="flex items-center justify-between gap-2">
         <p className={modalSectionLabelClass}>Background position</p>
         <button
