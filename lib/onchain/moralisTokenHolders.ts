@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { TablesInsert } from '@/lib/supabase/types';
 import type { TokenHolderSnapshot } from '@/lib/onchain/solanaTokenHolders';
+import { guardProvider } from '@/lib/providers/circuitBreaker';
 
 const BASE = 'https://solana-gateway.moralis.io';
 
@@ -52,6 +53,15 @@ export async function fetchMoralisTokenHolderSnapshot(
 ): Promise<TokenHolderSnapshot | null> {
   const key = process.env.MORALIS_API_KEY?.trim();
   if (!key) return null;
+
+  // Circuit breaker — Moralis is a metered paid provider; this call makes 2
+  // requests. Hard cutoff when over budget or manually disabled (fails open on
+  // a Redis blip). Data enrichment, so a null return here is a safe degradation.
+  try {
+    await guardProvider('moralis', 2);
+  } catch {
+    return null;
+  }
 
   const limit = Math.min(Math.max(opts?.limit ?? 20, 1), 100);
   const creator = opts?.creatorWallet?.trim() || null;

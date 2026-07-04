@@ -1,11 +1,12 @@
 'use client';
 
-import { History, ImageIcon, X } from 'lucide-react';
+import { History, ImageIcon } from 'lucide-react';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 import { EX } from '@/components/wallet/exchangeModalUi';
+import { CloseButton } from '@/components/ui/CloseButton';
 
 type Props = {
   open: boolean;
@@ -41,14 +42,7 @@ export function DepositHistoryModal({ open, onOpenChange }: Props) {
           <h2 id="deposit-history-title" className={EX.title}>
             Deposit history
           </h2>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="btn-press focus-ring rounded-md p-1 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <CloseButton onClick={() => onOpenChange(false)} label="Close" size="sm" />
         </div>
         <div className="px-4 py-3">
           <div className={cn('flex items-center gap-1.5', EX.muted)}>

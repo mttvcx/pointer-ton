@@ -8,7 +8,7 @@ export type SyntheticStockMarketType =
   | 'index'
   | 'crypto_equity';
 
-export type SyntheticStockProviderId = 'mock' | 'tradexyz' | 'hyperliquid';
+export type SyntheticStockProviderId = 'mock' | 'tradexyz' | 'hyperliquid' | 'xstocks';
 
 export interface SyntheticStockMarket {
   symbol: string;
@@ -26,6 +26,11 @@ export interface SyntheticStockMarket {
   /** Short AI blurb for hover / detail */
   aiSummary: string;
   watchlisted?: boolean;
+  /** Solana SPL mint (xStocks) — lets the UI deep-link to the real /token/[mint]
+   *  trade page so buys route through the existing Jupiter pipeline. */
+  mint?: string;
+  /** Official token logo (e.g. Backed xStocks metadata). */
+  iconUrl?: string | null;
 }
 
 export interface SyntheticStockCandle {

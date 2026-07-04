@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
@@ -36,12 +37,38 @@ export function ChainSelectDropdown({
   const setActiveChain = useUIStore((s) => s.setActiveChain);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const { mounted: menuMounted, visible: menuVisible } = useOverlayPresence(open, POPOVER_ANIM_CLOSE_MS);
+  const [menuPos, setMenuPos] = useState<{ top: number; left?: number; right?: number } | null>(null);
+
+  // Position the portaled menu from the trigger rect. Portaling to <body> lifts
+  // it out of the topbar's stacking context so floating docks (z-[221]) can't
+  // paint over it. Recompute on open + scroll/resize.
+  useLayoutEffect(() => {
+    if (!menuMounted) return;
+    const place = () => {
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (!r) return;
+      setMenuPos(
+        menuAlign === 'left'
+          ? { top: r.bottom + 6, left: r.left }
+          : { top: r.bottom + 6, right: window.innerWidth - r.right },
+      );
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [menuMounted, menuAlign]);
 
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (wrapRef.current?.contains(e.target as Node)) return;
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || menuRef.current?.contains(t)) return;
       setOpen(false);
     }
     document.addEventListener('mousedown', onDoc);
@@ -100,13 +127,15 @@ export function ChainSelectDropdown({
         )}
       </button>
 
-      {menuMounted ? (
+      {menuMounted && menuPos && typeof document !== 'undefined'
+        ? createPortal(
         <div
+          ref={menuRef}
           role="listbox"
           aria-label="Select network"
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, right: menuPos.right }}
           className={cn(
-            'absolute top-[calc(100%+6px)] z-[140] min-w-[12.5rem] overflow-hidden rounded-xl border border-border-subtle bg-bg-raised py-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] fill-mode-forwards',
-            menuAlign === 'left' ? 'left-0' : 'right-0',
+            'z-[250] min-w-[12.5rem] overflow-hidden rounded-xl border border-border-subtle bg-bg-raised py-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] fill-mode-forwards',
             popoverPanelClasses(menuVisible),
           )}
         >
@@ -145,8 +174,10 @@ export function ChainSelectDropdown({
               </button>
             );
           })}
-        </div>
-      ) : null}
+        </div>,
+          document.body,
+        )
+        : null}
     </div>
   );
 }

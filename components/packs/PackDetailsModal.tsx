@@ -1,9 +1,9 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import type { PackPublicConfig } from '@/types/pack';
 import { listPackShowcaseItems } from '@/lib/packs/packShowcase';
-import { formatApproxUsd, formatPackMc, formatPackVal } from '@/lib/packs/formatDisplay';
+import { formatPackMc } from '@/lib/packs/formatDisplay';
 import { PACK_VISUAL, RARITY_THEME } from '@/lib/packs/rarityTheme';
 import { PackSolAmount } from '@/components/packs/PackSolAmount';
 import { cn } from '@/lib/utils/cn';
@@ -48,14 +48,7 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
                 Top hits only — sorted from most insane downward. Odds per slot.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-press focus-ring rounded-sm p-2 text-fg-muted hover:bg-white/[0.06] hover:text-fg-primary"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" strokeWidth={2} />
-            </button>
+            <CloseButton onClick={onClose} label="Close pack details" />
           </div>
           <div className="mt-3 flex items-center gap-3 text-[12px] text-fg-muted">
             <span>Price</span>
@@ -115,19 +108,10 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
                     </p>
                     <p className="text-[12px] text-fg-muted">{hit.subtitle}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-                      {hit.valueSol != null ? (
-                        <span className="inline-flex items-center gap-1.5 font-mono tabular-nums text-accent-glow">
-                          Up to {hit.valueSol.toFixed(hit.valueSol >= 10 ? 0 : 1)}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src="/chains/sol.png" alt="" width={12} height={12} className="object-contain" />
-                        </span>
-                      ) : (
+                      {/* Token hits intentionally show NO best-case $ value — only the
+                          boost/pass display value renders. (`valueUsd` stays in the data.) */}
+                      {!isToken ? (
                         <span className="font-mono tabular-nums text-accent-glow">{hit.displayValue}</span>
-                      )}
-                      {hit.valueUsd != null ? (
-                        <span className="font-mono tabular-nums text-fg-secondary">
-                          ~{formatPackVal(hit.valueUsd, null)}
-                        </span>
                       ) : null}
                       {hit.marketCapUsd != null ? (
                         <span className="text-fg-muted">MC {formatPackMc(hit.marketCapUsd)}</span>
@@ -138,6 +122,9 @@ export function PackDetailsModal({ config, onClose }: PackDetailsModalProps) {
               );
             })}
           </div>
+          <p className="mt-4 text-[11px] leading-relaxed text-fg-muted">
+            Cashback &amp; points boosts apply to your trading fees, not as cash.
+          </p>
         </div>
       </div>
     </div>

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, Share2, X } from 'lucide-react';
+import { ChevronDown, Share2 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import type { PulseColumnId } from '@/lib/utils/constants';
 import { PULSE_COLUMNS } from '@/lib/utils/constants';
@@ -648,9 +649,7 @@ export function ColumnFilterModal({
           <h2 id="column-filter-title" className="text-sm font-semibold text-fg-primary">
             Filters
           </h2>
-          <button type="button" onClick={onClose} className={modalCloseBtnClass} aria-label="Close filters">
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton label="Close filters" onClick={onClose} />
         </div>
 
         {/* Column scope tabs */}

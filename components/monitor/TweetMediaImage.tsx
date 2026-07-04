@@ -49,9 +49,9 @@ export function TweetMediaImage({ src, alt = '' }: { src: string; alt?: string }
         ref={ref}
         type="button"
         onClick={openLens}
+        aria-label="Search this image on Google Lens"
         onMouseEnter={showPreview}
         onMouseLeave={() => setPreview(null)}
-        title="Search image on Google Lens"
         className="group/media mt-2 block w-full cursor-zoom-in overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.02]"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}

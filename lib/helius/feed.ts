@@ -388,18 +388,10 @@ export async function getPulseFeed(
     tokens = await cachedListPulseFeedTokens(column, chain, PULSE_PAGE_SIZE);
   } else if (chain !== 'ton' && tokens.length < MIN_ROWS_BEFORE_POLL) {
     if (chain === 'sol') {
-      try {
-        const inserted = await withTimeout(
-          pollSolanaPulseFromDas(),
-          12_000,
-          'pulse_sol_cold_poll',
-        );
-        debugTon('getPulseFeed: sync Sol DAS poll', { insertedNewMints: inserted });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn('[pointer][pulse DAS] cold-start sync poll failed:', msg);
-        maybeKickSolDasPollAsync();
-      }
+      // Never block the request on DAS polling (slow + burns Helius credits).
+      // Kick it in the background; the discover-tokens cron is the primary
+      // populator and the warm-feed cache serves users meanwhile.
+      maybeKickSolDasPollAsync();
     } else {
       const geckoNet = geckoNetworkForAppChain(chain);
       if (geckoNet) maybeKickGeckoPollAsync(geckoNet);
@@ -422,27 +414,32 @@ export async function getPulseFeed(
   tokens = await hydratePulseTokenRows(tokens);
   const bundles = await bundlePulseTokens(tokens);
   const deduped = dedupePulseBundlesByMint(bundles);
+  // Best-effort enrichment: each step degrades independently so a slow
+  // DexScreener call can't also strip metrics (and vice-versa). Cold requests
+  // return whatever we have fast instead of hanging the whole feed.
+  let enriched = deduped;
   try {
-    const dexEnriched = await withTimeout(
-      enrichPulseBundlesWithDexScreener(deduped, chain),
-      6_000,
+    enriched = await withTimeout(
+      enrichPulseBundlesWithDexScreener(enriched, chain),
+      4_000,
       'pulse_dex_enrich',
     );
-    const metricsEnriched = await withTimeout(
-      enrichPulseBundlesWithMetrics(dexEnriched, chain),
-      9_000,
+  } catch {
+    /* keep pre-dex bundles */
+  }
+  try {
+    enriched = await withTimeout(
+      enrichPulseBundlesWithMetrics(enriched, chain),
+      5_000,
       'pulse_metrics_enrich',
     );
-    if (column === 'new') {
-      return metricsEnriched.filter((b) => bundleMatchesPulseColumn(b, column, chain));
-    }
-    return metricsEnriched;
   } catch {
-    if (column === 'new') {
-      return deduped.filter((b) => bundleMatchesPulseColumn(b, column, chain));
-    }
-    return deduped;
+    /* keep dex-only bundles */
   }
+  if (column === 'new') {
+    return enriched.filter((b) => bundleMatchesPulseColumn(b, column, chain));
+  }
+  return enriched;
 }
 
 /**

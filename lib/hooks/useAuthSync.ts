@@ -184,7 +184,12 @@ export function useAuthSync() {
   }, [ready, authenticated, setBackendReady, setSyncing, setLastError]);
 
   const wallet = wallets[0]?.address ?? null;
-  const email = user?.email?.address ?? null;
+  // Capture the email from ANY linked method, not just the email-OTP one — Google
+  // / Apple OAuth logins put it under user.google.email / user.apple.email, so the
+  // old `user.email?.address`-only read left users.email null and broke email
+  // admin bootstrap + subscription lookups.
+  const email =
+    user?.email?.address ?? user?.google?.email ?? user?.apple?.email ?? null;
   const username = user?.twitter?.username ?? user?.google?.name ?? null;
   const userId = user?.id ?? null;
   const profileRef = useRef({ wallet, email, username });

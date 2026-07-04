@@ -53,6 +53,66 @@ export function buildChartSeries(
   return [];
 }
 
+const CURVE_EPS = 1e-9;
+const CURVE_MAX_POINTS = 48;
+
+/**
+ * Real cumulative realized-PnL curve for the whole wallet, from indexed swaps.
+ * Per-mint FIFO lot matching (same logic as deriveWalletStatsFromSwaps) emits a
+ * realized delta at each sell; deltas are merged across mints in time order and
+ * accumulated. Honest — every point is a real realized event, never synthetic.
+ */
+function realizedPnlCurve(byMint: Map<string, MintSwapRow[]>): WalletAnalyticsChartPoint[] {
+  const events: { t: number; d: number }[] = [];
+  for (const rows of byMint.values()) {
+    const sorted = rows
+      .filter((r) => !r.event_kind || r.event_kind === 'swap')
+      .slice()
+      .sort((a, b) => a.block_time.localeCompare(b.block_time));
+    const lots: { qty: number; unitUsd: number }[] = [];
+    for (const r of sorted) {
+      const qty = r.token_amount_ui;
+      const px =
+        r.price_usd != null && r.price_usd > 0
+          ? r.price_usd
+          : r.usd_amount != null && qty > 0
+            ? r.usd_amount / qty
+            : 0;
+      if (px <= 0 || qty <= CURVE_EPS) continue;
+      if (r.side === 'buy') {
+        lots.push({ qty, unitUsd: px });
+        continue;
+      }
+      let sellLeft = qty;
+      let cost = 0;
+      while (sellLeft > CURVE_EPS && lots.length > 0) {
+        const lot = lots[0]!;
+        const take = Math.min(sellLeft, lot.qty);
+        cost += take * lot.unitUsd;
+        lot.qty -= take;
+        sellLeft -= take;
+        if (lot.qty <= CURVE_EPS) lots.shift();
+      }
+      const t = Date.parse(r.block_time);
+      if (Number.isFinite(t)) events.push({ t, d: qty * px - cost });
+    }
+  }
+  if (events.length === 0) return [];
+  events.sort((a, b) => a.t - b.t);
+  let cum = 0;
+  let pts: WalletAnalyticsChartPoint[] = events.map((e) => {
+    cum += e.d;
+    return { t: e.t, v: Math.round(cum) };
+  });
+  if (pts.length > CURVE_MAX_POINTS) {
+    const step = (pts.length - 1) / (CURVE_MAX_POINTS - 1);
+    const sampled: WalletAnalyticsChartPoint[] = [];
+    for (let i = 0; i < CURVE_MAX_POINTS; i++) sampled.push(pts[Math.round(i * step)]!);
+    pts = sampled;
+  }
+  return pts;
+}
+
 /**
  * Win/loss totals from a stats row (TON path / fallback). win_rate_30d is a
  * 0-1 fraction, so multiply by trades directly (the historic /100 produced ~0).
@@ -302,7 +362,7 @@ export async function buildSolWalletAnalytics(params: {
     walletAgeLabel: null,
     nativeBalanceLabel: null,
     funding,
-    chart: [],
+    chart: realizedPnlCurve(byMint),
     positions,
     performance: {
       totalPnlUsd,

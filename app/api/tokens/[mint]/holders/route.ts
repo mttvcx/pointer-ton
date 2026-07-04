@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest, after } from 'next/server';
 import { ensureTokenRowFromDas } from '@/lib/helius/feed';
+import { captureTopHolders } from '@/lib/db/topHoldings';
 import { listMintWalletStatsByWallets } from '@/lib/db/mintWalletStats';
 import { buildDeskWalletClassifications } from '@/lib/indexer/deskWalletClassifications';
 import { resolveKnownPoolAddresses } from '@/lib/onchain/resolveKnownPoolAddresses';
@@ -53,6 +54,16 @@ export async function GET(
       }),
       countMintSwaps(mint),
     ]);
+
+    // Data-flywheel capture tap — snapshot the ranked top holders into the
+    // reverse index (who's a top holder of what). Post-response, best-effort.
+    after(() =>
+      captureTopHolders(
+        mint,
+        token.symbol ?? null,
+        holders.map((h, i) => ({ walletAddress: h.wallet_address, rank: h.rank ?? i + 1 })),
+      ).catch(() => {}),
+    );
 
     const holdersEnriched = holders.map((h) => {
       const cls = walletClassifications[h.wallet_address];

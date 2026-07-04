@@ -5,12 +5,12 @@ import { usePathname } from 'next/navigation';
 import {
   clampPeekTopLeftWithinViewport,
   DOCK_PEEK_BOTTOM_CSS,
+  DOCK_PEEK_TOP_GAP_PX,
   readDockPeekTopPx,
   readLayoutChromePx,
   snapDockPeekCoords,
 } from '@/lib/layout/dockPeekSnap';
 import { stickyDockSideFromFloatingRect } from '@/lib/layout/floatingPeekSticky';
-import { embedXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorFloat';
 import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import {
   clampDockPeekWidth,
@@ -25,8 +25,8 @@ import { XMonitorPanel } from '@/components/monitor/XMonitorPanel';
 const MIN_PANEL_W = 320;
 const MIN_PANEL_H = 360;
 const EDGE_GHOST_W_PX = 72;
-const BODY_GUTTER_PX = 10;
-const BODY_GUTTER_EXTRA_PX = 10;
+const BODY_GUTTER_PX = 6;
+const BODY_GUTTER_EXTRA_PX = 4;
 
 function GripDots() {
   return (
@@ -84,9 +84,13 @@ export function DockXMonitorFloatingPanel() {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
     const dockTopPx = readDockPeekTopPx(onPulse);
+    // Edge-docked: anchor just under the topbar (like the wallet tracker) so the
+    // panel reclaims the watchlist/subtitle band and stands full height — not the
+    // shorter "below Pulse chrome" band.
+    const dockedTopPx = topbar + DOCK_PEEK_TOP_GAP_PX;
     const maxFloatH = Math.max(MIN_PANEL_H, vh - dockTopPx - botbar - 12);
     const maxFloatW = Math.max(MIN_PANEL_W, vw - 24);
-    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx };
+    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx, dockedTopPx };
   };
 
   useEffect(() => {
@@ -353,10 +357,9 @@ export function DockXMonitorFloatingPanel() {
       setDockGlow(null);
 
       if (snapped) {
-        if (onPulse) {
-          embedXMonitorOnPulse(snapped);
-          return;
-        }
+        // Edge-dock exactly like the wallet tracker (full height + body padding
+        // pushes Pulse/Stocks/watchlist over), instead of embedding into the Pulse
+        // rail which just overlapped the columns.
         setDockSnap(snapped);
         return;
       }
@@ -377,10 +380,10 @@ export function DockXMonitorFloatingPanel() {
   if (!open || activeChain !== 'sol') return null;
 
   void layoutEpoch;
-  const { topbar, botbar, maxFloatH, dockTopPx } = readMetrics();
+  const { botbar, maxFloatH, dockedTopPx } = readMetrics();
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
-  const dockedChromeTop = `${dockTopPx}px`;
+  const dockedChromeTop = `${dockedTopPx}px`;
   const dockedChromeBot = DOCK_PEEK_BOTTOM_CSS;
   const floatW = transientSizeRef.current?.w ?? cw;
   const floatH = transientSizeRef.current?.h ?? Math.min(ch, maxFloatH);
@@ -390,7 +393,7 @@ export function DockXMonitorFloatingPanel() {
       {draggingUi && dockGlow === 'left' ? (
         <div
           className="pointer-events-none fixed left-0 z-[217]"
-          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockedTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-r-3xl bg-gradient-to-r from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />
@@ -399,7 +402,7 @@ export function DockXMonitorFloatingPanel() {
       {draggingUi && dockGlow === 'right' ? (
         <div
           className="pointer-events-none fixed right-0 z-[217]"
-          style={{ top: dockTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
+          style={{ top: dockedTopPx - 2, bottom: botbar + 6, width: EDGE_GHOST_W_PX }}
           aria-hidden
         >
           <div className="dock-peel-ghost-inner h-full rounded-l-3xl bg-gradient-to-l from-white/[0.07] via-white/[0.03] to-transparent backdrop-blur-2xl backdrop-saturate-150" />
@@ -484,9 +487,9 @@ export function DockXMonitorFloatingPanel() {
         ) : (
           <div
             className={cn(
-              'absolute top-[24%] bottom-[24%] z-[5] cursor-ew-resize',
+              'group/resize absolute top-0 bottom-0 z-[5] w-3 cursor-ew-resize',
               draggingUi ? 'pointer-events-none' : '',
-              dockSnap === 'left' ? 'right-0 w-[10px]' : 'left-0 w-[10px]',
+              dockSnap === 'left' ? 'right-0' : 'left-0',
             )}
             style={{ touchAction: 'none' }}
             onPointerDown={(e) => {
@@ -508,6 +511,15 @@ export function DockXMonitorFloatingPanel() {
               shellRef.current?.setPointerCapture(e.pointerId);
             }}
           >
+            {/* Visible grab bar — highlights on hover / while dragging. */}
+            <div
+              className={cn(
+                'pointer-events-none absolute top-[8%] bottom-[8%] w-[3px] rounded-full transition-colors',
+                draggingUi ? 'bg-accent-primary/80' : 'bg-white/15 group-hover/resize:bg-accent-primary/70',
+                dockSnap === 'left' ? 'right-[3px]' : 'left-[3px]',
+              )}
+              aria-hidden
+            />
             <span className="sr-only">Resize docked X monitor width</span>
           </div>
         )}

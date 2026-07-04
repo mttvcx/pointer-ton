@@ -17,6 +17,10 @@ export type PerpMarket = {
   oiUsd: number;
   vol24Usd: number;
   maxLeverage: number;
+  /** Index in the HL `universe` — the order action's `a`. Undefined for demo rows. */
+  assetIndex?: number;
+  /** HL size decimals for this coin (size rounding). Undefined for demo rows. */
+  szDecimals?: number;
 };
 
 export type PerpsL2Level = {

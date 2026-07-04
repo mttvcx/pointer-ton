@@ -52,6 +52,38 @@ describe('Account Guardian — trading freeze scope', () => {
   });
 });
 
+describe('Account Guardian — automation-kind enforcement (trackers / alert rules)', () => {
+  it('automation-scope freeze blocks automation but not trading', () => {
+    assert.equal(blocksActivityForKind(FROZEN_AUTOMATION, 'automation'), true);
+    assert.equal(blocksActivityForKind(FROZEN_AUTOMATION, 'trading'), false);
+  });
+
+  it('all-scope freeze blocks BOTH trading and automation (no bypass)', () => {
+    assert.equal(blocksActivityForKind(FROZEN_ALL, 'trading'), true);
+    assert.equal(blocksActivityForKind(FROZEN_ALL, 'automation'), true);
+  });
+
+  it('trading-only freeze does NOT block automation', () => {
+    assert.equal(blocksActivityForKind(FROZEN_TRADING, 'automation'), false);
+  });
+
+  it('released / no control blocks neither kind', () => {
+    for (const kind of ['trading', 'automation'] as const) {
+      assert.equal(blocksActivityForKind(RELEASED, kind), false);
+      assert.equal(blocksActivityForKind(null, kind), false);
+    }
+  });
+
+  it('a blocked automation lookup gates with 423 account_frozen', () => {
+    const payload = tradingFreezeGateHttpPayload(
+      gateFromFreezeLookup(blocksActivityForKind(FROZEN_AUTOMATION, 'automation')),
+    );
+    assert.ok(payload);
+    assert.equal(payload!.status, 423);
+    assert.equal(payload!.body.error, 'account_frozen');
+  });
+});
+
 describe('Account Guardian — fail-closed on lookup uncertainty', () => {
   it('account control lookup error blocks quote/execute with 503', () => {
     const gate = gateFromLookupFailure(new Error('getActiveControl failed: connection reset'));

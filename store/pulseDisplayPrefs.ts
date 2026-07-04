@@ -47,6 +47,7 @@ function syncPulseDisplaySideEffects(prefs: PulseDisplayPrefs) {
     root.setAttribute('data-pulse-circle-avatars', String(prefs.circleAvatars));
     root.setAttribute('data-pulse-no-decimals', String(prefs.noDecimals));
     root.setAttribute('data-pulse-color-row', String(prefs.colorRowByProtocol));
+    root.setAttribute('data-pulse-transparent-rows', String(prefs.transparentRows));
     root.setAttribute('data-pulse-qb-chrome', prefs.quickBuyUltraChrome);
     applyPulseAccentToDocument(prefs.accentHex);
   }
@@ -85,7 +86,7 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
     }),
     {
       name: 'pointer.pulse-display',
-      version: 5,
+      version: 6,
       partialize: (s) => pickPulseDisplayPrefs(s),
       migrate: (persisted, fromVersion) => {
         let base = withPulseDisplayDefaults(persisted as Partial<PulseDisplayPrefs> | undefined);
@@ -98,6 +99,9 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
         }
         if (fromVersion < 5 && base.quickBuyUltraChrome == null) {
           base = { ...base, quickBuyUltraChrome: DEFAULT_PULSE_DISPLAY_PREFS.quickBuyUltraChrome };
+        }
+        if (fromVersion < 6 && base.toastColor === undefined) {
+          base = { ...base, toastColor: null };
         }
         return base;
       },

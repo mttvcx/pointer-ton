@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { PulseColumn } from '@/components/tokens/PulseColumn';
 import {
   clampPeekTopLeftWithinViewport,
@@ -508,15 +508,12 @@ export function DockPulseFloatingPanel() {
           </div>
 
           <div className="flex shrink-0 items-center px-1" data-no-drag onPointerDown={(e) => e.stopPropagation()}>
-            <button
-              type="button"
+            <CloseButton
               data-no-drag
-              aria-label="Close Pulse"
-              className="rounded-md p-1.5 text-fg-muted hover:bg-bg-hover hover:text-fg-primary"
+              label="Close Pulse"
+              size="sm"
               onClick={() => setOpen(false)}
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
+            />
           </div>
         </header>
 

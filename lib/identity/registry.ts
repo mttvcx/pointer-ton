@@ -23,6 +23,9 @@ import bnbGmgnSeed from '@/data/identity/bnb-gmgn-seed.json';
 import gmgnTrackWallet20Seed from '@/data/identity/gmgn-track-wallet-20-seed.json';
 import gmgnTrackEvmWallet20Seed from '@/data/identity/gmgn-track-evm-wallet-20-seed.json';
 import axiomKolSolSeed from '@/data/identity/axiom-kol-sol-seed.json';
+import cabalspySolSeed from '@/data/identity/cabalspy-sol-seed.json';
+import cabalspyEvmSeed from '@/data/identity/cabalspy-evm-seed.json';
+import solscannerKolSolSeed from '@/data/identity/solscanner-kol-sol-seed.json';
 import kolscanPartialOverrides from '@/data/identity/kolscan-partial-overrides.json';
 
 type WalletEntry = {
@@ -178,6 +181,12 @@ function bootstrap(): void {
     ...(gmgnTrackWallet20Seed as IdentitySeedRow[]),
     ...(gmgnTrackEvmWallet20Seed as IdentitySeedRow[]),
     ...(axiomKolSolSeed as IdentitySeedRow[]),
+    // SolScanner before CabalSpy: bootstrap is last-wins (allowWeaker), so the
+    // richer CabalSpy rows (avatar + telegram) win the ~501 overlaps while
+    // SolScanner's ~630 net-new KOLs still land.
+    ...(solscannerKolSolSeed as IdentitySeedRow[]),
+    ...(cabalspySolSeed as IdentitySeedRow[]),
+    ...(cabalspyEvmSeed as IdentitySeedRow[]),
     ...runtimeRows,
   ];
   for (const row of seeds) upsertSeedRow(row, { allowWeaker: true });

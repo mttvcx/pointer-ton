@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { cn } from '@/lib/utils/cn';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 
@@ -77,9 +77,7 @@ export function PrivateTransferProviderModal({
               Select a provider to privately transfer SOL between wallets.
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-fg-muted hover:text-fg-primary">
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" />
         </div>
 
         <div className="space-y-2 p-4">

@@ -5,9 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { useAdminMe } from '@/lib/admin/useAdminApi';
 import {
+  Gauge,
   Languages,
   LogOut,
+  Menu,
   Rocket,
   Search,
   Settings,
@@ -15,6 +18,7 @@ import {
   UserRound,
   Users,
   } from 'lucide-react';
+import { useMobileNavStore } from '@/store/mobileNav';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CLIPBOARD_TOPBAR_SLOT_PX,
@@ -92,6 +96,7 @@ export function Topbar() {
   const queryClient = useQueryClient();
   const { authenticated, loggingOut, logout, getAccessToken, login, linkedTonAddress } =
     usePointerAuth();
+  const isAdmin = Boolean(useAdminMe().data);
   const searchQuery = useUIStore((s) => s.searchQuery);
   const searchOpen = useUIStore((s) => s.searchOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
@@ -104,6 +109,8 @@ export function Topbar() {
   const [walletPopoverOpen, setWalletPopoverOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const openSettings = useUIStore((s) => s.openSettings);
+  const exchangeRequestSignal = useUIStore((s) => s.exchangeRequest);
+  const clearExchangeRequest = useUIStore((s) => s.clearExchangeRequest);
   const [autoTranslateOpen, setAutoTranslateOpen] = useState(false);
   const [featureUpdatesOpen, setFeatureUpdatesOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
@@ -111,6 +118,12 @@ export function Topbar() {
   const avatarMenuPresence = useOverlayPresence(avatarMenuOpen, POPOVER_ANIM_CLOSE_MS);
   const topbarNavOrder = useTopbarNavStore((s) => s.order);
   const navItems = useMemo(() => resolveTopbarNav(topbarNavOrder), [topbarNavOrder]);
+  // Admin-only nav tab (appended after the normal items, same styling). Hidden
+  // for everyone else; the route itself is RBAC-gated server-side too.
+  const navItemsToRender = useMemo(
+    () => (isAdmin ? [...navItems, { label: 'Admin', href: '/admin' }] : navItems),
+    [navItems, isAdmin],
+  );
   const squadsRailSide = usePulseSquadsRailStore((s) => s.side);
   const squadsFloatOpen = useTokenDockPeekStore((s) => s.squadsPeekOpen);
   const squadsOpen = squadsRailSide !== 'hidden' || squadsFloatOpen;
@@ -187,6 +200,14 @@ export function Topbar() {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [avatarMenuOpen]);
+
+  // Other surfaces (perps "Get USDC") trigger the wallet exchange modal here.
+  useEffect(() => {
+    if (!exchangeRequestSignal) return;
+    setExchangeTab(exchangeRequestSignal.tab);
+    setExchangeOpen(true);
+    clearExchangeRequest();
+  }, [exchangeRequestSignal, clearExchangeRequest]);
 
   const needsFullPortfolio =
     Boolean(pathname?.startsWith('/portfolio')) ||
@@ -336,7 +357,14 @@ export function Topbar() {
 
   return (
     <>
-    <header className="sticky top-0 isolate z-[100] box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1">
+    <header
+      className={cn(
+        'sticky top-0 isolate box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1',
+        // While the account menu is open, lift the whole header stacking context
+        // above the floating docks (z-221) so its scrim can dim them too.
+        avatarMenuOpen ? 'z-[300]' : 'z-[100]',
+      )}
+    >
       {/* Left — logo + primary nav (above center chrome so Championship / $PTR stay clickable) */}
       <div className="relative z-20 flex min-w-0 items-center gap-1 sm:gap-1.5">
       <Link
@@ -364,10 +392,10 @@ export function Topbar() {
       </Link>
 
       <nav
-        className="flex max-w-[38%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[32%] sm:gap-1 md:max-w-[30%] lg:max-w-none [&::-webkit-scrollbar]:hidden"
+        className="hidden max-w-[38%] shrink-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[32%] sm:gap-1 md:max-w-[30%] lg:flex lg:max-w-none [&::-webkit-scrollbar]:hidden"
         aria-label="Primary"
       >
-        {navItems.map((item) => {
+        {navItemsToRender.map((item) => {
           const active =
             pathname === item.href || pathname?.startsWith(item.href + '/');
           const cls = cn(
@@ -401,8 +429,8 @@ export function Topbar() {
       </nav>
       </div>
 
-      {/* Center — layout spacers are non-interactive; only pill/chip capture clicks */}
-      <div className="pointer-events-none flex min-w-0 items-center justify-center px-0.5">
+      {/* Center — AI copilot slot; hidden on mobile (no AI below lg). */}
+      <div className="pointer-events-none hidden min-w-0 items-center justify-center px-0.5 lg:flex">
         <div className="hidden items-center sm:flex">
           <div
             className="pointer-events-none shrink-0"
@@ -484,7 +512,7 @@ export function Topbar() {
           aria-label={squadsOpen ? 'Hide squads panel' : 'Open squads panel'}
           title={squadsOpen ? 'Hide squads' : 'Open squads'}
           className={cn(
-            'group/squads relative ml-0.5 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/20 sm:ml-1',
+            'group/squads relative ml-0.5 hidden shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/20 sm:ml-1 lg:block',
             squadsOpen && 'ring-2 ring-white/25',
           )}
         >
@@ -531,7 +559,7 @@ export function Topbar() {
               hasActiveWallet={Boolean(walletAddress)}
             />
 
-            <div className="relative shrink-0" ref={avatarMenuRef}>
+            <div className="relative hidden shrink-0 lg:block" ref={avatarMenuRef}>
               <button
                 ref={avatarButtonRef}
                 type="button"
@@ -553,10 +581,22 @@ export function Topbar() {
                 </span>
               </button>
               {avatarMenuPresence.mounted ? (
+                <>
+                  {/* Scrim: fade everything (incl. docks) so the menu is the one
+                      focused thing and never gets covered by a floating dock. */}
+                  <button
+                    type="button"
+                    aria-label="Close account menu"
+                    onClick={() => setAvatarMenuOpen(false)}
+                    className={cn(
+                      'fixed inset-0 z-[290] cursor-default bg-black/45 backdrop-blur-[2px] transition-opacity duration-200',
+                      avatarMenuPresence.visible ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
                 <div
                   role="menu"
                   className={cn(
-                    'absolute right-0 top-[calc(100%+8px)] z-[200] w-52 overflow-hidden rounded-xl border border-[#2e2e32] bg-[#1a1a1e] py-1.5 text-[#c4c4c8] shadow-[0_12px_40px_rgba(0,0,0,0.55)]',
+                    'absolute right-0 top-[calc(100%+8px)] z-[300] w-52 overflow-hidden rounded-xl border border-[#2e2e32] bg-[#1a1a1e] py-1.5 text-[#c4c4c8] shadow-[0_12px_40px_rgba(0,0,0,0.55)]',
                     popoverPanelClasses(avatarMenuPresence.visible),
                   )}
                 >
@@ -571,6 +611,18 @@ export function Topbar() {
                     )}
                   </div>
                   <div className="flex flex-col gap-0.5 px-1.5 pt-1.5">
+                    {isAdmin ? (
+                      <Link
+                        href="/admin"
+                        role="menuitem"
+                        prefetch={false}
+                        onClick={() => setAvatarMenuOpen(false)}
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] font-semibold text-accent-primary transition-colors hover:bg-accent-primary/10"
+                      >
+                        <Gauge className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+                        <span>Pointer Ops</span>
+                      </Link>
+                    ) : null}
                     <Link
                       href="/portfolio?tab=wallets"
                       role="menuitem"
@@ -639,10 +691,21 @@ export function Topbar() {
                     </button>
                   </div>
                 </div>
+                </>
               ) : null}
             </div>
           </div>
         ) : null}
+
+        {/* Mobile ☰ — opens the drawer (desktop uses the avatar menu + nav). */}
+        <button
+          type="button"
+          onClick={() => useMobileNavStore.getState().setDrawerOpen(true)}
+          aria-label="Open menu"
+          className="focus-ring ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-secondary transition-colors hover:bg-bg-hover hover:text-fg-primary lg:hidden"
+        >
+          <Menu className="h-5 w-5" strokeWidth={2} aria-hidden />
+        </button>
       </div>
     </header>
 

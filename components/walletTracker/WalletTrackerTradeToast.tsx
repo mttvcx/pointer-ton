@@ -1,8 +1,9 @@
 'use client';
 
-import { Bell, BellOff, X } from 'lucide-react';
+import { Bell, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChainIcon } from '@/components/squads/ChainIcon';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { cn } from '@/lib/utils/cn';
 import { useWalletTrackerMuteStore } from '@/store/walletTrackerMute';
 
@@ -108,14 +109,7 @@ export function WalletTrackerTradeToast({
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => toast.dismiss(toastId)}
-              className="btn-press shrink-0 rounded-md p-1 text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg-secondary"
-              aria-label="Dismiss"
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-            </button>
+            <CloseButton onClick={() => toast.dismiss(toastId)} label="Dismiss" size="sm" className="shrink-0" />
           </div>
 
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0 text-[11px] leading-snug">

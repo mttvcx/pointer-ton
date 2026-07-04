@@ -1,0 +1,776 @@
+{
+  "script": {
+    "totalDots": 8,
+    "scenes": [
+      {
+        "id": "hook",
+        "eyebrow": "The Outlier",
+        "lines": [
+          "A nineteen-year-old made three million dollars in one month.",
+          "Trading memecoins.",
+          "From his bedroom."
+        ],
+        "dotsFilled": 1,
+        "caption": "A nineteen-year-old made three million dollars in one month. Trading memecoins. From his bedroom.",
+        "durationInFrames": 226
+      },
+      {
+        "id": "mythbust",
+        "eyebrow": "The Question",
+        "lines": [
+          "He's not smarter than you.",
+          "He's not luckier than you.",
+          "He just sees something you don't."
+        ],
+        "dotsFilled": 2,
+        "caption": "He's not smarter than you. He's not luckier than you. He just sees something you don't.",
+        "durationInFrames": 199
+      },
+      {
+        "id": "ledger",
+        "eyebrow": "The Ledger",
+        "lines": [
+          "Every trade on Solana is public.",
+          "Every wallet.",
+          "Every buy.",
+          "Every sell."
+        ],
+        "dotsFilled": 3,
+        "caption": "Every trade on Solana is public. Every wallet. Every buy. Every sell.",
+        "durationInFrames": 203
+      },
+      {
+        "id": "tracked",
+        "eyebrow": "The Pattern",
+        "lines": [
+          "The winners aren't guessing which coin runs.",
+          "They watch the wallets that always get in first."
+        ],
+        "dotsFilled": 4,
+        "caption": "The winners aren't guessing which coin runs. They watch the wallets that always get in first.",
+        "durationInFrames": 178
+      },
+      {
+        "id": "conviction",
+        "eyebrow": "Conviction",
+        "lines": [
+          "Ten wallets that never lose, all buying the same token in the same minute.",
+          "That's not luck.",
+          "That's conviction — and you can measure it."
+        ],
+        "dotsFilled": 5,
+        "caption": "Ten wallets that never lose, all buying the same token in the same minute. That's not luck. That's conviction — and you can measure it.",
+        "durationInFrames": 295
+      },
+      {
+        "id": "chart",
+        "eyebrow": "The Exit",
+        "lines": [
+          "By the time it's trending on your timeline, they've already sold it to you.",
+          "The edge was never the coin.",
+          "It was the information."
+        ],
+        "dotsFilled": 6,
+        "caption": "By the time it's trending on your timeline, they've already sold it to you. The edge was never the coin. It was the information.",
+        "durationInFrames": 258
+      },
+      {
+        "id": "terminal",
+        "eyebrow": "The Terminal",
+        "lines": [
+          "Pointer puts every wallet, every signal, every smart-money move on one screen.",
+          "So you're early — not exit liquidity."
+        ],
+        "dotsFilled": 7,
+        "caption": "Pointer puts every wallet, every signal, every smart-money move on one screen. So you're early — not exit liquidity.",
+        "durationInFrames": 294
+      },
+      {
+        "id": "end",
+        "eyebrow": "Pointer",
+        "lines": [
+          "Pointer.",
+          "See what they see."
+        ],
+        "dotsFilled": 8,
+        "caption": "Pointer. See what they see.",
+        "durationInFrames": 89
+      }
+    ]
+  },
+  "captions": {
+    "hook": [
+      {
+        "word": "A",
+        "start": 0,
+        "end": 0.093
+      },
+      {
+        "word": "nineteen-year-old",
+        "start": 0.163,
+        "end": 1.033
+      },
+      {
+        "word": "made",
+        "start": 1.103,
+        "end": 1.3
+      },
+      {
+        "word": "three",
+        "start": 1.358,
+        "end": 1.637
+      },
+      {
+        "word": "million",
+        "start": 1.707,
+        "end": 2.043
+      },
+      {
+        "word": "dollars",
+        "start": 2.09,
+        "end": 2.508
+      },
+      {
+        "word": "in",
+        "start": 2.577,
+        "end": 2.67
+      },
+      {
+        "word": "one",
+        "start": 2.752,
+        "end": 2.937
+      },
+      {
+        "word": "month.",
+        "start": 2.984,
+        "end": 3.669
+      },
+      {
+        "word": "Trading",
+        "start": 3.989,
+        "end": 4.384
+      },
+      {
+        "word": "memecoins.",
+        "start": 4.442,
+        "end": 5.522
+      },
+      {
+        "word": "From",
+        "start": 5.837,
+        "end": 6.069
+      },
+      {
+        "word": "his",
+        "start": 6.116,
+        "end": 6.22
+      },
+      {
+        "word": "bedroom.",
+        "start": 6.29,
+        "end": 7.137
+      }
+    ],
+    "mythbust": [
+      {
+        "word": "He's",
+        "start": 0,
+        "end": 0.221
+      },
+      {
+        "word": "not",
+        "start": 0.267,
+        "end": 0.406
+      },
+      {
+        "word": "smarter",
+        "start": 0.464,
+        "end": 0.859
+      },
+      {
+        "word": "than",
+        "start": 0.894,
+        "end": 1.022
+      },
+      {
+        "word": "you.",
+        "start": 1.08,
+        "end": 1.672
+      },
+      {
+        "word": "He's",
+        "start": 1.978,
+        "end": 2.222
+      },
+      {
+        "word": "not",
+        "start": 2.257,
+        "end": 2.396
+      },
+      {
+        "word": "luckier",
+        "start": 2.454,
+        "end": 2.814
+      },
+      {
+        "word": "than",
+        "start": 2.86,
+        "end": 2.976
+      },
+      {
+        "word": "you.",
+        "start": 3.035,
+        "end": 3.603
+      },
+      {
+        "word": "He",
+        "start": 3.93,
+        "end": 4.104
+      },
+      {
+        "word": "just",
+        "start": 4.185,
+        "end": 4.418
+      },
+      {
+        "word": "sees",
+        "start": 4.476,
+        "end": 4.801
+      },
+      {
+        "word": "something",
+        "start": 4.859,
+        "end": 5.3
+      },
+      {
+        "word": "you",
+        "start": 5.393,
+        "end": 5.521
+      },
+      {
+        "word": "don't.",
+        "start": 5.59,
+        "end": 6.252
+      }
+    ],
+    "ledger": [
+      {
+        "word": "Every",
+        "start": 0,
+        "end": 0.302
+      },
+      {
+        "word": "trade",
+        "start": 0.36,
+        "end": 0.627
+      },
+      {
+        "word": "on",
+        "start": 0.662,
+        "end": 0.731
+      },
+      {
+        "word": "Solana",
+        "start": 0.789,
+        "end": 1.231
+      },
+      {
+        "word": "is",
+        "start": 1.312,
+        "end": 1.451
+      },
+      {
+        "word": "public.",
+        "start": 1.521,
+        "end": 2.276
+      },
+      {
+        "word": "Every",
+        "start": 2.605,
+        "end": 2.988
+      },
+      {
+        "word": "wallet.",
+        "start": 3.046,
+        "end": 3.766
+      },
+      {
+        "word": "Every",
+        "start": 4.087,
+        "end": 4.412
+      },
+      {
+        "word": "buy.",
+        "start": 4.47,
+        "end": 5.062
+      },
+      {
+        "word": "Every",
+        "start": 5.385,
+        "end": 5.687
+      },
+      {
+        "word": "sell.",
+        "start": 5.757,
+        "end": 6.453
+      }
+    ],
+    "tracked": [
+      {
+        "word": "The",
+        "start": 0,
+        "end": 0.151
+      },
+      {
+        "word": "winners",
+        "start": 0.186,
+        "end": 0.453
+      },
+      {
+        "word": "aren't",
+        "start": 0.488,
+        "end": 0.673
+      },
+      {
+        "word": "guessing",
+        "start": 0.72,
+        "end": 1.08
+      },
+      {
+        "word": "which",
+        "start": 1.149,
+        "end": 1.324
+      },
+      {
+        "word": "coin",
+        "start": 1.382,
+        "end": 1.637
+      },
+      {
+        "word": "runs.",
+        "start": 1.695,
+        "end": 2.415
+      },
+      {
+        "word": "They",
+        "start": 2.736,
+        "end": 2.933
+      },
+      {
+        "word": "watch",
+        "start": 2.98,
+        "end": 3.212
+      },
+      {
+        "word": "the",
+        "start": 3.293,
+        "end": 3.363
+      },
+      {
+        "word": "wallets",
+        "start": 3.409,
+        "end": 3.781
+      },
+      {
+        "word": "that",
+        "start": 3.827,
+        "end": 3.967
+      },
+      {
+        "word": "always",
+        "start": 4.013,
+        "end": 4.327
+      },
+      {
+        "word": "get",
+        "start": 4.385,
+        "end": 4.547
+      },
+      {
+        "word": "in",
+        "start": 4.605,
+        "end": 4.686
+      },
+      {
+        "word": "first.",
+        "start": 4.779,
+        "end": 5.522
+      }
+    ],
+    "conviction": [
+      {
+        "word": "Ten",
+        "start": 0,
+        "end": 0.29
+      },
+      {
+        "word": "wallets",
+        "start": 0.36,
+        "end": 0.801
+      },
+      {
+        "word": "that",
+        "start": 0.848,
+        "end": 0.987
+      },
+      {
+        "word": "never",
+        "start": 1.045,
+        "end": 1.265
+      },
+      {
+        "word": "lose,",
+        "start": 1.335,
+        "end": 1.881
+      },
+      {
+        "word": "all",
+        "start": 2.055,
+        "end": 2.345
+      },
+      {
+        "word": "buying",
+        "start": 2.415,
+        "end": 2.728
+      },
+      {
+        "word": "the",
+        "start": 2.786,
+        "end": 2.856
+      },
+      {
+        "word": "same",
+        "start": 2.926,
+        "end": 3.193
+      },
+      {
+        "word": "token",
+        "start": 3.239,
+        "end": 3.634
+      },
+      {
+        "word": "in",
+        "start": 3.785,
+        "end": 3.924
+      },
+      {
+        "word": "the",
+        "start": 3.971,
+        "end": 4.04
+      },
+      {
+        "word": "same",
+        "start": 4.098,
+        "end": 4.354
+      },
+      {
+        "word": "minute.",
+        "start": 4.4,
+        "end": 5.108
+      },
+      {
+        "word": "That's",
+        "start": 5.426,
+        "end": 5.705
+      },
+      {
+        "word": "not",
+        "start": 5.774,
+        "end": 5.948
+      },
+      {
+        "word": "luck.",
+        "start": 6.018,
+        "end": 6.633
+      },
+      {
+        "word": "That's",
+        "start": 6.96,
+        "end": 7.239
+      },
+      {
+        "word": "conviction",
+        "start": 7.297,
+        "end": 7.877
+      },
+      {
+        "word": "—",
+        "start": 7.993,
+        "end": 8.04
+      },
+      {
+        "word": "and",
+        "start": 8.167,
+        "end": 8.318
+      },
+      {
+        "word": "you",
+        "start": 8.388,
+        "end": 8.469
+      },
+      {
+        "word": "can",
+        "start": 8.516,
+        "end": 8.643
+      },
+      {
+        "word": "measure",
+        "start": 8.701,
+        "end": 9.003
+      },
+      {
+        "word": "it.",
+        "start": 9.038,
+        "end": 9.468
+      }
+    ],
+    "chart": [
+      {
+        "word": "By",
+        "start": 0,
+        "end": 0.174
+      },
+      {
+        "word": "the",
+        "start": 0.221,
+        "end": 0.29
+      },
+      {
+        "word": "time",
+        "start": 0.337,
+        "end": 0.557
+      },
+      {
+        "word": "it's",
+        "start": 0.592,
+        "end": 0.731
+      },
+      {
+        "word": "trending",
+        "start": 0.778,
+        "end": 1.126
+      },
+      {
+        "word": "on",
+        "start": 1.184,
+        "end": 1.254
+      },
+      {
+        "word": "your",
+        "start": 1.3,
+        "end": 1.416
+      },
+      {
+        "word": "timeline,",
+        "start": 1.463,
+        "end": 2.148
+      },
+      {
+        "word": "they've",
+        "start": 2.299,
+        "end": 2.589
+      },
+      {
+        "word": "already",
+        "start": 2.624,
+        "end": 2.984
+      },
+      {
+        "word": "sold",
+        "start": 3.065,
+        "end": 3.344
+      },
+      {
+        "word": "it",
+        "start": 3.402,
+        "end": 3.471
+      },
+      {
+        "word": "to",
+        "start": 3.506,
+        "end": 3.611
+      },
+      {
+        "word": "you.",
+        "start": 3.727,
+        "end": 4.272
+      },
+      {
+        "word": "The",
+        "start": 4.59,
+        "end": 4.753
+      },
+      {
+        "word": "edge",
+        "start": 4.822,
+        "end": 5.043
+      },
+      {
+        "word": "was",
+        "start": 5.078,
+        "end": 5.217
+      },
+      {
+        "word": "never",
+        "start": 5.298,
+        "end": 5.507
+      },
+      {
+        "word": "the",
+        "start": 5.554,
+        "end": 5.623
+      },
+      {
+        "word": "coin.",
+        "start": 5.67,
+        "end": 6.401
+      },
+      {
+        "word": "It",
+        "start": 6.725,
+        "end": 6.864
+      },
+      {
+        "word": "was",
+        "start": 6.911,
+        "end": 7.027
+      },
+      {
+        "word": "the",
+        "start": 7.085,
+        "end": 7.155
+      },
+      {
+        "word": "information.",
+        "start": 7.213,
+        "end": 8.211
+      }
+    ],
+    "terminal": [
+      {
+        "word": "Pointer",
+        "start": 0,
+        "end": 0.453
+      },
+      {
+        "word": "puts",
+        "start": 0.522,
+        "end": 0.778
+      },
+      {
+        "word": "every",
+        "start": 0.848,
+        "end": 1.196
+      },
+      {
+        "word": "wallet,",
+        "start": 1.265,
+        "end": 1.788
+      },
+      {
+        "word": "every",
+        "start": 1.962,
+        "end": 2.334
+      },
+      {
+        "word": "signal,",
+        "start": 2.403,
+        "end": 2.961
+      },
+      {
+        "word": "every",
+        "start": 3.17,
+        "end": 3.541
+      },
+      {
+        "word": "smart-money",
+        "start": 3.622,
+        "end": 4.272
+      },
+      {
+        "word": "move",
+        "start": 4.342,
+        "end": 4.667
+      },
+      {
+        "word": "on",
+        "start": 4.725,
+        "end": 4.876
+      },
+      {
+        "word": "one",
+        "start": 4.957,
+        "end": 5.143
+      },
+      {
+        "word": "screen.",
+        "start": 5.19,
+        "end": 6.037
+      },
+      {
+        "word": "So",
+        "start": 6.367,
+        "end": 6.53
+      },
+      {
+        "word": "you're",
+        "start": 6.588,
+        "end": 6.797
+      },
+      {
+        "word": "early",
+        "start": 6.831,
+        "end": 7.156
+      },
+      {
+        "word": "—",
+        "start": 7.238,
+        "end": 7.296
+      },
+      {
+        "word": "not",
+        "start": 7.679,
+        "end": 7.888
+      },
+      {
+        "word": "exit",
+        "start": 7.958,
+        "end": 8.341
+      },
+      {
+        "word": "liquidity.",
+        "start": 8.41,
+        "end": 9.386
+      }
+    ],
+    "end": [
+      {
+        "word": "Pointer.",
+        "start": 0,
+        "end": 0.882
+      },
+      {
+        "word": "See",
+        "start": 1.194,
+        "end": 1.415
+      },
+      {
+        "word": "what",
+        "start": 1.461,
+        "end": 1.612
+      },
+      {
+        "word": "they",
+        "start": 1.658,
+        "end": 1.809
+      },
+      {
+        "word": "see.",
+        "start": 1.891,
+        "end": 2.541
+      }
+    ]
+  },
+  "withAudio": true,
+  "ambient": false
+}

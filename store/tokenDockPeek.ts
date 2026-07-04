@@ -66,7 +66,7 @@ export const DEFAULT_WALLET_TRACKER_PEEK_SIZE: PulsePeekPanelSize = {
   height: 480,
 };
 /** Max dock peek width — matches embedded Pulse X-monitor rail (`PulsePageLayout`). */
-export const DOCK_PEEK_MAX_PANEL_W = 420;
+export const DOCK_PEEK_MAX_PANEL_W = 560;
 
 export function clampDockPeekWidth(width: number, minW = 320): number {
   const floor = Math.max(280, minW);
@@ -234,3 +234,30 @@ export const useTokenDockPeekStore = create<TokenDockPeekState>()(
     },
   ),
 );
+
+/**
+ * Pick a dock side another panel isn't already occupying, so opening a second
+ * dock (wallet / X monitor / squads / pulse) doesn't spawn ON TOP of the one
+ * that's already docked. Returns null when nothing conflicts (caller keeps the
+ * panel's last position) or when both sides are taken.
+ */
+export function pickFreeDockSide(
+  self: 'wallet' | 'xMonitor' | 'squads' | 'pulse',
+): PeekDockSnapSide {
+  const s = useTokenDockPeekStore.getState();
+  const sides: Record<string, PeekDockSnapSide> = {
+    wallet: s.dockWalletDockSnap,
+    xMonitor: s.dockXMonitorDockSnap,
+    squads: s.dockSquadsDockSnap,
+    pulse: s.dockPulseDockSnap,
+  };
+  const occupied = new Set(
+    Object.entries(sides)
+      .filter(([k, v]) => k !== self && v)
+      .map(([, v]) => v),
+  );
+  if (occupied.size === 0) return null;
+  if (!occupied.has('left')) return 'left';
+  if (!occupied.has('right')) return 'right';
+  return null;
+}

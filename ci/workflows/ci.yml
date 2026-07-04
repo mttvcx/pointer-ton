@@ -1,0 +1,76 @@
+name: CI
+
+# Quality gate. Runs on every PR and on pushes to main. A red run blocks merge
+# (configure branch protection to require the "verify" job). Build verification
+# uses placeholder env so it never needs real secrets; runtime secrets live in
+# Vercel + the deploy preflight (npm run validate:env).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Mirrors Vercel's install (peer-dep conflicts require --legacy-peer-deps).
+      - name: Install
+        run: npm install --legacy-peer-deps --include=dev
+
+      - name: Validate env contract (schema only — no secrets needed)
+        run: npm run validate:env:schema
+
+      - name: Migration sanity check
+        run: npm run check:migrations
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # Build verification with placeholder env. These are NOT real secrets — they
+      # only let `next build` resolve env reads at build time. Real values are set
+      # in Vercel for runtime. If the build ever needs a value these don't cover,
+      # add it here (placeholder) or as a GitHub Actions secret.
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_APP_URL: https://example.com
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder_publishable_key
+          NEXT_PUBLIC_PRIVY_APP_ID: placeholder_privy_app_id
+          NEXT_PUBLIC_HELIUS_API_KEY: placeholder
+          NEXT_PUBLIC_SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
+          SUPABASE_SERVICE_URL: https://placeholder.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: placeholder_service_role_key
+          HELIUS_API_KEY: placeholder
+          UPSTASH_REDIS_REST_URL: https://placeholder.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: placeholder
+          POINTER_SESSION_SECRET: placeholder_session_secret_at_least_32_chars
+          CRON_SECRET: placeholder_cron_secret

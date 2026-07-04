@@ -94,18 +94,18 @@ export function PerpsTerminal() {
         onSelectPair={setPairId}
       />
 
-      <div ref={splitRef} className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+      <div ref={splitRef} className="flex min-h-0 w-full min-w-0 flex-1 flex-col max-lg:overflow-y-auto">
         <div
-          className="grid w-full min-w-0 min-h-0 grid-cols-1 gap-px bg-border-subtle xl:grid-cols-[minmax(0,1fr)_11rem_17.5rem]"
+          className="grid w-full min-w-0 min-h-0 grid-cols-1 gap-px bg-border-subtle lg:grid-cols-[minmax(0,1fr)_11rem_17.5rem]"
           style={{ flex: `${1 - bottomSplit} 1 0%` }}
         >
-          <section className="flex min-h-[280px] min-w-0 flex-col xl:min-h-0">
+          <section className="flex min-h-[280px] min-w-0 flex-col lg:min-h-0">
             <PerpsChartPanel pair={pair} tf={tf} onTfChange={setTf} />
           </section>
-          <section className="flex min-h-[180px] min-w-0 flex-col xl:min-h-0">
+          <section className="flex min-h-[180px] min-w-0 flex-col lg:min-h-0">
             <PerpsOrderBook coin={pair.coin} book={l2Q.data} loading={l2Q.isPending} />
           </section>
-          <section className="flex min-h-[360px] min-w-0 flex-col xl:min-h-0">
+          <section className="flex min-h-[360px] min-w-0 flex-col lg:min-h-0">
             <PerpsOrderPanel pair={pair} />
           </section>
         </div>
@@ -117,7 +117,7 @@ export function PerpsTerminal() {
           onPointerMove={onVertMove}
           onPointerUp={onVertUp}
           onPointerCancel={onVertUp}
-          className="group relative z-10 hidden h-1 shrink-0 cursor-row-resize xl:block"
+          className="group relative z-10 hidden h-1 shrink-0 cursor-row-resize lg:block"
         >
           <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-border-subtle group-hover:bg-accent-primary/45" />
         </div>

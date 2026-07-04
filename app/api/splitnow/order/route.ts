@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
+import { getUserByPrivyId } from '@/lib/db/users';
 import { pickDefaultExchanger, splitnowConfigured, splitnowCreateOrder, splitnowCreateQuote } from '@/lib/splitnow/server';
+import { assertTradingAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,29 +14,41 @@ const bodySchema = z.object({
   receivers: z.array(z.string().min(32)).min(1).max(100),
 });
 
-async function requireAuth(req: NextRequest) {
+async function requireUserId(req: NextRequest): Promise<string | null> {
   const authHeader = req.headers.get('authorization');
   const accessToken = authHeader?.startsWith('Bearer ')
     ? authHeader.slice('Bearer '.length).trim()
     : null;
   if (!accessToken) return null;
   try {
-    await verifyPrivyAccessToken(accessToken);
-    return true;
+    const verified = await verifyPrivyAccessToken(accessToken);
+    const user = await getUserByPrivyId(verified.privyId);
+    return user?.id ?? null;
   } catch {
     return null;
   }
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireAuth(req))) {
+  const userId = await requireUserId(req);
+  if (!userId) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
+  // Per-user account freeze (fail-closed) — a frozen user cannot route a split.
+  const frozen = await accountFreezeGateOrNull(userId, 'trading');
+  if (frozen) return frozen;
   if (!splitnowConfigured()) {
     return NextResponse.json(
       { error: 'splitnow_not_configured', message: 'Add SPLITNOW_API_KEY to .env.local' },
       { status: 503 },
     );
+  }
+  // Emergency trading kill switch / maintenance / read-only — fails closed.
+  try {
+    await assertTradingAllowed('sol');
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
   }
 
   let json: unknown;

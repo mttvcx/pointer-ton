@@ -42,8 +42,14 @@ export function resolveJupiterFeeMint(route: JupiterFeeRoute): string {
   return route.outputMint;
 }
 
-/** Derive the fee-collector ATA for a swap route (may be uninitialized on-chain). */
-export function deriveJupiterFeeTokenAccount(route: JupiterFeeRoute): string | null {
+/** Derive the fee-collector ATA for a swap route (may be uninitialized on-chain).
+ *  `feeMintTokenProgram` defaults to classic SPL so every SOL-leg trade (fee mint
+ *  = wrapped SOL) derives exactly as before; token-2022 fee mints (e.g. xStocks on
+ *  a non-SOL leg) pass TOKEN_2022_PROGRAM_ID so the ATA address is correct. */
+export function deriveJupiterFeeTokenAccount(
+  route: JupiterFeeRoute,
+  feeMintTokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+): string | null {
   const override = jupiterFeeTokenAccountOverride();
   if (override) return override;
 
@@ -56,7 +62,7 @@ export function deriveJupiterFeeTokenAccount(route: JupiterFeeRoute): string | n
     feeMint,
     owner,
     allowOwnerOffCurve,
-    TOKEN_PROGRAM_ID,
+    feeMintTokenProgram,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   ).toBase58();
 }

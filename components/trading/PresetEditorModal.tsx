@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MevMode } from '@/lib/trading/mevMode';
 import { cn } from '@/lib/utils/cn';
+import { CloseButton } from '@/components/ui/CloseButton';
 import type { PresetSlot } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
@@ -99,14 +99,7 @@ function PresetEditorForm({
           <h2 id="preset-editor-title" className="text-sm font-semibold text-fg-primary">
             Edit {preset.name}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press rounded p-1 text-fg-muted hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" size="sm" />
         </div>
         <div className="space-y-3 px-4 py-3 text-xs">
           <label className="block space-y-1">

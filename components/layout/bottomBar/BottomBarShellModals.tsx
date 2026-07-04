@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { ThemePicker } from '@/components/theme/ThemePicker';
 import { CustomThemeImport } from '@/components/theme/CustomThemeImport';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
@@ -62,14 +62,7 @@ function ShellModal({
       >
         <header className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-bg-sunken/35 px-4 py-3">
           <h2 className="text-[13px] font-semibold text-fg-primary">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton label="Close" onClick={onClose} />
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">{children}</div>
         {footer ? (

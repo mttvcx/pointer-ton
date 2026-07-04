@@ -27,6 +27,9 @@ import { selectActiveEntity, useUIStore } from '@/store/ui';
 import { POINTER_COPILOT_QUICK_ASK_EVENT } from '@/lib/copilot/quickAsk';
 import type { TooltipOutput } from '@/lib/ai/schemas';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { usePreferences } from '@/components/preferences/PreferencesProvider';
+import { LIGHT_GLASS_SURFACE } from '@/lib/ui/glassSurface';
+import { LiquidGlassLayers } from '@/components/ui/liquid-glass';
 import { cn } from '@/lib/utils/cn';
 
 /**
@@ -80,6 +83,7 @@ export function CopilotHeaderBar() {
 
   const { data: alertsData } = useAlertsTickerQuery();
   const insight = useCopilotPillInsight(alertsData);
+  const aiPanelStyle = usePreferences().prefs.aiPanelStyle;
 
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -177,37 +181,40 @@ export function CopilotHeaderBar() {
           title={open ? 'Close co-pilot' : 'Open co-pilot'}
           onClick={() => (open ? requestClose() : openSheet())}
           className={cn(
-            'group flex h-9 w-full min-w-0 items-center gap-2 rounded-full border pl-2 pr-1.5 text-left',
-            'border-border-subtle bg-bg-raised/85 backdrop-blur-xl',
+            'group relative isolate flex h-9 w-full min-w-0 items-center gap-2 rounded-full border pl-2 pr-1.5 text-left',
             'transition-[border-color,background-color,box-shadow] duration-150',
+            aiPanelStyle === 'light'
+              ? LIGHT_GLASS_SURFACE
+              : aiPanelStyle === 'glassy'
+                ? 'border-white/20 bg-white/[0.06] backdrop-blur-xl'
+                : 'border-border-subtle bg-bg-raised/85 backdrop-blur-xl',
             open
-              ? 'border-accent-primary/55 bg-bg-raised shadow-[0_0_22px_-6px_rgb(var(--accent-primary-rgb)/0.55)]'
-              : 'hover:border-accent-primary/40 hover:bg-bg-raised hover:shadow-[0_0_22px_-8px_rgb(var(--accent-primary-rgb)/0.45)]',
+              ? 'border-accent-primary/55 shadow-[0_0_22px_-6px_rgb(var(--accent-primary-rgb)/0.55)]'
+              : 'hover:border-accent-primary/40 hover:shadow-[0_0_22px_-8px_rgb(var(--accent-primary-rgb)/0.45)]',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40',
           )}
         >
+          {aiPanelStyle === 'glassy' ? (
+            <LiquidGlassLayers softer borderRadius="9999px" blurIntensity="md" glowIntensity="xs" shadowIntensity="sm" />
+          ) : null}
           <span
-            className={cn(
-              'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border',
-              'border-accent-primary/40 bg-accent-primary/10',
-              'shadow-[0_0_12px_-3px_rgb(var(--accent-primary-rgb)/0.55)]',
-            )}
+            className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent-primary/40 bg-accent-primary/10 shadow-[0_0_12px_-3px_rgb(var(--accent-primary-rgb)/0.55)]"
           >
             <Sparkles className="h-3.5 w-3.5 text-accent-primary" strokeWidth={2.25} />
           </span>
-          <span className="hidden shrink-0 items-center gap-1.5 sm:flex">
+          <span className="relative z-10 hidden shrink-0 items-center gap-1.5 sm:flex">
             <span className="text-[12px] font-semibold leading-none text-fg-primary">
               Co-pilot
             </span>
             <StatusDot status={status} />
           </span>
-          <span className="mx-1 hidden h-3.5 w-px shrink-0 self-center bg-border-subtle sm:block" />
-          <span className="min-w-0 flex-1 truncate text-[12px] leading-tight text-fg-secondary">
+          <span className="relative z-10 mx-1 hidden h-3.5 w-px shrink-0 self-center bg-border-subtle sm:block" />
+          <span className="relative z-10 min-w-0 flex-1 truncate text-[12px] leading-tight text-fg-secondary">
             {insight.text}
           </span>
           <ChevronDown
             className={cn(
-              'ml-1 h-4 w-4 shrink-0 self-center text-fg-muted transition-transform duration-200',
+              'relative z-10 ml-1 h-4 w-4 shrink-0 self-center text-fg-muted transition-transform duration-200',
               open && 'rotate-180 text-fg-primary',
             )}
             strokeWidth={2.25}

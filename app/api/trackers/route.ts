@@ -11,6 +11,7 @@ import {
 } from '@/lib/db/wallets';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import { enrichTrackedWalletAddresses } from '@/lib/trackers/enrichAddresses';
 import {
   listTrackerGroupsForUser,
@@ -148,6 +149,11 @@ export async function POST(req: NextRequest) {
       { status: 403 },
     );
   }
+
+  // Per-user account freeze (automation kind, fail-closed) — a frozen account
+  // cannot arm a new copy-trade tracker.
+  const frozen = await accountFreezeGateOrNull(user.id, 'automation');
+  if (frozen) return frozen;
 
   let body: z.infer<typeof PostBodySchema>;
   try {

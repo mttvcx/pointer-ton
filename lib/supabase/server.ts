@@ -1,7 +1,25 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
 import type { Database } from './types';
+
+/**
+ * Resilience: bound EVERY Supabase (PostgREST) call with a hard timeout so a DB
+ * or provider incident fails fast instead of hanging ~20s+ and cascading into
+ * dead skeletons / stuck requests. Callers catch the abort and can serve cached
+ * / degraded responses. Tunable via SUPABASE_FETCH_TIMEOUT_MS.
+ */
+const DB_FETCH_TIMEOUT_MS = Number(process.env.SUPABASE_FETCH_TIMEOUT_MS) || 8_000;
+
+const dbFetch: typeof fetch = (input, init) => {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new Error('supabase_timeout')), DB_FETCH_TIMEOUT_MS);
+  const caller = init?.signal;
+  if (caller) {
+    if (caller.aborted) ctrl.abort(caller.reason);
+    else caller.addEventListener('abort', () => ctrl.abort(caller.reason), { once: true });
+  }
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+};
 
 declare global {
   // eslint-disable-next-line no-var
@@ -41,9 +59,13 @@ export async function createServerSupabase() {
     throw new Error('Supabase env vars missing on server');
   }
 
+  // Lazy import: keeps `next/headers` out of the module's import graph so the
+  // admin client (which doesn't need cookies) is importable under `node --test`.
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
 
   return createServerClient<Database>(url, anonKey, {
+    global: { fetch: dbFetch },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -61,6 +83,15 @@ export async function createServerSupabase() {
       },
     },
   });
+}
+
+/** Test seam: inject a fake admin client (e.g. lib/testing/fakeSupabase) so money
+ *  modules are driveable under `node --test` without a real database. */
+export function __setAdminSupabaseForTest(client: unknown): void {
+  globalThis.__pointerSupabaseAdmin = client as ReturnType<typeof createSupabaseClient<Database>>;
+}
+export function __resetAdminSupabaseForTest(): void {
+  globalThis.__pointerSupabaseAdmin = undefined;
 }
 
 export function createAdminSupabase() {
@@ -84,6 +115,7 @@ export function createAdminSupabase() {
     },
     global: {
       headers: { 'x-pointer-client': 'admin' },
+      fetch: dbFetch,
     },
   });
   return globalThis.__pointerSupabaseAdmin;

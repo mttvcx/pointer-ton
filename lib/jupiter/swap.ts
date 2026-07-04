@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { withOpsSpan } from '@/lib/ops/events';
+import { chargeProvider } from '@/lib/providers/circuitBreaker';
 import { jupiterRequestHeaders, wrapJupiterFetchError } from '@/lib/jupiter/httpHeaders';
 import {
   deriveJupiterFeeTokenAccount,
@@ -10,6 +12,7 @@ import {
   jupiterQuoteHasPlatformFee,
   jupiterFeeTokenAccountReady,
   resolveJupiterFeeMint,
+  resolveJupiterFeeMintTokenProgram,
 } from '@/lib/jupiter/referralFee';
 import { prependAtaCreationToVersionedSwap } from '@/lib/solana/prependSwapInstructions';
 import { DEFAULT_JITO_TIP_LAMPORTS, JUPITER_SWAP_URL } from '@/lib/utils/constants';
@@ -89,7 +92,7 @@ function defaultPrioritizationPayload(landing: SwapLanding): unknown {
 /**
  * Build an unsigned versioned swap transaction (base64) from a quote response.
  */
-export async function getSwapTx(
+async function getSwapTxInner(
   quoteResponse: unknown,
   userPublicKey: string,
   opts?: {
@@ -124,6 +127,13 @@ export async function getSwapTx(
     body.feeAccount = feeAccount;
   }
 
+  // Cost metering + manual cutoff (see getQuoteInner — record usage, honor an
+  // admin cutoff, but never auto-trip live trading on a budget counter).
+  const jb = await chargeProvider('jupiter', 1);
+  if (jb.state === 'disabled') {
+    throw new Error('Jupiter is paused by the provider circuit breaker (admin cutoff)');
+  }
+
   let res: Response;
   try {
     res = await fetch(JUPITER_SWAP_URL, {
@@ -149,29 +159,42 @@ export async function getSwapTx(
   }
 
   const route = jupiterFeeRouteFromQuote(quoteResponse);
-  const feeAccount =
+  // Resolve the fee mint's token program ONCE (SOL short-circuits to classic SPL,
+  // so SOL-leg trades are unchanged) and reuse it for both the ATA derivation and
+  // the prepend, so token-2022 fee mints (xStocks) get the correct fee account.
+  const feeMintProgram =
     jupiterQuoteHasPlatformFee(quoteResponse) && route
-      ? deriveJupiterFeeTokenAccount(route)
+      ? await resolveJupiterFeeMintTokenProgram(route)
       : null;
+  const feeAccount =
+    route && feeMintProgram ? deriveJupiterFeeTokenAccount(route, feeMintProgram) : null;
   const feeOwner = jupiterFeeOwnerPubkey();
 
-  if (feeAccount && feeOwner && route && !(await jupiterFeeTokenAccountReady(feeAccount))) {
+  if (
+    feeAccount &&
+    feeOwner &&
+    route &&
+    feeMintProgram &&
+    !(await jupiterFeeTokenAccountReady(feeAccount))
+  ) {
     json.swapTransaction = await prependAtaCreationToVersionedSwap(
       json.swapTransaction,
       new PublicKey(userPublicKey),
       feeOwner,
       new PublicKey(resolveJupiterFeeMint(route)),
+      feeMintProgram,
     );
     return json;
   }
 
   if (json.simulationError && isInvalidFeeTokenAccountSimError(json.simulationError)) {
-    if (feeAccount && feeOwner && route) {
+    if (feeAccount && feeOwner && route && feeMintProgram) {
       json.swapTransaction = await prependAtaCreationToVersionedSwap(
         json.swapTransaction,
         new PublicKey(userPublicKey),
         feeOwner,
         new PublicKey(resolveJupiterFeeMint(route)),
+        feeMintProgram,
       );
       return json;
     }
@@ -183,4 +206,15 @@ export async function getSwapTx(
   }
 
   return json;
+}
+
+/** Per-trade swap build — records ok+error+latency to ops_events. */
+export async function getSwapTx(
+  quoteResponse: unknown,
+  userPublicKey: string,
+  opts?: { dynamicSlippage?: boolean; landing?: SwapLanding; fees?: SwapFeeParams },
+): Promise<JupiterSwapResponse> {
+  return withOpsSpan('provider', 'jupiter:swap', () => getSwapTxInner(quoteResponse, userPublicKey, opts), {
+    metric: 'provider.jupiter_swap_ms',
+  });
 }

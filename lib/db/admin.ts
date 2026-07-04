@@ -27,6 +27,22 @@ export function invalidateAdminCache(userId?: string) {
   else adminCache.clear();
 }
 
+/** Lightweight: is this user an active admin? (For the extension auto-applying an
+ *  admin's own labels without waiting for crowdsource agreement.) */
+export async function isActiveAdmin(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const { data } = await createAdminSupabase()
+      .from('admin_users')
+      .select('is_active')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return !!data?.is_active;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Resolve a Privy `users.id` to an active admin context (roles + effective
  * permissions). Returns null when the user is not an admin or is deactivated.

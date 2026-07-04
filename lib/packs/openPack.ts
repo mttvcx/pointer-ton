@@ -182,7 +182,12 @@ export function openPackEpicSurgeTest(config: PackConfig): PackOpenResult {
   return buildCelebrationTestPack(config, findSlotForCelebrationTest(config, 'epic_surge'));
 }
 
-/** Server-side pack roll. TODO(fairness): commit-reveal / VRF. */
+/**
+ * Server-side pack roll. The caller injects `rng` — in production a deterministic
+ * provably-fair keystream (`lib/packs/provablyFair.createFairRng`) keyed by the
+ * committed serverSeed + clientSeed + nonce, so every roll is independently
+ * verifiable. Defaults to Math.random only for non-commerce/test callers.
+ */
 export function openPackServer(
   config: PackConfig,
   rng: () => number = Math.random,

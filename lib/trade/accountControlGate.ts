@@ -10,27 +10,43 @@ import {
 } from '@/lib/account/tradingFreezeGate';
 
 /**
- * Per-user trading freeze gate — fail-closed on lookup uncertainty for this user only.
- * Does not affect other users when the check throws.
+ * Per-user account-freeze gate — fail-closed on lookup uncertainty for THIS user
+ * only (a throwing check never affects other users). `kind` selects which
+ * activity an active control blocks: `trading` (manual + automated order entry,
+ * pack opens, fund sends) or `automation` (copy-trade / tracker rules). A
+ * `scope: 'all'` freeze blocks both.
  */
-export async function checkTradingFreezeGate(userId: string): Promise<TradingFreezeGateResult> {
+export async function checkAccountFreezeGate(
+  userId: string,
+  kind: 'trading' | 'automation' = 'trading',
+): Promise<TradingFreezeGateResult> {
   try {
-    const { frozen } = await isActivityFrozen(userId, 'trading');
+    const { frozen } = await isActivityFrozen(userId, kind);
     return gateFromFreezeLookup(frozen);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[account-control-gate] trading freeze lookup failed', {
+    console.error('[account-control-gate] freeze lookup failed', {
       userId,
+      kind,
       error: message,
     });
     return gateFromLookupFailure(err);
   }
 }
 
-/** Returns a blocking NextResponse or null when trading may proceed. */
-export async function tradingFreezeGateOrNull(userId: string): Promise<NextResponse | null> {
-  const result = await checkTradingFreezeGate(userId);
+/** Returns a blocking NextResponse or null when the activity may proceed. */
+export async function accountFreezeGateOrNull(
+  userId: string,
+  kind: 'trading' | 'automation' = 'trading',
+): Promise<NextResponse | null> {
+  const result = await checkAccountFreezeGate(userId, kind);
   const payload = tradingFreezeGateHttpPayload(result);
   if (!payload) return null;
   return NextResponse.json(payload.body, { status: payload.status });
 }
+
+/** @deprecated use {@link checkAccountFreezeGate}. Trading-kind shim. */
+export const checkTradingFreezeGate = (userId: string) => checkAccountFreezeGate(userId, 'trading');
+
+/** @deprecated use {@link accountFreezeGateOrNull}. Trading-kind shim. */
+export const tradingFreezeGateOrNull = (userId: string) => accountFreezeGateOrNull(userId, 'trading');

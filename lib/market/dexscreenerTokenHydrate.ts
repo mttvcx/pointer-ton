@@ -8,6 +8,7 @@ import type { LaunchpadEvent } from '@/lib/helius/parsers';
 import { getTokenByMint, insertMarketSnapshot, updateToken, upsertToken, type TokenRow } from '@/lib/db/tokens';
 import { LAUNCHPAD_LABELS, type LaunchpadId } from '@/lib/utils/constants';
 import type { Json } from '@/lib/supabase/types';
+import { guardProvider } from '@/lib/providers/circuitBreaker';
 import {
   fetchDexMetricsForMints,
   type DexPairRow,
@@ -61,6 +62,9 @@ export async function ensureTokenRowFromDexScreener(
 
   let pairs: DexPairRow[] = [];
   try {
+    // Circuit breaker (rate-limit protection). Throws when tripped/disabled —
+    // the catch below degrades to whatever token data we already have.
+    await guardProvider('dexscreener', 1);
     const res = await fetch(
       `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mint)}`,
       { cache: 'no-store', headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6_000) },

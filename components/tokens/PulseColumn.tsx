@@ -35,14 +35,16 @@ import {
   pulseBundleMatchesFilters,
   sortPulseBundles,
 } from '@/lib/tokens/columnPresetModel';
-import { PULSE_THRESHOLDS, type PulseColumnId } from '@/lib/utils/constants';
+import { type PulseColumnId } from '@/lib/utils/constants';
 import { syntheticPulseFeedItems, pulseSocialShowcaseBundles } from '@/lib/dev/demoPulseBundles';
 import { dedupePulseBundlesByMint } from '@/lib/tokens/dedupePulseTokens';
 import { fetchPulseFeedBundles } from '@/lib/tokens/fetchPulseFeedClient';
 import { usePulseQuickBuy } from '@/lib/hooks/usePulseQuickBuy';
+import { useTradingPresets } from '@/lib/hooks/useTradingPresets';
+import { PresetHoverCard } from '@/components/tokens/PresetHoverCard';
 import { usePulseMetricsHydration } from '@/lib/hooks/usePulseMetricsHydration';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
-import { usePulseHiddenMintsStore, normalizePulseTwitterHandle } from '@/store/pulseHiddenMints';
+import { usePulseHiddenMintsStore, normalizePulseTwitterHandle, normalizeWebsiteDomain } from '@/store/pulseHiddenMints';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
@@ -120,6 +122,7 @@ function PulseColumnBody({
   const setQuickBuySol = usePulseColumnStore((s) => s.setQuickBuySol);
   const setQuickBuyUsdc = usePulseColumnStore((s) => s.setQuickBuyUsdc);
   const setPresetSlot = usePulseColumnStore((s) => s.setPresetSlot);
+  const presets = useTradingPresets();
   const setBuyButtonStyle = usePulseColumnStore((s) => s.setBuyButtonStyle);
   const spendAsset = useTradingStore((s) => s.spendAsset);
 
@@ -420,6 +423,11 @@ function PulseColumnBody({
   const showHiddenTokens = usePulseHiddenMintsStore((s) => s.showHiddenTokens);
   const blacklistedDevs = usePulseHiddenMintsStore((s) => s.blacklistedDevs ?? []);
   const blacklistedTwitter = usePulseHiddenMintsStore((s) => s.blacklistedTwitter ?? []);
+  const blacklistedFunders = usePulseHiddenMintsStore((s) => s.blacklistedFunders ?? []);
+  const blacklistedKol = usePulseHiddenMintsStore((s) => s.blacklistedKol ?? []);
+  const blacklistedKeywords = usePulseHiddenMintsStore((s) => s.blacklistedKeywords ?? []);
+  const blacklistedWebsites = usePulseHiddenMintsStore((s) => s.blacklistedWebsites ?? []);
+  const creatorFunders = usePulseHiddenMintsStore((s) => s.creatorFunders ?? {});
 
   const searchFiltered = useMemo(() => {
     const list = feedItems.filter((b) => {
@@ -427,8 +435,21 @@ function PulseColumnBody({
       if (!showHiddenTokens && hiddenMints.includes(mint)) return false;
       const creator = b.token.creator_wallet;
       if (creator && blacklistedDevs.includes(creator)) return false;
+      if (creator && blacklistedFunders.length) {
+        const funder = creatorFunders[creator];
+        if (funder && blacklistedFunders.includes(funder)) return false;
+      }
       const tw = normalizePulseTwitterHandle(b.token.twitter_handle);
       if (tw && blacklistedTwitter.includes(tw)) return false;
+      if (tw && blacklistedKol.includes(tw)) return false;
+      if (blacklistedWebsites.length) {
+        const dom = normalizeWebsiteDomain(b.token.website_url);
+        if (dom && blacklistedWebsites.includes(dom)) return false;
+      }
+      if (blacklistedKeywords.length) {
+        const hay = `${b.token.symbol ?? ''} ${b.token.name ?? ''} ${b.token.description ?? ''}`.toLowerCase();
+        if (blacklistedKeywords.some((k) => k && hay.includes(k))) return false;
+      }
       return true;
     });
     const qq = search.trim().toLowerCase();
@@ -438,7 +459,54 @@ function PulseColumnBody({
       const name = (b.token.name ?? '').toLowerCase();
       return sym.includes(qq) || name.includes(qq);
     });
-  }, [feedItems, search, hiddenMints, showHiddenTokens, blacklistedDevs, blacklistedTwitter]);
+  }, [
+    feedItems,
+    search,
+    hiddenMints,
+    showHiddenTokens,
+    blacklistedDevs,
+    blacklistedTwitter,
+    blacklistedFunders,
+    blacklistedKol,
+    blacklistedKeywords,
+    blacklistedWebsites,
+    creatorFunders,
+  ]);
+
+  // Resolve dev → funding wallet lazily, ONLY when funder blacklists are active
+  // (zero Helius cost otherwise). Cached permanently per creator, capped per pass.
+  useEffect(() => {
+    if (!blacklistedFunders.length) return;
+    let cancelled = false;
+    (async () => {
+      const cache = usePulseHiddenMintsStore.getState().creatorFunders ?? {};
+      const pending = Array.from(
+        new Set(
+          feedItems
+            .map((b) => b.token.creator_wallet)
+            .filter((c): c is string => !!c && !(c in cache)),
+        ),
+      ).slice(0, 25);
+      for (const creator of pending) {
+        if (cancelled) break;
+        try {
+          const r = await fetch(`/api/wallet/funder?wallet=${encodeURIComponent(creator)}`);
+          if (!r.ok) continue;
+          const j = (await r.json()) as { funder?: string | null };
+          if (!cancelled) {
+            usePulseHiddenMintsStore
+              .getState()
+              .setCreatorFunder(creator, typeof j?.funder === 'string' ? j.funder : null);
+          }
+        } catch {
+          /* best-effort */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [blacklistedFunders.length, feedItems]);
 
   const columnFiltered = useMemo(
     () => searchFiltered.filter((b) => pulseBundleMatchesFilters(b, normalizedFilters, activeChain)),
@@ -517,17 +585,9 @@ function PulseColumnBody({
          */}
         <div className="flex min-h-[2.125rem] items-center gap-2">
           <div className="flex shrink-0 items-center gap-2">
-            <h2 className="whitespace-nowrap text-[13px] font-semibold text-fg-primary">
+            <h2 className="whitespace-nowrap text-[16px] font-medium text-fg-primary">
               {title}
             </h2>
-            {column === 'new' ? (
-              <span className="whitespace-nowrap text-[9px] tabular-nums text-fg-muted/80">
-                &lt;{' '}
-                {PULSE_THRESHOLDS.newMaxAgeMinutes >= 60
-                  ? `${PULSE_THRESHOLDS.newMaxAgeMinutes / 60}h`
-                  : `${PULSE_THRESHOLDS.newMaxAgeMinutes}m`}
-              </span>
-            ) : null}
           </div>
 
           <div className="flex min-h-[2.125rem] min-w-0 flex-1 items-center justify-center px-1">
@@ -602,19 +662,20 @@ function PulseColumnBody({
               </span>
               <div className="flex items-center gap-0.5 px-1">
                 {([1, 2, 3] as const).map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setPresetSlot(column, slot)}
-                    className={cn(
-                      'btn-press focus-ring rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition',
-                      presetSlot === slot
-                        ? 'text-accent-primary'
-                        : 'text-fg-muted hover:text-fg-secondary',
-                    )}
-                  >
-                    P{slot}
-                  </button>
+                  <PresetHoverCard key={slot} slot={slot} preset={presets.find((p) => p.slot === slot)}>
+                    <button
+                      type="button"
+                      onClick={() => setPresetSlot(column, slot)}
+                      className={cn(
+                        'btn-press focus-ring rounded px-1.5 py-0.5 text-[11px] font-semibold leading-none transition',
+                        presetSlot === slot
+                          ? 'text-accent-primary'
+                          : 'text-fg-muted hover:text-fg-secondary',
+                      )}
+                    >
+                      P{slot}
+                    </button>
+                  </PresetHoverCard>
                 ))}
               </div>
             </div>
@@ -701,15 +762,6 @@ function PulseColumnBody({
                     : column === 'stretch'
                       ? 'No stretch tokens yet'
                       : 'No migrated tokens yet'
-            }
-            description={
-              search.trim()
-                ? 'Try a different query or clear search.'
-                : columnFiltered.length === 0 && searchFiltered.length > 0
-                  ? 'Open filters and relax criteria, or reset the preset.'
-                  : column === 'new'
-                    ? 'Qualified new mints stream in here as Helius indexes launchpads. Empty is normal when the feed is quiet.'
-                    : 'Waiting for live qualified tokens — stretch and migrated columns fill as tokens bond and graduate.'
             }
           />
         ) : (

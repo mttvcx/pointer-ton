@@ -61,6 +61,34 @@ const nextConfig: NextConfig = {
       { source: '/tonconnect-manifest.json', destination: '/api/tonconnect-manifest' },
     ];
   },
+
+  async headers() {
+    // Enforcing headers that are unambiguously safe for this app. CSP is added
+    // as Report-Only FIRST so it can never break the live app — review browser
+    // console violations, then promote to an enforcing Content-Security-Policy.
+    const securityHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+      {
+        key: 'Content-Security-Policy-Report-Only',
+        value: [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel-scripts.com",
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data: blob: https:",
+          "connect-src 'self' https: wss:",
+          "font-src 'self' data:",
+          "frame-src 'self' https://*.privy.io",
+          "worker-src 'self' blob:",
+          "base-uri 'self'",
+          "form-action 'self'",
+        ].join('; '),
+      },
+    ];
+    return [{ source: '/:path*', headers: securityHeaders }];
+  },
 };
 
 const sentryOrg = process.env.SENTRY_ORG?.trim();

@@ -48,9 +48,24 @@ export const SIGNATURE_POLL_INTERVAL_MS = 1_500;
  * source of truth. */
 export const DEFAULT_AI_DAILY_QUOTA_USD = 0.3;
 
-/** Sliding-window rate limit per user. */
+/** Fixed-window rate limit per user (atomic INCR). */
 export const AI_RATE_LIMIT_WINDOW_SECONDS = 5 * 60;
 export const AI_RATE_LIMIT_MAX_CALLS = 50;
+
+/** Fixed-window rate limit per IP (catches mass-account abuse the per-user
+ *  limit can't). Env-overridable. */
+export const AI_IP_RATE_LIMIT_WINDOW_SECONDS = Number(process.env.AI_IP_RATE_LIMIT_WINDOW_SECONDS ?? 60);
+export const AI_IP_RATE_LIMIT_MAX_CALLS = Number(process.env.AI_IP_RATE_LIMIT_MAX_CALLS ?? 60);
+
+/** Organization-wide AI spend ceilings (USD). The backstop the per-user ceiling
+ *  cannot provide: a botnet of synced accounts still can't exceed these. */
+export const AI_GLOBAL_HOURLY_USD = Number(process.env.AI_GLOBAL_HOURLY_USD ?? 25);
+export const AI_GLOBAL_DAILY_USD = Number(process.env.AI_GLOBAL_DAILY_USD ?? 200);
+export const AI_GLOBAL_MONTHLY_USD = Number(process.env.AI_GLOBAL_MONTHLY_USD ?? 3000);
+
+/** Conservative cost reserved BEFORE a model call (settled to actual after). A
+ *  flood of in-flight calls can't blow a ceiling between reserve and settle. */
+export const AI_SPEND_RESERVE_USD = Number(process.env.AI_SPEND_RESERVE_USD ?? 0.02);
 
 /** Legacy per-pipeline TTL (Redis `ai:{pipeline}:{hash}` backfill). */
 export const AI_CACHE_TTL = {
@@ -60,6 +75,7 @@ export const AI_CACHE_TTL = {
   narrateAlert: 86_400,
   parseTrackerRule: 1800,
   launchPackage: 7 * 86_400,
+  bubbleRisk: 1800,
 } as const;
 
 /** Shared global scan cache TTLs (seconds). See `lib/ai/scanCacheKeys.ts`. */
@@ -142,7 +158,9 @@ export const PULSE_DAS_FALLBACK_POLL_OWNER =
  * Pulled from public docs; verify before going to mainnet for fees. */
 export const LAUNCHPAD_PROGRAM_IDS = {
   pumpFun: '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
-  bags: 'BSfTAhiifGCG9wftxQp7DjPkBkwjFxNsoEjr3iJYhyR8',
+  /** Bags Fee Share V2 (current). Bags builds on Meteora DBC/DAMM, so the reliable
+   *  launchpad signal is the "BAGS" mint suffix. https://docs.bags.fm/principles/program-ids */
+  bags: 'FEE2tBhCKAt7shrod19QttSVREUYPiyMzoku1mL1gqVK',
   printr: 'Pr1NTtR67xZJaR5JG7nT4CMhGwDFqpzN5JhtXXn8nEM',
   moonshot: 'MoonCVVNZFSYkqNXP6bxHLPL6QQJiMagDL3qcqUQTrG',
   /** Raydium LaunchLab / LetsBonk. */
@@ -227,6 +245,7 @@ export const JUPITER_SWAP_URL =
   process.env.JUPITER_SWAP_URL ?? 'https://lite-api.jup.ag/swap/v1/swap';
 
 /** Legacy Solana JSON-RPC (Helius) for Pulse / webhooks / ingest only — not the primary TON RPC. */
+// Key is env-driven (HELIUS_API_KEY); rotate via Vercel env + redeploy. Last rotation: 2026-06-30.
 export function getHeliusRpcUrl(): string {
   const key = process.env.HELIUS_API_KEY?.trim();
   if (key) {

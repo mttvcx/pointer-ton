@@ -1,7 +1,9 @@
 import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { isUniqueViolation } from '@/lib/db/pgError';
 import { referralFeeShareBps } from '@/lib/referrals/constants';
+import { isReferralEnabled } from '@/lib/emergency/controls';
 import type { Tables, TablesInsert } from '@/lib/supabase/types';
 
 export type ReferralRow = Tables<'referrals'>;
@@ -76,6 +78,8 @@ export async function recordReferralEarningFromTrade(input: {
   tradeId: string;
   platformFeeLamports: number;
 }): Promise<void> {
+  // Emergency referral kill switch — SKIP accrual (never fail the parent trade).
+  if (!(await isReferralEnabled())) return;
   if (!(input.platformFeeLamports > 0)) return;
   if (await hasEarningForTrade(input.tradeId)) return;
 
@@ -96,7 +100,12 @@ export async function recordReferralEarningFromTrade(input: {
     paid_out: false,
   };
   const { error } = await supabase.from('referral_earnings').insert(insert);
-  if (error) throw new Error(`recordReferralEarningFromTrade: ${error.message}`);
+  if (error) {
+    // Concurrent writer already recorded this trade's earning (unique index on
+    // trade_id). Idempotent no-op — never double-credit the referrer.
+    if (isUniqueViolation(error)) return;
+    throw new Error(`recordReferralEarningFromTrade: ${error.message}`);
+  }
 }
 
 export async function listReferralEarningsForUser(

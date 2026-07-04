@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import {
@@ -10,9 +9,9 @@ import {
   modalBtnDestructiveClass,
   modalBtnPrimaryClass,
   modalBtnSecondaryClass,
-  modalCloseBtnClass,
   modalPanelClass,
 } from '@/lib/ui/modalChrome';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 
@@ -102,15 +101,11 @@ export function GlassModal({
                 <div className="mt-1 text-xs leading-relaxed text-fg-secondary">{description}</div>
               ) : null}
             </div>
-            <button type="button" onClick={onClose} className={modalCloseBtnClass} aria-label="Close">
-              <X className="h-4 w-4" strokeWidth={2} />
-            </button>
+            <CloseButton onClick={onClose} label="Close" />
           </div>
         ) : (
           <div className="absolute right-2 top-2 z-10">
-            <button type="button" onClick={onClose} className={modalCloseBtnClass} aria-label="Close">
-              <X className="h-4 w-4" strokeWidth={2} />
-            </button>
+            <CloseButton onClick={onClose} label="Close" />
           </div>
         )}
 

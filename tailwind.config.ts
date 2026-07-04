@@ -85,7 +85,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          'var(--font-inter)',
+          'var(--font-geist)',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -95,7 +95,7 @@ const config: Config = {
           'sans-serif',
         ],
         mono: [
-          'var(--font-inter)',
+          'var(--font-geist)',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',

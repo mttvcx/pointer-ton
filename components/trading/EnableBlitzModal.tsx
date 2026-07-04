@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { MousePointer2, X } from 'lucide-react';
+import { MousePointer2 } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { BlitzLandingPreview, BlitzPrioBribePreview } from '@/components/trading/blitzExplainUi';
@@ -10,6 +10,7 @@ import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses } from '@/lib/ui/overlayMotion';
 import { PortalToBody } from '@/lib/ui/portalToBody';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 
@@ -68,14 +69,7 @@ export function EnableBlitzModal({
             <h2 id="enable-blitz-title" className="text-[13px] font-semibold text-fg-primary">
               Enable Blitz Mode
             </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md p-1 text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" strokeWidth={2} />
-            </button>
+            <CloseButton onClick={onClose} label="Close" size="sm" />
           </header>
 
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3">

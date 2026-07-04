@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, ChevronDown, Settings, Wallet, X } from 'lucide-react';
 import { BugReportDrawer } from '@/components/reports/BugReportDrawer';
 import { BottomBarStatusRail } from '@/components/layout/bottomBar/BottomBarStatusRail';
@@ -37,9 +37,10 @@ import { DockTrackersSettingsModal } from '@/components/layout/DockTrackersSetti
 import { MarketLighthouseHover } from '@/components/layout/MarketLighthouseHover';
 import { DOCK_TRACKER_ICON } from '@/components/layout/dockTrackerUi';
 import { normalizeDockModes, normalizeDockOrder, useDockTrackersStore } from '@/store/dockTrackers';
-import { useTokenDockPeekStore } from '@/store/tokenDockPeek';
+import { pickFreeDockSide, useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePnlTrackerStore } from '@/store/pnlTracker';
 import { openXMonitorOnPulse, toggleXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
+import { XMonitorSubNav } from '@/components/monitor/XMonitorSubNav';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { toggleSquadsOnPulse, isSquadsRailOpen } from '@/lib/squads/openSquadsOnPulse';
 import { usePulseSquadsRailStore } from '@/store/pulseSquadsRail';
@@ -309,17 +310,21 @@ export function BottomBar() {
               <Settings className="h-4 w-4 shrink-0" strokeWidth={2} />
             </button>
             {dockOrder.map((id) => (
-              <DockTrackerSlot
-                key={id}
-                id={id}
-                mode={dockModes[id] ?? 'compact'}
-                badge={Boolean(dockBadges[id])}
-                activeChain={activeChain}
-                barBal={barBal}
-                authenticated={authenticated}
-                shortlistLen={shortlistLen}
-                walletTotalCount={walletTotalCount}
-              />
+              <Fragment key={id}>
+                <DockTrackerSlot
+                  id={id}
+                  mode={dockModes[id] ?? 'compact'}
+                  badge={Boolean(dockBadges[id])}
+                  activeChain={activeChain}
+                  barBal={barBal}
+                  authenticated={authenticated}
+                  shortlistLen={shortlistLen}
+                  walletTotalCount={walletTotalCount}
+                />
+                {/* X monitor sub-sections slot in right after the Social button
+                    when the monitor is open, pushing the rest of the dock right. */}
+                {id === 'social' ? <XMonitorSubNav /> : null}
+              </Fragment>
             ))}
           </div>
 
@@ -393,6 +398,12 @@ function DockTrackerSlot({
     if (activeChain !== 'sol') {
       router.push('/track');
       return;
+    }
+    // When opening, dock to a side another panel isn't already on so it doesn't
+    // spawn on top of the docked X monitor / squads / pulse.
+    if (!walletPeekOpen) {
+      const free = pickFreeDockSide('wallet');
+      if (free) useTokenDockPeekStore.getState().setWalletDockSnap(free);
     }
     toggleWalletPeek();
   };

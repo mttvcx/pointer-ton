@@ -8,9 +8,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   DEFAULT_THEME,
   isPresetTheme,
+  isThemeLockedRoute,
   isValidTheme,
   THEME_STORAGE_KEY,
   type ThemeId,
@@ -22,82 +24,84 @@ import {
 } from '@/lib/theme/customTheme';
 
 interface ThemeContextValue {
+  /** The user's CHOSEN theme (what the in-app picker reflects). */
   theme: ThemeId;
   setTheme: (next: ThemeId) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-/**
- * Reads the theme attribute that the SSR-injected `<script>` already set on
- * `<html>`. We don't read localStorage here — the script wins so first paint
- * matches the persisted theme without an extra round-trip.
- */
-function readInitialTheme(): ThemeId {
-  if (typeof document === 'undefined') return DEFAULT_THEME;
-  const attr = document.documentElement.getAttribute('data-theme');
-  return isValidTheme(attr) ? attr : DEFAULT_THEME;
+/** The persisted preference, default axiom. (We read storage, not the DOM
+ *  attribute — on a locked route the attribute is forced to axiom but the
+ *  user's chosen theme may differ.) */
+function readChosenTheme(): ThemeId {
+  if (typeof window === 'undefined') return DEFAULT_THEME;
+  try {
+    const v = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return isValidTheme(v) ? v : DEFAULT_THEME;
+  } catch {
+    return DEFAULT_THEME;
+  }
 }
 
+/** Apply an EFFECTIVE theme to <html> (custom-aware). */
+function applyTheme(t: ThemeId): void {
+  if (typeof document === 'undefined') return;
+  if (t === 'custom') {
+    const stored = loadCustomTheme();
+    if (stored) {
+      applyCustomTheme(stored);
+      return;
+    }
+    // No saved custom palette — fall back to the default rather than leaking vars.
+    clearCustomTheme();
+    document.documentElement.setAttribute('data-theme', DEFAULT_THEME);
+    return;
+  }
+  clearCustomTheme();
+  document.documentElement.setAttribute('data-theme', t);
+}
+
+/**
+ * Theme controller.
+ *
+ * - The user's CHOSEN theme is persisted in localStorage (default: axiom).
+ * - The EFFECTIVE theme is route-aware: home / login / beta routes are LOCKED to
+ *   the default (axiom) so the marketing + auth surface always shows the clean
+ *   brand look; theme switching only takes effect inside the app. This also
+ *   keeps client-side navigation between the landing and the app correct.
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>(readInitialTheme);
+  const pathname = usePathname();
+  const [theme, setThemeState] = useState<ThemeId>(readChosenTheme);
+
+  // Apply the effective theme whenever the route or the chosen theme changes.
+  useEffect(() => {
+    applyTheme(isThemeLockedRoute(pathname) ? DEFAULT_THEME : theme);
+  }, [pathname, theme]);
 
   const setTheme = useCallback((next: ThemeId) => {
+    let chosen: ThemeId;
     if (next === 'custom') {
-      // Load + reapply (the SSR script may have already inlined these, but we
-      // re-apply to handle the in-app preset → custom toggle).
       const stored = typeof window !== 'undefined' ? loadCustomTheme() : null;
-      if (!stored) {
-        // No saved custom theme — fall back to default rather than silently
-        // landing on data-theme="custom" with no overrides (which would leak
-        // the previous preset's variables).
-        setThemeState(DEFAULT_THEME);
-        if (typeof document !== 'undefined') {
-          clearCustomTheme();
-          document.documentElement.setAttribute('data-theme', DEFAULT_THEME);
-        }
-        try {
-          window.localStorage.setItem(THEME_STORAGE_KEY, DEFAULT_THEME);
-        } catch {
-          /* ignore */
-        }
-        return;
-      }
-      applyCustomTheme(stored);
-      setThemeState('custom');
+      chosen = stored ? 'custom' : DEFAULT_THEME;
     } else if (isPresetTheme(next)) {
-      // Wipe any inline custom overrides so the preset's CSS rules win.
-      clearCustomTheme();
-      if (typeof document !== 'undefined') {
-        document.documentElement.setAttribute('data-theme', next);
-      }
-      setThemeState(next);
+      chosen = next;
     } else {
       return;
     }
+    setThemeState(chosen); // the effect re-applies (respecting locked routes)
     try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, next);
+      window.localStorage.setItem(THEME_STORAGE_KEY, chosen);
     } catch {
       /* storage may be unavailable (Safari private, sandbox, etc.) — ignore. */
     }
   }, []);
 
-  /** Cross-tab sync: respond to `storage` events from other tabs. */
+  /** Cross-tab sync: mirror the chosen theme from other tabs; the effect applies it. */
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key !== THEME_STORAGE_KEY) return;
-      if (!isValidTheme(e.newValue)) return;
-      if (e.newValue === 'custom') {
-        const stored = loadCustomTheme();
-        if (stored) {
-          applyCustomTheme(stored);
-          setThemeState('custom');
-        }
-        return;
-      }
-      // Preset switch from another tab — clear inline overrides first.
-      clearCustomTheme();
-      document.documentElement.setAttribute('data-theme', e.newValue);
+      if (e.key !== THEME_STORAGE_KEY || !isValidTheme(e.newValue)) return;
       setThemeState(e.newValue);
     }
     window.addEventListener('storage', onStorage);

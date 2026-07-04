@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { ChevronDown, Clock, X } from 'lucide-react';
+import { ChevronDown, Clock } from 'lucide-react';
 import { CopyButton } from '@/components/shared/CopyButton';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import { overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
@@ -115,14 +116,7 @@ export function ExchangeModal({
           <h2 id="exchange-title" className={EX.title}>
             Fund wallet
           </h2>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="btn-press focus-ring rounded-md p-1 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <CloseButton onClick={() => onOpenChange(false)} label="Close" size="sm" />
         </div>
 
         <div className={EX.tabBar} role="tablist">

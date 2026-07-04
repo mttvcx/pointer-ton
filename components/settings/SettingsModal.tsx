@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { ThemePicker } from '@/components/theme/ThemePicker';
 import { CustomThemeImport } from '@/components/theme/CustomThemeImport';
 import { DisplayPreferences } from '@/components/preferences/DisplayPreferences';
@@ -101,14 +102,7 @@ export function SettingsModal() {
               </h2>
               <p className="mt-0.5 text-xs text-fg-muted">Manage your Pointer preferences.</p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
+            <CloseButton onClick={onClose} label="Close" size="md" />
           </div>
 
           <div className="relative mt-3">

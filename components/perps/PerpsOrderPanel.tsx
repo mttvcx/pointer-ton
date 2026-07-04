@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { usePerpsAccount } from '@/lib/hooks/usePerpsAccount';
 import type { PerpMarket } from '@/lib/perps/types';
-import { PerpsExchangeModal } from '@/components/perps/PerpsExchangeModal';
+import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
 
 export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
@@ -13,11 +14,15 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
   const [sizePct, setSizePct] = useState(0);
   const [leverage, setLeverage] = useState(Math.min(20, pair.maxLeverage));
   const [tpSl, setTpSl] = useState(false);
-  const [exchangeOpen, setExchangeOpen] = useState(false);
+  const requestExchange = useUIStore((s) => s.requestExchange);
   const [amountUsdc, setAmountUsdc] = useState('');
 
+  const { account } = usePerpsAccount();
   const isLong = side === 'long';
-  const availableMargin = 0;
+  // Real Hyperliquid account state (read-only) for the signed-in EVM address.
+  const availableMargin = account?.withdrawable ?? 0;
+  const accountValue = account?.accountValue ?? 0;
+  const position = account?.positions.find((p) => p.coin === pair.coin) ?? null;
   const needsFunds = authenticated && availableMargin <= 0;
   /** Hyperliquid order signing not wired yet — CTA never pretends to execute. */
   const executionUnavailable = authenticated && !needsFunds;
@@ -28,7 +33,7 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
       return;
     }
     if (needsFunds) {
-      setExchangeOpen(true);
+      requestExchange('convert');
       return;
     }
     // TODO Phase 2: HL order signing — button is disabled until this lands.
@@ -41,7 +46,7 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
           <span className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Trade</span>
           <button
             type="button"
-            onClick={() => setExchangeOpen(true)}
+            onClick={() => requestExchange('convert')}
             className="rounded-md bg-accent-primary px-3 py-1 text-[11px] font-semibold text-fg-inverse hover:brightness-110"
           >
             Deposit
@@ -191,7 +196,7 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
               <span className="text-fg-muted">Available Margin</span>
               <button
                 type="button"
-                onClick={() => setExchangeOpen(true)}
+                onClick={() => requestExchange('convert')}
                 className="font-semibold tabular-nums text-accent-glow hover:underline"
               >
                 {availableMargin.toFixed(2)} USDC
@@ -199,17 +204,30 @@ export function PerpsOrderPanel({ pair }: { pair: PerpMarket }) {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-fg-muted">Perps Account Value</span>
-              <span className="font-semibold tabular-nums text-fg-secondary">0.00 USDC</span>
+              <span className="font-semibold tabular-nums text-fg-secondary">{accountValue.toFixed(2)} USDC</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-fg-muted">Current Position</span>
-              <span className="font-semibold tabular-nums text-fg-secondary">—</span>
+              {position ? (
+                <span
+                  className={cn(
+                    'font-semibold tabular-nums',
+                    position.szi > 0 ? 'text-signal-bull' : 'text-signal-bear',
+                  )}
+                >
+                  {position.szi > 0 ? 'Long' : 'Short'} {Math.abs(position.szi)} {pair.coin}
+                  {position.unrealizedPnl != null
+                    ? ` (${position.unrealizedPnl >= 0 ? '+' : ''}${position.unrealizedPnl.toFixed(2)})`
+                    : ''}
+                </span>
+              ) : (
+                <span className="font-semibold tabular-nums text-fg-secondary">—</span>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <PerpsExchangeModal open={exchangeOpen} onClose={() => setExchangeOpen(false)} />
     </>
   );
 }

@@ -1,0 +1,800 @@
+'use client';
+
+import { useMemo, useState, type KeyboardEvent } from 'react';
+import { Check, ChevronDown, Plus, RotateCcw, Search, Wallet, X } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
+import { shortenAddress } from '@/lib/utils/addresses';
+import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
+import { deriveSolanaAddressFromSecret } from '@/lib/auth/importKeyDerive';
+import { PulseAccentColorPicker } from '@/components/pulse/PulseAccentColorPicker';
+import { DEFAULT_PULSE_ACCENT_HEX } from '@/lib/ui/pulseAccent';
+import { SOURCE_ENTRIES } from '@/lib/xMonitor/sourceEntries';
+import {
+  FEE_PRESET_SOL,
+  useXMonitorSettings,
+  type FeedSource,
+  type LaunchRailSide,
+  type LaunchRailStyle,
+  type LaunchRailSize,
+  type DeployMode,
+  type XMonitorSettings as XMonitorSettingsType,
+} from '@/store/xMonitorSettings';
+
+type XMonitorSettingsFeePreset = XMonitorSettingsType['feePreset'];
+
+const SOURCES: Array<{ id: FeedSource; label: string; hint: string }> = [
+  { id: 'x', label: 'X / Twitter', hint: '2,012 tracked accounts' },
+  { id: 'instagram', label: 'Instagram', hint: 'Story + post events' },
+  { id: 'truth', label: 'Truth Social', hint: 'Trump + affiliates' },
+  { id: 'caTracker', label: 'CA Tracker', hint: 'Contract mentions' },
+  { id: 'news', label: 'News', hint: '16 wires' },
+  { id: 'affiliates', label: 'Affiliates', hint: '29 tagged sources' },
+  { id: 'discord', label: 'Discord', hint: 'CA mentions in linked servers' },
+];
+
+function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+  return (
+    <section className="border-b border-white/[0.06] px-3 py-3.5">
+      <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-secondary">{title}</h3>
+      {desc ? <p className="mt-0.5 text-[10.5px] leading-snug text-fg-muted">{desc}</p> : null}
+      <div className="mt-2.5">{children}</div>
+    </section>
+  );
+}
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-md border border-white/[0.1] bg-white/[0.03] p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'btn-press rounded px-3 py-1 text-[11px] font-semibold transition-colors',
+            value === o.value
+              ? 'bg-accent-primary/20 text-accent-primary'
+              : 'text-fg-muted hover:text-fg-secondary',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={cn(
+        'inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors',
+        on ? 'bg-accent-primary/80' : 'bg-white/[0.14]',
+      )}
+    >
+      <span
+        className={cn(
+          'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+          on ? 'translate-x-4' : 'translate-x-0',
+        )}
+      />
+    </button>
+  );
+}
+
+function TagInput({
+  values,
+  onChange,
+  placeholder,
+  prefix,
+}: {
+  values: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+  prefix?: string;
+}) {
+  const [draft, setDraft] = useState('');
+  const add = () => {
+    const v = draft.trim().replace(/^@/, '').toLowerCase();
+    if (!v || values.includes(v)) {
+      setDraft('');
+      return;
+    }
+    onChange([...values, v]);
+    setDraft('');
+  };
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      add();
+    } else if (e.key === 'Backspace' && !draft && values.length) {
+      onChange(values.slice(0, -1));
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-white/[0.1] bg-white/[0.03] p-1.5">
+      {values.map((v) => (
+        <span
+          key={v}
+          className="inline-flex items-center gap-1 rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] text-fg-secondary"
+        >
+          {prefix}
+          {v}
+          <button
+            type="button"
+            onClick={() => onChange(values.filter((x) => x !== v))}
+            className="text-fg-muted hover:text-signal-bear"
+            aria-label={`Remove ${v}`}
+          >
+            <X className="h-3 w-3" strokeWidth={2.5} />
+          </button>
+        </span>
+      ))}
+      <div className="flex min-w-[90px] flex-1 items-center gap-1">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKey}
+          onBlur={add}
+          placeholder={placeholder}
+          className="min-w-0 flex-1 bg-transparent px-1 py-0.5 text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
+        />
+        {draft.trim() ? (
+          <button type="button" onClick={add} className="text-fg-muted hover:text-accent-primary" aria-label="Add">
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function XMonitorSettings() {
+  const s = useXMonitorSettings();
+
+  return (
+    <div className="flex-1 overflow-y-auto [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent">
+      {/* Launch button */}
+      <Section title="Launch button" desc="How the deploy rail looks on each feed card.">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-fg-secondary">Position</span>
+            <Segmented<LaunchRailSide>
+              value={s.launchRailSide}
+              onChange={(v) => s.set({ launchRailSide: v })}
+              options={[
+                { value: 'left', label: 'Left' },
+                { value: 'right', label: 'Right' },
+                { value: 'top', label: 'Top' },
+                { value: 'bottom', label: 'Bottom' },
+              ]}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-fg-secondary">Style</span>
+            <Segmented<LaunchRailStyle>
+              value={s.launchRailStyle}
+              onChange={(v) => s.set({ launchRailStyle: v })}
+              options={[
+                { value: 'fill', label: 'Fill' },
+                { value: 'outline', label: 'Outline' },
+              ]}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-fg-secondary">Size</span>
+            <Segmented<LaunchRailSize>
+              value={s.launchRailSize}
+              onChange={(v) => s.set({ launchRailSize: v })}
+              options={[
+                { value: 'default', label: 'Default' },
+                { value: 'big', label: 'Big' },
+              ]}
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[11px] text-fg-secondary">Colour</span>
+              <button
+                type="button"
+                onClick={() => s.set({ launchRailColor: null })}
+                className={cn(
+                  'rounded px-2 py-0.5 text-[10px] font-semibold transition-colors',
+                  s.launchRailColor === null
+                    ? 'bg-accent-primary/20 text-accent-primary'
+                    : 'text-fg-muted hover:text-fg-secondary',
+                )}
+              >
+                Theme accent
+              </button>
+            </div>
+            <PulseAccentColorPicker
+              color={s.launchRailColor ?? DEFAULT_PULSE_ACCENT_HEX}
+              onChange={(hex) => s.set({ launchRailColor: hex })}
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* Deploy surface */}
+      <Section title="Deploy" desc="Where the deploy form opens when you launch.">
+        <Segmented<DeployMode>
+          value={s.deployMode}
+          onChange={(v) => s.set({ deployMode: v })}
+          options={[
+            { value: 'modal', label: 'Modal' },
+            { value: 'sidePanel', label: 'Side panel' },
+          ]}
+        />
+      </Section>
+
+      {/* Fees */}
+      <FeesSection />
+
+      {/* Wallets */}
+      <WalletsSection />
+
+      {/* Feed sources */}
+      <Section title="Feed accounts" desc="Toggle a channel, or open it to pick which accounts stream in.">
+        <ul className="space-y-1.5">
+          {SOURCES.map((src) => (
+            <SourceRow key={src.id} id={src.id} label={src.label} hint={src.hint} />
+          ))}
+        </ul>
+      </Section>
+
+      {/* Buy presets */}
+      <Section title="Quick-buy presets" desc="SOL amounts shown on cards.">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {s.buyPresets.map((amt, i) => (
+            <span
+              key={`${amt}-${i}`}
+              className="inline-flex items-center gap-1 rounded bg-white/[0.07] px-2 py-1 text-[11px] font-semibold text-fg-secondary"
+            >
+              {amt} SOL
+              <button
+                type="button"
+                onClick={() => s.set({ buyPresets: s.buyPresets.filter((_, j) => j !== i) })}
+                className="text-fg-muted hover:text-signal-bear"
+                aria-label={`Remove ${amt}`}
+              >
+                <X className="h-3 w-3" strokeWidth={2.5} />
+              </button>
+            </span>
+          ))}
+          <PresetAdder
+            onAdd={(n) => {
+              if (!s.buyPresets.includes(n)) s.set({ buyPresets: [...s.buyPresets, n].sort((a, b) => a - b) });
+            }}
+          />
+        </div>
+      </Section>
+
+      {/* Keyword highlights */}
+      <Section title="Keyword highlights" desc="Cards containing these words glow accent.">
+        <TagInput
+          values={s.keywordHighlights}
+          onChange={(v) => s.set({ keywordHighlights: v })}
+          placeholder="add keyword…"
+        />
+      </Section>
+
+      {/* Muted keywords */}
+      <Section title="Muted keywords" desc="Hide cards that contain these words.">
+        <TagInput
+          values={s.mutedKeywords}
+          onChange={(v) => s.set({ mutedKeywords: v })}
+          placeholder="add mute…"
+        />
+      </Section>
+
+      {/* Whitelist */}
+      <Section title="Whitelist" desc="Only surface these handles (empty = all tracked).">
+        <TagInput
+          values={s.whitelistHandles}
+          onChange={(v) => s.set({ whitelistHandles: v })}
+          placeholder="add @handle…"
+          prefix="@"
+        />
+      </Section>
+
+      {/* AI suggestions */}
+      <Section title="AI suggestions" desc="Name + ticker ideas generated per tweet.">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-fg-secondary">Enabled</span>
+            <Toggle on={s.aiSuggestionsEnabled} onChange={(v) => s.set({ aiSuggestionsEnabled: v })} />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-fg-secondary">Suggestions per tweet</span>
+            <Stepper
+              value={s.aiSuggestionCount}
+              min={1}
+              max={6}
+              onChange={(n) => s.set({ aiSuggestionCount: n })}
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* Keybinds */}
+      <Section title="Keybinds" desc="Single-key shortcuts on the focused card.">
+        <div className="space-y-2">
+          {(
+            [
+              ['quickBuy', 'Quick buy'],
+              ['deploy', 'Deploy'],
+              ['dismiss', 'Dismiss'],
+            ] as const
+          ).map(([action, label]) => (
+            <div key={action} className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-fg-secondary">{label}</span>
+              <KeyCapture value={s.keybinds[action]} onChange={(k) => s.setKeybind(action, k)} />
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* Reset */}
+      <div className="px-3 py-3.5">
+        <button
+          type="button"
+          onClick={() => s.reset()}
+          className="btn-press inline-flex items-center gap-1.5 rounded-md border border-white/[0.1] px-2.5 py-1.5 text-[11px] font-semibold text-fg-muted transition-colors hover:border-signal-bear/40 hover:bg-signal-bear/[0.08] hover:text-signal-bear"
+        >
+          <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} />
+          Reset to defaults
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SourceRow({ id, label, hint }: { id: FeedSource; label: string; hint: string }) {
+  const on = useXMonitorSettings((s) => s.sources[id]);
+  const exclusions = useXMonitorSettings((s) => s.sourceExclusions[id]);
+  const setSource = useXMonitorSettings((s) => s.setSource);
+  const toggleSourceEntry = useXMonitorSettings((s) => s.toggleSourceEntry);
+  const setSourceExclusions = useXMonitorSettings((s) => s.setSourceExclusions);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+
+  const entries = SOURCE_ENTRIES[id] ?? [];
+  const excluded = useMemo(() => new Set(exclusions ?? []), [exclusions]);
+  const activeCount = entries.length - excluded.size;
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = needle
+      ? entries.filter((e) => e.label.toLowerCase().includes(needle) || e.id.includes(needle) || (e.sub ?? '').toLowerCase().includes(needle))
+      : entries;
+    return list.slice(0, 200);
+  }, [entries, q]);
+
+  return (
+    <li className="overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.03]">
+      <div className="flex items-center gap-2 px-2.5 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          aria-expanded={open}
+        >
+          <ChevronDown
+            className={cn('h-3.5 w-3.5 shrink-0 text-fg-muted transition-transform', open && 'rotate-180')}
+            strokeWidth={2.5}
+            aria-hidden
+          />
+          <span className="min-w-0">
+            <span className="block text-[11.5px] font-medium text-fg-primary">{label}</span>
+            <span className="block text-[10px] text-fg-muted">
+              {on ? `${activeCount}/${entries.length} on` : 'off'} · {hint}
+            </span>
+          </span>
+        </button>
+        <Toggle on={on} onChange={(v) => setSource(id, v)} />
+      </div>
+
+      {open ? (
+        <div className="border-t border-white/[0.06] p-2">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1">
+              <Search className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={`Search ${entries.length} entries…`}
+                className="min-w-0 flex-1 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSourceExclusions(id, [])}
+              className="btn-press rounded border border-white/[0.1] px-1.5 py-1 text-[9.5px] font-semibold text-fg-muted hover:text-accent-primary"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setSourceExclusions(id, entries.map((e) => e.id))}
+              className="btn-press rounded border border-white/[0.1] px-1.5 py-1 text-[9.5px] font-semibold text-fg-muted hover:text-signal-bear"
+            >
+              None
+            </button>
+          </div>
+          <ul className="max-h-56 space-y-0.5 overflow-y-auto [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10">
+            {filtered.map((e) => {
+              const active = !excluded.has(e.id);
+              return (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSourceEntry(id, e.id, !active)}
+                    className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left transition-colors hover:bg-white/[0.04]"
+                  >
+                    <span
+                      className={cn(
+                        'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border',
+                        active ? 'border-accent-primary bg-accent-primary/80' : 'border-white/20 bg-transparent',
+                      )}
+                    >
+                      {active ? <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} aria-hidden /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-fg-secondary">{e.label}</span>
+                    {e.sub ? <span className="shrink-0 truncate text-[9.5px] text-fg-muted">{e.sub}</span> : null}
+                  </button>
+                </li>
+              );
+            })}
+            {entries.length > filtered.length ? (
+              <li className="px-1.5 py-1 text-[9.5px] text-fg-muted">
+                +{entries.length - filtered.length} more — refine search
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function FeesSection() {
+  const feePreset = useXMonitorSettings((s) => s.feePreset);
+  const jitoTipSol = useXMonitorSettings((s) => s.jitoTipSol);
+  const set = useXMonitorSettings((s) => s.set);
+
+  const tiers: Array<{ id: XMonitorSettingsFeePreset; label: string }> = [
+    { id: 'low', label: 'Low' },
+    { id: 'med', label: 'Med' },
+    { id: 'high', label: 'High' },
+    { id: 'turbo', label: 'Turbo' },
+  ];
+
+  return (
+    <Section title="Fees" desc="Priority fee + Jito tip for buys and deploys.">
+      <div className="space-y-3">
+        <div>
+          <span className="text-[11px] text-fg-secondary">Priority fee</span>
+          <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+            {tiers.map((t) => {
+              const active = feePreset === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => set({ feePreset: t.id })}
+                  className={cn(
+                    'btn-press rounded-md border py-1.5 text-center transition-colors',
+                    active
+                      ? 'border-accent-primary/40 bg-accent-primary/[0.12] text-accent-primary'
+                      : 'border-white/[0.08] bg-white/[0.03] text-fg-muted hover:border-white/20',
+                  )}
+                >
+                  <span className="block text-[11px] font-semibold">{t.label}</span>
+                  <span className="block text-[9px] tabular-nums opacity-80">{FEE_PRESET_SOL[t.id]} ◎</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-fg-secondary">Jito tip (SOL)</span>
+          <input
+            value={String(jitoTipSol)}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n) && n >= 0) set({ jitoTipSol: n });
+            }}
+            inputMode="decimal"
+            className="w-20 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 text-right text-[11px] tabular-nums text-fg-primary outline-none focus:border-accent-primary/40"
+          />
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function WalletsSection() {
+  const deployWallet = useXMonitorSettings((s) => s.deployWallet);
+  const buyInWallets = useXMonitorSettings((s) => s.buyInWallets);
+  const set = useXMonitorSettings((s) => s.set);
+  const addBuyInWallet = useXMonitorSettings((s) => s.addBuyInWallet);
+  const removeBuyInWallet = useXMonitorSettings((s) => s.removeBuyInWallet);
+  const embedded = useEmbeddedSolanaAddresses();
+  const embeddedList = Array.from(embedded);
+
+  const [custom, setCustom] = useState('');
+  const [keyErr, setKeyErr] = useState<string | null>(null);
+  const [label, setLabel] = useState('');
+  const [addr, setAddr] = useState('');
+
+  const isKnown = deployWallet ? embeddedList.includes(deployWallet) : true;
+
+  return (
+    <Section title="Wallets" desc="Which wallet deploys, and buy-in wallets for spread/snipe.">
+      <div className="space-y-3">
+        <div>
+          <span className="text-[11px] text-fg-secondary">Deploy wallet</span>
+          <div className="mt-1.5 space-y-1">
+            <WalletOption
+              active={deployWallet === null}
+              onClick={() => set({ deployWallet: null, deployWalletKey: null })}
+              title="Prompt each time"
+              sub="Choose a wallet when you deploy"
+            />
+            {embeddedList.map((a) => (
+              <WalletOption
+                key={a}
+                active={deployWallet === a}
+                onClick={() => set({ deployWallet: a, deployWalletKey: null })}
+                title={shortenAddress(a, 6)}
+                sub="Pointer embedded wallet"
+                mono
+              />
+            ))}
+            {deployWallet && !isKnown ? (
+              <WalletOption
+                active
+                onClick={() => {}}
+                title={shortenAddress(deployWallet, 6)}
+                sub="Custom wallet · key set"
+                mono
+              />
+            ) : null}
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <input
+              value={custom}
+              onChange={(e) => {
+                setCustom(e.target.value);
+                setKeyErr(null);
+              }}
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Paste private key to deploy from…"
+              className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 font-mono text-[10.5px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
+            />
+            <button
+              type="button"
+              disabled={custom.trim().length < 32}
+              onClick={() => {
+                try {
+                  const address = deriveSolanaAddressFromSecret(custom);
+                  set({ deployWallet: address, deployWalletKey: custom.trim() });
+                  setCustom('');
+                  setKeyErr(null);
+                } catch {
+                  setKeyErr('Invalid key — paste a base58 / hex / array secret key.');
+                }
+              }}
+              className="btn-press rounded-md border border-white/[0.1] px-2 py-1 text-[11px] font-semibold text-fg-secondary transition-colors hover:border-accent-primary/40 hover:text-accent-primary disabled:opacity-40"
+            >
+              Set
+            </button>
+          </div>
+          {keyErr ? <p className="mt-1 text-[10px] text-signal-bear">{keyErr}</p> : null}
+          <p className="mt-1 text-[9.5px] leading-snug text-fg-muted">
+            The key derives the address on-device and is stored locally so this wallet can sign deploys.
+          </p>
+        </div>
+
+        <div>
+          <span className="text-[11px] text-fg-secondary">Buy-in wallets</span>
+          {buyInWallets.length ? (
+            <ul className="mt-1.5 space-y-1">
+              {buyInWallets.map((w) => (
+                <li
+                  key={w.address}
+                  className="flex items-center justify-between gap-2 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-medium text-fg-primary">{w.label || 'Wallet'}</p>
+                    <p className="truncate font-mono text-[10px] text-fg-muted">{shortenAddress(w.address, 6)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeBuyInWallet(w.address)}
+                    className="text-fg-muted hover:text-signal-bear"
+                    aria-label="Remove wallet"
+                  >
+                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-[10px] text-fg-muted">None yet — add wallets to spread the buy.</p>
+          )}
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Label"
+              className="w-20 shrink-0 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 text-[11px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
+            />
+            <input
+              value={addr}
+              onChange={(e) => setAddr(e.target.value)}
+              placeholder="Address…"
+              className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-white/[0.03] px-2 py-1 font-mono text-[10.5px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-primary/40"
+            />
+            <button
+              type="button"
+              disabled={addr.trim().length < 32}
+              onClick={() => {
+                addBuyInWallet({ label: label.trim(), address: addr.trim() });
+                setLabel('');
+                setAddr('');
+              }}
+              className="btn-press rounded-md border border-white/[0.1] p-1 text-fg-secondary transition-colors hover:border-accent-primary/40 hover:text-accent-primary disabled:opacity-40"
+              aria-label="Add buy-in wallet"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function WalletOption({
+  active,
+  onClick,
+  title,
+  sub,
+  mono,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  sub: string;
+  mono?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors',
+        active
+          ? 'border-accent-primary/40 bg-accent-primary/[0.08]'
+          : 'border-white/[0.08] bg-white/[0.03] hover:border-white/20',
+      )}
+    >
+      <Wallet
+        className={cn('h-3.5 w-3.5 shrink-0', active ? 'text-accent-primary' : 'text-fg-muted')}
+        strokeWidth={2}
+        aria-hidden
+      />
+      <span className="min-w-0 flex-1">
+        <span className={cn('block text-[11px] font-medium text-fg-primary', mono && 'font-mono')}>{title}</span>
+        <span className="block truncate text-[9.5px] text-fg-muted">{sub}</span>
+      </span>
+      {active ? <Check className="h-3.5 w-3.5 shrink-0 text-accent-primary" strokeWidth={2.5} aria-hidden /> : null}
+    </button>
+  );
+}
+
+function PresetAdder({ onAdd }: { onAdd: (n: number) => void }) {
+  const [v, setV] = useState('');
+  const commit = () => {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) onAdd(n);
+    setV('');
+  };
+  return (
+    <div className="inline-flex items-center gap-1 rounded border border-white/[0.1] bg-white/[0.03] px-1.5 py-0.5">
+      <input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
+        }}
+        onBlur={commit}
+        inputMode="decimal"
+        placeholder="+ SOL"
+        className="w-14 bg-transparent text-[11px] text-fg-primary outline-none placeholder:text-fg-muted"
+      />
+    </div>
+  );
+}
+
+function Stepper({
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.03] px-1">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(min, value - 1))}
+        className="btn-press px-1.5 py-0.5 text-[13px] font-bold text-fg-muted hover:text-fg-primary"
+      >
+        −
+      </button>
+      <span className="w-4 text-center text-[12px] font-semibold tabular-nums text-fg-primary">{value}</span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(max, value + 1))}
+        className="btn-press px-1.5 py-0.5 text-[13px] font-bold text-fg-muted hover:text-fg-primary"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function KeyCapture({ value, onChange }: { value: string; onChange: (k: string) => void }) {
+  const [listening, setListening] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => setListening(true)}
+      onBlur={() => setListening(false)}
+      onKeyDown={(e) => {
+        if (!listening) return;
+        if (e.key === 'Escape') {
+          setListening(false);
+          return;
+        }
+        if (e.key.length === 1) {
+          e.preventDefault();
+          onChange(e.key.toLowerCase());
+          setListening(false);
+        }
+      }}
+      className={cn(
+        'min-w-[42px] rounded border px-2 py-1 text-center text-[11px] font-bold uppercase transition-colors',
+        listening
+          ? 'border-accent-primary bg-accent-primary/15 text-accent-primary'
+          : 'border-white/[0.12] bg-white/[0.03] text-fg-secondary hover:border-white/25',
+      )}
+    >
+      {listening ? '…' : value}
+    </button>
+  );
+}

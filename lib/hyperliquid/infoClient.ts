@@ -1,5 +1,12 @@
 import { HYPERLIQUID_INFO_URL } from '@/lib/hyperliquid/constants';
-import { HlL2BookSchema, HlMetaAndCtxSchema, type HlL2Book, type HlMetaAndCtx } from '@/lib/hyperliquid/schemas';
+import {
+  HlClearinghouseStateSchema,
+  HlL2BookSchema,
+  HlMetaAndCtxSchema,
+  type HlClearinghouseState,
+  type HlL2Book,
+  type HlMetaAndCtx,
+} from '@/lib/hyperliquid/schemas';
 
 async function postInfo<T>(body: Record<string, unknown>, schema: { parse: (v: unknown) => T }): Promise<T> {
   const res = await fetch(HYPERLIQUID_INFO_URL, {
@@ -21,6 +28,11 @@ export async function fetchMetaAndAssetCtxs(): Promise<HlMetaAndCtx> {
 
 export async function fetchL2Book(coin: string): Promise<HlL2Book> {
   return postInfo({ type: 'l2Book', coin }, HlL2BookSchema);
+}
+
+/** A user's perps account (margin + open positions). `user` is their EVM address. */
+export async function fetchClearinghouseState(user: string): Promise<HlClearinghouseState> {
+  return postInfo({ type: 'clearinghouseState', user }, HlClearinghouseStateSchema);
 }
 
 /** Minutes until next UTC hour (Hyperliquid hourly funding). */

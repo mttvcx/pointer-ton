@@ -1,9 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellRing, ChevronRight, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { BellRing } from 'lucide-react';
+import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
+import { WalletGroupsSidebar } from '@/components/portfolio/WalletGroupsSidebar';
+import { useWalletGroupsStore } from '@/store/walletGroups';
+import { useTradingStore } from '@/store/trading';
+import { UNGROUPED_GROUP_ID } from '@/lib/trade/walletGroups';
+import { CloseButton } from '@/components/ui/CloseButton';
 import {
   clampPeekTopLeftWithinViewport,
   DOCK_PEEK_BOTTOM_CSS,
@@ -21,24 +28,27 @@ import {
 } from '@/store/tokenDockPeek';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils/cn';
-import { openXMonitorOnPulse } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { toastWalletTrackedTradeDemo } from '@/lib/walletTracker/walletTrackerToast';
+import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
+import { WalletQuickBuyAmount } from '@/components/trackers/WalletQuickBuyAmount';
+import { WalletTrackerKolsTab } from '@/components/trackers/WalletTrackerKolsTab';
 
-type WalletTrackerTab = 'manager' | 'trades' | 'monitor' | 'kols';
+type WalletTrackerTab = 'trades' | 'groups' | 'kols';
 
 const TAB_LABEL: Record<WalletTrackerTab, string> = {
-  manager: 'Manager',
   trades: 'Trades',
-  monitor: 'Monitor',
+  groups: 'Groups',
   kols: 'KOLs',
 };
-const TAB_ORDER: WalletTrackerTab[] = ['manager', 'trades', 'monitor', 'kols'];
+const TAB_ORDER: WalletTrackerTab[] = ['trades', 'groups', 'kols'];
 
 const MIN_PANEL_W = 300;
 const MIN_PANEL_H = 300;
 const EDGE_GHOST_W_PX = 72;
 const BODY_GUTTER_PX = 10;
 const BODY_GUTTER_EXTRA_PX = 10;
+/** Collapsed width of the co-pilot rail (mirrors RAIL_PX in AICopilotPanel). */
+const COPILOT_RAIL_PX = 44;
 
 function DockPeekWidthHandle({
   edge,
@@ -71,6 +81,83 @@ function DockPeekWidthHandle({
   );
 }
 
+/** Free-float edge resize handle (any of the 4 sides). */
+function EdgeResizeHandle({
+  side,
+  draggingUi,
+  onPointerDown,
+}: {
+  side: 'top' | 'bottom' | 'left' | 'right';
+  draggingUi: boolean;
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+}) {
+  const isX = side === 'left' || side === 'right';
+  return (
+    <div
+      className={cn(
+        'absolute z-20',
+        draggingUi ? 'pointer-events-none' : 'group/rz',
+        isX ? 'top-4 bottom-4 w-3 cursor-ew-resize' : 'left-4 right-4 h-3 cursor-ns-resize',
+        side === 'left' && 'left-0',
+        side === 'right' && 'right-0',
+        side === 'top' && 'top-0',
+        side === 'bottom' && 'bottom-0',
+      )}
+      style={{ touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+    >
+      <div
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute bg-white/0 transition-colors group-hover/rz:bg-white/30',
+          isX ? 'top-[12%] bottom-[12%] w-px' : 'left-[12%] right-[12%] h-px',
+          side === 'left' && 'left-[5px]',
+          side === 'right' && 'right-[5px]',
+          side === 'top' && 'top-[5px]',
+          side === 'bottom' && 'bottom-[5px]',
+        )}
+      />
+    </div>
+  );
+}
+
+/** Free-float corner resize handle (diagonal). */
+function CornerResizeHandle({
+  corner,
+  draggingUi,
+  onPointerDown,
+}: {
+  corner: 'tl' | 'tr' | 'bl' | 'br';
+  draggingUi: boolean;
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+}) {
+  const nwse = corner === 'tl' || corner === 'br';
+  return (
+    <div
+      role="separator"
+      className={cn(
+        'group/corner absolute z-[21]',
+        nwse ? 'cursor-nwse-resize' : 'cursor-nesw-resize',
+        draggingUi ? 'pointer-events-none' : '',
+        corner === 'tl' && 'left-0 top-0',
+        corner === 'tr' && 'right-0 top-0',
+        corner === 'bl' && 'bottom-0 left-0',
+        corner === 'br' && 'bottom-0 right-0',
+      )}
+      style={{ touchAction: 'none', width: 16, height: 16 }}
+      onPointerDown={onPointerDown}
+    >
+      {corner === 'br' ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-[3px] right-[3px] h-[8px] w-[8px] rounded-br-[3px] border-b border-r border-white/25 transition-colors group-hover/corner:border-white/55"
+        />
+      ) : null}
+      <span className="sr-only">Resize Tracker panel</span>
+    </div>
+  );
+}
+
 /** Center grip — mirrored from Pulse peek */
 function GripDots() {
   return (
@@ -92,6 +179,12 @@ function GripDots() {
 export function DockWalletTrackerFloatingPanel() {
   const pathname = usePathname();
   const activeChain = useUIStore((s) => s.activeChain);
+  // Co-pilot right rail — offset the dock so it sits beside it, not under it.
+  const copilotOpen = useUIStore((s) => s.panelOpen);
+  const copilotDetached = useUIStore((s) => s.copilotDetached);
+  const copilotRailSide = useUIStore((s) => s.copilotRailSide);
+  const copilotCollapsed = useUIStore((s) => s.panelCollapsed);
+  const copilotWidth = useUIStore((s) => s.panelWidth);
   const open = useTokenDockPeekStore((s) => s.walletPeekOpen);
   const setOpen = useTokenDockPeekStore((s) => s.setWalletPeekOpen);
   const position = useTokenDockPeekStore((s) => s.dockWalletPosition);
@@ -101,9 +194,7 @@ export function DockWalletTrackerFloatingPanel() {
   const panelSize = useTokenDockPeekStore((s) => s.dockWalletPanelSize ?? DEFAULT_WALLET_TRACKER_PEEK_SIZE);
   const setPanelSize = useTokenDockPeekStore((s) => s.setWalletPanelSize);
 
-  const [tab, setTab] = useState<WalletTrackerTab>(() =>
-    pathname?.startsWith('/pulse') ? 'monitor' : 'trades',
-  );
+  const [tab, setTab] = useState<WalletTrackerTab>('trades');
 
   const onWalletMgmtPage = pathname?.startsWith('/wallets') ?? false;
 
@@ -121,7 +212,12 @@ export function DockWalletTrackerFloatingPanel() {
     oh: number;
     startX: number;
     startY: number;
-    axis: 'both' | 'ew';
+    axis: 'both' | 'ew' | 'ns';
+    /** Free-float resize: which edges are being dragged + the origin top-left. */
+    ox?: number;
+    oy?: number;
+    edgeX?: 'left' | 'right' | null;
+    edgeY?: 'top' | 'bottom' | null;
   };
   const resizePhaseRef = useRef<ResizePhase | null>(null);
 
@@ -154,7 +250,15 @@ export function DockWalletTrackerFloatingPanel() {
     const dockedTopPx = topbar + DOCK_PEEK_TOP_GAP_PX;
     const maxFloatH = Math.max(MIN_PANEL_H, vh - dockTopPx - botbar - 12);
     const maxFloatW = Math.max(MIN_PANEL_W, vw - 24);
-    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx, dockedTopPx };
+    // When the co-pilot is docked as the right rail, reserve its width so the
+    // dock parks beside it instead of behind it (it's a fixed overlay).
+    const copilotRightInset =
+      vw > 1023 && copilotOpen && !copilotDetached && copilotRailSide === 'right'
+        ? copilotCollapsed
+          ? COPILOT_RAIL_PX
+          : copilotWidth
+        : 0;
+    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx, dockedTopPx, copilotRightInset };
   };
 
   useEffect(() => {
@@ -298,15 +402,51 @@ export function DockWalletTrackerFloatingPanel() {
       if (resizingRef.current && resizePhaseRef.current && !st.dockWalletDockSnap) {
         const rz = resizePhaseRef.current;
         if (rz.pointerId !== e.pointerId) return;
-        const nw = rz.ow + (e.clientX - rz.startX);
-        if (rz.axis === 'ew') {
-          const { w: cw } = clampPanelSize(nw, rz.oh);
-          transientSizeRef.current = { w: cw, h: rz.oh };
-        } else {
-          const nh = rz.oh + (e.clientY - rz.startY);
-          const { w: cw, h: ch } = clampPanelSize(nw, nh);
-          transientSizeRef.current = { w: cw, h: ch };
+
+        const ox = rz.ox ?? 0;
+        const oy = rz.oy ?? 0;
+        const edgeX = rz.edgeX ?? 'right';
+        const edgeY = rz.edgeY ?? null;
+        const dx = e.clientX - rz.startX;
+        const dy = e.clientY - rz.startY;
+        const rightEdge = ox + rz.ow;
+        const bottomEdge = oy + rz.oh;
+
+        // Desired size — left/top edges shrink as you drag inward.
+        let desiredW = rz.ow;
+        let desiredH = rz.oh;
+        if (edgeX === 'right') desiredW = rz.ow + dx;
+        else if (edgeX === 'left') desiredW = rz.ow - dx;
+        if (edgeY === 'bottom') desiredH = rz.oh + dy;
+        else if (edgeY === 'top') desiredH = rz.oh - dy;
+
+        const clamped = clampPanelSize(desiredW, desiredH);
+        let newW = rz.edgeX ? clamped.w : rz.ow;
+        let newH = rz.edgeY ? clamped.h : rz.oh;
+
+        // Anchor the OPPOSITE edge: left/top drags move the panel origin.
+        const m = readMetrics();
+        const MIN_LEFT = 4;
+        const MIN_TOP = m.topbar + 4;
+        let nx = ox;
+        let ny = oy;
+        if (edgeX === 'left') {
+          nx = rightEdge - newW;
+          if (nx < MIN_LEFT) {
+            nx = MIN_LEFT;
+            newW = Math.max(MIN_PANEL_W, rightEdge - nx);
+          }
         }
+        if (edgeY === 'top') {
+          ny = bottomEdge - newH;
+          if (ny < MIN_TOP) {
+            ny = MIN_TOP;
+            newH = Math.max(MIN_PANEL_H, bottomEdge - ny);
+          }
+        }
+
+        transientSizeRef.current = { w: newW, h: newH };
+        if (edgeX === 'left' || edgeY === 'top') setPosition({ x: nx, y: ny });
         bumpResizeUi((x) => x + 1);
         return;
       }
@@ -453,13 +593,42 @@ export function DockWalletTrackerFloatingPanel() {
   if (!open || activeChain !== 'sol' || onWalletMgmtPage) return null;
 
   void layoutEpoch;
-  const { topbar, botbar, maxFloatH, dockedTopPx } = readMetrics();
+  const { topbar, botbar, maxFloatH, dockedTopPx, copilotRightInset } = readMetrics();
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
   const dockedChromeTop = `${dockedTopPx}px`;
   const dockedChromeBot = DOCK_PEEK_BOTTOM_CSS;
   const floatW = transientSizeRef.current?.w ?? cw;
   const floatH = transientSizeRef.current?.h ?? Math.min(ch, maxFloatH);
+
+  /** Start a free-float resize from any edge/corner. edgeX/edgeY say which sides move. */
+  const beginResize = (
+    e: React.PointerEvent<HTMLDivElement>,
+    edgeX: 'left' | 'right' | null,
+    edgeY: 'top' | 'bottom' | null,
+  ) => {
+    if (useTokenDockPeekStore.getState().dockWalletDockSnap || draggingUi) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const d = floatDimsFromRefs();
+    const pos = useTokenDockPeekStore.getState().dockWalletPosition;
+    resizingRef.current = true;
+    resizePhaseRef.current = {
+      pointerId: e.pointerId,
+      ow: d.w,
+      oh: d.h,
+      ox: pos.x,
+      oy: pos.y,
+      startX: e.clientX,
+      startY: e.clientY,
+      axis: 'both',
+      edgeX,
+      edgeY,
+    };
+    transientSizeRef.current = { w: d.w, h: d.h };
+    document.body.style.setProperty('user-select', 'none');
+    shellRef.current?.setPointerCapture(e.pointerId);
+  };
 
   return (
     <>
@@ -504,13 +673,13 @@ export function DockWalletTrackerFloatingPanel() {
               }
             : dockSnap === 'right'
               ? {
-                  right: BODY_GUTTER_PX / 2,
+                  right: BODY_GUTTER_PX / 2 + copilotRightInset,
                   top: dockedChromeTop,
                   bottom: dockedChromeBot,
                   width: cw,
                 }
               : {
-                  left: position.x,
+                  left: Math.min(position.x, Math.max(8, window.innerWidth - copilotRightInset - floatW - 8)),
                   top: position.y,
                   width: floatW,
                   height: Math.min(floatH, maxFloatH),
@@ -522,12 +691,17 @@ export function DockWalletTrackerFloatingPanel() {
         <header
           className={cn(
             'relative flex shrink-0 items-center gap-1 border-b border-border-subtle bg-bg-hover/40 pr-9',
+            // The WHOLE toolbar is a drag handle (Axiom-style) — tabs/close still
+            // click because the pointerdown guard below skips interactive targets.
+            draggingUi ? 'cursor-grabbing select-none' : 'cursor-grab',
           )}
+          onPointerDown={(e) => {
+            if ((e.target as HTMLElement).closest('button, input, textarea, select, a, [data-no-drag]')) return;
+            beginDragFromHeader(e);
+          }}
         >
           <nav
             className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            data-no-drag
-            onPointerDown={(e) => e.stopPropagation()}
           >
             {TAB_ORDER.map((id) => (
               <button
@@ -546,80 +720,38 @@ export function DockWalletTrackerFloatingPanel() {
               </button>
             ))}
           </nav>
+          {tab === 'trades' ? (
+            <div className="shrink-0 pr-1" data-no-drag>
+              <WalletQuickBuyAmount />
+            </div>
+          ) : null}
           <div
-            role="presentation"
-            className={cn(
-              'relative flex h-[34px] w-9 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing',
-              draggingUi ? 'bg-white/[0.02]' : '',
-            )}
-            onPointerDown={(e) => {
-              if ((e.target as HTMLElement).closest('button, input, textarea, select, [data-no-drag]')) return;
-              beginDragFromHeader(e);
-            }}
+            className="pointer-events-none relative flex h-[34px] w-9 shrink-0 items-center justify-center"
+            aria-hidden
           >
             <GripDots />
           </div>
-          <button
-            type="button"
+          <CloseButton
             data-no-drag
-            aria-label="Close Wallet Tracker"
-            className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-md border border-white/[0.08] bg-bg-base/80 p-1.5 text-fg-secondary hover:border-white/[0.14] hover:bg-bg-hover hover:text-fg-primary"
+            label="Close Wallet Tracker"
+            className="absolute right-1 top-1/2 z-10 -translate-y-1/2"
             onClick={() => setOpen(false)}
-          >
-            <X className="h-4 w-4" strokeWidth={2} />
-          </button>
+          />
         </header>
 
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col',
-            tab === 'monitor' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
+            tab === 'trades' || tab === 'groups' || tab === 'kols' ? 'overflow-hidden' : 'gap-3 overflow-auto px-3 py-3',
           )}
-          style={{ minHeight: tab === 'monitor' ? 280 : 220 }}
+          style={{ minHeight: 220 }}
         >
           {tab === 'trades' ? (
-            <>
-              <p className="px-3 pt-3 text-[11px] leading-relaxed text-fg-secondary">
-                Live buys / sells land as <strong className="text-fg-primary">top pings</strong> when you&apos;re tracking
-                wallets. Open Track for the full grid — this peek shares Pulse-style edge docking.
-              </p>
-              <Link
-                href="/track"
-                data-no-drag
-                className="inline-flex items-center gap-1 px-3 pb-3 text-[11px] font-semibold text-accent-primary hover:brightness-125"
-                onClick={() => setOpen(false)}
-              >
-                Open Track workspace
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-              </Link>
-            </>
-          ) : tab === 'monitor' ? (
-            <div className="flex flex-col gap-3 px-3 py-3">
-              <p className="text-[11px] leading-relaxed text-fg-secondary">
-                X monitor lives on <strong className="text-fg-primary">Pulse</strong> — full-height side rail with
-                feed, rules, and AI deploy.
-              </p>
-              <button
-                type="button"
-                data-no-drag
-                className="btn-press inline-flex w-fit items-center gap-1 rounded-sm border border-white/[0.1] bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-semibold text-accent-primary hover:bg-white/[0.08]"
-                onClick={() => {
-                  setOpen(false);
-                  openXMonitorOnPulse('left');
-                }}
-              >
-                Open X monitor on Pulse
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-            </div>
+            <TrackerTradesFeed />
+          ) : tab === 'groups' ? (
+            <GroupsTab />
           ) : (
-            <p className="px-3 py-3 text-[11px] leading-relaxed text-fg-secondary">
-              <strong className="text-fg-primary">{TAB_LABEL[tab]}</strong> plugs into the tracker pipeline next — use{' '}
-              <Link href="/track" className="font-semibold text-accent-primary underline-offset-2 hover:underline">
-                Track
-              </Link>{' '}
-              for now.
-            </p>
+            <WalletTrackerKolsTab />
           )}
         </div>
 
@@ -654,56 +786,16 @@ export function DockWalletTrackerFloatingPanel() {
 
         {!dockSnap ? (
           <>
-            <DockPeekWidthHandle
-              edge="right"
-              draggingUi={draggingUi}
-              onPointerDown={(e) => {
-                if (draggingUi) return;
-                e.preventDefault();
-                e.stopPropagation();
-                const d = floatDimsFromRefs();
-                resizingRef.current = true;
-                resizePhaseRef.current = {
-                  pointerId: e.pointerId,
-                  ow: d.w,
-                  oh: d.h,
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  axis: 'ew',
-                };
-                transientSizeRef.current = { w: d.w, h: d.h };
-                document.body.style.setProperty('user-select', 'none');
-                shellRef.current?.setPointerCapture(e.pointerId);
-              }}
-            />
-            <div
-              role="separator"
-              className={cn(
-                'absolute bottom-0 right-0 z-[5] cursor-nwse-resize rounded-tl-md',
-                draggingUi ? 'pointer-events-none' : '',
-              )}
-              style={{ touchAction: 'none', width: 20, height: 20 }}
-              onPointerDown={(e) => {
-                if (useTokenDockPeekStore.getState().dockWalletDockSnap || draggingUi) return;
-                e.preventDefault();
-                e.stopPropagation();
-                const d = floatDimsFromRefs();
-                resizingRef.current = true;
-                resizePhaseRef.current = {
-                  pointerId: e.pointerId,
-                  ow: d.w,
-                  oh: d.h,
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  axis: 'both',
-                };
-                transientSizeRef.current = { w: d.w, h: d.h };
-                document.body.style.setProperty('user-select', 'none');
-                shellRef.current?.setPointerCapture(e.pointerId);
-              }}
-            >
-              <span className="sr-only">Resize Tracker panel</span>
-            </div>
+            {/* Edges — all four sides resize (left/top anchor the opposite edge). */}
+            <EdgeResizeHandle side="right" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, 'right', null)} />
+            <EdgeResizeHandle side="left" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, 'left', null)} />
+            <EdgeResizeHandle side="bottom" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, null, 'bottom')} />
+            <EdgeResizeHandle side="top" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, null, 'top')} />
+            {/* Corners — diagonal from every corner. */}
+            <CornerResizeHandle corner="br" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, 'right', 'bottom')} />
+            <CornerResizeHandle corner="bl" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, 'left', 'bottom')} />
+            <CornerResizeHandle corner="tr" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, 'right', 'top')} />
+            <CornerResizeHandle corner="tl" draggingUi={draggingUi} onPointerDown={(e) => beginResize(e, 'left', 'top')} />
           </>
         ) : (
           <DockPeekWidthHandle
@@ -732,5 +824,56 @@ export function DockWalletTrackerFloatingPanel() {
         )}
       </aside>
     </>
+  );
+}
+
+/**
+ * Groups tab — replaces the redundant "Monitor" tab (X monitor is its own thing
+ * on Pulse). Create/organise wallet groups and click one to switch the active
+ * instant-trade wallets to that group. Wallet assignment needs the wallet list.
+ */
+function GroupsTab() {
+  const { authenticated, getAccessToken } = usePointerAuth();
+  const activeGroupId = useWalletGroupsStore((s) => s.activeGroupId);
+  const groups = useWalletGroupsStore((s) => s.groups);
+  const setActiveGroupId = useWalletGroupsStore((s) => s.setActiveGroupId);
+  const touchGroup = useWalletGroupsStore((s) => s.touchGroup);
+  const setShortlist = useTradingStore((s) => s.setInstantTradeWalletShortlist);
+  const clearShortlist = useTradingStore((s) => s.clearInstantTradeWalletShortlist);
+
+  const walletsQ = useQuery({
+    queryKey: ['wallets-my'],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const res = await fetch('/api/wallets/my', { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error('wallets');
+      return res.json() as Promise<{ wallets: MyWalletRow[] }>;
+    },
+    enabled: authenticated,
+    staleTime: 30_000,
+  });
+
+  const onSelectGroup = (id: string | null) => {
+    if (!id || id === UNGROUPED_GROUP_ID) {
+      setActiveGroupId(null);
+      clearShortlist();
+      return;
+    }
+    setActiveGroupId(id);
+    touchGroup(id);
+    const g = groups.find((x) => x.id === id);
+    setShortlist(g?.walletAddresses ?? []);
+  };
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:thin]">
+      <WalletGroupsSidebar
+        wallets={walletsQ.data?.wallets ?? []}
+        selectedGroupId={activeGroupId}
+        onSelectGroup={onSelectGroup}
+        className="px-2 py-2"
+      />
+    </div>
   );
 }

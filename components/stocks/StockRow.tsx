@@ -1,12 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useMemo, type KeyboardEvent, type MouseEvent } from 'react';
 import { StockAvatar } from '@/components/stocks/StockAvatar';
-import {
-  StockRowLeverageCenter,
-  StockRowTradeDock,
-} from '@/components/stocks/StockRowTradeDock';
+import { StockRowTradeDock } from '@/components/stocks/StockRowTradeDock';
 import type { SyntheticStockMarket } from '@/lib/stocks/types';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { formatPercent } from '@/lib/utils/formatters';
@@ -15,22 +12,11 @@ import { cn } from '@/lib/utils/cn';
 /** Match Pulse virtualizer tabled row height. */
 const ROW_SLOT_PX = 116;
 
-export function StockRow({
-  market,
-  defaultLeverage = 5,
-}: {
-  market: SyntheticStockMarket;
-  defaultLeverage?: number;
-}) {
+export function StockRow({ market }: { market: SyntheticStockMarket }) {
   const router = useRouter();
   const slotHeight = ROW_SLOT_PX;
   const mcTone = market.category === 'top' ? 'gold' : 'cyan';
   const changeTone = market.change24hPct >= 0 ? 'bull' : 'bear';
-  const [leverage, setLeverage] = useState(defaultLeverage);
-
-  useEffect(() => {
-    setLeverage(defaultLeverage);
-  }, [defaultLeverage]);
 
   const avatarSize = useMemo(() => {
     const verticalPad = 24;
@@ -44,7 +30,12 @@ export function StockRow({
     label: market.symbol,
   });
 
-  const stockPath = `/stock/${encodeURIComponent(market.symbol)}`;
+  // xStocks are real SPL tokens — route to the real /token/[mint] trade page
+  // (real chart + Jupiter swap). Fall back to the legacy /stock/[symbol] view
+  // only when there's no mint (demo fixture).
+  const stockPath = market.mint
+    ? `/token/${encodeURIComponent(market.mint)}`
+    : `/stock/${encodeURIComponent(market.symbol)}`;
   const nameTitle = `${market.symbol} — ${market.name}`;
 
   const isInteractiveClickTarget = (target: EventTarget | null) =>
@@ -88,7 +79,7 @@ export function StockRow({
       >
         <div className="flex h-full min-h-0 w-full min-w-0 items-start gap-2.5 sm:gap-3">
           <div className="flex shrink-0 flex-col items-center gap-1.5" style={{ minWidth: avatarSize }}>
-            <StockAvatar symbol={market.symbol} size={avatarSize} />
+            <StockAvatar symbol={market.symbol} size={avatarSize} iconUrl={market.iconUrl} />
           </div>
 
           <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col justify-start gap-2 overflow-visible">
@@ -122,18 +113,12 @@ export function StockRow({
         </div>
       </div>
 
-      <StockRowLeverageCenter
-        leverage={leverage}
-        onLeverageChange={setLeverage}
-        symbol={market.symbol}
-      />
-
       <StockRowTradeDock
         volume24hUsd={market.volume24hUsd}
         marketCapUsd={market.marketCapUsd}
         mcTone={mcTone}
-        leverage={leverage}
         symbol={market.symbol}
+        onBuy={openStock}
       />
     </div>
   );

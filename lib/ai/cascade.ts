@@ -6,6 +6,7 @@ import {
   getGeminiFlash,
 } from '@/lib/ai/clients';
 import {
+  acquireInflight,
   hashInput,
   readFromCache,
   recordCall,
@@ -25,11 +26,15 @@ import {
 } from '@/lib/ai/schemas';
 import {
   enforceRateLimit,
-  ensureUnderCostCeiling,
-  recordCost,
+  recordCacheOutcome,
+  reserveAiSpend,
+  settleAiSpend,
+  releaseAiSpend,
   QuotaError,
 } from '@/lib/ai/quota';
 import { awardPoints } from '@/lib/db/points';
+import { assertAiAllowed } from '@/lib/emergency/controls';
+import { assertAiAccess } from '@/lib/access/aiAccess';
 import { MODELS, POINTS_SOURCES } from '@/lib/utils/constants';
 
 /**
@@ -82,12 +87,40 @@ export interface CascadeResult<T> {
 
 const POINTS_PER_AI_CALL = 1;
 
+/**
+ * The AI entry gate: emergency AI kill switch + authentication + access policy
+ * (≥5 SOL OR active subscription). MUST run before any AI output is returned —
+ * including from a pre-`runCascade` cache read. Pipelines that consult their own
+ * cache before the cascade (bubbleRisk, narrateAlert) call this first, otherwise
+ * a cache hit (the bubbleRisk cache is global/cross-user) would hand AI output to
+ * an ungated user (BLOCKER-4). Rate limiting stays inside runCascade so the
+ * miss path isn't double-charged; cache hits by an already-authorized user are
+ * low-risk (no model/credit spend).
+ */
+export async function assertAiEntryAllowed(userId: string | null | undefined): Promise<void> {
+  await assertAiAllowed();
+  if (!userId) {
+    throw new QuotaError('unauthenticated', 'AI cascade requires authenticated user');
+  }
+  await assertAiAccess(userId);
+}
+
 export async function runCascade<P extends PipelineId>(
   input: CascadeInput<P>,
 ): Promise<CascadeResult<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>> {
+  // Emergency global AI kill switch / maintenance — fails closed (throws when the
+  // controls store is unreadable). Single chokepoint covers every AI pipeline.
+  await assertAiAllowed();
   if (!input.userId) {
     throw new QuotaError('unauthenticated', 'AI cascade requires authenticated user');
   }
+  // AI access policy — ≥5 SOL across linked wallets OR an active subscription.
+  // No-op unless AI_ACCESS_ENFORCED=1 (so the gate ships before the beta flip).
+  // Fails OPEN on RPC uncertainty within a grace window (never wrongly revoke).
+  await assertAiAccess(input.userId);
+  // Atomic per-user + per-IP rate limit BEFORE the cache lookup, so a cache-hit
+  // flood (enumeration / abuse) is throttled too. Fails closed.
+  await enforceRateLimit(input.userId);
   const schema = (input.outputSchema ?? PIPELINE_SCHEMAS[input.pipeline]) as z.ZodTypeAny;
   const mode: CascadeMode = input.mode ?? 'fast';
   const inputHash = hashInput({
@@ -123,6 +156,7 @@ export async function runCascade<P extends PipelineId>(
     | CacheEnvelope<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>
     | null;
   if (cached) {
+    void recordCacheOutcome(true);
     return {
       pipeline: input.pipeline,
       data: cached.response,
@@ -133,9 +167,39 @@ export async function runCascade<P extends PipelineId>(
     };
   }
 
-  // 2. Quota gates BEFORE we burn provider budget.
-  await ensureUnderCostCeiling(input.userId);
-  await enforceRateLimit(input.userId);
+  // 1c. Inflight dedup: coalesce a thundering herd of identical misses so a
+  // brand-new token isn't paid for N times. Best-effort + fail-open. The winner
+  // runs the cascade + writes cache; losers poll briefly for that result.
+  if (!(await acquireInflight(input.pipeline, inputHash))) {
+    for (let i = 0; i < 8; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      const hit = scanSpec
+        ? await readScanCache<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>(scanSpec)
+        : ((await readFromCache(input.pipeline, inputHash)) as
+            | CacheEnvelope<z.infer<(typeof PIPELINE_SCHEMAS)[P]>>
+            | null);
+      if (hit) {
+        return {
+          pipeline: input.pipeline,
+          data: hit.response,
+          cacheHit: true,
+          fromCache: true,
+          modelUsed: hit.modelUsed,
+          costUsd: 0,
+        };
+      }
+    }
+    // Winner slow or failed — fall through and run (rare; still capped by the
+    // per-user daily cost ceiling below).
+  }
+
+  // A real miss — we're about to run the model.
+  void recordCacheOutcome(false);
+
+  // 2. Reserve spend atomically across per-user + org hourly/daily/monthly
+  //    ceilings BEFORE we burn provider budget. Fails closed; settled to the
+  //    real cost on success, refunded on failure.
+  const reservation = await reserveAiSpend(input.userId, input.pipeline);
 
   // 3. Run cascade with first-success-wins. Each step: call provider, parse JSON,
   //    validate. On any throw / validation fail, try the next step.
@@ -185,7 +249,7 @@ export async function runCascade<P extends PipelineId>(
         cacheHit: false,
         response: validation.data,
       });
-      await recordCost(input.userId, costUsd);
+      await settleAiSpend(reservation, costUsd, out.modelUsed);
       if (!input.skipPointsAward) {
         try {
           await awardPoints(input.userId, POINTS_SOURCES.aiCall, POINTS_PER_AI_CALL, {
@@ -212,6 +276,8 @@ export async function runCascade<P extends PipelineId>(
     }
   }
 
+  // Every model failed — refund the reservation so failed calls don't consume budget.
+  await releaseAiSpend(reservation);
   const message = lastErr instanceof Error ? lastErr.message : 'cascade failed';
   throw new Error(`ai_cascade_failed: ${message}`);
 }

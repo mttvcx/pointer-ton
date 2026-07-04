@@ -60,3 +60,6 @@ anchor/target/
 anchor/**/*.so
 
 .vercel
+
+# Untracked sibling app (separate project; never commit here)
+apps/

@@ -1,0 +1,592 @@
+/**
+ * Right-rail profile card (the Ethos/Cupsey side panel). On an X profile page we
+ * inject a Pointer card into the sidebar column, styled like Twitter's own
+ * right-column cards (same border/radius/bg) — Pointer accent only on Pointer
+ * content. Survives SPA navigation.
+ */
+import { pointer } from '@/pointer/client';
+import type { ProfileSummary } from '@/ui/cards/ProfileCard';
+import type { WalletIntel } from '@/pointer/types';
+import { attachFollowerHover } from '@/lib/followerHover';
+import { getWalletData } from '@/lib/walletData';
+
+const usd = (n: number) => {
+  const a = Math.abs(n);
+  const s = a >= 1e6 ? `$${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1)}M` : a >= 1e3 ? `$${(a / 1e3).toFixed(1)}k` : `$${a.toFixed(0)}`;
+  return n < 0 ? `-${s}` : s;
+};
+function statCell(k: string, v: string): HTMLElement {
+  const cell = document.createElement('div');
+  Object.assign(cell.style, { padding: '8px 10px', borderRadius: '10px', border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+  const kl = document.createElement('div');
+  kl.textContent = k;
+  Object.assign(kl.style, { fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', color: TW.muted, fontWeight: '700', marginBottom: '2px' } as CSSStyleDeclaration);
+  const vl = document.createElement('div');
+  vl.className = 'pt-stat-v';
+  vl.textContent = v;
+  Object.assign(vl.style, { fontSize: '14px', fontWeight: '800', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+  cell.append(kl, vl);
+  return cell;
+}
+function setStat(cell: HTMLElement, v: string, signed?: number | null) {
+  const vl = cell.querySelector<HTMLElement>('.pt-stat-v');
+  if (!vl) return;
+  vl.textContent = v;
+  if (signed != null) vl.style.color = signed > 0 ? '#3ddc97' : signed < 0 ? '#ff5e78' : TW.text;
+}
+
+const TW = { divider: 'rgb(47, 51, 54)', text: 'rgb(231, 233, 234)', muted: 'rgb(113, 118, 123)', btnBorder: 'rgb(83, 100, 113)', hover: 'rgba(231,233,234,0.03)' };
+const PT_ACCENT = '#7c83ff';
+const LOGO = chrome.runtime.getURL('pointer-bird.png');
+const CARD_ID = 'pt-rail-card';
+const RESERVED = new Set(['home', 'explore', 'notifications', 'messages', 'i', 'settings', 'search', 'compose', 'hashtag', 'bookmarks', 'jobs', 'lists', 'communities', 'premium']);
+const short = (a: string) => (a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a);
+const explorer = (c: string, a: string) => (c === 'sol' || c === 'solana' ? `https://solscan.io/account/${a}` : `https://etherscan.io/address/${a}`);
+
+export function startTwitterRightRail(): void {
+  let current = '';
+  const tick = () => {
+    const handle = profileHandle();
+    if (handle !== current) {
+      current = handle;
+      document.getElementById(CARD_ID)?.remove();
+      if (handle) void inject(handle);
+    } else if (handle && !document.getElementById(CARD_ID)) {
+      void inject(handle); // sidebar re-rendered on scroll/nav
+    }
+  };
+  window.setInterval(tick, 800);
+  tick();
+}
+
+function profileHandle(): string {
+  const m = /^\/([A-Za-z0-9_]{1,15})\/?$/.exec(location.pathname);
+  if (!m || !m[1]) return '';
+  const h = m[1].toLowerCase();
+  return RESERVED.has(h) ? '' : h;
+}
+
+const HEADINGS = ['Live on X', 'You might like', 'Who to follow', 'What’s happening', "What's happening", 'Subscribe to Premium', 'Trends for you', 'Get Verified', 'Relevant people'];
+
+/** The first native section box (e.g. the "Live on X" card). We insert directly
+ *  before it so Pointer lands at the top of the section list, in the scroll flow
+ *  (not pinned behind the sticky search at y=0). */
+function firstSectionBox(sidebar: HTMLElement): HTMLElement | null {
+  let anchor: HTMLElement | null = null;
+  for (const t of HEADINGS) {
+    anchor = Array.from(sidebar.querySelectorAll<HTMLElement>('span, h2')).find((e) => !e.children.length && (e.textContent ?? '').trim() === t) ?? null;
+    if (anchor) break;
+  }
+  if (!anchor) return null;
+  // Climb to X's rounded section-card box (the ancestor with a non-zero
+  // border-radius). We insert a SIBLING before it → Pointer's own separate,
+  // full-width box, never nested inside another card.
+  let el: HTMLElement | null = anchor;
+  for (let i = 0; i < 12 && el && el !== sidebar; i++) {
+    if (parseFloat(getComputedStyle(el).borderRadius || '0') >= 8) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+async function inject(handle: string): Promise<void> {
+  const sidebar = document.querySelector<HTMLElement>('[data-testid="sidebarColumn"]');
+  if (!sidebar || document.getElementById(CARD_ID)) return;
+  const box = firstSectionBox(sidebar);
+  if (!box || !box.parentElement) return; // sidebar not ready — tick() retries
+  const card = buildCard(handle, CARD_ID);
+  box.parentElement.insertBefore(card, box);
+
+  const res = await pointer.profile(handle);
+  fill(card, res.ok ? (res.data as unknown as ProfileSummary) : null, handle);
+}
+
+const INLINE_ID = 'pt-inline-card';
+
+/** Inject the SAME Pointer card into the MAIN profile column — FrontRun's spot:
+ *  under the bio, above the Posts/Replies tabs — in addition to the right rail. */
+export function startTwitterProfileInline(): void {
+  let current = '';
+  const tick = () => {
+    const handle = profileHandle();
+    if (handle !== current) {
+      current = handle;
+      document.getElementById(INLINE_ID)?.remove();
+      if (handle) void injectInline(handle);
+    } else if (handle && !document.getElementById(INLINE_ID)) {
+      void injectInline(handle);
+    }
+  };
+  window.setInterval(tick, 800);
+  tick();
+}
+
+async function injectInline(handle: string): Promise<void> {
+  if (document.getElementById(INLINE_ID)) return;
+  const pc = document.querySelector('[data-testid="primaryColumn"]');
+  const tabs = pc?.querySelector('[role="tablist"]');
+  const nav = tabs?.closest('nav');
+  if (!nav || !nav.parentElement) return; // header not ready — tick() retries
+  const card = buildInlineCard(INLINE_ID);
+  card.style.margin = '2px 0 6px'; // flush, tight — no big gap above the tabs
+  nav.parentElement.insertBefore(card, nav);
+  const res = await pointer.profile(handle);
+  fillInline(card, res.ok ? (res.data as unknown as ProfileSummary) : null, handle);
+}
+
+function buildCard(handle: string, id: string): HTMLElement {
+  const card = document.createElement('div');
+  card.id = id;
+  Object.assign(card.style, { width: '100%', boxSizing: 'border-box', margin: '0 0 16px', border: `1px solid ${TW.divider}`, borderRadius: '16px', overflow: 'hidden', font: 'inherit', color: TW.text } as CSSStyleDeclaration);
+  const head = document.createElement('div');
+  Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '7px', padding: '12px 16px 0' } as CSSStyleDeclaration);
+  const img = document.createElement('img');
+  img.src = LOGO;
+  Object.assign(img.style, { width: '16px', height: '16px', objectFit: 'contain' } as CSSStyleDeclaration);
+  const t = document.createElement('span');
+  t.textContent = 'Pointer';
+  Object.assign(t.style, { fontWeight: '800', fontSize: '15px', letterSpacing: '-0.02em' } as CSSStyleDeclaration);
+  const hh = document.createElement('span');
+  hh.textContent = 'powered by pointer.trade';
+  Object.assign(hh.style, { marginLeft: 'auto', fontSize: '11.5px', fontWeight: '600', color: 'rgb(160,166,173)' } as CSSStyleDeclaration);
+  head.append(img, t, hh);
+  const body = document.createElement('div');
+  body.className = 'pt-rail-body';
+  Object.assign(body.style, { padding: '12px 16px 14px' } as CSSStyleDeclaration);
+  body.appendChild(textRow('Loading…'));
+  card.append(head, body);
+  return card;
+}
+
+function fill(card: HTMLElement, data: ProfileSummary | null, handle: string): void {
+  const body = card.querySelector<HTMLElement>('.pt-rail-body');
+  if (!body) return;
+  body.textContent = '';
+
+  if (!data || !data.found) {
+    body.appendChild(textRow('Not in Pointer’s directory yet.'));
+    body.appendChild(tagButton(handle, body));
+    return;
+  }
+
+  const id = document.createElement('div');
+  Object.assign(id.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' } as CSSStyleDeclaration);
+  const nm = document.createElement('span');
+  nm.textContent = data.name ?? `@${handle}`;
+  Object.assign(nm.style, { fontSize: '15px', fontWeight: '800' } as CSSStyleDeclaration);
+  id.appendChild(nm);
+  if (data.verified) {
+    const v = document.createElement('span');
+    v.textContent = '✓';
+    Object.assign(v.style, { color: '#3ddc97' } as CSSStyleDeclaration);
+    id.appendChild(v);
+  }
+  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) id.appendChild(pill(l));
+  body.appendChild(id);
+
+  if (data.wallets.length) {
+    body.appendChild(label(`Linked wallets · ${data.wallets.length}`));
+    for (const w of data.wallets.slice(0, 4)) {
+      const row = document.createElement('a');
+      row.href = explorer(w.chain, w.address);
+      row.target = '_blank';
+      row.rel = 'noreferrer';
+      Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '10px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}`, marginBottom: '6px', fontSize: '13px' } as CSSStyleDeclaration);
+      row.onmouseenter = () => (row.style.background = TW.hover);
+      row.onmouseleave = () => (row.style.background = 'transparent');
+      const a = document.createElement('span');
+      a.textContent = short(w.address);
+      Object.assign(a.style, { fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+      const c = document.createElement('span');
+      c.textContent = w.chain.toUpperCase();
+      Object.assign(c.style, { marginLeft: 'auto', fontSize: '10px', fontWeight: '800', color: TW.muted } as CSSStyleDeclaration);
+      const ar = document.createElement('span');
+      ar.textContent = '↗';
+      Object.assign(ar.style, { color: TW.muted } as CSSStyleDeclaration);
+      row.append(a, c, ar);
+      body.appendChild(row);
+    }
+  }
+
+  // Real wallet PnL — Pointer's own analytics for the primary linked wallet.
+  if (data.wallets[0]) {
+    const grid = document.createElement('div');
+    Object.assign(grid.style, { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' } as CSSStyleDeclaration);
+    const nw = statCell('Net worth', '…');
+    const pnl = statCell('Realized PnL', '…');
+    grid.append(nw, pnl);
+    body.appendChild(grid);
+    void pointer.wallet(data.wallets[0].address).then((r) => {
+      if (!r.ok) {
+        grid.remove();
+        return;
+      }
+      const w = r.data as WalletIntel;
+      setStat(nw, w.netWorthUsd != null ? usd(w.netWorthUsd) : '—');
+      setStat(pnl, w.realizedPnlUsd != null ? usd(w.realizedPnlUsd) : '—', w.realizedPnlUsd);
+    });
+  }
+
+  // CA history — Pointer's own, built from the tweets we've scanned.
+  if (data.cas && data.cas.length) {
+    body.appendChild(label(`CA history · ${data.cas.length}`));
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' } as CSSStyleDeclaration);
+    for (const c of data.cas.slice(0, 8)) {
+      const chip = document.createElement('a');
+      chip.href = c.chain === 'eth' ? `https://etherscan.io/token/${c.mint}` : `https://solscan.io/token/${c.mint}`;
+      chip.target = '_blank';
+      chip.rel = 'noreferrer';
+      chip.textContent = `${c.mint.slice(0, 4)}…${c.mint.slice(-4)}`;
+      Object.assign(chip.style, { fontSize: '11px', fontVariantNumeric: 'tabular-nums', padding: '3px 8px', borderRadius: '8px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+      chip.onmouseenter = () => (chip.style.background = TW.hover);
+      chip.onmouseleave = () => (chip.style.background = 'transparent');
+      wrap.appendChild(chip);
+    }
+    body.appendChild(wrap);
+  }
+
+  // Smart followers — wrapping grid of compact avatar+name chips (FrontRun-style).
+  if (data.smartFollowers && data.smartFollowers > 0) {
+    body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
+    const all = data.smartFollowerList ?? [];
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    const chipOf = followerChip;
+    const INITIAL = 12;
+    for (const sf of all.slice(0, INITIAL)) wrap.appendChild(chipOf(sf));
+    body.appendChild(wrap);
+    if (all.length > INITIAL) {
+      const more = document.createElement('button');
+      more.textContent = `See ${all.length - INITIAL} more`;
+      Object.assign(more.style, { marginTop: '8px', padding: '5px 12px', borderRadius: '999px', border: `1px solid ${TW.divider}`, background: 'transparent', color: TW.muted, fontWeight: '700', fontSize: '12px', cursor: 'pointer', font: 'inherit' } as CSSStyleDeclaration);
+      more.onclick = () => {
+        for (const sf of all.slice(INITIAL)) wrap.appendChild(chipOf(sf));
+        more.remove();
+      };
+      body.appendChild(more);
+    }
+  }
+}
+
+/* ── builders ── */
+function tagButton(handle: string, body: HTMLElement): HTMLElement {
+  const b = document.createElement('button');
+  b.textContent = `Tag @${handle}`;
+  Object.assign(b.style, { width: '100%', boxSizing: 'border-box', padding: '10px 16px', borderRadius: '999px', border: '1px solid transparent', cursor: 'pointer', fontWeight: '800', fontSize: '14px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#fff', background: 'linear-gradient(180deg,#8b8cf9,#7280ff)', boxShadow: '0 6px 18px -6px rgba(124,131,255,0.65), inset 0 1px 0 rgba(255,255,255,0.28)', font: 'inherit' } as CSSStyleDeclaration);
+  b.onclick = () => {
+    body.textContent = '';
+    const input = document.createElement('input');
+    input.placeholder = 'KOL · Dev · Scammer…';
+    input.maxLength = 32;
+    Object.assign(input.style, { width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: '10px', fontSize: '14px', font: 'inherit', color: TW.text, background: 'transparent', border: `1px solid ${TW.btnBorder}`, outline: 'none', marginBottom: '8px' } as CSSStyleDeclaration);
+    const save = async () => {
+      const v = input.value.trim();
+      if (!v) return;
+      const res = await pointer.submitLabel('handle', handle, v, 'kol');
+      body.textContent = '';
+      body.appendChild(textRow(!res.ok ? 'Couldn’t submit — retry.' : res.data.applied ? `Tagged @${handle} as “${v}” — live.` : `Tagged @${handle} as “${v}”. Public once others agree.`));
+    };
+    input.addEventListener('keydown', (e) => e.key === 'Enter' && void save());
+    const sb = document.createElement('button');
+    sb.textContent = 'Save tag';
+    Object.assign(sb.style, { width: '100%', boxSizing: 'border-box', padding: '10px 16px', borderRadius: '999px', border: '1px solid transparent', cursor: 'pointer', fontWeight: '800', fontSize: '13px', lineHeight: '1.2', whiteSpace: 'nowrap', color: '#fff', background: 'linear-gradient(180deg,#8b8cf9,#7280ff)', boxShadow: '0 6px 18px -6px rgba(124,131,255,0.6), inset 0 1px 0 rgba(255,255,255,0.28)', font: 'inherit' } as CSSStyleDeclaration);
+    sb.onclick = () => void save();
+    body.append(input, sb);
+    setTimeout(() => input.focus(), 0);
+  };
+  return b;
+}
+function pill(text: string): HTMLElement {
+  const el = document.createElement('span');
+  el.textContent = text;
+  Object.assign(el.style, { padding: '1px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: '800', letterSpacing: '0.03em', color: '#c8ccff', background: 'rgba(124,131,255,0.16)', border: `1px solid rgba(124,131,255,0.45)` } as CSSStyleDeclaration);
+  return el;
+}
+function label(text: string): HTMLElement {
+  const el = document.createElement('div');
+  el.textContent = text;
+  Object.assign(el.style, { fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: TW.muted, margin: '0 0 7px' } as CSSStyleDeclaration);
+  return el;
+}
+
+/** Compact avatar+name follower chip (shared by rail + inline). Hover → PnL overlay. */
+function followerChip(sf: { handle: string; name: string; badge: string | null; avatar?: string | null }): HTMLElement {
+  const a = document.createElement('a');
+  a.href = `https://x.com/${sf.handle}`;
+  a.target = '_blank';
+  a.rel = 'noreferrer';
+  attachFollowerHover(a, sf);
+  Object.assign(a.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 9px 2px 3px', borderRadius: '999px', textDecoration: 'none', color: '#c8ccff', background: 'rgba(124,131,255,0.10)', border: '1px solid rgba(124,131,255,0.35)', fontSize: '12px', fontWeight: '600', maxWidth: '170px' } as CSSStyleDeclaration);
+  const av = avatarEl(sf.handle, sf.name, sf.avatar);
+  av.style.width = '18px';
+  av.style.height = '18px';
+  a.appendChild(av);
+  const nm = document.createElement('span');
+  nm.textContent = sf.name;
+  Object.assign(nm.style, { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as CSSStyleDeclaration);
+  a.appendChild(nm);
+  return a;
+}
+
+/** A "Top Moves" token chip: symbol + realized PnL (green up / red down). */
+function moveChip(m: { mint: string; symbol: string; pnlUsd: number }): HTMLElement {
+  const chip = document.createElement('a');
+  chip.href = `https://solscan.io/token/${m.mint}`;
+  chip.target = '_blank';
+  chip.rel = 'noreferrer';
+  chip.title = `${m.symbol} · ${usd(m.pnlUsd)} realized`;
+  Object.assign(chip.style, { display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '2px 8px', borderRadius: '8px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}`, fontSize: '11px', fontWeight: '700' } as CSSStyleDeclaration);
+  const sym = document.createElement('span');
+  sym.textContent = m.symbol;
+  const val = document.createElement('span');
+  val.textContent = usd(m.pnlUsd);
+  Object.assign(val.style, { color: m.pnlUsd >= 0 ? '#3ddc97' : '#ff5e78', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+  chip.append(sym, val);
+  return chip;
+}
+
+/* ── Inline (main-column) card — FrontRun-style: full-bleed line separators, no
+ *    boxes, "powered by pointer.trade" top-right, compact. Distinct from the
+ *    boxed rail card (buildCard/fill), which stays as-is. ── */
+function divider(): HTMLElement {
+  const d = document.createElement('div');
+  // Full-bleed against the body's 16px padding → spans the whole column like X's.
+  Object.assign(d.style, { height: '1px', background: TW.divider, margin: '10px -16px' } as CSSStyleDeclaration);
+  return d;
+}
+
+function inlineStat(k: string): { el: HTMLElement; set: (v: string, signed?: number | null) => void } {
+  const el = document.createElement('span');
+  Object.assign(el.style, { display: 'inline-flex', alignItems: 'baseline', gap: '6px' } as CSSStyleDeclaration);
+  const kl = document.createElement('span');
+  kl.textContent = k;
+  Object.assign(kl.style, { fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', color: TW.muted, fontWeight: '700' } as CSSStyleDeclaration);
+  const vl = document.createElement('span');
+  vl.textContent = '…';
+  Object.assign(vl.style, { fontSize: '14px', fontWeight: '800', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+  el.append(kl, vl);
+  return {
+    el,
+    set: (v, signed) => {
+      vl.textContent = v;
+      vl.style.color = signed == null ? TW.text : signed > 0 ? '#3ddc97' : signed < 0 ? '#ff5e78' : TW.text;
+    },
+  };
+}
+
+function buildInlineCard(id: string): HTMLElement {
+  const card = document.createElement('div');
+  card.id = id;
+  Object.assign(card.style, { width: '100%', boxSizing: 'border-box', font: 'inherit', color: TW.text } as CSSStyleDeclaration);
+  const body = document.createElement('div');
+  body.className = 'pt-rail-body';
+  Object.assign(body.style, { padding: '2px 16px 10px' } as CSSStyleDeclaration);
+  body.appendChild(textRow('Loading…'));
+  card.appendChild(body);
+  return card;
+}
+
+function fillInline(card: HTMLElement, data: ProfileSummary | null, handle: string): void {
+  const body = card.querySelector<HTMLElement>('.pt-rail-body');
+  if (!body) return;
+  body.textContent = '';
+
+  if (!data || !data.found) {
+    body.appendChild(textRow('Not in Pointer’s directory yet.'));
+    body.appendChild(tagButton(handle, body));
+    return;
+  }
+
+  // header: identity (left) + powered-by (right)
+  const head = document.createElement('div');
+  Object.assign(head.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '7px' } as CSSStyleDeclaration);
+  const nm = document.createElement('span');
+  nm.textContent = data.name ?? `@${handle}`;
+  Object.assign(nm.style, { fontSize: '15px', fontWeight: '800' } as CSSStyleDeclaration);
+  head.appendChild(nm);
+  if (data.verified) {
+    const v = document.createElement('span');
+    v.textContent = '✓';
+    Object.assign(v.style, { color: '#3ddc97', fontSize: '13px' } as CSSStyleDeclaration);
+    head.appendChild(v);
+  }
+  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) head.appendChild(pill(l));
+  const powered = document.createElement('a');
+  powered.href = 'https://pointer.trade';
+  powered.target = '_blank';
+  powered.rel = 'noreferrer';
+  Object.assign(powered.style, { marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'rgb(160,166,173)', fontWeight: '600', textDecoration: 'none', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
+  const plogo = document.createElement('img');
+  plogo.src = LOGO;
+  Object.assign(plogo.style, { width: '18px', height: '18px', objectFit: 'contain' } as CSSStyleDeclaration);
+  const ptxt = document.createElement('span');
+  ptxt.textContent = 'powered by pointer.trade';
+  powered.append(plogo, ptxt);
+  head.appendChild(powered);
+  body.appendChild(head);
+
+  // wallet + net worth + realized PnL — one wrapping row, separated by a line
+  if (data.wallets[0]) {
+    body.appendChild(divider());
+    const row = document.createElement('div');
+    Object.assign(row.style, { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px 18px' } as CSSStyleDeclaration);
+    const w0 = data.wallets[0];
+    const wlink = document.createElement('a');
+    wlink.href = explorer(w0.chain, w0.address);
+    wlink.target = '_blank';
+    wlink.rel = 'noreferrer';
+    Object.assign(wlink.style, { display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', color: TW.text, fontSize: '13px', fontVariantNumeric: 'tabular-nums' } as CSSStyleDeclaration);
+    const waddr = document.createElement('span');
+    waddr.textContent = short(w0.address);
+    const wchain = document.createElement('span');
+    wchain.textContent = w0.chain.toUpperCase();
+    Object.assign(wchain.style, { fontSize: '10px', fontWeight: '800', color: TW.muted } as CSSStyleDeclaration);
+    const warrow = document.createElement('span');
+    warrow.textContent = '↗';
+    warrow.style.color = TW.muted;
+    wlink.append(waddr, wchain, warrow);
+    row.appendChild(wlink);
+    const nwStat = inlineStat('Net worth');
+    const pnlStat = inlineStat('Realized PnL');
+    row.append(nwStat.el, pnlStat.el);
+    body.appendChild(row);
+    void pointer.wallet(w0.address).then((r) => {
+      const w = r.ok ? (r.data as WalletIntel) : null;
+      nwStat.set(w?.netWorthUsd != null ? usd(w.netWorthUsd) : '—'); // net worth (heavy path)
+    });
+
+    // Realized PnL + Top Moves — fast indexed-swap path (shared with the ring/hover).
+    const movesLbl = label('Top Moves');
+    movesLbl.style.marginTop = '11px';
+    body.appendChild(movesLbl);
+    const movesWrap = document.createElement('div');
+    Object.assign(movesWrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    const movesNote = document.createElement('span');
+    movesNote.textContent = '…';
+    Object.assign(movesNote.style, { fontSize: '11px', color: TW.muted } as CSSStyleDeclaration);
+    movesWrap.appendChild(movesNote);
+    body.appendChild(movesWrap);
+    void getWalletData(handle).then((d) => {
+      pnlStat.set(d?.realizedPnlUsd != null ? usd(d.realizedPnlUsd) : d?.indexing ? '…' : '—', d?.realizedPnlUsd ?? null);
+      movesWrap.textContent = '';
+      const moves = d?.topMoves ?? [];
+      if (!moves.length) {
+        const n = document.createElement('span');
+        n.textContent = d?.indexing ? 'Indexing trades…' : 'No notable trades yet';
+        Object.assign(n.style, { fontSize: '11px', color: TW.muted } as CSSStyleDeclaration);
+        movesWrap.appendChild(n);
+        return;
+      }
+      for (const m of moves) movesWrap.appendChild(moveChip(m));
+    });
+  }
+
+  // smart followers — show generously; "View more" only when it actually overflows
+  if (data.smartFollowers && data.smartFollowers > 0) {
+    body.appendChild(divider());
+    body.appendChild(label(`${data.smartFollowers} Smart follower${data.smartFollowers === 1 ? '' : 's'}`));
+    const all = data.smartFollowerList ?? [];
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    body.appendChild(wrap);
+    const INITIAL = 21;
+    for (const sf of all.slice(0, INITIAL)) wrap.appendChild(followerChip(sf));
+    if (all.length > INITIAL) {
+      const more = document.createElement('button');
+      more.textContent = `View ${all.length - INITIAL} more`;
+      Object.assign(more.style, { marginTop: '8px', padding: '5px 12px', borderRadius: '999px', border: `1px solid ${TW.divider}`, background: 'transparent', color: TW.muted, fontWeight: '700', fontSize: '12px', cursor: 'pointer', font: 'inherit' } as CSSStyleDeclaration);
+      more.onclick = () => {
+        for (const sf of all.slice(INITIAL)) wrap.appendChild(followerChip(sf));
+        more.remove();
+      };
+      body.appendChild(more);
+    }
+  }
+
+  // CA history (best calls) — compact token chips, line-separated
+  if (data.cas && data.cas.length) {
+    body.appendChild(divider());
+    body.appendChild(label(`CA history · ${data.cas.length}`));
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '5px' } as CSSStyleDeclaration);
+    for (const c of data.cas.slice(0, 14)) {
+      const chip = document.createElement('a');
+      chip.href = c.chain === 'eth' ? `https://etherscan.io/token/${c.mint}` : `https://solscan.io/token/${c.mint}`;
+      chip.target = '_blank';
+      chip.rel = 'noreferrer';
+      chip.textContent = `${c.mint.slice(0, 4)}…${c.mint.slice(-4)}`;
+      Object.assign(chip.style, { fontSize: '11px', fontVariantNumeric: 'tabular-nums', padding: '3px 8px', borderRadius: '8px', textDecoration: 'none', color: TW.text, border: `1px solid ${TW.divider}` } as CSSStyleDeclaration);
+      wrap.appendChild(chip);
+    }
+    body.appendChild(wrap);
+  }
+
+  // Tag this account yourself — always available (feeds the crowdsourced label pool)
+  body.appendChild(divider());
+  body.appendChild(tagControl(handle));
+}
+
+/** Inline "＋ Add your tag" control — button → input → submit, without wiping the card. */
+function tagControl(handle: string): HTMLElement {
+  const wrap = document.createElement('div');
+  const btn = document.createElement('button');
+  btn.textContent = '＋ Add your tag';
+  Object.assign(btn.style, { padding: '4px 11px', borderRadius: '999px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', color: TW.muted, background: 'transparent', border: `1px solid ${TW.divider}`, font: 'inherit' } as CSSStyleDeclaration);
+  const done = (msg: string) => {
+    wrap.textContent = '';
+    const s = document.createElement('span');
+    s.textContent = msg;
+    Object.assign(s.style, { fontSize: '11px', color: TW.muted } as CSSStyleDeclaration);
+    wrap.appendChild(s);
+  };
+  btn.onclick = () => {
+    wrap.textContent = '';
+    const input = document.createElement('input');
+    input.placeholder = 'KOL · Dev · Scammer · Insider…';
+    input.maxLength = 32;
+    Object.assign(input.style, { width: '190px', maxWidth: '100%', boxSizing: 'border-box', padding: '6px 10px', borderRadius: '9px', fontSize: '12.5px', font: 'inherit', color: TW.text, background: 'transparent', border: `1px solid ${TW.btnBorder}`, outline: 'none' } as CSSStyleDeclaration);
+    const submit = async () => {
+      const v = input.value.trim();
+      if (!v) return;
+      input.disabled = true;
+      const res = await pointer.submitLabel('handle', handle, v, 'kol');
+      done(!res.ok ? 'Couldn’t submit — retry.' : res.data.applied ? `✓ Tagged “${v}” — live.` : `✓ Tagged “${v}” — public once others agree.`);
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void submit();
+      if (e.key === 'Escape') {
+        wrap.textContent = '';
+        wrap.appendChild(btn);
+      }
+    });
+    input.addEventListener('blur', () => {
+      if (input.value.trim()) void submit();
+    });
+    wrap.appendChild(input);
+    input.focus();
+  };
+  wrap.appendChild(btn);
+  return wrap;
+}
+function initialsEl(handle: string, name: string): HTMLElement {
+  const c = document.createElement('span');
+  c.textContent = (name || handle).slice(0, 1).toUpperCase();
+  Object.assign(c.style, { width: '30px', height: '30px', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: '13px', fontWeight: '700', color: '#fff', background: 'linear-gradient(150deg,#7c83ff,#9a7cff)', flexShrink: '0' } as CSSStyleDeclaration);
+  return c;
+}
+function avatarEl(handle: string, name: string, url?: string | null): HTMLElement {
+  if (!url) return initialsEl(handle, name);
+  const img = document.createElement('img');
+  img.src = url;
+  img.referrerPolicy = 'no-referrer';
+  Object.assign(img.style, { width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: '0' } as CSSStyleDeclaration);
+  img.onerror = () => img.replaceWith(initialsEl(handle, name));
+  return img;
+}
+function textRow(text: string): HTMLElement {
+  const el = document.createElement('div');
+  el.textContent = text;
+  Object.assign(el.style, { fontSize: '13px', color: TW.muted, margin: '0 0 10px' } as CSSStyleDeclaration);
+  return el;
+}

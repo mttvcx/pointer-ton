@@ -9,8 +9,8 @@ import {
   Settings,
   Smile,
   Users,
-  X,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { DEMO_ROOM_ACTIVITIES, DEMO_SQUADS } from '@/lib/squads/demo';
 import { closeSquadsRail } from '@/lib/squads/openSquadsOnPulse';
 import { SquadSwitcherStrip } from '@/components/squads/SquadSwitcherStrip';
@@ -229,17 +229,14 @@ export function SquadsAsidePanel({
               </Tooltip>
             ) : null}
 
-            <button
-              type="button"
+            <CloseButton
               title="Hide squads"
-              aria-label="Hide squads panel"
+              label="Hide squads panel"
               data-squads-no-drag
               onPointerDown={(e) => e.stopPropagation()}
               onClick={handleClose}
-              className="btn-press relative z-10 flex h-7 w-7 items-center justify-center rounded-lg text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-            >
-              <X className="h-3.5 w-3.5 pointer-events-none" strokeWidth={2} aria-hidden />
-            </button>
+              className="relative z-10"
+            />
           </div>
         </div>
       </header>

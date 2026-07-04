@@ -75,7 +75,7 @@ export function BottomBarRegionMenu() {
             role="listbox"
             aria-label="Select region"
             className={cn(
-              'fixed z-[220] overflow-hidden rounded-md border border-border-subtle bg-bg-raised py-1 shadow-2xl backdrop-blur-md',
+              'fixed z-[270] overflow-hidden rounded-md border border-border-subtle bg-bg-raised py-1 shadow-2xl backdrop-blur-md',
               popoverPanelClasses(visible),
             )}
             style={{

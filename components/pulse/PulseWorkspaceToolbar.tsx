@@ -9,6 +9,7 @@ import { PulseBlacklistModal } from '@/components/pulse/PulseBlacklistModal';
 import { PulseHelpPopover } from '@/components/pulse/PulseHelpPopover';
 import { PulseHiddenMenu } from '@/components/pulse/PulseHiddenMenu';
 import { PulseWorkspaceWalletChip } from '@/components/pulse/PulseWorkspaceWalletChip';
+import { PulseWalletGroupChips } from '@/components/pulse/PulseWalletGroupChips';
 import { pulseIconBtnCls } from '@/components/pulse/pulseToolbarStyles';
 import { cn } from '@/lib/utils/cn';
 
@@ -50,6 +51,7 @@ export function PulseWorkspaceToolbar({
         <BookmarkX className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
       </button>
       <PulseAutolaunchPopover />
+      {showWallet ? <PulseWalletGroupChips className="max-w-[16rem]" /> : null}
       {showWallet ? <PulseWorkspaceWalletChip /> : null}
     </>
   );

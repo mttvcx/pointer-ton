@@ -20,6 +20,9 @@ export async function prependAtaCreationToVersionedSwap(
   payer: PublicKey,
   owner: PublicKey,
   mint: PublicKey,
+  // Defaults to classic SPL so SOL-leg fee ATAs are created exactly as before;
+  // token-2022 fee mints (xStocks) pass TOKEN_2022_PROGRAM_ID for the right ATA.
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID,
 ): Promise<string> {
   const tx = VersionedTransaction.deserialize(Buffer.from(swapTransactionBase64, 'base64'));
   const lookups = tx.message.addressTableLookups;
@@ -45,7 +48,7 @@ export async function prependAtaCreationToVersionedSwap(
     mint,
     owner,
     allowOwnerOffCurve,
-    TOKEN_PROGRAM_ID,
+    tokenProgram,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   );
   decompiled.instructions.unshift(
@@ -54,7 +57,7 @@ export async function prependAtaCreationToVersionedSwap(
       ata,
       owner,
       mint,
-      TOKEN_PROGRAM_ID,
+      tokenProgram,
       ASSOCIATED_TOKEN_PROGRAM_ID,
     ),
   );

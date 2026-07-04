@@ -9,6 +9,14 @@ type NavItem = { href: string; label: string; perm: string };
 
 const NAV: NavItem[] = [
   { href: '/admin', label: 'Overview', perm: '*any*' },
+  { href: '/admin/ops', label: 'System health', perm: '*any*' },
+  { href: '/admin/metrics', label: 'Metrics', perm: '*any*' },
+  { href: '/admin/incidents', label: 'Incidents', perm: '*any*' },
+  { href: '/admin/selfheal', label: 'Self-heal', perm: '*any*' },
+  { href: '/admin/emergency', label: 'Emergency', perm: 'emergency.control' },
+  { href: '/admin/ai-spend', label: 'AI spend', perm: '*any*' },
+  { href: '/admin/providers', label: 'Providers', perm: '*any*' },
+  { href: '/admin/extension', label: 'Extension', perm: '*any*' },
   { href: '/admin/users', label: 'Users', perm: 'users.read' },
   { href: '/admin/packs', label: 'Packs', perm: 'packs.read' },
   { href: '/admin/economy', label: 'Economy', perm: 'referrals.read' },
@@ -48,6 +56,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const visible = NAV.filter((n) => n.perm === '*any*' || adminCan(me, n.perm));
 
   return (
+    // The app shell's <main> is overflow-hidden (trading pages self-scroll), so
+    // admin owns its own vertical scroll container — otherwise long pages clip.
+    <div className="min-h-0 flex-1 overflow-y-auto">
     <div className="mx-auto flex w-full max-w-6xl gap-6 p-4 md:p-6">
       <aside className="hidden w-52 shrink-0 md:block">
         <div className="sticky top-4 space-y-4">
@@ -80,7 +91,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
         </div>
       </aside>
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="min-w-0 flex-1 pb-10">{children}</main>
+    </div>
     </div>
   );
 }

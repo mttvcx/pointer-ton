@@ -25,6 +25,7 @@ import { WalletIdentityDossier } from '@/components/wallet/identity/WalletIdenti
 import { WalletMintTradesFilterButton } from '@/components/tokens/cells/WalletMintTradesFilterButton';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { mockWalletWideStats } from '@/lib/walletIdentity/mockWalletWideStats';
+import { useWalletTopHoldings } from '@/lib/hooks/useWalletTopHoldings';
 import { cn } from '@/lib/utils/cn';
 import {
   useOverlayPresence,
@@ -154,6 +155,9 @@ export function WalletIdentityAnchor({
     () => (uiDemo ? mockWalletWideStats(address) : null),
     [address, uiDemo],
   );
+
+  // Top-holder credentials — only load once the dossier is actually opening.
+  const { credentials: topHoldings } = useWalletTopHoldings(address, dossier);
 
   const tokenCtxFromRow =
     mint != null &&
@@ -467,6 +471,7 @@ export function WalletIdentityAnchor({
                 tokenCtx={tokenSurface}
                 mintStats={stats}
                 wide={wideDemo}
+                topHoldings={topHoldings}
                 onTrack={onIntel}
                 onLabel={() => openLabelModal(address)}
               />

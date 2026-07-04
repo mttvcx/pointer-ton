@@ -8,6 +8,8 @@ export type PositionEvalInput = {
   marketCapUsd: number | null;
   /** When we first observed a non-zero balance for this mint (ms). */
   positionOpenedAtMs: number | null;
+  /** Highest market cap observed for this mint since the position opened (for trailing stops). */
+  peakMcUsd?: number | null;
 };
 
 export function gainPctFromPosition(p: PositionEvalInput): number | null {
@@ -37,6 +39,15 @@ export function evaluateAutoSellTrigger(
       if (p.positionOpenedAtMs == null) return false;
       return nowMs - p.positionOpenedAtMs >= trigger.minutes * 60_000;
     }
+    case 'trailing_stop': {
+      const mc = p.marketCapUsd;
+      const peak = p.peakMcUsd;
+      if (mc == null || !Number.isFinite(mc) || peak == null || !Number.isFinite(peak) || peak <= 0) {
+        return false;
+      }
+      // Sell once price has dropped `trailPct` below the highest MC seen.
+      return mc <= peak * (1 - trigger.trailPct / 100);
+    }
     default:
       return false;
   }
@@ -52,6 +63,8 @@ export function triggerSummary(trigger: AutoSellTrigger): string {
       return `+${trigger.gainPct}% gain`;
     case 'time_elapsed':
       return `${trigger.minutes}m held`;
+    case 'trailing_stop':
+      return `Trailing ${trigger.trailPct}%`;
     default:
       return '—';
   }

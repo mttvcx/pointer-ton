@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import type { PredictionMarket } from '@/lib/predictions/types';
 import { useKalshiOrderConfigured } from '@/lib/hooks/usePredictionMarkets';
 import { formatUsd } from '@/lib/utils/formatters';
@@ -23,6 +24,7 @@ export function PredictionTradeForm({
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { getAccessToken } = usePrivy();
 
   const configuredQ = useKalshiOrderConfigured();
   const canTrade = configuredQ.data === true;
@@ -73,9 +75,16 @@ export function PredictionTradeForm({
           ? { yes_price: Math.min(99, Math.max(1, Math.round(priceCents))) }
           : { no_price: Math.min(99, Math.max(1, Math.round(priceCents))) }),
       };
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error('Please sign in to place a prediction order.');
+      }
       const res = await fetch('/api/predictions/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; message?: string };

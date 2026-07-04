@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Rocket, X } from 'lucide-react';
+import { Rocket } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { FeatureUpdatePreviewMock } from '@/components/settings/FeatureUpdatePreviewMock';
 import { FEATURE_UPDATE_SLIDES } from '@/lib/featureUpdates/releases';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
@@ -80,14 +81,12 @@ export function FeatureUpdatesModal({ open, onClose }: FeatureUpdatesModalProps)
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
+        <CloseButton
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-hover hover:text-fg-primary"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" aria-hidden />
-        </button>
+          label="Close"
+          size="md"
+          className="absolute right-3 top-3 z-10"
+        />
 
         <div className="p-4 pb-3">
           <div className="overflow-hidden rounded-lg border border-white/[0.06] bg-bg-sunken">

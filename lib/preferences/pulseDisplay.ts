@@ -82,6 +82,12 @@ export const PulseDisplayPrefsSchema = z.object({
   secondButtonMode: PulseSecondButtonModeSchema,
   accentHex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   quickBuyUltraChrome: QuickBuyUltraChromeSchema,
+  /** Toast surface colour; null = default dark. Contents invert for contrast. */
+  toastColor: HexColorSchema.nullable(),
+  /** Token-image hover: false = enlarged image (default), true = detailed card (metrics + quick buy). */
+  tokenHoverDetail: z.boolean(),
+  /** Strip the grey card background + border off token rows so they sit flush on the column. */
+  transparentRows: z.boolean(),
 });
 
 export type PulseDisplayPrefs = z.infer<typeof PulseDisplayPrefsSchema>;
@@ -153,8 +159,11 @@ export const DEFAULT_PULSE_DISPLAY_PREFS: PulseDisplayPrefs = {
   quickBuyClickBehavior: 'nothing',
   walletGroupsInHeader: true,
   secondButtonMode: 'off',
-  accentHex: '#34D399',
+  accentHex: '#3D8BFF',
   quickBuyUltraChrome: 'outline',
+  toastColor: null,
+  tokenHoverDetail: false,
+  transparentRows: false,
 };
 
 export function withPulseDisplayDefaults(
@@ -232,6 +241,9 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     secondButtonMode,
     accentHex,
     quickBuyUltraChrome,
+    toastColor,
+    tokenHoverDetail,
+    transparentRows,
   } = state;
   return withPulseDisplayDefaults({
     activeTab,
@@ -254,5 +266,8 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     secondButtonMode,
     accentHex,
     quickBuyUltraChrome,
+    toastColor,
+    tokenHoverDetail,
+    transparentRows,
   });
 }

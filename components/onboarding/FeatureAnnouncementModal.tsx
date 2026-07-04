@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { cn } from '@/lib/utils/cn';
 import {
   normalizeAnnouncementInput,
@@ -207,14 +207,11 @@ export function FeatureAnnouncementModal({
           'md:grid-cols-[minmax(220px,40%)_minmax(0,1fr)] md:gap-0',
         )}
       >
-        <button
-          type="button"
+        <CloseButton
           onClick={onGotIt}
-          className="absolute right-3 top-3 z-10 rounded-md p-1.5 text-white/45 transition-colors hover:bg-white/[0.07] hover:text-white md:right-4 md:top-4"
-          aria-label="Close"
-        >
-          <X className="h-5 w-5" strokeWidth={2} aria-hidden />
-        </button>
+          className="absolute right-3 top-3 z-10 md:right-4 md:top-4"
+          label="Close"
+        />
 
         {/* Left */}
         <div className="flex min-h-0 flex-col gap-6 border-white/[0.06] pb-24 pl-8 pr-10 pt-8 md:border-r md:pb-8">

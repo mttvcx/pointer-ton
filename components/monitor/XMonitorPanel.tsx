@@ -1,15 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Loader2, Sparkles, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { ArrowUpRight, BadgeCheck, Loader2, MessageCircle, Quote, Repeat2, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
 import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import { isUiDemoMode } from '@/lib/dev/uiDemoMode';
+import {
+  makeDemoStreamRow,
+  seedDemoStream,
+  type DemoEvent,
+  type DemoPlatform,
+  type DemoStreamFields,
+} from '@/lib/dev/xMonitorDemoStream';
 import {
   tweetInputFromAlertPayload,
   type TwitterListenAlertPayload,
 } from '@/lib/launch/alertTweet';
-import { openDeployForTweet, openDeployForTweetAsync } from '@/lib/launch/openLaunchModal';
+import { openDeployForTweet, openDeployForTweetAsync, openLaunchFromSuggestion } from '@/lib/launch/openLaunchModal';
 import { tweetLaunchCacheSubject } from '@/lib/launch/tweetLaunchSubject';
 import type { LaunchPackage, TweetLaunchInput } from '@/lib/launch/types';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
@@ -22,10 +29,14 @@ import { cn } from '@/lib/utils/cn';
 import { closeXMonitor } from '@/lib/xMonitor/openXMonitorOnPulse';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { useUIStore } from '@/store/ui';
+import { useXMonitorPreviewStore } from '@/store/xMonitorPreview';
+import { useXMonitorSettings } from '@/store/xMonitorSettings';
 import { XMonitorRules } from '@/components/monitor/XMonitorRules';
+import { XMonitorSettings } from '@/components/monitor/XMonitorSettings';
 import { TweetMediaImage } from '@/components/monitor/TweetMediaImage';
+import { HoverZoomImage } from '@/components/monitor/HoverZoomImage';
 
-type MonitorTab = 'feed' | 'rules';
+type MonitorTab = 'feed' | 'rules' | 'settings';
 
 type ListenRow = {
   alertId: string;
@@ -34,65 +45,7 @@ type ListenRow = {
   subject: string;
   payload: TwitterListenAlertPayload;
   isMock: boolean;
-};
-
-const MOCK_ROWS: ListenRow[] = [
-  {
-    alertId: 'ux-mock-twitter-1',
-    createdAt: new Date(Date.now() - 3 * 60_000).toISOString(),
-    subject: 'demo-1',
-    isMock: true,
-    payload: {
-      handle: 'elonmusk',
-      tweetText: 'Introducing Grok 4.5 — our most capable model yet. Built different.',
-      tweetUrl: 'https://x.com/i/web/status/1234567890123456789',
-      execution: 'notify',
-    },
-    tweet: {
-      id: '1234567890123456789',
-      authorHandle: 'elonmusk',
-      text: 'Introducing Grok 4.5 — our most capable model yet. Built different.',
-      tweetUrl: 'https://x.com/i/web/status/1234567890123456789',
-    },
-  },
-  {
-    alertId: 'ux-mock-twitter-2',
-    createdAt: new Date(Date.now() - 8 * 60_000).toISOString(),
-    subject: 'demo-2',
-    isMock: true,
-    payload: {
-      handle: 'sol_whale_demo',
-      tweetText: 'New meta just dropped. $WHALE launching on pump today 🐋',
-      tweetUrl: 'https://x.com/i/web/status/9876543210987654321',
-      mint: 'So11111111111111111111111111111111111111112',
-      execution: 'auto_buy',
-      autoHeldReason: 'preview_only',
-    },
-    tweet: {
-      id: '9876543210987654321',
-      authorHandle: 'sol_whale_demo',
-      text: 'New meta just dropped. $WHALE launching on pump today 🐋',
-      tweetUrl: 'https://x.com/i/web/status/9876543210987654321',
-    },
-  },
-  {
-    alertId: 'ux-mock-twitter-3',
-    createdAt: new Date(Date.now() - 14 * 60_000).toISOString(),
-    subject: 'demo-3',
-    isMock: true,
-    payload: {
-      handle: 'kol_demo',
-      tweetText: 'This chart is sending it. Someone should tokenize this moment.',
-      coverImageUrl: 'https://picsum.photos/seed/pointer-demo-cover/96/96',
-      execution: 'notify',
-    },
-    tweet: {
-      authorHandle: 'kol_demo',
-      text: 'This chart is sending it. Someone should tokenize this moment.',
-      imageUrls: ['https://picsum.photos/seed/pointer-demo-cover/96/96'],
-    },
-  },
-];
+} & Partial<DemoStreamFields>;
 
 function formatListenAge(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -103,6 +56,106 @@ function formatListenAge(iso: string): string {
   const h = Math.floor(min / 60);
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
+}
+
+const PLATFORM_LABEL: Record<DemoPlatform, string> = {
+  x: 'X',
+  truth: 'Truth Social',
+  instagram: 'Instagram',
+};
+
+/** J7-style event line: "replied to @x" / "posted on Truth Social" / "followed @x". */
+function eventLine(row: ListenRow): { verb: string; target: string | null } | null {
+  if (!row.eventType) return null;
+  const target = row.targetHandle ? `@${row.targetHandle}` : null;
+  switch (row.eventType) {
+    case 'posted':
+      return { verb: row.platform && row.platform !== 'x' ? `posted on ${PLATFORM_LABEL[row.platform]}` : 'posted', target: null };
+    case 'replied':
+      return { verb: 'replied to', target };
+    case 'quoted':
+      return { verb: 'quoted', target };
+    case 'retweeted':
+      return { verb: 'retweeted', target };
+    case 'followed':
+      return { verb: 'followed', target };
+    case 'deleted':
+      return { verb: 'deleted a post', target: null };
+    default:
+      return null;
+  }
+}
+
+function EventIcon({ type }: { type: DemoEvent }) {
+  const cls = 'h-3 w-3 shrink-0';
+  if (type === 'replied') return <MessageCircle className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'quoted') return <Quote className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'retweeted') return <Repeat2 className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'followed') return <UserPlus className={cls} strokeWidth={2} aria-hidden />;
+  if (type === 'deleted') return <Trash2 className={cls} strokeWidth={2} aria-hidden />;
+  return <ArrowUpRight className={cls} strokeWidth={2} aria-hidden />;
+}
+
+function fmtCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+/** Avatar with graceful fallback to the handle initial if the image fails. */
+function Avatar({ url, handle, size = 28 }: { url?: string; handle: string; size?: number }) {
+  const [err, setErr] = useState(false);
+  if (!url || err) {
+    return (
+      <div
+        className="flex shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-[11px] font-bold text-fg-secondary"
+        style={{ width: size, height: size }}
+      >
+        {handleInitial(handle)}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      width={size}
+      height={size}
+      referrerPolicy="no-referrer"
+      onError={() => setErr(true)}
+      className="shrink-0 rounded-full object-cover"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
+/** Real brand marks for the source platform (X / Instagram / Truth Social). */
+function PlatformBadge({ platform }: { platform: DemoPlatform }) {
+  if (platform === 'x') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-fg-secondary" fill="currentColor" aria-label="X">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    );
+  }
+  if (platform === 'instagram') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-pink-400" fill="none" stroke="currentColor" strokeWidth={2} aria-label="Instagram">
+        <rect x="2" y="2" width="20" height="20" rx="5.5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  return (
+    <span
+      className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] bg-[#5448ee] text-[8px] font-black leading-none text-white"
+      aria-label="Truth Social"
+    >
+      T
+    </span>
+  );
 }
 
 function alertToListenRow(a: AlertsTickerItem): ListenRow | null {
@@ -148,15 +201,15 @@ function AiLauncherToggle() {
   const setPrefs = useAutoLaunchStore((s) => s.setPrefs);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+    <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
       <button
         type="button"
         onClick={() => setPrefs({ launchMode: launchMode === 'ai' ? 'manual' : 'ai' })}
         className={cn(
-          'rounded-sm border px-2 py-1 text-[9px] font-bold uppercase tracking-wide transition',
+          'btn-press rounded-md border px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide transition-colors',
           launchMode === 'ai'
-            ? 'border-accent-primary/40 bg-accent-primary/12 text-accent-primary'
-            : 'border-white/[0.08] text-fg-muted hover:text-fg-secondary',
+            ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
+            : 'border-white/[0.08] text-fg-muted hover:border-accent-primary/40 hover:bg-accent-primary/[0.08] hover:text-accent-primary',
         )}
       >
         AI launcher {launchMode === 'ai' ? 'on' : 'off'}
@@ -165,17 +218,14 @@ function AiLauncherToggle() {
         type="button"
         onClick={() => setPrefs({ autoLaunchEnabled: !autoLaunchEnabled })}
         className={cn(
-          'rounded-sm border px-2 py-1 text-[9px] font-bold uppercase tracking-wide transition',
+          'btn-press rounded-md border px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wide transition-colors',
           autoLaunchEnabled
-            ? 'border-accent-primary/40 bg-accent-primary/12 text-accent-primary'
-            : 'border-white/[0.08] text-fg-muted hover:text-fg-secondary',
+            ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
+            : 'border-white/[0.08] text-fg-muted hover:border-accent-primary/40 hover:bg-accent-primary/[0.08] hover:text-accent-primary',
         )}
       >
         Auto rules {autoLaunchEnabled ? 'on' : 'off'}
       </button>
-      <span className="text-[9px] leading-snug text-fg-muted">
-        Deploy uses AI when on · rules with auto-launch fire without clicking
-      </span>
     </div>
   );
 }
@@ -206,7 +256,24 @@ export function XMonitorPanel({
   const [tab, setTab] = useState<MonitorTab>(defaultTab);
   const activeChain = useUIStore((s) => s.activeChain);
   const launchMode = useAutoLaunchStore((s) => s.launchMode);
-  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: true });
+  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: false });
+
+  // Operator settings (persisted) — drive filtering + launch-rail appearance.
+  const sources = useXMonitorSettings((s) => s.sources);
+  const mutedKeywords = useXMonitorSettings((s) => s.mutedKeywords);
+  const whitelistHandles = useXMonitorSettings((s) => s.whitelistHandles);
+  const keywordHighlights = useXMonitorSettings((s) => s.keywordHighlights);
+  const aiSuggestionsEnabled = useXMonitorSettings((s) => s.aiSuggestionsEnabled);
+  const aiSuggestionCount = useXMonitorSettings((s) => s.aiSuggestionCount);
+  const launchRailSide = useXMonitorSettings((s) => s.launchRailSide);
+  const launchRailStyle = useXMonitorSettings((s) => s.launchRailStyle);
+  const launchRailColor = useXMonitorSettings((s) => s.launchRailColor);
+  const launchRailSize = useXMonitorSettings((s) => s.launchRailSize);
+  const keybinds = useXMonitorSettings((s) => s.keybinds);
+
+  // Keybinds + dismiss: track the hovered card and locally-dismissed rows.
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
 
   const serverRows = useMemo(() => {
     const list = data ?? [];
@@ -217,33 +284,83 @@ export function XMonitorPanel({
   }, [data]);
 
   const uiDemo = isUiDemoMode();
-  const { rows, mock, banner } = useMemo(() => {
+  // Preview toggle now lives beside the Pulse/Stocks tabs (shared store), so the
+  // panel header stays clean. Client-side demo only.
+  const localSamples = useXMonitorPreviewStore((s) => s.preview);
+  const showDemo = uiDemo || localSamples;
+
+  // Streaming preview: while demo is on, fake events arrive on an interval so the
+  // operator can watch real feed behavior (new cards prepend, pause-on-hover,
+  // suggestions). Never runs for live data — real events flow via serverRows.
+  const [streamRows, setStreamRows] = useState<ListenRow[]>([]);
+  const seqRef = useRef(1000);
+  // Pause the incoming stream while the operator hovers the feed (like the
+  // wallet tracker) so cards don't jump under the cursor.
+  const [feedHovered, setFeedHovered] = useState(false);
+  const feedHoveredRef = useRef(false);
+  useEffect(() => {
+    feedHoveredRef.current = feedHovered;
+  }, [feedHovered]);
+  useEffect(() => {
+    if (!showDemo || activeChain !== 'sol') {
+      setStreamRows([]);
+      return;
+    }
+    setStreamRows(seedDemoStream(Date.now()));
+    const id = window.setInterval(() => {
+      if (feedHoveredRef.current) return; // paused on hover
+      setStreamRows((prev) => {
+        const seq = seqRef.current++;
+        return [makeDemoStreamRow(seq, seq, Date.now()), ...prev].slice(0, 30);
+      });
+    }, 5500);
+    return () => window.clearInterval(id);
+  }, [showDemo, activeChain]);
+
+  const { rows: allRows, mock, banner } = useMemo(() => {
     if (activeChain !== 'sol') {
       return {
-        rows: uiDemo ? MOCK_ROWS : [],
-        mock: uiDemo,
+        rows: showDemo ? streamRows : [],
+        mock: showDemo,
         banner: 'Live X listens are Solana-only — switch chain to SOL.',
       };
     }
     if (serverRows.length === 0) {
-      /** Live mode: honest empty feed — samples only in explicit demo mode. */
+      /** Live mode: honest empty feed — samples only when explicitly previewed. */
       return {
-        rows: uiDemo ? MOCK_ROWS : [],
-        mock: uiDemo,
-        banner: uiDemo
-          ? 'No live hits yet · showing samples. Add @ rules in Rules tab.'
-          : 'No live hits yet. Add @ rules in the Rules tab to start monitoring.',
+        rows: showDemo ? streamRows : [],
+        mock: showDemo,
+        banner: showDemo ? null : 'No live hits yet. Add @ rules in the Rules tab to start monitoring.',
       };
     }
     return { rows: serverRows, mock: false, banner: null as string | null };
-  }, [activeChain, serverRows, uiDemo]);
+  }, [activeChain, serverRows, showDemo, streamRows]);
+
+  // Apply operator filters: source channels, muted keywords, whitelist.
+  const rows = useMemo(() => {
+    const wl = whitelistHandles.map((h) => h.toLowerCase());
+    const muted = mutedKeywords.map((m) => m.toLowerCase()).filter(Boolean);
+    return allRows.filter((row) => {
+      const platform = (row.platform ?? 'x') as DemoPlatform;
+      if (platform === 'x' && !sources.x) return false;
+      if (platform === 'instagram' && !sources.instagram) return false;
+      if (platform === 'truth' && !sources.truth) return false;
+      const handle = (row.tweet.authorHandle ?? '').replace(/^@/, '').toLowerCase();
+      if (wl.length && !wl.includes(handle)) return false;
+      if (muted.length) {
+        const text = (row.tweet.text ?? '').toLowerCase();
+        if (muted.some((m) => text.includes(m))) return false;
+      }
+      return true;
+    });
+  }, [allRows, sources, whitelistHandles, mutedKeywords]);
 
   const tweets = useMemo(() => rows.map((r) => r.tweet), [rows]);
   const {
     data: packages,
     isFetching: packagesLoading,
     isError: packagesError,
-  } = useLaunchPackages(tweets, tweets.length > 0 && activeChain === 'sol');
+  } = useLaunchPackages(tweets, tweets.length > 0 && activeChain === 'sol' && !mock);
 
   const packageBySubject = useMemo(() => {
     const map = new Map<string, LaunchPackage>();
@@ -253,6 +370,50 @@ export function XMonitorPanel({
     }
     return map;
   }, [packages]);
+
+  // Locally-dismissed rows drop out of the feed (keybind / future swipe).
+  const visibleRows = useMemo(
+    () => rows.filter((r) => !dismissedIds.has(r.alertId)),
+    [rows, dismissedIds],
+  );
+
+  const runLaunch = (row: ListenRow) => {
+    const pkg = packageBySubject.get(row.subject);
+    if (row.isMock) {
+      openDeployForTweet(row.subject, row.tweet, null);
+      return;
+    }
+    if (launchMode === 'ai' && !pkg?.shouldLaunch) {
+      void openDeployForTweetAsync(row.subject, row.tweet, true);
+      return;
+    }
+    openDeployForTweet(row.subject, row.tweet, pkg, 0);
+  };
+
+  // Single-key shortcuts act on the hovered card (deploy / dismiss).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!hoveredRowId) return;
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        return;
+      }
+      const row = visibleRows.find((r) => r.alertId === hoveredRowId);
+      if (!row) return;
+      const k = e.key.toLowerCase();
+      if (k === keybinds.deploy) {
+        e.preventDefault();
+        runLaunch(row);
+      } else if (k === keybinds.dismiss) {
+        e.preventDefault();
+        setDismissedIds((prev) => new Set(prev).add(row.alertId));
+        setHoveredRowId(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoveredRowId, visibleRows, keybinds, launchMode, packageBySubject]);
 
   return (
     <section
@@ -265,8 +426,8 @@ export function XMonitorPanel({
       <header className="sticky top-0 z-[2] shrink-0 border-b border-white/[0.1] bg-bg-hover shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05)]">
         <div
           className={cn(
-            'flex min-w-0 items-center justify-between gap-2 px-3 py-2',
-            draggable && 'cursor-grab active:cursor-grabbing',
+            'flex min-w-0 items-center justify-between gap-2 px-3 py-2 transition-colors',
+            draggable && 'cursor-grab hover:bg-white/[0.05] active:cursor-grabbing active:bg-white/[0.08]',
           )}
           title={draggable ? 'Drag to move · snap to screen edge' : undefined}
           aria-label={draggable ? 'Drag X monitor' : undefined}
@@ -283,18 +444,10 @@ export function XMonitorPanel({
             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-fg-primary">
               X monitor
             </h2>
-            {mock && tab === 'feed' ? (
-              <span className="rounded-sm bg-white/[0.06] px-1.5 py-px text-[9px] font-semibold uppercase text-fg-muted">
-                Preview
-              </span>
-            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1.5" data-x-monitor-no-drag>
             {tab === 'feed' && packagesLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" aria-hidden />
-            ) : null}
-            {tab === 'feed' ? (
-              <span className="text-[10px] tabular-nums text-fg-muted">{rows.length}</span>
             ) : null}
             <button
               type="button"
@@ -306,9 +459,9 @@ export function XMonitorPanel({
                 onClose?.();
                 closeXMonitor();
               }}
-              className="btn-press relative z-10 flex h-7 w-7 items-center justify-center rounded-sm border border-border-subtle text-fg-muted transition hover:bg-bg-sunken hover:text-fg-primary"
+              className="btn-press group/close relative z-10 flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-signal-bear/15 hover:text-signal-bear"
             >
-              <X className="h-3.5 w-3.5 pointer-events-none" strokeWidth={2} aria-hidden />
+              <X className="pointer-events-none h-4 w-4 transition-transform group-hover/close:rotate-90" strokeWidth={2.25} aria-hidden />
             </button>
           </div>
         </div>
@@ -317,6 +470,7 @@ export function XMonitorPanel({
             [
               ['feed', 'Feed'],
               ['rules', 'Rules'],
+              ['settings', 'Settings'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -335,11 +489,13 @@ export function XMonitorPanel({
           ))}
         </nav>
 
-        <AiLauncherToggle />
+        {tab === 'feed' ? <AiLauncherToggle /> : null}
       </header>
 
       {tab === 'rules' ? (
         <XMonitorRules />
+      ) : tab === 'settings' ? (
+        <XMonitorSettings />
       ) : (
         <>
           {banner ? (
@@ -353,12 +509,25 @@ export function XMonitorPanel({
             </p>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)]">            {isFetching && !mock && rows.length === 0 ? (
+          <div
+            onMouseEnter={() => setFeedHovered(true)}
+            onMouseLeave={() => setFeedHovered(false)}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)] [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+          >
+            {showDemo && feedHovered ? (
+              <div className="pointer-events-none sticky top-1 z-[3] flex justify-center">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[10px] font-semibold text-amber-300 shadow-[0_4px_14px_-4px_rgba(0,0,0,0.6)] backdrop-blur">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+                  Paused — hovering
+                </span>
+              </div>
+            ) : null}
+            {isFetching && !mock && rows.length === 0 ? (
               <p className="px-3 py-4 text-[11px] text-fg-muted">Loading listens…</p>
             ) : null}
 
-            <ul className="divide-y divide-white/[0.06]">
-              {rows.map((row) => {
+            <ul className="flex flex-col gap-1.5 p-1.5">
+              {visibleRows.map((row) => {
                 const pkg = packageBySubject.get(row.subject);
                 const mint = row.payload.mint?.trim() ?? null;
                 const image = row.tweet.imageUrls?.[0] ?? row.payload.coverImageUrl ?? null;
@@ -377,71 +546,220 @@ export function XMonitorPanel({
                 const isAutoLaunch =
                   row.payload.requestedExecution === 'auto_launch' ||
                   row.payload.execution === 'auto_launch';
+                const isDeleted = row.eventType === 'deleted';
+                const ev = eventLine(row);
+                const isHighlighted =
+                  keywordHighlights.length > 0 &&
+                  keywordHighlights.some((k) =>
+                    (row.tweet.text ?? '').toLowerCase().includes(k.toLowerCase()),
+                  );
+                const isVertRail = launchRailSide === 'left' || launchRailSide === 'right';
+                const railThickness = launchRailSize === 'big'
+                  ? isVertRail
+                    ? 'w-14'
+                    : 'h-14'
+                  : isVertRail
+                    ? 'w-10'
+                    : 'h-10';
+                // Tighter to the card edges (Axiom ultra-buy feel) — minimal inset.
+                const railMargin =
+                  launchRailSide === 'left'
+                    ? 'my-1 ml-1'
+                    : launchRailSide === 'right'
+                      ? 'my-1 mr-1'
+                      : launchRailSide === 'top'
+                        ? 'mx-1 mt-1'
+                        : 'mx-1 mb-1';
+                // Custom colour drives a --rail CSS var; hover fill/outline is done
+                // with color-mix arbitrary classes so it reacts like the default accent.
+                const railStyle: CSSProperties | undefined = launchRailColor
+                  ? ({ ['--rail']: launchRailColor, color: launchRailColor } as CSSProperties)
+                  : undefined;
 
                 return (
                   <li
                     key={row.alertId}
+                    onMouseEnter={() => setHoveredRowId(row.alertId)}
+                    onMouseLeave={() => setHoveredRowId((cur) => (cur === row.alertId ? null : cur))}
+                    // "Ultra" launch button: the whole card is the launch button —
+                    // any click that ISN'T on an interactive child (link / button /
+                    // input) fires the launch. Text selections are ignored.
+                    onClick={(e) => {
+                      const el = e.target as HTMLElement;
+                      if (el.closest('a, button, input, textarea, select, [data-no-launch]')) return;
+                      if (typeof window !== 'undefined' && (window.getSelection()?.toString().length ?? 0) > 0) return;
+                      runLaunch(row);
+                    }}
+                    title="Click anywhere to launch · links & buttons stay clickable"
                     className={cn(
-                      'group flex items-stretch gap-0 transition-colors hover:bg-white/[0.02]',
-                      row.isMock && 'bg-bg-sunken/20',
+                      // Carded grey rows (J7-style premium) — the whole card is the
+                      // ultra launch button, so it reads as one on hover (accent ring).
+                      'group flex cursor-pointer items-stretch gap-0 overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.055] transition-colors hover:border-accent-primary/45 hover:bg-accent-primary/[0.05] hover:shadow-[inset_0_0_0_1px_rgb(var(--pulse-accent-rgb)/0.25)]',
+                      launchRailSide === 'right' && 'flex-row-reverse',
+                      launchRailSide === 'top' && 'flex-col',
+                      launchRailSide === 'bottom' && 'flex-col-reverse',
+                      // Deleted events read red + striped; platform accent otherwise.
+                      isDeleted && 'border-signal-bear/25 bg-[repeating-linear-gradient(135deg,rgba(244,63,94,0.09)_0_10px,rgba(255,255,255,0.05)_10px_20px)]',
+                      row.platform === 'truth' && !isDeleted && 'bg-sky-500/[0.07]',
+                      row.platform === 'instagram' && !isDeleted && 'bg-pink-500/[0.07]',
+                      isHighlighted && 'border-accent-primary/40 bg-accent-primary/[0.06] hover:border-accent-primary/55',
                     )}
                   >
-                    {/* Left vertical outlined LAUNCH rail (Terminal-style) */}
+                    {/* Left vertical LAUNCH rail — same borderless accent-fill look
+                        as the Pulse quick-buy pill (no clashing outline). */}
                     <button
                       type="button"
-                      disabled={row.isMock}
-                      onClick={() => {
-                        if (row.isMock) return;
-                        if (launchMode === 'ai' && !pkg?.shouldLaunch) {
-                          void openDeployForTweetAsync(row.subject, row.tweet, true);
-                          return;
-                        }
-                        openDeployForTweet(row.subject, row.tweet, pkg, 0);
-                      }}
-                      title={row.isMock ? 'Sample tweet' : 'Launch a token from this tweet'}
-                      className={cn(
-                        'btn-press my-2 ml-2 flex w-8 shrink-0 items-center justify-center rounded-md border transition',
+                      onClick={() => runLaunch(row)}
+                      title={
                         row.isMock
-                          ? 'cursor-not-allowed border-white/[0.07] text-fg-muted/40'
-                          : 'border-accent-primary/55 text-accent-primary hover:border-accent-primary hover:bg-accent-primary/10',
+                          ? 'Sample preview — launch is disabled on demo data'
+                          : isAutoLaunch
+                            ? 'Auto-launch armed for this rule'
+                            : 'Launch a token from this tweet'
+                      }
+                      style={railStyle}
+                      className={cn(
+                        'peer/launchRail btn-press focus-ring flex shrink-0 cursor-pointer items-center justify-center rounded-md font-sans transition-colors',
+                        railThickness,
+                        railMargin,
+                        // Default accent
+                        !launchRailColor && launchRailStyle === 'fill' && (isAutoLaunch
+                          ? 'bg-accent-primary/25 text-accent-primary hover:bg-accent-primary/[0.32]'
+                          : 'bg-accent-primary/[0.12] text-accent-primary hover:bg-accent-primary/20'),
+                        !launchRailColor && launchRailStyle === 'outline' &&
+                          'border border-accent-primary/50 text-accent-primary hover:bg-accent-primary/[0.12]',
+                        // Custom colour — fill (deepens on hover) via color-mix
+                        launchRailColor && launchRailStyle === 'fill' && !isAutoLaunch &&
+                          '[background:color-mix(in_srgb,var(--rail)_16%,transparent)] hover:[background:color-mix(in_srgb,var(--rail)_26%,transparent)]',
+                        launchRailColor && launchRailStyle === 'fill' && isAutoLaunch &&
+                          '[background:color-mix(in_srgb,var(--rail)_28%,transparent)] hover:[background:color-mix(in_srgb,var(--rail)_38%,transparent)]',
+                        // Custom colour — outline (fills a little on hover)
+                        launchRailColor && launchRailStyle === 'outline' &&
+                          'border [border-color:color-mix(in_srgb,var(--rail)_55%,transparent)] hover:[background:color-mix(in_srgb,var(--rail)_14%,transparent)]',
                       )}
                     >
-                      <span className="rotate-180 text-[9px] font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]">
-                        {row.isMock ? 'Sample' : launchMode === 'ai' ? 'AI Launch' : 'Launch'}
+                      <span
+                        className={cn(
+                          'font-semibold uppercase tracking-wide',
+                          launchRailSize === 'big' ? 'text-[11px]' : 'text-[9.5px]',
+                          isVertRail && 'rotate-180 [writing-mode:vertical-rl]',
+                        )}
+                      >
+                        {isAutoLaunch ? 'Auto' : launchMode === 'ai' ? 'AI Launch' : 'Launch'}
                       </span>
                     </button>
 
-                    <div className="min-w-0 flex-1 px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-[11px] font-bold text-fg-secondary">
-                          {handleInitial(row.tweet.authorHandle)}
+                    <div className="min-w-0 flex-1 px-3 py-2.5 transition-[filter,opacity] duration-200 ease-out peer-hover/launchRail:opacity-45 peer-hover/launchRail:blur-[4px]">
+                      <div className="flex items-start gap-2">
+                        <a
+                          href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0"
+                        >
+                          <Avatar url={row.avatarUrl} handle={row.tweet.authorHandle ?? ''} size={28} />
+                        </a>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="truncate text-[12px] font-semibold text-fg-primary hover:underline"
+                            >
+                              {row.displayName ?? `@${(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}`}
+                            </a>
+                            {row.verified ? (
+                              <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-sky-400" strokeWidth={2} aria-hidden />
+                            ) : null}
+                            {row.platform ? <PlatformBadge platform={row.platform} /> : null}
+                            <span className="shrink-0 text-[10px] tabular-nums text-fg-muted/80">
+                              · {formatListenAge(row.createdAt)}
+                            </span>
+                            {hoveredRowId === row.alertId ? (
+                              <span className="ml-auto hidden shrink-0 items-center gap-1 text-[8.5px] font-semibold uppercase tracking-wide text-fg-muted/70 sm:inline-flex">
+                                <kbd className="rounded bg-white/[0.08] px-1 py-px">{keybinds.deploy}</kbd>
+                                deploy
+                                <kbd className="ml-0.5 rounded bg-white/[0.08] px-1 py-px">{keybinds.dismiss}</kbd>
+                                hide
+                              </span>
+                            ) : null}
+                          </div>
+                          {row.displayName ? (
+                            <div className="flex items-center gap-1.5 text-[10px] text-fg-muted">
+                              <a
+                                href={`https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="truncate hover:underline"
+                              >
+                                @{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}
+                              </a>
+                              {row.followers ? (
+                                <span className="shrink-0 tabular-nums">· {fmtCount(row.followers)} followers</span>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
-                        <span className="truncate text-[12px] font-semibold text-fg-primary">
-                          @{(row.tweet.authorHandle ?? 'unknown').replace(/^@/, '')}
-                        </span>
-                        <span className="shrink-0 text-[10px] tabular-nums text-fg-muted/80">
-                          · {formatListenAge(row.createdAt)}
-                        </span>
                         {row.payload.execution === 'auto_buy' ? (
-                          <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[9px] font-semibold text-fg-muted">
+                          <span className="shrink-0 self-start rounded-sm bg-white/[0.06] px-1 py-px text-[9px] font-semibold text-fg-muted">
                             auto_buy
                           </span>
                         ) : null}
                         {isAutoLaunch ? (
-                          <span className="shrink-0 rounded-sm bg-accent-primary/12 px-1 py-px text-[9px] font-semibold text-accent-primary">
+                          <span className="shrink-0 self-start rounded-sm bg-accent-primary/12 px-1 py-px text-[9px] font-semibold text-accent-primary">
                             auto_launch
-                          </span>
-                        ) : null}
-                        {row.isMock ? (
-                          <span className="shrink-0 rounded-sm bg-white/[0.06] px-1 py-px text-[9px] text-fg-muted">
-                            sample
                           </span>
                         ) : null}
                       </div>
 
-                      <p className="mt-1.5 text-[12px] leading-snug text-fg-primary/95">
-                        {row.tweet.text}
-                      </p>
+                      {ev ? (
+                        <a
+                          href={row.payload.tweetUrl ?? `https://x.com/${(row.tweet.authorHandle ?? '').replace(/^@/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={cn(
+                            'mt-1 flex items-center gap-1 text-[11.5px] transition-colors hover:underline',
+                            isDeleted ? 'text-signal-bear' : 'text-white',
+                          )}
+                        >
+                          {row.eventType ? <EventIcon type={row.eventType} /> : null}
+                          <span className="truncate">
+                            <span className="font-medium">@{(row.tweet.authorHandle ?? '').replace(/^@/, '')}</span>{' '}
+                            <span className="text-white/70">{ev.verb}</span>
+                            {ev.target ? <span className="text-accent-primary"> {ev.target}</span> : null}
+                          </span>
+                        </a>
+                      ) : null}
+
+                      {row.tweet.text ? (
+                        <p
+                          className={cn(
+                            'mt-1.5 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[13px] leading-relaxed',
+                            isDeleted
+                              ? 'text-white/50 line-through decoration-signal-bear/50'
+                              : 'text-white',
+                          )}
+                        >
+                          {row.tweet.text}
+                        </p>
+                      ) : null}
+
+                      {row.quoted ? (
+                        <a
+                          href={`https://x.com/${row.quoted.handle}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1.5 block rounded-md border-l-2 border-white/[0.12] bg-white/[0.02] px-2.5 py-1.5 transition-colors hover:bg-white/[0.04]"
+                        >
+                          <div className="flex items-center gap-1.5 text-[10px]">
+                            <Avatar url={row.quoted.avatarUrl} handle={row.quoted.handle} size={14} />
+                            <span className="font-semibold text-fg-secondary">{row.quoted.name}</span>
+                            <span className="text-fg-muted">@{row.quoted.handle}</span>
+                          </div>
+                          <p className="mt-0.5 break-words [overflow-wrap:anywhere] text-[12px] leading-relaxed text-white/85">{row.quoted.text}</p>
+                        </a>
+                      ) : null}
 
                       {image ? <TweetMediaImage src={image} /> : null}
 
@@ -454,7 +772,52 @@ export function XMonitorPanel({
                         </Link>
                       ) : null}
 
-                      {pkg?.shouldLaunch ? (
+                      {aiSuggestionsEnabled && row.suggestions?.length ? (
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
+                            <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
+                            Suggestions
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {row.suggestions.slice(0, aiSuggestionCount).map((s, i) => (
+                              <div
+                                key={`${row.subject}-s${i}`}
+                                className="flex items-stretch overflow-hidden rounded-lg border border-white/[0.1] bg-white/[0.05] transition-colors hover:border-white/[0.18]"
+                              >
+                                {s.image ? (
+                                  <HoverZoomImage src={s.image} className="h-12 w-12 shrink-0" previewW={240} />
+                                ) : (
+                                  <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-white/[0.04] text-[12px] font-bold text-fg-secondary">
+                                    {s.ticker.replace(/^\$/, '').slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="min-w-0 px-2.5 py-1.5">
+                                  <div className="truncate text-[12px] font-semibold text-white">{s.name}</div>
+                                  <div className="truncate text-[11px] text-fg-muted">${s.ticker.replace(/^\$/, '')}</div>
+                                </div>
+                                <div className="flex flex-col border-l border-white/[0.1]">
+                                  <button
+                                    type="button"
+                                    title="Edit and focus name"
+                                    onClick={() => openLaunchFromSuggestion(row.subject, row.tweet, s, 'name')}
+                                    className="flex flex-1 items-center justify-center px-2.5 text-[11px] font-bold text-fg-muted transition-colors hover:bg-accent-primary/20 hover:text-accent-primary"
+                                  >
+                                    N
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Edit and focus ticker"
+                                    onClick={() => openLaunchFromSuggestion(row.subject, row.tweet, s, 'ticker')}
+                                    className="flex flex-1 items-center justify-center border-t border-white/[0.1] px-2.5 text-[11px] font-bold text-fg-muted transition-colors hover:bg-accent-primary/20 hover:text-accent-primary"
+                                  >
+                                    T
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : pkg?.shouldLaunch ? (
                         <div className="mt-2 space-y-1.5">
                           <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-fg-muted">
                             <Sparkles className="h-3 w-3 text-accent-primary" aria-hidden />
@@ -495,9 +858,9 @@ export function XMonitorPanel({
                           href={row.payload.tweetUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-2 inline-block text-[10px] text-fg-muted hover:text-fg-secondary hover:underline"
+                          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-white transition-colors hover:text-accent-primary hover:underline"
                         >
-                          View on X
+                          View on X <ArrowUpRight className="h-3 w-3" strokeWidth={2} aria-hidden />
                         </a>
                       ) : null}
                     </div>

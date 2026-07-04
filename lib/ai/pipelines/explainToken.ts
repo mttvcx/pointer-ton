@@ -4,6 +4,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { appChainFromGeckoNetwork, geckoNetworkFromRawMetadata } from '@/lib/chains/evmTokenChain';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { runCascade, type CascadeMode } from '@/lib/ai/cascade';
+import { delimitUntrusted, sanitizeForPrompt } from '@/lib/ai/promptSanitize';
 import { ExplainTokenOutputSchema, type ExplainTokenOutput } from '@/lib/ai/schemas';
 import {
   getLatestSnapshotForMint,
@@ -83,10 +84,13 @@ function buildPrompt(facts: {
   ].join(' ');
 
   const lines: string[] = [];
-  const sym = facts.symbol ?? 'UNKNOWN';
-  const nm = facts.name ?? 'unnamed token';
+  // Symbol/name/launchpad/description are attacker-controlled (set by whoever
+  // launched the token) and this analysis is cached by mint and served to every
+  // user — sanitize before they reach the model to prevent injection/poisoning.
+  const sym = sanitizeForPrompt(facts.symbol, 24) || 'UNKNOWN';
+  const nm = sanitizeForPrompt(facts.name, 64) || 'unnamed token';
   lines.push(`Token: ${sym} (${nm})`);
-  if (facts.launchPad) lines.push(`Launchpad: ${facts.launchPad}`);
+  if (facts.launchPad) lines.push(`Launchpad: ${sanitizeForPrompt(facts.launchPad, 32)}`);
   lines.push(`Age: created ${formatRelativeTime(facts.createdAt)}`);
   if (facts.priceUsd != null) lines.push(`Price: ${formatPriceUsd(facts.priceUsd)}`);
   if (facts.marketCapUsd != null)
@@ -101,14 +105,17 @@ function buildPrompt(facts: {
   if (facts.top10Pct != null) lines.push(`Top 10 supply: ${formatPercent(facts.top10Pct)}`);
   if (facts.devHoldingPct != null)
     lines.push(`Dev still holds: ${formatPercent(facts.devHoldingPct)}`);
-  if (facts.mintAuthority) lines.push(`Mint authority: not revoked (${facts.mintAuthority})`);
+  if (facts.mintAuthority) lines.push(`Mint authority: not revoked (${sanitizeForPrompt(facts.mintAuthority, 48)})`);
   else lines.push('Mint authority: revoked');
-  if (facts.freezeAuthority) lines.push(`Freeze authority: ${facts.freezeAuthority}`);
+  if (facts.freezeAuthority) lines.push(`Freeze authority: ${sanitizeForPrompt(facts.freezeAuthority, 48)}`);
   else lines.push('Freeze authority: revoked');
   if (facts.isLpLocked != null)
     lines.push(`LP locked: ${facts.isLpLocked ? 'yes' : 'no'}`);
-  if (facts.description)
-    lines.push(`Self-described: ${facts.description.slice(0, 240)}`);
+  // Highest-risk field — fence it explicitly so the model treats it as data.
+  if (facts.description) {
+    const fenced = delimitUntrusted('self_described', facts.description, 240);
+    if (fenced) lines.push(`Self-described: ${fenced}`);
+  }
   lines.push(`Recent social mentions (last hour): ${facts.recentSocial}`);
   lines.push(`Pointer trades on this mint last 24h: ${facts.recentTrades24h}`);
 

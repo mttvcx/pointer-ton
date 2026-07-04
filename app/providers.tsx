@@ -14,6 +14,8 @@ import { PointerSignInHost } from '@/components/auth/PointerSignInHost';
 import { SandboxProvider } from '@/components/sandbox/SandboxProvider';
 import { PointerAuthProvider } from '@/lib/auth/pointerAuth';
 import { FounderBetaDesktopGate } from '@/components/beta/FounderBetaDesktopGate';
+import { LiquidGlassDefs } from '@/components/ui/liquid-glass';
+import { AxiomBuyAccentPrompt } from '@/components/theme/AxiomBuyAccentPrompt';
 import { PRIVY_APP_ID, privyClientConfig } from '@/lib/privy/publicConfig';
 
 /**
@@ -95,6 +97,8 @@ export function Providers({ children }: { children: ReactNode }) {
           <WalletTrackerAlertBridge />
           <WalletTrackerToaster />
           <AppToaster />
+          <AxiomBuyAccentPrompt />
+          <LiquidGlassDefs />
         </PointerAuthProvider>
       </PrivyProvider>
       {process.env.NODE_ENV === 'development' &&

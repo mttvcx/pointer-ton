@@ -7,6 +7,7 @@ import {
   markLimitOrderTriggered,
 } from '@/lib/db/limitOrders';
 import { notifyLimitOrderTriggered } from '@/lib/db/limitOrderNotifications';
+import { withOpsSpan } from '@/lib/ops/events';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,45 +18,50 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const expired = await expireDueLimitOrders();
-    const open = await listOpenLimitOrdersCron();
-    const mints = [...new Set(open.map((o) => o.mint))];
-    const prices = mints.length > 0 ? await fetchUsdPricesForMints(mints) : new Map();
+    const result = await withOpsSpan(
+      'cron',
+      'check-limit-alerts',
+      async () => {
+        const expired = await expireDueLimitOrders();
+        const open = await listOpenLimitOrdersCron();
+        const mints = [...new Set(open.map((o) => o.mint))];
+        const prices = mints.length > 0 ? await fetchUsdPricesForMints(mints) : new Map();
 
-    let triggered = 0;
-    for (const order of open) {
-      const spot = prices.get(order.mint)?.usdPrice;
-      if (spot == null || !Number.isFinite(spot)) continue;
+        let triggered = 0;
+        for (const order of open) {
+          const spot = prices.get(order.mint)?.usdPrice;
+          if (spot == null || !Number.isFinite(spot)) continue;
 
-      const trig = Number(order.trigger_price_usd);
-      if (!Number.isFinite(trig)) continue;
+          const trig = Number(order.trigger_price_usd);
+          if (!Number.isFinite(trig)) continue;
 
-      const hit =
-        order.side === 'buy'
-          ? spot <= trig
-          : order.side === 'sell'
-            ? spot >= trig
-            : false;
+          const hit =
+            order.side === 'buy' ? spot <= trig : order.side === 'sell' ? spot >= trig : false;
 
-      if (!hit) continue;
+          if (!hit) continue;
 
-      try {
-        await markLimitOrderTriggered(order.id, spot);
-        await notifyLimitOrderTriggered({
-          userId: order.user_id,
-          orderId: order.id,
-          mint: order.mint,
-          side: order.side,
-          spotUsd: spot,
-          triggerUsd: trig,
-        });
-        triggered += 1;
-      } catch {
-        /* concurrent or already processed */
-      }
-    }
+          try {
+            await markLimitOrderTriggered(order.id, spot);
+            await notifyLimitOrderTriggered({
+              userId: order.user_id,
+              orderId: order.id,
+              mint: order.mint,
+              side: order.side,
+              spotUsd: spot,
+              triggerUsd: trig,
+            });
+            triggered += 1;
+          } catch {
+            /* concurrent or already processed */
+          }
+        }
 
-    return NextResponse.json({ ok: true, expired, checked: open.length, triggered });
+        return { expired, checked: open.length, triggered };
+      },
+      { metric: 'cron.duration_ms' },
+    );
+
+    return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'cron_failed';
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

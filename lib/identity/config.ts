@@ -5,6 +5,8 @@ export const IDENTITY_SOURCE_PRIORITY: Record<string, number> = {
   manual: 80,
   kolscan: 60,
   axiom: 58,
+  cabalspy: 57,
+  solscanner: 56,
   gmgn: 55,
 };
 

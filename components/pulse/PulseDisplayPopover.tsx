@@ -10,6 +10,8 @@ import {
   LoaderCircle,
   MousePointerClick,
   Search,
+  Sparkles,
+  SquareDashed,
   Zap,
 } from 'lucide-react';
 import { PulseAccentColorPicker } from '@/components/pulse/PulseAccentColorPicker';
@@ -277,6 +279,14 @@ export function PulseDisplayPopover() {
                 onChange={(hex) => setPrefs({ accentHex: hex })}
               />
 
+              <PulseAccentColorPicker
+                label="Toast color"
+                color={prefs.toastColor ?? '#0f1319'}
+                onChange={(hex) => setPrefs({ toastColor: hex })}
+                onReset={() => setPrefs({ toastColor: null })}
+                resetTitle="Reset to default dark"
+              />
+
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                   Quick buy style
@@ -363,6 +373,18 @@ export function PulseDisplayPopover() {
                     label="Progress bar"
                     value={prefs.showBondingProgress}
                     onChange={(v) => setPrefs({ showBondingProgress: v })}
+                  />
+                  <LayoutToggleRow
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                    label="Detailed token hover"
+                    value={prefs.tokenHoverDetail}
+                    onChange={(v) => setPrefs({ tokenHoverDetail: v })}
+                  />
+                  <LayoutToggleRow
+                    icon={<SquareDashed className="h-3.5 w-3.5" />}
+                    label="Transparent rows"
+                    value={prefs.transparentRows}
+                    onChange={(v) => setPrefs({ transparentRows: v })}
                   />
                   <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                     Customize rows

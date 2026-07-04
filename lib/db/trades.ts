@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { isUniqueViolation } from '@/lib/db/pgError';
 import type { Tables, TablesInsert, TablesUpdate } from '@/lib/supabase/types';
 
 export type TradeRow = Tables<'trades'>;
@@ -26,7 +27,18 @@ export async function insertTrade(row: TablesInsert<'trades'>): Promise<TradeRow
     .insert(row)
     .select('*')
     .single();
-  if (error) throw new Error(`insertTrade failed: ${error.message}`);
+  if (error) {
+    // Idempotency boundary (BLOCKER-2): `trades.tx_signature` carries a UNIQUE
+    // index. A concurrent/retried submit of the SAME signature loses the insert
+    // race with 23505 — converge on the winner's row so downstream cashback +
+    // referral (keyed on trade.id) dedupe to exactly-once instead of double-paying.
+    if (isUniqueViolation(error) && row.tx_signature) {
+      const existing = await getTradeBySignature(row.tx_signature);
+      if (existing) return existing;
+    }
+    throw new Error(`insertTrade failed: ${error.message}`);
+  }
+  if (!data) throw new Error('insertTrade failed: no row returned');
   return data;
 }
 

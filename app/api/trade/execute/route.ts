@@ -4,7 +4,7 @@ import { PublicKey } from '@solana/web3.js';
 import { z } from 'zod';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { getFeeBpsForUser } from '@/lib/db/tiers';
-import { countConfirmedTradesForUser, insertTrade } from '@/lib/db/trades';
+import { countConfirmedTradesForUser, getTradeBySignature, insertTrade } from '@/lib/db/trades';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { tradingFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
@@ -18,6 +18,14 @@ import { lamportsToSol, solToLamports } from '@/lib/utils/formatters';
 import { normalizeTonAddress } from '@/lib/utils/tonAddress';
 import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
 import { broadcastSignedTransaction } from '@/lib/solana/broadcast';
+import { enforceTradeRateLimit } from '@/lib/rate-limit/userAction';
+import { waitForSolConfirmation } from '@/lib/solana/confirm';
+import {
+  assertTradingAllowed,
+  EmergencyBlockedError,
+  emergencyBlockedResponse,
+  type EmergencyChain,
+} from '@/lib/emergency/controls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,8 +95,24 @@ export async function POST(req: NextRequest) {
   const freezeBlocked = await tradingFreezeGateOrNull(user.id);
   if (freezeBlocked) return freezeBlocked;
 
+  // Generous per-user cap so a script can't hammer the trade money path
+  // (fail-open; tune via TRADE_RATE_LIMIT_PER_MIN, disable via env).
+  const tradeRl = await enforceTradeRateLimit(user.id);
+  if (tradeRl) return tradeRl;
+
   const json: unknown = await req.json();
   const parsedSol = SolExecuteSchema.safeParse(json);
+
+  // Emergency global + per-chain trading kill switch / maintenance / read-only.
+  // Fails closed (throws if the controls store is unreadable).
+  const tradeChain: EmergencyChain = parsedSol.success ? 'sol' : 'ton';
+  try {
+    await assertTradingAllowed(tradeChain);
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
+
   if (parsedSol.success) {
     const body = parsedSol.data;
     if (inferMintKind(body.mint) !== 'sol' || inferMintKind(body.userPublicKey) !== 'sol') {
@@ -155,6 +179,36 @@ export async function POST(req: NextRequest) {
     const lamports = solToLamports(amountSol);
     const platformFeeLamports = Number((lamports * BigInt(feeBps)) / 10_000n);
 
+    // Idempotency: a retried submit of the same signature must not insert a
+    // second trade row (which would double-accrue cashback/referral — those are
+    // keyed on tradeId). Return the already-recorded trade instead.
+    const existingTrade = await getTradeBySignature(txSignature);
+    if (existingTrade) {
+      return NextResponse.json({
+        signature: txSignature,
+        tradeId: existingTrade.id,
+        status: existingTrade.status,
+        packItemSell,
+        feeBps,
+        idempotent: true,
+      });
+    }
+
+    // Confirm-before-accrue: only treat the trade as real once it lands on chain.
+    // A reverted/failed swap (slippage etc.) returns 502 instead of recording a
+    // "confirmed" trade that pays cashback. Kill-switch: POINTER_DISABLE_TRADE_CONFIRM=1.
+    let solConfirmed = true;
+    if (process.env.POINTER_DISABLE_TRADE_CONFIRM !== '1') {
+      const state = await waitForSolConfirmation(txSignature, 12_000);
+      if (state === 'failed') {
+        return NextResponse.json(
+          { error: 'tx_failed', signature: txSignature, message: 'Transaction failed on-chain' },
+          { status: 502 },
+        );
+      }
+      solConfirmed = state === 'confirmed';
+    }
+
     const trade = await insertTrade({
       id: randomUUID(),
       user_id: user.id,
@@ -169,6 +223,18 @@ export async function POST(req: NextRequest) {
       submitted_at: submittedAt,
       confirmed_at: new Date().toISOString(),
     });
+
+    // Slow/unconfirmed send: record the trade + return success (unchanged
+    // contract) but skip ALL reward accrual + side effects until it's confirmed.
+    if (!solConfirmed) {
+      return NextResponse.json({
+        signature: txSignature,
+        tradeId: trade.id,
+        status: 'confirmed',
+        packItemSell,
+        feeBps,
+      });
+    }
 
     try {
       await recordReferralEarningFromTrade({
@@ -291,6 +357,18 @@ export async function POST(req: NextRequest) {
   const feeBps = await getFeeBpsForUser(user.id);
   const lamports = solToLamports(amountSol);
   const platformFeeLamports = Number((lamports * BigInt(feeBps)) / 10_000n);
+
+  // Idempotency: a retried submit of the same signed BOC hashes to the same
+  // tx_signature; return the recorded trade instead of double-inserting.
+  const existingTrade = await getTradeBySignature(txSignature);
+  if (existingTrade) {
+    return NextResponse.json({
+      signature: txSignature,
+      tradeId: existingTrade.id,
+      status: existingTrade.status,
+      idempotent: true,
+    });
+  }
 
   const trade = await insertTrade({
     id: randomUUID(),

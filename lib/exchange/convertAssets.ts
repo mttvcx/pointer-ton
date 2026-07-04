@@ -2,7 +2,12 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
 import { SOL_MINT, USDC_MINT } from '@/lib/utils/addresses';
 
-export type ConvertAssetId = 'SOL' | 'USDC' | 'BNB' | 'ETH';
+export type ConvertAssetId = 'SOL' | 'USDC' | 'BNB' | 'ETH' | 'HLUSDC';
+
+/** USDC on Hyperliquid — a convert TARGET only; routes through Circle CCTP, not LI.FI/Jupiter. */
+export function isHyperliquidUsdc(id: ConvertAssetId): boolean {
+  return id === 'HLUSDC';
+}
 
 export type ConvertAssetMeta = {
   id: ConvertAssetId;
@@ -52,7 +57,21 @@ export const CONVERT_ASSETS: ConvertAssetMeta[] = [
     lifiChain: 'ETH',
     lifiToken: 'ETH',
   },
+  {
+    // Target-only: "convert" USDC on Solana to USDC on Hyperliquid via Circle CCTP.
+    // Short label — the Hyperliquid badge on the icon conveys the destination.
+    id: 'HLUSDC',
+    label: 'USDC',
+    decimals: 6,
+    iconSrc: '/logos/protocols/usdc.png',
+    lifiChain: 'SOL',
+    lifiToken: USDC_MINT,
+    solMint: USDC_MINT,
+  },
 ];
+
+/** Assets that can be the FROM side (HLUSDC is a destination only). */
+export const CONVERT_FROM_ASSETS: ConvertAssetMeta[] = CONVERT_ASSETS.filter((a) => a.id !== 'HLUSDC');
 
 const BY_ID = new Map(CONVERT_ASSETS.map((a) => [a.id, a]));
 

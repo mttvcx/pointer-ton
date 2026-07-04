@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { CloseButton } from '@/components/ui/CloseButton';
 import {
   readInstantTradeUiSettings,
   persistInstantTradeUiSettings,
@@ -84,14 +84,7 @@ export function InstantTradeSettingsModal({ open, onClose, onOpenFullTradeColumn
           <h2 id="instant-settings-title" className="text-sm font-semibold text-fg-primary">
             Instant trade settings
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-press rounded p-1 text-fg-muted hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton onClick={onClose} label="Close" size="sm" />
         </div>
 
         <div className="border-b border-border-subtle bg-accent-primary/10 px-4 py-3">

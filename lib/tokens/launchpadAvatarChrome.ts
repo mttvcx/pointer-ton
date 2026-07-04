@@ -316,6 +316,10 @@ export function resolveLaunchpadProtocolFromBundle(
   bundle: PulseTokenBundle,
   chain: AppChainId = 'sol',
 ): ProtocolBrandId | null {
+  // Bags launchpad — "BAGS" mint suffix wins over the AMM/dex (which reads as
+  // "meteora" because Bags builds on Meteora DBC/DAMM). Same idea as pump below.
+  if (chain === 'sol' && bundle.token.mint.toLowerCase().endsWith('bags')) return 'bags';
+
   const fromPad = protocolFromLaunchPadField(bundle.token.launch_pad, chain);
   if (fromPad) return fromPad;
 

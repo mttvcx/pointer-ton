@@ -7,6 +7,8 @@ import {
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
 import { isValidPublicKey } from '@/lib/utils/addresses';
+import { assertTradingAllowed, EmergencyBlockedError, emergencyBlockedResponse } from '@/lib/emergency/controls';
+import { accountFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,6 +88,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const r = await requireUser(req);
   if ('error' in r) return r.error;
+  // Per-user account freeze (fail-closed) — block opening NEW limit orders.
+  // (Cancelling an existing order is a de-risking action and stays available.)
+  const frozen = await accountFreezeGateOrNull(r.user.id, 'trading');
+  if (frozen) return frozen;
+  // Emergency trading kill switch (limit orders are Solana trades). Fails closed.
+  try {
+    await assertTradingAllowed('sol');
+  } catch (e) {
+    if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+    throw e;
+  }
   let body: z.infer<typeof CreateSchema>;
   try {
     const json: unknown = await req.json();

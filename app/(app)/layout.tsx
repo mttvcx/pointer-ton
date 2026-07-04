@@ -12,6 +12,8 @@ import { Topbar } from '@/components/layout/Topbar';
 import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { BottomBar } from '@/components/layout/BottomBar';
+import { XMonitorContextBar } from '@/components/monitor/XMonitorContextBar';
+import { XMonitorCaToast } from '@/components/monitor/XMonitorCaToast';
 import { DeferredAppShellGate } from '@/components/layout/DeferredAppShellHosts';
 import { useUIStore } from '@/store/ui';
 import { APP_NAME } from '@/lib/utils/constants';
@@ -19,6 +21,11 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { CopilotModeProvider } from '@/components/copilot/CopilotModeContext';
 import { CopilotStripSlot } from '@/components/copilot/CopilotStripSlot';
 import { PulseChromeStack } from '@/components/pulse/PulseChromeStack';
+import { useIsMobile } from '@/lib/hooks/useIsMobile';
+import { MobileBottomNav } from '@/components/mobile/MobileBottomNav';
+import { MobileDrawer } from '@/components/mobile/MobileDrawer';
+import { EmergencyBanner } from '@/components/emergency/EmergencyBanner';
+import { cn } from '@/lib/utils/cn';
 
 const GlobalSearchModal = dynamic(
   () =>
@@ -64,6 +71,7 @@ function ShellCopilotSlot({ side }: { side: 'left' | 'right' }) {
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const isMobile = useIsMobile();
   const { ready, authenticated, loggingOut, signIn, linkedTonAddress } = usePointerAuth();
 
   const onSharePage = Boolean(pathname?.startsWith('/share/'));
@@ -173,28 +181,35 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <TooltipProvider delayDuration={120}>
       <CopilotModeProvider>
       <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-bg-base text-fg-primary">
+      <EmergencyBanner />
       <RoutePrefetcher />
       <ClientNavigateBridge />
       <ProtocolLogoPreloader />
       <Topbar />
-      <WatchlistTickerBar />
-      {onPulseRoute ? <PulseChromeStack /> : null}
-      <CopilotStripSlot />
+      {!isMobile ? <WatchlistTickerBar /> : null}
+      {!isMobile && onPulseRoute ? <PulseChromeStack /> : null}
+      {!isMobile ? <CopilotStripSlot /> : null}
       <GlobalSearchModal />
       <WalletLabelsBootstrap />
       <LabelWalletModal />
       <LaunchModal />
       <AlertRuleFlashLayer />
       <div className="flex min-h-0 flex-1">
-        <ShellCopilotSlot side="left" />
+        {!isMobile ? <ShellCopilotSlot side="left" /> : null}
         <main
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-raised pb-[var(--app-bottombar-h)] pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))] transition-[padding] duration-200 ease-out"
+          className={cn(
+            'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg-raised pl-[max(var(--pulse-dock-pad-left,0px),var(--wallet-dock-pad-left,0px),var(--x-monitor-dock-pad-left,0px),var(--squads-dock-pad-left,0px))] pr-[max(var(--pulse-dock-pad-right,0px),var(--wallet-dock-pad-right,0px),var(--x-monitor-dock-pad-right,0px),var(--squads-dock-pad-right,0px))] transition-[padding] duration-200 ease-out',
+            isMobile ? 'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]' : 'pb-[var(--app-bottombar-h)]',
+          )}
         >
           {children}
         </main>
-        <ShellCopilotSlot side="right" />
+        {!isMobile ? <ShellCopilotSlot side="right" /> : null}
       </div>
-      <BottomBar />
+      {isMobile ? <MobileBottomNav /> : <BottomBar />}
+      {!isMobile ? <XMonitorContextBar /> : null}
+      {!isMobile ? <XMonitorCaToast /> : null}
+      {isMobile ? <MobileDrawer /> : null}
       <DeferredAppShellGate />
       </div>
       </CopilotModeProvider>

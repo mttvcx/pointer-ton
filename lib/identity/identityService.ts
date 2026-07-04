@@ -39,6 +39,18 @@ export type ResolveWalletIdentityParams = {
   userLabel?: string | null;
 };
 
+/**
+ * Resolved avatar: prefer a real provided image (CabalSpy supplies these), else
+ * derive from the X/Twitter handle via unavatar so labeled wallets without a
+ * stored image (e.g. SolScanner KOLs) still show a face. Img onError handles a
+ * miss gracefully.
+ */
+function avatarFor(profile: { avatarUrl: string | null; twitterHandle: string | null }): string | null {
+  if (profile.avatarUrl) return profile.avatarUrl;
+  const h = profile.twitterHandle?.replace(/^@/, '').trim();
+  return h ? `https://unavatar.io/x/${encodeURIComponent(h)}` : null;
+}
+
 export function resolveWalletIdentity(
   params: ResolveWalletIdentityParams,
 ): ResolvedWalletIdentity {
@@ -59,7 +71,7 @@ export function resolveWalletIdentity(
       normalizedAddress: normalized,
       shortAddress,
       displayName: truncateDisplayName(userLabel),
-      avatarUrl: entry?.profile.avatarUrl ?? null,
+      avatarUrl: entry ? avatarFor(entry.profile) : null,
       twitterHandle: entry?.profile.twitterHandle ?? null,
       telegramHandle: entry?.profile.telegramHandle ?? null,
       badges: entry?.profile.badges ?? [],
@@ -109,7 +121,7 @@ export function resolveWalletIdentity(
     normalizedAddress: normalized,
     shortAddress,
     displayName: truncateDisplayName(profile.displayName),
-    avatarUrl: profile.avatarUrl,
+    avatarUrl: avatarFor(profile),
     twitterHandle: profile.twitterHandle,
     telegramHandle: profile.telegramHandle,
     badges: profile.badges,

@@ -35,6 +35,17 @@ export function DisplayPreferences() {
             ]}
           />
         </PrefField>
+        <PrefField label="AI panel">
+          <SegmentedControl
+            value={prefs.aiPanelStyle}
+            onChange={(v) => setPref('aiPanelStyle', v)}
+            options={[
+              { value: 'default', label: 'Default' },
+              { value: 'light', label: 'Light' },
+              { value: 'glassy', label: 'Glassy' },
+            ]}
+          />
+        </PrefField>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

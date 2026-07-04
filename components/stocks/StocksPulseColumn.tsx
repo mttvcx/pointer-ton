@@ -41,7 +41,6 @@ export function StocksPulseColumn({
   const listMountRef = useRef<HTMLDivElement>(null);
   const scrollMainRef = useRef<Element | null>(null);
   const [search, setSearch] = useState('');
-  const [defaultLeverage, setDefaultLeverage] = useState(5);
   const presetSlot = usePulseColumnStore((s) => s.byColumn?.[pulseColumn]?.presetSlot ?? 1);
   const setPresetSlot = usePulseColumnStore((s) => s.setPresetSlot);
 
@@ -104,32 +103,6 @@ export function StocksPulseColumn({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-          <label
-            className={cn(
-              'flex h-[2.125rem] shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 transition-colors duration-150',
-              'hover:border-white/15 focus-within:bg-white/[0.08] focus-within:ring-1 focus-within:ring-accent-primary/25',
-            )}
-            title={`Default leverage for ${title}`}
-          >
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Lev</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.5"
-              min={1}
-              max={20}
-              value={defaultLeverage}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                setDefaultLeverage(
-                  Number.isFinite(next) ? Math.min(20, Math.max(1, next)) : 5,
-                );
-              }}
-              className="w-8 min-w-0 bg-transparent text-[12px] font-medium tabular-nums text-fg-primary outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              aria-label={`Default leverage for ${title}`}
-            />
-            <span className="text-[11px] font-medium text-fg-muted">x</span>
-          </label>
           <div className="flex shrink-0 items-center gap-0.5">
             {([1, 2, 3] as const).map((slot) => (
               <button
@@ -185,7 +158,7 @@ export function StocksPulseColumn({
                     height: rowSize,
                   }}
                 >
-                  <StockRow market={market} defaultLeverage={defaultLeverage} />
+                  <StockRow market={market} />
                 </div>
               );
             })}

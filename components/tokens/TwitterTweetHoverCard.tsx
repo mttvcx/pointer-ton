@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
   Bookmark,
-  Calendar,
   Camera,
+  Calendar,
   Eye,
   EyeOff,
   Heart,
@@ -69,8 +69,14 @@ function XGlyph({ className }: { className?: string }) {
 function TwitterTweetHoverShell({ children }: { children: ReactNode }) {
   return (
     <div
-      className="flex w-[360px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-2xl border border-white/[0.08] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.85)]"
-      style={{ backgroundColor: AXIOM_TWITTER_HOVER_PANEL_BG }}
+      className="flex w-[360px] max-w-[calc(100vw-24px)] flex-col overflow-x-hidden overflow-y-auto rounded-2xl border border-white/[0.08] shadow-[0_16px_48px_-8px_rgba(0,0,0,0.85)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      // Cap to the space Radix has before a collision (it already flips/shifts via
+      // collisionPadding) so a tall tweet scrolls inside the card instead of
+      // overflowing the viewport. Fallback for any non-Radix usage.
+      style={{
+        backgroundColor: AXIOM_TWITTER_HOVER_PANEL_BG,
+        maxHeight: 'var(--radix-hover-card-content-available-height, calc(100vh - 24px))',
+      }}
     >
       {children}
     </div>
@@ -81,9 +87,13 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
   const anchorRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovered, setHovered] = useState(false);
-  const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number } | null>(
-    null,
-  );
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = useState<{
+    left: number;
+    width: number;
+    anchorBottom: number;
+  } | null>(null);
+  const [topPx, setTopPx] = useState(0);
 
   const clearHoverTimer = () => {
     if (hoverTimer.current) {
@@ -97,8 +107,21 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
     if (!el || typeof window === 'undefined') return;
     const r = el.getBoundingClientRect();
     const width = Math.min(320, Math.max(r.width * 2.2, 200));
-    setPanelPos({ top: r.bottom + 8, left: r.left, width });
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    setPanelPos({ left, width, anchorBottom: r.bottom });
+    setTopPx(r.bottom + 8); // refined to fit the viewport once the card measures
   }, []);
+
+  // Keep the WHOLE card on screen: open below the anchor, but shift it up only as
+  // much as needed so it never clips at the bottom (lands mid-screen near the
+  // viewport bottom). Runs before paint, so there's no visible jump.
+  useLayoutEffect(() => {
+    if (!hovered || !panelPos || typeof window === 'undefined') return;
+    const h = cardRef.current?.offsetHeight ?? 0;
+    const gap = 8;
+    const maxTop = window.innerHeight - h - gap;
+    setTopPx(Math.max(gap, Math.min(panelPos.anchorBottom + gap, maxTop)));
+  }, [hovered, panelPos]);
 
   const scheduleOpen = () => {
     clearHoverTimer();
@@ -140,16 +163,21 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
     hovered && panelPos && typeof document !== 'undefined'
       ? createPortal(
           <div
-            className="pointer-events-auto fixed z-[280] overflow-hidden rounded-xl border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)]"
-            style={{ top: panelPos.top, left: panelPos.left, width: panelPos.width }}
+            ref={cardRef}
+            className="pointer-events-auto fixed z-[280] overflow-x-hidden overflow-y-auto rounded-xl border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)] [scrollbar-width:none]"
+            style={{
+              top: topPx,
+              left: panelPos.left,
+              width: panelPos.width,
+              maxHeight: 'calc(100vh - 16px)',
+            }}
             data-row-click-skip="true"
             onMouseEnter={scheduleOpen}
             onMouseLeave={scheduleClose}
           >
             <button
               type="button"
-              aria-label="Search image on Google Lens"
-              title="Search image"
+              aria-label="Search this image on Google Lens"
               data-row-click-skip="true"
               onClick={(e) => {
                 e.preventDefault();
@@ -184,13 +212,6 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="" className="block w-full object-cover transition duration-200 group-hover/media:scale-[1.02]" draggable={false} />
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/media:bg-black/30">
-          <Camera
-            className="h-5 w-5 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/media:opacity-100"
-            strokeWidth={2}
-            aria-hidden
-          />
-        </span>
       </div>
       {previewPanel}
     </>

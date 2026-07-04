@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminSupabase } from '@/lib/supabase/server';
+import { isUniqueViolation } from '@/lib/db/pgError';
 import { getPointMultiplierForUser } from '@/lib/db/tiers';
 import type { Json, TablesInsert } from '@/lib/supabase/types';
 import { POINTS_FORMULA_V1, type PointsFormulaEventType } from '@/lib/points/formula';
@@ -150,7 +151,12 @@ export async function awardPoints(
 
   const supabase = createAdminSupabase();
   const { error } = await supabase.from('points_events').insert(row);
-  if (error) throw new Error(`awardPoints insert: ${error.message}`);
+  if (error) {
+    // Concurrent writer already awarded for this dedupe key (unique index on
+    // user_id, event_type, metadata->>'dedupe_key'). Idempotent — never double-award.
+    if (isUniqueViolation(error)) return { skipped: true, reason: 'duplicate' };
+    throw new Error(`awardPoints insert: ${error.message}`);
+  }
   return { skipped: false };
 }
 

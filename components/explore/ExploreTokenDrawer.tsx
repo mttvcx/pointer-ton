@@ -9,8 +9,8 @@ import {
   Copy,
   ExternalLink,
   Sparkles,
-  X,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
@@ -150,14 +150,10 @@ export function ExploreTokenDrawer({
               </button>
             </div>
           </div>
-          <button
-            type="button"
+          <CloseButton
             onClick={onClose}
-            className="rounded-lg p-2 text-fg-muted transition hover:bg-white/[0.05] hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+            label="Close"
+          />
         </header>
 
         <div className="flex shrink-0 flex-wrap gap-2 border-b border-border-subtle bg-bg-sunken/35 px-4 py-3">

@@ -32,6 +32,10 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(out);
   } catch (err) {
+    // Not-found and not-owned are deliberately collapsed (no existence oracle).
+    if (err instanceof Error && err.message === 'alert_not_found') {
+      return NextResponse.json({ error: 'alert_not_found' }, { status: 404 });
+    }
     return aiErrorResponse(err);
   }
 }

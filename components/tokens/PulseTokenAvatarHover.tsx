@@ -19,6 +19,8 @@ import { formatAgeShort, formatCompactUsd } from '@/lib/utils/formatters';
 import { useLiveClock } from '@/lib/hooks/useLiveClock';
 import { resolvePulseTokenImageUrl } from '@/lib/tokens/pulseTokenImageUrl';
 import { useUIStore } from '@/store/ui';
+import { usePulseDisplayPrefsStore } from '@/store/pulseDisplayPrefs';
+import { PulseTokenDetailedHoverCard } from '@/components/tokens/PulseTokenDetailedHoverCard';
 
 function absImageUrl(src: string): string {
   if (src.startsWith('http://') || src.startsWith('https://')) return src;
@@ -117,13 +119,16 @@ export function PulseTokenAvatarHover({
   const activeChain = useUIStore((s) => s.activeChain);
   const { token } = bundle;
   const imageUrl = resolvePulseTokenImageUrl(bundle, activeChain);
+  const detailed = usePulseDisplayPrefsStore((s) => s.tokenHoverDetail);
   const hideToken = usePulseHiddenMintsStore((s) => s.hideToken);
   const blacklistDev = usePulseHiddenMintsStore((s) => s.blacklistDev);
   const blacklistTwitter = usePulseHiddenMintsStore((s) => s.blacklistTwitter);
   const anchorRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovered, setHovered] = useState(false);
-  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
+  const [panelPos, setPanelPos] = useState<{ left: number; top?: number; bottom?: number } | null>(
+    null,
+  );
 
   const twitterHandle = useMemo(
     () => normalizePulseTwitterHandle(token.twitter_handle),
@@ -131,7 +136,7 @@ export function PulseTokenAvatarHover({
   );
 
   const reusedQuery = useReusedImageTokens(imageUrl, token.mint, {
-    enabled: hovered && Boolean(imageUrl),
+    enabled: hovered && !detailed && Boolean(imageUrl),
   });
   const reusedTotal = reusedQuery.data?.total ?? 0;
   const reusedItems = reusedQuery.data?.items ?? [];
@@ -171,12 +176,30 @@ export function PulseTokenAvatarHover({
     else if (key === 'twitter' && twitterHandle) blacklistTwitter(twitterHandle);
   };
 
+  /** Open below the avatar by default; flip ABOVE when there isn't room below and
+   *  there's more room above (so a row near the viewport bottom isn't clipped).
+   *  When flipping, anchor by `bottom` so the panel grows upward regardless of its
+   *  rendered height. Also clamp horizontally so the panel never overflows. */
+  const computePos = useCallback(
+    (r: DOMRect): { left: number; top?: number; bottom?: number } => {
+      const gap = 8;
+      const w = detailed ? 320 : Math.min(280, Math.max(size * 2.4, 160));
+      const estH = detailed ? 300 : w + 28; // detailed card ≈ fixed height; else image ≈ its width
+      const spaceBelow = window.innerHeight - r.bottom;
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+      if (spaceBelow < estH && r.top > spaceBelow) {
+        return { left, bottom: Math.max(8, window.innerHeight - r.top + gap) };
+      }
+      return { left, top: r.bottom + gap };
+    },
+    [size, detailed],
+  );
+
   const syncPanelPos = useCallback(() => {
     const el = anchorRef.current;
     if (!el || typeof window === 'undefined') return;
-    const r = el.getBoundingClientRect();
-    setPanelPos({ top: r.bottom + 8, left: r.left });
-  }, []);
+    setPanelPos(computePos(el.getBoundingClientRect()));
+  }, [computePos]);
 
   const clearHoverTimer = () => {
     if (hoverTimer.current) {
@@ -218,7 +241,7 @@ export function PulseTokenAvatarHover({
     syncPanelPos();
   }, [hovered, syncPanelPos]);
 
-  const previewPx = Math.min(280, Math.max(size * 2.4, 160));
+  const previewPx = detailed ? 320 : Math.min(280, Math.max(size * 2.4, 160));
   const actionBtnPx = Math.max(16, Math.min(20, Math.round(size * 0.34)));
   const iconPx = Math.max(10, Math.round(actionBtnPx * 0.58));
 
@@ -226,28 +249,22 @@ export function PulseTokenAvatarHover({
     if (panelPos) return panelPos;
     const el = anchorRef.current;
     if (!el || typeof window === 'undefined') return null;
-    const r = el.getBoundingClientRect();
-    return { top: r.bottom + 8, left: r.left };
+    return computePos(el.getBoundingClientRect());
   })();
 
-  const previewPanel =
-    hovered && imageUrl && resolvedPanelPos && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className="pointer-events-auto fixed z-[260] overflow-hidden rounded-lg border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)]"
-            style={{
-              top: resolvedPanelPos.top,
-              left: resolvedPanelPos.left,
-              width: previewPx,
-            }}
-            data-row-click-skip="true"
-            onMouseEnter={scheduleOpen}
-            onMouseLeave={scheduleClose}
-          >
+  const detailedContent = (
+    <PulseTokenDetailedHoverCard
+      bundle={bundle}
+      imageUrl={imageUrl}
+      onNavigate={(m) => router.push(`/token/${m}`)}
+    />
+  );
+
+  const imagePreviewContent = imageUrl ? (
+    <div className="overflow-hidden rounded-lg border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)]">
             <button
               type="button"
-              aria-label="Search image on Google Lens"
-              title="Search image"
+              aria-label="Search this image on Google Lens"
               data-row-click-skip="true"
               onClick={(e) => {
                 e.preventDefault();
@@ -298,6 +315,25 @@ export function PulseTokenAvatarHover({
                 <p className="text-[10px] text-white/35">Checking reused images…</p>
               </div>
             ) : null}
+    </div>
+  ) : null;
+
+  const previewPanel =
+    hovered && resolvedPanelPos && (detailed || imageUrl) && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="pointer-events-auto fixed z-[260]"
+            style={{
+              top: resolvedPanelPos.top,
+              bottom: resolvedPanelPos.bottom,
+              left: resolvedPanelPos.left,
+              width: previewPx,
+            }}
+            data-row-click-skip="true"
+            onMouseEnter={scheduleOpen}
+            onMouseLeave={scheduleClose}
+          >
+            {detailed ? detailedContent : imagePreviewContent}
           </div>,
           document.body,
         )
@@ -350,7 +386,7 @@ export function PulseTokenAvatarHover({
             <TooltipContent
               side="left"
               sideOffset={6}
-              className="rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5 text-[11px] font-normal text-white/90 shadow-lg"
+              className="z-[290] rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2.5 py-1.5 text-[11px] font-normal text-white/90 shadow-lg"
             >
               {action.title}
             </TooltipContent>
@@ -374,8 +410,7 @@ export function PulseTokenAvatarHover({
         {imageUrl ? (
           <button
             type="button"
-            aria-label="Search image on Google Lens"
-            title="Search image"
+            aria-label="Search this image on Google Lens"
             data-row-click-skip="true"
             onClick={(e) => {
               e.preventDefault();
@@ -384,9 +419,7 @@ export function PulseTokenAvatarHover({
             }}
             className={cn(
               'absolute inset-0 z-[18] flex items-center justify-center rounded-lg transition-[background-color,opacity] duration-150',
-              hovered
-                ? 'pointer-events-auto bg-black/40'
-                : 'pointer-events-none bg-transparent',
+              hovered ? 'pointer-events-auto bg-black/40' : 'pointer-events-none bg-transparent',
             )}
           >
             <Camera

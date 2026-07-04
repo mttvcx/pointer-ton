@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ExternalLink, Loader2, Shield, Sparkles, UserPlus, X } from 'lucide-react';
+import { ExternalLink, Loader2, Shield, Sparkles, UserPlus } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -100,14 +101,7 @@ export function TraderProfileDrawer({
               @{demo?.handle ?? '—'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-2 text-fg-muted transition hover:bg-white/[0.06] hover:text-fg-primary"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" strokeWidth={2.2} />
-          </button>
+          <CloseButton label="Close" onClick={onClose} />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4">

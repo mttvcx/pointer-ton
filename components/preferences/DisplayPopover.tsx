@@ -137,6 +137,18 @@ export function DisplayPopover({ variant = 'topbar' }: DisplayPopoverProps) {
               />
             </PrefField>
 
+            <PrefField label="AI panel">
+              <SegmentedControl
+                value={prefs.aiPanelStyle}
+                onChange={(v) => setPref('aiPanelStyle', v)}
+                options={[
+                  { value: 'default', label: 'Default' },
+                  { value: 'light', label: 'Light' },
+                  { value: 'glassy', label: 'Glassy' },
+                ]}
+              />
+            </PrefField>
+
             <PrefToggle
               label="Row separators"
               description="Show a hairline between rows."

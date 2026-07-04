@@ -1156,14 +1156,18 @@ function pulseDockWidthClass(
   ultraCompact: boolean,
   filledStyle: Exclude<BuyButtonStyle, 'ultra'>,
 ): string {
+  // Tighter than before so token names flow right up to the V/MC block (Axiom-style)
+  // instead of cutting early against a wide dock. Min unchanged (narrow-column safety);
+  // max + % trimmed to close the empty gap. Kept in lockstep with the reserve below so
+  // the name can never overlap the dock.
   if (ultra) {
     return ultraCompact
-      ? 'w-[clamp(11rem,35%,16rem)]'
-      : 'w-[clamp(7.5rem,32%,14rem)]';
+      ? 'w-[clamp(11rem,31%,13rem)]'
+      : 'w-[clamp(7.5rem,28%,11rem)]';
   }
-  if (filledStyle === 'small') return 'w-[clamp(6.25rem,28%,9.5rem)]';
-  if (filledStyle === 'large') return 'w-[clamp(9.5rem,38%,16.5rem)]';
-  return 'w-[clamp(7.25rem,32%,13.5rem)]';
+  if (filledStyle === 'small') return 'w-[clamp(6.25rem,25%,8rem)]';
+  if (filledStyle === 'large') return 'w-[clamp(9.5rem,32%,12.5rem)]';
+  return 'w-[clamp(7.25rem,28%,10.5rem)]';
 }
 
 function pulseDockReservePadding(
@@ -1171,14 +1175,16 @@ function pulseDockReservePadding(
   ultraCompact: boolean,
   filledStyle: Exclude<BuyButtonStyle, 'ultra'>,
 ): string {
+  // Must stay in lockstep with pulseDockWidthClass above (same clamps + 0.5rem gap)
+  // so the name reserves exactly the dock width and can't overlap the V/MC or buy button.
   if (ultra) {
     return ultraCompact
-      ? 'pr-[calc(clamp(11rem,35%,16rem)+0.5rem)]'
-      : 'pr-[calc(clamp(7.5rem,32%,14rem)+0.5rem)]';
+      ? 'pr-[calc(clamp(11rem,31%,13rem)+0.5rem)]'
+      : 'pr-[calc(clamp(7.5rem,28%,11rem)+0.5rem)]';
   }
-  if (filledStyle === 'small') return 'pr-[calc(clamp(6.25rem,28%,9.5rem)+0.5rem)]';
-  if (filledStyle === 'large') return 'pr-[calc(clamp(9.5rem,38%,16.5rem)+0.5rem)]';
-  return 'pr-[calc(clamp(7.25rem,32%,13.5rem)+0.5rem)]';
+  if (filledStyle === 'small') return 'pr-[calc(clamp(6.25rem,25%,8rem)+0.5rem)]';
+  if (filledStyle === 'large') return 'pr-[calc(clamp(9.5rem,32%,12.5rem)+0.5rem)]';
+  return 'pr-[calc(clamp(7.25rem,28%,10.5rem)+0.5rem)]';
 }
 
 function quickBuyPillSizeClasses(

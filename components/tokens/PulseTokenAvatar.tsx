@@ -106,14 +106,21 @@ function cornerBadgeMetrics(
     emphasis === 'header' ? 18 : avatarPx >= 44 ? 14 : 11;
   const compactIcon =
     protocolId === 'pump.fun' || protocolId === 'mayhem' || protocolId === 'four.meme';
+  // Orca's logo art has heavy built-in padding — render it flush to fill the shell
+  // (matches meteora/bags/pump visual size) instead of a tiny icon deep in the circle.
+  const fillIcon = protocolId === 'orca';
   const iconPx =
     emphasis === 'header'
       ? compactIcon
         ? 10
-        : 14
+        : fillIcon
+          ? 18
+          : 14
       : compactIcon
         ? Math.max(6, shellPx - 5)
-        : shellPx - 2;
+        : fillIcon
+          ? shellPx
+          : shellPx - 2;
   return { shellPx, iconPx };
 }
 
@@ -132,9 +139,9 @@ function cornerBadgeInnerBg(protocolId: ProtocolBrandId): string | undefined {
     case 'moonit':
       return '#eab308';
     case 'orca':
-      return '#eab308';
+      return undefined; // orca logo fills the shell — keep the bg dark so it doesn't clash
     case 'meteora':
-      return '#f97316';
+      return undefined; // meteora logo is orange — dark bg so it pops (was orange-on-orange)
     case 'daos.fun':
       return '#38bdf8';
     case 'bags':
@@ -161,6 +168,8 @@ function LaunchpadCornerBadge({
   const ringColor = cornerBadgeRingColor(chrome.protocolId, isMigrated);
   const innerBg = isMigrated ? undefined : cornerBadgeInnerBg(chrome.protocolId);
   const ringWidth = emphasis === 'header' ? 1.75 : 1;
+  // Orca fills the shell (object-cover, no inset) to defeat its padded logo art.
+  const fillShell = chrome.protocolId === 'orca';
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -173,7 +182,8 @@ function LaunchpadCornerBadge({
       decoding={imagePriority ? 'sync' : 'async'}
       fetchPriority={imagePriority ? 'high' : 'auto'}
       className={cn(
-        'block shrink-0 object-contain',
+        'block shrink-0',
+        fillShell ? 'rounded-full object-cover' : 'object-contain',
         innerBg && 'rounded-full',
       )}
       style={{
@@ -197,7 +207,7 @@ function LaunchpadCornerBadge({
       style={{
         width: shellPx,
         height: shellPx,
-        padding: emphasis === 'header' ? 2 : 1.5,
+        padding: fillShell ? 0 : emphasis === 'header' ? 2 : 1.5,
         boxShadow: `0 0 0 ${ringWidth}px ${ringColor}, 0 0 0 ${ringWidth + 1}px rgba(0,0,0,0.75)`,
         backgroundColor: innerBg ?? '#0a0b0d',
       }}

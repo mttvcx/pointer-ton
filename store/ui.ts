@@ -151,6 +151,10 @@ interface UIState {
   settingsTab: 'general' | 'watchlist';
   setSettingsOpen: (open: boolean) => void;
   openSettings: (tab?: 'general' | 'watchlist') => void;
+  /** Cross-surface trigger to open the wallet ExchangeModal (hosted in Topbar). */
+  exchangeRequest: { tab: 'convert' | 'deposit' | 'withdraw' | 'buy'; nonce: number } | null;
+  requestExchange: (tab?: 'convert' | 'deposit' | 'withdraw' | 'buy') => void;
+  clearExchangeRequest: () => void;
 }
 
 const PANEL_DEFAULT = 380;
@@ -229,6 +233,7 @@ export const useUIStore = create<UIState>()(
       alertRulesModalOpen: false,
       settingsOpen: false,
       settingsTab: 'general',
+      exchangeRequest: null,
 
       setHovered: (entity) => {
         if (sameEntity(entity, get().hoveredEntity)) return;
@@ -365,6 +370,9 @@ export const useUIStore = create<UIState>()(
       setSettingsOpen: (open) => set({ settingsOpen: open }),
       openSettings: (tab = 'general') =>
         set({ settingsOpen: true, settingsTab: tab }),
+      requestExchange: (tab = 'deposit') =>
+        set((s) => ({ exchangeRequest: { tab, nonce: (s.exchangeRequest?.nonce ?? 0) + 1 } })),
+      clearExchangeRequest: () => set({ exchangeRequest: null }),
     }),
     {
       name: 'pointer-ui',

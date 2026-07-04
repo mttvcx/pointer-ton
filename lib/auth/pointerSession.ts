@@ -32,6 +32,8 @@ export interface VerifiedPointerSession {
   /** Same value persisted in `users.privy_id` for TonConnect users (`ton:…`). */
   authSubject: string;
   walletAddress: string;
+  /** JWT issued-at (epoch seconds) — used for session-revocation cutoffs. */
+  iatSeconds?: number;
 }
 
 export async function verifyPointerAccessToken(token: string): Promise<VerifiedPointerSession> {
@@ -42,5 +44,5 @@ export async function verifyPointerAccessToken(token: string): Promise<VerifiedP
   const sub = payload.sub;
   const w = payload.w;
   if (!sub || typeof w !== 'string') throw new Error('invalid session token');
-  return { authSubject: sub, walletAddress: w };
+  return { authSubject: sub, walletAddress: w, iatSeconds: payload.iat };
 }

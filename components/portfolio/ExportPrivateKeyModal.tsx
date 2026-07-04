@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useGetWalletPrivateKey, usePrivy } from '@privy-io/react-auth';
-import { Copy, Eye, EyeOff, Loader2, TriangleAlert, X } from 'lucide-react';
+import { Copy, Eye, EyeOff, Loader2, TriangleAlert } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
@@ -191,15 +192,13 @@ export function ExportPrivateKeyModal({
           <h2 id="export-private-key-title" className="text-center text-[17px] font-semibold tracking-tight text-fg-primary">
             {title}
           </h2>
-          <button
-            type="button"
+          <CloseButton
             disabled={busy}
             onClick={onClose}
-            className="btn-press focus-ring absolute right-3 top-3 rounded-md p-1 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary disabled:opacity-40"
-            aria-label="Close"
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
+            label="Close"
+            size="sm"
+            className="absolute right-3 top-3"
+          />
         </div>
 
         <div className="space-y-4 px-5 pb-5 pt-2">

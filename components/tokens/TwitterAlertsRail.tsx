@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { X } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { ALERT_TYPE_TWITTER_LISTEN } from '@/lib/alerts/alertRuleModel';
 import { isUiDemoMode } from '@/lib/dev/uiDemoMode';
 import type { AlertsTickerItem } from '@/lib/hooks/useAlertsTicker';
@@ -74,7 +74,7 @@ const MOCK_TWITTER_ALERTS: AlertsTickerItem[] = [
 
 export function TwitterAlertsRail({ dock }: { dock: 'left' | 'right' }) {
   const activeChain = useUIStore((s) => s.activeChain);
-  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: true });
+  const { data, isFetching } = useAlertsTickerQuery({ pollAggressively: false });
   const setRailSide = usePulseTwitterRailStore((s) => s.setSide);
 
   const serverRows = useMemo(() => {
@@ -127,15 +127,12 @@ export function TwitterAlertsRail({ dock }: { dock: 'left' | 'right' }) {
               {rows.length}
               {mock ? <span className="sr-only">mock rows</span> : null}
             </span>
-            <button
-              type="button"
+            <CloseButton
               title="Hide X listens rail"
-              aria-label="Hide X listens rail"
+              label="Hide X listens rail"
+              size="sm"
               onClick={() => setRailSide('hidden')}
-              className="btn-press flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            </button>
+            />
           </div>
         </div>
         <p className="mt-1 text-[9px] leading-snug text-fg-muted/90">

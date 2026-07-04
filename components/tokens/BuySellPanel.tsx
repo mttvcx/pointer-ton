@@ -42,6 +42,7 @@ import {
   uiToRaw,
 } from '@/lib/utils/formatters';
 import type { TokenMarketSnapshotRow } from '@/lib/db/tokens';
+import { useAutoSellStore } from '@/store/autoSell';
 import type { TokenExtendedMetrics } from '@/lib/types/tokenExtendedMetrics';
 import { useTokenExtendedMetrics } from '@/lib/hooks/useTokenExtendedMetrics';
 import {
@@ -229,6 +230,28 @@ export function BuySellPanel({
 
   const [limitMcSliderPct, setLimitMcSliderPct] = useState(0);
   const [advStrategy, setAdvStrategy] = useState<AdvStrategyId>('migration');
+  const [trailPct, setTrailPct] = useState(10);
+  const trailArmedCount = useAutoSellStore(
+    (s) => s.rules.filter((r) => r.trigger.type === 'trailing_stop' && r.tokenScope.kind === 'mint' && r.tokenScope.mint === mint).length,
+  );
+
+  const armTrailingStop = useCallback(() => {
+    const pct = Math.min(90, Math.max(0.5, trailPct));
+    const sym = symbol?.trim() || mint.slice(0, 6);
+    useAutoSellStore.getState().addRule({
+      id: crypto.randomUUID(),
+      enabled: true,
+      name: `Trailing ${pct}% · ${sym}`,
+      tokenScope: { kind: 'mint', mint },
+      trigger: { type: 'trailing_stop', trailPct: pct },
+      sellPct: 100,
+      walletScope: 'primary',
+    });
+    useAutoSellStore.getState().setPrefs({ autoSellEnabled: true });
+    toast.success('Trailing stop armed', {
+      description: `Auto-sell ${sym} if it drops ${pct}% from its peak.`,
+    });
+  }, [trailPct, symbol, mint]);
   const [devSellMinPct, setDevSellMinPct] = useState('');
   const [trailDropPct, setTrailDropPct] = useState('30');
   const [dcaSlices, setDcaSlices] = useState('5');
@@ -1166,6 +1189,45 @@ export function BuySellPanel({
                 {label}
               </button>
             ))}
+          </div>
+        ) : null}
+
+        {panelMode === 'advanced' && advStrategy === 'trail_sl' ? (
+          <div className="space-y-2 rounded-md border border-border-subtle bg-bg-raised p-2.5">
+            <p className="text-[10px] leading-snug text-fg-muted">
+              The stop rises with the price and auto-sells your full position when it drops below the
+              peak — locks in winners, no round-tripping.
+            </p>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-fg-secondary">
+                Trail % below peak
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                min={0.5}
+                max={90}
+                value={trailPct}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setTrailPct(Number.isFinite(n) ? n : 0);
+                }}
+                className="w-full rounded-md border border-border-subtle bg-bg-sunken px-2 py-1.5 text-[13px] tabular-nums text-fg-primary outline-none focus:border-accent-primary/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={armTrailingStop}
+              className="btn-press w-full rounded-md bg-accent-primary py-2 text-[12px] font-bold text-white transition hover:brightness-110"
+            >
+              Arm trailing stop
+            </button>
+            {trailArmedCount > 0 ? (
+              <p className="text-center text-[10px] text-signal-bull">
+                {trailArmedCount} trailing stop{trailArmedCount > 1 ? 's' : ''} armed on this token
+              </p>
+            ) : null}
           </div>
         ) : null}
 

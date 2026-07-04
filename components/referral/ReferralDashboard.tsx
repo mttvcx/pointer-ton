@@ -18,8 +18,8 @@ import {
   TrendingUp,
   Users,
   Wallet,
-  X,
 } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { toast } from 'sonner';
 import { formatNumber, formatRelativeTime } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
@@ -444,14 +444,10 @@ export function ReferralDashboard({ className }: { className?: string }) {
                   Share the link — serious traders only. No points for spam posting.
                 </p>
               </div>
-              <button
-                type="button"
-                className="focus-ring rounded-lg border border-white/10 p-2 text-fg-muted transition hover:bg-bg-hover hover:text-fg-primary"
+              <CloseButton
                 onClick={() => setShareOpen(false)}
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
+                label="Close"
+              />
             </div>
             <div className="mt-5 whitespace-pre-line rounded-xl border border-white/[0.08] bg-bg-sunken/80 p-4 text-[11px] leading-relaxed text-fg-secondary ring-1 ring-white/[0.04]">
               {xShareMessage}
