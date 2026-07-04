@@ -19,8 +19,34 @@ export type WalletTrackerTradeToastPayload = {
   mcLabel: string;
   /** Age chip on avatar — "4m", "17h", … */
   ageLabel: string;
+  /** Launchpad protocol for the corner badge: 'pump' | 'pump_migrated' (gold) | 'bonk' | 'bags' | … */
+  protocol?: string | null;
   metaSuffix?: string;
 };
+
+/** Corner protocol badge — pump.fun icon, gold ring once migrated, initial for others. */
+function ProtocolBadge({ protocol }: { protocol?: string | null }) {
+  const p = (protocol ?? 'pump').toLowerCase();
+  const migrated = p === 'pump_migrated' || p === 'migrated' || p === 'raydium' || p === 'pumpswap';
+  const isPump = p === 'pump' || p === 'pumpfun' || p === 'pump.fun' || migrated;
+  return (
+    <span
+      className={cn(
+        'absolute -bottom-1 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border bg-bg-base/95',
+        migrated ? 'border-amber-400/80 ring-1 ring-amber-400/45' : 'border-signal-bull/35',
+      )}
+      title={migrated ? 'pump.fun · migrated' : isPump ? 'pump.fun' : p}
+      aria-hidden
+    >
+      {isPump ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src="/icons/pumpfun.webp" alt="" width={10} height={10} className="h-2.5 w-2.5 object-contain" />
+      ) : (
+        <span className="text-[7px] font-bold uppercase text-fg-secondary">{p.slice(0, 1)}</span>
+      )}
+    </span>
+  );
+}
 
 export function WalletTrackerTradeToast({
   toastId,
@@ -69,13 +95,7 @@ export function WalletTrackerTradeToast({
           >
             {payload.ageLabel}
           </span>
-          <span
-            className="absolute -bottom-1 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-signal-bull/35 bg-bg-base/95"
-            aria-hidden
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/pumpfun.webp" alt="" width={10} height={10} className="h-2.5 w-2.5 object-contain" />
-          </span>
+          <ProtocolBadge protocol={payload.protocol} />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -109,7 +129,8 @@ export function WalletTrackerTradeToast({
               )}
             </button>
 
-            <CloseButton onClick={() => toast.dismiss(toastId)} label="Dismiss" size="sm" className="shrink-0" />
+            {/* Axiom-style: closing one collapses the whole stack. */}
+            <CloseButton onClick={() => toast.dismiss()} label="Dismiss all" size="sm" className="shrink-0" />
           </div>
 
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0 text-[11px] leading-snug">

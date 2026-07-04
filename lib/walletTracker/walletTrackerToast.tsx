@@ -35,6 +35,7 @@ function demoPayload(side: TradeSide): WalletTrackerTradeToastPayload {
       solAmount: '0.9043',
       mcLabel: '$12.4K',
       ageLabel: '4m',
+      protocol: 'pump',
       metaSuffix: 'demo ping',
     };
   }
@@ -48,6 +49,7 @@ function demoPayload(side: TradeSide): WalletTrackerTradeToastPayload {
     solAmount: '0.421',
     mcLabel: '$18.9K',
     ageLabel: '17h',
+    protocol: 'pump_migrated',
     metaSuffix: 'demo ping',
   };
 }
