@@ -158,7 +158,9 @@ export const PULSE_DAS_FALLBACK_POLL_OWNER =
  * Pulled from public docs; verify before going to mainnet for fees. */
 export const LAUNCHPAD_PROGRAM_IDS = {
   pumpFun: '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
-  bags: 'BSfTAhiifGCG9wftxQp7DjPkBkwjFxNsoEjr3iJYhyR8',
+  /** Bags Fee Share V2 (current). Bags builds on Meteora DBC/DAMM, so the reliable
+   *  launchpad signal is the "BAGS" mint suffix. https://docs.bags.fm/principles/program-ids */
+  bags: 'FEE2tBhCKAt7shrod19QttSVREUYPiyMzoku1mL1gqVK',
   printr: 'Pr1NTtR67xZJaR5JG7nT4CMhGwDFqpzN5JhtXXn8nEM',
   moonshot: 'MoonCVVNZFSYkqNXP6bxHLPL6QQJiMagDL3qcqUQTrG',
   /** Raydium LaunchLab / LetsBonk. */

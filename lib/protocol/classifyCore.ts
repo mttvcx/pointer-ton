@@ -221,6 +221,17 @@ function buildResult(partial: Partial<TokenClassification> & { classification_so
 export function classifyTokenProtocol(input: ClassifierInput): TokenClassification {
   const chain_id = inferChainId(input.mint, input.gecko_network, input.launch_pad);
 
+  // Bags launchpad — mints carry a "BAGS" vanity suffix (like pump.fun's "pump").
+  // Bags builds ON TOP of Meteora DBC/DAMM (programs dbcij3…/cpamdp…), so the pool
+  // and dex-id read as "meteora"; the suffix is the reliable launchpad signal and
+  // must win over the AMM-based classification. https://docs.bags.fm/principles/program-ids
+  if (chain_id === 'sol' && input.mint.toLowerCase().endsWith('bags')) {
+    return buildResult(
+      { protocol_id: 'bags', classification_source: 'helius_das_uri', source_confidence: CONF.DAS_URI },
+      input,
+    );
+  }
+
   if (input.migrated_at) {
     const origin = inferLaunchPadProtocol(input.launch_pad);
     const dex = migrationDexProtocol(input.migrated_to ?? null);
