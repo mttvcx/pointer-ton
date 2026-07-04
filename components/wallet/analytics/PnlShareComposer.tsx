@@ -440,7 +440,7 @@ export function PnlShareComposer() {
         aria-modal="true"
         aria-labelledby="pnl-share-title"
         className={cn(
-          'relative z-10 flex max-h-[92vh] w-full max-w-[720px] flex-col gap-3 overflow-y-auto overflow-x-hidden fill-mode-forwards [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          'relative z-10 flex max-h-[90vh] w-full max-w-[560px] flex-col gap-2.5 overflow-y-auto overflow-x-hidden fill-mode-forwards [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           overlayPanelClasses(overlayVisible),
         )}
         onClick={(e) => e.stopPropagation()}

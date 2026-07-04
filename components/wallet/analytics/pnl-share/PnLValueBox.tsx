@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import { PnlMomentAmount, type PnlMomentBasis } from '@/components/wallet/analytics/PnlMomentAmount';
+import { SolGlyph } from '@/components/chains/SolGlyph';
 import { ChromePanel } from '@/components/wallet/analytics/pnl-share/ChromePanel';
 import { MetallicText } from '@/components/wallet/analytics/pnl-share/MetallicText';
 import type { OverlayAccent, ShareBackgroundPresetId } from '@/lib/share/types';
@@ -73,15 +74,19 @@ export function PnLValueBox({
         </MetallicText>
       )}
       {tokenLabel ? (
-        <MetallicText
-          variant="title"
-          theme={theme}
-          accent={accent}
-          className="shrink-0 font-mono font-bold tabular-nums uppercase leading-none opacity-95"
-          style={{ fontSize: fittedTokenSize }}
-        >
-          {tokenLabel}
-        </MetallicText>
+        tokenLabel.toUpperCase() === 'SOL' ? (
+          <SolGlyph size={Math.round(fittedTokenSize * 0.92)} className="shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.5)]" />
+        ) : (
+          <MetallicText
+            variant="title"
+            theme={theme}
+            accent={accent}
+            className="shrink-0 font-mono font-bold tabular-nums uppercase leading-none opacity-95"
+            style={{ fontSize: fittedTokenSize }}
+          >
+            {tokenLabel}
+          </MetallicText>
+        )
       ) : null}
     </>
   );
