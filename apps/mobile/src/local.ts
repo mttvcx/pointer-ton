@@ -149,6 +149,7 @@ export const useNotifPrefs = () => useSyncExternalStore(subscribe, () => notif);
 // Demo persistence (in-memory). The rule UI + store are real; live firing wires
 // to the real trade path + alerts stream with the dev build.
 export type RuleTrigger = 'x_ca' | 'x_keyword' | 'tracked_wallet' | 'price' | 'image_match';
+export type RuleChain = 'sol' | 'eth' | 'base' | 'bnb';
 export type AutoRule = {
   id: number;
   trigger: RuleTrigger;
@@ -157,6 +158,8 @@ export type AutoRule = {
   cooldownSec: number;
   dailyCapSol: number;
   enabled: boolean;
+  /** Which chain the auto-buy fills on (defaults to sol). */
+  chain?: RuleChain;
 };
 let killSwitch = false;
 let ruleSeq = 3;

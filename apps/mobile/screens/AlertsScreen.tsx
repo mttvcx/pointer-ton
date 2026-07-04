@@ -9,6 +9,7 @@ import { GlossButton } from '../components/GlossButton';
 import { DragSheet } from '../components/DragSheet';
 import { PickerSheet } from '../components/PickerSheet';
 import { SolAmount } from '../components/SolAmount';
+import { ChainIcon } from '../components/ChainIcon';
 import { colors, radius } from '../src/theme';
 import { shortMint } from '../src/format';
 import {
@@ -22,7 +23,15 @@ import {
   useKillSwitch,
   setKillSwitch,
   type RuleTrigger,
+  type RuleChain,
 } from '../src/local';
+
+const CHAINS: { id: RuleChain; label: string }[] = [
+  { id: 'sol', label: 'Solana' },
+  { id: 'eth', label: 'Ethereum' },
+  { id: 'base', label: 'Base' },
+  { id: 'bnb', label: 'BNB' },
+];
 import {
   TRACKED_WALLETS,
   POPULAR_WALLETS,
@@ -162,9 +171,18 @@ export function AlertsScreen() {
                     <Text style={s.rowTitle} numberOfLines={1}>
                       {t.label} · {r.target}
                     </Text>
-                    <Text style={s.rowDesc} numberOfLines={1}>
-                      {r.buySol > 0 ? `Auto-buy ${r.buySol} SOL · ${r.cooldownSec}s · ${r.dailyCapSol}/day cap` : 'Notify only'}
-                    </Text>
+                    {r.buySol > 0 ? (
+                      <View style={s.ruleMetaRow}>
+                        <ChainIcon id={r.chain ?? 'sol'} size={13} />
+                        <Text style={s.rowDesc} numberOfLines={1}>
+                          Auto-buy {r.buySol} · {r.cooldownSec}s · {r.dailyCapSol}/day cap
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={s.rowDesc} numberOfLines={1}>
+                        Notify only
+                      </Text>
+                    )}
                   </View>
                   <Switch
                     value={r.enabled}
@@ -212,6 +230,7 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [buySol, setBuySol] = useState(0.1);
   const [cooldown, setCooldown] = useState(30);
   const [cap, setCap] = useState(5);
+  const [chain, setChain] = useState<RuleChain>('sol');
 
   const reset = () => {
     setTrigger('x_ca');
@@ -221,6 +240,7 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
     setBuySol(0.1);
     setCooldown(30);
     setCap(5);
+    setChain('sol');
     setPicker(null);
   };
   const onTrigger = (k: RuleTrigger) => {
@@ -244,7 +264,7 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
     else if (trigger === 'tracked_wallet') display = targetLabel || shortMint(t);
     else if (trigger === 'x_ca') display = '@' + normalizeHandle(t);
     else display = sanitizeText(t); // x_keyword
-    addRule({ trigger, target: display, buySol, cooldownSec: cooldown, dailyCapSol: cap, enabled: true });
+    addRule({ trigger, target: display, buySol, cooldownSec: cooldown, dailyCapSol: cap, enabled: true, chain: buySol > 0 ? chain : undefined });
     reset();
     onClose();
   };
@@ -311,7 +331,42 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
           ) : (
             <>
               <Text style={s.fieldLabel}>X account</Text>
-              <SelectButton label={targetLabel || 'Choose @handle'} set={Boolean(targetLabel)} onPress={() => setPicker('handle')} />
+              <View style={s.handleInputRow}>
+                <Text style={s.atSign}>@</Text>
+                <TextInput
+                  value={target}
+                  onChangeText={(v) => {
+                    const h = normalizeHandle(v);
+                    setTarget(h);
+                    setTargetLabel(h ? '@' + h : '');
+                  }}
+                  placeholder="handle"
+                  placeholderTextColor={colors.fgFaint}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={s.handleInput}
+                />
+                <PressScale onPress={() => setPicker('handle')} hitSlop={8} to={0.9}>
+                  <Ionicons name="list-outline" size={18} color={colors.fgMuted} />
+                </PressScale>
+              </View>
+              {t.length > 0 && !valid ? <Text style={s.errHint}>Letters, numbers and _ only (max 15).</Text> : null}
+              <View style={s.handleChips}>
+                {POPULAR_HANDLES.slice(0, 4).map((h) => (
+                  <PressScale
+                    key={h.value}
+                    onPress={() => {
+                      const hh = normalizeHandle(h.value);
+                      setTarget(hh);
+                      setTargetLabel('@' + hh);
+                    }}
+                    to={0.94}
+                    style={s.handleChip}
+                  >
+                    <Text style={s.handleChipText}>@{normalizeHandle(h.value)}</Text>
+                  </PressScale>
+                ))}
+              </View>
             </>
           )}
 
@@ -333,6 +388,18 @@ function RuleBuilder({ visible, onClose }: { visible: boolean; onClose: () => vo
 
           {buySol > 0 ? (
             <>
+              <Text style={s.fieldLabel}>Chain</Text>
+              <View style={s.chips}>
+                {CHAINS.map((c) => {
+                  const on = c.id === chain;
+                  return (
+                    <PressScale key={c.id} onPress={() => setChain(c.id)} to={0.94} style={[s.chainChip, on && s.chipOn]}>
+                      <ChainIcon id={c.id} size={16} />
+                      <Text style={[s.chipText, on && s.chipTextOn]}>{c.label}</Text>
+                    </PressScale>
+                  );
+                })}
+              </View>
               <Text style={s.fieldLabel}>Cooldown</Text>
               <View style={s.chips}>
                 {COOLDOWNS.map((c) => (
@@ -446,9 +513,17 @@ const s = StyleSheet.create({
   input: { backgroundColor: colors.bgRaised, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12, color: colors.fg, fontSize: 15 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: colors.bgRaised, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: colors.border },
+  chainChip: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.bgRaised, borderRadius: radius.pill, paddingLeft: 9, paddingRight: 13, paddingVertical: 8, borderWidth: 1, borderColor: colors.border },
   chipOn: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   chipText: { color: colors.fgSecondary, fontSize: 13, fontWeight: '600' },
   chipTextOn: { color: colors.accentGlow },
+  ruleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  handleInputRow: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.bgRaised, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 4 },
+  atSign: { color: colors.fgMuted, fontSize: 16, fontWeight: '600' },
+  handleInput: { flex: 1, color: colors.fg, fontSize: 15, paddingVertical: 9 },
+  handleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
+  handleChip: { backgroundColor: colors.bgRaised2, borderRadius: radius.pill, paddingHorizontal: 11, paddingVertical: 6 },
+  handleChipText: { color: colors.fgSecondary, fontSize: 12.5, fontWeight: '600' },
   saveBtn: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 22 },
   saveText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 });

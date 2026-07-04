@@ -2,9 +2,9 @@ import React from 'react';
 import { Image, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import { colors } from '../src/theme';
 
-/** The real Solana logo (raster asset shipped in assets/crypto). Same file the
- * login screen uses — guaranteed to exist, so the bundler is happy. */
-const SOL_MARK = require('../assets/crypto/sol.png');
+/** Flat Solana logo (assets/chains) — the clean inline mark, NOT the 3D coin
+ * render (assets/crypto) the login screen uses. Reads as a glyph next to a number. */
+const SOL_MARK = require('../assets/chains/sol.png');
 
 /**
  * Compact number formatting that drops trailing-zero noise: 0.5, 1, 0.05, 1.25.
