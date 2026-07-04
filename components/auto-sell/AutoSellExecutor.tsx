@@ -77,6 +77,8 @@ export function AutoSellExecutor() {
   const ruleLastFire = useRef<Map<string, number>>(new Map());
   const inFlight = useRef<Set<string>>(new Set());
   const positionOpenedAt = useRef<Map<string, number>>(new Map());
+  /** Running high-water-mark MC per mint since the position opened (trailing stops). */
+  const peakMcByMint = useRef<Map<string, number>>(new Map());
 
   const runAutoSell = useCallback(
     async (input: {
@@ -177,14 +179,25 @@ export function AutoSellExecutor() {
     if (positions.length === 0) return;
 
     const now = Date.now();
+    const heldMints = new Set(positions.map((p) => p.mint));
     for (const p of positions) {
       if (!positionOpenedAt.current.has(p.mint)) {
         positionOpenedAt.current.set(p.mint, now);
       }
     }
+    // Forget state for mints no longer held so a re-buy trails from a fresh peak.
+    for (const m of positionOpenedAt.current.keys()) {
+      if (!heldMints.has(m)) positionOpenedAt.current.delete(m);
+    }
+    for (const m of peakMcByMint.current.keys()) {
+      if (!heldMints.has(m)) peakMcByMint.current.delete(m);
+    }
 
     const needsMc = activeRules.some(
-      (r) => r.trigger.type === 'mc_milestone' || r.trigger.type === 'stop_loss_mc',
+      (r) =>
+        r.trigger.type === 'mc_milestone' ||
+        r.trigger.type === 'stop_loss_mc' ||
+        r.trigger.type === 'trailing_stop',
     );
     const mcByMint = needsMc
       ? await fetchMarketCaps(
@@ -192,6 +205,15 @@ export function AutoSellExecutor() {
           getAccessToken,
         )
       : new Map<string, number | null>();
+
+    // Update the trailing high-water mark for every held mint.
+    for (const pos of positions) {
+      const mc = mcByMint.get(pos.mint);
+      if (mc != null && Number.isFinite(mc)) {
+        const prev = peakMcByMint.current.get(pos.mint) ?? 0;
+        if (mc > prev) peakMcByMint.current.set(pos.mint, mc);
+      }
+    }
 
     for (const rule of activeRules) {
       for (const pos of positions) {
@@ -204,6 +226,7 @@ export function AutoSellExecutor() {
           unrealizedPnlUsd: pos.unrealizedPnlUsd,
           marketCapUsd: mcByMint.get(pos.mint) ?? null,
           positionOpenedAtMs: positionOpenedAt.current.get(pos.mint) ?? null,
+          peakMcUsd: peakMcByMint.current.get(pos.mint) ?? null,
         };
 
         if (!evaluateAutoSellTrigger(rule.trigger, evalInput, now)) continue;

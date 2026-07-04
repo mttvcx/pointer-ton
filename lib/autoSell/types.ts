@@ -6,7 +6,9 @@ export type AutoSellTrigger =
   | { type: 'mc_milestone'; targetMcUsd: number }
   | { type: 'pct_gain'; gainPct: number }
   | { type: 'time_elapsed'; minutes: number }
-  | { type: 'stop_loss_mc'; mcUsd: number };
+  | { type: 'stop_loss_mc'; mcUsd: number }
+  /** Trailing stop: the stop rises with the peak; sell when price drops `trailPct` below the highest seen. */
+  | { type: 'trailing_stop'; trailPct: number };
 
 /** Wallet routing — only primary is supported in v1. */
 export type AutoSellWalletScope = 'primary';

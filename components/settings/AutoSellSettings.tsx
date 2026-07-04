@@ -172,6 +172,28 @@ export function AutoSellSettings() {
             />
           </label>
         );
+      case 'trailing_stop':
+        return (
+          <label className="block space-y-1">
+            <span className="text-[11px] text-white/50">Trail % below the peak</span>
+            <NumberInput
+              value={t.trailPct}
+              onChange={(n) =>
+                setDraft((d) =>
+                  d
+                    ? { ...d, trigger: { type: 'trailing_stop', trailPct: n } }
+                    : { ...editing, trigger: { type: 'trailing_stop', trailPct: n } },
+                )
+              }
+              min={0.5}
+              max={90}
+              step={0.5}
+            />
+            <span className="text-[10px] text-white/35">
+              The stop rises with the price; sells if it drops this % from the highest point.
+            </span>
+          </label>
+        );
       default:
         return null;
     }
@@ -204,6 +226,9 @@ export function AutoSellSettings() {
         break;
       case 'time_elapsed':
         trigger = { type: 'time_elapsed', minutes: 30 };
+        break;
+      case 'trailing_stop':
+        trigger = { type: 'trailing_stop', trailPct: 10 };
         break;
       default:
         trigger = { type: 'pct_gain', gainPct: 50 };
@@ -377,6 +402,7 @@ export function AutoSellSettings() {
               <option value="mc_milestone">MC milestone</option>
               <option value="time_elapsed">Time elapsed</option>
               <option value="stop_loss_mc">Stop-loss MC</option>
+              <option value="trailing_stop">Trailing stop loss</option>
             </select>
           </label>
 
