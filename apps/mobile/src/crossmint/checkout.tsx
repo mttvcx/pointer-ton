@@ -28,6 +28,12 @@ export type CrossmintCheckoutProps = {
 function PhaseWatcher({ onCompleted, onFailed }: { onCompleted: (o: unknown) => void; onFailed?: () => void }) {
   const { order } = useCrossmintCheckout();
   useEffect(() => {
+    // TEMP staging diagnostics — dump the full order so we can read Crossmint's
+    // actual failure reason (payload/quote/token-support) in the metro terminal.
+    if (order) {
+      // eslint-disable-next-line no-console
+      console.log('[crossmint] order →', JSON.stringify(order, null, 2));
+    }
     const phase = (order as { phase?: string } | undefined)?.phase;
     if (phase === 'completed') onCompleted(order);
     else if (phase === 'failed') onFailed?.();

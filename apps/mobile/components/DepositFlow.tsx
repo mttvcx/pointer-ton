@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
@@ -11,11 +11,15 @@ import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
 import { Slide } from './Slide';
 import { colors, radius } from '../src/theme';
-import { getLiveTokens, getOnramperUrl } from '../src/api/endpoints';
+import { getLiveTokens, getOnramperUrl, createCrossmintOrder } from '../src/api/endpoints';
 import { showToast } from '../src/toast';
 import { compactUsd, priceUsd, pseudoChange } from '../src/format';
 import { useAuth } from '../src/auth';
-import type { PulseBundle } from '../src/types';
+import { CROSSMINT_READY, CrossmintBuy } from '../src/crossmint';
+import type { PulseBundle, ChainId } from '../src/types';
+
+/** Apple Pay (fiat) buys have a $5 minimum; spending an existing USDC balance has no min. */
+const FIAT_MIN = 5;
 
 type Step = 'choose' | 'pickToken' | 'payToken' | 'depositCash' | 'cryptoNetwork' | 'cryptoAddress';
 
@@ -53,8 +57,13 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
   const [picked, setPicked] = useState<PulseBundle | null>(null);
   const [network, setNetwork] = useState('Solana');
   const [dir, setDir] = useState(1);
+  // Apple Pay buy phase for the payToken step (server order → native sheet → done).
+  const [buyPhase, setBuyPhase] = useState<'idle' | 'processing' | 'checkout'>('idle');
+  const [order, setOrder] = useState<{ orderId: string; clientSecret: string } | null>(null);
   const go = (st: Step, d = 1) => {
     setDir(d);
+    setBuyPhase('idle');
+    setOrder(null);
     setStep(st);
   };
 
@@ -66,8 +75,40 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
       setAmount('0');
       setQuery('');
       setPicked(null);
+      setBuyPhase('idle');
+      setOrder(null);
     }
   }, [visible]);
+
+  // Apple Pay → token, via a SERVER-created Crossmint order (onramp can't create
+  // it client-side). $5 fiat minimum; delivered to the user's wallet on that chain.
+  const buyChain = (picked?.token.chain ?? 'sol') as ChainId;
+  const buyRecipient = buyChain === 'sol' ? auth.walletAddress : auth.evmAddress;
+  const startBuy = async () => {
+    if (!picked) return;
+    if ((Number(amount) || 0) < FIAT_MIN) {
+      showToast(`$${FIAT_MIN} minimum to buy with Apple Pay`, { kind: 'info' });
+      return;
+    }
+    if (!CROSSMINT_READY || !buyRecipient) {
+      showToast('One-tap Apple Pay buy is almost here', { kind: 'info' });
+      return;
+    }
+    setBuyPhase('processing');
+    try {
+      const res = await createCrossmintOrder({ chain: buyChain, mint: picked.token.mint, amountUsd: amount, recipient: buyRecipient });
+      if (!res.configured || !res.orderId || !res.clientSecret) {
+        setBuyPhase('idle');
+        showToast('One-tap Apple Pay buy is almost here', { kind: 'info' });
+        return;
+      }
+      setOrder({ orderId: res.orderId, clientSecret: res.clientSecret });
+      setBuyPhase('checkout');
+    } catch {
+      setBuyPhase('idle');
+      showToast("Couldn't start the purchase", { sub: 'Please try again in a moment', kind: 'error' });
+    }
+  };
 
   const tokens = useMemo(() => {
     const all = (q.data ?? []).filter((b) => b.token.mint !== USDC_MINT);
@@ -174,14 +215,38 @@ export function DepositFlow({ visible, onClose }: { visible: boolean; onClose: (
           <Text style={s.amount}>${amount}</Text>
           <Text style={s.amountSub}>$0 fee on your first buy · delivered to your wallet</Text>
           <Presets values={[50, 100, 500, 1500]} amount={amount} onPick={setAmount} />
-          {/* One-tap Apple Pay → token needs a server-created order (embedded
-              onramp can't create it client-side); that flow is being finished, so
-              we don't render the raw checkout here. */}
-          <Keypad onPress={press} />
-          <PressScale style={s.payBtn} onPress={() => showToast('One-tap Apple Pay buy is almost here', { kind: 'info' })}>
-            <Ionicons name="logo-apple" size={20} color="#000" />
-            <Text style={s.payText}>Pay</Text>
-          </PressScale>
+          {buyPhase === 'checkout' && order ? (
+            <View style={s.checkoutWrap}>
+              <CrossmintBuy
+                orderId={order.orderId}
+                clientSecret={order.clientSecret}
+                onCompleted={() => {
+                  showToast(`Bought $${amount} of ${(picked.token.symbol ?? '').replace(/^\$/, '') || 'your token'}`, {
+                    sub: 'Delivered to your wallet',
+                    kind: 'success',
+                  });
+                  onClose();
+                }}
+                onFailed={() => {
+                  setBuyPhase('idle');
+                  showToast('Payment not completed', { kind: 'error' });
+                }}
+              />
+            </View>
+          ) : buyPhase === 'processing' ? (
+            <View style={s.processing}>
+              <ActivityIndicator color={colors.accent} />
+              <Text style={s.processingText}>Setting up Apple Pay…</Text>
+            </View>
+          ) : (
+            <>
+              <Keypad onPress={press} />
+              <PressScale style={s.payBtn} onPress={startBuy}>
+                <Ionicons name="logo-apple" size={20} color="#000" />
+                <Text style={s.payText}>Pay</Text>
+              </PressScale>
+            </>
+          )}
         </View>
       ) : step === 'depositCash' ? (
         <View style={s.pb}>
@@ -368,6 +433,9 @@ const s = StyleSheet.create({
 
   payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 16, marginTop: 14 },
   payText: { color: '#000', fontSize: 18, fontWeight: '600' },
+  checkoutWrap: { marginTop: 18, minHeight: 140 },
+  processing: { alignItems: 'center', gap: 12, paddingVertical: 40 },
+  processingText: { color: colors.fgMuted, fontSize: 14 },
   noteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 },
   note: { color: colors.fgMuted, fontSize: 13 },
   continueBtn: { backgroundColor: colors.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 },
