@@ -49,6 +49,8 @@ const MIN_PANEL_H = 300;
 const EDGE_GHOST_W_PX = 72;
 const BODY_GUTTER_PX = 10;
 const BODY_GUTTER_EXTRA_PX = 10;
+/** Collapsed width of the co-pilot rail (mirrors RAIL_PX in AICopilotPanel). */
+const COPILOT_RAIL_PX = 44;
 
 function DockPeekWidthHandle({
   edge,
@@ -179,6 +181,12 @@ function GripDots() {
 export function DockWalletTrackerFloatingPanel() {
   const pathname = usePathname();
   const activeChain = useUIStore((s) => s.activeChain);
+  // Co-pilot right rail — offset the dock so it sits beside it, not under it.
+  const copilotOpen = useUIStore((s) => s.panelOpen);
+  const copilotDetached = useUIStore((s) => s.copilotDetached);
+  const copilotRailSide = useUIStore((s) => s.copilotRailSide);
+  const copilotCollapsed = useUIStore((s) => s.panelCollapsed);
+  const copilotWidth = useUIStore((s) => s.panelWidth);
   const open = useTokenDockPeekStore((s) => s.walletPeekOpen);
   const setOpen = useTokenDockPeekStore((s) => s.setWalletPeekOpen);
   const position = useTokenDockPeekStore((s) => s.dockWalletPosition);
@@ -244,7 +252,15 @@ export function DockWalletTrackerFloatingPanel() {
     const dockedTopPx = topbar + DOCK_PEEK_TOP_GAP_PX;
     const maxFloatH = Math.max(MIN_PANEL_H, vh - dockTopPx - botbar - 12);
     const maxFloatW = Math.max(MIN_PANEL_W, vw - 24);
-    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx, dockedTopPx };
+    // When the co-pilot is docked as the right rail, reserve its width so the
+    // dock parks beside it instead of behind it (it's a fixed overlay).
+    const copilotRightInset =
+      vw > 1023 && copilotOpen && !copilotDetached && copilotRailSide === 'right'
+        ? copilotCollapsed
+          ? COPILOT_RAIL_PX
+          : copilotWidth
+        : 0;
+    return { topbar, botbar, vw, vh, maxFloatH, maxFloatW, dockTopPx, dockedTopPx, copilotRightInset };
   };
 
   useEffect(() => {
@@ -579,7 +595,7 @@ export function DockWalletTrackerFloatingPanel() {
   if (!open || activeChain !== 'sol' || onWalletMgmtPage) return null;
 
   void layoutEpoch;
-  const { topbar, botbar, maxFloatH, dockedTopPx } = readMetrics();
+  const { topbar, botbar, maxFloatH, dockedTopPx, copilotRightInset } = readMetrics();
   const cw = clampPanelSize(panelSize.width, panelSize.height).w;
   const ch = clampPanelSize(panelSize.width, panelSize.height).h;
   const dockedChromeTop = `${dockedTopPx}px`;
@@ -659,13 +675,13 @@ export function DockWalletTrackerFloatingPanel() {
               }
             : dockSnap === 'right'
               ? {
-                  right: BODY_GUTTER_PX / 2,
+                  right: BODY_GUTTER_PX / 2 + copilotRightInset,
                   top: dockedChromeTop,
                   bottom: dockedChromeBot,
                   width: cw,
                 }
               : {
-                  left: position.x,
+                  left: Math.min(position.x, Math.max(8, window.innerWidth - copilotRightInset - floatW - 8)),
                   top: position.y,
                   width: floatW,
                   height: Math.min(floatH, maxFloatH),
