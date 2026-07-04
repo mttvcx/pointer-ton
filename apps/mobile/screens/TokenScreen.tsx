@@ -666,7 +666,7 @@ const s = StyleSheet.create({
   stat: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11 },
   riskDot: { width: 7, height: 7, borderRadius: 4, marginRight: 9 },
   statLabel: { color: colors.fgMuted, fontSize: 14 },
-  leader: { flex: 1, height: 1, borderBottomWidth: 1, borderBottomColor: colors.border, borderStyle: 'dotted', marginHorizontal: 8, transform: [{ translateY: 3 }] },
+  leader: { flex: 1, height: 1, borderBottomWidth: 1, borderBottomColor: colors.border, marginHorizontal: 8, transform: [{ translateY: 3 }] },
   statValue: { color: colors.fg, fontSize: 14, fontWeight: '600' },
 
   holder: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 9 },

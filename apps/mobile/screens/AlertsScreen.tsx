@@ -11,7 +11,7 @@ import { PickerSheet } from '../components/PickerSheet';
 import { SolAmount } from '../components/SolAmount';
 import { ChainIcon } from '../components/ChainIcon';
 import { colors, radius } from '../src/theme';
-import { shortMint } from '../src/format';
+import { shortMint, compactUsd } from '../src/format';
 import { showToast } from '../src/toast';
 import {
   useNotifPrefs,
@@ -23,6 +23,50 @@ import {
   type RuleChain,
 } from '../src/local';
 import { useRules, type NewRuleInput } from '../src/api/automations';
+import { useAutoSell, type NewSellInput, type UISellRule } from '../src/api/autosell';
+import type { AutoSellTrigger } from '../src/local';
+
+const SELL_META: Record<AutoSellTrigger, { icon: IconName; label: string }> = {
+  trailing_stop: { icon: 'trending-down-outline', label: 'Trailing stop' },
+  pct_gain: { icon: 'trending-up-outline', label: 'Take profit' },
+  mc_milestone: { icon: 'flag-outline', label: 'MC target' },
+  stop_loss_mc: { icon: 'shield-outline', label: 'Stop loss' },
+  time_elapsed: { icon: 'time-outline', label: 'Time exit' },
+};
+const SELL_TRIGGERS: AutoSellTrigger[] = ['trailing_stop', 'pct_gain', 'mc_milestone', 'stop_loss_mc', 'time_elapsed'];
+const SELL_PRESETS: Record<AutoSellTrigger, number[]> = {
+  trailing_stop: [10, 20, 30, 50],
+  pct_gain: [50, 100, 200, 500],
+  mc_milestone: [100_000, 500_000, 1_000_000, 10_000_000],
+  stop_loss_mc: [10_000, 25_000, 50_000, 100_000],
+  time_elapsed: [30, 60, 240, 1440],
+};
+const SELL_PCTS = [25, 50, 75, 100];
+
+function fmtMins(m: number): string {
+  if (m < 60) return `${m}m`;
+  if (m < 1440) return `${m / 60}h`;
+  return `${m / 1440}d`;
+}
+function sellValueLabel(trigger: AutoSellTrigger, v: number): string {
+  if (trigger === 'mc_milestone' || trigger === 'stop_loss_mc') return compactUsd(v);
+  if (trigger === 'time_elapsed') return fmtMins(v);
+  return `${v}%`;
+}
+function sellTitle(r: UISellRule): string {
+  switch (r.trigger) {
+    case 'trailing_stop':
+      return `Trailing stop ${r.value}%`;
+    case 'pct_gain':
+      return `Take profit +${r.value}%`;
+    case 'mc_milestone':
+      return `Sell at ${compactUsd(r.value)} MC`;
+    case 'stop_loss_mc':
+      return `Stop loss ${compactUsd(r.value)} MC`;
+    case 'time_elapsed':
+      return `Exit after ${fmtMins(r.value)}`;
+  }
+}
 
 const CHAINS: { id: RuleChain; label: string }[] = [
   { id: 'sol', label: 'Solana' },
@@ -94,8 +138,10 @@ export function AlertsScreen() {
   const insets = useSafeAreaInsets();
   const notif = useNotifPrefs();
   const { rules, toggle, remove, add } = useRules();
+  const sell = useAutoSell();
   const kill = useKillSwitch();
   const [builder, setBuilder] = useState(false);
+  const [sellBuilder, setSellBuilder] = useState(false);
 
   return (
     <Screen>
@@ -197,13 +243,54 @@ export function AlertsScreen() {
           )}
         </View>
 
+        {/* Auto-sell rules */}
+        <View style={s.sectionHeadRow}>
+          <Text style={s.sectionLabel}>Auto-sell rules</Text>
+          <PressScale style={s.addBtn} to={0.95} onPress={() => setSellBuilder(true)}>
+            <Ionicons name="add" size={15} color={colors.accentGlow} />
+            <Text style={s.addText}>New</Text>
+          </PressScale>
+        </View>
+        <View style={s.card}>
+          <GlassFill />
+          {sell.rules.length === 0 ? (
+            <Text style={s.emptyRules}>No auto-sell rules — take profit or cut losses automatically.</Text>
+          ) : (
+            sell.rules.map((r, i) => (
+              <View key={r.id} style={[s.row, i > 0 && s.rowDivider, kill && { opacity: 0.5 }]}>
+                <View style={[s.ruleIcon, { backgroundColor: colors.bearSoft }]}>
+                  <Ionicons name={SELL_META[r.trigger].icon} size={15} color={colors.bear} />
+                </View>
+                <View style={s.rowText}>
+                  <Text style={s.rowTitle} numberOfLines={1}>
+                    {sellTitle(r)}
+                  </Text>
+                  <Text style={s.rowDesc} numberOfLines={1}>
+                    Sell {r.sellPct}% · {r.scopeLabel ?? 'all holdings'}
+                  </Text>
+                </View>
+                <Switch
+                  value={r.enabled}
+                  onValueChange={(v) => void sell.toggle(r.id, v)}
+                  trackColor={{ false: colors.bgRaised2, true: colors.bear }}
+                  thumbColor="#fff"
+                />
+                <PressScale onPress={() => void sell.remove(r.id)} hitSlop={8} to={0.85} style={s.del}>
+                  <Ionicons name="trash-outline" size={16} color={colors.fgMuted} />
+                </PressScale>
+              </View>
+            ))
+          )}
+        </View>
+
         <Text style={s.note}>
-          Rule config + push preferences are real. Live X-monitor + on-device push + auto-buy execution wire to the
-          backend + real trade path with the dev build.
+          Rules + preferences sync to your account. Live X-monitor + on-device push + auto-execution fire from the
+          backend once the engine keys are set and the delegated-signer review passes.
         </Text>
       </ScrollView>
 
       <RuleBuilder visible={builder} onClose={() => setBuilder(false)} onAdd={add} />
+      <AutoSellBuilder visible={sellBuilder} onClose={() => setSellBuilder(false)} onAdd={sell.add} />
     </Screen>
   );
 }
@@ -491,6 +578,125 @@ function RuleBuilder({
         validateManual={isValidHandle}
         manualLabel="Enter @handle"
         manualPlaceholder="@handle"
+      />
+    </>
+  );
+}
+
+function AutoSellBuilder({
+  visible,
+  onClose,
+  onAdd,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onAdd: (input: NewSellInput) => Promise<void>;
+}) {
+  const [trigger, setTrigger] = useState<AutoSellTrigger>('trailing_stop');
+  const [value, setValue] = useState(SELL_PRESETS.trailing_stop[1]);
+  const [sellPct, setSellPct] = useState(100);
+  const [scopeMint, setScopeMint] = useState<string | undefined>(undefined);
+  const [scopeLabel, setScopeLabel] = useState<string | undefined>(undefined);
+  const [picker, setPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const onTrigger = (t: AutoSellTrigger) => {
+    setTrigger(t);
+    setValue(SELL_PRESETS[t][1]);
+  };
+  const reset = () => {
+    setTrigger('trailing_stop');
+    setValue(SELL_PRESETS.trailing_stop[1]);
+    setSellPct(100);
+    setScopeMint(undefined);
+    setScopeLabel(undefined);
+    setSaving(false);
+  };
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onAdd({ trigger, value, sellPct, scopeMint, scopeLabel });
+      reset();
+      onClose();
+    } catch {
+      showToast("Couldn't save the rule", { sub: 'Please try again', kind: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tokenOptions = dedupeOpts([...RECENT_TOKENS, ...POPULAR_TOKENS]);
+
+  return (
+    <>
+      <DragSheet visible={visible} onClose={onClose}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ maxHeight: 560 }}>
+          <Text style={s.builderTitle}>New auto-sell</Text>
+
+          <Text style={s.fieldLabel}>Trigger</Text>
+          <View style={s.trigGrid}>
+            {SELL_TRIGGERS.map((tr) => {
+              const on = tr === trigger;
+              return (
+                <PressScale key={tr} onPress={() => onTrigger(tr)} to={0.95} style={[s.trigChip, on && s.trigChipOn]}>
+                  <Ionicons name={SELL_META[tr].icon} size={14} color={on ? colors.accentGlow : colors.fgMuted} />
+                  <Text style={[s.trigText, on && { color: colors.fg }]}>{SELL_META[tr].label}</Text>
+                </PressScale>
+              );
+            })}
+          </View>
+
+          <Text style={s.fieldLabel}>
+            {trigger === 'time_elapsed' ? 'After' : trigger === 'mc_milestone' || trigger === 'stop_loss_mc' ? 'Market cap' : 'Threshold'}
+          </Text>
+          <View style={s.chips}>
+            {SELL_PRESETS[trigger].map((v) => (
+              <PressScale key={v} onPress={() => setValue(v)} to={0.94} style={[s.chip, value === v && s.chipOn]}>
+                <Text style={[s.chipText, value === v && s.chipTextOn]}>{sellValueLabel(trigger, v)}</Text>
+              </PressScale>
+            ))}
+          </View>
+
+          <Text style={s.fieldLabel}>Sell amount</Text>
+          <View style={s.chips}>
+            {SELL_PCTS.map((p) => (
+              <PressScale key={p} onPress={() => setSellPct(p)} to={0.94} style={[s.chip, sellPct === p && s.chipOn]}>
+                <Text style={[s.chipText, sellPct === p && s.chipTextOn]}>{p}%</Text>
+              </PressScale>
+            ))}
+          </View>
+
+          <Text style={s.fieldLabel}>Applies to</Text>
+          <View style={s.chips}>
+            <PressScale onPress={() => { setScopeMint(undefined); setScopeLabel(undefined); }} to={0.94} style={[s.chip, !scopeMint && s.chipOn]}>
+              <Text style={[s.chipText, !scopeMint && s.chipTextOn]}>All holdings</Text>
+            </PressScale>
+            <PressScale onPress={() => setPicker(true)} to={0.94} style={[s.chip, scopeMint && s.chipOn]}>
+              <Text style={[s.chipText, scopeMint && s.chipTextOn]}>{scopeLabel ?? 'Pick token'}</Text>
+            </PressScale>
+          </View>
+
+          <GlossButton onPress={save} style={{ marginTop: 22, opacity: saving ? 0.5 : 1 }}>
+            <Text style={s.saveText}>{saving ? 'Saving…' : 'Add rule'}</Text>
+          </GlossButton>
+        </ScrollView>
+      </DragSheet>
+
+      <PickerSheet
+        visible={picker}
+        onClose={() => setPicker(false)}
+        title="Token"
+        options={tokenOptions}
+        onSelect={(value, label) => {
+          setScopeMint(value);
+          setScopeLabel(label.startsWith('$') ? label : shortMint(value));
+        }}
+        allowManual
+        validateManual={isValidMint}
+        manualLabel="Paste contract address"
+        manualPlaceholder="e.g. EKpQ…zcjm"
       />
     </>
   );

@@ -325,7 +325,7 @@ const s = StyleSheet.create({
   about: { marginTop: 6 },
   aboutRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11 },
   aboutLabel: { color: colors.fgMuted, fontSize: 14 },
-  leader: { flex: 1, height: 1, borderBottomWidth: 1, borderBottomColor: colors.border, borderStyle: 'dotted', marginHorizontal: 8, transform: [{ translateY: 3 }] },
+  leader: { flex: 1, height: 1, borderBottomWidth: 1, borderBottomColor: colors.border, marginHorizontal: 8, transform: [{ translateY: 3 }] },
   aboutVal: { color: colors.fg, fontSize: 14, fontWeight: '600' },
   aboutNote: { color: colors.fgFaint, fontSize: 12.5, lineHeight: 18, marginTop: 14 },
 

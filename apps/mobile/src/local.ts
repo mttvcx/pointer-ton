@@ -187,6 +187,38 @@ export function setKillSwitch(v: boolean) {
 export const useAutoRules = () => useSyncExternalStore(subscribe, () => rules);
 export const useKillSwitch = () => useSyncExternalStore(subscribe, () => killSwitch);
 
+// ---- auto-sell rules (demo store; real mode binds to /api/auto-sell) ----
+export type AutoSellTrigger = 'mc_milestone' | 'pct_gain' | 'time_elapsed' | 'stop_loss_mc' | 'trailing_stop';
+export type AutoSellRule = {
+  id: number;
+  trigger: AutoSellTrigger;
+  /** The single config number: MC target / gain% / minutes / stop MC / trail%. */
+  value: number;
+  sellPct: number; // 1..100
+  /** undefined = all holdings; else the token mint this rule applies to. */
+  scopeMint?: string;
+  scopeLabel?: string;
+  enabled: boolean;
+};
+let sellSeq = 2;
+let sellRules: AutoSellRule[] = [
+  { id: 1, trigger: 'trailing_stop', value: 20, sellPct: 100, enabled: true },
+  { id: 2, trigger: 'pct_gain', value: 100, sellPct: 50, enabled: false },
+];
+export function addAutoSell(r: Omit<AutoSellRule, 'id'>) {
+  sellRules = [{ ...r, id: ++sellSeq }, ...sellRules];
+  emit();
+}
+export function toggleAutoSell(id: number) {
+  sellRules = sellRules.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r));
+  emit();
+}
+export function removeAutoSell(id: number) {
+  sellRules = sellRules.filter((r) => r.id !== id);
+  emit();
+}
+export const useAutoSellRules = () => useSyncExternalStore(subscribe, () => sellRules);
+
 // ---- token chart prefs (timeframe + price/MC axis; persist within session) ----
 export type ChartAxis = 'price' | 'mc';
 let chartTf = '1H';

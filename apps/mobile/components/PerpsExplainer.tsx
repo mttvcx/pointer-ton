@@ -218,7 +218,7 @@ const s = StyleSheet.create({
   chart: { alignSelf: 'stretch', height: 220, justifyContent: 'center' },
   candles: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 18 },
   candle: { width: 12, borderRadius: 3 },
-  dashLine: { position: 'absolute', left: 0, right: 0, height: 0, borderTopWidth: 2, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.45)' },
+  dashLine: { position: 'absolute', left: 0, right: 0, height: 0, borderTopWidth: 2, borderColor: 'rgba(255,255,255,0.45)' },
   dashDanger: { borderColor: colors.chartDown },
   pill: { position: 'absolute', right: 0, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   pillWhite: { backgroundColor: '#fff' },
