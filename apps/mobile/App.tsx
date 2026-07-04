@@ -14,6 +14,7 @@ import {
   Sora_800ExtraBold,
 } from '@expo-google-fonts/sora';
 import { AppAuthProvider, useAuth } from './src/auth';
+import { isOnboarded, markOnboarded } from './src/onboarded';
 import { HomeScreen } from './screens/HomeScreen';
 import { TokenScreen } from './screens/TokenScreen';
 import { SearchScreen } from './screens/SearchScreen';
@@ -81,7 +82,39 @@ function Shell() {
   const [advanced, setAdvanced] = useState(false);
   const { opacity: modeOpacity, committed: adv } = useModeCrossfade(advanced);
   const [entered, setEntered] = useState(false);
+  // Onboarding is remembered per account, so returning users skip straight to the
+  // app. `obReady` gates the render until we've read the stored flag (no flash).
   const [onboarded, setOnboarded] = useState(false);
+  const [obReady, setObReady] = useState(false);
+  useEffect(() => {
+    if (!entered) {
+      setObReady(false);
+      return;
+    }
+    // In real mode wait for the embedded wallet so the flag is per-account; if it
+    // never arrives, fall through to onboarding rather than hang.
+    if (!auth.demo && !auth.walletAddress) {
+      const t = setTimeout(() => setObReady(true), 2500);
+      return () => clearTimeout(t);
+    }
+    const id = auth.demo ? 'demo' : auth.walletAddress!;
+    let cancelled = false;
+    isOnboarded(id).then((v) => {
+      if (!cancelled) {
+        setOnboarded(v);
+        setObReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [entered, auth.demo, auth.walletAddress]);
+
+  const finishOnboarding = () => {
+    const id = auth.demo ? 'demo' : auth.walletAddress;
+    if (id) markOnboarded(id);
+    setOnboarded(true);
+  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<Section | null>(null);
   const [settingsFocusBio, setSettingsFocusBio] = useState(false);
@@ -103,7 +136,14 @@ function Shell() {
   }
 
   if (!entered) return <LoginScreen onEnter={() => setEntered(true)} />;
-  if (!onboarded) return <OnboardingFlow onDone={() => setOnboarded(true)} />;
+  if (!obReady) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+  if (!onboarded) return <OnboardingFlow onDone={finishOnboarding} />;
   if (eduOpen) return <EducationScreen onClose={() => setEduOpen(false)} />;
   if (refOpen) return <ReferralScreen onClose={() => setRefOpen(false)} />;
   if (settingsOpen) {
