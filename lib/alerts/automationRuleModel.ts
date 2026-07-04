@@ -21,6 +21,10 @@ export const AUTOMATION_TRIGGER_TYPES = [
   'banner_change',
   'mc_milestone',
   'time_elapsed',
+  // Unified into alert_rules so mobile binds one schema/one endpoint for all triggers.
+  // Fired by the wallet-poll cron (tracked_wallet) and limit/price cron (price).
+  'tracked_wallet',
+  'price',
 ] as const;
 export type AutomationTriggerType = (typeof AUTOMATION_TRIGGER_TYPES)[number];
 
@@ -104,6 +108,33 @@ export const TimeElapsedTriggerConfigSchema = z
   })
   .strict();
 
+/** Fires when a watched wallet trades. Wallet must also be in `tracked_wallets` for the poll cron to see it. */
+export const TrackedWalletTriggerConfigSchema = z
+  .object({
+    wallet: z.string().trim().min(32).max(64),
+    /** default 'buy' */
+    side: z.enum(['buy', 'sell', 'any']).optional(),
+    /** ignore trades smaller than this many SOL */
+    minSolAmount: z.number().nonnegative().max(100_000).optional(),
+  })
+  .strict();
+
+/** Fires when a token's price crosses an absolute target or an Nx multiple of its base price. */
+export const PriceTriggerConfigSchema = z
+  .object({
+    mint: z.string().trim().min(20).max(64),
+    /** default 'above' */
+    direction: z.enum(['above', 'below']).optional(),
+    targetPriceUsd: z.number().positive().optional(),
+    /** e.g. 2 = 2x from the base price captured when the rule was created */
+    targetMultiple: z.number().positive().max(10_000).optional(),
+    basePriceUsd: z.number().positive().optional(),
+  })
+  .strict()
+  .refine((v) => v.targetPriceUsd != null || v.targetMultiple != null, {
+    message: 'price trigger requires targetPriceUsd or targetMultiple',
+  });
+
 export const BuyActionConfigSchema = z
   .object({
     buySolPreset: z.number().positive().max(420).nullable().optional(),
@@ -138,6 +169,8 @@ export type InteractionTriggerConfig = z.infer<typeof InteractionTriggerConfigSc
 export type ProfileChangeTriggerConfig = z.infer<typeof ProfileChangeTriggerConfigSchema>;
 export type McMilestoneTriggerConfig = z.infer<typeof McMilestoneTriggerConfigSchema>;
 export type TimeElapsedTriggerConfig = z.infer<typeof TimeElapsedTriggerConfigSchema>;
+export type TrackedWalletTriggerConfig = z.infer<typeof TrackedWalletTriggerConfigSchema>;
+export type PriceTriggerConfig = z.infer<typeof PriceTriggerConfigSchema>;
 
 export type AutomationTriggerConfig =
   | KeywordTriggerConfig
@@ -146,7 +179,9 @@ export type AutomationTriggerConfig =
   | InteractionTriggerConfig
   | ProfileChangeTriggerConfig
   | McMilestoneTriggerConfig
-  | TimeElapsedTriggerConfig;
+  | TimeElapsedTriggerConfig
+  | TrackedWalletTriggerConfig
+  | PriceTriggerConfig;
 
 export type AutomationActionConfig =
   | z.infer<typeof BuyActionConfigSchema>
@@ -237,6 +272,14 @@ function parseTriggerConfig(
     case 'time_elapsed':
       return TimeElapsedTriggerConfigSchema.safeParse(raw).success
         ? TimeElapsedTriggerConfigSchema.parse(raw)
+        : null;
+    case 'tracked_wallet':
+      return TrackedWalletTriggerConfigSchema.safeParse(raw).success
+        ? TrackedWalletTriggerConfigSchema.parse(raw)
+        : null;
+    case 'price':
+      return PriceTriggerConfigSchema.safeParse(raw).success
+        ? PriceTriggerConfigSchema.parse(raw)
         : null;
     default:
       return null;
@@ -593,6 +636,8 @@ export function triggerTypeLabel(t: AutomationTriggerType): string {
     banner_change: 'Banner change',
     mc_milestone: 'MC milestone',
     time_elapsed: 'Time elapsed',
+    tracked_wallet: 'Tracked wallet trades',
+    price: 'Price target',
   };
   return labels[t];
 }
