@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authToken, useAuth } from '../auth';
-import { api } from './client';
+import { api, ApiError } from './client';
 import { shortMint } from '../format';
 import {
   useAutoRules,
@@ -140,7 +140,22 @@ async function listAlertRules(): Promise<UIRule[]> {
   return (r.rules ?? []).map(dtoToUI);
 }
 async function createAlertRule(input: NewRuleInput): Promise<void> {
-  await api('/api/alert-rules', { token: await authToken(), method: 'POST', body: buildPayload(input) });
+  const payload = buildPayload(input);
+  const token = await authToken();
+  try {
+    await api('/api/alert-rules', { token, method: 'POST', body: payload });
+  } catch (e) {
+    // Defensive: if the backend's zod rejects the extra `chain` we tuck into
+    // actionConfig (schema not yet confirmed), retry once without it so the rule
+    // still saves. Chain persistence lands once the backend accepts the field.
+    const ac = payload.actionConfig as Record<string, unknown> | undefined;
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500 && ac && 'chain' in ac) {
+      const { chain: _drop, ...rest } = ac;
+      await api('/api/alert-rules', { token, method: 'POST', body: { ...payload, actionConfig: rest } });
+      return;
+    }
+    throw e;
+  }
 }
 async function patchAlertRule(id: string, patch: Record<string, unknown>): Promise<void> {
   await api(`/api/alert-rules/${encodeURIComponent(id)}`, { token: await authToken(), method: 'PATCH', body: patch });
