@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { NarrativeFacts, ProviderStatus } from '@/sibyl/data/providers/types';
-import { sibylMockMode } from '@/sibyl/config';
+import { sibylForceMock } from '@/sibyl/config';
 
 /**
  * Grok / web search — narrative origin, off-platform spread (TikTok / Reels / news),
@@ -9,18 +9,21 @@ import { sibylMockMode } from '@/sibyl/config';
  * to a search provider. Key-gated stub.
  * Env: XAI_API_KEY (Grok, live search) OR SEARCH_API_KEY (generic web search).
  */
+// NOTE: real Grok/search fetch is not wired yet — flip REAL_IMPL when it is.
+const REAL_IMPL = false;
+
 export function grokSearchStatus(): ProviderStatus {
   const configured = Boolean(process.env.XAI_API_KEY?.trim() || process.env.SEARCH_API_KEY?.trim());
   return {
     name: 'grok-or-search',
-    configured: configured && !sibylMockMode(),
+    configured: configured && REAL_IMPL && !sibylForceMock(),
     envVars: ['XAI_API_KEY', 'SEARCH_API_KEY'],
-    note: 'Narrative origin + off-platform spread. Grok live-search preferred.',
+    note: REAL_IMPL ? 'Narrative origin + off-platform spread.' : 'Narrative origin + off-platform spread. Real fetch pending (mock).',
   };
 }
 
 export async function getNarrativeFacts(subject: string): Promise<NarrativeFacts> {
-  if (sibylMockMode() || !(process.env.XAI_API_KEY?.trim() || process.env.SEARCH_API_KEY?.trim())) {
+  if (!REAL_IMPL || sibylForceMock() || !(process.env.XAI_API_KEY?.trim() || process.env.SEARCH_API_KEY?.trim())) {
     return {
       name: subject || 'personality meta',
       stage: 'mid',

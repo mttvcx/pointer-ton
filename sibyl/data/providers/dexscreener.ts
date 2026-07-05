@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { MarketFacts, ProviderStatus } from '@/sibyl/data/providers/types';
-import { sibylMockMode } from '@/sibyl/config';
+import { sibylForceMock } from '@/sibyl/config';
 
 /**
  * DexScreener — token price / liquidity / MC / volume. Public API, no key needed,
@@ -11,7 +11,7 @@ import { sibylMockMode } from '@/sibyl/config';
 const BASE = process.env.DEXSCREENER_BASE_URL?.trim() || 'https://api.dexscreener.com';
 
 export function dexscreenerStatus(): ProviderStatus {
-  return { name: 'dexscreener', configured: !sibylMockMode(), envVars: [], note: 'Public API — real by default.' };
+  return { name: 'dexscreener', configured: !sibylForceMock(), envVars: [], note: 'Public API — real by default.' };
 }
 
 function mockMarket(mint: string): MarketFacts {
@@ -31,7 +31,7 @@ function mockMarket(mint: string): MarketFacts {
 }
 
 export async function getMarketFacts(mint: string, chain: 'sol' | 'eth' | 'base' | 'bnb' = 'sol'): Promise<MarketFacts> {
-  if (sibylMockMode()) return mockMarket(mint);
+  if (sibylForceMock()) return mockMarket(mint);
   try {
     const res = await fetch(`${BASE}/latest/dex/tokens/${encodeURIComponent(mint)}`, {
       signal: AbortSignal.timeout(8000),

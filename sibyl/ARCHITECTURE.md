@@ -43,14 +43,22 @@ be swapped/mocked/key-gated without touching agents.
 |---|---|---|
 | `pointer` | labeled wallets / KOLs / classifications — **the moat** | **real** (bundled ~2,260-wallet identity registry + Twitter handles; DB labels layered) |
 | `dexscreener` | price / liq / MC / vol | **real** (public API) |
-| `helius` | holders / transfers / wallet activity | light-real (holders) w/ `HELIUS_API_KEY` |
-| `birdeye` | OHLCV / holders | stub (`BIRDEYE_API_KEY`) |
-| `dune` | terminal fees / market share | stub (`DUNE_API_KEY`) |
-| `x` | CT mentions / velocity | stub (`TWITTER_BEARER_TOKEN`) |
-| `grok-or-search` | narrative origin / off-platform spread | stub (`XAI_API_KEY`) |
+| `helius` | holders / transfers / wallet activity | **real** with `HELIUS_API_KEY` (top-holder concentration) |
+| `birdeye` | OHLCV / holders | stub (`BIRDEYE_API_KEY`; `REAL_IMPL=false`) |
+| `dune` | terminal fees / market share | stub (`DUNE_API_KEY`; `REAL_IMPL=false`) |
+| `x` | CT mentions / velocity | stub (`TWITTER_BEARER_TOKEN`; `REAL_IMPL=false`) |
+| `grok-or-search` | narrative origin / off-platform spread | stub (`XAI_API_KEY`; `REAL_IMPL=false`) |
+
+**Model mock ≠ data mock.** `sibylMockMode()` (no LLM gateway key) gates ONLY the
+model layer — the judge/agent *narrative* is synthesized deterministically until an
+`OPENROUTER_API_KEY` (or Groq) lands. It must never gate data. Data providers mock
+only under `sibylForceMock()` (`SIBYL_MOCK=1`) or when their own credential is
+missing — so a real `HELIUS_API_KEY` yields real holders even with zero model keys.
+Providers whose real fetch isn't written yet carry a `REAL_IMPL=false` flag and keep
+serving clean mock data until it's flipped (avoids showing empty "real" cards).
 
 Every provider exports a `*Status()` (configured? env vars? note) — surfaced at
-`GET /api/sibyl/status` and the dashboard footer.
+`GET /api/sibyl/status` and the dashboard footer (`liveProviders` count + model state).
 
 ## Memory (`sibyl/memory/`) — the compounding moat
 

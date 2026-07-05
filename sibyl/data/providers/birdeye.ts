@@ -1,18 +1,21 @@
 import 'server-only';
 
 import type { ProviderStatus } from '@/sibyl/data/providers/types';
-import { sibylMockMode } from '@/sibyl/config';
+import { sibylForceMock } from '@/sibyl/config';
 
 /**
- * Birdeye — OHLCV / price history / liquidity / holders. Key-gated stub for MVP.
- * Env: BIRDEYE_API_KEY (header `X-API-KEY`). Falls back to a synthetic candle set.
+ * Birdeye — OHLCV / price history / liquidity / holders. Env: BIRDEYE_API_KEY
+ * (header `X-API-KEY`). Falls back to a synthetic candle set.
+ * NOTE: the real OHLCV fetch is not wired yet — flip REAL_IMPL when it is.
  */
+const REAL_IMPL = false;
+
 export function birdeyeStatus(): ProviderStatus {
   return {
     name: 'birdeye',
-    configured: Boolean(process.env.BIRDEYE_API_KEY?.trim()) && !sibylMockMode(),
+    configured: Boolean(process.env.BIRDEYE_API_KEY?.trim()) && REAL_IMPL && !sibylForceMock(),
     envVars: ['BIRDEYE_API_KEY'],
-    note: 'OHLCV + holders. Stubbed until a key is added.',
+    note: REAL_IMPL ? 'OHLCV + holders.' : 'OHLCV + holders. Real fetch pending (mock candles).',
   };
 }
 
@@ -35,7 +38,7 @@ function mockCandles(count = 120): Candle[] {
 
 export async function getCandles(mint: string, _tf = '5m'): Promise<Candle[]> {
   const key = process.env.BIRDEYE_API_KEY?.trim();
-  if (sibylMockMode() || !key) return mockCandles();
+  if (!REAL_IMPL || sibylForceMock() || !key) return mockCandles();
   // TODO: GET https://public-api.birdeye.so/defi/ohlcv?address=... (X-API-KEY: key)
   return mockCandles();
 }

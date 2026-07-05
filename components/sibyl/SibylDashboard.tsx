@@ -17,11 +17,14 @@ export function SibylDashboard() {
   const [cards, setCards] = useState<SibylCard[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mock, setMock] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<{ modelMock: boolean; forcedMock: boolean; liveProviders: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    fetch('/api/sibyl/status').then((r) => r.json()).then((d) => setMock(Boolean(d.mock))).catch(() => {});
+    fetch('/api/sibyl/status')
+      .then((r) => r.json())
+      .then((d) => setStatus({ modelMock: Boolean(d.modelMock), forcedMock: Boolean(d.forcedMock), liveProviders: Number(d.liveProviders ?? 0) }))
+      .catch(() => {});
   }, []);
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -69,7 +72,15 @@ export function SibylDashboard() {
             <button key={s.id} type="button" onClick={() => send(s.text!)} className="block w-full truncate rounded-md px-2 py-1.5 text-left text-[12px] text-white/60 transition hover:bg-white/[0.05] hover:text-white/90">{s.text}</button>
           ))}
         </div>
-        <div className="pt-2 text-[10px] text-white/30">{mock == null ? '' : mock ? '● mock mode (no keys)' : '● live providers'}</div>
+        <div className="pt-2 text-[10px] text-white/30">
+          {status == null
+            ? ''
+            : status.forcedMock
+              ? '● offline (SIBYL_MOCK)'
+              : status.modelMock
+                ? `● ${status.liveProviders} live data · mock model`
+                : `● ${status.liveProviders} live providers`}
+        </div>
       </aside>
 
       {/* CENTER — chat */}

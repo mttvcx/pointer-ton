@@ -6,7 +6,7 @@ import { resolveWalletIdentity } from '@/lib/identity/identityService';
 import { searchIdentities, listRegistryStats } from '@/lib/identity/registry';
 import { prepareIdentityRegistry } from '@/lib/identity/importPersisted';
 import type { KOLMention, LabeledWallet, ProviderStatus } from '@/sibyl/data/providers/types';
-import { sibylMockMode } from '@/sibyl/config';
+import { sibylForceMock } from '@/sibyl/config';
 
 /**
  * Pointer internal identity registry — THE MOAT. ~2,260 labeled wallets (KOLs, smart
@@ -95,7 +95,9 @@ export async function labelWallets(addresses: string[], chain: AppChainId = CHAI
     const id = resolveWalletIdentity({ chain, address });
     if (isKnown(id)) out.push(toLabeled(id));
   }
-  if (out.length === 0 && sibylMockMode() && addresses[0]) {
+  // Only fabricate a demo label under the hard-offline switch — never in real mode,
+  // where "no labeled KOL among holders" is a truthful answer.
+  if (out.length === 0 && sibylForceMock() && addresses[0]) {
     return [{ address: addresses[0], ...SAMPLE_LABEL }];
   }
   return out;

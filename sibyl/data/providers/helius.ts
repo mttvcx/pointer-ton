@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { HolderFacts, ProviderStatus } from '@/sibyl/data/providers/types';
-import { sibylMockMode } from '@/sibyl/config';
+import { sibylForceMock } from '@/sibyl/config';
 
 /**
  * Helius — Solana on-chain: holders, transfers, wallet activity, enhanced txns.
@@ -17,9 +17,9 @@ function heliusRpcUrl(): string | null {
 export function heliusStatus(): ProviderStatus {
   return {
     name: 'helius',
-    configured: Boolean(heliusRpcUrl()) && !sibylMockMode(),
+    configured: Boolean(heliusRpcUrl()) && !sibylForceMock(),
     envVars: ['HELIUS_API_KEY'],
-    note: 'Solana RPC + enhanced txns. Mock without a key.',
+    note: 'Solana RPC + enhanced txns. Real whenever HELIUS_API_KEY is set.',
   };
 }
 
@@ -39,7 +39,7 @@ function mockHolders(): HolderFacts {
 
 export async function getHolderFacts(mint: string): Promise<HolderFacts> {
   const url = heliusRpcUrl();
-  if (sibylMockMode() || !url) return mockHolders();
+  if (sibylForceMock() || !url) return mockHolders();
   try {
     const [largest, supply] = await Promise.all([
       rpc<{ value?: { address: string; amount: string }[] }>(url, 'getTokenLargestAccounts', [mint]),

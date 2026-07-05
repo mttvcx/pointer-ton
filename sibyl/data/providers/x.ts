@@ -1,24 +1,27 @@
 import 'server-only';
 
 import type { ProviderStatus, SocialFacts } from '@/sibyl/data/providers/types';
-import { sibylMockMode } from '@/sibyl/config';
+import { sibylForceMock } from '@/sibyl/config';
 
 /**
- * X / Twitter — KOL posts, mentions, quote/reply velocity, CT sentiment. Key-gated
- * stub. Env: TWITTER_BEARER_TOKEN (shared with pointer-ton X monitor). Mock returns
- * a rising-velocity KOL set so SocialVelocityCard renders.
+ * X / Twitter — KOL posts, mentions, quote/reply velocity, CT sentiment. Env:
+ * TWITTER_BEARER_TOKEN (shared with pointer-ton X monitor). Mock returns a
+ * rising-velocity KOL set so SocialVelocityCard renders.
+ * NOTE: the real search/recent fetch is not wired yet — flip REAL_IMPL when it is.
  */
+const REAL_IMPL = false;
+
 export function xStatus(): ProviderStatus {
   return {
     name: 'x',
-    configured: Boolean(process.env.TWITTER_BEARER_TOKEN?.trim()) && !sibylMockMode(),
+    configured: Boolean(process.env.TWITTER_BEARER_TOKEN?.trim()) && REAL_IMPL && !sibylForceMock(),
     envVars: ['TWITTER_BEARER_TOKEN'],
-    note: 'CT mentions + velocity. Stubbed until the X plan is live.',
+    note: REAL_IMPL ? 'CT mentions + velocity.' : 'CT mentions + velocity. Key present; real fetch pending (mock).',
   };
 }
 
 export async function getSocialFacts(query: string): Promise<SocialFacts> {
-  if (sibylMockMode() || !process.env.TWITTER_BEARER_TOKEN?.trim()) {
+  if (!REAL_IMPL || sibylForceMock() || !process.env.TWITTER_BEARER_TOKEN?.trim()) {
     return {
       velocity: 'rising',
       handleCount: 6,
