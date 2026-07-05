@@ -57,7 +57,7 @@ export async function runWalletAgent(ctx: AgentContext): Promise<AgentResult> {
     lead ? `${kols.length} labeled KOL${kols.length > 1 ? 's' : ''} in holders${lead.handle ? ` (lead: @${lead.handle})` : ''}.` : `No labeled KOL wallet detected in holders.`,
     ansem.note,
   ].filter(Boolean);
-  return { agent: 'wallet', take, cards, entities, confidence: holders.holders.length ? 78 : 45, caveats: holders.source.includes('mock') ? ['Holders are sample data (set HELIUS_API_KEY for live holders); labels shown are illustrative.'] : [] };
+  return { agent: 'wallet', take, cards, entities, confidence: holders.holders.length ? 78 : 45, caveats: holders.source.includes('mock') ? ['Holder concentration is sample (live holders unavailable — Helius usage cap); the KOL names/handles are real Pointer-registry matches.'] : [] };
 }
 
 export async function runNarrativeAgent(ctx: AgentContext): Promise<AgentResult> {
