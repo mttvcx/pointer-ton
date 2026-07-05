@@ -38,13 +38,53 @@ export type HeliusUsageLog = {
 /**
  * Wrap a Helius/RPC call, log credit estimate, and persist to `helius_usage`.
  */
+/**
+ * Rate-limit circuit breaker (separate from the credit-budget guard). Free-plan
+ * Helius caps requests-per-second, so a burst of loop calls returns 429 / "max
+ * usage reached" even with credits to spare. Retrying into that just amplifies the
+ * overload (and burns Vercel Active CPU). After a burst of 429s we OPEN the breaker
+ * and fail fast for a cooldown — callers with a public-RPC fallback degrade; the
+ * rest get a cheap, instant error instead of hammering. Per warm-instance state,
+ * which is exactly where the storm lives (one cron looping over thousands of mints).
+ */
+const RATE_WINDOW_MS = 10_000;
+const RATE_THRESHOLD = 8;
+const RATE_COOLDOWN_MS = 20_000;
+let rateBreakerOpenUntil = 0;
+let rateHits: number[] = [];
+
+function isHeliusRateLimit(msg: string): boolean {
+  return /429|too many requests|max usage reached|rate limit|-32429/i.test(msg);
+}
+
+function heliusRateBreakerOpen(): boolean {
+  return Date.now() < rateBreakerOpenUntil;
+}
+
+function recordHeliusRateLimit(): void {
+  const now = Date.now();
+  rateHits.push(now);
+  rateHits = rateHits.filter((t) => now - t <= RATE_WINDOW_MS);
+  if (rateHits.length >= RATE_THRESHOLD) {
+    rateBreakerOpenUntil = now + RATE_COOLDOWN_MS;
+    rateHits = [];
+  }
+}
+
 export async function heliusCall<T>(
   endpoint: string,
   estimatedCredits: number,
   fn: () => Promise<T>,
 ): Promise<T> {
-  // Circuit breaker — charge the estimate and HARD-CUTOFF (throws) when Helius
-  // is over budget or manually disabled. Fails open on a Redis blip.
+  // Rate-limit breaker FIRST — after a 429 burst, skip the call entirely for a
+  // cooldown (no Redis, no network, ~0 CPU). Message contains "rate limit" so
+  // `isRpcQuotaError` fallbacks kick in.
+  if (heliusRateBreakerOpen()) {
+    throw new Error('helius rate limit — circuit open (cooldown after 429 burst)');
+  }
+
+  // Credit-budget breaker — charge the estimate and HARD-CUTOFF (throws) when
+  // Helius is over budget or manually disabled. Fails open on a Redis blip.
   await guardProvider('helius', estimatedCredits);
   const timestamp = new Date().toISOString();
   const startedAt = Date.now();
@@ -56,6 +96,7 @@ export async function heliusCall<T>(
     return result;
   } catch (err) {
     errMessage = err instanceof Error ? err.message : String(err);
+    if (isHeliusRateLimit(errMessage)) recordHeliusRateLimit();
     throw err;
   } finally {
     const entry: HeliusUsageLog = {
