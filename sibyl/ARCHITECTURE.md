@@ -41,7 +41,7 @@ be swapped/mocked/key-gated without touching agents.
 
 | Provider | Role | State |
 |---|---|---|
-| `pointer` | labeled wallets / KOLs / classifications — **the moat** | mock → wire to identity registry |
+| `pointer` | labeled wallets / KOLs / classifications — **the moat** | **real** (bundled ~2,260-wallet identity registry + Twitter handles; DB labels layered) |
 | `dexscreener` | price / liq / MC / vol | **real** (public API) |
 | `helius` | holders / transfers / wallet activity | light-real (holders) w/ `HELIUS_API_KEY` |
 | `birdeye` | OHLCV / holders | stub (`BIRDEYE_API_KEY`) |

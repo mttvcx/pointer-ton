@@ -37,22 +37,27 @@ export async function runMarketAgent(ctx: AgentContext): Promise<AgentResult> {
 
 export async function runWalletAgent(ctx: AgentContext): Promise<AgentResult> {
   if (!ctx.mint) return empty('wallet');
-  const [holders, labels, ansem] = await Promise.all([
-    helius.getHolderFacts(ctx.mint),
-    pointer.getLabeledWalletsForMint(ctx.mint),
-    pointer.isPersonInTrade(ctx.mint, 'ansem'),
+  const holders = await helius.getHolderFacts(ctx.mint);
+  const holderAddrs = holders.holders.map((h) => h.address);
+  // Label the ACTUAL holders against the real Pointer identity registry (~2,260 KOL /
+  // smart-money wallets with connected Twitter handles), and ask whether Ansem is in.
+  const [labels, ansem] = await Promise.all([
+    pointer.labelWallets(holderAddrs),
+    pointer.isPersonInTrade('ansem', holderAddrs),
   ]);
   const labelByAddr = new Map(labels.map((l) => [l.address, l]));
   const rows = holders.holders.map((h) => ({ ...h, label: labelByAddr.get(h.address)?.label ?? h.label ?? null, isKol: labelByAddr.get(h.address)?.kind === 'kol' || h.isKol }));
   const entities: SibylEntityRef[] = labels.filter((l) => l.handle).map((l) => ({ kind: 'wallet', id: l.address, label: l.label, handle: l.handle, address: l.address, href: l.handle ? `https://x.com/${l.handle}` : null }));
   const cards: SibylCard[] = [{ type: 'holders', id: cid('holders'), data: { mint: ctx.mint, top10Pct: holders.top10Pct, rows } }];
   const top = rows[0];
+  const kols = labels.filter((l) => l.kind === 'kol');
+  const lead = kols[0];
   const take = [
     top && top.pct >= 25 ? `Top holder controls ~${top.pct.toFixed(0)}%${top.label ? ` (${top.label})` : ''}. Whole trade is hostage to one wallet.` : `Top-10 hold ${holders.top10Pct?.toFixed(0) ?? '—'}%.`,
-    labels.some((l) => l.kind === 'kol') ? `Labeled KOL wallet is in and green.` : `No labeled KOL wallet detected in holders.`,
+    lead ? `${kols.length} labeled KOL${kols.length > 1 ? 's' : ''} in holders${lead.handle ? ` (lead: @${lead.handle})` : ''}.` : `No labeled KOL wallet detected in holders.`,
     ansem.note,
   ].filter(Boolean);
-  return { agent: 'wallet', take, cards, entities, confidence: holders.holders.length ? 78 : 45, caveats: holders.source.includes('mock') ? ['Holder labels are sample data until the Pointer registry is wired.'] : [] };
+  return { agent: 'wallet', take, cards, entities, confidence: holders.holders.length ? 78 : 45, caveats: holders.source.includes('mock') ? ['Holders are sample data (set HELIUS_API_KEY for live holders); labels shown are illustrative.'] : [] };
 }
 
 export async function runNarrativeAgent(ctx: AgentContext): Promise<AgentResult> {

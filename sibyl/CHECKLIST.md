@@ -6,8 +6,12 @@ mock mode (zero keys), DexScreener real, `/api/sibyl/chat` + `/status`, memory s
 docs. Build MVP first — this list is the road to "best crypto AI in the world."
 
 ## Data (turn mock → real)
-- [ ] **Pointer moat provider** → read the real identity registry + `community_labels`
-      + KOL directory (read-only; no coupling to trade paths). This is the #1 edge.
+- [x] **Pointer moat provider** → reads the real identity registry (~2,260 bundled KOL /
+      smart-money wallets w/ Twitter handles) via `resolveWalletIdentity`; labels actual
+      holders, resolves "is @person in this" (name→handle, e.g. ansem→blknoiz06), enriches
+      handle links. `prepareIdentityRegistry()` layers DB community-labels best-effort.
+      Read-only, works with zero keys (bundled seeds). Group/Discord mentions still mock
+      (separate capture-tap source — next).
 - [ ] Helius: resolve token-account → owner for holders; enhanced-tx wallet history;
       "which wallets are accumulating" (net-flow over N hours).
 - [ ] Birdeye: real OHLCV → wire `ChartCard` to live candles (or reuse Pointer's
