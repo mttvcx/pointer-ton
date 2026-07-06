@@ -44,3 +44,16 @@ type YieldDepositResponse = { configured: boolean; transaction: string | null; e
 export async function prepareYieldDeposit(owner: string, amountUsd: number): Promise<YieldDepositResponse> {
   return api<YieldDepositResponse>('/api/financial/yield/deposit', { token: await authToken(), method: 'POST', body: { owner, amountUsd } });
 }
+
+type BorrowResponse = { simulated: boolean; txBase64?: string };
+
+/** Credit mode: prepare an unsigned Kamino deposit+borrow tx (the app signs it via
+ *  Privy). `simulated:true` = Kamino not wired yet → reflect the borrow locally. */
+export async function prepareBorrow(input: {
+  amountUsd: number;
+  collateralMint: string;
+  collateralUsd: number;
+  borrowedUsd: number;
+}): Promise<BorrowResponse> {
+  return api<BorrowResponse>('/api/financial/credit/borrow', { token: await authToken(), method: 'POST', body: input });
+}

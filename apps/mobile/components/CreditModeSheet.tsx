@@ -20,6 +20,11 @@ import {
   USER_BORROW_APR,
 } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
+import { prepareBorrow } from '../src/financial/api';
+import { useAuth } from '../src/auth';
+import { SOLANA_RPC_URL } from '../src/env';
+
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 const PRESETS = [100, 500, 1000, 5000];
 
@@ -45,7 +50,9 @@ export function CreditModeSheet({
 }) {
   const mode = useSpendMode();
   const borrowed = useBorrowed();
+  const auth = useAuth();
   const [amount, setAmount] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   // Only allowlisted blue-chips back the line — filter the holdings to eligible
   // collateral, so a random memecoin contributes ZERO borrowing power.
@@ -60,12 +67,37 @@ export function CreditModeSheet({
     onClose();
   };
 
-  const doBorrow = () => {
-    if (amount <= 0 || amount > available) return;
-    borrow(amount);
-    setSpendMode('credit');
-    showToast(`Borrowed ${usd(amount, 0)}`, { sub: 'Spendable now · your crypto stays invested', kind: 'success' });
-    setAmount(0);
+  const doBorrow = async () => {
+    if (amount <= 0 || amount > available || busy) return;
+    // Demo (no real wallet) → reflect locally.
+    if (auth.demo || !auth.walletAddress) {
+      borrow(amount);
+      setSpendMode('credit');
+      showToast(`Borrowed ${usd(amount, 0)}`, { sub: 'Spendable now · your crypto stays invested', kind: 'success' });
+      setAmount(0);
+      return;
+    }
+    setBusy(true);
+    try {
+      // Server builds the Kamino deposit+borrow tx; we sign it non-custodially.
+      const res = await prepareBorrow({ amountUsd: amount, collateralMint: WSOL_MINT, collateralUsd: line.eligibleValue, borrowedUsd: borrowed });
+      if (res.txBase64) {
+        const token = await auth.getToken();
+        await auth.signAndSend(res.txBase64, SOLANA_RPC_URL, token ?? '');
+      }
+      borrow(amount);
+      setSpendMode('credit');
+      showToast(res.simulated ? `Borrowed ${usd(amount, 0)}` : `Borrowed ${usd(amount, 0)} on-chain`, {
+        sub: 'Your crypto stays invested — no sale, no tax event',
+        kind: 'success',
+      });
+      setAmount(0);
+    } catch (e) {
+      const over = e instanceof Error && /over/i.test(e.message);
+      showToast(over ? 'Over your credit limit' : "Couldn't borrow", { sub: over ? undefined : 'Please try again', kind: 'error' });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -179,8 +211,16 @@ export function CreditModeSheet({
           </View>
 
           <SheetButton
-            label={amount <= 0 ? 'Enter an amount' : amount > available ? 'Over your limit' : `Borrow ${usd(amount, 0)} · spend without selling`}
-            variant={amount <= 0 || amount > available ? 'disabled' : 'long'}
+            label={
+              busy
+                ? 'Borrowing…'
+                : amount <= 0
+                  ? 'Enter an amount'
+                  : amount > available
+                    ? 'Over your limit'
+                    : `Borrow ${usd(amount, 0)} · spend without selling`
+            }
+            variant={amount <= 0 || amount > available || busy ? 'disabled' : 'long'}
             onPress={doBorrow}
             style={{ marginTop: 16 }}
           />

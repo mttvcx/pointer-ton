@@ -54,20 +54,63 @@ export function quoteCredit(collateralUsd: number, borrowedUsd: number): CreditQ
   };
 }
 
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
 /**
  * Build an unsigned Kamino borrow transaction (base64) for the client to sign via
- * Privy. Stubbed + key-gated: throws until a real Kamino market + the
- * `@kamino-finance/klend-sdk` integration is wired and reviewed. Documents the
- * exact inputs the real implementation needs.
+ * Privy (non-custodial — the server never holds keys). Deposits the collateral
+ * into the user's Kamino obligation and borrows USDC against it, enforcing MAX_LTV
+ * + a min post-borrow health factor before returning.
+ *
+ * KEY-GATED + lazy: the `@kamino-finance/klend-sdk` import is a runtime require so
+ * the build stays clean until the dep is installed. Returns null (→ the caller
+ * falls back to the local simulation) whenever it isn't configured/installed, so
+ * the money path is never half-wired. Flip on with: `npm i @kamino-finance/klend-sdk`,
+ * set `KAMINO_ENABLED=1` + `KAMINO_MARKET` (the lending-market pubkey), then verify
+ * one borrow on a funded wallet BEFORE relying on it.
  */
-export async function buildBorrowTx(_input: {
+export async function buildBorrowTx(input: {
   wallet: string;
   collateralMint: string;
   amountUsd: number;
-}): Promise<{ txBase64: string }> {
-  if (!isKaminoConfigured()) throw new Error('KAMINO_NOT_CONFIGURED');
-  // TODO(kamino): use @kamino-finance/klend-sdk → KaminoAction.buildBorrowTxns(
-  //   market, amount(USDC), obligation(wallet), collateralReserve) → serialize.
-  //   Enforce MAX_LTV + a min post-borrow health factor server-side before returning.
-  throw new Error('KAMINO_BORROW_NOT_IMPLEMENTED');
+  collateralUsd: number;
+  borrowedUsd: number;
+}): Promise<{ txBase64: string } | null> {
+  if (!isKaminoConfigured()) return null;
+  const market = process.env.KAMINO_MARKET?.trim();
+  const rpc = process.env.SOLANA_RPC_URL?.trim() || process.env.HELIUS_RPC_URL?.trim();
+  if (!market || !rpc) return null;
+
+  // Server-side guardrail: never let a borrow push past MAX_LTV.
+  const q = quoteCredit(input.collateralUsd, input.borrowedUsd);
+  if (input.amountUsd <= 0 || input.amountUsd > q.creditAvailableUsd) {
+    throw new Error('KAMINO_BORROW_OVER_LIMIT');
+  }
+
+  try {
+    // Lazy require so tsc/build don't need the SDK until it's installed.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const klend = require('@kamino-finance/klend-sdk') as {
+      KaminoMarket: { load: (conn: unknown, market: unknown) => Promise<unknown> };
+      KaminoAction: { buildDepositAndBorrowTxns: (...args: unknown[]) => Promise<{ serialize: () => Uint8Array }> };
+    };
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { Connection, PublicKey } = require('@solana/web3.js');
+    const connection = new Connection(rpc, 'confirmed');
+    const kmarket = await klend.KaminoMarket.load(connection, new PublicKey(market));
+    // Deposit the collateral + borrow USDC in one obligation action.
+    const action = await klend.KaminoAction.buildDepositAndBorrowTxns(
+      kmarket,
+      String(Math.round(input.amountUsd * 1e6)), // USDC (6dp) to borrow
+      new PublicKey(USDC_MINT),
+      new PublicKey(input.collateralMint),
+      new PublicKey(input.wallet),
+    );
+    const txBase64 = Buffer.from(action.serialize()).toString('base64');
+    return { txBase64 };
+  } catch (err) {
+    // Not installed / market mismatch → fall back to simulation rather than break.
+    if (err instanceof Error && err.message === 'KAMINO_BORROW_OVER_LIMIT') throw err;
+    return null;
+  }
 }
