@@ -70,7 +70,7 @@ export function gradeOutcome(prediction: any, freshMc: number | null, freshPrice
  * resolve any prior prediction that's had ≥1h to play out, then open a new one. All
  * fail-open; never throws.
  */
-export async function recordScan(answer: SibylAnswer, ctx: AgentContext, meta?: { latencyMs?: number }): Promise<void> {
+export async function recordScan(answer: SibylAnswer, ctx: AgentContext, meta?: { latencyMs?: number; userId?: string | null }): Promise<void> {
   try {
     const iso = nowIso();
     const snap = tokenSnap(answer);
@@ -90,6 +90,7 @@ export async function recordScan(answer: SibylAnswer, ctx: AgentContext, meta?: 
       entities: answer.entities,
       cards: answer.cards,
       latency_ms: meta?.latencyMs ?? null,
+      user_id: meta?.userId ?? null,
     });
 
     await db.recordEntities(entitiesFrom(answer, ctx), iso);

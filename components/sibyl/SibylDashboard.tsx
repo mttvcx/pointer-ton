@@ -7,6 +7,7 @@ import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
 import { SibylSettingsModal } from '@/components/sibyl/SibylSettingsModal';
 import { sibylSerif } from '@/components/sibyl/fonts';
 import { clearChats, exportChats, getChat, importChats, listChats, newChatId, saveChat, type StoredChat, type StoredMsg } from '@/components/sibyl/chatStore';
+import { usePointerAuth } from '@/lib/auth/pointerAuth';
 
 type Msg = { id: string; role: 'user' | 'sibyl'; text?: string; answer?: SibylAnswer };
 type Plan = { tier: string; label: string; price: number; maxMode: string };
@@ -307,6 +308,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
   const [systemDark, setSystemDark] = useState(true);
   const [voice, setVoice] = useState(false);
   const [attachment, setAttachment] = useState<string | null>(null);
+  const [usage, setUsage] = useState<{ used: number; cap: number; remaining: number | null; tokenUsage: string } | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [acctSub, setAcctSub] = useState<null | 'help' | 'learn'>(null);
@@ -316,6 +318,16 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [videoMounted, setVideoMounted] = useState(!initialChatId);
+
+  // Auth bridges automatically: Sibyl lives inside the app's PrivyProvider, so a
+  // session started anywhere in Pointer (same browser) is already authenticated here.
+  const { authenticated, user, signIn, logout, getAccessToken } = usePointerAuth();
+  const acctName =
+    user?.google?.name ||
+    user?.email?.address ||
+    (user?.twitter?.username ? `@${user.twitter.username}` : '') ||
+    (user?.id ? `${user.id.slice(0, 4)}…${user.id.slice(-4)}` : 'Guest');
+  const acctSubtitle = authenticated ? 'Free plan · account' : 'Free plan · sign in';
 
   useEffect(() => {
     // Some browsers need an explicit play() even for muted autoplay.
@@ -425,6 +437,26 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
     window.history.pushState({}, '', `/sibyl/chat/${id}`);
   };
 
+  const refreshUsage = async () => {
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch('/api/sibyl/usage', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return;
+      const d = (await res.json()) as { used: number; cap: number; remaining: number | null; tokenUsage: string };
+      setUsage({ used: d.used, cap: d.cap, remaining: d.remaining, tokenUsage: d.tokenUsage });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Refresh the daily meter on load and whenever auth flips (attribution changes).
+  useEffect(() => {
+    void refreshUsage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
+
   const backupChats = () => {
     try {
       const blob = new Blob([exportChats()], { type: 'application/json' });
@@ -480,8 +512,21 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
     setMessages((m) => [...m, { id: nid(), role: 'user', text: query }]);
     setLoading(true);
     try {
-      const res = await fetch('/api/sibyl/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
-      const data = (await res.json()) as { answer?: SibylAnswer };
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch('/api/sibyl/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ query }),
+      });
+      if (res.status === 429) {
+        const err = (await res.json().catch(() => ({}))) as { message?: string };
+        setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: err.message ?? 'Daily scan limit reached. Upgrade for more.' }]);
+        setUpgradeOpen(true);
+        void refreshUsage();
+        return;
+      }
+      const data = (await res.json()) as { answer?: SibylAnswer; usage?: { used: number; cap: number; remaining: number | null } };
+      if (data.usage) setUsage((u) => ({ used: data.usage!.used, cap: data.usage!.cap, remaining: data.usage!.remaining, tokenUsage: u?.tokenUsage ?? '' }));
       setMessages((m) => [...m, data.answer ? { id: nid(), role: 'sibyl', answer: data.answer } : { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
     } catch {
       setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Network error.' }]);
@@ -513,6 +558,10 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
         onRestore={() => restoreRef.current?.click()}
         onClear={clearAllChats}
         onUpgrade={() => { setSettingsOpen(false); setUpgradeOpen(true); }}
+        authenticated={authenticated}
+        accountName={acctName}
+        onSignIn={() => { void signIn(); }}
+        onLogout={() => { void logout(); }}
       />
 
       {/* base + ambient video (dark theme only — fades out + unmounts once a scan starts) */}
@@ -581,8 +630,8 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                 <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full s-panel2 s-muted"><IconUser /></span>
                   <div className="min-w-0 leading-tight">
-                    <div className="truncate text-[12.5px] font-medium s-fg">Guest</div>
-                    <div className="text-[10px] s-faint">Free plan</div>
+                    <div className="truncate text-[12.5px] font-medium s-fg">{acctName}</div>
+                    <div className="text-[10px] s-faint">{authenticated ? 'Free plan · signed in' : 'Free plan'}</div>
                   </div>
                 </div>
                 <div className="my-1 h-px s-border" />
@@ -628,8 +677,26 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
 
                 <div className="my-1 h-px s-border" />
 
-                <MenuItem icon={<I d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" className="h-4 w-4" />} onClick={() => setMenu(null)}>Sign in</MenuItem>
-                <MenuItem icon={<I d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6" className="h-4 w-4" />} onClick={() => setMenu(null)}>Create account</MenuItem>
+                {authenticated ? (
+                  <MenuItem icon={<I d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" className="h-4 w-4" />} onClick={() => { void logout(); setMenu(null); }}>Log out</MenuItem>
+                ) : (
+                  <>
+                    <MenuItem icon={<I d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" className="h-4 w-4" />} onClick={() => { void signIn(); setMenu(null); }}>Sign in</MenuItem>
+                    <MenuItem icon={<I d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6" className="h-4 w-4" />} onClick={() => { void signIn(); setMenu(null); }}>Create account</MenuItem>
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            {usage && usage.cap > 0 ? (
+              <div className="px-1 pb-0.5">
+                <div className="flex items-center justify-between text-[10px] s-faint">
+                  <span>{Math.max(0, usage.cap - usage.used)} of {usage.cap} scans left today</span>
+                  {usage.tokenUsage ? <span className="s-faint">{usage.tokenUsage}</span> : null}
+                </div>
+                <div className="mt-1 h-1 w-full overflow-hidden rounded-full s-panel2">
+                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((usage.used / usage.cap) * 100))}%`, background: 'var(--s-accent)' }} />
+                </div>
               </div>
             ) : null}
 
@@ -642,8 +709,8 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                 <IconUser />
               </span>
               <div className="min-w-0 flex-1 leading-tight">
-                <div className="truncate text-[12.5px] font-medium s-fg">Guest</div>
-                <div className="text-[10px] s-faint">Free plan · account</div>
+                <div className="truncate text-[12.5px] font-medium s-fg">{acctName}</div>
+                <div className="text-[10px] s-faint">{acctSubtitle}</div>
               </div>
               <span className="s-faint">
                 <IconGear />

@@ -37,7 +37,11 @@ const RUNNERS: Record<Exclude<AgentName, 'judge'>, (ctx: AgentContext) => Promis
   analog: runAnalogAgent,
 };
 
-export async function askSibyl(query: string, tier: PlanTier = 'FREE'): Promise<SibylAnswer> {
+export async function askSibyl(
+  query: string,
+  tier: PlanTier = 'FREE',
+  opts?: { userId?: string | null },
+): Promise<SibylAnswer> {
   const intent = classifyIntent(query);
   const mode = clampModeToPlan(intent.mode, tier);
 
@@ -60,6 +64,6 @@ export async function askSibyl(query: string, tier: PlanTier = 'FREE'): Promise<
   if (recall && recall.seenCount > 0) answer.memory = { seenCount: recall.seenCount, firstSeen: recall.firstSeen };
 
   // Write-through into the flywheel (bounded so it never delays/breaks the response).
-  await withTimeout(recordScan(answer, ctx).catch(() => undefined), 3000, undefined);
+  await withTimeout(recordScan(answer, ctx, { userId: opts?.userId ?? null }).catch(() => undefined), 3000, undefined);
   return answer;
 }

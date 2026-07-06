@@ -54,6 +54,10 @@ export function SibylSettingsModal({
   onRestore,
   onClear,
   onUpgrade,
+  authenticated,
+  accountName,
+  onSignIn,
+  onLogout,
 }: {
   open: boolean;
   onClose: () => void;
@@ -65,6 +69,10 @@ export function SibylSettingsModal({
   onRestore: () => void;
   onClear: () => void;
   onUpgrade: () => void;
+  authenticated: boolean;
+  accountName: string;
+  onSignIn: () => void;
+  onLogout: () => void;
 }) {
   const [section, setSection] = useState<Section>('general');
   if (!open) return null;
@@ -159,12 +167,18 @@ export function SibylSettingsModal({
                   <Ico d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[13px] font-medium s-fg">Guest</div>
-                  <div className="text-[11px] s-faint">Free plan · not signed in</div>
+                  <div className="truncate text-[13px] font-medium s-fg">{authenticated ? accountName : 'Guest'}</div>
+                  <div className="text-[11px] s-faint">{authenticated ? 'Free plan · signed in' : 'Free plan · not signed in'}</div>
                 </div>
-                <button type="button" className="ml-auto rounded-lg px-3 py-1.5 text-[12px] font-semibold text-black transition hover:opacity-90" style={{ background: 'var(--s-accent)' }}>
-                  Sign in
-                </button>
+                {authenticated ? (
+                  <button type="button" onClick={onLogout} className="ml-auto rounded-lg border s-border px-3 py-1.5 text-[12px] font-medium s-fg transition h-panel2">
+                    Log out
+                  </button>
+                ) : (
+                  <button type="button" onClick={onSignIn} className="ml-auto rounded-lg px-3 py-1.5 text-[12px] font-semibold text-black transition hover:opacity-90" style={{ background: 'var(--s-accent)' }}>
+                    Sign in
+                  </button>
+                )}
               </div>
               <Row title="Plan" desc="Upgrade for deeper scans, memory recall, and API access.">
                 <button type="button" onClick={onUpgrade} className="rounded-lg s-panel2 px-3 py-1.5 text-[12px] font-medium s-fg transition h-panel2">Upgrade plan</button>

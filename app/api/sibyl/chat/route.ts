@@ -1,20 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { askSibyl } from '@/sibyl/orchestrator';
-import type { PlanTier } from '@/sibyl/types';
+import { getSibylUsage, sibylUserId } from '@/sibyl/serverAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/sibyl/chat — the one intelligence endpoint. The dashboard, the future
- * public API (/v1/token/analyze …), mobile, and the extension all call this. MVP is
- * public at FREE tier (mock mode needs no keys); plan gating + auth + rate limits
- * are the next-step wrappers around this same call.
+ * public API (/v1/token/analyze …), mobile, and the extension all call this.
+ *
+ * Server owns the plan: the caller's tier + daily cap are resolved from the Privy
+ * session (never the request body), so a client can't spoof a higher tier. Over
+ * the cap → 429; near the cap → we quietly degrade one tier to protect margin.
+ * The scan is attributed to the user so the flywheel meters usage.
  */
 const Body = z.object({
   query: z.string().trim().min(1).max(500),
-  tier: z.enum(['FREE', 'PRO', 'PRO_PLUS', 'MAX', 'ENTERPRISE']).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,9 +29,25 @@ export async function POST(req: NextRequest) {
   const parsed = Body.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
 
+  const userId = await sibylUserId(req);
+  const usage = await getSibylUsage(userId);
+  if (usage.overCap) {
+    return NextResponse.json(
+      {
+        error: 'daily_cap_reached',
+        message: `You've used all ${usage.cap} ${usage.tokenUsage} scans for today. Resets at 00:00 UTC — upgrade for more.`,
+        usage: { used: usage.used, cap: usage.cap, resetAt: usage.resetAtIso },
+      },
+      { status: 429 },
+    );
+  }
+
   try {
-    const answer = await askSibyl(parsed.data.query, (parsed.data.tier as PlanTier) ?? 'FREE');
-    return NextResponse.json({ answer });
+    const answer = await askSibyl(parsed.data.query, usage.effectiveTier, { userId });
+    return NextResponse.json({
+      answer,
+      usage: { used: usage.used + 1, cap: usage.cap, remaining: usage.cap > 0 ? Math.max(0, usage.cap - usage.used - 1) : null },
+    });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'sibyl_failed' }, { status: 500 });
   }

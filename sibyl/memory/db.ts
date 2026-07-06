@@ -116,6 +116,24 @@ export async function insertPendingOutcome(row: { scan_id: string | null; subjec
   }
 }
 
+/** Scans this user has run since 00:00 UTC today — the number the daily cap meters. */
+export async function usageToday(userId: string): Promise<number> {
+  const c = sb();
+  if (!c || !userId) return 0;
+  const now = new Date();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  try {
+    const { count } = await c
+      .from('sibyl_scans')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', dayStart);
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export type MemoryCounts = { scans: number; entities: number; pending: number; resolved: number };
 export async function memoryCounts(): Promise<MemoryCounts | null> {
   const c = sb();
