@@ -25,16 +25,20 @@ const ART: Record<PackType, { bg: [string, string, string]; metal: string; word:
 const ART_W = 768;
 const ART_H = 1088;
 const LOGO_SRC = '/branding/pointer-bird-transparent.png';
-/** Iconic / meme stickers scattered on the wrapper (real assets in public/). */
-const STICKER_SRC = ['/packs/troll.jpg', '/pulse-glyphs/crown.png', '/pulse-glyphs/chart.png', '/icons/pumpfun.webp', '/pulse-glyphs/cashback.png'];
-/** Scatter layout — [srcIndex, x, y, size, rotationDeg]. Avoids the centre logo + wordmark. */
-const STICKER_LAYOUT: Array<[number, number, number, number, number]> = [
-  [0, 150, 200, 150, -14],
-  [1, 630, 210, 130, 12],
-  [2, 120, 560, 120, -8],
-  [3, 650, 560, 120, 10],
-  [0, 200, 300, 96, 18],
-  [4, 560, 330, 96, -16],
+/** Iconic / token / meme stickers — a different cast per tier (troll only rides Bronze). */
+const TIER_STICKERS: Record<PackType, string[]> = {
+  bronze: ['/packs/troll.jpg', '/logos/protocols/pumpfun.png', '/logos/protocols/bonk.png', '/chains/sol.png', '/pulse-glyphs/chart.png'],
+  silver: ['/logos/protocols/jupiter.png', '/logos/protocols/raydium.png', '/logos/protocols/meteora.png', '/chains/sol.png', '/logos/protocols/orca.png'],
+  gold: ['/logos/protocols/moonshot.png', '/logos/protocols/virtuals.png', '/pulse-glyphs/trophy.png', '/logos/protocols/jupiter.png', '/logos/protocols/bags.png'],
+  legendary: ['/pulse-glyphs/crown.png', '/pulse-glyphs/trophy.png', '/logos/protocols/bonk.png', '/logos/protocols/uniswap.png', '/chains/sol.png'],
+};
+/** Scatter positions around the centre logo + wordmark — [x, y, size, rotationDeg]. */
+const STICKER_POS: Array<[number, number, number, number]> = [
+  [156, 205, 150, -14],
+  [626, 210, 132, 12],
+  [120, 560, 122, -8],
+  [652, 560, 122, 10],
+  [566, 330, 100, -16],
 ];
 
 function loadImg(src: string): Promise<HTMLImageElement | null> {
@@ -101,11 +105,13 @@ function drawSticker(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: nu
 /** Draw the composed front: stickers → logo → tier word. Async because it pulls real images. */
 async function composeArt(ctx: CanvasRenderingContext2D, type: PackType): Promise<void> {
   drawArtBase(ctx, type);
-  const [logo, ...stickers] = await Promise.all([loadImg(LOGO_SRC), ...STICKER_SRC.map(loadImg)]);
+  const [logo, ...stickers] = await Promise.all([loadImg(LOGO_SRC), ...TIER_STICKERS[type].map(loadImg)]);
 
-  for (const [srcIdx, x, y, size, rot] of STICKER_LAYOUT) {
-    const s = stickers[srcIdx];
-    if (s) drawSticker(ctx, s, x, y, size, rot);
+  for (let i = 0; i < STICKER_POS.length; i++) {
+    const s = stickers[i];
+    if (!s) continue;
+    const [x, y, size, rot] = STICKER_POS[i]!;
+    drawSticker(ctx, s, x, y, size, rot);
   }
 
   if (logo) {
@@ -255,21 +261,30 @@ export function Pack3D({ type, className }: { type: PackType; className?: string
       pack.add(crimp);
     }
 
-    // printed artwork on the front
+    // printed artwork on the front — a CRUMPLED foil surface (the print itself is
+    // creased metal, so the wrinkles distort the art like a real crushed wrapper)
     const artMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.98, 2.78),
-      new THREE.MeshStandardMaterial({ map: artTex, roughness: 0.44, metalness: 0.22, transparent: true }),
+      new THREE.PlaneGeometry(1.98, 2.78, 40, 56),
+      new THREE.MeshPhysicalMaterial({
+        map: artTex,
+        bumpMap: bump,
+        bumpScale: 0.12,
+        displacementMap: bump,
+        displacementScale: 0.09,
+        displacementBias: -0.045,
+        metalness: 0.55,
+        roughness: 0.34,
+        clearcoat: 1,
+        clearcoatRoughness: 0.28,
+        iridescence: 0.7,
+        iridescenceIOR: 1.3,
+        iridescenceThicknessRange: [100, 700],
+        envMapIntensity: 1.3,
+        transparent: true,
+      }),
     );
     artMesh.position.set(0, 0, 0.132);
     pack.add(artMesh);
-
-    // additive holo sheen over the art
-    const sheen = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.98, 2.78),
-      new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0.08, metalness: 0.6, iridescence: 1, iridescenceIOR: 1.3, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
-    sheen.position.set(0, 0, 0.138);
-    pack.add(sheen);
 
     const pointer = { x: 0, y: 0 };
     const onMove = (e: PointerEvent) => {
@@ -302,8 +317,8 @@ export function Pack3D({ type, className }: { type: PackType; className?: string
       if (!running) return;
       raf = requestAnimationFrame(tick);
       const t = clock.getElapsedTime();
-      const targetY = pointer.x * 0.5 + Math.sin(t * 0.5) * 0.08;
-      const targetX = -pointer.y * 0.42 + Math.sin(t * 0.7) * 0.05;
+      const targetY = pointer.x * 0.5 + Math.sin(t * 0.55) * 0.22;
+      const targetX = -pointer.y * 0.42 + Math.sin(t * 0.8) * 0.08;
       pack.rotation.y += (targetY - pack.rotation.y) * 0.09;
       pack.rotation.x += (targetX - pack.rotation.x) * 0.09;
       pack.position.y = Math.sin(t * 0.9) * 0.05;
