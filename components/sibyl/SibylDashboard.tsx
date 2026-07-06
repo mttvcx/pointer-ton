@@ -111,7 +111,7 @@ export function SibylDashboard() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<{ modelMock: boolean; liveProviders: number } | null>(null);
+  const [status, setStatus] = useState<{ modelMock: boolean; liveProviders: number; memory: { scans: number; entities: number; resolved: number } | null } | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [menu, setMenu] = useState<null | 'model' | 'settings' | 'upgrade'>(null);
   const [theme, setTheme] = useState<ThemeChoice>('dark');
@@ -123,7 +123,7 @@ export function SibylDashboard() {
     fetch('/api/sibyl/status')
       .then((r) => r.json())
       .then((d) => {
-        setStatus({ modelMock: Boolean(d.modelMock), liveProviders: Number(d.liveProviders ?? 0) });
+        setStatus({ modelMock: Boolean(d.modelMock), liveProviders: Number(d.liveProviders ?? 0), memory: d.memory ?? null });
         setPlans(Array.isArray(d.plans) ? d.plans : []);
       })
       .catch(() => {});
@@ -237,6 +237,11 @@ export function SibylDashboard() {
                 <span className={`h-1.5 w-1.5 rounded-full ${status?.modelMock === false ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                 {statusLine}
               </div>
+              {status?.memory ? (
+                <div className="s-faint text-[10px]">
+                  🧠 {status.memory.scans.toLocaleString()} scans · {status.memory.entities.toLocaleString()} entities · {status.memory.resolved.toLocaleString()} graded
+                </div>
+              ) : null}
             </div>
           ) : null}
 

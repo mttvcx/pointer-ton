@@ -14,6 +14,12 @@ import {
   runSocialAgent,
   runWalletAgent,
 } from '@/sibyl/agents/runners';
+import { recallSubject, recordScan } from '@/sibyl/memory/persist';
+
+/** Bound a promise so a slow/hung dependency can never stall the response. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p, new Promise<T>((res) => setTimeout(() => res(fallback), ms))]);
+}
 
 /**
  * Sibyl's single intelligence layer. The dashboard chat, the future public API
@@ -44,9 +50,16 @@ export async function askSibyl(query: string, tier: PlanTier = 'FREE'): Promise<
   };
 
   const specialists = intent.agents.filter((a): a is Exclude<AgentName, 'judge'> => a !== 'judge');
-  const results = (await Promise.all(specialists.map((a) => RUNNERS[a](ctx).catch(() => null)))).filter(
-    (r): r is AgentResult => r != null,
-  );
+  // Run specialists + recall prior memory of this subject in parallel.
+  const [results, recall] = await Promise.all([
+    Promise.all(specialists.map((a) => RUNNERS[a](ctx).catch(() => null))).then((rs) => rs.filter((r): r is AgentResult => r != null)),
+    withTimeout(recallSubject(ctx).catch(() => null), 1500, null),
+  ]);
 
-  return runJudge(query, mode, results);
+  const answer = await runJudge(query, mode, results);
+  if (recall && recall.seenCount > 0) answer.memory = { seenCount: recall.seenCount, firstSeen: recall.firstSeen };
+
+  // Write-through into the flywheel (bounded so it never delays/breaks the response).
+  await withTimeout(recordScan(answer, ctx).catch(() => undefined), 3000, undefined);
+  return answer;
 }

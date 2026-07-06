@@ -30,6 +30,11 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
             <span>{answer.agentsRun.join(' · ')}</span>
           </>
         ) : null}
+        {answer.memory && answer.memory.seenCount > 0 ? (
+          <span className="s-accent inline-flex items-center gap-1 rounded-full border s-border px-1.5 py-0.5 font-medium">
+            ◆ Sibyl has analyzed this {answer.memory.seenCount}× before
+          </span>
+        ) : null}
       </div>
 
       {/* verdict — serif headline */}

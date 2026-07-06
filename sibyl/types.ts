@@ -120,4 +120,6 @@ export type SibylAnswer = {
   agentsRun: AgentName[];
   /** Per-agent confidence downgrades / missing data, surfaced by the judge. */
   caveats?: string[];
+  /** Prior memory of this subject (the flywheel) — set when Sibyl has seen it before. */
+  memory?: { seenCount: number; firstSeen: string | null } | null;
 };

@@ -30,9 +30,15 @@ docs. Build MVP first — this list is the road to "best crypto AI in the world.
 - [ ] Streaming responses (SSE) for STANDARD/DEEP so the UI fills progressively.
 
 ## Memory
-- [ ] `sibyl_entities` Supabase table + swap the in-process store; add a vector index
-      for semantic recall ("tokens like this one").
-- [ ] Every scan enriches the graph (upsert token/wallet/KOL/narrative + relations).
+- [x] **Flywheel persisted** — `sibyl_scans` / `sibyl_entities` / `sibyl_outcomes` tables
+      (scripts/sibyl-flywheel.sql, applied). Every scan writes through: scan captured,
+      entities upserted with array-merge + seen_count (atomic `sibyl_record_entities`
+      RPC), prediction snapshot opened, and prior predictions graded (multiple / rugged)
+      — lazily on re-scan + via `/api/sibyl/outcomes/resolve`. Recall surfaces "analyzed
+      N× before". Fail-open (memory never breaks a scan). Shared: rides `askSibyl()` so
+      web / extension / mobile all enrich the same graph.
+- [ ] Vector index on `sibyl_entities` for semantic recall ("tokens like this one").
+- [ ] Feed recall back into the agents (prior verdict / accumulated wallet history in-prompt).
 
 ## Product / business
 - [ ] Auth + plan resolution on `/api/sibyl/chat` (Privy tier → `clampModeToPlan`) +
