@@ -69,23 +69,30 @@ export async function runWalletAgent(ctx: AgentContext): Promise<AgentResult> {
 
 export async function runNarrativeAgent(ctx: AgentContext): Promise<AgentResult> {
   const n = await grok.getNarrativeFacts(ctx.narrative ?? ctx.query);
-  const cards: SibylCard[] = [{ type: 'narrative', id: cid('narrative'), data: { name: n.name, stage: n.stage, origin: n.origin, spread: n.spread, strengthening: n.strengthening, summary: n.summary } }];
+  const cards: SibylCard[] = [{ type: 'narrative', id: cid('narrative'), data: { name: n.name, stage: n.stage, origin: n.origin, originTweetUrl: n.originTweetUrl ?? null, spread: n.spread, strengthening: n.strengthening, summary: n.summary } }];
   const take = [
     `Reads ${n.stage}${n.strengthening ? ' and strengthening' : n.strengthening === false ? ' and fading' : ''}.`,
+    n.originTweetUrl ? 'Traces back to a specific tweet — origin is on X.' : '',
     (n.spread.tiktok ?? 0) < 25 ? 'Attention is X-heavy, weak off-platform — CT/personality trade, not a mass runner yet.' : 'Spreading off-platform (TikTok/Reels) — retail leg forming.',
-  ];
+  ].filter(Boolean);
   return { agent: 'narrative', take, cards, entities: [], confidence: n.source.includes('mock') ? 55 : 70, caveats: n.source.includes('mock') ? ['Narrative is inferred — Grok live-search not yet connected.'] : [] };
 }
 
 export async function runSocialAgent(ctx: AgentContext): Promise<AgentResult> {
-  const [s, groups] = await Promise.all([x.getSocialFacts(ctx.query), ctx.mint ? pointer.getGroupMentions(ctx.mint) : Promise.resolve([])]);
+  const [s, groups, tweets] = await Promise.all([
+    x.getSocialFacts(ctx.query),
+    ctx.mint ? pointer.getGroupMentions(ctx.mint) : Promise.resolve([]),
+    x.getRecentTweets(ctx.query),
+  ]);
   const kols = s.mentions.map((m) => ({ handle: m.handle, name: m.name, note: m.note, inThisTrade: true }));
   const entities: SibylEntityRef[] = [...s.mentions, ...groups].map((m) => ({ kind: 'person', id: m.handle, label: m.name, handle: m.handle, href: `https://x.com/${m.handle}` }));
-  const cards: SibylCard[] = [{ type: 'social', id: cid('social'), data: { handleCount: s.handleCount, velocity: s.velocity, window: s.window, kols } }];
+  const cards: SibylCard[] = [{ type: 'social', id: cid('social'), data: { handleCount: s.handleCount, velocity: s.velocity, window: s.window, kols, tweets: tweets.length ? tweets.map((t) => ({ url: t.url, handle: t.handle, note: t.note })) : undefined } }];
+  const topTweet = tweets[0];
   const take = [
     `Social velocity ${s.velocity} — ${s.handleCount} handles in ${s.window}.`,
+    topTweet ? `Loudest post: @${topTweet.handle ?? 'x'}${topTweet.note ? ` (${topTweet.note})` : ''} is carrying it.` : '',
     groups.length ? `Alpha groups mentioned it (${groups.map((g) => g.name).join(', ')}).` : 'No alpha-group mentions captured.',
-  ];
+  ].filter(Boolean);
   return { agent: 'social', take, cards, entities, confidence: s.source.includes('mock') ? 55 : 72, caveats: s.source.includes('mock') ? ['Social is sample data until the X plan is live.'] : [] };
 }
 

@@ -37,11 +37,16 @@ export type LabeledWallet = { address: string; label: string; kind: 'kol' | 'sma
 
 export type KOLMention = { handle: string; name: string; note: string; at?: string | null; url?: string | null };
 
+/** A specific tweet Sibyl cites (origin of a meta, the post carrying a run, etc.). */
+export type TweetRef = { url: string; handle?: string | null; note?: string | null };
+
 export type SocialFacts = {
   velocity: 'rising' | 'flat' | 'falling' | 'unknown';
   handleCount: number;
   window: string;
   mentions: KOLMention[];
+  /** Actual tweets driving the token — rendered with a hover preview. */
+  tweets?: TweetRef[];
   source: string;
 };
 
@@ -49,6 +54,8 @@ export type NarrativeFacts = {
   name: string;
   stage: 'early' | 'mid' | 'late' | 'unknown';
   origin: string | null;
+  /** The tweet that kicked the meta off, when identifiable. */
+  originTweetUrl?: string | null;
   strengthening: boolean | null;
   spread: { x?: number; tiktok?: number; reels?: number; news?: number; telegram?: number };
   summary: string;

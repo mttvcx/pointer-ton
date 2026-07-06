@@ -1,7 +1,7 @@
 'use client';
 
 import type { SibylCard } from '@/sibyl/types';
-import { TwitterProfileHoverTrigger } from '@/components/tokens/PulseRichPopovers';
+import { TwitterProfileHoverTrigger, TwitterTweetHoverTrigger } from '@/components/tokens/PulseRichPopovers';
 
 /* Liquid-glass surface: faint fill, hairline border, inner top-highlight + soft drop. */
 const glass =
@@ -176,6 +176,13 @@ export function CardRenderer({ card }: { card: SibylCard }) {
               </span>
             ))}
           </div>
+          {d.originTweetUrl ? (
+            <TwitterTweetHoverTrigger url={d.originTweetUrl} side="top">
+              <a href={d.originTweetUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-sky-500 hover:underline">
+                Origin tweet →
+              </a>
+            </TwitterTweetHoverTrigger>
+          ) : null}
         </div>
       );
     }
@@ -262,6 +269,19 @@ export function CardRenderer({ card }: { card: SibylCard }) {
               </TwitterProfileHoverTrigger>
             ))}
           </div>
+          {d.tweets && d.tweets.length > 0 ? (
+            <div className="s-border mt-2.5 space-y-1 border-t pt-2.5">
+              <div className={label}>Tweets driving it</div>
+              {d.tweets.map((t) => (
+                <TwitterTweetHoverTrigger key={t.url} url={t.url} side="left">
+                  <a href={t.url} target="_blank" rel="noreferrer" className="flex items-baseline gap-2 text-[12px] hover:underline">
+                    <span className="text-sky-500">{t.handle ? `@${t.handle}` : 'tweet'}</span>
+                    <span className="s-faint">{t.note ?? 'view tweet'}</span>
+                  </a>
+                </TwitterTweetHoverTrigger>
+              ))}
+            </div>
+          ) : null}
         </div>
       );
     }

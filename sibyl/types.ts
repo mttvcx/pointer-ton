@@ -93,13 +93,15 @@ export type NarrativeCardData = {
   name: string;
   stage: 'early' | 'mid' | 'late' | 'unknown';
   origin?: string | null;
+  originTweetUrl?: string | null;
   spread: { x?: number; tiktok?: number; reels?: number; news?: number; telegram?: number };
   strengthening: boolean | null;
   summary: string;
 };
 export type DuneMetricData = { title: string; rows: { label: string; value: string }[]; queryUrl?: string | null };
 export type RiskScoreData = { score: number; flags: { label: string; severity: 'low' | 'med' | 'high' }[] };
-export type SocialVelocityData = { handleCount: number; velocity: 'rising' | 'flat' | 'falling' | 'unknown'; window: string; kols: KOLCardData[] };
+export type TweetCite = { url: string; handle?: string | null; note?: string | null };
+export type SocialVelocityData = { handleCount: number; velocity: 'rising' | 'flat' | 'falling' | 'unknown'; window: string; kols: KOLCardData[]; tweets?: TweetCite[] };
 export type TimelineData = { events: { at: string; label: string }[] };
 export type SimilarTokensData = { items: { symbol: string; note: string; outcome?: string | null }[] };
 
