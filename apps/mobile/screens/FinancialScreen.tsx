@@ -22,6 +22,7 @@ import { loadFinancialStatus, useFinancial, useFinancialEntered, enterFinancial 
 import { useYieldRate } from '../src/financial/hooks';
 import { CardTiersSheet } from '../components/CardTiersSheet';
 import { CreditModeSheet } from '../components/CreditModeSheet';
+import { VisaMark } from '../components/VisaMark';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
@@ -217,14 +218,17 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <View style={s.cardTop}>
             <View style={s.cardBrand}>
               <Logo size={22} style={{ tintColor: '#fff' }} />
-              <Text style={s.cardBrandText}>Pointer</Text>
+              <Text style={s.cardBrandText}>pointer.</Text>
             </View>
             <View style={s.cardTierWrap}>
               <Text style={[s.cardTier, { color: tier.accent }]}>{tier.name}</Text>
               <Text style={s.cardVirtual}>{fin.status === 'active' ? (cardFrozen ? 'Frozen' : 'Virtual') : 'Not ordered'}</Text>
             </View>
           </View>
-          <Text style={s.cardNum}>4242  ••••  ••••  {cardLast4}</Text>
+          <View style={s.cardNumRow}>
+            <Text style={s.cardNum}>4242  ••••  ••••  {cardLast4}</Text>
+            <VisaMark size={22} />
+          </View>
           <View style={s.cardBottom}>
             <View>
               <Text style={s.cardSpendLabel}>Spendable</Text>
@@ -529,6 +533,7 @@ const s = StyleSheet.create({
   cardVirtual: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700' },
   cardTierWrap: { alignItems: 'flex-end' },
   cardTier: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+  cardNumRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardNum: { color: 'rgba(255,255,255,0.9)', fontSize: 18, fontWeight: '600', letterSpacing: 2 },
   cardBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   cardSpendLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },

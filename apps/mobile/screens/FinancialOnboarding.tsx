@@ -10,6 +10,7 @@ import { GlossButton } from '../components/GlossButton';
 import { PressScale } from '../components/PressScale';
 import { Rise } from '../components/Rise';
 import { Slide } from '../components/Slide';
+import { VisaMark } from '../components/VisaMark';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { usd } from '../src/format';
@@ -39,11 +40,14 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
               <View style={s.introCardTop}>
                 <View style={s.introCardBrand}>
                   <Logo size={20} style={{ tintColor: '#fff' }} />
-                  <Text style={s.introCardBrandText}>Pointer</Text>
+                  <Text style={s.introCardBrandText}>pointer.</Text>
                 </View>
                 <Ionicons name="wifi" size={16} color="rgba(255,255,255,0.5)" style={{ transform: [{ rotate: '90deg' }] }} />
               </View>
-              <Text style={s.introCardNum}>4242  ••••  ••••  8817</Text>
+              <View style={s.introCardNumRow}>
+                <Text style={s.introCardNum}>4242  ••••  ••••  8817</Text>
+                <VisaMark size={18} />
+              </View>
             </View>
           </View>
         </Rise>
@@ -241,7 +245,7 @@ function Done({ card, busy, setBusy, onClose }: { card: CardInfo | null; busy: b
         <View style={s.introCardTop}>
           <View style={s.introCardBrand}>
             <Logo size={20} style={{ tintColor: '#fff' }} />
-            <Text style={s.introCardBrandText}>Pointer</Text>
+            <Text style={s.introCardBrandText}>pointer.</Text>
           </View>
           <Text style={s.doneVirtual}>Virtual</Text>
         </View>
@@ -281,6 +285,7 @@ const s = StyleSheet.create({
   introCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   introCardBrand: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   introCardBrandText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  introCardNumRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   introCardNum: { color: 'rgba(255,255,255,0.85)', fontSize: 16, fontWeight: '600', letterSpacing: 2 },
   introTitle: { color: colors.fg, fontSize: 29, fontWeight: '800', letterSpacing: -0.8, marginTop: 24, textAlign: 'center' },
   introLede: { color: colors.fgSecondary, fontSize: 15, lineHeight: 21, marginTop: 9, textAlign: 'center' },

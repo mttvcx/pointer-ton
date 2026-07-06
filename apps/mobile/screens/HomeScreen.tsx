@@ -215,10 +215,6 @@ function SimpleHome({
             </PressScale>
           </View>
 
-          <View style={s.sectionHead}>
-            <View style={s.sectionBar} />
-            <Text style={s.sectionTitle}>Weekly Top Trades</Text>
-          </View>
         </View>
 
         {WEEKLY.length ? (

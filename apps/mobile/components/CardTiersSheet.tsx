@@ -11,6 +11,7 @@ import { TIERS, tierById, type Tier } from '../src/financial/tiers';
 import { useTier, setTier } from '../src/financial/credit';
 import { useKycLevel, kycLevelNow, tierKyc, type KycLevel } from '../src/financial/kyc';
 import { KycSheet } from './KycSheet';
+import { VisaMark } from './VisaMark';
 
 const W = Dimensions.get('window').width;
 const CARD_W = W - 36; // full-bleed within the sheet's 18px padding
@@ -109,12 +110,12 @@ function TierCard({ tier, current, kycLevel, onUpgrade }: { tier: Tier; current:
           pointerEvents="none"
         />
         <View style={s.faceTop}>
-          <Text style={s.faceBrand}>Pointer</Text>
+          <Text style={s.faceBrand}>pointer.</Text>
           <Text style={s.faceTier}>{tier.name}</Text>
         </View>
         <View style={s.faceBottom}>
           <Text style={s.faceMode}>CREDIT</Text>
-          <Text style={s.faceVisa}>VISA</Text>
+          <VisaMark size={22} color="#0A0C10" />
         </View>
       </View>
 

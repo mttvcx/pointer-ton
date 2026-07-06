@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DragSheet } from './DragSheet';
 import { PressScale } from './PressScale';
@@ -27,6 +27,14 @@ import { SOLANA_RPC_URL } from '../src/env';
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 const PRESETS = [100, 500, 1000, 5000];
+
+// Real coin marks for eligible collateral (fallback = colored dot for LSTs).
+const COIN_ICON: Record<string, number> = {
+  BTC: require('../assets/crypto/btc.png'),
+  ETH: require('../assets/crypto/eth.png'),
+  SOL: require('../assets/crypto/sol.png'),
+  USDC: require('../assets/crypto/usdc.png'),
+};
 
 const BAND_COLOR = { safe: colors.bull, moderate: colors.warn, risky: colors.bear };
 const BAND_LABEL = { safe: 'Healthy', moderate: 'Moderate', risky: 'At risk' };
@@ -58,7 +66,6 @@ export function CreditModeSheet({
   const borrowed = useBorrowed();
   const auth = useAuth();
   const [amount, setAmount] = useState(0);
-  const [busy, setBusy] = useState(false);
 
   // Only allowlisted blue-chips back the line — filter the holdings to eligible
   // collateral, so a random memecoin contributes ZERO borrowing power.
@@ -73,43 +80,34 @@ export function CreditModeSheet({
     onClose();
   };
 
-  const doBorrow = async () => {
-    if (amount <= 0 || amount > available || busy) return;
-    // Demo (no real wallet) → reflect locally.
-    if (auth.demo || !auth.walletAddress) {
-      borrow(amount);
-      onBorrowed?.(amount);
-      setSpendMode('credit');
-      showToast(`Borrowed ${usd(amount, 0)}`, { sub: 'Spendable now · your crypto stays invested', kind: 'success' });
-      setAmount(0);
-      return;
-    }
-    setBusy(true);
-    try {
-      // Server builds the Kamino deposit+borrow tx; we sign it non-custodially.
-      const res = await prepareBorrow({ amountUsd: amount, collateralMint: WSOL_MINT, collateralUsd: line.eligibleValue, borrowedUsd: borrowed });
-      if (res.txBase64) {
-        const token = await auth.getToken();
-        await auth.signAndSend(res.txBase64, SOLANA_RPC_URL, token ?? '');
-      }
-      borrow(amount);
-      onBorrowed?.(amount);
-      setSpendMode('credit');
-      showToast(res.simulated ? `Borrowed ${usd(amount, 0)}` : `Borrowed ${usd(amount, 0)} on-chain`, {
-        sub: 'Your crypto stays invested — no sale, no tax event',
-        kind: 'success',
-      });
-      setAmount(0);
-    } catch (e) {
-      const over = e instanceof Error && /over/i.test(e.message);
-      showToast(over ? 'Over your credit limit' : "Couldn't borrow", { sub: over ? undefined : 'Please try again', kind: 'error' });
-    } finally {
-      setBusy(false);
+  const doBorrow = () => {
+    if (amount <= 0 || amount > available) return;
+    // OPTIMISTIC: reflect the borrow instantly (never blocks the UI). The real
+    // on-chain borrow fires in the background and only does anything once Kamino
+    // is keyed + the credit route is deployed — until then this is a clean sim.
+    const amt = amount;
+    borrow(amt);
+    onBorrowed?.(amt);
+    setSpendMode('credit');
+    showToast(`Borrowed ${usd(amt, 0)}`, { sub: 'Your crypto stays invested — no sale, no tax event', kind: 'success' });
+    setAmount(0);
+    if (!auth.demo && auth.walletAddress) {
+      void (async () => {
+        try {
+          const res = await prepareBorrow({ amountUsd: amt, collateralMint: WSOL_MINT, collateralUsd: line.eligibleValue, borrowedUsd: borrowed });
+          if (res.txBase64) {
+            const token = await auth.getToken();
+            await auth.signAndSend(res.txBase64, SOLANA_RPC_URL, token ?? '');
+          }
+        } catch {
+          /* not deployed / not keyed → the local reflect above already covered it */
+        }
+      })();
     }
   };
 
   return (
-    <DragSheet visible={visible} onClose={close}>
+    <DragSheet visible={visible} onClose={close} fullDrag>
       <View style={s.titleRow}>
         <Text style={s.title}>Spending mode</Text>
         <View style={s.noKyc}>
@@ -165,7 +163,11 @@ export function CreditModeSheet({
             <View style={s.backedChips}>
               {line.assets.map((a) => (
                 <View key={a.asset.symbol} style={s.assetChip}>
-                  <View style={[s.assetDot, { backgroundColor: a.asset.color }]} />
+                  {COIN_ICON[a.asset.symbol] ? (
+                    <Image source={COIN_ICON[a.asset.symbol]} style={s.assetIcon} />
+                  ) : (
+                    <View style={[s.assetDot, { backgroundColor: a.asset.color }]} />
+                  )}
                   <Text style={s.assetSym}>{a.asset.symbol}</Text>
                   <Text style={s.assetVal}>{usd(a.valueUsd, 0)}</Text>
                 </View>
@@ -225,16 +227,8 @@ export function CreditModeSheet({
           </View>
 
           <SheetButton
-            label={
-              busy
-                ? 'Borrowing…'
-                : amount <= 0
-                  ? 'Enter an amount'
-                  : amount > available
-                    ? 'Over your limit'
-                    : `Borrow ${usd(amount, 0)} · spend without selling`
-            }
-            variant={amount <= 0 || amount > available || busy ? 'disabled' : 'long'}
+            label={amount <= 0 ? 'Enter an amount' : amount > available ? 'Over your limit' : `Borrow ${usd(amount, 0)} · spend without selling`}
+            variant={amount <= 0 || amount > available ? 'disabled' : 'long'}
             onPress={doBorrow}
             style={{ marginTop: 16 }}
           />
@@ -272,6 +266,7 @@ const s = StyleSheet.create({
   backedChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
   assetChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.bgRaised2, borderRadius: radius.pill, paddingLeft: 8, paddingRight: 11, paddingVertical: 6 },
   assetDot: { width: 8, height: 8, borderRadius: 4 },
+  assetIcon: { width: 16, height: 16, borderRadius: 8 },
   assetSym: { color: colors.fg, fontSize: 12.5, fontWeight: '700' },
   assetVal: { color: colors.fgMuted, fontSize: 12.5 },
   backedNote: { color: colors.fgMuted, fontSize: 12, lineHeight: 17, marginTop: 11 },

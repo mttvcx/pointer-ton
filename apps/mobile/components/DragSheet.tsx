@@ -60,7 +60,7 @@ export function DragSheet({
   const sheetTop = useRef(WIN_H);
   const fullDragRef = useRef(fullDrag);
   fullDragRef.current = fullDrag;
-  const GRIP = 110;
+  const GRIP = 220; // big grab zone — the whole top of the sheet drags to dismiss/expand
 
   const pan = useRef(
     PanResponder.create({

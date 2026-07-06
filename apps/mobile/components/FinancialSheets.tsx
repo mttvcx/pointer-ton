@@ -207,8 +207,6 @@ export function YieldSheet({ m, apyOverride, onClose }: { m: CapitalModel; apyOv
         <Row label="Withdrawal" value="Instant · no lockup" />
       </View>
 
-      <Note>Yield stays fully liquid. The instant you place a trade, Pointer pulls exactly what you need back out, so earning never costs you a fill.</Note>
-
       {/* Put to work — real USDC deposit into Lulo (mirrors the trade sign+send path). */}
       <Text style={s.section}>Put money to work</Text>
       <View style={s.pctRow}>
