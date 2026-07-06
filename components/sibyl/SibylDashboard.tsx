@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SibylAnswer } from '@/sibyl/types';
 import { SibylAnswerView } from '@/components/sibyl/SibylAnswerView';
 import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
+import { SibylSettingsModal } from '@/components/sibyl/SibylSettingsModal';
 import { sibylSerif } from '@/components/sibyl/fonts';
-import { getChat, listChats, newChatId, saveChat, type StoredChat, type StoredMsg } from '@/components/sibyl/chatStore';
+import { clearChats, exportChats, getChat, importChats, listChats, newChatId, saveChat, type StoredChat, type StoredMsg } from '@/components/sibyl/chatStore';
 
 type Msg = { id: string; role: 'user' | 'sibyl'; text?: string; answer?: SibylAnswer };
 type Plan = { tier: string; label: string; price: number; maxMode: string };
@@ -133,12 +134,30 @@ const SCOPE_CSS = `
 .shimmer{background:linear-gradient(90deg,rgba(255,255,255,0.4) 20%,rgba(255,255,255,0.98) 50%,rgba(255,255,255,0.4) 80%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sibylSweep 1.7s linear infinite}
 @keyframes sibylSweep{to{background-position:-200% 0}}
 .menu-glass{background:var(--s-menu);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border:1px solid var(--s-border)}
-.pop{animation:sibylPop .16s cubic-bezier(.2,.9,.3,1) both}
-@keyframes sibylPop{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:none}}
+/* popover entrance — springs up from its trigger (origin set per-menu) */
+.pop{animation:sibylPop .22s cubic-bezier(.16,1,.3,1) both}
+@keyframes sibylPop{from{opacity:0;transform:scale(.92) translateY(8px)}to{opacity:1;transform:none}}
+/* modal backdrop + panel */
+.fade-in{animation:sibylFadeIn .3s ease both}
+@keyframes sibylFadeIn{from{opacity:0}to{opacity:1}}
+.modal-in{animation:sibylModalIn .36s cubic-bezier(.16,1,.3,1) both}
+@keyframes sibylModalIn{from{opacity:0;transform:scale(.965) translateY(16px)}to{opacity:1;transform:none}}
+/* staggered children — menu rows / plan cards cascade in */
+.stagger>*{animation:sibylFadeUp .38s cubic-bezier(.2,.85,.25,1) both}
+.stagger>*:nth-child(1){animation-delay:.03s}
+.stagger>*:nth-child(2){animation-delay:.06s}
+.stagger>*:nth-child(3){animation-delay:.09s}
+.stagger>*:nth-child(4){animation-delay:.12s}
+.stagger>*:nth-child(5){animation-delay:.15s}
+.stagger>*:nth-child(6){animation-delay:.18s}
+.stagger>*:nth-child(7){animation-delay:.21s}
+.stagger>*:nth-child(8){animation-delay:.24s}
 @keyframes sibylSlideIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
 .slide-in{animation:sibylSlideIn .42s cubic-bezier(.2,.8,.2,1) both}
 @keyframes sibylFadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 .fade-up{animation:sibylFadeUp .55s cubic-bezier(.2,.8,.2,1) both}
+/* voice — a ripple that blooms outward from the centre, on repeat */
+@keyframes sibylWave{0%{opacity:.08;transform:scaleY(.5)}45%{opacity:1;transform:scaleY(1)}100%{opacity:.08;transform:scaleY(.5)}}
 `;
 
 let seq = 0;
@@ -224,6 +243,25 @@ function ThinkingTrace({ query }: { query: string }) {
 }
 
 /* Voice-mode overlay: white pulse rippling outward through a pixel grid. */
+/** A single account-menu row — renders as a link when `href` is set, else a button. */
+function MenuItem({ icon, children, onClick, href, sub }: { icon: React.ReactNode; children: React.ReactNode; onClick?: () => void; href?: string; sub?: boolean }) {
+  const cls = `flex w-full items-center gap-2.5 rounded-lg px-2.5 text-left s-fg transition h-panel2 ${sub ? 'py-1.5 text-[12px] s-muted h-fg' : 'py-2 text-[12.5px]'}`;
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" onClick={onClick} className={cls}>
+        <span className="shrink-0 s-muted">{icon}</span>
+        <span className="flex-1 truncate">{children}</span>
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      <span className="shrink-0 s-muted">{icon}</span>
+      <span className="flex-1 truncate">{children}</span>
+    </button>
+  );
+}
+
 function VoicePulse({ onClose }: { onClose: () => void }) {
   const cols = 56;
   const rows = 4;
@@ -235,10 +273,17 @@ function VoicePulse({ onClose }: { onClose: () => void }) {
       <span className="sibyl-mark h-5 w-5 s-fg" />
       <div className="flex min-w-0 flex-1 items-center gap-[3px] overflow-hidden py-2" aria-hidden>
         {Array.from({ length: cols }).map((_, c) => (
-          <div key={c} className="flex flex-1 flex-col gap-[3px]">
+          <div key={c} className="flex flex-1 flex-col justify-center gap-[3px]">
             {Array.from({ length: rows }).map((__, r) => {
+              // Delay purely by distance from centre → the pulse blooms outward as a ripple.
               const d = Math.hypot(c - cx, r - cy);
-              return <span key={r} className="h-[3px] w-full rounded-[1px] bg-[color:var(--s-fg)]" style={{ animation: 'sibylPixel 1.5s ease-in-out infinite', animationDelay: `${(d / maxD) * 0.9}s`, opacity: 0.1 }} />;
+              return (
+                <span
+                  key={r}
+                  className="h-[3px] w-full rounded-[1px] bg-[color:var(--s-fg)]"
+                  style={{ animation: 'sibylWave 1.6s cubic-bezier(.4,0,.2,1) infinite', animationDelay: `${(d / maxD) * 1.15}s`, opacity: 0.08, transformOrigin: 'center', willChange: 'transform,opacity' }}
+                />
+              );
             })}
           </div>
         ))}
@@ -257,14 +302,17 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ modelMock: boolean; liveProviders: number; memory: { scans: number; entities: number; resolved: number } | null } | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [menu, setMenu] = useState<null | 'model' | 'settings' | 'upgrade' | 'plus' | 'plan'>(null);
+  const [menu, setMenu] = useState<null | 'model' | 'account' | 'upgrade' | 'plus' | 'plan'>(null);
   const [theme, setTheme] = useState<ThemeChoice>('dark');
   const [systemDark, setSystemDark] = useState(true);
   const [voice, setVoice] = useState(false);
   const [attachment, setAttachment] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [acctSub, setAcctSub] = useState<null | 'help' | 'learn'>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const restoreRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [videoMounted, setVideoMounted] = useState(!initialChatId);
@@ -377,6 +425,45 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
     window.history.pushState({}, '', `/sibyl/chat/${id}`);
   };
 
+  const backupChats = () => {
+    try {
+      const blob = new Blob([exportChats()], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sibyl-chats-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      /* ignore */
+    }
+    setMenu(null);
+  };
+
+  const onRestoreFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const n = importChats(String(reader.result ?? ''));
+      setChats(listChats());
+      if (n === 0) window.alert('That file didn’t contain any Sibyl chats.');
+    };
+    reader.readAsText(f);
+  };
+
+  const clearAllChats = () => {
+    if (!window.confirm('Delete every saved chat in this browser? This can’t be undone.')) return;
+    clearChats();
+    setChats([]);
+    setMenu(null);
+    setSettingsOpen(false);
+    setChatId(null);
+    setMessages([]);
+    window.history.pushState({}, '', '/sibyl');
+  };
+
   const send = async (q: string) => {
     const query = q.trim();
     if (!query || loading) return;
@@ -413,7 +500,20 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
   return (
     <div className="sibyl-scope fixed inset-0 overflow-hidden antialiased" style={{ ...vars } as React.CSSProperties}>
       <style dangerouslySetInnerHTML={{ __html: SCOPE_CSS }} />
+      <input ref={restoreRef} type="file" accept="application/json,.json" className="hidden" onChange={onRestoreFile} />
       <SibylUpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} currentTier="FREE" />
+      <SibylSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        onTheme={setThemeChoice}
+        statusLine={statusLine}
+        memory={status?.memory ?? null}
+        onBackup={backupChats}
+        onRestore={() => restoreRef.current?.click()}
+        onClear={clearAllChats}
+        onUpgrade={() => { setSettingsOpen(false); setUpgradeOpen(true); }}
+      />
 
       {/* base + ambient video (dark theme only — fades out + unmounts once a scan starts) */}
       <div className="absolute inset-0" style={{ background: 'var(--s-bg)' }} aria-hidden />
@@ -475,37 +575,75 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
           </div>
 
           <div className="relative mt-2 space-y-1.5 border-t s-border pt-3">
-            {menu === 'settings' ? (
-              <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-full space-y-2.5 rounded-xl p-3 shadow-2xl">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] s-faint">Appearance</div>
-                <div className="grid grid-cols-3 gap-0.5 rounded-lg s-panel2 p-0.5">
-                  {(['system', 'light', 'dark'] as ThemeChoice[]).map((t) => (
-                    <button key={t} type="button" onClick={() => setThemeChoice(t)} className={`rounded-md py-1 text-[11px] font-medium capitalize transition ${theme === t ? 's-panel2 s-fg' : 's-muted h-fg'}`}>
-                      {t}
-                    </button>
-                  ))}
+            {menu === 'account' ? (
+              <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-full origin-bottom rounded-2xl p-1.5 shadow-2xl">
+                {/* header */}
+                <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full s-panel2 s-muted"><IconUser /></span>
+                  <div className="min-w-0 leading-tight">
+                    <div className="truncate text-[12.5px] font-medium s-fg">Guest</div>
+                    <div className="text-[10px] s-faint">Free plan</div>
+                  </div>
                 </div>
-                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1 text-[12px] s-fg transition h-fg">
-                  <IconUser /> Sign in
+                <div className="my-1 h-px s-border" />
+
+                <MenuItem icon={<I d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" className="h-4 w-4" />} onClick={() => { setUpgradeOpen(true); setMenu(null); }}>Purchase credits</MenuItem>
+                <MenuItem icon={<IconUpgrade />} onClick={() => { setUpgradeOpen(true); setMenu(null); }}>Upgrade plan</MenuItem>
+
+                <div className="my-1 h-px s-border" />
+
+                <MenuItem icon={<I d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" className="h-4 w-4" />} onClick={backupChats}>Backup chat history</MenuItem>
+                <MenuItem icon={<I d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" className="h-4 w-4" />} onClick={() => { restoreRef.current?.click(); setMenu(null); }}>Restore chat history</MenuItem>
+                <MenuItem icon={<IconGear />} onClick={() => { setSettingsOpen(true); setMenu(null); }}>Settings</MenuItem>
+
+                <div className="my-1 h-px s-border" />
+
+                {/* Help & feedback submenu */}
+                <button type="button" onClick={() => setAcctSub(acctSub === 'help' ? null : 'help')} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12.5px] s-fg transition h-panel2">
+                  <I d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z" className="h-4 w-4" />
+                  <span className="flex-1">Help &amp; feedback</span>
+                  <span className={`s-faint transition ${acctSub === 'help' ? 'rotate-90' : ''}`}>›</span>
                 </button>
-                <div className="flex items-center gap-1.5 border-t s-border pt-2 text-[10px] s-faint">
-                  <span className={`h-1.5 w-1.5 rounded-full ${status?.modelMock === false ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                  {statusLine}
-                </div>
-                {status?.memory ? <div className="text-[10px] s-faint">{status.memory.scans.toLocaleString()} scans · {status.memory.entities.toLocaleString()} remembered · {status.memory.resolved.toLocaleString()} graded</div> : null}
+                {acctSub === 'help' ? (
+                  <div className="stagger ml-3 border-l s-border pl-2">
+                    <MenuItem sub icon={<I d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z" className="h-4 w-4" />} onClick={() => setMenu(null)}>Documentation</MenuItem>
+                    <MenuItem sub icon={<I d="m8 2 1.5 1.5M16 2l-1.5 1.5M12 8v4M8 21h8M12 16v5M4.5 10.5 3 12M19.5 10.5 21 12M12 3a6 6 0 0 0-6 6c0 2.5 1.5 4 3 5h6c1.5-1 3-2.5 3-5a6 6 0 0 0-6-6Z" className="h-4 w-4" />} onClick={() => setMenu(null)}>Report a bug</MenuItem>
+                    <MenuItem sub icon={<I d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" className="h-4 w-4" />} onClick={() => setMenu(null)}>Request a feature</MenuItem>
+                  </div>
+                ) : null}
+
+                {/* Learn more submenu */}
+                <button type="button" onClick={() => setAcctSub(acctSub === 'learn' ? null : 'learn')} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12.5px] s-fg transition h-panel2">
+                  <I d="M2 12a10 10 0 1 0 20 0 10 10 0 0 0-20 0ZM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20Z" className="h-4 w-4" />
+                  <span className="flex-1">Learn more</span>
+                  <span className={`s-faint transition ${acctSub === 'learn' ? 'rotate-90' : ''}`}>›</span>
+                </button>
+                {acctSub === 'learn' ? (
+                  <div className="stagger ml-3 border-l s-border pl-2">
+                    <MenuItem sub href="https://pointer.trade" icon={<I d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" className="h-4 w-4" />}>Pointer home</MenuItem>
+                    <MenuItem sub href="https://discord.gg" icon={<I d="M8 12a1 1 0 1 0 0-.01M16 12a1 1 0 1 0 0-.01M7 5.5c4-1.5 6-1.5 10 0M7 18.5c4 1.5 6 1.5 10 0M7 5.5 5 8v8l2 2.5M17 5.5 19 8v8l-2 2.5" className="h-4 w-4" />}>Discord</MenuItem>
+                    <MenuItem sub href="https://x.com" icon={<I d="M4 4l16 16M20 4 4 20" className="h-4 w-4" />}>X / Twitter</MenuItem>
+                  </div>
+                ) : null}
+
+                <div className="my-1 h-px s-border" />
+
+                <MenuItem icon={<I d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" className="h-4 w-4" />} onClick={() => setMenu(null)}>Sign in</MenuItem>
+                <MenuItem icon={<I d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6" className="h-4 w-4" />} onClick={() => setMenu(null)}>Create account</MenuItem>
               </div>
             ) : null}
+
             <button type="button" onClick={() => setUpgradeOpen(true)} className="s-accent flex w-full items-center justify-center gap-1.5 rounded-full border s-border s-panel2 py-2 text-[12px] font-medium transition h-panel2">
               <IconUpgrade /> Upgrade plan
             </button>
 
-            <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'settings' ? null : 'settings')} className="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition h-panel2">
+            <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'account' ? null : 'account')} className="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition h-panel2">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full s-panel2 s-muted">
                 <IconUser />
               </span>
               <div className="min-w-0 flex-1 leading-tight">
                 <div className="truncate text-[12.5px] font-medium s-fg">Guest</div>
-                <div className="text-[10px] s-faint">Free plan · settings</div>
+                <div className="text-[10px] s-faint">Free plan · account</div>
               </div>
               <span className="s-faint">
                 <IconGear />
@@ -599,7 +737,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                       <IconPlus />
                     </button>
                     {menu === 'plus' ? (
-                      <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-[220px] space-y-0.5 rounded-xl p-1.5 shadow-2xl">
+                      <div className="menu-glass pop stagger absolute bottom-[calc(100%+8px)] left-0 w-[220px] origin-bottom-left space-y-0.5 rounded-xl p-1.5 shadow-2xl">
                         <button type="button" onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12.5px] s-fg transition h-panel2">
                           <IconUpload /> Upload files or images
                         </button>
@@ -624,7 +762,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                       <span className="text-[9px] s-faint">▾</span>
                     </button>
                     {menu === 'model' ? (
-                      <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-[236px] space-y-0.5 rounded-xl p-1.5 shadow-2xl">
+                      <div className="menu-glass pop stagger absolute bottom-[calc(100%+8px)] left-0 w-[236px] origin-bottom-left space-y-0.5 rounded-xl p-1.5 shadow-2xl">
                         {MODELS.map((mo) => (
                           <div key={mo.id} className={`flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 ${mo.locked ? 'opacity-55' : 's-panel2'}`}>
                             <div>

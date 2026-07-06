@@ -56,3 +56,35 @@ export function newChatId(): string {
 export function hasHistory(): boolean {
   return read().length > 0;
 }
+
+export function clearChats(): void {
+  write([]);
+}
+
+/** Serialize every chat for a manual backup download. */
+export function exportChats(): string {
+  return JSON.stringify({ v: 1, exportedAt: new Date().toISOString(), chats: read() }, null, 2);
+}
+
+/** Merge a backup file back in (upsert by id, newest kept). Returns how many were restored. */
+export function importChats(raw: string): number {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return 0;
+  }
+  const incoming: StoredChat[] = Array.isArray(parsed)
+    ? (parsed as StoredChat[])
+    : Array.isArray((parsed as { chats?: unknown })?.chats)
+      ? ((parsed as { chats: StoredChat[] }).chats)
+      : [];
+  const valid = incoming.filter(
+    (c) => c && typeof c.id === 'string' && Array.isArray(c.messages),
+  );
+  if (valid.length === 0) return 0;
+  const byId = new Map<string, StoredChat>();
+  for (const c of [...read(), ...valid]) byId.set(c.id, c); // incoming wins on collision
+  write([...byId.values()].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0)));
+  return valid.length;
+}

@@ -61,8 +61,8 @@ export function SibylUpgradeModal({ open, onClose, currentTier = 'FREE' }: { ope
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-      <div className="pop relative z-10 flex max-h-[92vh] w-full max-w-[1040px] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d12]/95 shadow-2xl">
+      <button type="button" aria-label="Close" onClick={onClose} className="fade-in absolute inset-0 bg-black/70 backdrop-blur-md" />
+      <div className="modal-in relative z-10 flex max-h-[92vh] w-full max-w-[1040px] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d12]/95 shadow-2xl">
         <button type="button" onClick={onClose} className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white">
           ✕
         </button>
@@ -86,7 +86,7 @@ export function SibylUpgradeModal({ open, onClose, currentTier = 'FREE' }: { ope
           </div>
 
           {/* plan cards */}
-          <div className="mt-7 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="stagger mt-7 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
             {CARDS.map((t) => {
               const ui = UI[t];
               const p = PLANS[t];
