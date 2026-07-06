@@ -322,34 +322,28 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </PressScale>
         </Rise>
 
-        {/* Tax reserve */}
+        {/* Tax reserve + Points — compact 2-up */}
         <Rise delay={290}>
-        <PressScale to={0.98} onPress={() => openPanel('tax')} style={s.reserveRow}>
-          <GlassFill />
-          <View style={[s.reserveIcon, { backgroundColor: covered ? colors.bullSoft : colors.warnSoft }]}>
-            <Ionicons name="shield-checkmark" size={17} color={covered ? colors.bull : colors.warn} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.reserveLabel}>Tax reserve</Text>
-            <Text style={s.reserveSub}>{covered ? 'You’re covered for estimated taxes' : `Under by ${usd(m.taxLiability - m.taxReserve, 0)}`}</Text>
-          </View>
-          <Text style={s.reserveVal}>{usd(m.taxReserve, 0)}</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.fgFaint} style={{ marginLeft: 6 }} />
-        </PressScale>
-
-        {/* PTR Points */}
-        <PressScale to={0.98} onPress={() => openPanel('points')} style={s.pointsRow}>
-          <GlassFill />
-          <View style={s.pointsIcon}>
-            <Ionicons name="diamond" size={16} color={colors.accentGlow} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.reserveLabel}>PTR Points</Text>
-            <Text style={s.reserveSub}>+{m.pointsThisWeek} this week · spend + earn + hold</Text>
-          </View>
-          <Text style={[s.reserveVal, { color: colors.accentGlow }]}>{group(String(m.points))}</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.fgFaint} style={{ marginLeft: 6 }} />
-        </PressScale>
+        <View style={s.statRow}>
+          <PressScale to={0.97} onPress={() => openPanel('tax')} style={s.statTile}>
+            <GlassFill />
+            <View style={[s.statIcon, { backgroundColor: covered ? colors.bullSoft : colors.warnSoft }]}>
+              <Ionicons name="shield-checkmark" size={15} color={covered ? colors.bull : colors.warn} />
+            </View>
+            <Text style={s.statLabel}>Tax reserve</Text>
+            <Text style={s.statVal}>{usd(m.taxReserve, 0)}</Text>
+            <Text style={s.statSub} numberOfLines={1}>{covered ? 'Covered' : `Under ${usd(m.taxLiability - m.taxReserve, 0)}`}</Text>
+          </PressScale>
+          <PressScale to={0.97} onPress={() => openPanel('points')} style={s.statTile}>
+            <GlassFill />
+            <View style={[s.statIcon, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="diamond" size={15} color={colors.accentGlow} />
+            </View>
+            <Text style={s.statLabel}>PTR Points</Text>
+            <Text style={[s.statVal, { color: colors.accentGlow }]}>{group(String(m.points))}</Text>
+            <Text style={s.statSub} numberOfLines={1}>+{m.pointsThisWeek} this week</Text>
+          </PressScale>
+        </View>
         </Rise>
 
         {/* AI insight → opens the capital co-pilot */}
@@ -511,6 +505,12 @@ const s = StyleSheet.create({
   dualBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.lg, paddingHorizontal: 12, paddingVertical: 13, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   dualTitle: { color: colors.fg, fontSize: 14, fontWeight: '700' },
   dualSub: { color: colors.fgMuted, fontSize: 11.5, marginTop: 1 },
+  statRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  statTile: { flex: 1, borderRadius: radius.lg, padding: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  statIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  statLabel: { color: colors.fgMuted, fontSize: 12.5 },
+  statVal: { color: colors.fg, fontSize: 19, fontWeight: '800', marginTop: 2 },
+  statSub: { color: colors.fgFaint, fontSize: 11.5, marginTop: 2 },
   creditStrip: { borderRadius: radius.lg, padding: 15, marginTop: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,224,160,0.22)' },
   creditStripTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   creditStripLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },

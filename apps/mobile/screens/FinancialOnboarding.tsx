@@ -20,42 +20,45 @@ import type { CardInfo } from '../src/financial/types';
 /* ── Intro / empty state ─────────────────────────────────── */
 
 const PERKS = [
-  { icon: 'card' as const, tint: colors.brand, title: 'A card that spends your capital', sub: 'Virtual instantly · Apple Pay · no credit check' },
-  { icon: 'leaf' as const, tint: colors.bull, title: 'Idle cash earns automatically', sub: 'Smart Yield, fully liquid, pulled back when you trade' },
-  { icon: 'shield-checkmark' as const, tint: colors.warn, title: 'Taxes reserved as you go', sub: 'Pointer knows your gains and sets aside the right amount' },
-  { icon: 'diamond' as const, tint: colors.accentGlow, title: 'Points on everything', sub: 'Spend, earn, and hold all feed one flywheel' },
+  { icon: 'flash' as const, tint: colors.bull, title: 'Spend without selling', sub: 'Borrow against your crypto — keep the upside' },
+  { icon: 'leaf' as const, tint: colors.accentGlow, title: 'Idle cash earns 8%+', sub: 'Auto-yield, fully liquid, no lockup' },
+  { icon: 'lock-open' as const, tint: colors.brand, title: 'No ID to start', sub: 'Verify only when you order a card' },
 ];
 
 export function FinancialIntro({ onStart }: { onStart: () => void }) {
   const insets = useSafeAreaInsets();
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 190 }} showsVerticalScrollIndicator={false}>
-        {/* Floating card */}
-        <View style={s.introCardWrap}>
-          <View style={s.introCard}>
-            <LinearGradient colors={['#0E241C', '#0A1512', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-            <View style={s.introCardTop}>
-              <View style={s.introCardBrand}>
-                <Logo size={20} style={{ tintColor: '#fff' }} />
-                <Text style={s.introCardBrandText}>Pointer</Text>
+      <View style={[s.introRoot, { paddingTop: insets.top + 34, paddingBottom: insets.bottom + 92 }]}>
+        {/* Hero card */}
+        <Rise delay={40} from={14}>
+          <View style={s.introCardWrap}>
+            <View style={s.introCard}>
+              <LinearGradient colors={['#12332A', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.7, y: 1 }} style={s.introCardSheen} pointerEvents="none" />
+              <View style={s.introCardTop}>
+                <View style={s.introCardBrand}>
+                  <Logo size={20} style={{ tintColor: '#fff' }} />
+                  <Text style={s.introCardBrandText}>Pointer</Text>
+                </View>
+                <Ionicons name="wifi" size={16} color="rgba(255,255,255,0.5)" style={{ transform: [{ rotate: '90deg' }] }} />
               </View>
-              <Ionicons name="wifi" size={16} color="rgba(255,255,255,0.5)" style={{ transform: [{ rotate: '90deg' }] }} />
+              <Text style={s.introCardNum}>•••• •••• •••• ••••</Text>
             </View>
-            <Text style={s.introCardNum}>•••• •••• •••• ••••</Text>
           </View>
-        </View>
+        </Rise>
 
-        <Text style={s.introKicker}>POINTER FINANCIAL</Text>
-        <Text style={s.introTitle}>Put your money to work.</Text>
-        <Text style={s.introLede}>Trade and spend from the same place.</Text>
+        <Rise delay={110} from={12}>
+          <Text style={s.introTitle}>Your money, working.</Text>
+          <Text style={s.introLede}>Trade, borrow, spend and earn — one non-custodial account.</Text>
+        </Rise>
 
-        <View style={{ marginTop: 22 }}>
+        <View style={s.perkList}>
           {PERKS.map((p, i) => (
-            <Rise key={p.title} delay={120 + i * 90} from={12}>
+            <Rise key={p.title} delay={180 + i * 80} from={10}>
               <View style={s.perk}>
                 <View style={[s.perkIcon, { backgroundColor: p.tint + '22' }]}>
-                  <Ionicons name={p.icon} size={19} color={p.tint} />
+                  <Ionicons name={p.icon} size={18} color={p.tint} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.perkTitle}>{p.title}</Text>
@@ -65,15 +68,15 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
             </Rise>
           ))}
         </View>
-      </ScrollView>
 
-      {/* Fixed CTA above the nav island so it's never hidden under the glass. */}
-      <View style={[s.introFooter, { bottom: insets.bottom + 82 }]} pointerEvents="box-none">
-        <GlossButton onPress={onStart}>
-          <Text style={s.cta}>Get started</Text>
-          <Ionicons name="arrow-forward" size={18} color={colors.onAccent} />
-        </GlossButton>
-        <Text style={s.introFine}>No ID to start — borrow, spend & send. Verify only when you order a card.</Text>
+        {/* CTA sits at the bottom of the flow — no floating, always above the nav */}
+        <View style={s.introCta}>
+          <GlossButton onPress={onStart}>
+            <Text style={s.cta}>Get started</Text>
+            <Ionicons name="arrow-forward" size={18} color={colors.onAccent} />
+          </GlossButton>
+          <Text style={s.introFine}>No ID to start — borrow, spend & send. Verify only when you order a card.</Text>
+        </View>
       </View>
     </Screen>
   );
@@ -271,20 +274,22 @@ const s = StyleSheet.create({
   cta: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 
   // intro
-  introCardWrap: { alignItems: 'center', marginBottom: 12 },
-  introCard: { width: 250, height: 150, borderRadius: 18, overflow: 'hidden', padding: 16, justifyContent: 'space-between', borderWidth: 1, borderColor: colors.accent + '33', transform: [{ rotate: '-4deg' }], shadowColor: colors.accent, shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 10 } },
+  introRoot: { flex: 1, paddingHorizontal: 24 },
+  introCardWrap: { alignItems: 'center', marginBottom: 6 },
+  introCard: { width: 260, height: 158, borderRadius: 18, overflow: 'hidden', padding: 16, justifyContent: 'space-between', borderWidth: 1, borderColor: colors.accent + '33', transform: [{ rotate: '-4deg' }], shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 12 } },
+  introCardSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
   introCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   introCardBrand: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   introCardBrandText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   introCardNum: { color: 'rgba(255,255,255,0.85)', fontSize: 16, fontWeight: '600', letterSpacing: 2 },
-  introKicker: { color: colors.accentGlow, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, marginTop: 8 },
-  introTitle: { color: colors.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.8, marginTop: 6 },
-  introLede: { color: colors.fgSecondary, fontSize: 15, lineHeight: 22, marginTop: 10 },
-  perk: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 11 },
-  perkIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  introTitle: { color: colors.fg, fontSize: 29, fontWeight: '800', letterSpacing: -0.8, marginTop: 24, textAlign: 'center' },
+  introLede: { color: colors.fgSecondary, fontSize: 15, lineHeight: 21, marginTop: 9, textAlign: 'center' },
+  perkList: { marginTop: 26 },
+  perk: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 10 },
+  perkIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   perkTitle: { color: colors.fg, fontSize: 15, fontWeight: '700' },
   perkSub: { color: colors.fgMuted, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
-  introFooter: { position: 'absolute', left: 22, right: 22 },
+  introCta: { marginTop: 'auto' },
   introFine: { color: colors.fgFaint, fontSize: 12, textAlign: 'center', marginTop: 12, lineHeight: 17 },
 
   // top bar
