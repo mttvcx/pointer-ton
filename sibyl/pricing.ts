@@ -6,26 +6,33 @@ import type { PlanTier, ScanMode } from '@/sibyl/types';
  * Plans gate the max mode + daily volume so every tier is profitable.
  */
 
+/** User-facing name for the daily allowance — we sell "token usage", not raw counts. */
+export type TokenUsageTier = 'Starter' | 'Default' | 'Generous' | 'Max' | 'Custom';
+
 export type PlanConfig = {
   tier: PlanTier;
   label: string;
   priceUsdMonthly: number | null; // null = contact sales
   /** Highest mode this plan may run (modes above are upsell-gated). */
   maxMode: ScanMode;
-  /** Rough daily message allowance (0 = unlimited/contract). */
+  /** Marketed allowance tier — Default / Generous / Max token usage. */
+  tokenUsage: TokenUsageTier;
+  /** Underlying daily scan quota (the number we actually meter; 0 = unlimited/contract). */
   dailyMessages: number;
   deepScansPerDay: number;
   apiCredits: number;
+  /** Public /v1 API — a Max & Enterprise feature. */
+  apiAccess: boolean;
 };
 
 const ORDER: ScanMode[] = ['HOVER_FAST', 'QUICK_SCAN', 'STANDARD_SCAN', 'DEEP_SCAN', 'RESEARCH_REPORT'];
 
 export const PLANS: Record<PlanTier, PlanConfig> = {
-  FREE: { tier: 'FREE', label: 'Free', priceUsdMonthly: 0, maxMode: 'QUICK_SCAN', dailyMessages: 20, deepScansPerDay: 0, apiCredits: 0 },
-  PRO: { tier: 'PRO', label: 'Pro', priceUsdMonthly: 20, maxMode: 'STANDARD_SCAN', dailyMessages: 300, deepScansPerDay: 5, apiCredits: 0 },
-  PRO_PLUS: { tier: 'PRO_PLUS', label: 'Pro+', priceUsdMonthly: 49, maxMode: 'DEEP_SCAN', dailyMessages: 1500, deepScansPerDay: 40, apiCredits: 0 },
-  MAX: { tier: 'MAX', label: 'Max', priceUsdMonthly: 199, maxMode: 'RESEARCH_REPORT', dailyMessages: 6000, deepScansPerDay: 200, apiCredits: 5000 },
-  ENTERPRISE: { tier: 'ENTERPRISE', label: 'Enterprise', priceUsdMonthly: null, maxMode: 'RESEARCH_REPORT', dailyMessages: 0, deepScansPerDay: 0, apiCredits: 0 },
+  FREE: { tier: 'FREE', label: 'Free', priceUsdMonthly: 0, maxMode: 'QUICK_SCAN', tokenUsage: 'Starter', dailyMessages: 20, deepScansPerDay: 0, apiCredits: 0, apiAccess: false },
+  PRO: { tier: 'PRO', label: 'Pro', priceUsdMonthly: 20, maxMode: 'STANDARD_SCAN', tokenUsage: 'Default', dailyMessages: 300, deepScansPerDay: 5, apiCredits: 0, apiAccess: false },
+  PRO_PLUS: { tier: 'PRO_PLUS', label: 'Pro+', priceUsdMonthly: 49, maxMode: 'DEEP_SCAN', tokenUsage: 'Generous', dailyMessages: 1500, deepScansPerDay: 40, apiCredits: 0, apiAccess: false },
+  MAX: { tier: 'MAX', label: 'Max', priceUsdMonthly: 199, maxMode: 'RESEARCH_REPORT', tokenUsage: 'Max', dailyMessages: 6000, deepScansPerDay: 200, apiCredits: 5000, apiAccess: true },
+  ENTERPRISE: { tier: 'ENTERPRISE', label: 'Enterprise', priceUsdMonthly: null, maxMode: 'RESEARCH_REPORT', tokenUsage: 'Custom', dailyMessages: 0, deepScansPerDay: 0, apiCredits: 0, apiAccess: true },
 };
 
 /** Clamp a requested mode down to what the plan allows (the margin rule in code). */

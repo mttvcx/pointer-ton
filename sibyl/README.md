@@ -3,7 +3,7 @@
 The intelligence engine for crypto — Solana memecoins, CT, KOL wallets, narratives,
 on-chain markets. Read `ARCHITECTURE.md` first.
 
-Lives (for now) inside the Pointer Next.js app; future home: **ai.pointer.trade**.
+Lives (for now) inside the Pointer Next.js app; future home: **ai.pointer-ton-orcin.vercel.app** (until pointer.trade is acquired).
 
 ## Run it locally
 

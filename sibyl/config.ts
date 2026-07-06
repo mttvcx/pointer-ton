@@ -28,5 +28,5 @@ export const SIBYL = {
   name: 'Sibyl',
   tagline: 'The intelligence engine for crypto.',
   /** Where it will live; today it rides the Pointer deployment under /sibyl. */
-  futureHost: 'ai.pointer.trade',
+  futureHost: 'ai.pointer-ton-orcin.vercel.app',
 } as const;

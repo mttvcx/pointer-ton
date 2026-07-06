@@ -11,24 +11,24 @@ const UI: Record<PlanTier, PlanUi> = {
   FREE: {
     tagline: 'Start scanning',
     cta: 'Current plan',
-    features: ['20 scans / day', 'Quick scans', 'KOL-registry wallet labels', 'Live chain + CT data', 'Rug-risk grading'],
+    features: ['Starter token usage', 'Quick scans', 'KOL-registry wallet labels', 'Live chain + CT data', 'Rug-risk grading'],
   },
   PRO: {
     tagline: 'For active traders',
     cta: 'Upgrade to Pro',
-    features: ['Everything in Free', '300 scans / day', 'Standard scans — full specialist fan-out', 'Flywheel memory recall', '5 deep scans / day', 'Priority speed'],
+    features: ['Everything in Free', 'Default token usage', 'Standard scans — full specialist fan-out', 'Flywheel memory recall', '5 deep scans / day', 'Priority speed'],
   },
   PRO_PLUS: {
     tagline: 'The serious edge',
     highlight: true,
     badge: 'Popular',
     cta: 'Upgrade to Pro+',
-    features: ['Everything in Pro', '1,500 scans / day', 'Deep scans w/ adversarial verify', '40 deep scans / day', 'Saved scans + history', 'Early access to new agents'],
+    features: ['Everything in Pro', 'Generous token usage', 'Deep scans w/ adversarial verify', '40 deep scans / day', 'Saved scans + history', 'Early access to new agents'],
   },
   MAX: {
     tagline: 'Desk-grade intelligence',
     cta: 'Upgrade to Max',
-    features: ['Everything in Pro+', '6,000 scans / day', 'Research reports', '200 deep scans / day', '5,000 API credits', 'Public API (/v1) access', 'Priority support'],
+    features: ['Everything in Pro+', 'Max token usage', 'Research reports', '200 deep scans / day', '5,000 API credits', 'Public API (/v1) access', 'Priority support'],
   },
   ENTERPRISE: {
     tagline: 'For funds & platforms',

@@ -5,6 +5,7 @@ import type { SibylAnswer } from '@/sibyl/types';
 import { SibylAnswerView } from '@/components/sibyl/SibylAnswerView';
 import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
 import { sibylSerif } from '@/components/sibyl/fonts';
+import { getChat, listChats, newChatId, saveChat, type StoredChat, type StoredMsg } from '@/components/sibyl/chatStore';
 
 type Msg = { id: string; role: 'user' | 'sibyl'; text?: string; answer?: SibylAnswer };
 type Plan = { tier: string; label: string; price: number; maxMode: string };
@@ -248,7 +249,9 @@ function VoicePulse({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function SibylDashboard() {
+export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {}) {
+  const [chatId, setChatId] = useState<string | null>(initialChatId ?? null);
+  const [chats, setChats] = useState<StoredChat[]>([]);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -264,11 +267,36 @@ export function SibylDashboard() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const [videoMounted, setVideoMounted] = useState(true);
+  const [videoMounted, setVideoMounted] = useState(!initialChatId);
 
   useEffect(() => {
     // Some browsers need an explicit play() even for muted autoplay.
     videoRef.current?.play().catch(() => {});
+  }, []);
+
+  // Load the requested chat (direct link / refresh) + hydrate the history list.
+  useEffect(() => {
+    setChats(listChats());
+    if (initialChatId) {
+      const c = getChat(initialChatId);
+      if (c) setMessages(c.messages as Msg[]);
+    }
+  }, [initialChatId]);
+
+  // Keep the URL ↔ chat in sync on back/forward.
+  useEffect(() => {
+    const onPop = () => {
+      const m = window.location.pathname.match(/\/sibyl\/chat\/([^/]+)/);
+      if (m && m[1]) {
+        setChatId(m[1]);
+        setMessages((getChat(m[1])?.messages ?? []) as Msg[]);
+      } else {
+        setChatId(null);
+        setMessages([]);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   useEffect(() => {
@@ -293,16 +321,18 @@ export function SibylDashboard() {
 
   const effectiveDark = theme === 'system' ? systemDark : theme === 'dark';
   const vars = effectiveDark ? THEME_VARS.dark : THEME_VARS.light;
-  const started = messages.length > 0 || loading;
+  // Entry = bare /sibyl, untouched → grass hero + no sidebar. ANY open chat (even a
+  // fresh empty "New chat") engages: sidebar stays, no grass reset.
+  const isEntry = !chatId && messages.length === 0;
 
   useEffect(() => {
-    if (started) {
+    if (!isEntry) {
       const t = setTimeout(() => setVideoMounted(false), 1200); // fully remove after the fade
       return () => clearTimeout(t);
     }
-    setVideoMounted(true); // back to empty state → bring it back
+    setVideoMounted(true); // back on the bare entry → bring the grass back
     return undefined;
-  }, [started]);
+  }, [isEntry]);
 
   // Close any open popover on an outside click (capture phase → reliable).
   useEffect(() => {
@@ -325,9 +355,38 @@ export function SibylDashboard() {
     }
   };
 
+  const persist = (id: string, msgs: Msg[], fallbackTitle: string) => {
+    const title = (msgs.find((m) => m.role === 'user')?.text ?? fallbackTitle).slice(0, 80);
+    saveChat({ id, title, messages: msgs as StoredMsg[], ts: Date.now() });
+    setChats(listChats());
+  };
+
+  const newChat = () => {
+    const id = newChatId();
+    setChatId(id);
+    setMessages([]);
+    setInput('');
+    setMenu(null);
+    window.history.pushState({}, '', `/sibyl/chat/${id}`);
+  };
+
+  const openChat = (id: string) => {
+    setChatId(id);
+    setMessages((getChat(id)?.messages ?? []) as Msg[]);
+    setMenu(null);
+    window.history.pushState({}, '', `/sibyl/chat/${id}`);
+  };
+
   const send = async (q: string) => {
     const query = q.trim();
     if (!query || loading) return;
+    // First message on the bare entry → mint a chat + move to its URL (no grass reset).
+    let id = chatId;
+    if (!id) {
+      id = newChatId();
+      setChatId(id);
+      window.history.pushState({}, '', `/sibyl/chat/${id}`);
+    }
     setInput('');
     setVoice(false);
     setAttachment(null);
@@ -341,6 +400,10 @@ export function SibylDashboard() {
       setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Network error.' }]);
     } finally {
       setLoading(false);
+      setMessages((cur) => {
+        persist(id!, cur, query);
+        return cur;
+      });
     }
   };
 
@@ -359,7 +422,7 @@ export function SibylDashboard() {
           <video
             ref={videoRef}
             className="absolute inset-0 h-full w-full object-cover"
-            style={{ opacity: started ? 0 : 1, transition: 'opacity 1100ms ease-out', pointerEvents: 'none' }}
+            style={{ opacity: isEntry ? 1 : 0, transition: 'opacity 1100ms ease-out', pointerEvents: 'none' }}
             src="/sibyl/background.mp4"
             autoPlay
             loop
@@ -368,13 +431,13 @@ export function SibylDashboard() {
             preload="auto"
             aria-hidden
           />
-          <div className="absolute inset-0" style={{ opacity: started ? 0 : 1, transition: 'opacity 1100ms ease-out', pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.12) 32%, rgba(0,0,0,0.5) 100%)' }} aria-hidden />
+          <div className="absolute inset-0" style={{ opacity: isEntry ? 1 : 0, transition: 'opacity 1100ms ease-out', pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.12) 32%, rgba(0,0,0,0.5) 100%)' }} aria-hidden />
         </>
       ) : null}
 
       <div className="relative z-10 flex h-full">
         {/* LEFT — sidebar (only once a chat has started; slides in) */}
-        {started ? (
+        {!isEntry ? (
         <aside className="slide-in s-glass s-border hidden w-[250px] shrink-0 flex-col border-r p-3.5 s-fg md:flex">
           <div className="flex items-center gap-2.5 px-1 py-1.5">
             <span className="sibyl-mark s-accent h-7 w-7" />
@@ -389,18 +452,23 @@ export function SibylDashboard() {
             </div>
           </div>
 
-          <button type="button" onClick={() => setMessages([])} className="mt-3.5 flex items-center gap-2 rounded-xl border s-border s-panel2 py-2 pl-3 text-[12.5px] font-medium s-fg transition h-panel2">
+          <button type="button" onClick={newChat} className="mt-3.5 flex items-center gap-2 rounded-xl border s-border s-panel2 py-2 pl-3 text-[12.5px] font-medium s-fg transition h-panel2">
             <IconPlus /> New chat
           </button>
 
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
             <div className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] s-faint">History</div>
-            {scans.length === 0 ? (
+            {chats.length === 0 ? (
               <div className="px-1 py-1 text-[11px] s-faint">No history yet.</div>
             ) : (
-              scans.slice().reverse().map((s) => (
-                <button key={s.id} type="button" onClick={() => send(s.text!)} className="block w-full truncate rounded-lg px-2 py-1.5 text-left text-[12px] s-muted transition h-panel2 h-fg/90">
-                  {s.text}
+              chats.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => openChat(c.id)}
+                  className={`block w-full truncate rounded-lg px-2 py-1.5 text-left text-[12px] transition h-panel2 ${c.id === chatId ? 's-fg s-panel2' : 's-muted h-fg'}`}
+                >
+                  {c.title}
                 </button>
               ))
             )}
@@ -522,8 +590,8 @@ export function SibylDashboard() {
                     e.preventDefault();
                     send(input);
                   }}
-                  style={!started ? { animationDelay: '340ms' } : undefined}
-                  className={`media-glass flex items-center gap-2 rounded-2xl px-2.5 py-2 ${!started ? 'fade-up' : ''}`}
+                  style={isEntry ? { animationDelay: '340ms' } : undefined}
+                  className={`media-glass flex items-center gap-2 rounded-2xl px-2.5 py-2 ${isEntry ? 'fade-up' : ''}`}
                 >
                   {/* + menu */}
                   <div className="relative shrink-0">
