@@ -133,6 +133,10 @@ const SCOPE_CSS = `
 .menu-glass{background:rgba(19,19,26,0.94);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border:1px solid rgba(255,255,255,0.1)}
 .pop{animation:sibylPop .16s cubic-bezier(.2,.9,.3,1) both}
 @keyframes sibylPop{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:none}}
+@keyframes sibylSlideIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+.slide-in{animation:sibylSlideIn .42s cubic-bezier(.2,.8,.2,1) both}
+@keyframes sibylFadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.fade-up{animation:sibylFadeUp .55s cubic-bezier(.2,.8,.2,1) both}
 `;
 
 let seq = 0;
@@ -368,8 +372,9 @@ export function SibylDashboard() {
       ) : null}
 
       <div className="relative z-10 flex h-full">
-        {/* LEFT — sidebar */}
-        <aside className="s-glass s-border hidden w-[250px] shrink-0 flex-col border-r p-3.5 text-white md:flex">
+        {/* LEFT — sidebar (only once a chat has started; slides in) */}
+        {started ? (
+        <aside className="slide-in s-glass s-border hidden w-[250px] shrink-0 flex-col border-r p-3.5 text-white md:flex">
           <div className="flex items-center gap-2.5 px-1 py-1.5">
             <span className="sibyl-mark s-accent h-7 w-7" />
             <div className="leading-none">
@@ -439,6 +444,7 @@ export function SibylDashboard() {
             </button>
           </div>
         </aside>
+        ) : null}
 
         {/* CENTER — top bar + chat + input */}
         <main className="flex min-w-0 flex-1 flex-col">
@@ -460,14 +466,14 @@ export function SibylDashboard() {
             <div className="mx-auto flex max-w-[760px] flex-col gap-6">
               {messages.length === 0 && !loading ? (
                 <div className="mt-[10vh] text-center text-white">
-                  <span className="sibyl-mark mx-auto mb-6 h-14 w-14 text-white/95 drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]" />
-                  <h1 className={`${sibylSerif.className} text-[46px] leading-[1.05] tracking-tight drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)]`}>Delegate any crypto question.</h1>
-                  <p className="mx-auto mt-3 max-w-[440px] text-[13.5px] leading-relaxed text-white/70 drop-shadow-[0_1px_12px_rgba(0,0,0,0.5)]">
+                  <span className="sibyl-mark fade-up mx-auto mb-6 h-14 w-14 text-white/95 drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]" style={{ animationDelay: '0ms' }} />
+                  <h1 className={`${sibylSerif.className} fade-up text-[46px] leading-[1.05] tracking-tight drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)]`} style={{ animationDelay: '90ms' }}>Delegate any crypto question.</h1>
+                  <p className="fade-up mx-auto mt-3 max-w-[440px] text-[13.5px] leading-relaxed text-white/70 drop-shadow-[0_1px_12px_rgba(0,0,0,0.5)]" style={{ animationDelay: '170ms' }}>
                     Tokens, wallets, KOLs, narratives, terminal fees. Sibyl runs the specialists, pulls the chain + CT data, and comes back with a verdict.
                   </p>
                   <div className="mx-auto mt-8 grid max-w-[560px] grid-cols-1 gap-2 sm:grid-cols-2">
-                    {DELEGATIONS.map((e) => (
-                      <button key={e} type="button" onClick={() => send(e)} className="media-glass group rounded-xl px-3.5 py-2.5 text-left text-[12.5px] text-white/75 transition hover:text-white hover:bg-white/[0.06]">
+                    {DELEGATIONS.map((e, i) => (
+                      <button key={e} type="button" onClick={() => send(e)} className="media-glass fade-up group rounded-xl px-3.5 py-2.5 text-left text-[12.5px] text-white/75 transition hover:text-white hover:bg-white/[0.06]" style={{ animationDelay: `${260 + i * 45}ms` }}>
                         <span className="mr-1.5 text-white/30 transition group-hover:text-[color:var(--s-accent)]">→</span>
                         {e}
                       </button>
@@ -508,7 +514,8 @@ export function SibylDashboard() {
                     e.preventDefault();
                     send(input);
                   }}
-                  className="media-glass flex items-center gap-2 rounded-2xl px-2.5 py-2"
+                  style={!started ? { animationDelay: '340ms' } : undefined}
+                  className={`media-glass flex items-center gap-2 rounded-2xl px-2.5 py-2 ${!started ? 'fade-up' : ''}`}
                 >
                   {/* + menu */}
                   <div className="relative shrink-0">
