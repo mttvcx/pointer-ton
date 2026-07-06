@@ -9,6 +9,7 @@ import { colors, radius } from '../src/theme';
 import { shortMint } from '../src/format';
 import { useFollows } from '../src/local';
 import { getActivityFeed, type TradeEvent } from '../src/demo/activity';
+import { TraderAvatar } from './TraderAvatar';
 import type { PulseBundle } from '../src/types';
 
 /* ---- formatters (no Intl — Hermes-safe) ---- */
@@ -88,9 +89,7 @@ function ActivityRow({
 
   return (
     <PressScale onPress={onOpenTrader} to={0.99} style={s.row}>
-      <View style={[s.avatar, { backgroundColor: e.trader.color }]}>
-        <Text style={s.avatarText}>{e.trader.initial}</Text>
-      </View>
+      <TraderAvatar handle={e.trader.handle} color={e.trader.color} initial={e.trader.initial} name={e.trader.name} size={44} style={s.avatar} />
 
       <View style={s.mid}>
         <View style={s.nameLine}>

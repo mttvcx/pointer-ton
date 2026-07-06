@@ -224,7 +224,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Text style={s.cardVirtual}>{fin.status === 'active' ? (cardFrozen ? 'Frozen' : 'Virtual') : 'Not ordered'}</Text>
             </View>
           </View>
-          <Text style={s.cardNum}>•••• •••• •••• {fin.status === 'active' ? cardLast4 : '••••'}</Text>
+          <Text style={s.cardNum}>4242  ••••  ••••  {cardLast4}</Text>
           <View style={s.cardBottom}>
             <View>
               <Text style={s.cardSpendLabel}>Spendable</Text>

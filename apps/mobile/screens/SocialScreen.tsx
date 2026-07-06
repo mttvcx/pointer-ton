@@ -31,7 +31,8 @@ function usd(n: number, dec = 2): string {
   const [i, f] = Math.abs(n).toFixed(dec).split('.');
   return `$${group(i)}${f ? '.' + f : ''}`;
 }
-const avatarUri = (h: string) => `https://api.dicebear.com/9.x/avataaars/png?seed=${encodeURIComponent(h)}&size=96`;
+// Real X profile picture by handle (falls back to a generated avatar if none).
+const avatarUri = (h: string) => `https://unavatar.io/x/${encodeURIComponent(h.replace(/^@/, ''))}`;
 
 export function SocialScreen({
   onOpenTrader,

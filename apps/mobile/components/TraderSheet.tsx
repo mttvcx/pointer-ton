@@ -8,6 +8,7 @@ import { PnlShareCard } from './PnlShareCard';
 import { GlassFill } from './GlassFill';
 import { GlossButton } from './GlossButton';
 import { DepositFlow } from './DepositFlow';
+import { TraderAvatar } from './TraderAvatar';
 import { colors, radius } from '../src/theme';
 import { useIsFollowing, toggleFollow } from '../src/local';
 import { showToast } from '../src/toast';
@@ -50,9 +51,7 @@ export function TraderSheet({
         <>
           <View style={s.traderRow}>
             <PressScale style={s.traderLeft} to={0.96} hitSlop={6} onPress={openProfile}>
-              <View style={[s.avatar, { backgroundColor: trade.color }]}>
-                <Text style={s.avatarText}>{trade.initial}</Text>
-              </View>
+              <TraderAvatar handle={trade.handle} color={trade.color} initial={trade.initial} name={trade.name} size={36} />
               <Text style={s.traderName}>{trade.name}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.fgMuted} />
             </PressScale>
@@ -140,9 +139,7 @@ export function TraderSheet({
 
             <View style={s.thesis}>
               <PressScale to={0.9} hitSlop={6} onPress={openProfile}>
-                <View style={[s.thesisAvatar, { backgroundColor: trade.color }]}>
-                  <Text style={s.thesisInitial}>{trade.initial}</Text>
-                </View>
+                <TraderAvatar handle={trade.handle} color={trade.color} initial={trade.initial} name={trade.name} size={34} />
               </PressScale>
               <View style={{ flex: 1 }}>
                 <View style={s.thesisHead}>

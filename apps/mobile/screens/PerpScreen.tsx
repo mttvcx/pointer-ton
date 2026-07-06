@@ -75,7 +75,7 @@ export function PerpScreen({ market: initial, onBack }: { market: PerpMarket; on
 
   return (
     <Screen>
-      <Animated.View {...pan.panHandlers} style={{ flex: 1, transform: [{ translateX: tx }] }}>
+      <Animated.View style={{ flex: 1, transform: [{ translateX: tx }] }}>
         <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
           <View style={s.pad}>
             <View style={s.topBar}>

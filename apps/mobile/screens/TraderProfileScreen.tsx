@@ -9,6 +9,7 @@ import { XBadge } from '../components/XBadge';
 import { CopyTradeSheet } from '../components/CopyTradeSheet';
 import { PnlShareCard } from '../components/PnlShareCard';
 import { SendMoneySheet } from '../components/SendMoneySheet';
+import { TraderAvatar } from '../components/TraderAvatar';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
 import { colors, radius } from '../src/theme';
@@ -201,7 +202,7 @@ export function TraderProfileScreen({
   const cents = Math.round((p.portfolioUsd - dollars) * 100);
 
   return (
-    <Animated.View style={[s.root, { transform: [{ translateX: tx }] }]} {...pan.panHandlers}>
+    <Animated.View style={[s.root, { transform: [{ translateX: tx }] }]}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: insets.top + 6, paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
@@ -223,9 +224,7 @@ export function TraderProfileScreen({
 
         {/* identity */}
         <View style={s.idRow}>
-          <View style={[s.avatar, { backgroundColor: p.color }]}>
-            <Text style={s.avatarText}>{p.initial}</Text>
-          </View>
+          <TraderAvatar handle={p.handle} color={p.color} initial={p.initial} name={p.name} size={64} style={s.avatar} />
           <View style={s.idActions}>
             <PressScale onPress={() => setSendOpen(true)} to={0.9} style={s.dmBtn}>
               <GlassFill />

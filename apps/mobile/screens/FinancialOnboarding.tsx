@@ -43,7 +43,7 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
                 </View>
                 <Ionicons name="wifi" size={16} color="rgba(255,255,255,0.5)" style={{ transform: [{ rotate: '90deg' }] }} />
               </View>
-              <Text style={s.introCardNum}>•••• •••• •••• ••••</Text>
+              <Text style={s.introCardNum}>4242  ••••  ••••  8817</Text>
             </View>
           </View>
         </Rise>

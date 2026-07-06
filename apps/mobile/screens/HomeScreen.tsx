@@ -22,6 +22,7 @@ import { PulseBoard } from '../components/PulseBoard';
 import { PerpsList } from '../components/PerpsList';
 import { MiniSpark } from '../components/MiniSpark';
 import { GlassFill } from '../components/GlassFill';
+import { TraderAvatar } from '../components/TraderAvatar';
 import { ReferralButton } from '../components/ReferralButton';
 import type { PulseBundle, PerpMarket } from '../src/types';
 
@@ -258,9 +259,7 @@ function SimpleHome({
                       </View>
                     </View>
                     <View style={s.wHeroFoot}>
-                      <View style={[s.wAvatar, { backgroundColor: w.color }]}>
-                        <Text style={s.wInitial}>{w.initial}</Text>
-                      </View>
+                      <TraderAvatar handle={w.handle} color={w.color} initial={w.initial} name={w.name} size={26} />
                       <Text style={s.wName} numberOfLines={1}>
                         {w.name}
                       </Text>

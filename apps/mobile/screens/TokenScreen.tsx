@@ -30,6 +30,7 @@ import { useAuth } from '../src/auth';
 import { DEMO_HOLDERS } from '../src/demo';
 import { getTradersOnToken, type TokenTrader } from '../src/demo/activity';
 import { XBadge } from '../components/XBadge';
+import { TraderAvatar } from '../components/TraderAvatar';
 import type { PulseBundle } from '../src/types';
 
 const TIMEFRAMES = ['1H', '4H', '1D', '7D', '1M', 'ALL'];
@@ -132,7 +133,7 @@ export function TokenScreen({
 
   return (
     <Screen>
-      <Animated.View {...pan.panHandlers} style={{ flex: 1, transform: [{ translateX: tx }] }}>
+      <Animated.View style={{ flex: 1, transform: [{ translateX: tx }] }}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <View style={s.pad}>
           <View style={s.topBar}>
@@ -586,8 +587,8 @@ function TradersHere({
         const profile = { handle: t.handle, name: t.name, color: t.color, initial: t.initial };
         return (
           <View key={t.handle} style={s.thRow}>
-            <PressScale onPress={() => onOpenTrader(profile)} to={0.9} hitSlop={4} style={[s.thAvatar, { backgroundColor: t.color }]}>
-              <Text style={s.thAvatarText}>{t.initial}</Text>
+            <PressScale onPress={() => onOpenTrader(profile)} to={0.9} hitSlop={4}>
+              <TraderAvatar handle={t.handle} color={t.color} initial={t.initial} name={t.name} size={36} />
             </PressScale>
             <View style={{ flex: 1 }}>
               <View style={s.thNameLine}>
