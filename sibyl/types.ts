@@ -59,7 +59,8 @@ export type SibylCard =
   | { type: 'risk'; id: string; data: RiskScoreData }
   | { type: 'social'; id: string; data: SocialVelocityData }
   | { type: 'timeline'; id: string; data: TimelineData }
-  | { type: 'similar'; id: string; data: SimilarTokensData };
+  | { type: 'similar'; id: string; data: SimilarTokensData }
+  | { type: 'table'; id: string; data: TableCardData };
 
 export type TokenCardData = {
   mint: string;
@@ -75,7 +76,9 @@ export type TokenCardData = {
   protocol?: string | null;
 };
 
-export type ChartCardData = { mint: string; symbol: string | null; tf: string; source: string };
+export type ChartCardData = { mint: string; symbol: string | null; tf: string; source: string; points?: number[] | null };
+/** Generic inline table so the model / agents can render tabular answers in-chat. */
+export type TableCardData = { title?: string | null; columns: string[]; rows: (string | number)[][]; note?: string | null };
 export type HolderRow = { rank: number; address: string; pct: number; label?: string | null; isKol?: boolean };
 export type HolderTableData = { mint: string; top10Pct: number | null; rows: HolderRow[] };
 export type WalletCardData = {

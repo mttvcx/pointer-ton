@@ -4,7 +4,7 @@ import type { AgentContext, AgentResult } from '@/sibyl/agents/types';
 import type { SibylAnswer, SibylCard, SibylEntityRef } from '@/sibyl/types';
 import { callModel, parseJson, tierForMode } from '@/sibyl/modelRouter';
 import { AGENT_SYSTEM, scrubBanned } from '@/sibyl/agents/prompts';
-import { dexscreener, helius, grok, x, dune, pointer } from '@/sibyl/data/providers';
+import { dexscreener, helius, grok, x, dune, pointer, birdeye } from '@/sibyl/data/providers';
 
 function usd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
@@ -22,10 +22,14 @@ const cid = (t: string) => `${t}-${cardSeq++}`;
 
 export async function runMarketAgent(ctx: AgentContext): Promise<AgentResult> {
   if (!ctx.mint) return empty('market');
-  const m = await dexscreener.getMarketFacts(ctx.mint, ctx.chain);
+  const [m, candles] = await Promise.all([
+    dexscreener.getMarketFacts(ctx.mint, ctx.chain),
+    birdeye.getCandles(ctx.mint, '5m'),
+  ]);
+  const points = candles.map((c) => c.close).filter((n) => Number.isFinite(n));
   const cards: SibylCard[] = [
     { type: 'token', id: cid('token'), data: { mint: ctx.mint, symbol: m.symbol, name: m.name, imageUrl: m.imageUrl, priceUsd: m.priceUsd, marketCapUsd: m.marketCapUsd, liquidityUsd: m.liquidityUsd, volume24hUsd: m.volume24hUsd, change24hPct: m.change24hPct, ageLabel: m.ageLabel, protocol: m.protocol } },
-    { type: 'chart', id: cid('chart'), data: { mint: ctx.mint, symbol: m.symbol, tf: '5m', source: 'birdeye/mock' } },
+    { type: 'chart', id: cid('chart'), data: { mint: ctx.mint, symbol: m.symbol, tf: '5m', source: birdeye.birdeyeStatus().configured ? 'birdeye' : 'birdeye/sample', points: points.length ? points : null } },
   ];
   const take = [
     `${m.symbol ?? 'Token'} sitting around ${usd(m.marketCapUsd)} MC.`,
@@ -100,8 +104,33 @@ export async function runRiskAgent(ctx: AgentContext): Promise<AgentResult> {
   return { agent: 'risk', take, cards, entities: [], confidence: 75, caveats: [] };
 }
 
+const TERMINAL_SAMPLE: Record<string, { fees: string; vol: string; traders: string; share: string }> = {
+  axiom: { fees: '$412K', vol: '$78.4M', traders: '19,204', share: '31%' },
+  photon: { fees: '$286K', vol: '$54.1M', traders: '14,880', share: '22%' },
+  trojan: { fees: '$151K', vol: '$28.6M', traders: '8,140', share: '11%' },
+  gmgn: { fees: '$205K', vol: '$39.2M', traders: '11,326', share: '16%' },
+  bullx: { fees: '$168K', vol: '$31.0M', traders: '9,050', share: '13%' },
+};
+
 export async function runDuneAgent(ctx: AgentContext): Promise<AgentResult> {
-  const subject = /axiom|photon|trojan|gmgn|fomo|bullx/i.exec(ctx.query)?.[0]?.toLowerCase() ?? 'axiom';
+  const mentioned = [...ctx.query.matchAll(/axiom|photon|trojan|gmgn|fomo|bullx/gi)].map((m) => m[0].toLowerCase());
+  const comparative = /\bvs\b|versus|compare|against|market share|leaderboard/i.test(ctx.query) || mentioned.length >= 2;
+
+  // Comparative → a real inline table across terminals.
+  if (comparative) {
+    const names = [...new Set(mentioned.length ? mentioned : ['axiom', 'photon', 'gmgn', 'bullx'])].filter((n) => TERMINAL_SAMPLE[n]);
+    const rows = names.map((n) => {
+      const s = TERMINAL_SAMPLE[n]!;
+      return [n[0]!.toUpperCase() + n.slice(1), s.fees, s.vol, s.traders, s.share];
+    });
+    const cards: SibylCard[] = [
+      { type: 'table', id: cid('table'), data: { title: 'Terminal fees — 24h', columns: ['Terminal', 'Fees', 'Volume', 'Traders', 'Share'], rows, note: 'sample — live figures wire in with Dune query ids' } },
+    ];
+    const leader = names[0] ? names[0][0]!.toUpperCase() + names[0].slice(1) : 'Axiom';
+    return { agent: 'dune', take: [`${leader} leads on fees/share of the ones compared (24h).`], cards, entities: [], confidence: 55, caveats: ['Terminal metrics are sample data until Dune is keyed.'] };
+  }
+
+  const subject = mentioned[0] ?? 'axiom';
   const d = await dune.getTerminalFees(subject);
   const cards: SibylCard[] = [{ type: 'dune', id: cid('dune'), data: { title: d.title, rows: d.rows, queryUrl: d.queryUrl } }];
   return { agent: 'dune', take: [`${subject}: ${d.rows[0]?.value ?? '—'} fees, ${d.rows.find((r) => /share/i.test(r.label))?.value ?? '—'} market share (24h).`], cards, entities: [], confidence: d.source.includes('mock') ? 50 : 80, caveats: d.source.includes('mock') ? ['Terminal metrics are sample data until Dune is keyed.'] : [] };

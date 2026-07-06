@@ -13,17 +13,21 @@ import { sibylMockMode } from '@/sibyl/config';
 
 export type ModelTier = 'cheap' | 'reason' | 'tool' | 'judge';
 
-/** Default model ids per tier — override via env. Kept as OpenRouter slugs. */
+/**
+ * Default model ids per tier — override via env. All verified live on OpenRouter.
+ * cheap/tool = fast + cheap (bulk extraction / JSON); reason = strong value model
+ * for standard analysis; judge = premium synthesis (runs once per scan).
+ */
 function modelForTier(tier: ModelTier): string {
   switch (tier) {
     case 'cheap':
-      return process.env.SIBYL_MODEL_CHEAP?.trim() || 'google/gemini-2.0-flash-001';
+      return process.env.SIBYL_MODEL_CHEAP?.trim() || 'google/gemini-2.5-flash';
     case 'reason':
       return process.env.SIBYL_MODEL_REASON?.trim() || 'deepseek/deepseek-chat';
     case 'tool':
-      return process.env.SIBYL_MODEL_TOOL?.trim() || 'qwen/qwen-2.5-72b-instruct';
+      return process.env.SIBYL_MODEL_TOOL?.trim() || 'google/gemini-2.5-flash';
     case 'judge':
-      return process.env.SIBYL_MODEL_JUDGE?.trim() || 'deepseek/deepseek-chat';
+      return process.env.SIBYL_MODEL_JUDGE?.trim() || 'google/gemini-2.5-pro';
   }
 }
 

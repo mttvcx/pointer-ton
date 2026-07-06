@@ -30,12 +30,12 @@ Set ONE gateway key (OpenAI-compatible). OpenRouter is the default base URL.
 
 ```bash
 OPENROUTER_API_KEY=...            # or SIBYL_MODEL_API_KEY / GROQ_API_KEY
-# optional base + model overrides:
+# optional base + model overrides (defaults below, all verified live on OpenRouter):
 SIBYL_MODEL_BASE_URL=https://openrouter.ai/api/v1/chat/completions
-SIBYL_MODEL_CHEAP=google/gemini-2.0-flash-001
+SIBYL_MODEL_CHEAP=google/gemini-2.5-flash
 SIBYL_MODEL_REASON=deepseek/deepseek-chat
-SIBYL_MODEL_TOOL=qwen/qwen-2.5-72b-instruct
-SIBYL_MODEL_JUDGE=deepseek/deepseek-chat
+SIBYL_MODEL_TOOL=google/gemini-2.5-flash
+SIBYL_MODEL_JUDGE=google/gemini-2.5-pro
 ```
 
 ## Optional data providers (unlock real intelligence)
