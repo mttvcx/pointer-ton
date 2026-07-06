@@ -5,7 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Logo } from './Logo';
 import { PressScale } from './PressScale';
 import { GlassFill } from './GlassFill';
-import { GlossButton } from './GlossButton';
+import { MetalButton } from './MetalButton';
+import { CardShine } from './CardShine';
+import { VisaMark } from './VisaMark';
 import { Sparkline } from './Sparkline';
 import { Rise } from './Rise';
 import { colors, radius } from '../src/theme';
@@ -104,15 +106,20 @@ export function CardSheet({ m, card, onClose }: { m: CapitalModel; card?: CardIn
       <SheetTitle icon="card" tint={colors.brand} kicker="POINTER CARD" title="Your card" />
 
       <View style={[s.card, frozen && { opacity: 0.5 }]}>
-        <LinearGradient colors={['#12233A', '#0B1524', '#070E18']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#123A2C', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 0.8 }} style={s.cardGloss} pointerEvents="none" />
+        <CardShine />
         <View style={s.cardTop}>
           <View style={s.cardBrand}>
             <Logo size={20} style={{ tintColor: '#fff' }} />
-            <Text style={s.cardBrandText}>Pointer</Text>
+            <Text style={s.cardBrandText}>pointer.</Text>
           </View>
           <Text style={s.cardVirtual}>{frozen ? 'Frozen' : m.cardType}</Text>
         </View>
-        <Text style={s.cardNum}>•••• •••• •••• {last4}</Text>
+        <View style={s.cardNumRow}>
+          <Text style={s.cardNum}>4242  ••••  ••••  {last4}</Text>
+          <VisaMark size={20} />
+        </View>
         <View style={s.cardBottom}>
           <Text style={s.cardSpend}>{usd(m.states.spendable)}</Text>
           <Text style={s.cardSpendLabel}>spendable</Text>
@@ -146,9 +153,9 @@ export function CardSheet({ m, card, onClose }: { m: CapitalModel; card?: CardIn
 
       <Note>Your card spends straight from your Spendable balance. The rest of your capital keeps earning until the moment you swipe.</Note>
 
-      <GlossButton onPress={onClose} style={{ marginTop: 18 }}>
+      <MetalButton onPress={onClose} style={{ marginTop: 18 }}>
         <Text style={s.cta}>Done</Text>
-      </GlossButton>
+      </MetalButton>
     </ScrollView>
   );
 }
@@ -216,9 +223,9 @@ export function YieldSheet({ m, apyOverride, onClose }: { m: CapitalModel; apyOv
           </PressScale>
         ))}
       </View>
-      <GlossButton onPress={busy ? () => {} : putToWork} style={{ marginTop: 12, opacity: busy ? 0.6 : 1 }}>
+      <MetalButton onPress={busy ? () => {} : putToWork} style={{ marginTop: 12, opacity: busy ? 0.6 : 1 }}>
         {busy ? <ActivityIndicator color={colors.onAccent} /> : <Text style={s.cta}>Put {usd(amt, 0)} to work</Text>}
-      </GlossButton>
+      </MetalButton>
 
       <PressScale onPress={onClose} style={{ marginTop: 14, alignItems: 'center' }} to={0.97}>
         <Text style={s.doneText}>Done</Text>
@@ -261,9 +268,9 @@ export function TaxSheet({ m, onClose }: { m: CapitalModel; onClose: () => void 
         <Ionicons name="chevron-forward" size={16} color={colors.fgMuted} />
       </PressScale>
 
-      <GlossButton onPress={onClose} style={{ marginTop: 12 }}>
+      <MetalButton onPress={onClose} style={{ marginTop: 12 }}>
         <Text style={s.cta}>Done</Text>
-      </GlossButton>
+      </MetalButton>
     </ScrollView>
   );
 }
@@ -317,9 +324,9 @@ export function PointsSheet({ m, onClose }: { m: CapitalModel; onClose: () => vo
 
       <Note>Spending, earning, and holding all feed the same points balance. The more of your capital lives in Pointer, the faster it compounds.</Note>
 
-      <GlossButton onPress={onClose} style={{ marginTop: 18 }}>
+      <MetalButton onPress={onClose} style={{ marginTop: 18 }}>
         <Text style={s.cta}>Done</Text>
-      </GlossButton>
+      </MetalButton>
     </ScrollView>
   );
 }
@@ -358,9 +365,9 @@ export function AiSheet({ m, onClose }: { m: CapitalModel; onClose: () => void }
         <Ionicons name="arrow-forward-circle" size={20} color={colors.accent} />
       </PressScale>
 
-      <GlossButton onPress={onClose} style={{ marginTop: 14 }}>
+      <MetalButton onPress={onClose} style={{ marginTop: 14 }}>
         <Text style={s.cta}>Done</Text>
-      </GlossButton>
+      </MetalButton>
     </ScrollView>
   );
 }
@@ -442,9 +449,9 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
         </View>
       </View>
 
-      <GlossButton onPress={() => { if (!canMove) return; onMove(from, to, amount); onClose(); showToast(`Moved ${usd(amount, 0)} to ${toLabel}`, { kind: 'success' }); }} style={{ marginTop: 18, opacity: canMove ? 1 : 0.5 }}>
+      <MetalButton onPress={() => { if (!canMove) return; onMove(from, to, amount); onClose(); showToast(`Moved ${usd(amount, 0)} to ${toLabel}`, { kind: 'success' }); }} style={{ marginTop: 18, opacity: canMove ? 1 : 0.5 }}>
         <Text style={s.cta}>{canMove ? `Move to ${toLabel}` : 'Choose an amount'}</Text>
-      </GlossButton>
+      </MetalButton>
     </ScrollView>
   );
 }
@@ -477,6 +484,8 @@ const s = StyleSheet.create({
   cardBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardBrandText: { color: '#fff', fontSize: 17, fontWeight: '800' },
   cardVirtual: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700' },
+  cardGloss: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
+  cardNumRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardNum: { color: 'rgba(255,255,255,0.9)', fontSize: 17, fontWeight: '600', letterSpacing: 2 },
   cardBottom: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   cardSpend: { color: '#fff', fontSize: 22, fontWeight: '800' },
