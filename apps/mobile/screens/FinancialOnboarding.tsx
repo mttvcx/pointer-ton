@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,70 +21,105 @@ import type { CardInfo } from '../src/financial/types';
 
 /* ── Intro / empty state ─────────────────────────────────── */
 
-const PERKS = [
-  { icon: 'flash' as const, tint: colors.bull, title: 'Spend without selling', sub: 'Borrow against your crypto — keep the upside' },
-  { icon: 'leaf' as const, tint: colors.accentGlow, title: 'Idle cash earns 8%+', sub: 'Auto-yield, fully liquid, no lockup' },
-  { icon: 'lock-open' as const, tint: colors.brand, title: 'No ID to start', sub: 'Verify only when you order a card' },
+const SLIDES = [
+  { title: 'Spend without selling', sub: 'Borrow against your crypto — your assets keep growing while you spend.', visual: 'coins' as const },
+  { title: 'Your Pointer Card', sub: 'Trade, borrow, spend and earn from one non-custodial account.', visual: 'card' as const },
+  { title: 'No ID to start', sub: 'Get in and borrow instantly. Verify only when you order a card.', visual: 'usdc' as const },
 ];
+const SLIDE_MS = 4600;
 
 export function FinancialIntro({ onStart }: { onStart: () => void }) {
   const insets = useSafeAreaInsets();
+  const [slide, setSlide] = useState(0);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    progress.setValue(0);
+    const anim = Animated.timing(progress, { toValue: 1, duration: SLIDE_MS, easing: Easing.linear, useNativeDriver: false });
+    anim.start(({ finished }) => {
+      if (finished) setSlide((x) => (x + 1) % SLIDES.length);
+    });
+    return () => anim.stop();
+  }, [slide, progress]);
+
+  const cur = SLIDES[slide];
+
   return (
     <Screen>
-      <View style={[s.introRoot, { paddingTop: insets.top + 34, paddingBottom: insets.bottom + 92 }]}>
-        {/* Hero card */}
-        <Rise delay={40} from={14}>
-          <View style={s.introCardWrap}>
-            <View style={s.introCard}>
-              <LinearGradient colors={['#12332A', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <LinearGradient colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.7, y: 1 }} style={s.introCardSheen} pointerEvents="none" />
-              <CardShine intensity={0.32} />
-              <View style={s.introCardTop}>
-                <View style={s.introCardBrand}>
-                  <Logo size={20} style={{ tintColor: '#fff' }} />
-                  <Text style={s.introCardBrandText}>pointer.</Text>
-                </View>
-                <Ionicons name="wifi" size={16} color="rgba(255,255,255,0.5)" style={{ transform: [{ rotate: '90deg' }] }} />
-              </View>
-              <View style={s.introCardNumRow}>
-                <Text style={s.introCardNum}>4242  ••••  ••••  8817</Text>
-                <VisaMark size={18} />
-              </View>
+      <View style={[s.introRoot, { paddingTop: insets.top + 22, paddingBottom: insets.bottom + 20 }]}>
+        {/* timed progress bars */}
+        <View style={s.progressRow}>
+          {SLIDES.map((_, i) => (
+            <View key={i} style={s.seg}>
+              <Animated.View
+                style={[
+                  s.segFill,
+                  { width: i < slide ? '100%' : i === slide ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) : '0%' },
+                ]}
+              />
             </View>
-          </View>
-        </Rise>
-
-        <Rise delay={110} from={12}>
-          <Text style={s.introTitle}>Your money, working.</Text>
-          <Text style={s.introLede}>Trade, borrow, spend and earn — one non-custodial account.</Text>
-        </Rise>
-
-        <View style={s.perkList}>
-          {PERKS.map((p, i) => (
-            <Rise key={p.title} delay={180 + i * 80} from={10}>
-              <View style={s.perk}>
-                <View style={[s.perkIcon, { backgroundColor: p.tint + '22' }]}>
-                  <Ionicons name={p.icon} size={18} color={p.tint} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.perkTitle}>{p.title}</Text>
-                  <Text style={s.perkSub}>{p.sub}</Text>
-                </View>
-              </View>
-            </Rise>
           ))}
         </View>
 
-        {/* CTA sits at the bottom of the flow — no floating, always above the nav */}
+        {/* tap zones: left = back, right = forward (story-style) */}
+        <View style={s.tapZones} pointerEvents="box-none">
+          <Pressable style={s.tapLeft} onPress={() => setSlide((x) => (x - 1 + SLIDES.length) % SLIDES.length)} />
+          <Pressable style={s.tapRight} onPress={() => setSlide((x) => (x + 1) % SLIDES.length)} />
+        </View>
+
+        <Slide key={slide} style={s.slideBody}>
+          <Text style={s.slideTitle}>{cur.title}</Text>
+          <Text style={s.slideSub}>{cur.sub}</Text>
+          <View style={s.visualWrap}>
+            <IntroVisual kind={cur.visual} />
+          </View>
+        </Slide>
+
+        {/* CTA pinned at the bottom */}
         <View style={s.introCta}>
           <GlossButton onPress={onStart}>
             <Text style={s.cta}>Get started</Text>
             <Ionicons name="arrow-forward" size={18} color={colors.onAccent} />
           </GlossButton>
-          <Text style={s.introFine}>No ID to start — borrow, spend & send. Verify only when you order a card.</Text>
+          <Text style={s.introFine}>No ID to start · non-custodial · your keys, your crypto.</Text>
         </View>
       </View>
     </Screen>
+  );
+}
+
+/** The 3D visual for a slide — floating coins, the metal card, or a hero coin. */
+function IntroVisual({ kind }: { kind: 'coins' | 'card' | 'usdc' }) {
+  if (kind === 'card') {
+    return (
+      <View style={s.introCard}>
+        <LinearGradient colors={['#12332A', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.7, y: 1 }} style={s.introCardSheen} pointerEvents="none" />
+        <CardShine intensity={0.34} />
+        <View style={s.introCardTop}>
+          <View style={s.introCardBrand}>
+            <Logo size={20} style={{ tintColor: '#fff' }} />
+            <Text style={s.introCardBrandText}>pointer.</Text>
+          </View>
+          <Ionicons name="wifi" size={16} color="rgba(255,255,255,0.5)" style={{ transform: [{ rotate: '90deg' }] }} />
+        </View>
+        <View style={s.introCardNumRow}>
+          <Text style={s.introCardNum}>4242  ••••  ••••  8817</Text>
+          <VisaMark size={18} />
+        </View>
+      </View>
+    );
+  }
+  if (kind === 'usdc') {
+    return <Image source={require('../assets/crypto/usdc.png')} style={s.heroCoin} resizeMode="contain" />;
+  }
+  return (
+    <View style={s.cluster}>
+      <Image source={require('../assets/crypto/btc.png')} style={[s.coin, { top: 6, left: 28, transform: [{ rotate: '-8deg' }] }]} resizeMode="contain" />
+      <Image source={require('../assets/crypto/eth.png')} style={[s.coin, { top: 62, right: 18, transform: [{ rotate: '9deg' }] }]} resizeMode="contain" />
+      <Image source={require('../assets/crypto/sol.png')} style={[s.coin, { bottom: 0, left: 46, transform: [{ rotate: '5deg' }] }]} resizeMode="contain" />
+      <Image source={require('../assets/crypto/usdc.png')} style={[s.coinSm, { top: 0, right: 54, transform: [{ rotate: '-6deg' }] }]} resizeMode="contain" />
+    </View>
   );
 }
 
@@ -281,6 +316,20 @@ const s = StyleSheet.create({
 
   // intro
   introRoot: { flex: 1, paddingHorizontal: 24 },
+  progressRow: { flexDirection: 'row', gap: 6, marginBottom: 26 },
+  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' },
+  segFill: { height: 4, borderRadius: 2, backgroundColor: '#fff' },
+  tapZones: { position: 'absolute', top: 60, left: 0, right: 0, bottom: 160, flexDirection: 'row' },
+  tapLeft: { flex: 1 },
+  tapRight: { flex: 2 },
+  slideBody: { flex: 1, alignItems: 'center', paddingTop: 8 },
+  slideTitle: { color: colors.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.8, textAlign: 'center' },
+  slideSub: { color: colors.fgSecondary, fontSize: 15.5, lineHeight: 22, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 },
+  visualWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  cluster: { width: 280, height: 260 },
+  coin: { position: 'absolute', width: 150, height: 150 },
+  coinSm: { position: 'absolute', width: 92, height: 92 },
+  heroCoin: { width: 210, height: 210 },
   introCardWrap: { alignItems: 'center', marginBottom: 6 },
   introCard: { width: 260, height: 158, borderRadius: 18, overflow: 'hidden', padding: 16, justifyContent: 'space-between', borderWidth: 1, borderColor: colors.accent + '33', transform: [{ perspective: 900 }, { rotateY: '-9deg' }, { rotateZ: '-3deg' }], shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 26, shadowOffset: { width: 0, height: 14 } },
   introCardSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
