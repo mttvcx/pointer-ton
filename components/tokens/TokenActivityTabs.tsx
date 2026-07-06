@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BarChart3, ChevronUp, LayoutPanelTop, Settings, Table2, Workflow, X, Zap } from 'lucide-react';
+import { Activity, BarChart3, ChevronLeft, ChevronRight, ChevronUp, LayoutPanelTop, Settings, Table2, Workflow, X, Zap } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { formatCompactUsd } from '@/lib/format';
@@ -79,8 +79,8 @@ type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'traders' | 'dev_to
 type TradeRow = Tables<'trades'>;
 
 // Note: the holder bubble map is NOT a tab — it's a drag-resizable slide-out
-// (Axiom-style) toggled from the toolbar, so it overlays the active table
-// instead of taking a full tab of its own.
+// (Axiom-style) toggled from a small chevron edge-tab, so it overlays the
+// active table instead of taking a full tab of its own.
 const TABS: { id: TabId; label: string }[] = [
   { id: 'trades', label: 'Trades' },
   { id: 'positions', label: 'Positions' },
@@ -809,21 +809,6 @@ export function TokenActivityTabs({
         )}
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 py-0.5">
-          <button
-            type="button"
-            onClick={() => setBubblesOpen((o) => !o)}
-            aria-pressed={bubblesOpen}
-            className={cn(
-              'btn-press inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-[11px] font-semibold transition-colors',
-              bubblesOpen
-                ? 'border-accent-primary/50 bg-accent-primary/10 text-fg-primary'
-                : 'border-border-subtle text-fg-secondary hover:bg-bg-hover hover:text-fg-primary',
-            )}
-            title="Holder bubble map"
-          >
-            <Workflow className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-            <span className="hidden sm:inline">Bubble map</span>
-          </button>
           {tab === 'orders' ? (
             <button
               type="button"
@@ -1113,10 +1098,10 @@ export function TokenActivityTabs({
         ) : null}
 
         {/* Holder bubble map — Axiom-style slide-out: overlays the active table on
-            the right, drag-resizable from its left edge, on-theme. Not a tab. */}
+            the right, drag-resizable from its left edge, seamless with the desk. */}
         {bubblesOpen ? (
           <div
-            className="absolute inset-y-0 right-0 z-20 flex max-w-full animate-in slide-in-from-right-4 duration-150 border-l border-border-default bg-bg-base shadow-[0_0_40px_rgba(0,0,0,0.45)]"
+            className="absolute inset-y-0 right-0 z-20 flex max-w-full animate-in slide-in-from-right-4 duration-150 border-l border-border-subtle/60 bg-desk-panel"
             style={{ width: bubbleMapW }}
           >
             <div
@@ -1149,6 +1134,25 @@ export function TokenActivityTabs({
             </div>
           </div>
         ) : null}
+
+        {/* Axiom-style show/hide tab — a small chevron handle on the right edge.
+            Closed: juts from the desk's right edge (opens it). Open: rides the
+            panel's left edge (collapses it). One button, flipped arrow. */}
+        <button
+          type="button"
+          onClick={() => setBubblesOpen((o) => !o)}
+          aria-pressed={bubblesOpen}
+          aria-label={bubblesOpen ? 'Hide bubble map' : 'Show bubble map'}
+          title={bubblesOpen ? 'Hide bubble map' : 'Show bubble map'}
+          style={bubblesOpen ? { right: bubbleMapW } : { right: 0 }}
+          className="group absolute top-1/2 z-30 flex h-14 w-[18px] -translate-y-1/2 items-center justify-center rounded-l-md border border-r-0 border-border-subtle/70 bg-bg-raised text-fg-muted shadow-[-4px_0_12px_rgba(0,0,0,0.25)] transition-colors hover:bg-bg-hover hover:text-fg-primary"
+        >
+          {bubblesOpen ? (
+            <ChevronRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+          ) : (
+            <ChevronLeft className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+          )}
+        </button>
       </div>
       <HoldersTableSettingsModal
         open={holdersSettingsOpen}
