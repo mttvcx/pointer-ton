@@ -30,6 +30,10 @@ export function isKaminoConfigured(): boolean {
   return process.env.KAMINO_ENABLED === '1';
 }
 
+// Verified Kamino mainnet constants (klend-sdk docs + GitHub).
+const KAMINO_MAIN_MARKET = '7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF';
+const KLEND_PROGRAM_ID = 'KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD';
+
 export type CreditQuote = {
   /** Max additional USDC borrowable against the collateral, after current debt. */
   creditAvailableUsd: number;
@@ -77,9 +81,9 @@ export async function buildBorrowTx(input: {
   borrowedUsd: number;
 }): Promise<{ txBase64: string } | null> {
   if (!isKaminoConfigured()) return null;
-  const market = process.env.KAMINO_MARKET?.trim();
+  const market = process.env.KAMINO_MARKET?.trim() || KAMINO_MAIN_MARKET;
   const rpc = process.env.SOLANA_RPC_URL?.trim() || process.env.HELIUS_RPC_URL?.trim();
-  if (!market || !rpc) return null;
+  if (!rpc) return null;
 
   // Server-side guardrail: never let a borrow push past MAX_LTV.
   const q = quoteCredit(input.collateralUsd, input.borrowedUsd);
@@ -89,25 +93,49 @@ export async function buildBorrowTx(input: {
 
   try {
     // Lazy require so tsc/build don't need the SDK until it's installed.
+    // Verified API (klend-sdk): KaminoMarket.load → KaminoAction.buildBorrowTxns(
+    //   market, amountBaseUnits, tokenMint, owner, new VanillaObligation(PROGRAM_ID)).
+    // Assumes the user's collateral is already deposited in their Kamino obligation
+    // (deposit-of-collateral is a prior buildDepositTxns step, wired separately).
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const klend = require('@kamino-finance/klend-sdk') as {
       KaminoMarket: { load: (conn: unknown, market: unknown) => Promise<unknown> };
-      KaminoAction: { buildDepositAndBorrowTxns: (...args: unknown[]) => Promise<{ serialize: () => Uint8Array }> };
+      KaminoAction: {
+        buildBorrowTxns: (
+          market: unknown,
+          amount: string,
+          mint: unknown,
+          owner: unknown,
+          obligation: unknown,
+        ) => Promise<Record<string, unknown>>;
+      };
+      VanillaObligation: new (programId: unknown) => unknown;
     };
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { Connection, PublicKey } = require('@solana/web3.js');
+    const web3 = require('@solana/web3.js') as typeof import('@solana/web3.js');
+    const { Connection, PublicKey, TransactionMessage, VersionedTransaction } = web3;
+
     const connection = new Connection(rpc, 'confirmed');
+    const owner = new PublicKey(input.wallet);
     const kmarket = await klend.KaminoMarket.load(connection, new PublicKey(market));
-    // Deposit the collateral + borrow USDC in one obligation action.
-    const action = await klend.KaminoAction.buildDepositAndBorrowTxns(
+    const action = await klend.KaminoAction.buildBorrowTxns(
       kmarket,
-      String(Math.round(input.amountUsd * 1e6)), // USDC (6dp) to borrow
+      String(Math.round(input.amountUsd * 1e6)), // USDC (6dp), base units
       new PublicKey(USDC_MINT),
-      new PublicKey(input.collateralMint),
-      new PublicKey(input.wallet),
+      owner,
+      new klend.VanillaObligation(new PublicKey(KLEND_PROGRAM_ID)),
     );
-    const txBase64 = Buffer.from(action.serialize()).toString('base64');
-    return { txBase64 };
+
+    // Assemble the action's instructions into an unsigned v0 tx for the client to sign.
+    const ixs = [
+      ...((action.setupIxs as unknown[]) ?? []),
+      ...((action.lendingIxs as unknown[]) ?? []),
+      ...((action.cleanupIxs as unknown[]) ?? []),
+    ] as import('@solana/web3.js').TransactionInstruction[];
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    const msg = new TransactionMessage({ payerKey: owner, recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
+    const tx = new VersionedTransaction(msg);
+    return { txBase64: Buffer.from(tx.serialize()).toString('base64') };
   } catch (err) {
     // Not installed / market mismatch → fall back to simulation rather than break.
     if (err instanceof Error && err.message === 'KAMINO_BORROW_OVER_LIMIT') throw err;

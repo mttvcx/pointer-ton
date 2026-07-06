@@ -24,11 +24,15 @@ Legend: 🟢 done in code · 🔑 needs a key/config (you) · 🤝 needs a partn
   `lib/financial/kaminoClient.ts` (+ the `KAMINO_*` lines in `.env.example`).
 - 🔑 To flip borrows to REAL on-chain (until then it runs in simulation):
   1. `npm i @kamino-finance/klend-sdk` on the backend
-  2. Vercel: `KAMINO_ENABLED=1` + `KAMINO_MARKET=<mainnet lending-market pubkey>`
-     (find it in Kamino's docs / app — the main USDC market)
-  3. **Verify ONE small borrow on a funded wallet** — confirm the klend-sdk call
-     (`KaminoAction.buildDepositAndBorrowTxns`) name/args against current docs; I
-     wrote the documented shape but couldn't test it.
+  2. Vercel: `KAMINO_ENABLED=1` (the market defaults to the mainnet main market —
+     `KAMINO_MARKET` only needed to override). Verified constants baked in:
+     - Main market: `7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF`
+     - Klend program: `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD`
+     - Call: `KaminoAction.buildBorrowTxns(market, amountBase, USDC_mint, owner, new VanillaObligation(PROGRAM_ID))`
+  3. **Verify ONE small borrow on a funded wallet.** Two things to confirm live:
+     (a) the collateral is deposited into the obligation first (a `buildDepositTxns`
+     step — the borrow assumes collateral is already posted), and (b) the exact
+     instruction fields on the returned action (`setupIxs`/`lendingIxs`/`cleanupIxs`).
 - 🤝 **Card issuer for the card you spend on:**
   - v1 (borrow-then-spend): **Bridge** — already integrated. Turn on with
     `BRIDGE_API_KEY` (KYB with Bridge). No new partner for the borrow.
