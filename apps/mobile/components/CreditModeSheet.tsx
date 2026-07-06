@@ -1,0 +1,214 @@
+import React, { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { DragSheet } from './DragSheet';
+import { PressScale } from './PressScale';
+import { GlassFill } from './GlassFill';
+import { SheetButton } from './SheetButton';
+import { colors, radius } from '../src/theme';
+import { usd } from '../src/format';
+import { showToast } from '../src/toast';
+import {
+  useSpendMode,
+  setSpendMode,
+  useBorrowed,
+  borrow,
+  repay,
+  creditAvailable,
+  healthFactor,
+  healthBand,
+  liquidationDropPct,
+  USER_BORROW_APR,
+  MAX_LTV,
+} from '../src/financial/credit';
+
+const PRESETS = [100, 500, 1000, 5000];
+
+const BAND_COLOR = { safe: colors.bull, moderate: colors.warn, risky: colors.bear };
+const BAND_LABEL = { safe: 'Healthy', moderate: 'Moderate', risky: 'At risk' };
+
+/**
+ * Cash vs Credit spending mode. Cash = spend USDC directly. Credit = borrow USDC
+ * against your SOL/ETH/BTC (Kamino) — your crypto stays invested + earning, you
+ * never sell, so there's no taxable event. Shows live credit line, health factor,
+ * and liquidation buffer. (Demo math; real mode quotes via /api/financial/credit.)
+ */
+export function CreditModeSheet({
+  visible,
+  onClose,
+  collateralUsd,
+  spendableUsd,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  collateralUsd: number;
+  spendableUsd: number;
+}) {
+  const mode = useSpendMode();
+  const borrowed = useBorrowed();
+  const [amount, setAmount] = useState(0);
+
+  const available = creditAvailable(collateralUsd, borrowed);
+  const hf = healthFactor(collateralUsd, borrowed + amount);
+  const band = healthBand(hf);
+  const dropPct = liquidationDropPct(collateralUsd, borrowed + amount);
+
+  const close = () => {
+    setAmount(0);
+    onClose();
+  };
+
+  const doBorrow = () => {
+    if (amount <= 0 || amount > available) return;
+    borrow(amount);
+    setSpendMode('credit');
+    showToast(`Borrowed ${usd(amount, 0)}`, { sub: 'Spendable now · your crypto stays invested', kind: 'success' });
+    setAmount(0);
+  };
+
+  return (
+    <DragSheet visible={visible} onClose={close}>
+      <Text style={s.title}>Spending mode</Text>
+
+      {/* segmented toggle */}
+      <View style={s.toggle}>
+        <PressScale onPress={() => setSpendMode('cash')} to={0.97} style={[s.toggleBtn, mode === 'cash' && s.toggleOn]}>
+          <Text style={[s.toggleText, mode === 'cash' && s.toggleTextOn]}>Cash</Text>
+          <Text style={[s.toggleSub, mode === 'cash' && { color: colors.onAccent }]}>{usd(spendableUsd, 0)}</Text>
+        </PressScale>
+        <PressScale onPress={() => setSpendMode('credit')} to={0.97} style={[s.toggleBtn, mode === 'credit' && s.toggleOn]}>
+          <Text style={[s.toggleText, mode === 'credit' && s.toggleTextOn]}>Credit</Text>
+          <Text style={[s.toggleSub, mode === 'credit' && { color: colors.onAccent }]}>Spend, don't sell</Text>
+        </PressScale>
+      </View>
+
+      {mode === 'cash' ? (
+        <View style={s.cashBox}>
+          <GlassFill />
+          <Ionicons name="wallet-outline" size={22} color={colors.brand} />
+          <Text style={s.cashTitle}>Spending your USDC</Text>
+          <Text style={s.cashBody}>
+            Tap and go — {usd(spendableUsd, 2)} ready on your card. No borrow, no interest. Switch to Credit to spend
+            without touching your crypto.
+          </Text>
+        </View>
+      ) : (
+        <>
+          <View style={s.creditHead}>
+            <View>
+              <Text style={s.creditLabel}>Credit available</Text>
+              <Text style={s.creditVal}>{usd(available, 0)}</Text>
+              <Text style={s.creditSub}>
+                against {usd(collateralUsd, 0)} collateral · up to {Math.round(MAX_LTV * 100)}% LTV
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={s.creditLabel}>Rate</Text>
+              <Text style={s.creditVal}>{(USER_BORROW_APR * 100).toFixed(1)}%</Text>
+              <Text style={s.creditSub}>APR on borrowed</Text>
+            </View>
+          </View>
+
+          {borrowed > 0 ? (
+            <View style={s.borrowedRow}>
+              <Text style={s.borrowedLabel}>Currently borrowed</Text>
+              <Text style={s.borrowedVal}>{usd(borrowed, 2)}</Text>
+              <PressScale onPress={() => { repay(borrowed); showToast('Repaid', { kind: 'success' }); }} hitSlop={6} to={0.9} style={s.repay}>
+                <Text style={s.repayText}>Repay</Text>
+              </PressScale>
+            </View>
+          ) : null}
+
+          <Text style={s.pickLabel}>Borrow</Text>
+          <View style={s.presets}>
+            {PRESETS.map((p) => {
+              const disabled = p > available;
+              const on = p === amount;
+              return (
+                <PressScale
+                  key={p}
+                  onPress={() => !disabled && setAmount(on ? 0 : p)}
+                  to={0.94}
+                  style={[s.preset, on && s.presetOn, disabled && s.presetOff]}
+                >
+                  <Text style={[s.presetText, on && s.presetTextOn, disabled && { color: colors.fgFaint }]}>{usd(p, 0)}</Text>
+                </PressScale>
+              );
+            })}
+          </View>
+
+          {/* health factor */}
+          <View style={s.health}>
+            <GlassFill />
+            <View style={s.healthTop}>
+              <Text style={s.healthLabel}>Health factor</Text>
+              <View style={[s.healthBadge, { backgroundColor: BAND_COLOR[band] + '22' }]}>
+                <Text style={[s.healthBadgeText, { color: BAND_COLOR[band] }]}>
+                  {Number.isFinite(hf) ? hf.toFixed(2) : '∞'} · {BAND_LABEL[band]}
+                </Text>
+              </View>
+            </View>
+            <View style={s.healthBarTrack}>
+              <View style={[s.healthBarFill, { width: `${Math.min(100, dropPct)}%`, backgroundColor: BAND_COLOR[band] }]} />
+            </View>
+            <Text style={s.healthSub}>
+              Your collateral can fall {Math.round(dropPct)}% before liquidation. It stays invested + earning the whole time.
+            </Text>
+          </View>
+
+          <SheetButton
+            label={amount <= 0 ? 'Enter an amount' : amount > available ? 'Over your limit' : `Borrow ${usd(amount, 0)} · spend without selling`}
+            variant={amount <= 0 || amount > available ? 'disabled' : 'long'}
+            onPress={doBorrow}
+            style={{ marginTop: 16 }}
+          />
+          <Text style={s.taxNote}>Borrowing isn't a taxable event — you keep your position and your upside.</Text>
+        </>
+      )}
+    </DragSheet>
+  );
+}
+
+const s = StyleSheet.create({
+  title: { color: colors.fg, fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  toggle: { flexDirection: 'row', gap: 8, marginTop: 16, backgroundColor: colors.bgRaised, borderRadius: radius.md, padding: 5 },
+  toggleBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: radius.sm },
+  toggleOn: { backgroundColor: colors.accent },
+  toggleText: { color: colors.fgMuted, fontSize: 15, fontWeight: '700' },
+  toggleTextOn: { color: colors.onAccent },
+  toggleSub: { color: colors.fgFaint, fontSize: 12, marginTop: 2 },
+
+  cashBox: { alignItems: 'center', borderRadius: radius.lg, padding: 22, marginTop: 18, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', gap: 8 },
+  cashTitle: { color: colors.fg, fontSize: 16, fontWeight: '700' },
+  cashBody: { color: colors.fgMuted, fontSize: 13.5, lineHeight: 19, textAlign: 'center' },
+
+  creditHead: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  creditLabel: { color: colors.fgMuted, fontSize: 13 },
+  creditVal: { color: colors.fg, fontSize: 26, fontWeight: '800', marginTop: 2 },
+  creditSub: { color: colors.fgFaint, fontSize: 12, marginTop: 2 },
+
+  borrowedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 11 },
+  borrowedLabel: { color: colors.fgMuted, fontSize: 13.5, flex: 1 },
+  borrowedVal: { color: colors.fg, fontSize: 14.5, fontWeight: '700' },
+  repay: { backgroundColor: colors.bgRaised2, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  repayText: { color: colors.accentGlow, fontSize: 12.5, fontWeight: '700' },
+
+  pickLabel: { color: colors.fgSecondary, fontSize: 13, fontWeight: '700', marginTop: 18, marginBottom: 8 },
+  presets: { flexDirection: 'row', gap: 8 },
+  preset: { flex: 1, alignItems: 'center', borderRadius: radius.md, paddingVertical: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgRaised },
+  presetOn: { borderColor: colors.bull, backgroundColor: colors.bullSoft },
+  presetOff: { opacity: 0.4 },
+  presetText: { color: colors.fgSecondary, fontSize: 15, fontWeight: '700' },
+  presetTextOn: { color: colors.bull },
+
+  health: { borderRadius: radius.lg, padding: 14, marginTop: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  healthTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  healthLabel: { color: colors.fgMuted, fontSize: 13.5 },
+  healthBadge: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  healthBadgeText: { fontSize: 12.5, fontWeight: '700' },
+  healthBarTrack: { height: 6, borderRadius: 3, backgroundColor: colors.bgRaised2, marginTop: 12, overflow: 'hidden' },
+  healthBarFill: { height: 6, borderRadius: 3 },
+  healthSub: { color: colors.fgMuted, fontSize: 12.5, lineHeight: 17, marginTop: 10 },
+
+  taxNote: { color: colors.fgFaint, fontSize: 12, textAlign: 'center', marginTop: 12, lineHeight: 16 },
+});

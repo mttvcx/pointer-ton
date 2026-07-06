@@ -20,6 +20,10 @@ import { group, usd } from '../src/format';
 import { getDemoCapital, type CapitalModel, type FinActivityKind, type StateKey as CapKey } from '../src/demo/capital';
 import { loadFinancialStatus, useFinancial } from '../src/financial/store';
 import { useYieldRate } from '../src/financial/hooks';
+import { CardTiersSheet } from '../components/CardTiersSheet';
+import { CreditModeSheet } from '../components/CreditModeSheet';
+import { useSpendMode, useTier } from '../src/financial/credit';
+import { tierById } from '../src/financial/tiers';
 import type { PulseBundle } from '../src/types';
 
 // The four states of capital — the product's spine.
@@ -114,6 +118,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
     });
   };
   const [deposit, setDeposit] = useState(false);
+  const [tiersOpen, setTiersOpen] = useState(false);
+  const [creditOpen, setCreditOpen] = useState(false);
+  const spendMode = useSpendMode();
+  const tier = tierById(useTier());
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const openState = (key: StateKey) => setSheet({ kind: 'state', key });
   const openPanel = (panel: Panel) => setSheet({ kind: 'panel', panel });
@@ -222,6 +230,30 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </PressScale>
         </Rise>
 
+        {/* Spending mode + Membership */}
+        <Rise delay={200}>
+          <View style={s.dualRow}>
+            <PressScale to={0.97} onPress={() => setCreditOpen(true)} style={s.dualBtn}>
+              <GlassFill />
+              <Ionicons name={spendMode === 'credit' ? 'flash' : 'wallet-outline'} size={19} color={spendMode === 'credit' ? colors.bull : colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.dualTitle}>{spendMode === 'credit' ? 'Credit mode' : 'Cash mode'}</Text>
+                <Text style={s.dualSub} numberOfLines={1}>{spendMode === 'credit' ? "Spend, don't sell" : 'Spend your USDC'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={15} color={colors.fgMuted} />
+            </PressScale>
+            <PressScale to={0.97} onPress={() => setTiersOpen(true)} style={s.dualBtn}>
+              <GlassFill />
+              <Ionicons name="ribbon-outline" size={19} color={tier.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.dualTitle}>{tier.name}</Text>
+                <Text style={s.dualSub} numberOfLines={1}>{tier.cashbackCredit}% cashback</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={15} color={colors.fgMuted} />
+            </PressScale>
+          </View>
+        </Rise>
+
         {/* Smart Yield */}
         <Rise delay={230}>
         <PressScale to={0.99} onPress={() => openPanel('yield')} style={s.panel}>
@@ -320,6 +352,13 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
       </ScrollView>
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
+      <CardTiersSheet visible={tiersOpen} onClose={() => setTiersOpen(false)} />
+      <CreditModeSheet
+        visible={creditOpen}
+        onClose={() => setCreditOpen(false)}
+        collateralUsd={m.states.trading + m.states.earning}
+        spendableUsd={m.states.spendable}
+      />
 
       <DragSheet visible={sheet !== null} onClose={closeSheet} fullDrag={sheet?.kind === 'state'}>
         {sheet?.kind === 'state' ? (
@@ -420,6 +459,10 @@ const s = StyleSheet.create({
   legendVal: { color: colors.fg, fontSize: 13.5, fontWeight: '700' },
   moveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16, paddingVertical: 11, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.accent + '3D', backgroundColor: colors.accentSoft },
   moveText: { color: colors.accentGlow, fontSize: 14, fontWeight: '700' },
+  dualRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  dualBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.lg, paddingHorizontal: 12, paddingVertical: 13, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  dualTitle: { color: colors.fg, fontSize: 14, fontWeight: '700' },
+  dualSub: { color: colors.fgMuted, fontSize: 11.5, marginTop: 1 },
 
   card: { borderRadius: radius.lg, overflow: 'hidden', marginTop: 22, padding: 18, borderWidth: 1, borderColor: colors.accent + '33', height: 190, justifyContent: 'space-between' },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
