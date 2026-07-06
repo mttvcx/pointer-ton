@@ -43,6 +43,7 @@ export function CreditModeSheet({
   collateralUsd,
   spendableUsd,
   onBorrowed,
+  onRepaid,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -50,6 +51,8 @@ export function CreditModeSheet({
   spendableUsd: number;
   /** Borrowed USDC lands in spendable — let the dashboard reflect it. */
   onBorrowed?: (amountUsd: number) => void;
+  /** Repaying pulls USDC back out of spendable. */
+  onRepaid?: (amountUsd: number) => void;
 }) {
   const mode = useSpendMode();
   const borrowed = useBorrowed();
@@ -172,7 +175,7 @@ export function CreditModeSheet({
             <View style={s.borrowedRow}>
               <Text style={s.borrowedLabel}>Currently borrowed</Text>
               <Text style={s.borrowedVal}>{usd(borrowed, 2)}</Text>
-              <PressScale onPress={() => { repay(borrowed); showToast('Repaid', { kind: 'success' }); }} hitSlop={6} to={0.9} style={s.repay}>
+              <PressScale onPress={() => { const b = borrowed; repay(b); onRepaid?.(b); showToast('Repaid', { kind: 'success' }); }} hitSlop={6} to={0.9} style={s.repay}>
                 <Text style={s.repayText}>Repay</Text>
               </PressScale>
             </View>

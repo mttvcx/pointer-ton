@@ -22,7 +22,8 @@ import { loadFinancialStatus, useFinancial } from '../src/financial/store';
 import { useYieldRate } from '../src/financial/hooks';
 import { CardTiersSheet } from '../components/CardTiersSheet';
 import { CreditModeSheet } from '../components/CreditModeSheet';
-import { useSpendMode, useTier } from '../src/financial/credit';
+import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
+import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
 import type { PulseBundle } from '../src/types';
 
@@ -122,6 +123,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const [creditOpen, setCreditOpen] = useState(false);
   const spendMode = useSpendMode();
   const tier = tierById(useTier());
+  const borrowed = useBorrowed();
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const openState = (key: StateKey) => setSheet({ kind: 'state', key });
   const openPanel = (panel: Panel) => setSheet({ kind: 'panel', panel });
@@ -214,7 +216,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Logo size={22} style={{ tintColor: '#fff' }} />
               <Text style={s.cardBrandText}>Pointer</Text>
             </View>
-            <Text style={s.cardVirtual}>{cardFrozen ? 'Frozen' : 'Virtual'}</Text>
+            <View style={s.cardTierWrap}>
+              <Text style={[s.cardTier, { color: tier.accent }]}>{tier.name}</Text>
+              <Text style={s.cardVirtual}>{cardFrozen ? 'Frozen' : 'Virtual'}</Text>
+            </View>
           </View>
           <Text style={s.cardNum}>•••• •••• •••• {cardLast4}</Text>
           <View style={s.cardBottom}>
@@ -253,6 +258,44 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             </PressScale>
           </View>
         </Rise>
+
+        {/* Live credit line — only once you've borrowed */}
+        {borrowed > 0 ? (() => {
+          const line = collateralLine(demoCollateralHoldings(m.states.trading + m.states.earning));
+          const available = Math.max(0, line.borrowPower - borrowed);
+          const hf = healthFactor(line.eligibleValue, borrowed);
+          const band = healthBand(hf);
+          const bandColor = band === 'safe' ? colors.bull : band === 'moderate' ? colors.warn : colors.bear;
+          return (
+            <Rise delay={215}>
+              <PressScale to={0.99} onPress={() => setCreditOpen(true)} style={s.creditStrip}>
+                <GlassFill />
+                <View style={s.creditStripTop}>
+                  <View style={s.creditStripLabelRow}>
+                    <Ionicons name="flash" size={15} color={colors.bull} />
+                    <Text style={s.creditStripLabel}>Credit line</Text>
+                  </View>
+                  <View style={[s.creditStripBadge, { backgroundColor: bandColor + '22' }]}>
+                    <Text style={[s.creditStripBadgeText, { color: bandColor }]}>
+                      {Number.isFinite(hf) ? `Health ${hf.toFixed(2)}` : 'Healthy'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={s.creditStripRow}>
+                  <View>
+                    <Text style={s.creditStripBig}>{usd(borrowed, 0)}</Text>
+                    <Text style={s.creditStripSub}>borrowed</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.creditStripBig}>{usd(available, 0)}</Text>
+                    <Text style={s.creditStripSub}>still available</Text>
+                  </View>
+                </View>
+                <Text style={s.creditStripNote}>Your crypto stays invested — repay anytime, no sale.</Text>
+              </PressScale>
+            </Rise>
+          );
+        })() : null}
 
         {/* Smart Yield */}
         <Rise delay={230}>
@@ -359,6 +402,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         collateralUsd={m.states.trading + m.states.earning}
         spendableUsd={m.states.spendable}
         onBorrowed={(amt) => setM((prev) => ({ ...prev, states: { ...prev.states, spendable: prev.states.spendable + amt } }))}
+        onRepaid={(amt) => setM((prev) => ({ ...prev, states: { ...prev.states, spendable: Math.max(0, prev.states.spendable - amt) } }))}
       />
 
       <DragSheet visible={sheet !== null} onClose={closeSheet} fullDrag={sheet?.kind === 'state'}>
@@ -464,12 +508,24 @@ const s = StyleSheet.create({
   dualBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.lg, paddingHorizontal: 12, paddingVertical: 13, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   dualTitle: { color: colors.fg, fontSize: 14, fontWeight: '700' },
   dualSub: { color: colors.fgMuted, fontSize: 11.5, marginTop: 1 },
+  creditStrip: { borderRadius: radius.lg, padding: 15, marginTop: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,224,160,0.22)' },
+  creditStripTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  creditStripLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  creditStripLabel: { color: colors.fg, fontSize: 14, fontWeight: '700' },
+  creditStripBadge: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  creditStripBadgeText: { fontSize: 12, fontWeight: '700' },
+  creditStripRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  creditStripBig: { color: colors.fg, fontSize: 22, fontWeight: '800' },
+  creditStripSub: { color: colors.fgMuted, fontSize: 12, marginTop: 1 },
+  creditStripNote: { color: colors.fgFaint, fontSize: 12, marginTop: 12 },
 
   card: { borderRadius: radius.lg, overflow: 'hidden', marginTop: 22, padding: 18, borderWidth: 1, borderColor: colors.accent + '33', height: 190, justifyContent: 'space-between' },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardBrandText: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   cardVirtual: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700' },
+  cardTierWrap: { alignItems: 'flex-end' },
+  cardTier: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
   cardNum: { color: 'rgba(255,255,255,0.9)', fontSize: 18, fontWeight: '600', letterSpacing: 2 },
   cardBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   cardSpendLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
