@@ -663,7 +663,7 @@ export function XMonitorPanel({
                       onClick={() => runLaunch(row)}
                       title={
                         row.isMock
-                          ? 'Sample preview — launch is disabled on demo data'
+                          ? undefined
                           : isAutoLaunch
                             ? 'Auto-launch armed for this rule'
                             : 'Launch a token from this tweet'
