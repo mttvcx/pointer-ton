@@ -5,6 +5,7 @@ import type { SibylAnswer, SibylCard, SibylEntityRef } from '@/sibyl/types';
 import { callModel, parseJson, tierForMode } from '@/sibyl/modelRouter';
 import { AGENT_SYSTEM, scrubBanned, scrubModelLeak } from '@/sibyl/agents/prompts';
 import { dexscreener, helius, grok, x, dune, pointer, birdeye } from '@/sibyl/data/providers';
+import { detectLaunchpad } from '@/sibyl/tokens/launchpad';
 
 function usd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
@@ -27,11 +28,13 @@ export async function runMarketAgent(ctx: AgentContext): Promise<AgentResult> {
     birdeye.getCandles(ctx.mint, '5m'),
   ]);
   const points = candles.map((c) => c.close).filter((n) => Number.isFinite(n));
+  const launch = detectLaunchpad(ctx.mint, ctx.chain); // CA suffix → platform (pump/bonk/bags/four.meme…)
   const cards: SibylCard[] = [
-    { type: 'token', id: cid('token'), data: { mint: ctx.mint, symbol: m.symbol, name: m.name, imageUrl: m.imageUrl, priceUsd: m.priceUsd, marketCapUsd: m.marketCapUsd, liquidityUsd: m.liquidityUsd, volume24hUsd: m.volume24hUsd, change24hPct: m.change24hPct, ageLabel: m.ageLabel, protocol: m.protocol } },
+    { type: 'token', id: cid('token'), data: { mint: ctx.mint, symbol: m.symbol, name: m.name, imageUrl: m.imageUrl, priceUsd: m.priceUsd, marketCapUsd: m.marketCapUsd, liquidityUsd: m.liquidityUsd, volume24hUsd: m.volume24hUsd, change24hPct: m.change24hPct, ageLabel: m.ageLabel, protocol: launch?.platform ?? m.protocol } },
     { type: 'chart', id: cid('chart'), data: { mint: ctx.mint, symbol: m.symbol, tf: '5m', source: birdeye.birdeyeStatus().configured ? 'birdeye' : 'birdeye/sample', points: points.length ? points : null } },
   ];
   const take = [
+    launch ? `${launch.platform} launch — ${launch.note}` : '',
     `${m.symbol ?? 'Token'} sitting around ${usd(m.marketCapUsd)} MC.`,
     m.liquidityUsd != null && m.liquidityUsd < 30_000 ? `Liquidity is thin (${usd(m.liquidityUsd)}) — exits will slip.` : `Liquidity ${usd(m.liquidityUsd)}, 24h vol ${usd(m.volume24hUsd)}.`,
     m.ageLabel ? `${m.ageLabel} old — ${/[hd]/.test(m.ageLabel) ? 'past the first candle' : 'brand new, treat as a scalp'}.` : '',

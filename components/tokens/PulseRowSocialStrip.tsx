@@ -41,6 +41,7 @@ import {
   WebsiteGlobeCompactHover,
 } from '@/components/tokens/PulseRichPopovers';
 import { PulseHeaderSocialIcon } from '@/components/tokens/PulseHeaderSocialIcon';
+import { TikTokHoverPanel } from '@/components/tokens/TikTokHoverPanel';
 import { CoinCommunityHoverTrigger } from '@/components/tokens/CoinCommunityHover';
 import { coinCommunityWebUrl } from '@/lib/communities/coinCommunity';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -317,8 +318,11 @@ function BrandIconLink({
   glyphPx: number;
   linkClassName?: string;
 }) {
+  // TikTok gets the rich profile/video preview (same overlay tech as the X hover);
+  // everything else keeps the generic link panel.
+  const panel = label === 'TikTok' ? <TikTokHoverPanel url={href} /> : <BrandLinkHoverPanel url={href} title={panelTitle} />;
   return (
-    <PulseRichHover panel={<BrandLinkHoverPanel url={href} title={panelTitle} />} wide={false}>
+    <PulseRichHover panel={panel} wide={false}>
       <a
         href={href}
         target="_blank"
