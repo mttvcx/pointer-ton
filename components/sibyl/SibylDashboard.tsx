@@ -129,6 +129,9 @@ const SCOPE_CSS = `
 .rise{animation:sibylRise .35s ease both}
 .shimmer{background:linear-gradient(90deg,rgba(255,255,255,0.4) 20%,rgba(255,255,255,0.98) 50%,rgba(255,255,255,0.4) 80%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sibylSweep 1.7s linear infinite}
 @keyframes sibylSweep{to{background-position:-200% 0}}
+.menu-glass{background:rgba(19,19,26,0.94);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border:1px solid rgba(255,255,255,0.1)}
+.pop{animation:sibylPop .16s cubic-bezier(.2,.9,.3,1) both}
+@keyframes sibylPop{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:none}}
 `;
 
 let seq = 0;
@@ -294,6 +297,18 @@ export function SibylDashboard() {
     return undefined;
   }, [started]);
 
+  // Close any open popover on an outside click (capture phase → reliable).
+  useEffect(() => {
+    if (!menu) return undefined;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest('.menu-glass') || t.closest('[data-menu-trigger]'))) return;
+      setMenu(null);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [menu]);
+
   const setThemeChoice = (t: ThemeChoice) => {
     setTheme(t);
     try {
@@ -326,7 +341,7 @@ export function SibylDashboard() {
   const statusLine = status == null ? '' : status.modelMock ? `${status.liveProviders} live data · mock model` : `${status.liveProviders} providers live`;
 
   return (
-    <div className="sibyl-scope fixed inset-0 overflow-hidden antialiased" style={{ ...vars } as React.CSSProperties} onClick={() => setMenu(null)}>
+    <div className="sibyl-scope fixed inset-0 overflow-hidden antialiased" style={{ ...vars } as React.CSSProperties}>
       <style dangerouslySetInnerHTML={{ __html: SCOPE_CSS }} />
 
       {/* base + ambient video (fades out + unmounts once a scan starts) */}
@@ -351,7 +366,7 @@ export function SibylDashboard() {
 
       <div className="relative z-10 flex h-full">
         {/* LEFT — sidebar */}
-        <aside className="s-glass s-border hidden w-[250px] shrink-0 flex-col border-r p-3.5 text-white md:flex" onClick={(e) => e.stopPropagation()}>
+        <aside className="s-glass s-border hidden w-[250px] shrink-0 flex-col border-r p-3.5 text-white md:flex">
           <div className="flex items-center gap-2.5 px-1 py-1.5">
             <span className="sibyl-mark s-accent h-7 w-7" />
             <div className="leading-none">
@@ -382,9 +397,9 @@ export function SibylDashboard() {
             )}
           </div>
 
-          <div className="relative mt-2 space-y-0.5 border-t border-white/10 pt-2">
+          <div className="relative mt-2 space-y-1.5 border-t border-white/[0.08] pt-3">
             {menu === 'settings' ? (
-              <div className="media-glass absolute bottom-[calc(100%+6px)] left-0 w-full space-y-2.5 rounded-xl p-3 shadow-2xl">
+              <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-full space-y-2.5 rounded-xl p-3 shadow-2xl">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/40">Appearance</div>
                 <div className="grid grid-cols-3 gap-0.5 rounded-lg bg-white/[0.06] p-0.5">
                   {(['system', 'light', 'dark'] as ThemeChoice[]).map((t) => (
@@ -393,17 +408,18 @@ export function SibylDashboard() {
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-white/40">
+                <button type="button" className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1 text-[12px] text-white/85 transition hover:text-white">
+                  <IconUser /> Sign in
+                </button>
+                <div className="flex items-center gap-1.5 border-t border-white/[0.08] pt-2 text-[10px] text-white/40">
                   <span className={`h-1.5 w-1.5 rounded-full ${status?.modelMock === false ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                   {statusLine}
                 </div>
-                {status?.memory ? <div className="text-[10px] text-white/40">{status.memory.scans.toLocaleString()} scans · {status.memory.entities.toLocaleString()} entities · {status.memory.resolved.toLocaleString()} graded</div> : null}
+                {status?.memory ? <div className="text-[10px] text-white/40">{status.memory.scans.toLocaleString()} scans · {status.memory.entities.toLocaleString()} remembered · {status.memory.resolved.toLocaleString()} graded</div> : null}
               </div>
             ) : null}
-
-            <SideRow icon={<IconUpgrade />} label="Upgrade plan" accent onClick={() => setMenu(menu === 'upgrade' ? null : 'upgrade')} />
             {menu === 'upgrade' ? (
-              <div className="media-glass absolute bottom-[calc(100%+6px)] left-0 w-full space-y-1 rounded-xl p-2.5 shadow-2xl">
+              <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-full space-y-1 rounded-xl p-2.5 shadow-2xl">
                 {plans.map((p) => (
                   <div key={p.tier} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-[12px]">
                     <span className="font-medium text-white">{p.label}</span>
@@ -412,21 +428,36 @@ export function SibylDashboard() {
                 ))}
               </div>
             ) : null}
-            <SideRow icon={<IconGear />} label="Settings" onClick={() => setMenu(menu === 'settings' ? null : 'settings')} />
-            <SideRow icon={<IconUser />} label="Sign in" onClick={() => {}} />
+
+            <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'upgrade' ? null : 'upgrade')} className="s-accent flex w-full items-center justify-center gap-1.5 rounded-full border border-white/[0.14] bg-white/[0.04] py-2 text-[12px] font-medium transition hover:bg-white/[0.08]">
+              <IconUpgrade /> Upgrade plan
+            </button>
+
+            <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'settings' ? null : 'settings')} className="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition hover:bg-white/[0.06]">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70">
+                <IconUser />
+              </span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="truncate text-[12.5px] font-medium text-white">Guest</div>
+                <div className="text-[10px] text-white/40">Free plan · settings</div>
+              </div>
+              <span className="text-white/40">
+                <IconGear />
+              </span>
+            </button>
           </div>
         </aside>
 
         {/* CENTER — top bar + chat + input */}
         <main className="flex min-w-0 flex-1 flex-col">
           {/* top bar: plan + ecosystem */}
-          <div className="flex items-center justify-between px-4 py-2.5 text-white md:px-8" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-4 py-2.5 text-white md:px-8">
             <div className="relative">
-              <button type="button" onClick={() => setMenu(menu === 'plan' ? null : 'plan')} className="media-glass rounded-full px-3 py-1.5 text-[11.5px] font-medium text-white/85 transition hover:text-white">
+              <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'plan' ? null : 'plan')} className="media-glass rounded-full px-3 py-1.5 text-[11.5px] font-medium text-white/85 transition hover:text-white">
                 Free plan · <span className="s-accent">Upgrade</span>
               </button>
               {menu === 'plan' ? (
-                <div className="media-glass absolute left-0 top-[calc(100%+6px)] w-[220px] space-y-1 rounded-xl p-2.5 shadow-2xl">
+                <div className="menu-glass pop absolute left-0 top-[calc(100%+6px)] w-[220px] space-y-1 rounded-xl p-2.5 shadow-2xl">
                   {plans.map((p) => (
                     <div key={p.tier} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-[12px]">
                       <span className="font-medium text-white">{p.label}</span>
@@ -481,7 +512,7 @@ export function SibylDashboard() {
           </div>
 
           {/* input / voice */}
-          <div className="px-4 pb-6 pt-2 md:px-10" onClick={(e) => e.stopPropagation()}>
+          <div className="px-4 pb-6 pt-2 md:px-10">
             {voice ? (
               <VoicePulse onClose={() => setVoice(false)} />
             ) : (
@@ -501,11 +532,11 @@ export function SibylDashboard() {
                 >
                   {/* + menu */}
                   <div className="relative shrink-0">
-                    <button type="button" onClick={() => setMenu(menu === 'plus' ? null : 'plus')} className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white" title="Add files or tools">
+                    <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'plus' ? null : 'plus')} className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white" title="Add files or tools">
                       <IconPlus />
                     </button>
                     {menu === 'plus' ? (
-                      <div className="media-glass absolute bottom-[calc(100%+8px)] left-0 w-[220px] space-y-0.5 rounded-xl p-1.5 shadow-2xl">
+                      <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-[220px] space-y-0.5 rounded-xl p-1.5 shadow-2xl">
                         <button type="button" onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12.5px] text-white/85 transition hover:bg-white/[0.08]">
                           <IconUpload /> Upload files or images
                         </button>
@@ -524,13 +555,13 @@ export function SibylDashboard() {
 
                   {/* model selector */}
                   <div className="relative shrink-0">
-                    <button type="button" onClick={() => setMenu(menu === 'model' ? null : 'model')} className="flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 py-1.5 text-[12px] font-medium text-white transition hover:bg-white/10">
+                    <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'model' ? null : 'model')} className="flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 py-1.5 text-[12px] font-medium text-white transition hover:bg-white/10">
                       <span className="sibyl-mark s-accent h-3.5 w-3.5" />
                       Sibyl 7.0
                       <span className="text-[9px] text-white/40">▾</span>
                     </button>
                     {menu === 'model' ? (
-                      <div className="media-glass absolute bottom-[calc(100%+8px)] left-0 w-[236px] space-y-0.5 rounded-xl p-1.5 shadow-2xl">
+                      <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-[236px] space-y-0.5 rounded-xl p-1.5 shadow-2xl">
                         {MODELS.map((mo) => (
                           <div key={mo.id} className={`flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 ${mo.locked ? 'opacity-55' : 'bg-white/[0.06]'}`}>
                             <div>
@@ -567,14 +598,5 @@ export function SibylDashboard() {
         </main>
       </div>
     </div>
-  );
-}
-
-function SideRow({ icon, label, accent, onClick }: { icon: React.ReactNode; label: string; accent?: boolean; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-[12.5px] font-medium transition hover:bg-white/[0.06] ${accent ? 's-accent' : 'text-white/60 hover:text-white'}`}>
-      <span className="flex w-4 justify-center">{icon}</span>
-      {label}
-    </button>
   );
 }
