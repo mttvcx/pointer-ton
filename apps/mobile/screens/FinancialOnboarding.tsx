@@ -11,6 +11,7 @@ import { PressScale } from '../components/PressScale';
 import { Rise } from '../components/Rise';
 import { Slide } from '../components/Slide';
 import { VisaMark } from '../components/VisaMark';
+import { CardShine } from '../components/CardShine';
 import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { usd } from '../src/format';
@@ -37,6 +38,7 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
             <View style={s.introCard}>
               <LinearGradient colors={['#12332A', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
               <LinearGradient colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.7, y: 1 }} style={s.introCardSheen} pointerEvents="none" />
+              <CardShine intensity={0.32} />
               <View style={s.introCardTop}>
                 <View style={s.introCardBrand}>
                   <Logo size={20} style={{ tintColor: '#fff' }} />
@@ -280,7 +282,7 @@ const s = StyleSheet.create({
   // intro
   introRoot: { flex: 1, paddingHorizontal: 24 },
   introCardWrap: { alignItems: 'center', marginBottom: 6 },
-  introCard: { width: 260, height: 158, borderRadius: 18, overflow: 'hidden', padding: 16, justifyContent: 'space-between', borderWidth: 1, borderColor: colors.accent + '33', transform: [{ rotate: '-4deg' }], shadowColor: colors.accent, shadowOpacity: 0.3, shadowRadius: 24, shadowOffset: { width: 0, height: 12 } },
+  introCard: { width: 260, height: 158, borderRadius: 18, overflow: 'hidden', padding: 16, justifyContent: 'space-between', borderWidth: 1, borderColor: colors.accent + '33', transform: [{ perspective: 900 }, { rotateY: '-9deg' }, { rotateZ: '-3deg' }], shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 26, shadowOffset: { width: 0, height: 14 } },
   introCardSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
   introCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   introCardBrand: { flexDirection: 'row', alignItems: 'center', gap: 7 },

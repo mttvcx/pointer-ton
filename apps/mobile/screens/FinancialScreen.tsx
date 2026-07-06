@@ -23,6 +23,7 @@ import { useYieldRate } from '../src/financial/hooks';
 import { CardTiersSheet } from '../components/CardTiersSheet';
 import { CreditModeSheet } from '../components/CreditModeSheet';
 import { VisaMark } from '../components/VisaMark';
+import { CardShine } from '../components/CardShine';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
@@ -214,7 +215,9 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         {/* Pointer Card — no card until you order one (the only KYC step) */}
         <Rise delay={170}>
         <PressScale to={0.99} onPress={() => (fin.status === 'active' ? openPanel('card') : setActivating(true))} style={s.card}>
-          <LinearGradient colors={['#0E241C', '#0A1512', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['#123A2C', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 0.8 }} style={s.cardGloss} pointerEvents="none" />
+          <CardShine />
           <View style={s.cardTop}>
             <View style={s.cardBrand}>
               <Logo size={22} style={{ tintColor: '#fff' }} />
@@ -533,6 +536,7 @@ const s = StyleSheet.create({
   cardVirtual: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700' },
   cardTierWrap: { alignItems: 'flex-end' },
   cardTier: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+  cardGloss: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
   cardNumRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardNum: { color: 'rgba(255,255,255,0.9)', fontSize: 18, fontWeight: '600', letterSpacing: 2 },
   cardBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },

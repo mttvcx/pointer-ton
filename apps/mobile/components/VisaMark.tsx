@@ -1,26 +1,22 @@
 import React from 'react';
-import { Text, View, type ViewStyle } from 'react-native';
+import { Image, type ImageStyle, type StyleProp } from 'react-native';
+
+/** The real Visa wordmark (grey transparent PNG, 966×313 ≈ 3.08:1). */
+const VISA = require('../assets/visa.png');
+const ASPECT = 966 / 313;
 
 /**
- * Visa wordmark for the card mocks. Styled to read like the real logo (bold,
- * forward-slant italic, tight tracking). For production, swap this for Visa's
- * licensed brand asset (transparent PNG/SVG from their brand kit).
+ * Visa logo for the card mocks. `size` = height; width follows the real aspect.
+ * `tint` optionally recolors it (e.g. dark on a light metal card); default keeps
+ * the native grey so it reads like the real mark.
  */
-export function VisaMark({ color = '#FFFFFF', size = 22, style }: { color?: string; size?: number; style?: ViewStyle }) {
+export function VisaMark({ size = 22, tint, style }: { size?: number; tint?: string; style?: StyleProp<ImageStyle> }) {
   return (
-    <View style={style}>
-      <Text
-        style={{
-          color,
-          fontSize: size,
-          fontWeight: '900',
-          fontStyle: 'italic',
-          letterSpacing: -0.5,
-          includeFontPadding: false,
-        }}
-      >
-        VISA
-      </Text>
-    </View>
+    <Image
+      source={VISA}
+      resizeMode="contain"
+      tintColor={tint}
+      style={[{ height: size, width: Math.round(size * ASPECT) }, style]}
+    />
   );
 }
