@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DragSheet } from './DragSheet';
@@ -14,13 +14,12 @@ import {
   useBorrowed,
   borrow,
   repay,
-  creditAvailable,
   healthFactor,
   healthBand,
   liquidationDropPct,
   USER_BORROW_APR,
-  MAX_LTV,
 } from '../src/financial/credit';
+import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 
 const PRESETS = [100, 500, 1000, 5000];
 
@@ -48,10 +47,13 @@ export function CreditModeSheet({
   const borrowed = useBorrowed();
   const [amount, setAmount] = useState(0);
 
-  const available = creditAvailable(collateralUsd, borrowed);
-  const hf = healthFactor(collateralUsd, borrowed + amount);
+  // Only allowlisted blue-chips back the line — filter the holdings to eligible
+  // collateral, so a random memecoin contributes ZERO borrowing power.
+  const line = useMemo(() => collateralLine(demoCollateralHoldings(collateralUsd)), [collateralUsd]);
+  const available = Math.max(0, line.borrowPower - borrowed);
+  const hf = healthFactor(line.eligibleValue, borrowed + amount);
   const band = healthBand(hf);
-  const dropPct = liquidationDropPct(collateralUsd, borrowed + amount);
+  const dropPct = liquidationDropPct(line.eligibleValue, borrowed + amount);
 
   const close = () => {
     setAmount(0);
@@ -98,15 +100,35 @@ export function CreditModeSheet({
             <View>
               <Text style={s.creditLabel}>Credit available</Text>
               <Text style={s.creditVal}>{usd(available, 0)}</Text>
-              <Text style={s.creditSub}>
-                against {usd(collateralUsd, 0)} collateral · up to {Math.round(MAX_LTV * 100)}% LTV
-              </Text>
+              <Text style={s.creditSub}>against {usd(line.eligibleValue, 0)} eligible collateral</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={s.creditLabel}>Rate</Text>
               <Text style={s.creditVal}>{(USER_BORROW_APR * 100).toFixed(1)}%</Text>
               <Text style={s.creditSub}>APR on borrowed</Text>
             </View>
+          </View>
+
+          {/* what backs the line — only allowlisted blue-chips count */}
+          <View style={s.backed}>
+            <GlassFill />
+            <View style={s.backedHead}>
+              <Ionicons name="shield-checkmark" size={14} color={colors.bull} />
+              <Text style={s.backedTitle}>Backed by your blue-chips</Text>
+            </View>
+            <View style={s.backedChips}>
+              {line.assets.map((a) => (
+                <View key={a.asset.symbol} style={s.assetChip}>
+                  <View style={[s.assetDot, { backgroundColor: a.asset.color }]} />
+                  <Text style={s.assetSym}>{a.asset.symbol}</Text>
+                  <Text style={s.assetVal}>{usd(a.valueUsd, 0)}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={s.backedNote}>
+              Only assets with deep liquidity + a live price oracle back a line. Memecoins and unverified tokens count for
+              $0 — so no one can pump their own coin to borrow against it.
+            </Text>
           </View>
 
           {borrowed > 0 ? (
@@ -186,6 +208,16 @@ const s = StyleSheet.create({
   creditLabel: { color: colors.fgMuted, fontSize: 13 },
   creditVal: { color: colors.fg, fontSize: 26, fontWeight: '800', marginTop: 2 },
   creditSub: { color: colors.fgFaint, fontSize: 12, marginTop: 2 },
+
+  backed: { borderRadius: radius.lg, padding: 14, marginTop: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,224,160,0.22)' },
+  backedHead: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  backedTitle: { color: colors.fg, fontSize: 14, fontWeight: '700' },
+  backedChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
+  assetChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.bgRaised2, borderRadius: radius.pill, paddingLeft: 8, paddingRight: 11, paddingVertical: 6 },
+  assetDot: { width: 8, height: 8, borderRadius: 4 },
+  assetSym: { color: colors.fg, fontSize: 12.5, fontWeight: '700' },
+  assetVal: { color: colors.fgMuted, fontSize: 12.5 },
+  backedNote: { color: colors.fgMuted, fontSize: 12, lineHeight: 17, marginTop: 11 },
 
   borrowedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, backgroundColor: colors.bgRaised, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 11 },
   borrowedLabel: { color: colors.fgMuted, fontSize: 13.5, flex: 1 },
