@@ -25,6 +25,7 @@ import { CreditModeSheet } from '../components/CreditModeSheet';
 import { VisaMark } from '../components/VisaMark';
 import { CardShine } from '../components/CardShine';
 import { PasscodeSetup } from '../components/PasscodeSetup';
+import { MetalButton } from '../components/MetalButton';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
@@ -220,7 +221,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             ))}
           </View>
           <PressScale to={0.97} onPress={() => openPanel('move')} style={s.moveBtn}>
-            <Ionicons name="swap-horizontal" size={16} color={colors.accentGlow} />
+            <Ionicons name="swap-horizontal" size={16} color="#D2D8DE" />
             <Text style={s.moveText}>Move capital</Text>
           </PressScale>
         </Rise>
@@ -376,10 +377,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </PressScale>
 
         {/* Add capital */}
-        <GlossButton onPress={() => setDeposit(true)} style={{ marginTop: 16 }}>
-          <Ionicons name="add" size={19} color={colors.onAccent} />
-          <Text style={s.addText}>Add capital</Text>
-        </GlossButton>
+        <MetalButton onPress={() => setDeposit(true)} style={{ marginTop: 16 }}>
+          <Ionicons name="add" size={19} color="#0A0C10" />
+          <Text style={[s.addText, { color: '#0A0C10' }]}>Add capital</Text>
+        </MetalButton>
         </Rise>
 
         {/* Activity */}
@@ -519,8 +520,8 @@ const s = StyleSheet.create({
   dot: { width: 9, height: 9, borderRadius: 5 },
   legendLabel: { color: colors.fgMuted, fontSize: 13, flex: 1 },
   legendVal: { color: colors.fg, fontSize: 13.5, fontWeight: '700' },
-  moveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16, paddingVertical: 11, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.accent + '3D', backgroundColor: colors.accentSoft },
-  moveText: { color: colors.accentGlow, fontSize: 14, fontWeight: '700' },
+  moveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16, paddingVertical: 11, borderRadius: radius.pill, borderWidth: 1, borderColor: 'rgba(199,204,209,0.30)', backgroundColor: 'rgba(199,204,209,0.09)' },
+  moveText: { color: '#D2D8DE', fontSize: 14, fontWeight: '700' },
   dualRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   dualBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.lg, paddingHorizontal: 12, paddingVertical: 13, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   dualTitle: { color: colors.fg, fontSize: 14, fontWeight: '700' },
@@ -584,7 +585,7 @@ const s = StyleSheet.create({
   addText: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 28, marginBottom: 4 },
-  sectionBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: colors.accent },
+  sectionBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: '#C7CCD1' },
   sectionTitle: { color: colors.fg, fontSize: 17, fontWeight: '700' },
 
   act: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },

@@ -7,6 +7,7 @@ import { Screen } from '../components/Screen';
 import { Logo } from '../components/Logo';
 import { GlassFill } from '../components/GlassFill';
 import { GlossButton } from '../components/GlossButton';
+import { MetalButton } from '../components/MetalButton';
 import { PressScale } from '../components/PressScale';
 import { Rise } from '../components/Rise';
 import { Slide } from '../components/Slide';
@@ -84,10 +85,10 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
 
         {/* CTA pinned at the bottom */}
         <View style={s.introCta}>
-          <GlossButton onPress={onStart}>
+          <MetalButton onPress={onStart}>
             <Text style={s.cta}>Get started</Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.onAccent} />
-          </GlossButton>
+            <Ionicons name="arrow-forward" size={18} color="#0A0C10" />
+          </MetalButton>
           <Text style={s.introFine}>No ID to start · non-custodial · your keys, your crypto.</Text>
         </View>
       </View>
@@ -206,9 +207,9 @@ export function FinancialActivation({ onClose }: { onClose: () => void }) {
               <Text style={s.reassureText}>Encrypted and shared only with our card issuer to open your account. No credit check.</Text>
             </View>
 
-            <GlossButton onPress={canContinue ? runProvision : () => {}} style={{ marginTop: 24, opacity: canContinue ? 1 : 0.5 }}>
+            <MetalButton onPress={canContinue ? runProvision : () => {}} style={{ marginTop: 24, opacity: canContinue ? 1 : 0.5 }}>
               <Text style={s.cta}>Issue my card</Text>
-            </GlossButton>
+            </MetalButton>
           </ScrollView>
         ) : step === 'provisioning' ? (
           <Provisioning done={card != null} onFinished={() => setStep('done')} />
