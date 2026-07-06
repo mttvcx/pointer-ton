@@ -18,7 +18,7 @@ import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
 import { getDemoCapital, type CapitalModel, type FinActivityKind, type StateKey as CapKey } from '../src/demo/capital';
-import { loadFinancialStatus, useFinancial } from '../src/financial/store';
+import { loadFinancialStatus, useFinancial, useFinancialEntered, enterFinancial } from '../src/financial/store';
 import { useYieldRate } from '../src/financial/hooks';
 import { CardTiersSheet } from '../components/CardTiersSheet';
 import { CreditModeSheet } from '../components/CreditModeSheet';
@@ -103,6 +103,7 @@ const STATE_ACTION: Record<StateKey, Panel | null> = { trading: null, earning: '
 export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
   const fin = useFinancial();
+  const entered = useFinancialEntered();
   const liveApy = useYieldRate(); // real Lulo APY when the backend is keyed, else null
   const [activating, setActivating] = useState(false);
   useEffect(() => {
@@ -155,9 +156,11 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const cardLast4 = fin.card?.last4 ?? m.cardLast4;
   const cardFrozen = fin.card?.state === 'frozen';
 
-  // First-run journey: pitch → activation → funded dashboard.
+  // First-run: a one-time PITCH (no ID) → the KYC-free dashboard. Borrowing +
+  // spending in-app + sending need no verification; only ordering a card does, so
+  // the name/ID flow (FinancialActivation) is triggered from the card, not here.
   if (activating) return <FinancialActivation onClose={() => setActivating(false)} />;
-  if (fin.status !== 'active') return <FinancialIntro onStart={() => setActivating(true)} />;
+  if (!entered) return <FinancialIntro onStart={enterFinancial} />;
 
   return (
     <Screen>
@@ -207,9 +210,9 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           </PressScale>
         </Rise>
 
-        {/* Pointer Card */}
+        {/* Pointer Card — no card until you order one (the only KYC step) */}
         <Rise delay={170}>
-        <PressScale to={0.99} onPress={() => openPanel('card')} style={s.card}>
+        <PressScale to={0.99} onPress={() => (fin.status === 'active' ? openPanel('card') : setActivating(true))} style={s.card}>
           <LinearGradient colors={['#0E241C', '#0A1512', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <View style={s.cardTop}>
             <View style={s.cardBrand}>
@@ -218,18 +221,18 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             </View>
             <View style={s.cardTierWrap}>
               <Text style={[s.cardTier, { color: tier.accent }]}>{tier.name}</Text>
-              <Text style={s.cardVirtual}>{cardFrozen ? 'Frozen' : 'Virtual'}</Text>
+              <Text style={s.cardVirtual}>{fin.status === 'active' ? (cardFrozen ? 'Frozen' : 'Virtual') : 'Not ordered'}</Text>
             </View>
           </View>
-          <Text style={s.cardNum}>•••• •••• •••• {cardLast4}</Text>
+          <Text style={s.cardNum}>•••• •••• •••• {fin.status === 'active' ? cardLast4 : '••••'}</Text>
           <View style={s.cardBottom}>
             <View>
               <Text style={s.cardSpendLabel}>Spendable</Text>
               <Text style={s.cardSpend}>{usd(m.states.spendable)}</Text>
             </View>
             <View style={s.applePay}>
-              <Ionicons name="logo-apple" size={15} color="#000" />
-              <Text style={s.applePayText}>Add to Pay</Text>
+              <Ionicons name={fin.status === 'active' ? 'logo-apple' : 'add'} size={15} color="#000" />
+              <Text style={s.applePayText}>{fin.status === 'active' ? 'Add to Pay' : 'Order card'}</Text>
             </View>
           </View>
         </PressScale>

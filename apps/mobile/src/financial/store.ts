@@ -33,6 +33,25 @@ export function useFinancial(): FinSnapshot {
   );
 }
 
+// "Entered" = the user has passed the one-time pitch and is in the (KYC-free)
+// dashboard. This is NOT KYC — borrowing / spending in-app / sending needs no ID;
+// only ordering a card does. Kept separate from card `status` on purpose.
+let entered = false;
+export function enterFinancial() {
+  entered = true;
+  emit();
+}
+export function useFinancialEntered(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    () => entered,
+    () => entered,
+  );
+}
+
 // Deterministic-ish fresh virtual card for the simulated path.
 function makeDemoCard(tier: number): CardInfo {
   const last4 = String(1000 + Math.floor(Math.random() * 9000));

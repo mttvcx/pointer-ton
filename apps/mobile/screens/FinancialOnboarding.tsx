@@ -73,7 +73,7 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
           <Text style={s.cta}>Get started</Text>
           <Ionicons name="arrow-forward" size={18} color={colors.onAccent} />
         </GlossButton>
-        <Text style={s.introFine}>Virtual card issued instantly · higher limits with a quick ID check later</Text>
+        <Text style={s.introFine}>No ID to start — borrow, spend & send. Verify only when you order a card.</Text>
       </View>
     </Screen>
   );
@@ -119,7 +119,7 @@ export function FinancialActivation({ onClose }: { onClose: () => void }) {
           ) : (
             <View style={s.close} />
           )}
-          <Text style={s.topTitle}>Set up Pointer Financial</Text>
+          <Text style={s.topTitle}>Order your card</Text>
           <View style={s.close} />
         </View>
 
