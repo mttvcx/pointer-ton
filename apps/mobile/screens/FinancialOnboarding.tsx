@@ -46,6 +46,13 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
 
   return (
     <Screen>
+      <LinearGradient
+        colors={['rgba(210,216,222,0.14)', 'rgba(150,158,168,0.04)', 'transparent']}
+        start={{ x: 0.25, y: 0 }}
+        end={{ x: 0.75, y: 1 }}
+        style={s.metalGlow}
+        pointerEvents="none"
+      />
       <View style={[s.introRoot, { paddingTop: insets.top + 22, paddingBottom: insets.bottom + 20 }]}>
         {/* timed progress bars */}
         <View style={s.progressRow}>
@@ -315,6 +322,7 @@ const s = StyleSheet.create({
   cta: { color: colors.onAccent, fontSize: 16, fontWeight: '700' },
 
   // intro
+  metalGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 360 },
   introRoot: { flex: 1, paddingHorizontal: 24 },
   progressRow: { flexDirection: 'row', gap: 6, marginBottom: 26 },
   seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' },

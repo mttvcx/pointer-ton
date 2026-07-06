@@ -24,6 +24,7 @@ import { CardTiersSheet } from '../components/CardTiersSheet';
 import { CreditModeSheet } from '../components/CreditModeSheet';
 import { VisaMark } from '../components/VisaMark';
 import { CardShine } from '../components/CardShine';
+import { PasscodeSetup } from '../components/PasscodeSetup';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
@@ -108,6 +109,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const entered = useFinancialEntered();
   const liveApy = useYieldRate(); // real Lulo APY when the backend is keyed, else null
   const [activating, setActivating] = useState(false);
+  const [settingPasscode, setSettingPasscode] = useState(false);
   useEffect(() => {
     loadFinancialStatus();
   }, []);
@@ -162,10 +164,21 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   // spending in-app + sending need no verification; only ordering a card does, so
   // the name/ID flow (FinancialActivation) is triggered from the card, not here.
   if (activating) return <FinancialActivation onClose={() => setActivating(false)} />;
-  if (!entered) return <FinancialIntro onStart={enterFinancial} />;
+  if (settingPasscode)
+    return <PasscodeSetup onDone={() => { setSettingPasscode(false); enterFinancial(); }} onClose={() => setSettingPasscode(false)} />;
+  if (!entered) return <FinancialIntro onStart={() => setSettingPasscode(true)} />;
 
   return (
     <Screen>
+      {/* Silver metallic top-glow — the premium finance identity, distinct from
+          the app's green. Sits behind the header/hero, fades into the app bg. */}
+      <LinearGradient
+        colors={['rgba(210,216,222,0.16)', 'rgba(150,158,168,0.05)', 'transparent']}
+        start={{ x: 0.25, y: 0 }}
+        end={{ x: 0.75, y: 1 }}
+        style={s.metalGlow}
+        pointerEvents="none"
+      />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={s.head}>
@@ -536,6 +549,7 @@ const s = StyleSheet.create({
   cardVirtual: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700' },
   cardTierWrap: { alignItems: 'flex-end' },
   cardTier: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+  metalGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 340 },
   cardGloss: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
   cardNumRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardNum: { color: 'rgba(255,255,255,0.9)', fontSize: 18, fontWeight: '600', letterSpacing: 2 },
