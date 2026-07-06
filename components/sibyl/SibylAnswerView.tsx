@@ -3,6 +3,7 @@
 import type { SibylAnswer, SibylCard } from '@/sibyl/types';
 import { CardRenderer } from '@/components/sibyl/SibylCards';
 import { sibylSerif } from '@/components/sibyl/fonts';
+import { TwitterProfileHoverTrigger } from '@/components/tokens/PulseRichPopovers';
 
 /** Cards read best in-flow in this order — token/chart lead, then structure. */
 const CARD_ORDER: SibylCard['type'][] = ['token', 'chart', 'holders', 'risk', 'table', 'dune', 'narrative', 'social', 'similar', 'timeline', 'wallet', 'kol'];
@@ -80,20 +81,28 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
         </div>
       ) : null}
 
-      {/* clickable entities (KOLs / wallets → X) */}
+      {/* clickable entities (KOLs / wallets → X) — @handles get the rich X profile hover */}
       {answer.entities.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
-          {answer.entities.map((e) => (
-            <a
-              key={`${e.kind}:${e.id}`}
-              href={e.href ?? (e.handle ? `https://x.com/${e.handle}` : '#')}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-sky-400/25 bg-sky-400/[0.08] px-2.5 py-0.5 text-[11px] font-medium text-sky-500 transition hover:border-sky-400/50"
-            >
-              {e.handle ? `@${e.handle}` : e.label}
-            </a>
-          ))}
+          {answer.entities.map((e) => {
+            const pill = (
+              <a
+                href={e.href ?? (e.handle ? `https://x.com/${e.handle}` : '#')}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block rounded-full border border-sky-400/25 bg-sky-400/[0.08] px-2.5 py-0.5 text-[11px] font-medium text-sky-500 transition hover:border-sky-400/50"
+              >
+                {e.handle ? `@${e.handle}` : e.label}
+              </a>
+            );
+            return e.handle ? (
+              <TwitterProfileHoverTrigger key={`${e.kind}:${e.id}`} handle={e.handle} side="top">
+                {pill}
+              </TwitterProfileHoverTrigger>
+            ) : (
+              <span key={`${e.kind}:${e.id}`}>{pill}</span>
+            );
+          })}
         </div>
       ) : null}
 

@@ -86,22 +86,47 @@ export async function runSocialAgent(ctx: AgentContext): Promise<AgentResult> {
   return { agent: 'social', take, cards, entities, confidence: s.source.includes('mock') ? 55 : 72, caveats: s.source.includes('mock') ? ['Social is sample data until the X plan is live.'] : [] };
 }
 
+const shortAddr = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`;
+
 export async function runRiskAgent(ctx: AgentContext): Promise<AgentResult> {
   if (!ctx.mint) return empty('risk');
-  const [holders, m] = await Promise.all([helius.getHolderFacts(ctx.mint), dexscreener.getMarketFacts(ctx.mint, ctx.chain)]);
+  const [holders, m, auth] = await Promise.all([
+    helius.getHolderFacts(ctx.mint),
+    dexscreener.getMarketFacts(ctx.mint, ctx.chain),
+    helius.getTokenAuthority(ctx.mint),
+  ]);
   const flags: { label: string; severity: 'low' | 'med' | 'high' }[] = [];
   const top = holders.holders[0];
   if (top && top.pct >= 40) flags.push({ label: `Single wallet holds ${top.pct.toFixed(0)}%`, severity: 'high' });
   if ((holders.top10Pct ?? 0) >= 70) flags.push({ label: `Top-10 concentration ${holders.top10Pct?.toFixed(0)}%`, severity: 'high' });
   if (m.liquidityUsd != null && m.liquidityUsd < 30_000) flags.push({ label: `Thin liquidity ${usd(m.liquidityUsd)}`, severity: 'med' });
-  flags.push({ label: 'Dev history unknown', severity: 'med' });
-  const score = Math.min(100, 30 + flags.filter((f) => f.severity === 'high').length * 25 + flags.filter((f) => f.severity === 'med').length * 10);
+
+  // Fee-authority / control signals — real on-chain (mint & freeze authority, token-2022 fee).
+  const authNotes: string[] = [];
+  const authReal = auth && auth.source !== 'mock';
+  if (authReal) {
+    if (auth!.freezeAuthority) flags.push({ label: 'Freeze authority active — dev can freeze holders', severity: 'high' });
+    if (auth!.mintAuthority) flags.push({ label: 'Mint authority not renounced — supply can inflate', severity: 'high' });
+    if (auth!.transferFeeBps && auth!.transferFeeBps > 0) {
+      flags.push({
+        label: `Transfer fee ${(auth!.transferFeeBps / 100).toFixed(1)}%${auth!.transferFeeAuthority ? ` · fee authority ${shortAddr(auth!.transferFeeAuthority)}` : ''}`,
+        severity: auth!.transferFeeBps >= 500 ? 'high' : 'med',
+      });
+    }
+    if (!auth!.freezeAuthority && !auth!.mintAuthority) authNotes.push('Mint + freeze authority renounced — no dev supply or freeze control.');
+    else if (auth!.freezeAuthority) authNotes.push('Freeze authority is live — the dev can lock your tokens. Handle with care.');
+  } else {
+    flags.push({ label: 'Authorities unverified (RPC unavailable)', severity: 'med' });
+  }
+
+  const score = Math.min(100, 25 + flags.filter((f) => f.severity === 'high').length * 22 + flags.filter((f) => f.severity === 'med').length * 9);
   const cards: SibylCard[] = [{ type: 'risk', id: cid('risk'), data: { score, flags } }];
   const take = [
     top && top.pct >= 40 ? 'Top holders are ugly — one wallet can end this instantly.' : 'Concentration is manageable but not clean.',
+    ...authNotes,
     'Do not size this unless the main holder distributes gradually.',
-  ];
-  return { agent: 'risk', take, cards, entities: [], confidence: 75, caveats: [] };
+  ].filter(Boolean);
+  return { agent: 'risk', take, cards, entities: [], confidence: authReal ? 80 : 72, caveats: [] };
 }
 
 const TERMINAL_SAMPLE: Record<string, { fees: string; vol: string; traders: string; share: string }> = {

@@ -97,6 +97,58 @@ export async function getHolderFacts(mint: string): Promise<HolderFacts> {
   return mockHolders();
 }
 
+/**
+ * On-chain authority + fee config for a mint — the "fee authority / can they rug you"
+ * signals. Real via getAccountInfo (jsonParsed): mint authority (supply inflation),
+ * freeze authority (can freeze your tokens), and the token-2022 transfer-fee config
+ * (fee bps + the authority that controls it). null when every RPC refuses.
+ */
+export type TokenAuthority = {
+  mintAuthority: string | null; // null = renounced (good)
+  freezeAuthority: string | null; // present = dev can freeze holders (bad)
+  isToken2022: boolean;
+  transferFeeBps: number | null; // token-2022 transfer fee
+  transferFeeAuthority: string | null; // who controls the fee
+  source: string;
+};
+
+const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+
+export async function getTokenAuthority(mint: string): Promise<TokenAuthority | null> {
+  if (sibylForceMock()) return { mintAuthority: null, freezeAuthority: null, isToken2022: false, transferFeeBps: null, transferFeeAuthority: null, source: 'mock' };
+  const helius = heliusRpcUrl();
+  const urls = [helius, fallbackRpcUrl()].filter(Boolean) as string[];
+  for (const url of urls) {
+    try {
+      const info = await rpc<{ value?: { owner?: string; data?: { parsed?: { info?: Record<string, unknown> } } } }>(url, 'getAccountInfo', [mint, { encoding: 'jsonParsed' }]);
+      const pinfo = info?.value?.data?.parsed?.info;
+      if (!pinfo) continue;
+      let transferFeeBps: number | null = null;
+      let transferFeeAuthority: string | null = null;
+      const exts = pinfo.extensions as Array<{ extension?: string; state?: Record<string, unknown> }> | undefined;
+      if (Array.isArray(exts)) {
+        const tf = exts.find((e) => e.extension === 'transferFeeConfig');
+        const st = tf?.state as { newerTransferFee?: { transferFeeBasisPoints?: number }; olderTransferFee?: { transferFeeBasisPoints?: number }; transferFeeConfigAuthority?: string } | undefined;
+        if (st) {
+          transferFeeBps = st.newerTransferFee?.transferFeeBasisPoints ?? st.olderTransferFee?.transferFeeBasisPoints ?? null;
+          transferFeeAuthority = st.transferFeeConfigAuthority ?? null;
+        }
+      }
+      return {
+        mintAuthority: (pinfo.mintAuthority as string) ?? null,
+        freezeAuthority: (pinfo.freezeAuthority as string) ?? null,
+        isToken2022: info?.value?.owner === TOKEN_2022_PROGRAM,
+        transferFeeBps,
+        transferFeeAuthority,
+        source: url === helius ? 'helius' : 'rpc:fallback',
+      };
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
 async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T | null> {
   const res = await fetch(url, {
     method: 'POST',

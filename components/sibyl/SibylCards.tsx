@@ -1,6 +1,7 @@
 'use client';
 
 import type { SibylCard } from '@/sibyl/types';
+import { TwitterProfileHoverTrigger } from '@/components/tokens/PulseRichPopovers';
 
 /* Liquid-glass surface: faint fill, hairline border, inner top-highlight + soft drop. */
 const glass =
@@ -148,10 +149,12 @@ export function CardRenderer({ card }: { card: SibylCard }) {
     }
     case 'kol':
       return (
-        <a href={`https://x.com/${card.data.handle}`} target="_blank" rel="noreferrer" className={`${glass} block p-3 transition hover:opacity-90`}>
-          <div className="text-[13px] font-semibold text-sky-500">@{card.data.handle}</div>
-          <div className="text-[11px] s-faint">{card.data.note}</div>
-        </a>
+        <TwitterProfileHoverTrigger handle={card.data.handle} side="left">
+          <a href={`https://x.com/${card.data.handle}`} target="_blank" rel="noreferrer" className={`${glass} block p-3 transition hover:opacity-90`}>
+            <div className="text-[13px] font-semibold text-sky-500">@{card.data.handle}</div>
+            <div className="text-[11px] s-faint">{card.data.note}</div>
+          </a>
+        </TwitterProfileHoverTrigger>
       );
     case 'narrative': {
       const d = card.data;
@@ -251,10 +254,12 @@ export function CardRenderer({ card }: { card: SibylCard }) {
           </div>
           <div className="mt-2 space-y-1">
             {d.kols.map((k) => (
-              <a key={k.handle} href={`https://x.com/${k.handle}`} target="_blank" rel="noreferrer" className="flex items-baseline gap-2 text-[12px] hover:underline">
-                <span className="text-sky-500">@{k.handle}</span>
-                <span className="s-faint">{k.note}</span>
-              </a>
+              <TwitterProfileHoverTrigger key={k.handle} handle={k.handle} side="left">
+                <a href={`https://x.com/${k.handle}`} target="_blank" rel="noreferrer" className="flex items-baseline gap-2 text-[12px] hover:underline">
+                  <span className="text-sky-500">@{k.handle}</span>
+                  <span className="s-faint">{k.note}</span>
+                </a>
+              </TwitterProfileHoverTrigger>
             ))}
           </div>
         </div>
