@@ -426,11 +426,16 @@ function TradeRow({
   template,
   columns,
   unit,
+  zebra = false,
+  index = 0,
 }: {
   t: TrackerTrade;
   template: string;
   columns: Record<TradesColumn, boolean>;
   unit: 'SOL' | 'USD';
+  /** Undocked (free-floating) tracker: drop the green/red row tint for zebra striping (Axiom). */
+  zebra?: boolean;
+  index?: number;
 }) {
   const quickBuy = useQuickBuy();
   const router = useRouter();
@@ -445,9 +450,12 @@ function TradeRow({
     <div
       className={cn(
         'group relative grid items-center gap-2 border-b border-l-[3px] border-b-white/[0.06] px-2 py-2 transition-colors',
-        buy
-          ? 'border-l-signal-bull/80 bg-signal-bull/[0.06] hover:bg-signal-bull/[0.13]'
-          : 'border-l-signal-bear/80 bg-signal-bear/[0.06] hover:bg-signal-bear/[0.13]',
+        zebra
+          ? // Undocked: no green/red row fill — zebra striping (every other row a touch lighter).
+            cn('border-l-transparent hover:bg-white/[0.06]', index % 2 === 1 ? 'bg-white/[0.03]' : 'bg-transparent')
+          : buy
+            ? 'border-l-signal-bull/80 bg-signal-bull/[0.06] hover:bg-signal-bull/[0.13]'
+            : 'border-l-signal-bear/80 bg-signal-bear/[0.06] hover:bg-signal-bear/[0.13]',
       )}
       style={{ gridTemplateColumns: template }}
     >
@@ -641,7 +649,7 @@ function TradesSettingsModal({ open, onClose }: { open: boolean; onClose: () => 
  * Live trades from the user's tracked wallets — Axiom-style color-coded table.
  * Auto-refreshes but PAUSES while hovered; Preview streams sample trades.
  */
-export function TrackerTradesFeed({ className }: { className?: string }) {
+export function TrackerTradesFeed({ className, zebra = false }: { className?: string; zebra?: boolean }) {
   const [paused, setPaused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { authenticated, getAccessToken } = usePointerAuth();
@@ -716,8 +724,8 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
         onMouseLeave={() => setPaused(false)}
       >
         {preview ? (
-          trades.map((t) => (
-            <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} template={template} columns={columns} unit={amountUnit} />
+          trades.map((t, i) => (
+            <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} template={template} columns={columns} unit={amountUnit} zebra={zebra} index={i} />
           ))
         ) : !authenticated ? (
           <p className="px-3 py-6 text-center text-[11px] text-fg-muted">Connect your wallet to see tracked trades.</p>
@@ -730,8 +738,8 @@ export function TrackerTradesFeed({ className }: { className?: string }) {
             No trades from your tracked wallets yet.<br />They&apos;ll stream in here as your wallets trade.
           </p>
         ) : (
-          trades.map((t) => (
-            <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} template={template} columns={columns} unit={amountUnit} />
+          trades.map((t, i) => (
+            <TradeRow key={`${t.signature}:${t.side}:${t.wallet}`} t={t} template={template} columns={columns} unit={amountUnit} zebra={zebra} index={i} />
           ))
         )}
       </div>

@@ -747,7 +747,8 @@ export function DockWalletTrackerFloatingPanel() {
           style={{ minHeight: 220 }}
         >
           {tab === 'trades' ? (
-            <TrackerTradesFeed />
+            // Undocked (free-floating) → zebra striping instead of green/red row fills (Axiom).
+            <TrackerTradesFeed zebra={dockSnap === null} />
           ) : tab === 'groups' ? (
             <GroupsTab />
           ) : (
