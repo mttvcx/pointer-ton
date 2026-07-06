@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SibylAnswer } from '@/sibyl/types';
 import { SibylAnswerView } from '@/components/sibyl/SibylAnswerView';
+import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
 import { sibylSerif } from '@/components/sibyl/fonts';
 
 type Msg = { id: string; role: 'user' | 'sibyl'; text?: string; answer?: SibylAnswer };
@@ -253,6 +254,7 @@ export function SibylDashboard() {
   const [systemDark, setSystemDark] = useState(true);
   const [voice, setVoice] = useState(false);
   const [attachment, setAttachment] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -343,6 +345,7 @@ export function SibylDashboard() {
   return (
     <div className="sibyl-scope fixed inset-0 overflow-hidden antialiased" style={{ ...vars } as React.CSSProperties}>
       <style dangerouslySetInnerHTML={{ __html: SCOPE_CSS }} />
+      <SibylUpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} currentTier="FREE" />
 
       {/* base + ambient video (fades out + unmounts once a scan starts) */}
       <div className="absolute inset-0" style={{ background: 'var(--s-bg)' }} aria-hidden />
@@ -418,18 +421,7 @@ export function SibylDashboard() {
                 {status?.memory ? <div className="text-[10px] text-white/40">{status.memory.scans.toLocaleString()} scans · {status.memory.entities.toLocaleString()} remembered · {status.memory.resolved.toLocaleString()} graded</div> : null}
               </div>
             ) : null}
-            {menu === 'upgrade' ? (
-              <div className="menu-glass pop absolute bottom-[calc(100%+8px)] left-0 w-full space-y-1 rounded-xl p-2.5 shadow-2xl">
-                {plans.map((p) => (
-                  <div key={p.tier} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-[12px]">
-                    <span className="font-medium text-white">{p.label}</span>
-                    <span className="tabular-nums text-white/55">{p.price === 0 ? 'Free' : `$${p.price}/mo`}</span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'upgrade' ? null : 'upgrade')} className="s-accent flex w-full items-center justify-center gap-1.5 rounded-full border border-white/[0.14] bg-white/[0.04] py-2 text-[12px] font-medium transition hover:bg-white/[0.08]">
+            <button type="button" onClick={() => setUpgradeOpen(true)} className="s-accent flex w-full items-center justify-center gap-1.5 rounded-full border border-white/[0.14] bg-white/[0.04] py-2 text-[12px] font-medium transition hover:bg-white/[0.08]">
               <IconUpgrade /> Upgrade plan
             </button>
 
@@ -452,21 +444,9 @@ export function SibylDashboard() {
         <main className="flex min-w-0 flex-1 flex-col">
           {/* top bar: plan + ecosystem */}
           <div className="flex items-center justify-between px-4 py-2.5 text-white md:px-8">
-            <div className="relative">
-              <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'plan' ? null : 'plan')} className="media-glass rounded-full px-3 py-1.5 text-[11.5px] font-medium text-white/85 transition hover:text-white">
-                Free plan · <span className="s-accent">Upgrade</span>
-              </button>
-              {menu === 'plan' ? (
-                <div className="menu-glass pop absolute left-0 top-[calc(100%+6px)] w-[220px] space-y-1 rounded-xl p-2.5 shadow-2xl">
-                  {plans.map((p) => (
-                    <div key={p.tier} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-[12px]">
-                      <span className="font-medium text-white">{p.label}</span>
-                      <span className="tabular-nums text-white/55">{p.price === 0 ? 'Free' : `$${p.price}/mo`}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <button type="button" onClick={() => setUpgradeOpen(true)} className="media-glass rounded-full px-3 py-1.5 text-[11.5px] font-medium text-white/85 transition hover:text-white">
+              Free plan · <span className="s-accent">Upgrade</span>
+            </button>
             <nav className="flex items-center gap-1">
               {ECOSYSTEM.map((e, k) => (
                 <a key={e.label} href={e.href} target="_blank" rel="noreferrer" className={`rounded-full px-3 py-1.5 text-[12px] transition hover:bg-white/10 ${k === 0 ? 'font-medium text-white' : 'text-white/60 hover:text-white'}`}>
