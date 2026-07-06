@@ -15,145 +15,174 @@ import type { PackType } from '@/types/pack';
  * with a gentle idle float. Lazy-loaded; /packs only.
  */
 
-type TierArt = {
-  bg: [string, string, string];
-  metal: string;
-  word: string;
-  tag: string;
-  chips: [string, string, string];
-  callout?: string;
+const ART: Record<PackType, { bg: [string, string, string]; metal: string; word: string }> = {
+  bronze: { bg: ['#f2c88f', '#c8873f', '#3a220e'], metal: '#c8873f', word: 'BRONZE' },
+  silver: { bg: ['#e2edfb', '#8ea9cf', '#1e2f47'], metal: '#b3c4da', word: 'SILVER' },
+  gold: { bg: ['#ffe9a8', '#f0b429', '#5f4408'], metal: '#f0b429', word: 'GOLD' },
+  legendary: { bg: ['#ecdcff', '#a05cf5', '#2c114f'], metal: '#a75cf5', word: 'LEGENDARY' },
 };
 
-const ART: Record<PackType, TierArt> = {
-  bronze: { bg: ['#f2c88f', '#c8873f', '#3a220e'], metal: '#c8873f', word: 'BRONZE', tag: 'EARLY WALLETS', chips: ['First Buy', 'Discovery', 'Low MC'] },
-  silver: { bg: ['#e2edfb', '#8ea9cf', '#1e2f47'], metal: '#b3c4da', word: 'SILVER', tag: 'CLUSTER TRACE', chips: ['Smart Money', 'Rotation', 'Alpha'], callout: 'FLOW LOCK' },
-  gold: { bg: ['#ffe9a8', '#f0b429', '#5f4408'], metal: '#f0b429', word: 'GOLD', tag: 'HIGH CONVICTION', chips: ['Whale Entry', 'Conviction', 'Momentum'], callout: '+2,840 SOL' },
-  legendary: { bg: ['#ecdcff', '#a05cf5', '#2c114f'], metal: '#a75cf5', word: 'LEGENDARY', tag: 'RARE ACCESS', chips: ['Syndicate', 'Alpha Access', 'Elite Desk'], callout: '+12,400 SOL' },
-};
+const ART_W = 768;
+const ART_H = 1088;
+const LOGO_SRC = '/branding/pointer-bird-transparent.png';
+/** Iconic / meme stickers scattered on the wrapper (real assets in public/). */
+const STICKER_SRC = ['/packs/troll.jpg', '/pulse-glyphs/crown.png', '/pulse-glyphs/chart.png', '/icons/pumpfun.webp', '/pulse-glyphs/cashback.png'];
+/** Scatter layout — [srcIndex, x, y, size, rotationDeg]. Avoids the centre logo + wordmark. */
+const STICKER_LAYOUT: Array<[number, number, number, number, number]> = [
+  [0, 150, 200, 150, -14],
+  [1, 630, 210, 130, 12],
+  [2, 120, 560, 120, -8],
+  [3, 650, 560, 120, 10],
+  [0, 200, 300, 96, 18],
+  [4, 560, 330, 96, -16],
+];
 
-const BIRD_PATH = 'M32 352 L280 88 L240 240 L480 160 L200 280 L300 424 Z';
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+function loadImg(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
 }
 
-function buildArtTexture(type: PackType): THREE.CanvasTexture {
-  const W = 768;
-  const H = 1088;
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const ctx = c.getContext('2d')!;
+function drawArtBase(ctx: CanvasRenderingContext2D, type: PackType) {
   const art = ART[type];
-
-  const g = ctx.createLinearGradient(0, 0, W * 0.4, H);
+  const g = ctx.createLinearGradient(0, 0, ART_W * 0.4, ART_H);
   g.addColorStop(0, art.bg[0]);
   g.addColorStop(0.42, art.bg[1]);
   g.addColorStop(1, art.bg[2]);
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, ART_W, ART_H);
 
-  const rg = ctx.createRadialGradient(W / 2, H * 1.05, 40, W / 2, H * 1.05, H * 0.8);
-  rg.addColorStop(0, 'rgba(255,255,255,0.30)');
+  const rg = ctx.createRadialGradient(ART_W / 2, ART_H * 1.05, 40, ART_W / 2, ART_H * 1.05, ART_H * 0.8);
+  rg.addColorStop(0, 'rgba(255,255,255,0.28)');
   rg.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = rg;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, ART_W, ART_H);
+}
 
+function drawTierWord(ctx: CanvasRenderingContext2D, type: PackType) {
+  const art = ART[type];
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = '700 26px ui-sans-serif, system-ui, sans-serif';
-  try { ctx.letterSpacing = '14px'; } catch { /* older canvas */ }
-  ctx.fillText('POINTER', W / 2 + 7, 96);
-  try { ctx.letterSpacing = '0px'; } catch { /* noop */ }
-
-  // Pointer swift mark
-  ctx.save();
-  ctx.translate(W / 2 - 148, 150);
-  ctx.scale(0.56, 0.56);
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
-  ctx.shadowBlur = 26;
-  ctx.shadowOffsetY = 12;
-  ctx.fillStyle = '#ffffff';
-  ctx.fill(new Path2D(BIRD_PATH));
-  ctx.restore();
-
-  // big tier wordmark
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 20;
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 22;
   ctx.shadowOffsetY = 6;
-  ctx.fillStyle = 'rgba(255,255,255,0.97)';
-  ctx.font = `800 ${art.word.length > 8 ? 92 : 128}px "Arial Narrow", ui-sans-serif, sans-serif`;
-  ctx.fillText(art.word, W / 2, 560);
+  ctx.fillStyle = 'rgba(255,255,255,0.98)';
+  ctx.font = `800 ${art.word.length > 8 ? 96 : 132}px "Arial Narrow", ui-sans-serif, sans-serif`;
+  ctx.fillText(art.word, ART_W / 2, ART_H - 150);
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
+}
 
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.font = '700 30px ui-sans-serif, system-ui, sans-serif';
-  try { ctx.letterSpacing = '6px'; } catch { /* noop */ }
-  ctx.fillText(art.tag, W / 2 + 3, 622);
-  try { ctx.letterSpacing = '0px'; } catch { /* noop */ }
+/** Sticker as a soft rounded badge with a hairline ring. */
+function drawSticker(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, size: number, rotDeg: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate((rotDeg * Math.PI) / 180);
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 8;
+  ctx.beginPath();
+  ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.save();
+  ctx.clip();
+  ctx.drawImage(img, -size / 2, -size / 2, size, size);
+  ctx.restore();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+  ctx.stroke();
+  ctx.restore();
+}
 
-  // chips
-  ctx.font = '700 24px ui-sans-serif, system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  const rows: Array<[string, number, number]> = [
-    [art.chips[0], 46, 232],
-    [art.chips[2], 46, H - 250],
-  ];
-  const w1 = ctx.measureText(art.chips[1]).width;
-  rows.push([art.chips[1], W - 46 - w1 - 36, 276]);
-  for (const [text, x, y] of rows) {
-    const tw = ctx.measureText(text).width;
-    ctx.fillStyle = 'rgba(0,0,0,0.34)';
-    roundRect(ctx, x - 18, y - 32, tw + 36, 48, 12);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.fillText(text, x, y);
+/** Draw the composed front: stickers → logo → tier word. Async because it pulls real images. */
+async function composeArt(ctx: CanvasRenderingContext2D, type: PackType): Promise<void> {
+  drawArtBase(ctx, type);
+  const [logo, ...stickers] = await Promise.all([loadImg(LOGO_SRC), ...STICKER_SRC.map(loadImg)]);
+
+  for (const [srcIdx, x, y, size, rot] of STICKER_LAYOUT) {
+    const s = stickers[srcIdx];
+    if (s) drawSticker(ctx, s, x, y, size, rot);
   }
 
-  if (art.callout) {
-    ctx.textAlign = 'center';
-    ctx.font = '800 56px "Arial Narrow", ui-sans-serif, sans-serif';
-    ctx.shadowColor = 'rgba(0,0,0,0.55)';
-    ctx.shadowBlur = 16;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(art.callout, W / 2, H - 150);
-    ctx.shadowBlur = 0;
+  if (logo) {
+    const lw = 320;
+    const lh = lw * (logo.height / logo.width || 1);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 26;
+    ctx.shadowOffsetY = 12;
+    ctx.drawImage(logo, ART_W / 2 - lw / 2, 300, lw, lh);
+    ctx.restore();
   }
 
+  drawTierWord(ctx, type);
+}
+
+function buildArtTexture(type: PackType): { tex: THREE.CanvasTexture; refresh: () => Promise<void> } {
+  const c = document.createElement('canvas');
+  c.width = ART_W;
+  c.height = ART_H;
+  const ctx = c.getContext('2d')!;
+  drawArtBase(ctx, type);
+  drawTierWord(ctx, type);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
-  return tex;
+  const refresh = async () => {
+    await composeArt(ctx, type);
+    tex.needsUpdate = true;
+  };
+  return { tex, refresh };
 }
 
 function buildCrumpleBump(): THREE.CanvasTexture {
-  const S = 512;
+  const S = 640;
   const c = document.createElement('canvas');
   c.width = S;
   c.height = S;
   const ctx = c.getContext('2d')!;
+  const rnd = (seed: number) => Math.abs((Math.sin(seed * 12.9898) * 43758.5453) % 1);
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, S, S);
-  for (let i = 0; i < 240; i++) {
-    const px = Math.abs((Math.sin(i * 12.9898) * 43758.5453) % 1) * S;
-    const py = Math.abs((Math.sin(i * 78.233) * 43758.5453) % 1) * S;
-    const r = 18 + Math.abs(Math.sin(i * 3.1)) * 72;
+
+  // dense wrinkle blobs — high contrast so the foil reads as crushed
+  for (let i = 0; i < 420; i++) {
+    const px = rnd(i + 1) * S;
+    const py = rnd(i * 1.7 + 3) * S;
+    const r = 10 + rnd(i * 3.1) * 58;
     const grad = ctx.createRadialGradient(px, py, 0, px, py, r);
-    grad.addColorStop(0, i % 2 ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)');
+    grad.addColorStop(0, i % 2 ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)');
     grad.addColorStop(1, 'rgba(128,128,128,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(px - r, py - r, r * 2, r * 2);
   }
+
+  // long foil creases — sharp light/dark lines like a scrunched wrapper
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 60; i++) {
+    const x0 = rnd(i * 5 + 11) * S;
+    const y0 = rnd(i * 7 + 13) * S;
+    const ang = rnd(i * 2 + 17) * Math.PI * 2;
+    const len = 60 + rnd(i * 4) * 240;
+    const light = i % 2 === 0;
+    ctx.strokeStyle = light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.9)';
+    ctx.lineWidth = 1 + rnd(i * 9) * 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    // a slightly kinked crease
+    const mx = x0 + Math.cos(ang) * len * 0.5 + (rnd(i * 6) - 0.5) * 40;
+    const my = y0 + Math.sin(ang) * len * 0.5 + (rnd(i * 8) - 0.5) * 40;
+    ctx.quadraticCurveTo(mx, my, x0 + Math.cos(ang) * len, y0 + Math.sin(ang) * len);
+    ctx.stroke();
+  }
+
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 3);
+  tex.repeat.set(1.6, 2.2);
   return tex;
 }
 
@@ -193,7 +222,8 @@ export function Pack3D({ type, className }: { type: PackType; className?: string
     scene.add(rim);
 
     const bump = buildCrumpleBump();
-    const artTex = buildArtTexture(type);
+    const { tex: artTex, refresh: refreshArt } = buildArtTexture(type);
+    void refreshArt(); // pull in the real logo + meme stickers, then repaint
 
     const pack = new THREE.Group();
     scene.add(pack);
@@ -204,21 +234,21 @@ export function Pack3D({ type, className }: { type: PackType; className?: string
       new THREE.MeshPhysicalMaterial({
         color: new THREE.Color(art.metal),
         metalness: 0.95,
-        roughness: 0.3,
+        roughness: 0.26,
         clearcoat: 1,
-        clearcoatRoughness: 0.22,
+        clearcoatRoughness: 0.18,
         iridescence: 1,
         iridescenceIOR: 1.35,
         iridescenceThicknessRange: [120, 800],
         bumpMap: bump,
-        bumpScale: 0.05,
-        envMapIntensity: 1.4,
+        bumpScale: 0.14,
+        envMapIntensity: 1.55,
       }),
     );
     pack.add(body);
 
     // crimped seals
-    const crimpMat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(art.metal), metalness: 1, roughness: 0.5, bumpMap: bump, bumpScale: 0.08, envMapIntensity: 0.9 });
+    const crimpMat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(art.metal), metalness: 1, roughness: 0.55, bumpMap: bump, bumpScale: 0.16, envMapIntensity: 0.9 });
     for (const y of [1.44, -1.44]) {
       const crimp = new THREE.Mesh(new THREE.BoxGeometry(2.14, 0.17, 0.3), crimpMat);
       crimp.position.set(0, y, 0);
