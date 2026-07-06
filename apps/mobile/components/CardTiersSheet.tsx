@@ -9,6 +9,8 @@ import { usd, group } from '../src/format';
 import { showToast } from '../src/toast';
 import { TIERS, tierById, type Tier } from '../src/financial/tiers';
 import { useTier, setTier } from '../src/financial/credit';
+import { useKycLevel, kycLevelNow, tierKyc, type KycLevel } from '../src/financial/kyc';
+import { KycSheet } from './KycSheet';
 
 const W = Dimensions.get('window').width;
 const CARD_W = W - 36; // full-bleed within the sheet's 18px padding
@@ -20,12 +22,36 @@ const CARD_W = W - 36; // full-bleed within the sheet's 18px padding
  */
 export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const current = useTier();
+  const kycLevel = useKycLevel();
   const currentIdx = Math.max(0, TIERS.findIndex((t) => t.id === current));
   const [idx, setIdx] = useState(currentIdx);
+  const [kycNeed, setKycNeed] = useState<KycLevel | null>(null);
+  const [pending, setPending] = useState<Tier | null>(null);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / CARD_W);
     if (i !== idx) setIdx(i);
+  };
+
+  // A card needs KYC (lite/full); the borrow itself never does. If under-verified,
+  // route through the KYC sheet first, then apply the tier.
+  const upgrade = (tier: Tier) => {
+    const need = tierKyc(tier.id);
+    if (kycLevel < need) {
+      setPending(tier);
+      setKycNeed(need);
+      return;
+    }
+    setTier(tier.id);
+    showToast(`${tier.name} membership active`, { sub: tier.annualFee > 0 ? `${usd(tier.annualFee, 0)}/yr` : 'Free', kind: 'success' });
+  };
+  const onKycClose = () => {
+    setKycNeed(null);
+    if (pending && kycLevelNow() >= tierKyc(pending.id)) {
+      setTier(pending.id);
+      showToast(`${pending.name} membership active`, { kind: 'success' });
+    }
+    setPending(null);
   };
 
   return (
@@ -46,7 +72,7 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
       >
         {TIERS.map((t) => (
           <View key={t.id} style={{ width: CARD_W, paddingHorizontal: 18 }}>
-            <TierCard tier={t} current={t.id === current} />
+            <TierCard tier={t} current={t.id === current} kycLevel={kycLevel} onUpgrade={() => upgrade(t)} />
           </View>
         ))}
       </ScrollView>
@@ -61,18 +87,14 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
         Cashback is funded by card interchange + the Credit-mode borrow spread — not the fee. Rates apply to your account,
         use any card.
       </Text>
+
+      <KycSheet visible={kycNeed !== null} onClose={onKycClose} requireLevel={kycNeed ?? 1} />
     </DragSheet>
   );
 }
 
-function TierCard({ tier, current }: { tier: Tier; current: boolean }) {
-  const upgrade = () => {
-    setTier(tier.id);
-    showToast(`${tier.name} membership active`, {
-      sub: tier.annualFee > 0 ? `${usd(tier.annualFee, 0)}/yr` : 'Free',
-      kind: 'success',
-    });
-  };
+function TierCard({ tier, current, kycLevel, onUpgrade }: { tier: Tier; current: boolean; kycLevel: KycLevel; onUpgrade: () => void }) {
+  const needsKyc = kycLevel < tierKyc(tier.id);
 
   return (
     <View style={s.card}>
@@ -124,12 +146,14 @@ function TierCard({ tier, current }: { tier: Tier; current: boolean }) {
           <Text style={s.ctaCurrentText}>Current plan</Text>
         </View>
       ) : (
-        <PressScale onPress={upgrade} to={0.97} style={[s.cta, { backgroundColor: tier.accent }]}>
+        <PressScale onPress={onUpgrade} to={0.97} style={[s.cta, { backgroundColor: tier.accent }]}>
+          {needsKyc ? <Ionicons name="shield-checkmark" size={15} color={darkText(tier.accent) ? '#0A0C10' : '#fff'} /> : null}
           <Text style={[s.ctaText, { color: darkText(tier.accent) ? '#0A0C10' : '#fff' }]}>
-            {tier.annualFee > 0 ? `Get ${tier.name}` : `Switch to ${tier.name}`}
+            {needsKyc ? `Verify to get ${tier.name}` : tier.annualFee > 0 ? `Get ${tier.name}` : `Switch to ${tier.name}`}
           </Text>
         </PressScale>
       )}
+      {needsKyc ? <Text style={s.kycHint}>ID needed for the card — borrowing + in-app spend stays ID-free.</Text> : null}
     </View>
   );
 }
@@ -188,4 +212,5 @@ const s = StyleSheet.create({
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 16 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.borderStrong },
   foot: { color: colors.fgFaint, fontSize: 11.5, lineHeight: 16, textAlign: 'center', marginTop: 14 },
+  kycHint: { color: colors.fgFaint, fontSize: 11.5, lineHeight: 16, textAlign: 'center', marginTop: 8 },
 });

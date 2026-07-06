@@ -110,7 +110,13 @@ export function CreditModeSheet({
 
   return (
     <DragSheet visible={visible} onClose={close}>
-      <Text style={s.title}>Spending mode</Text>
+      <View style={s.titleRow}>
+        <Text style={s.title}>Spending mode</Text>
+        <View style={s.noKyc}>
+          <Ionicons name="lock-open-outline" size={12} color={colors.bull} />
+          <Text style={s.noKycText}>No ID needed</Text>
+        </View>
+      </View>
 
       {/* segmented toggle */}
       <View style={s.toggle}>
@@ -240,7 +246,10 @@ export function CreditModeSheet({
 }
 
 const s = StyleSheet.create({
-  title: { color: colors.fg, fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  title: { color: colors.fg, fontSize: 20, fontWeight: '800' },
+  noKyc: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.bullSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
+  noKycText: { color: colors.bull, fontSize: 11, fontWeight: '700' },
   toggle: { flexDirection: 'row', gap: 8, marginTop: 16, backgroundColor: colors.bgRaised, borderRadius: radius.md, padding: 5 },
   toggleBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: radius.sm },
   toggleOn: { backgroundColor: colors.accent },
