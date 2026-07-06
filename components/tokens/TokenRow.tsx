@@ -1156,18 +1156,18 @@ function pulseDockWidthClass(
   ultraCompact: boolean,
   filledStyle: Exclude<BuyButtonStyle, 'ultra'>,
 ): string {
-  // Tighter than before so token names flow right up to the V/MC block (Axiom-style)
-  // instead of cutting early against a wide dock. Min unchanged (narrow-column safety);
-  // max + % trimmed to close the empty gap. Kept in lockstep with the reserve below so
-  // the name can never overlap the dock.
+  // Names flow right up to the V/MC block (Axiom-style). The mins matter most in the
+  // 2-column Pulse layout, where the % shrinks and the clamp hits the floor — lowered
+  // so narrow columns stop cutting names early; max + % also trimmed. Kept in lockstep
+  // with the reserve below so the name can never overlap the dock.
   if (ultra) {
     return ultraCompact
-      ? 'w-[clamp(11rem,31%,13rem)]'
-      : 'w-[clamp(7.5rem,28%,11rem)]';
+      ? 'w-[clamp(10rem,29%,12rem)]'
+      : 'w-[clamp(6.75rem,26%,10rem)]';
   }
-  if (filledStyle === 'small') return 'w-[clamp(6.25rem,25%,8rem)]';
-  if (filledStyle === 'large') return 'w-[clamp(9.5rem,32%,12.5rem)]';
-  return 'w-[clamp(7.25rem,28%,10.5rem)]';
+  if (filledStyle === 'small') return 'w-[clamp(5.5rem,23%,7.25rem)]';
+  if (filledStyle === 'large') return 'w-[clamp(8.5rem,30%,11.5rem)]';
+  return 'w-[clamp(6.25rem,26%,9.5rem)]';
 }
 
 function pulseDockReservePadding(
@@ -1179,12 +1179,12 @@ function pulseDockReservePadding(
   // so the name reserves exactly the dock width and can't overlap the V/MC or buy button.
   if (ultra) {
     return ultraCompact
-      ? 'pr-[calc(clamp(11rem,31%,13rem)+0.5rem)]'
-      : 'pr-[calc(clamp(7.5rem,28%,11rem)+0.5rem)]';
+      ? 'pr-[calc(clamp(10rem,29%,12rem)+0.5rem)]'
+      : 'pr-[calc(clamp(6.75rem,26%,10rem)+0.5rem)]';
   }
-  if (filledStyle === 'small') return 'pr-[calc(clamp(6.25rem,25%,8rem)+0.5rem)]';
-  if (filledStyle === 'large') return 'pr-[calc(clamp(9.5rem,32%,12.5rem)+0.5rem)]';
-  return 'pr-[calc(clamp(7.25rem,28%,10.5rem)+0.5rem)]';
+  if (filledStyle === 'small') return 'pr-[calc(clamp(5.5rem,23%,7.25rem)+0.5rem)]';
+  if (filledStyle === 'large') return 'pr-[calc(clamp(8.5rem,30%,11.5rem)+0.5rem)]';
+  return 'pr-[calc(clamp(6.25rem,26%,9.5rem)+0.5rem)]';
 }
 
 function quickBuyPillSizeClasses(
