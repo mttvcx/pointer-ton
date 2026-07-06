@@ -327,7 +327,12 @@ export function PulseTokenAvatarHover({
       ? createPortal(
           <div
             ref={panelRef}
-            className="pointer-events-auto fixed z-[260]"
+            // Small "come-in" on open (fade + slight zoom from the anchor edge).
+            // Closing unmounts the panel outright, so there's no exit tween — a hard cut.
+            className={cn(
+              'pointer-events-auto fixed z-[260] animate-in fade-in-0 zoom-in-95 duration-150 ease-out',
+              resolvedPanelPos.bottom != null ? 'origin-bottom' : 'origin-top',
+            )}
             style={{
               top: resolvedPanelPos.top,
               bottom: resolvedPanelPos.bottom,
