@@ -42,11 +42,14 @@ export function CreditModeSheet({
   onClose,
   collateralUsd,
   spendableUsd,
+  onBorrowed,
 }: {
   visible: boolean;
   onClose: () => void;
   collateralUsd: number;
   spendableUsd: number;
+  /** Borrowed USDC lands in spendable — let the dashboard reflect it. */
+  onBorrowed?: (amountUsd: number) => void;
 }) {
   const mode = useSpendMode();
   const borrowed = useBorrowed();
@@ -72,6 +75,7 @@ export function CreditModeSheet({
     // Demo (no real wallet) → reflect locally.
     if (auth.demo || !auth.walletAddress) {
       borrow(amount);
+      onBorrowed?.(amount);
       setSpendMode('credit');
       showToast(`Borrowed ${usd(amount, 0)}`, { sub: 'Spendable now · your crypto stays invested', kind: 'success' });
       setAmount(0);
@@ -86,6 +90,7 @@ export function CreditModeSheet({
         await auth.signAndSend(res.txBase64, SOLANA_RPC_URL, token ?? '');
       }
       borrow(amount);
+      onBorrowed?.(amount);
       setSpendMode('credit');
       showToast(res.simulated ? `Borrowed ${usd(amount, 0)}` : `Borrowed ${usd(amount, 0)} on-chain`, {
         sub: 'Your crypto stays invested — no sale, no tax event',

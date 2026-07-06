@@ -358,6 +358,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         onClose={() => setCreditOpen(false)}
         collateralUsd={m.states.trading + m.states.earning}
         spendableUsd={m.states.spendable}
+        onBorrowed={(amt) => setM((prev) => ({ ...prev, states: { ...prev.states, spendable: prev.states.spendable + amt } }))}
       />
 
       <DragSheet visible={sheet !== null} onClose={closeSheet} fullDrag={sheet?.kind === 'state'}>
