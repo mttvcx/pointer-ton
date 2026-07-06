@@ -16,8 +16,8 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
   const cards = orderCards(answer.cards);
   return (
     <div className="space-y-4">
-      {/* worked-through meta (Perplexity-style) */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-white/35">
+      {/* worked-through meta */}
+      <div className="s-faint flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
           Worked through {answer.agentsRun.length} {answer.agentsRun.length === 1 ? 'agent' : 'agents'}
@@ -27,34 +27,31 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
         {answer.agentsRun.length ? (
           <>
             <span>·</span>
-            <span className="text-white/25">{answer.agentsRun.join(' · ')}</span>
+            <span>{answer.agentsRun.join(' · ')}</span>
           </>
         ) : null}
       </div>
 
-      {/* verdict — serif, the headline */}
+      {/* verdict — serif headline */}
       <div>
-        <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/35">Verdict</div>
-        <div className={`${sibylSerif.className} mt-0.5 text-[26px] leading-[1.15] tracking-tight text-white`}>{answer.verdict}</div>
+        <div className="s-faint text-[9px] font-semibold uppercase tracking-[0.18em]">Verdict</div>
+        <div className={`${sibylSerif.className} s-fg mt-0.5 text-[26px] leading-[1.15] tracking-tight`}>{answer.verdict}</div>
       </div>
 
       {/* confidence */}
       <div className="flex items-center gap-2.5">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
-          <div
-            className={`h-full rounded-full ${conf >= 66 ? 'bg-emerald-400' : conf >= 40 ? 'bg-amber-400' : 'bg-rose-400'}`}
-            style={{ width: `${conf}%` }}
-          />
+        <div className="s-panel2 h-1.5 flex-1 overflow-hidden rounded-full">
+          <div className={`h-full rounded-full ${conf >= 66 ? 'bg-emerald-400' : conf >= 40 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${conf}%` }} />
         </div>
-        <span className="text-[11px] font-semibold tabular-nums text-white/55">{conf}% confidence</span>
+        <span className="s-muted text-[11px] font-semibold tabular-nums">{conf}% confidence</span>
       </div>
 
       {/* why */}
       {answer.why.length > 0 ? (
         <ul className="space-y-1.5">
           {answer.why.map((w, i) => (
-            <li key={i} className="flex gap-2.5 text-[13.5px] leading-relaxed text-white/80">
-              <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
+            <li key={i} className="s-fg flex gap-2.5 text-[13.5px] leading-relaxed">
+              <span className="s-faint mt-[7px] h-1 w-1 shrink-0 rounded-full bg-current" />
               {w}
             </li>
           ))}
@@ -62,12 +59,12 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
       ) : null}
 
       {/* action */}
-      <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-3.5 py-2.5">
-        <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300/70">Action</div>
-        <div className="mt-0.5 text-[13.5px] font-medium text-white/90">{answer.action}</div>
+      <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/[0.07] px-3.5 py-2.5">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-500">Action</div>
+        <div className="s-fg mt-0.5 text-[13.5px] font-medium">{answer.action}</div>
       </div>
 
-      {/* inline cards — charts / tables / holders render right in the answer */}
+      {/* inline cards — charts / tables render in the answer */}
       {cards.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {cards.map((c) => (
@@ -87,7 +84,7 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
               href={e.href ?? (e.handle ? `https://x.com/${e.handle}` : '#')}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-sky-400/20 bg-sky-400/[0.08] px-2.5 py-0.5 text-[11px] font-medium text-sky-300 transition hover:border-sky-400/50"
+              className="rounded-full border border-sky-400/25 bg-sky-400/[0.08] px-2.5 py-0.5 text-[11px] font-medium text-sky-500 transition hover:border-sky-400/50"
             >
               {e.handle ? `@${e.handle}` : e.label}
             </a>
@@ -97,7 +94,7 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
 
       {/* caveats */}
       {answer.caveats && answer.caveats.length > 0 ? (
-        <div className="space-y-0.5 text-[11px] leading-relaxed text-amber-300/70">
+        <div className="space-y-0.5 text-[11px] leading-relaxed text-amber-600">
           {answer.caveats.map((c, i) => (
             <div key={i}>⚠ {c}</div>
           ))}
@@ -105,10 +102,10 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
       ) : null}
 
       {/* sources */}
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] pt-2.5 text-[10px] text-white/30">
+      <div className="s-border s-faint flex flex-wrap items-center gap-1.5 border-t pt-2.5 text-[10px]">
         <span className="uppercase tracking-wider">Sources</span>
         {answer.sources.map((s) => (
-          <span key={s.label} className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-white/45">{s.label}</span>
+          <span key={s.label} className="s-panel2 s-muted rounded-md px-1.5 py-0.5">{s.label}</span>
         ))}
       </div>
     </div>
