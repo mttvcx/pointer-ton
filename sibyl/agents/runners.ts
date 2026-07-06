@@ -3,7 +3,7 @@ import 'server-only';
 import type { AgentContext, AgentResult } from '@/sibyl/agents/types';
 import type { SibylAnswer, SibylCard, SibylEntityRef } from '@/sibyl/types';
 import { callModel, parseJson, tierForMode } from '@/sibyl/modelRouter';
-import { AGENT_SYSTEM, scrubBanned } from '@/sibyl/agents/prompts';
+import { AGENT_SYSTEM, scrubBanned, scrubModelLeak } from '@/sibyl/agents/prompts';
 import { dexscreener, helius, grok, x, dune, pointer, birdeye } from '@/sibyl/data/providers';
 
 function usd(n: number | null | undefined): string {
@@ -166,11 +166,12 @@ export async function runJudge(query: string, mode: SibylAnswer['mode'], results
   });
   const j = parseJson(raw, mockJudge(query, results, avgConf, caveats));
 
+  const clean = (s: string) => scrubModelLeak(scrubBanned(s));
   return {
-    verdict: scrubBanned(j.verdict),
+    verdict: clean(j.verdict),
     confidence: clampConf(j.confidence, caveats.length),
-    why: (j.why ?? []).map(scrubBanned).filter(Boolean).slice(0, 6),
-    action: scrubBanned(j.action),
+    why: (j.why ?? []).map(clean).filter(Boolean).slice(0, 6),
+    action: clean(j.action),
     body: null,
     cards,
     entities,

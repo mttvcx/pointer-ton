@@ -32,7 +32,53 @@ const ECOSYSTEM = [
   { label: 'Extension', href: 'https://pointer.trade' },
 ];
 
-const THINKING_STEPS = ['Resolving the subject', 'Pulling market data', 'Labeling holders vs the Pointer registry', 'Reading social velocity', 'Grading rug risk', 'Synthesizing the verdict'];
+/** Contextual thinking plan from the raw query — drives the live trace (never names a model). */
+type ThinkPlan = { title: string; searched?: string; steps: string[]; sources: string[] };
+function planFor(raw: string): ThinkPlan {
+  const q = (raw || '').trim();
+  const isMint = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(q);
+  const ticker = q.match(/\$([A-Za-z][A-Za-z0-9]{1,9})/)?.[1]?.toUpperCase();
+  const terminal = q.match(/axiom|photon|bullx|trojan|gmgn|fomo/i)?.[0];
+  const isFees = /\bfees?\b|\bvs\b|versus|compare|volume|market share|terminal|leaderboard/i.test(q) || (!!terminal && !isMint);
+  const person = q.match(/\bis\s+([a-z0-9_]{2,20})\s+(?:in|holding)/i)?.[1] || q.match(/@([a-z0-9_]{2,20})/i)?.[1] || (/\bansem\b/i.test(q) ? 'ansem' : null);
+  const isNarrative = /\bnarrative\b|\bmeta\b|\bstory\b|why is|trend(ing)?\b/i.test(q);
+
+  if (isMint || ticker) {
+    return {
+      title: `Analyzing ${ticker ? `$${ticker}` : 'the token'}`,
+      steps: ['Reading your request', 'Pulling price, MC & liquidity', 'Resolving top holders on-chain', 'Labeling wallets against the Pointer registry', 'Reading CT social velocity', 'Grading rug risk', 'Weighing the verdict'],
+      sources: ['DexScreener', 'Helius', 'Pointer registry', 'CT'],
+    };
+  }
+  if (isFees) {
+    const subj = terminal ? terminal[0]!.toUpperCase() + terminal.slice(1).toLowerCase() : 'the terminals';
+    return {
+      title: 'Searching terminal stats',
+      searched: `${subj} fees, volume & market share`,
+      steps: ['Reading your request', 'Searching terminal dashboards', 'Pulling fees & volume', 'Comparing market share', 'Weighing the verdict'],
+      sources: ['Dune', 'Pointer registry'],
+    };
+  }
+  if (person) {
+    return {
+      title: `Checking if @${person} is in it`,
+      steps: ['Reading your request', `Resolving @${person} in the KOL directory`, 'Scanning wallets in the trade', 'Cross-referencing holdings', 'Weighing the verdict'],
+      sources: ['Pointer registry', 'Helius'],
+    };
+  }
+  if (isNarrative) {
+    return {
+      title: 'Tracing the narrative',
+      steps: ['Reading your request', 'Tracing the narrative origin', 'Measuring spread across X / TikTok / news', 'Judging early vs late', 'Weighing the verdict'],
+      sources: ['CT', 'Search', 'Pointer registry'],
+    };
+  }
+  return {
+    title: 'Working on it',
+    steps: ['Reading your request', 'Routing to the right specialists', 'Pulling live data', 'Weighing the verdict'],
+    sources: ['DexScreener', 'Pointer registry'],
+  };
+}
 
 const THEME_VARS: Record<'light' | 'dark', Record<string, string>> = {
   dark: {
@@ -81,6 +127,8 @@ const SCOPE_CSS = `
 @keyframes sibylPixel{0%,100%{opacity:.1}50%{opacity:1}}
 @keyframes sibylRise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .rise{animation:sibylRise .35s ease both}
+.shimmer{background:linear-gradient(90deg,rgba(255,255,255,0.4) 20%,rgba(255,255,255,0.98) 50%,rgba(255,255,255,0.4) 80%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sibylSweep 1.7s linear infinite}
+@keyframes sibylSweep{to{background-position:-200% 0}}
 `;
 
 let seq = 0;
@@ -112,24 +160,48 @@ const IconUpload = () => <I d="M12 15V3m0 0L8 7m4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a
 const IconPlug = () => <I d="M9 2v6m6-6v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5" className="h-[15px] w-[15px]" />;
 const IconFolder = () => <I d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" className="h-[15px] w-[15px]" />;
 
-/* Live "thinking" trace shown while a scan runs. */
-function ThinkingTrace() {
+/* Live, contextual "thinking" trace shown while a scan runs — never names a model. */
+function ThinkingTrace({ query }: { query: string }) {
+  const plan = useMemo(() => planFor(query), [query]);
   const [i, setI] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setI((v) => Math.min(v + 1, THINKING_STEPS.length - 1)), 850);
+    setI(0);
+    const t = setInterval(() => setI((v) => Math.min(v + 1, plan.steps.length - 1)), 720);
     return () => clearInterval(t);
-  }, []);
+  }, [plan]);
+  const activeSources = Math.max(1, Math.ceil(((i + 1) / plan.steps.length) * plan.sources.length));
   return (
-    <div className="media-glass rise flex w-fit max-w-full flex-col gap-1.5 rounded-2xl px-4 py-3 text-white">
-      <div className="flex items-center gap-2 text-[12px] font-medium text-white/90">
-        <span className="sibyl-mark h-3.5 w-3.5 text-white/80" />
-        Sibyl is thinking
+    <div className="media-glass rise flex w-full max-w-[560px] flex-col gap-2.5 rounded-2xl px-4 py-3.5 text-white">
+      <div className="flex items-center gap-2.5">
+        <span className="h-4 w-4 animate-spin rounded-full border-[1.6px] border-white/25 border-t-white/85" />
+        <span className="shimmer text-[13px] font-medium">{plan.title}…</span>
       </div>
-      <div className="mt-0.5 space-y-1">
-        {THINKING_STEPS.slice(0, i + 1).map((s, k) => (
-          <div key={s} className="flex items-center gap-2 text-[12px]">
+
+      {plan.searched ? (
+        <div className="flex items-center gap-1.5 text-[11.5px] text-white/50">
+          <I d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3" className="h-3.5 w-3.5" />
+          Searched <span className="text-white/75">{plan.searched}</span>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-1.5">
+        {plan.sources.map((s, k) => (
+          <span
+            key={s}
+            className={`rounded-full border px-2 py-0.5 text-[10.5px] transition-all duration-500 ${k < activeSources ? 'border-white/20 bg-white/10 text-white/85' : 'border-white/5 text-white/25'}`}
+          >
+            {s}
+          </span>
+        ))}
+      </div>
+
+      <div className="space-y-1 pt-0.5">
+        {plan.steps.slice(0, i + 1).map((s, k) => (
+          <div key={s} className="rise flex items-center gap-2 text-[12px]">
             {k < i ? (
-              <span className="text-emerald-400"><I d="M20 6 9 17l-5-5" className="h-3.5 w-3.5" /></span>
+              <span className="text-emerald-400">
+                <I d="M20 6 9 17l-5-5" className="h-3.5 w-3.5" />
+              </span>
             ) : (
               <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-white/25 border-t-white/80" />
             )}
@@ -404,7 +476,7 @@ export function SibylDashboard() {
                   </div>
                 ),
               )}
-              {loading ? <ThinkingTrace /> : null}
+              {loading ? <ThinkingTrace query={scans.length ? (scans[scans.length - 1]!.text ?? '') : input} /> : null}
             </div>
           </div>
 

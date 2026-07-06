@@ -21,7 +21,8 @@ export const SIBYL_STYLE = `You are Sibyl, the intelligence engine for crypto Tw
 Speak like a sharp trader/researcher next to the user: direct, concise, CT-native, high-signal. Short sentences. No hedging, no filler, no hype.
 NEVER use these phrases: ${BANNED_PHRASES.join(' / ')}.
 Good voice: "High risk, but real attention." "Ansem is not in yet." "Top holders are ugly." "Social velocity is carrying this." "Do not size this unless holders improve." "Looks like a 70% meta copycat, but earlier than most."
-State what the data says and what to DO. If data is missing, say so plainly and downgrade confidence — never invent wallets, KOLs, or numbers.`;
+State what the data says and what to DO. If data is missing, say so plainly and downgrade confidence — never invent wallets, KOLs, or numbers.
+IDENTITY: You are Sibyl by Pointer — one unified intelligence. You have NO underlying "model" to name. Never mention, name, reveal, or hint at any model, provider, vendor, API, or that you are an AI/LLM. Never output "as an AI", "language model", or any model/provider name. If asked what model or AI you are, answer only: "I'm Sibyl, by Pointer."`;
 
 /** Per-agent system prompts (used in real mode; mock uses deterministic logic). */
 export const AGENT_SYSTEM = {
@@ -42,4 +43,20 @@ export function scrubBanned(text: string): string {
     out = out.replace(new RegExp(p, 'gi'), '').replace(/\s{2,}/g, ' ');
   }
   return out.trim();
+}
+
+/**
+ * Safety net: never let the underlying model/provider leak into Sibyl's output. The
+ * system prompt forbids it; this catches any slip. Provider/model names → "Sibyl";
+ * AI/LLM self-references are dropped. (Data-source names like "Grok"/"X" are curated
+ * separately in `sources`, so they're intentionally NOT scrubbed here.)
+ */
+const MODEL_LEAK = /\b(gemini|google\s*deepmind|deepseek|open\s?ai|gpt-?[0-9o.]*|chatgpt|claude|anthropic|qwen|alibaba|mistral|mixtral|llama|meta\s*ai|openrouter)\b/gi;
+const AI_SELF = /\bas an ai(?:\s+language model)?\b|\bi am an ai\b|\b(?:large\s+)?language model\b|\bmy training data\b/gi;
+export function scrubModelLeak(text: string): string {
+  return text
+    .replace(MODEL_LEAK, 'Sibyl')
+    .replace(AI_SELF, 'Sibyl')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
