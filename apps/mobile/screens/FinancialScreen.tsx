@@ -85,13 +85,12 @@ function stateDetail(key: StateKey, m: CapitalModel): StateDetail {
       };
     case 'reserved':
       return {
-        blurb: 'Set aside to cover estimated taxes on realized gains. Pointer knows your cost basis and lots, so it reserves the right amount as you trade, quietly, in the background.',
+        blurb: 'A share of your realized gains you chose to set aside automatically, so a tax bill never catches you short. You pick the rate — this is a savings setting, not tax advice. Check with a professional for what you actually owe.',
         rows: [
-          { label: 'Reserved', value: usd(m.taxReserve, 0) },
-          { label: 'Estimated liability', value: usd(m.taxLiability, 0) },
-          { label: 'Status', value: covered ? 'Covered' : 'Under-reserved' },
+          { label: 'Set aside', value: usd(m.taxReserve, 0) },
+          { label: 'Rate you chose', value: '20% of realized gains' },
         ],
-        action: 'Tax details',
+        action: 'Adjust set-aside',
       };
   }
 }
@@ -174,16 +173,16 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   // Count-up on the flagship number when the page first mounts — a beat of
   // "here's everything you've got, working." Ease-out over ~850ms.
   const rise = useRef(new Animated.Value(0)).current;
-  const [shownTotal, setShownTotal] = useState(m.total);
+  const [shownSpend, setShownSpend] = useState(m.states.spendable);
   useEffect(() => {
     rise.setValue(0);
-    const id = rise.addListener(({ value }) => setShownTotal(value * m.total));
+    const id = rise.addListener(({ value }) => setShownSpend(value * m.states.spendable));
     Animated.timing(rise, { toValue: 1, duration: 850, useNativeDriver: false }).start();
     return () => rise.removeListener(id);
-  }, [m.total]);
+  }, [m.states.spendable]);
 
-  const dollars = Math.floor(shownTotal);
-  const cents = String(Math.round((shownTotal - dollars) * 100) % 100).padStart(2, '0');
+  const dollars = Math.floor(shownSpend);
+  const cents = String(Math.round((shownSpend - dollars) * 100) % 100).padStart(2, '0');
   const covered = m.taxReserve >= m.taxLiability;
   const apy = liveApy ?? m.apy; // prefer the live rate
   const rewards = demoRewards(tier.cashbackCredit, apy); // cashback that compounds in yield
@@ -229,44 +228,20 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <Text style={s.title}>Financial</Text>
         </View>
 
-        {/* Total capital hero */}
+        {/* Spendable hero — the one number that matters: what you can spend now,
+            and it's earning until you do. Total is context, not the headline. */}
         <Rise delay={40}>
-          <Text style={s.capLabel}>TOTAL CAPITAL</Text>
+          <Text style={s.capLabel}>SPENDABLE</Text>
           <Text style={s.cap}>
             {usd(dollars, 0)}
             <Text style={s.capCents}>.{cents}</Text>
           </Text>
-          <Text style={s.capSub}>Every dollar working · none idle</Text>
-        </Rise>
-
-        {/* Four-state bar — each segment tappable to reveal what's inside it. */}
-        <Rise delay={100}>
-          <View style={s.bar}>
-            {STATES.map((st) => {
-              const val = m.states[st.key];
-              const pct = m.total > 0 ? val / m.total : 0;
-              return (
-                <PressScale key={st.key} to={0.94} onPress={() => openState(st.key)} style={{ flex: pct }}>
-                  <View style={{ height: 12, backgroundColor: st.color }} />
-                </PressScale>
-              );
-            })}
+          <View style={s.earnLine}>
+            <Ionicons name="leaf" size={13} color={colors.bull} />
+            <Text style={s.earnLineText}>
+              Earning ~{m.spendableApy}% until you spend · {usd(m.total, 0)} total
+            </Text>
           </View>
-          <View style={s.legend}>
-            {STATES.map((st) => (
-              <View key={st.key} style={s.legendCell}>
-                <PressScale to={0.97} onPress={() => openState(st.key)} style={s.legendItem}>
-                  <View style={[s.dot, { backgroundColor: st.color }]} />
-                  <Text style={s.legendLabel} numberOfLines={1}>{st.label}</Text>
-                  <Text style={s.legendVal} numberOfLines={1}>{usd(m.states[st.key], 0)}</Text>
-                </PressScale>
-              </View>
-            ))}
-          </View>
-          <PressScale to={0.97} onPress={() => openPanel('move')} style={s.moveBtn}>
-            <Ionicons name="swap-horizontal" size={16} color="#D2D8DE" />
-            <Text style={s.moveText}>Move capital</Text>
-          </PressScale>
         </Rise>
 
         {/* Quick actions — Add / Send / Details (XPlace-style row) */}
@@ -359,8 +334,89 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         </PressScale>
         </Rise>
 
-        {/* Spending mode + Membership */}
+        {/* Money at work — yield status, right on the surface */}
         <Rise delay={200}>
+        <PressScale to={0.99} onPress={() => openPanel('yield')} style={s.panel}>
+          <GlassFill />
+          <View style={s.panelHead}>
+            <View style={s.panelTitleRow}>
+              <Ionicons name="leaf" size={16} color={colors.bull} />
+              <Text style={s.panelTitle}>Money at work</Text>
+            </View>
+            <View style={s.apyPill}>
+              <Text style={s.apyText}>~{apy.toFixed(1)}% APY</Text>
+            </View>
+          </View>
+          <Text style={s.yieldEarned}>{usd(earned)}</Text>
+          <Text style={s.yieldSub}>earning today · {usd(m.earnedTotal)} all-time</Text>
+
+          {/* the three streams that earn at once */}
+          <View style={s.earnRow}>
+            {[
+              { k: 'Spendable', v: `${m.spendableApy}%` },
+              { k: 'Idle cash', v: `${apy.toFixed(1)}%` },
+              { k: 'Cashback', v: `${rewards.rate}%` },
+            ].map((e) => (
+              <View key={e.k} style={s.earnChip}>
+                <Text style={s.earnChipVal}>{e.v}</Text>
+                <Text style={s.earnChipLabel}>{e.k}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* cashback compounds — supporting detail, not a headline */}
+          <View style={s.cashbackRow}>
+            <View style={s.cashbackIcon}>
+              <Ionicons name="repeat" size={13} color={colors.accentGlow} />
+            </View>
+            <Text style={s.cashbackText}>
+              <Text style={s.cashbackStrong}>+{usd(rewards.thisMonthUsd)}</Text> cashback this month, paid into your yield
+            </Text>
+          </View>
+
+          <View style={{ marginTop: 12 }}>
+            <Sparkline data={m.yieldHistory} />
+          </View>
+          {/* honest yield disclosure — variable, DeFi, not a bank account */}
+          <Text style={s.variableNote}>Variable rate from on-chain lending — not a savings account, not guaranteed.</Text>
+        </PressScale>
+        </Rise>
+
+        {/* ─────────── Your capital (deeper controls, underneath) ─────────── */}
+        <Rise delay={250}>
+          <View style={s.sectionHead}>
+            <View style={s.sectionBar} />
+            <Text style={s.sectionTitle}>Your capital</Text>
+          </View>
+          <View style={s.bar}>
+            {STATES.map((st) => {
+              const pct = m.total > 0 ? m.states[st.key] / m.total : 0;
+              return (
+                <PressScale key={st.key} to={0.94} onPress={() => openState(st.key)} style={{ flex: pct }}>
+                  <View style={{ height: 12, backgroundColor: st.color }} />
+                </PressScale>
+              );
+            })}
+          </View>
+          <View style={s.legend}>
+            {STATES.map((st) => (
+              <View key={st.key} style={s.legendCell}>
+                <PressScale to={0.97} onPress={() => openState(st.key)} style={s.legendItem}>
+                  <View style={[s.dot, { backgroundColor: st.color }]} />
+                  <Text style={s.legendLabel} numberOfLines={1}>{st.label}</Text>
+                  <Text style={s.legendVal} numberOfLines={1}>{usd(m.states[st.key], 0)}</Text>
+                </PressScale>
+              </View>
+            ))}
+          </View>
+          <PressScale to={0.97} onPress={() => openPanel('move')} style={s.moveBtn}>
+            <Ionicons name="swap-horizontal" size={16} color="#D2D8DE" />
+            <Text style={s.moveText}>Move capital</Text>
+          </PressScale>
+        </Rise>
+
+        {/* Spending mode + Membership */}
+        <Rise delay={270}>
           <View style={s.dualRow}>
             <PressScale to={0.97} onPress={() => setCreditOpen(true)} style={s.dualBtn}>
               <GlassFill />
@@ -451,64 +507,17 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           );
         })() : null}
 
-        {/* Money at work — every dollar earns: idle, spendable, even cashback */}
-        <Rise delay={230}>
-        <PressScale to={0.99} onPress={() => openPanel('yield')} style={s.panel}>
-          <GlassFill />
-          <View style={s.panelHead}>
-            <View style={s.panelTitleRow}>
-              <Ionicons name="leaf" size={16} color={colors.bull} />
-              <Text style={s.panelTitle}>Money at work</Text>
-            </View>
-            <View style={s.apyPill}>
-              <Text style={s.apyText}>{apy.toFixed(1)}% APY</Text>
-            </View>
-          </View>
-          <Text style={s.yieldEarned}>{usd(earned)}</Text>
-          <Text style={s.yieldSub}>earning today · {usd(m.earnedTotal)} all-time</Text>
-
-          {/* the three streams that earn at once */}
-          <View style={s.earnRow}>
-            {[
-              { k: 'Spendable', v: `${m.spendableApy}%` },
-              { k: 'Idle cash', v: `${apy.toFixed(1)}%` },
-              { k: 'Cashback', v: `${rewards.rate}%` },
-            ].map((e) => (
-              <View key={e.k} style={s.earnChip}>
-                <Text style={s.earnChipVal}>{e.v}</Text>
-                <Text style={s.earnChipLabel}>{e.k}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* cashback that compounds instead of a dead points balance */}
-          <View style={s.cashbackRow}>
-            <View style={s.cashbackIcon}>
-              <Ionicons name="repeat" size={13} color={colors.accentGlow} />
-            </View>
-            <Text style={s.cashbackText}>
-              <Text style={s.cashbackStrong}>+{usd(rewards.thisMonthUsd)}</Text> cashback this month, auto-compounding in yield
-            </Text>
-          </View>
-
-          <View style={{ marginTop: 12 }}>
-            <Sparkline data={m.yieldHistory} />
-          </View>
-          <Text style={s.yieldProj}>Trade, earn, spend — every dollar keeps working in one account.</Text>
-        </PressScale>
-        </Rise>
-
         {/* Tax reserve + Points — compact 2-up */}
         <Rise delay={290}>
         <View style={s.statRow}>
           <PressScale to={0.97} onPress={() => openPanel('tax')} style={s.statTile}>
             <GlassFill />
-            <View style={[s.statIcon, { backgroundColor: covered ? colors.bullSoft : colors.warnSoft }]}>
-              <Ionicons name="shield-checkmark" size={15} color={covered ? colors.bull : colors.warn} />
+            <View style={[s.statIcon, { backgroundColor: colors.bullSoft }]}>
+              <Ionicons name="shield-checkmark" size={15} color={colors.bull} />
             </View>
-            <Text style={s.statLabel}>Tax reserve</Text>
+            <Text style={s.statLabel}>Set aside</Text>
             <Text style={s.statVal}>{usd(m.taxReserve, 0)}</Text>
-            <Text style={s.statSub} numberOfLines={1}>{covered ? 'Covered' : `Under ${usd(m.taxLiability - m.taxReserve, 0)}`}</Text>
+            <Text style={s.statSub} numberOfLines={1}>20% of gains · your choice</Text>
           </PressScale>
           <PressScale to={0.97} onPress={() => openPanel('points')} style={s.statTile}>
             <GlassFill />
@@ -687,6 +696,8 @@ const s = StyleSheet.create({
   cap: { color: colors.fg, fontSize: 46, fontWeight: '700', letterSpacing: -1.6, marginTop: 4 },
   capCents: { color: colors.fgFaint },
   capSub: { color: colors.accentGlow, fontSize: 13, fontWeight: '600', marginTop: 4 },
+  earnLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  earnLineText: { color: colors.fgSecondary, fontSize: 13, fontWeight: '600' },
 
   bar: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', marginTop: 18, gap: 2, backgroundColor: colors.bg },
   legend: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14 },
@@ -779,6 +790,7 @@ const s = StyleSheet.create({
   yieldEarned: { color: colors.fg, fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 12 },
   yieldSub: { color: colors.fgMuted, fontSize: 13, marginTop: 2 },
   yieldProj: { color: colors.fgFaint, fontSize: 12.5, marginTop: 12, lineHeight: 17 },
+  variableNote: { color: colors.fgFaint, fontSize: 11.5, marginTop: 12, lineHeight: 16 },
   earnRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   earnChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.md, backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   earnChipVal: { color: colors.bull, fontSize: 16, fontWeight: '800' },
