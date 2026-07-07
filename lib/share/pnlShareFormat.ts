@@ -8,10 +8,19 @@ const TF_LABEL: Record<WalletAnalyticsTimeframe, string> = {
   max: 'ALL',
 };
 
-/** Whole SOL only — no decimals on share cards. */
+/**
+ * SOL amount for share cards — up to 2 decimals (trimmed), so a real 4.58 SOL
+ * reads as "4.58", not a fake-looking rounded "4". Large amounts (≥1000) collapse
+ * to a clean grouped integer.
+ */
 export function formatShareSolInteger(value: number, withSign = true): string {
-  const rounded = Math.round(Math.abs(value));
-  const body = rounded.toLocaleString('en-US');
+  const abs = Math.abs(value);
+  const body =
+    abs === 0
+      ? '0'
+      : abs >= 1000
+        ? Math.round(abs).toLocaleString('en-US')
+        : abs.toFixed(2).replace(/\.?0+$/, '');
   if (!withSign) return body;
   return value >= 0 ? `+${body}` : `-${body}`;
 }

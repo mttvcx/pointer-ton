@@ -36,16 +36,8 @@ function fmtSignedUsd(v: number | null | undefined): string {
 
 function fmtSolStat(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—';
-  const abs = Math.abs(v);
-  // Whole SOL for ≥1 (clean look); keep 1–2 decimals for sub-1 amounts so a real
-  // buy/sell doesn't collapse to a bare "0" (which reads as "o" in the card font).
-  const body =
-    abs >= 1
-      ? formatShareSolInteger(v, false)
-      : abs > 0
-        ? abs.toFixed(2).replace(/\.?0+$/, '') || '0'
-        : '0';
-  return `${body} SOL`;
+  // formatShareSolInteger now yields up to 2 decimals (trimmed) — e.g. 4.58 SOL.
+  return `${formatShareSolInteger(v, false)} SOL`;
 }
 
 function fmtPct(v: number | null | undefined): string | null {

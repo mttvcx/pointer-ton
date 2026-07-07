@@ -34,6 +34,7 @@ import {
 import { accentHex as pickAccentHex } from '@/lib/share/accentTokens';
 import { sharePeriodHeadline } from '@/lib/share/pnlShareFormat';
 import { formatShareSolAmount, formatShareUsdAmount } from '@/lib/share/pnlShareFormat';
+import { payloadToShareCardData } from '@/lib/share/pnlShareCardData';
 import { idbDeleteBlob, idbGetBlob, idbPutBlob } from '@/lib/share/localMediaDb';
 import { shortenAddress, SOL_MINT } from '@/lib/utils/addresses';
 import { useShareComposerState } from '@/hooks/useShareComposerState';
@@ -360,6 +361,20 @@ export function PnlShareComposer() {
         vid.onloadedmetadata = () => r();
         vid.onerror = () => j(new Error('video_load'));
       });
+      // Compute the card data with the SAME function the preview uses, so the
+      // exported bought/sold/period strings match exactly (SOL mode + real soldUsd),
+      // instead of the export recomputing them wrong.
+      const exportCardData = payloadToShareCardData({
+        payload: p,
+        overlay: composer.overlay,
+        backgroundId: composer.backgroundId,
+        amountPrimary: amountPrimaryText(),
+        referralCode: referralQ.data?.code ?? null,
+        chainTicker: composer.chainTicker as 'SOL' | 'USD',
+        solUsd: solUsdQ.data ?? null,
+        shareKind,
+        shareHeader,
+      });
       const blob = await exportShareVideoWebm({
         videoEl: vid,
         width: 1920,
@@ -380,7 +395,9 @@ export function PnlShareComposer() {
           referralCode: referralQ.data?.code ?? null,
           backgroundId: composer.backgroundId,
           momentBasis: shareAmountMotionBasis,
-          periodLabel: sharePeriodHeadline(shareKind, shareHeader, p.timeframe),
+          periodLabel: exportCardData.periodLabel,
+          totalBought: exportCardData.totalBought,
+          totalSold: exportCardData.totalSold,
           statBoughtLabel: p.statInvestedLabel ?? 'Total Bought',
           statSoldLabel: p.statPositionLabel ?? 'Total Sold',
           shareKind,
