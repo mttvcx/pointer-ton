@@ -30,6 +30,7 @@ import { ConciergeSheet } from '../components/ConciergeSheet';
 import { AccountDetailsSheet } from '../components/AccountDetailsSheet';
 import { PayeePickerSheet } from '../components/PayeePickerSheet';
 import { SendMoneySheet, type SendRecipient } from '../components/SendMoneySheet';
+import { CardsSheet } from '../components/CardsSheet';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
@@ -141,6 +142,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const [creditOpen, setCreditOpen] = useState(false);
   const [conciergeOpen, setConciergeOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [cardsOpen, setCardsOpen] = useState(false);
   const [payeeOpen, setPayeeOpen] = useState(false);
   const [sendTo, setSendTo] = useState<SendRecipient | null>(null);
   const spendMode = useSpendMode();
@@ -310,7 +312,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
 
         {/* Pointer Card — no card until you order one (the only KYC step) */}
         <Rise delay={170}>
-        <PressScale to={0.99} onPress={() => (fin.status === 'active' ? openPanel('card') : setActivating(true))} style={s.card}>
+        <PressScale to={0.99} onPress={() => (fin.status === 'active' ? setCardsOpen(true) : setActivating(true))} style={s.card}>
           <LinearGradient colors={['#123A2C', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           {/* silver brushed streak over the green — "some green some silver" */}
           <LinearGradient colors={['rgba(214,220,226,0.16)', 'rgba(255,255,255,0)', 'rgba(214,220,226,0.08)']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
@@ -520,6 +522,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
       </ScrollView>
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
+      <CardsSheet visible={cardsOpen} onClose={() => setCardsOpen(false)} />
       <CardTiersSheet visible={tiersOpen} onClose={() => setTiersOpen(false)} />
       <ConciergeSheet
         visible={conciergeOpen}
@@ -558,6 +561,11 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             amount={m.states[sheet.key]}
             pct={m.total > 0 ? m.states[sheet.key] / m.total : 0}
             onAction={() => {
+              if (sheet.key === 'spendable') {
+                closeSheet();
+                setCardsOpen(true);
+                return;
+              }
               const target = STATE_ACTION[sheet.key];
               if (target) openPanel(target);
               else {
