@@ -1040,12 +1040,11 @@
   background-color: rgb(255 255 255 / 0.05);
 }
 
-/* Action zone divider — vertical hairline before the V/MC/SOL block. */
-:root[data-action-divider='true'] .pulse-row-action {
-  border-left: 1px solid rgb(var(--border-subtle-rgb) / 1);
-}
-:root[data-action-divider='false'] .pulse-row-action {
-  border-left: 1px solid transparent;
+/* Action-zone divider removed — the vertical hairline before the V/MC/SOL
+   block was visual noise. Force it off regardless of the (removed) preference
+   attribute so it never renders. */
+.pulse-row-action {
+  border-left: none;
 }
 
 /*
