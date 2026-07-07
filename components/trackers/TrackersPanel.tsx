@@ -23,6 +23,8 @@ import { toast } from 'sonner';
 import { TrackerRulesSection } from '@/components/trackers/TrackerRulesSection';
 import { TrackerTradesFeed } from '@/components/trackers/TrackerTradesFeed';
 import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
+import { AppleEmoji } from '@/components/ui/AppleEmoji';
+import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { useEntityHover } from '@/lib/hooks/useEntityHover';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
@@ -1181,6 +1183,9 @@ function FragmentRow({
     ),
   );
 
+  const { resolveLabel, openLabelModal } = useWalletLabels();
+  const resolved = resolveLabel(tracker.walletAddress);
+  const rowEmoji = (resolved?.labeled ? resolved.emoji : null) ?? walletEmoji(tracker.walletAddress);
   const displayName = tracker.label?.trim() || shortenAddress(tracker.walletAddress, 6);
 
   return (
@@ -1207,9 +1212,19 @@ function FragmentRow({
         </td>
         <td className="max-w-[18rem] px-3 py-2 align-middle">
           <div className="flex min-w-0 items-center gap-1">
-            <span className="shrink-0 text-[13px] leading-none" aria-hidden>
-              {walletEmoji(tracker.walletAddress)}
-            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openLabelModal(tracker.walletAddress);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="shrink-0 rounded-md p-0.5 leading-none transition hover:bg-bg-hover hover:ring-1 hover:ring-white/10"
+              title="Set emoji & label"
+              aria-label="Set emoji and label"
+            >
+              <AppleEmoji emoji={rowEmoji} size={16} />
+            </button>
             <div className="min-w-0">
               <div className="truncate text-sm font-medium text-fg-primary">{displayName}</div>
               <div className="flex min-w-0 items-center gap-0.5 tabular-nums text-[10px] text-fg-muted">

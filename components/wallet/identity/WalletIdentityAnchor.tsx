@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useWalletLabels, labelColorClass } from '@/lib/hooks/useWalletLabels';
+import { AppleEmoji } from '@/components/ui/AppleEmoji';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useTraderMintHoverStats } from '@/lib/hooks/useTraderMintHoverStats';
 import { resolveWalletIdentityCore } from '@/lib/walletIdentity/resolveWalletIdentity';
@@ -186,11 +187,14 @@ export function WalletIdentityAnchor({
 
   const tokenSurface = tokenCtxFromRow ?? hoverTokenCtx ?? null;
 
+  // The label emoji renders as its own Apple/iOS glyph (below), so keep it OUT of
+  // the text string here — otherwise it'd fall back to the host-OS font.
+  const labelEmoji = !forcedLabel?.trim() && labelDisp?.labeled === true ? labelDisp.emoji : null;
   const displayText =
     forcedLabel?.trim()
       ? forcedLabel.trim()
       : labelDisp?.labeled === true
-      ? labelDisp.label + (labelDisp.emoji ? ` ${labelDisp.emoji}` : '')
+      ? labelDisp.label
       : addressFormat === 'axiom-ticker' && address.length >= 3
         ? address.slice(-3)
         : addressFormat === 'axiom' && address.length >= 6
@@ -423,6 +427,7 @@ export function WalletIdentityAnchor({
             onClick={() => onFilterMintTrades(address)}
           />
         ) : null}
+        {labelEmoji ? <AppleEmoji emoji={labelEmoji} size={12} className="shrink-0" /> : null}
         {triggerInner}
         {!badgeBeforeAddress ? badgeRow : null}
       </span>
