@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { CloseButton } from '@/components/ui/CloseButton';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
+import { useClientLaunch } from '@/lib/launch/useClientLaunch';
 import {
   launchpadsForChain,
   type LaunchPackageLaunchpad,
@@ -32,6 +33,7 @@ export function LaunchModal() {
   const { getAccessToken } = usePointerAuth();
   const [tonConnectUI] = useTonConnectUI();
   const tonWallet = useTonWallet();
+  const { deploySol } = useClientLaunch();
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
 
   const [deploying, setDeploying] = useState(false);
@@ -72,6 +74,43 @@ export function LaunchModal() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'ton_deploy_failed';
         toast.error(/reject|cancel|declin/i.test(msg) ? 'Deploy cancelled.' : 'TON deploy failed — try again.', { id: tt });
+      } finally {
+        setDeploying(false);
+      }
+      return;
+    }
+
+    // Solana launches deploy from the user's OWN wallet (client-side, Privy
+    // sign-only) — same "your main wallet is the deploy wallet" model as TON.
+    // The server only assembles the unsigned pump.fun/bonk tx; no server key.
+    if (d.chain === 'sol') {
+      setDeploying(true);
+      const tt = toast.loading(`Launching $${ticker} on Solana — approve in your wallet…`);
+      try {
+        const { mint } = await deploySol({
+          name: d.name,
+          symbol: ticker,
+          description: d.description,
+          imageUrl: d.imageUrls?.[0] ?? null,
+          twitter: d.twitterUrl ?? d.tweetUrl ?? null,
+          website: d.website ?? null,
+          launchpad: d.launchpad,
+          devBuyNative: d.launchBuySol,
+        });
+        toast.success(`Launched $${ticker} on Solana!`, {
+          id: tt,
+          description: `${mint.slice(0, 4)}…${mint.slice(-4)}`,
+          action: { label: 'Open', onClick: () => window.open(`https://solscan.io/token/${mint}`, '_blank', 'noopener,noreferrer') },
+        });
+        close();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'sol_deploy_failed';
+        const friendly = /reject|cancel|declin/i.test(msg)
+          ? 'Deploy cancelled.'
+          : /\s/.test(msg)
+            ? msg // friendly server message (e.g. "moonshot isn’t wired… pick pump.fun")
+            : 'Solana deploy failed — try again.';
+        toast.error(friendly, { id: tt });
       } finally {
         setDeploying(false);
       }
