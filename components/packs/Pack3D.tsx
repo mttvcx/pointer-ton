@@ -223,43 +223,56 @@ function buildArt(type: PackType): { tex: THREE.CanvasTexture; refresh: () => Pr
   return { tex, refresh };
 }
 
+/**
+ * Crumpled-paper heightmap: a Voronoi facet field. Each cell is a flat panel
+ * (its own tone) and cell boundaries are sharp creases — a dark valley with a
+ * bright ridge beside it, exactly how crushed paper/foil catches light. Used as
+ * bump + displacement so the surface physically facets.
+ */
 function buildCrumple(): THREE.CanvasTexture {
-  const S = 640;
+  const S = 384;
   const c = document.createElement('canvas');
   c.width = S;
   c.height = S;
   const ctx = c.getContext('2d')!;
   const rnd = (s: number) => Math.abs((Math.sin(s * 12.9898) * 43758.5453) % 1);
-  ctx.fillStyle = '#808080';
-  ctx.fillRect(0, 0, S, S);
-  // fine, low-contrast wrinkle speckle (foil, not camo)
-  for (let i = 0; i < 620; i++) {
-    const px = rnd(i + 1) * S;
-    const py = rnd(i * 1.7 + 3) * S;
-    const r = 4 + rnd(i * 3.1) * 20;
-    const grad = ctx.createRadialGradient(px, py, 0, px, py, r);
-    grad.addColorStop(0, i % 2 ? 'rgba(0,0,0,0.42)' : 'rgba(255,255,255,0.42)');
-    grad.addColorStop(1, 'rgba(128,128,128,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(px - r, py - r, r * 2, r * 2);
+  const N = 66;
+  const seeds: { x: number; y: number; b: number }[] = [];
+  for (let i = 0; i < N; i++) {
+    seeds.push({ x: rnd(i * 2 + 1) * S, y: rnd(i * 2 + 7) * S, b: 108 + rnd(i * 3 + 2) * 100 });
   }
-  // sharp thin foil creases
-  ctx.lineCap = 'round';
-  for (let i = 0; i < 90; i++) {
-    const x0 = rnd(i * 5 + 11) * S;
-    const y0 = rnd(i * 7 + 13) * S;
-    const ang = rnd(i * 2 + 17) * Math.PI * 2;
-    const len = 40 + rnd(i * 4) * 150;
-    ctx.strokeStyle = i % 2 ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.6)';
-    ctx.lineWidth = 0.8 + rnd(i * 9) * 1.6;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x0 + Math.cos(ang) * len, y0 + Math.sin(ang) * len);
-    ctx.stroke();
+  const img = ctx.createImageData(S, S);
+  const dat = img.data;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      let d1 = 1e18;
+      let d2 = 1e18;
+      let b1 = 128;
+      for (let k = 0; k < N; k++) {
+        const dx = x - seeds[k]!.x;
+        const dy = y - seeds[k]!.y;
+        const d = dx * dx + dy * dy;
+        if (d < d1) {
+          d2 = d1;
+          d1 = d;
+          b1 = seeds[k]!.b;
+        } else if (d < d2) {
+          d2 = d;
+        }
+      }
+      const edge = Math.sqrt(d2) - Math.sqrt(d1); // small near a cell boundary
+      let v = b1;
+      if (edge < 3.5) v = 42; // dark valley (the fold line)
+      else if (edge < 7.5) v = Math.min(240, b1 + 52); // bright ridge beside it
+      const idx = (y * S + x) * 4;
+      dat[idx] = dat[idx + 1] = dat[idx + 2] = v;
+      dat[idx + 3] = 255;
+    }
   }
+  ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(3, 4);
+  tex.repeat.set(2, 2.6);
   return tex;
 }
 
@@ -353,7 +366,7 @@ export function Pack3D({ type, className }: { type: PackType; className?: string
       iridescenceIOR: 1.35,
       iridescenceThicknessRange: [130, 800],
       bumpMap: crumple,
-      bumpScale: 0.08,
+      bumpScale: 0.16,
       envMapIntensity: 1.5,
     });
     const body = new THREE.Mesh(new RoundedBoxGeometry(W, H, D, 5, 0.05), foil);
@@ -369,14 +382,14 @@ export function Pack3D({ type, className }: { type: PackType; className?: string
 
     // printed front — crumpled foil surface (bump + real displacement warps the print)
     const artMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(W - 0.08, H - 0.42, 36, 52),
+      new THREE.PlaneGeometry(W - 0.08, H - 0.42, 72, 100),
       new THREE.MeshPhysicalMaterial({
         map: artTex,
         bumpMap: crumple,
-        bumpScale: 0.06,
+        bumpScale: 0.11,
         displacementMap: crumple,
-        displacementScale: 0.045,
-        displacementBias: -0.022,
+        displacementScale: 0.08,
+        displacementBias: -0.04,
         metalness: 0.35,
         roughness: 0.42,
         clearcoat: 1,
