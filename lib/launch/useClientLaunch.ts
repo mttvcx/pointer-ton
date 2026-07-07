@@ -3,8 +3,10 @@
 import { useCallback } from 'react';
 import { Keypair, VersionedTransaction } from '@solana/web3.js';
 import { useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { useWallets as useEvmWallets } from '@privy-io/react-auth';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useEmbeddedSolanaAddresses } from '@/lib/hooks/useEmbeddedSolanaAddresses';
+import type { EvmClientChain } from '@/lib/launch/deployEvmClient';
 import type { LaunchPackageLaunchpad } from '@/lib/launch/types';
 
 /**
@@ -32,6 +34,7 @@ export type ClientLaunchInput = {
 export function useClientLaunch() {
   const { signTransaction } = useSignTransaction();
   const { wallets } = useWallets();
+  const { wallets: evmWallets } = useEvmWallets();
   const embedded = useEmbeddedSolanaAddresses();
   const { getAccessToken } = usePointerAuth();
 
@@ -92,5 +95,26 @@ export function useClientLaunch() {
     [wallets, embedded, signTransaction, getAccessToken],
   );
 
-  return { deploySol };
+  const deployEvm = useCallback(
+    async (
+      chain: EvmClientChain,
+      input: Omit<ClientLaunchInput, 'devBuyNative'>,
+    ): Promise<{ tokenAddress: string; txHash: string; explorerUrl: string }> => {
+      const wallet = evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0];
+      if (!wallet) throw new Error('No EVM wallet connected');
+      const { deployEvmClient } = await import('@/lib/launch/deployEvmClient');
+      return deployEvmClient(wallet, chain, {
+        name: input.name,
+        symbol: input.symbol,
+        description: input.description,
+        imageUrl: input.imageUrl ?? null,
+        twitter: input.twitter ?? null,
+        website: input.website ?? null,
+        launchpad: input.launchpad,
+      });
+    },
+    [evmWallets],
+  );
+
+  return { deploySol, deployEvm };
 }

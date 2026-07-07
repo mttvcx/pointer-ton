@@ -5,7 +5,6 @@ import { BadgePercent, Layers, ListChecks, Loader2, Rocket, Split, Users, Zap } 
 import { toast } from 'sonner';
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { CloseButton } from '@/components/ui/CloseButton';
-import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useClientLaunch } from '@/lib/launch/useClientLaunch';
 import {
   launchpadsForChain,
@@ -17,7 +16,6 @@ import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverla
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
-import { shortenAddress } from '@/lib/utils/addresses';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { DEFAULT_LAUNCH_FEATURES, useLaunchModalStore, type LaunchFeatures } from '@/store/launchModal';
 import { useXMonitorSettings } from '@/store/xMonitorSettings';
@@ -30,10 +28,9 @@ export function LaunchModal() {
   const defaultBuySol = useAutoLaunchStore((s) => s.launchBuySol);
   const feePreset = useXMonitorSettings((s) => s.feePreset);
   const deployMode = useXMonitorSettings((s) => s.deployMode);
-  const { getAccessToken } = usePointerAuth();
   const [tonConnectUI] = useTonConnectUI();
   const tonWallet = useTonWallet();
-  const { deploySol } = useClientLaunch();
+  const { deploySol, deployEvm } = useClientLaunch();
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
 
   const [deploying, setDeploying] = useState(false);
@@ -117,40 +114,39 @@ export function LaunchModal() {
       return;
     }
 
-    setDeploying(true);
-    const t = toast.loading(`Launching $${ticker} on ${d.chain.toUpperCase()}…`);
-    try {
-      const token = await getAccessToken();
-      const res = await fetch('/api/launch/deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({
+    // EVM launches (ETH / Base / BNB) deploy from the user's OWN wallet too —
+    // Privy EVM wallet → viem → clanker factory (verified). Same model as SOL/TON.
+    if (d.chain === 'eth' || d.chain === 'bnb' || d.chain === 'base') {
+      setDeploying(true);
+      const tt = toast.loading(`Launching $${ticker} on ${d.chain.toUpperCase()} — approve in your wallet…`);
+      try {
+        const { tokenAddress, explorerUrl } = await deployEvm(d.chain, {
           name: d.name,
-          symbol: d.symbol,
+          symbol: ticker,
           description: d.description,
           imageUrl: d.imageUrls?.[0] ?? null,
           twitter: d.twitterUrl ?? d.tweetUrl ?? null,
           website: d.website ?? null,
-          chain: d.chain,
           launchpad: d.launchpad,
-          devBuyNative: d.launchBuySol,
-        }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; tokenAddress?: string; explorerUrl?: string; message?: string };
-      if (!res.ok || !json.ok) {
-        toast.error(json.message ?? 'Deploy failed — try again.', { id: t });
-        return;
+        });
+        toast.success(`Launched $${ticker} on ${d.chain.toUpperCase()}!`, {
+          id: tt,
+          description: `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`,
+          action: { label: 'Open', onClick: () => window.open(explorerUrl, '_blank', 'noopener,noreferrer') },
+        });
+        close();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'evm_deploy_failed';
+        const friendly = /reject|cancel|declin|denied/i.test(msg)
+          ? 'Deploy cancelled.'
+          : /\s/.test(msg)
+            ? msg // friendly message (e.g. "four.meme isn’t wired… pick clanker")
+            : `${d.chain.toUpperCase()} deploy failed — try again.`;
+        toast.error(friendly, { id: tt });
+      } finally {
+        setDeploying(false);
       }
-      toast.success(`Launched! ${shortenAddress(json.tokenAddress ?? '', 4)}`, {
-        id: t,
-        description: json.explorerUrl ? 'View on explorer' : undefined,
-        action: json.explorerUrl ? { label: 'Open', onClick: () => window.open(json.explorerUrl, '_blank', 'noopener,noreferrer') } : undefined,
-      });
-      close();
-    } catch {
-      toast.error('Network error — deploy not sent.', { id: t });
-    } finally {
-      setDeploying(false);
+      return;
     }
   };
 
