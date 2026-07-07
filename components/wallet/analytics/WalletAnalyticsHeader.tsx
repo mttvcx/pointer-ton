@@ -1,14 +1,17 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { explorerUrlForAccount } from '@/lib/chains/explorerUrls';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { CHAIN_ICON_PNG, CHAIN_TICKER } from '@/lib/chains/chainAssets';
 import type { WalletAnalyticsTimeframe } from '@/lib/wallet-analytics/types';
+import { useWalletLabels, labelColorClass } from '@/lib/hooks/useWalletLabels';
+import { AppleEmoji } from '@/components/ui/AppleEmoji';
 import { cn } from '@/lib/utils/cn';
-import { Search, RefreshCw, Pencil, X } from 'lucide-react';
+import { Search, RefreshCw, Pencil, X, Loader2 } from 'lucide-react';
 import { useUIStore } from '@/store/ui';
 
 const TF: WalletAnalyticsTimeframe[] = ['1d', '7d', '30d', 'max'];
@@ -45,18 +48,52 @@ export function WalletAnalyticsHeader({
   const explorer = explorerUrlForAccount(address);
   const chainTicker = CHAIN_TICKER[chain];
 
+  const { resolveLabel, saveLabel } = useWalletLabels();
+  const resolved = resolveLabel(address);
+  const tracked = resolved?.labeled ? resolved : null;
+  const [saving, setSaving] = useState(false);
+
+  // Enter in the name field → track the wallet immediately (name + yellow), no
+  // navigation away. Empty name is a no-op.
+  async function trackNow() {
+    const name = labelDraft.trim();
+    if (!name || saving) return;
+    setSaving(true);
+    try {
+      await saveLabel(address, { label: name, color: tracked?.color ?? 'yellow', emoji: tracked?.emoji ?? null });
+      toast.success('Wallet tracked');
+    } catch {
+      toast.error('Couldn’t track wallet — try again');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="shrink-0 border-b border-border-subtle px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-medium uppercase tracking-widest text-fg-muted">Track wallet</p>
           <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
-            <span
-              className="font-sans text-sm font-medium tabular-nums text-fg-primary"
-              title={address}
-            >
-              {formatHeaderAddress(address)}
-            </span>
+            {tracked ? (
+              <span
+                className={cn('inline-flex items-center gap-1 font-sans text-sm font-semibold', labelColorClass(tracked.color))}
+                title={address}
+              >
+                {tracked.emoji ? <AppleEmoji emoji={tracked.emoji} size={14} /> : null}
+                {tracked.label}
+                <span className="ml-1 rounded bg-white/5 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-fg-muted">
+                  tracked
+                </span>
+              </span>
+            ) : (
+              <span
+                className="font-sans text-sm font-medium tabular-nums text-fg-primary"
+                title={address}
+              >
+                {formatHeaderAddress(address)}
+              </span>
+            )}
             <CopyButton
               value={address}
               toastLabel="Address copied"
@@ -75,13 +112,24 @@ export function WalletAnalyticsHeader({
               <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
           </div>
-          <input
-            ref={renameRef}
-            value={labelDraft}
-            onChange={(e) => onLabelChange(e.target.value)}
-            placeholder="Private label (optional)"
-            className="mt-2 h-8 w-full max-w-md rounded-md border border-border-subtle bg-transparent px-2.5 text-xs text-fg-primary outline-none transition placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
-          />
+          <div className="relative mt-2 w-full max-w-md">
+            <input
+              ref={renameRef}
+              value={labelDraft}
+              onChange={(e) => onLabelChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void trackNow();
+                }
+              }}
+              placeholder={tracked ? 'Rename — Enter to save' : 'Name it & press Enter to track'}
+              className="h-8 w-full rounded-md border border-border-subtle bg-transparent px-2.5 pr-8 text-xs text-fg-primary outline-none transition placeholder:text-fg-muted focus:border-accent-primary/50 focus:outline-none"
+            />
+            {saving ? (
+              <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-fg-muted" />
+            ) : null}
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Link
               href={`/wallets?wallet=${encodeURIComponent(address)}`}

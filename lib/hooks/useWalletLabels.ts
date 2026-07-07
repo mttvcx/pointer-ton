@@ -41,6 +41,7 @@ export function useWalletLabels() {
   const { authenticated, getAccessToken } = usePointerAuth();
   const byAddress = useWalletLabelsStore((s) => s.byAddress);
   const hydrateFromApi = useWalletLabelsStore((s) => s.hydrateFromApi);
+  const upsertLocal = useWalletLabelsStore((s) => s.upsertLocal);
   const reset = useWalletLabelsStore((s) => s.reset);
   const setPendingModalAddress = useWalletLabelsStore((s) => s.setPendingModalAddress);
 
@@ -103,9 +104,36 @@ export function useWalletLabels() {
     hydrateFromApi(json.labels ?? []);
   }, [getAccessToken, hydrateFromApi]);
 
+  /** Save (track) a wallet with a name — optimistic upsert, defaults to yellow. */
+  const saveLabel = useCallback(
+    async (
+      address: string,
+      opts: { label: string; emoji?: string | null; color?: string },
+    ): Promise<WalletLabelResolved> => {
+      const token = await getAccessToken();
+      if (!token) throw new Error('no_token');
+      const res = await fetch('/api/wallet-labels', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          label: opts.label.trim(),
+          emoji: opts.emoji ?? null,
+          color: opts.color ?? 'yellow',
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { label?: WalletLabelResolved; error?: string };
+      if (!res.ok || !json.label) throw new Error(typeof json.error === 'string' ? json.error : 'save_failed');
+      upsertLocal(json.label);
+      return json.label;
+    },
+    [getAccessToken, upsertLocal],
+  );
+
   return {
     resolveLabel,
     refresh,
+    saveLabel,
     openLabelModal: setPendingModalAddress,
     byAddress,
   };
