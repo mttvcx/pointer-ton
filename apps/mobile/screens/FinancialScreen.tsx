@@ -34,6 +34,7 @@ import { CardsSheet } from '../components/CardsSheet';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
+import { demoRewards } from '../src/financial/rewards';
 import type { PulseBundle } from '../src/types';
 
 // The four states of capital — the product's spine.
@@ -73,12 +74,13 @@ function stateDetail(key: StateKey, m: CapitalModel): StateDetail {
       };
     case 'spendable':
       return {
-        blurb: 'Instantly ready to spend on your Pointer Card or send out. No unstaking, no waiting. This is your everyday balance.',
+        blurb: `Instantly ready to spend on your Pointer Card or send out — and it keeps earning ${m.spendableApy}% until the moment you tap. No unstaking, no waiting, no idle cash.`,
         rows: [
           { label: 'On your card', value: usd(m.states.spendable) },
+          { label: 'Earning while liquid', value: `${m.spendableApy}% APY` },
           { label: 'Card', value: `•••• ${m.cardLast4}` },
         ],
-        action: 'Manage card',
+        action: 'Manage cards',
       };
     case 'reserved':
       return {
@@ -178,6 +180,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const cents = String(Math.round((shownTotal - dollars) * 100) % 100).padStart(2, '0');
   const covered = m.taxReserve >= m.taxLiability;
   const apy = liveApy ?? m.apy; // prefer the live rate
+  const rewards = demoRewards(tier.cashbackCredit, apy); // cashback that compounds in yield
   const cardLast4 = fin.card?.last4 ?? m.cardLast4;
   const cardFrozen = fin.card?.state === 'frozen';
 
@@ -337,6 +340,10 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
             <View>
               <Text style={s.cardSpendLabel}>Spendable</Text>
               <Text style={s.cardSpend}>{usd(m.states.spendable)}</Text>
+              <View style={s.cardEarnRow}>
+                <Ionicons name="leaf" size={11} color={colors.bull} />
+                <Text style={s.cardEarn}>Earning {m.spendableApy}% until you spend</Text>
+              </View>
             </View>
             <View style={s.applePay}>
               <Ionicons name={fin.status === 'active' ? 'logo-apple' : 'add'} size={15} color="#000" />
@@ -436,25 +443,50 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           );
         })() : null}
 
-        {/* Smart Yield */}
+        {/* Money at work — every dollar earns: idle, spendable, even cashback */}
         <Rise delay={230}>
         <PressScale to={0.99} onPress={() => openPanel('yield')} style={s.panel}>
           <GlassFill />
           <View style={s.panelHead}>
             <View style={s.panelTitleRow}>
               <Ionicons name="leaf" size={16} color={colors.bull} />
-              <Text style={s.panelTitle}>Smart Yield</Text>
+              <Text style={s.panelTitle}>Money at work</Text>
             </View>
             <View style={s.apyPill}>
               <Text style={s.apyText}>{apy.toFixed(1)}% APY</Text>
             </View>
           </View>
           <Text style={s.yieldEarned}>{usd(earned)}</Text>
-          <Text style={s.yieldSub}>earned today · {usd(m.earnedTotal)} all-time</Text>
+          <Text style={s.yieldSub}>earning today · {usd(m.earnedTotal)} all-time</Text>
+
+          {/* the three streams that earn at once */}
+          <View style={s.earnRow}>
+            {[
+              { k: 'Spendable', v: `${m.spendableApy}%` },
+              { k: 'Idle cash', v: `${apy.toFixed(1)}%` },
+              { k: 'Cashback', v: `${rewards.rate}%` },
+            ].map((e) => (
+              <View key={e.k} style={s.earnChip}>
+                <Text style={s.earnChipVal}>{e.v}</Text>
+                <Text style={s.earnChipLabel}>{e.k}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* cashback that compounds instead of a dead points balance */}
+          <View style={s.cashbackRow}>
+            <View style={s.cashbackIcon}>
+              <Ionicons name="repeat" size={13} color={colors.accentGlow} />
+            </View>
+            <Text style={s.cashbackText}>
+              <Text style={s.cashbackStrong}>+{usd(rewards.thisMonthUsd)}</Text> cashback this month, auto-compounding in yield
+            </Text>
+          </View>
+
           <View style={{ marginTop: 12 }}>
             <Sparkline data={m.yieldHistory} />
           </View>
-          <Text style={s.yieldProj}>Projected ~{usd((m.states.earning * (apy / 100)) / 12, 0)}/mo at today’s rate</Text>
+          <Text style={s.yieldProj}>Trade, earn, spend — every dollar keeps working in one account.</Text>
         </PressScale>
         </Rise>
 
@@ -724,6 +756,8 @@ const s = StyleSheet.create({
   cardBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   cardSpendLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
   cardSpend: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 2 },
+  cardEarnRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  cardEarn: { color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: '600' },
   applePay: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9 },
   applePayText: { color: '#000', fontSize: 13.5, fontWeight: '700' },
 
@@ -735,7 +769,15 @@ const s = StyleSheet.create({
   apyText: { color: colors.bull, fontSize: 12.5, fontWeight: '800' },
   yieldEarned: { color: colors.fg, fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 12 },
   yieldSub: { color: colors.fgMuted, fontSize: 13, marginTop: 2 },
-  yieldProj: { color: colors.fgFaint, fontSize: 12.5, marginTop: 10 },
+  yieldProj: { color: colors.fgFaint, fontSize: 12.5, marginTop: 12, lineHeight: 17 },
+  earnRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  earnChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.md, backgroundColor: colors.bgRaised2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  earnChipVal: { color: colors.bull, fontSize: 16, fontWeight: '800' },
+  earnChipLabel: { color: colors.fgMuted, fontSize: 11.5, marginTop: 2 },
+  cashbackRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: colors.accentSoft },
+  cashbackIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accent + '22', alignItems: 'center', justifyContent: 'center' },
+  cashbackText: { color: colors.fgSecondary, fontSize: 12.5, flex: 1, lineHeight: 17 },
+  cashbackStrong: { color: colors.accentGlow, fontWeight: '800' },
 
   reserveRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 14, marginTop: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   reserveIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },

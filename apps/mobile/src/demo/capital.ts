@@ -23,6 +23,10 @@ export type CapitalModel = {
   states: CapitalStates;
   total: number;
   apy: number;
+  /** Yield the SPENDABLE balance earns while it waits — our "liquid cash" that
+   *  keeps earning right up to the moment you tap (ether.fi liquidUSD-style). A
+   *  touch below the idle rate since it stays instantly withdrawable. */
+  spendableApy: number;
   earnedToday: number;
   earnedTotal: number;
   yieldHistory: number[]; // normalized 0..1, oldest → newest
@@ -50,6 +54,7 @@ export function getDemoCapital(): CapitalModel {
     states,
     total,
     apy: 6.2,
+    spendableApy: 5.1,
     earnedToday: 18.21,
     earnedTotal: 412.66,
     yieldHistory: [0.22, 0.3, 0.28, 0.41, 0.38, 0.52, 0.49, 0.63, 0.6, 0.71, 0.68, 0.82, 0.79, 0.9, 0.96],
