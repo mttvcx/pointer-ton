@@ -511,7 +511,7 @@ function DockTrackerSlot({
         title={dockTrackerLabel(id, 'full')}
         aria-label={xMonitorOpen ? 'Close X monitor' : 'Open X monitor on Pulse'}
         onClick={() => {
-          if (activeChain !== 'sol') {
+          if (activeChain === 'ton') {
             openXMonitorOnPulse('left');
             return;
           }

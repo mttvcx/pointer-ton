@@ -75,9 +75,11 @@ export function DockXMonitorFloatingPanel() {
   const [, bumpResizeUi] = useState(0);
   const [layoutEpoch, bumpLayoutEpoch] = useState(0);
 
+  // X Monitor runs on SOL + EVM (eth/bnb/base); only TON has no launch path.
+  const xmChainSupported = activeChain !== 'ton';
   useEffect(() => {
-    if (activeChain !== 'sol' && open) setOpen(false);
-  }, [activeChain, open, setOpen]);
+    if (!xmChainSupported && open) setOpen(false);
+  }, [xmChainSupported, open, setOpen]);
 
   const readMetrics = () => {
     const { topbar, botbar } = readLayoutChromePx();
@@ -179,10 +181,10 @@ export function DockXMonitorFloatingPanel() {
   }, [setPosition, floatDimsFromRefs]);
 
   useEffect(() => {
-    if (!open || activeChain !== 'sol') return;
+    if (!open || !xmChainSupported) return;
     const id = requestAnimationFrame(() => requestAnimationFrame(floatingSnapOnce));
     return () => cancelAnimationFrame(id);
-  }, [open, activeChain, floatingSnapOnce]);
+  }, [open, xmChainSupported, floatingSnapOnce]);
 
   function beginDragFromHeader(e: React.PointerEvent) {
     const el = shellRef.current;
@@ -377,7 +379,7 @@ export function DockXMonitorFloatingPanel() {
     };
   }, [clampPanelSize, floatDimsFromRefs, floatingSnapOnce, onPulse, setDockSnap, setPanelSize, setPosition]);
 
-  if (!open || activeChain !== 'sol') return null;
+  if (!open || !xmChainSupported) return null;
 
   void layoutEpoch;
   const { botbar, maxFloatH, dockedTopPx } = readMetrics();
