@@ -31,6 +31,7 @@ import { EducationScreen } from './screens/EducationScreen';
 import { ReferralScreen } from './screens/ReferralScreen';
 import { SettingsScreen, type Section } from './screens/SettingsScreen';
 import { GlassNav, type NavTab } from './components/GlassNav';
+import { useFinancialTakeover } from './src/financial/store';
 import { ToastHost } from './components/Toast';
 import { colors } from './src/theme';
 import type { PulseBundle, PerpMarket } from './src/types';
@@ -86,6 +87,7 @@ function Shell() {
   // (revealing the screen you came from) instead of dumping you back on a tab.
   const [stack, setStack] = useState<StackRoute[]>([]);
   const [advanced, setAdvanced] = useState(false);
+  const finTakeover = useFinancialTakeover();
   const { opacity: modeOpacity, committed: adv } = useModeCrossfade(advanced);
   const [entered, setEntered] = useState(false);
   // Onboarding is remembered per account, so returning users skip straight to the
@@ -239,7 +241,7 @@ function Shell() {
         ))}
       </Animated.View>
 
-      {stack.length === 0 ? (
+      {stack.length === 0 && !finTakeover ? (
         <GlassNav
           active={tab}
           onSelect={go}

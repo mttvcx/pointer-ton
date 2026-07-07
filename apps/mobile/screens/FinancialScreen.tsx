@@ -18,7 +18,7 @@ import { colors, radius } from '../src/theme';
 import { showToast } from '../src/toast';
 import { group, usd } from '../src/format';
 import { getDemoCapital, type CapitalModel, type FinActivityKind, type StateKey as CapKey } from '../src/demo/capital';
-import { loadFinancialStatus, useFinancial, useFinancialEntered, enterFinancial } from '../src/financial/store';
+import { loadFinancialStatus, useFinancial, useFinancialEntered, enterFinancial, setFinancialTakeover } from '../src/financial/store';
 import { useYieldRate } from '../src/financial/hooks';
 import { CardTiersSheet } from '../components/CardTiersSheet';
 import { CreditModeSheet } from '../components/CreditModeSheet';
@@ -118,6 +118,14 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   useEffect(() => {
     loadFinancialStatus();
   }, []);
+
+  // Hide the tab bar while a focused finance flow (passcode / card activation) is
+  // up so its keypad/CTAs clear the floating nav. NOT the intro (keeps the nav so
+  // the user can leave). Always release the flag when this screen unmounts.
+  useEffect(() => {
+    setFinancialTakeover(activating || settingPasscode);
+    return () => setFinancialTakeover(false);
+  }, [activating, settingPasscode]);
 
   // Mutable so moving capital between states visibly rebalances the bar.
   const [m, setM] = useState<CapitalModel>(() => getDemoCapital());

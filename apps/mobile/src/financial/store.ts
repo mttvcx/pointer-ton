@@ -52,6 +52,27 @@ export function useFinancialEntered(): boolean {
   );
 }
 
+// "Takeover" = a focused full-screen finance flow (passcode / card activation)
+// is on top. The root hides the tab bar while this is true so the flow's bottom
+// content (keypad, CTAs) isn't overlapped by the floating nav island. NOT set for
+// the intro carousel — that keeps the nav so the user can bail to another tab.
+let takeover = false;
+export function setFinancialTakeover(v: boolean) {
+  if (takeover === v) return;
+  takeover = v;
+  emit();
+}
+export function useFinancialTakeover(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    () => takeover,
+    () => takeover,
+  );
+}
+
 // Deterministic-ish fresh virtual card for the simulated path.
 function makeDemoCard(tier: number): CardInfo {
   const last4 = String(1000 + Math.floor(Math.random() * 9000));

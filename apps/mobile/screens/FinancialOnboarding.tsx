@@ -54,7 +54,9 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
         style={s.metalGlow}
         pointerEvents="none"
       />
-      <View style={[s.introRoot, { paddingTop: insets.top + 22, paddingBottom: insets.bottom + 20 }]}>
+      {/* Keeps the tab bar (so the user can bail), so the CTA must clear the
+          64px nav island sitting at insets.bottom + 8. */}
+      <View style={[s.introRoot, { paddingTop: insets.top + 22, paddingBottom: insets.bottom + 86 }]}>
         {/* timed progress bars */}
         <View style={s.progressRow}>
           {SLIDES.map((_, i) => (
@@ -328,7 +330,7 @@ const s = StyleSheet.create({
   progressRow: { flexDirection: 'row', gap: 6, marginBottom: 26 },
   seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' },
   segFill: { height: 4, borderRadius: 2, backgroundColor: '#fff' },
-  tapZones: { position: 'absolute', top: 60, left: 0, right: 0, bottom: 160, flexDirection: 'row' },
+  tapZones: { position: 'absolute', top: 60, left: 0, right: 0, bottom: 210, flexDirection: 'row' },
   tapLeft: { flex: 1 },
   tapRight: { flex: 2 },
   slideBody: { flex: 1, alignItems: 'center', paddingTop: 8 },
