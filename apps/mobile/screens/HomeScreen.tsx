@@ -146,34 +146,42 @@ function SimpleHome({
   return (
     <Screen>
       <Animated.ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 64, paddingBottom: 130 }}
+        contentContainerStyle={{ paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[0]}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={q.isFetching && !q.isLoading} onRefresh={() => q.refetch()} tintColor={colors.fgMuted} />}
       >
-        {/* Header row: separate floating liquid-glass chips + a glass selector for
-            the active one (no green outline). */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleedChips}>
-          <PressScale onPress={() => setWatchOnly((v) => !v)} to={0.95} style={[s.chip, s.chipIcon, watchOnly && s.chipOn]}>
-            <GlassFill active={watchOnly} />
-            <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={colors.fg} />
-          </PressScale>
-          {CHIPS.map((c, i) => {
-            const on = !watchOnly && i === active;
-            return (
-              <PressScale key={c.label} onPress={() => { setWatchOnly(false); setActive(i); }} to={0.95} style={[s.chip, on && s.chipOn]}>
-                <GlassFill active={on} />
-                <Text style={[s.chipText, on && s.chipTextActive]}>{c.label}</Text>
-                {c.badge ? (
-                  <View style={s.newBadge}>
-                    <Text style={s.newText}>{c.badge}</Text>
-                  </View>
-                ) : null}
-              </PressScale>
-            );
-          })}
-        </ScrollView>
+        {/* Sticky category selector — floating glass chips that pin under the
+            header so the token list scrolls beneath them (and back above on
+            scroll-up). Frosts once it's stuck to the top. */}
+        <Animated.View style={[s.stickyChips, { paddingTop: insets.top + 58 }]}>
+          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { opacity: headerFade }]}>
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={s.stickyChipsTint} />
+          </Animated.View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollsToTop={false} contentContainerStyle={s.bleedChips}>
+            <PressScale onPress={() => setWatchOnly((v) => !v)} to={0.95} style={[s.chip, s.chipIcon, watchOnly && s.chipOn]}>
+              <GlassFill active={watchOnly} />
+              <Ionicons name={watchOnly ? 'star' : 'star-outline'} size={15} color={colors.fg} />
+            </PressScale>
+            {CHIPS.map((c, i) => {
+              const on = !watchOnly && i === active;
+              return (
+                <PressScale key={c.label} onPress={() => { setWatchOnly(false); setActive(i); }} to={0.95} style={[s.chip, on && s.chipOn]}>
+                  <GlassFill active={on} />
+                  <Text style={[s.chipText, on && s.chipTextActive]}>{c.label}</Text>
+                  {c.badge ? (
+                    <View style={s.newBadge}>
+                      <Text style={s.newText}>{c.badge}</Text>
+                    </View>
+                  ) : null}
+                </PressScale>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
 
         <View style={s.pad}>
           <View style={s.balanceRow}>
@@ -403,7 +411,9 @@ const s = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   bleed: { gap: 12, paddingTop: 12, paddingHorizontal: 18 },
-  bleedChips: { gap: 8, paddingTop: 18, paddingHorizontal: 18 },
+  bleedChips: { gap: 8, paddingVertical: 8, paddingHorizontal: 18 },
+  stickyChips: { zIndex: 10, overflow: 'hidden' },
+  stickyChipsTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,19,15,0.42)' },
 
   balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
   balanceLabel: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 4 },

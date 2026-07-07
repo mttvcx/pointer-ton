@@ -25,7 +25,11 @@ import { CreditModeSheet } from '../components/CreditModeSheet';
 import { VisaMark } from '../components/VisaMark';
 import { CardShine } from '../components/CardShine';
 import { PasscodeSetup } from '../components/PasscodeSetup';
-import { MetalButton } from '../components/MetalButton';
+import { StepRing } from '../components/ProgressRing';
+import { ConciergeSheet } from '../components/ConciergeSheet';
+import { AccountDetailsSheet } from '../components/AccountDetailsSheet';
+import { PayeePickerSheet } from '../components/PayeePickerSheet';
+import { SendMoneySheet, type SendRecipient } from '../components/SendMoneySheet';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById } from '../src/financial/tiers';
@@ -127,8 +131,14 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const [deposit, setDeposit] = useState(false);
   const [tiersOpen, setTiersOpen] = useState(false);
   const [creditOpen, setCreditOpen] = useState(false);
+  const [conciergeOpen, setConciergeOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [payeeOpen, setPayeeOpen] = useState(false);
+  const [sendTo, setSendTo] = useState<SendRecipient | null>(null);
   const spendMode = useSpendMode();
-  const tier = tierById(useTier());
+  const tierId = useTier();
+  const tier = tierById(tierId);
+  const conciergeUnlocked = tier.concierge != null;
   const borrowed = useBorrowed();
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const openState = (key: StateKey) => setSheet({ kind: 'state', key });
@@ -160,6 +170,20 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const apy = liveApy ?? m.apy; // prefer the live rate
   const cardLast4 = fin.card?.last4 ?? m.cardLast4;
   const cardFrozen = fin.card?.state === 'frozen';
+
+  // "Finalize setup" checklist — each step reflects a real signal, no fake
+  // completions. Passcode is done (they set one to get in); yield is on by
+  // default; capital shows done once there's a balance; ordering the card is the
+  // real remaining step. The card hides itself once everything's done.
+  const setupSteps = [
+    { key: 'passcode', label: 'Secure with a passcode', sub: 'Done', icon: 'lock-closed' as const, done: true, onPress: () => {} },
+    { key: 'capital', label: 'Add your capital', sub: 'Fund your account', icon: 'add-circle' as const, done: m.total > 0, onPress: () => setDeposit(true) },
+    { key: 'yield', label: 'Turn on Smart Yield', sub: `${apy.toFixed(1)}% APY on idle cash`, icon: 'leaf' as const, done: m.states.earning > 0, onPress: () => openPanel('yield') },
+    { key: 'card', label: 'Order your Pointer Card', sub: 'Spend anywhere', icon: 'card' as const, done: fin.status === 'active', onPress: () => setActivating(true) },
+  ];
+  const setupDone = setupSteps.filter((st) => st.done).length;
+  const setupComplete = setupDone >= setupSteps.length;
+  const nextStep = setupSteps.find((st) => !st.done);
 
   // First-run: a one-time PITCH (no ID) → the KYC-free dashboard. Borrowing +
   // spending in-app + sending need no verification; only ordering a card does, so
@@ -226,6 +250,56 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           </PressScale>
         </Rise>
 
+        {/* Quick actions — Add / Send / Details (XPlace-style row) */}
+        <Rise delay={130}>
+          <View style={s.quickRow}>
+            {[
+              { key: 'add', label: 'Add', icon: 'add' as const, onPress: () => setDeposit(true) },
+              { key: 'send', label: 'Send', icon: 'arrow-up' as const, onPress: () => setPayeeOpen(true) },
+              { key: 'details', label: 'Details', icon: 'document-text-outline' as const, onPress: () => setDetailsOpen(true) },
+            ].map((q) => (
+              <View key={q.key} style={s.quick}>
+                <PressScale to={0.9} onPress={q.onPress} style={s.quickBtn}>
+                  <LinearGradient colors={['#EDF0F3', '#C4CBD2', '#9BA3AC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  <LinearGradient colors={['rgba(255,255,255,0.6)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.quickSheen} pointerEvents="none" />
+                  <Ionicons name={q.icon} size={22} color="#0A0C10" />
+                </PressScale>
+                <Text style={s.quickLabel}>{q.label}</Text>
+              </View>
+            ))}
+          </View>
+        </Rise>
+
+        {/* Finalize setup — a progress-ring checklist that hides once complete */}
+        {!setupComplete ? (
+          <Rise delay={150}>
+            <PressScale to={0.99} onPress={() => nextStep?.onPress()} style={s.setup}>
+              <GlassFill />
+              <View style={s.setupHead}>
+                <StepRing done={setupDone} total={setupSteps.length} size={48} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.setupTitle}>Finish setting up</Text>
+                  <Text style={s.setupSub}>
+                    {nextStep ? `Next: ${nextStep.label.toLowerCase()}` : 'All set'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.fgMuted} />
+              </View>
+              <View style={s.setupSteps}>
+                {setupSteps.map((st) => (
+                  <PressScale key={st.key} to={0.98} onPress={() => { if (!st.done) st.onPress(); }} style={s.setupStep}>
+                    <View style={[s.setupCheck, st.done ? s.setupCheckDone : s.setupCheckIdle]}>
+                      <Ionicons name={st.done ? 'checkmark' : st.icon} size={13} color={st.done ? '#0A0C10' : '#D2D8DE'} />
+                    </View>
+                    <Text style={[s.setupStepLabel, st.done && s.setupStepLabelDone]} numberOfLines={1}>{st.label}</Text>
+                    {!st.done ? <Ionicons name="arrow-forward" size={14} color={colors.fgMuted} /> : null}
+                  </PressScale>
+                ))}
+              </View>
+            </PressScale>
+          </Rise>
+        ) : null}
+
         {/* Pointer Card — no card until you order one (the only KYC step) */}
         <Rise delay={170}>
         <PressScale to={0.99} onPress={() => (fin.status === 'active' ? openPanel('card') : setActivating(true))} style={s.card}>
@@ -281,6 +355,34 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Ionicons name="chevron-forward" size={15} color={colors.fgMuted} />
             </PressScale>
           </View>
+        </Rise>
+
+        {/* Concierge — premium human support */}
+        <Rise delay={210}>
+          <PressScale to={0.98} onPress={() => setConciergeOpen(true)} style={s.concierge}>
+            <GlassFill />
+            <View style={s.conciergeAvatars}>
+              {['#8A6FE8', '#3E9C7A', '#C6893F'].map((c, i) => (
+                <View key={c} style={[s.conciergeAvatar, { backgroundColor: c, marginLeft: i === 0 ? 0 : -10 }]}>
+                  <Text style={s.conciergeInitial}>{['M', 'R', 'K'][i]}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.conciergeTitle}>Concierge</Text>
+              <Text style={s.conciergeSub} numberOfLines={1}>
+                {conciergeUnlocked ? '24/7 priority support' : 'Unlock with a membership'}
+              </Text>
+            </View>
+            {conciergeUnlocked ? (
+              <View style={s.conciergeOnline}>
+                <View style={s.conciergeDot} />
+                <Text style={s.conciergeOnlineText}>Online</Text>
+              </View>
+            ) : (
+              <Ionicons name="lock-closed" size={14} color={colors.fgMuted} />
+            )}
+          </PressScale>
         </Rise>
 
         {/* Live credit line — only once you've borrowed */}
@@ -375,12 +477,6 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           <Text style={s.insightText}>{m.insights[0]}</Text>
           <Ionicons name="chevron-forward" size={15} color={colors.accentGlow} style={{ marginTop: 2 }} />
         </PressScale>
-
-        {/* Add capital */}
-        <MetalButton onPress={() => setDeposit(true)} style={{ marginTop: 16 }}>
-          <Ionicons name="add" size={19} color="#0A0C10" />
-          <Text style={[s.addText, { color: '#0A0C10' }]}>Add capital</Text>
-        </MetalButton>
         </Rise>
 
         {/* Activity */}
@@ -414,6 +510,26 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
       <CardTiersSheet visible={tiersOpen} onClose={() => setTiersOpen(false)} />
+      <ConciergeSheet
+        visible={conciergeOpen}
+        onClose={() => setConciergeOpen(false)}
+        unlocked={conciergeUnlocked}
+        onUpgrade={() => { setConciergeOpen(false); setTiersOpen(true); }}
+      />
+      <AccountDetailsSheet
+        visible={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        tierName={tier.name}
+        cardLast4={cardLast4}
+      />
+      <PayeePickerSheet
+        visible={payeeOpen}
+        onClose={() => setPayeeOpen(false)}
+        onPick={(r) => { setPayeeOpen(false); setSendTo(r); }}
+      />
+      {sendTo ? (
+        <SendMoneySheet visible={sendTo !== null} onClose={() => setSendTo(null)} recipient={sendTo} />
+      ) : null}
       <CreditModeSheet
         visible={creditOpen}
         onClose={() => setCreditOpen(false)}
@@ -522,6 +638,37 @@ const s = StyleSheet.create({
   legendVal: { color: colors.fg, fontSize: 13.5, fontWeight: '700' },
   moveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16, paddingVertical: 11, borderRadius: radius.pill, borderWidth: 1, borderColor: 'rgba(199,204,209,0.30)', backgroundColor: 'rgba(199,204,209,0.09)' },
   moveText: { color: '#D2D8DE', fontSize: 14, fontWeight: '700' },
+  // Quick actions (Add / Send / Details)
+  quickRow: { flexDirection: 'row', justifyContent: 'center', gap: 34, marginTop: 20 },
+  quick: { alignItems: 'center', gap: 8 },
+  quickBtn: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', shadowColor: '#C7CCD1', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  quickSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '55%' },
+  quickLabel: { color: colors.fgSecondary, fontSize: 13, fontWeight: '600' },
+
+  // Finalize setup
+  setup: { borderRadius: radius.lg, padding: 16, marginTop: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(199,204,209,0.22)' },
+  setupHead: { flexDirection: 'row', alignItems: 'center', gap: 13 },
+  setupTitle: { color: colors.fg, fontSize: 16.5, fontWeight: '800' },
+  setupSub: { color: colors.fgMuted, fontSize: 13, marginTop: 2 },
+  setupSteps: { marginTop: 14, gap: 2 },
+  setupStep: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 8 },
+  setupCheck: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  setupCheckDone: { backgroundColor: '#C7CCD1' },
+  setupCheckIdle: { borderWidth: 1.5, borderColor: 'rgba(199,204,209,0.35)' },
+  setupStepLabel: { color: colors.fg, fontSize: 14.5, fontWeight: '600', flex: 1 },
+  setupStepLabelDone: { color: colors.fgMuted, textDecorationLine: 'line-through' },
+
+  // Concierge strip
+  concierge: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.lg, padding: 14, marginTop: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  conciergeAvatars: { flexDirection: 'row', alignItems: 'center' },
+  conciergeAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.bg },
+  conciergeInitial: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  conciergeTitle: { color: colors.fg, fontSize: 15, fontWeight: '700' },
+  conciergeSub: { color: colors.fgMuted, fontSize: 12.5, marginTop: 1 },
+  conciergeOnline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  conciergeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.bull },
+  conciergeOnlineText: { color: colors.bull, fontSize: 12, fontWeight: '700' },
+
   dualRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   dualBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.lg, paddingHorizontal: 12, paddingVertical: 13, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   dualTitle: { color: colors.fg, fontSize: 14, fontWeight: '700' },

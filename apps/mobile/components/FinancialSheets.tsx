@@ -409,6 +409,7 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
         {STATE_META.map((st) => (
           <View key={st.key} style={s.chipCell}>
             <PressScale to={0.95} onPress={() => pickFrom(st.key)} style={[s.stateChip, from === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
+              <GlassFill active={from === st.key} />
               <View style={[s.chipDot, { backgroundColor: st.color }]} />
               <Text style={s.chipLabel} numberOfLines={1}>{st.label}</Text>
               <Text style={s.chipVal} numberOfLines={1}>{usd(states[st.key], 0)}</Text>
@@ -428,6 +429,7 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
           return (
             <View key={st.key} style={s.chipCell}>
               <PressScale to={0.95} onPress={() => pickTo(st.key)} style={[s.stateChip, disabled && { opacity: 0.35 }, to === st.key && { borderColor: st.color, backgroundColor: st.color + '1A' }]}>
+                <GlassFill active={to === st.key} />
                 <View style={[s.chipDot, { backgroundColor: st.color }]} />
                 <Text style={s.chipLabel} numberOfLines={1}>{st.label}</Text>
                 <Text style={s.chipVal} numberOfLines={1}>{usd(states[st.key], 0)}</Text>
@@ -443,6 +445,7 @@ export function MoveSheet({ states, onMove, onClose }: { states: CapitalStates; 
         <View style={s.pctRow}>
           {[0.25, 0.5, 0.75, 1].map((p) => (
             <PressScale key={p} to={0.93} onPress={() => setPct(p)} style={[s.pctChip, pct === p && s.pctChipOn]}>
+              <GlassFill active={pct === p} />
               <Text style={[s.pctText, pct === p && s.pctTextOn]}>{p === 1 ? 'Max' : `${p * 100}%`}</Text>
             </PressScale>
           ))}
@@ -522,7 +525,7 @@ const s = StyleSheet.create({
   // Move capital
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
   chipCell: { width: '50%', padding: 5 },
-  stateChip: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bgRaised2, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 12, borderWidth: 1.5, borderColor: colors.border },
+  stateChip: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: radius.md, overflow: 'hidden', paddingVertical: 12, paddingHorizontal: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.10)' },
   chipDot: { width: 9, height: 9, borderRadius: 5 },
   chipLabel: { color: colors.fg, fontSize: 13.5, fontWeight: '600', flex: 1 },
   chipVal: { color: colors.fgMuted, fontSize: 12.5, fontWeight: '600' },
@@ -530,8 +533,8 @@ const s = StyleSheet.create({
   amountBox: { borderRadius: radius.lg, overflow: 'hidden', padding: 18, marginTop: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   amountBig: { color: colors.fg, fontSize: 38, fontWeight: '800', letterSpacing: -1.2 },
   pctRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  pctChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border },
-  pctChipOn: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  pctChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.pill, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  pctChipOn: { borderColor: 'rgba(255,255,255,0.28)' },
   pctText: { color: colors.fgMuted, fontSize: 13.5, fontWeight: '700' },
   pctTextOn: { color: colors.accentGlow },
 
