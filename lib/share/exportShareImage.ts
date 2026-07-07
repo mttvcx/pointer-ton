@@ -27,6 +27,30 @@ async function renderSharePng(node: HTMLElement, options?: PngExportOptions): Pr
   });
 }
 
+/**
+ * Snapshot the REAL card node (the same one the image export + preview use) as a
+ * TRANSPARENT overlay — the `<video>`/`<img>` background is filtered out so only
+ * the card chrome (logo, PNL box, stats, footer, background gradient) is captured.
+ * The video exporter composites this over each moving frame, guaranteeing the
+ * export is pixel-identical to the maker instead of a hand-drawn reimplementation.
+ */
+export async function renderCardOverlayImage(node: HTMLElement): Promise<HTMLImageElement> {
+  const dataUrl = await toPng(node, {
+    cacheBust: true,
+    width: PNL_SHARE_CARD_REF.w,
+    height: PNL_SHARE_CARD_REF.h,
+    pixelRatio: 1,
+    // No backgroundColor → transparent. Drop only the <video> background (video
+    // export always uses a video) so the card overlay stays intact — including any
+    // logo <img>; the exporter draws the real moving video beneath it.
+    filter: (el) => (el as HTMLElement).tagName !== 'VIDEO',
+  });
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  return img;
+}
+
 export async function exportShareImagePng(
   node: HTMLElement,
   filename: string,

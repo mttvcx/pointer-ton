@@ -195,6 +195,13 @@ export async function exportShareVideoWebm(params: {
   customAudioUrl?: string | null;
   /** Gain for the custom audio track (0–1.5). */
   audioVolume?: number;
+  /**
+   * Pre-rendered TRANSPARENT overlay of the real card (via html-to-image). When
+   * provided, it's composited over each frame verbatim — pixel-identical to the
+   * maker + far faster than re-drawing. Falls back to the legacy canvas draw only
+   * if absent.
+   */
+  overlayImage?: HTMLImageElement | null;
   onProgress?: VideoExportProgress;
 }): Promise<Blob> {
   const {
@@ -209,6 +216,7 @@ export async function exportShareVideoWebm(params: {
     muted = false,
     customAudioUrl = null,
     audioVolume = 1,
+    overlayImage = null,
     onProgress,
   } = params;
 
@@ -225,14 +233,20 @@ export async function exportShareVideoWebm(params: {
   const fps = 30;
   const frameMs = 1000 / fps;
 
-  const solLogo = await preloadSolLogoForExport();
+  // Legacy canvas draw only needed when there's no pre-rendered overlay.
+  const solLogo = overlayImage ? null : await preloadSolLogoForExport();
 
   const drawFrame = (momentT: number) => {
     drawVideoCover(ctx, videoEl, width, height, videoPan, videoZoom);
-    drawPnlCardFrame(ctx, width, height, cardArgs, overlay, null, { tSec: momentT }, {
-      overlayOnly: true,
-      solLogo,
-    });
+    if (overlayImage) {
+      // The real card render (transparent PNG) — exact maker fidelity, one drawImage.
+      ctx.drawImage(overlayImage, 0, 0, width, height);
+    } else {
+      drawPnlCardFrame(ctx, width, height, cardArgs, overlay, null, { tSec: momentT }, {
+        overlayOnly: true,
+        solLogo,
+      });
+    }
   };
 
   const canvasStream = canvas.captureStream(fps);

@@ -22,7 +22,7 @@ import type { PnlMomentBasis } from '@/components/wallet/analytics/PnlMomentAmou
 import { ShareBackgroundPicker } from '@/components/wallet/analytics/ShareBackgroundPicker';
 import { ShareBackgroundPositionControls } from '@/components/wallet/analytics/ShareBackgroundPositionControls';
 import { ShareCustomizePanel } from '@/components/wallet/analytics/ShareCustomizePanel';
-import { copyShareImagePng, exportShareImagePng } from '@/lib/share/exportShareImage';
+import { copyShareImagePng, exportShareImagePng, renderCardOverlayImage } from '@/lib/share/exportShareImage';
 import { exportShareVideoWebm } from '@/lib/share/exportShareVideo';
 import { IDB_AUDIO_KEY, IDB_IMAGE_KEY, IDB_VIDEO_KEY } from '@/lib/share/sharePersistenceKeys';
 import {
@@ -375,11 +375,19 @@ export function PnlShareComposer() {
         shareKind,
         shareHeader,
       });
+      // Snapshot the REAL card (minus its <video>) → transparent overlay that the
+      // exporter composites over each frame. Pixel-identical to the maker; no more
+      // hand-drawn birdmark/font/metallic drift. `amountMotionFrozen` includes
+      // 'video' so the number is settled before the snapshot.
+      const overlayImage = cardRef.current
+        ? await renderCardOverlayImage(cardRef.current).catch(() => null)
+        : null;
       const blob = await exportShareVideoWebm({
         videoEl: vid,
         width: 1920,
         height: 1080,
         overlay: composer.overlay,
+        overlayImage,
         cardArgs: {
           ticker: p.tokenTicker,
           tokenName: p.tokenName,
@@ -498,7 +506,7 @@ export function PnlShareComposer() {
                 videoPaused
                 referralCode={referralQ.data?.code ?? null}
                 amountMotionBasis={shareAmountMotionBasis}
-                amountMotionFrozen={busy === 'png' || busy === 'copy'}
+                amountMotionFrozen={busy === 'png' || busy === 'copy' || busy === 'video'}
                 amountRevealKey={shareAmountRevealKey}
                 chainTicker={composer.chainTicker as 'SOL' | 'USD'}
                 solUsd={solUsdQ.data ?? null}
