@@ -28,6 +28,13 @@ export function LaunchModal() {
   const defaultBuySol = useAutoLaunchStore((s) => s.launchBuySol);
   const feePreset = useXMonitorSettings((s) => s.feePreset);
   const deployMode = useXMonitorSettings((s) => s.deployMode);
+  const deployWallet = useXMonitorSettings((s) => s.deployWallet);
+  const deployWalletKey = useXMonitorSettings((s) => s.deployWalletKey);
+  const signerLabel = deployWalletKey
+    ? 'your custom wallet'
+    : deployWallet
+      ? `${deployWallet.slice(0, 4)}…${deployWallet.slice(-4)}`
+      : 'your connected wallet';
   const [tonConnectUI] = useTonConnectUI();
   const tonWallet = useTonWallet();
   const { deploySol, deployEvm } = useClientLaunch();
@@ -431,7 +438,7 @@ export function LaunchModal() {
             )}
           </button>
           <p className="mt-2 text-center text-[9px] text-fg-muted">
-            Signs with the server launch wallet ·{' '}
+            Signs with <span className="text-fg-secondary">{signerLabel}</span> ·{' '}
             <span className="text-fg-secondary tabular-nums">{draft.launchBuySol || defaultBuySol}</span>{' '}
             {draft.chain === 'sol' ? 'SOL' : draft.chain === 'bnb' ? 'BNB' : draft.chain === 'ton' ? 'TON' : 'ETH'} dev buy ·{' '}
             <span className="uppercase text-fg-secondary">{feePreset}</span> fee
