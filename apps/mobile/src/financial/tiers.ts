@@ -15,7 +15,12 @@ export type TierId = 'basic' | 'silver' | 'gold' | 'platinum';
 export type Tier = {
   id: TierId;
   name: string;
-  annualFee: number;
+  annualFee: number; // kept at 0 — tiers are earned by usage, not bought
+  /** Unlock gate: 30-day trading volume (terminal + mobile) OR PTR Points. The
+   *  idea — an active trader already pays us fees, so their card tier is funded by
+   *  that volume, not a subscription. No token yet, so volume/points is the gate. */
+  volumeReq: number; // 30-day USD volume to unlock
+  pointsReq: number; // …or this many PTR Points (loyalty path)
   monthlyLimit: number;
   /** Cashback % in Credit mode (funded by interchange + borrow spread). */
   cashbackCredit: number;
@@ -36,6 +41,8 @@ export const TIERS: Tier[] = [
     id: 'basic',
     name: 'Basic',
     annualFee: 0,
+    volumeReq: 0,
+    pointsReq: 0,
     monthlyLimit: 2_000,
     cashbackCredit: 0.5,
     cashbackCash: 0.25,
@@ -51,7 +58,9 @@ export const TIERS: Tier[] = [
   {
     id: 'silver',
     name: 'Silver',
-    annualFee: 99,
+    annualFee: 0,
+    volumeReq: 25_000,
+    pointsReq: 10_000,
     monthlyLimit: 20_000,
     cashbackCredit: 1,
     cashbackCash: 0.5,
@@ -67,7 +76,9 @@ export const TIERS: Tier[] = [
   {
     id: 'gold',
     name: 'Gold',
-    annualFee: 249,
+    annualFee: 0,
+    volumeReq: 250_000,
+    pointsReq: 75_000,
     monthlyLimit: 200_000,
     cashbackCredit: 1.5,
     cashbackCash: 0.75,
@@ -83,7 +94,9 @@ export const TIERS: Tier[] = [
   {
     id: 'platinum',
     name: 'Platinum',
-    annualFee: 999,
+    annualFee: 0,
+    volumeReq: 1_000_000,
+    pointsReq: 300_000,
     monthlyLimit: 750_000,
     cashbackCredit: 2,
     cashbackCash: 1,
@@ -100,10 +113,30 @@ export const TIERS: Tier[] = [
 
 export const tierById = (id: TierId): Tier => TIERS.find((t) => t.id === id) ?? TIERS[0];
 
+/** Unlocked if the user's 30-day volume OR PTR Points clear the tier's gate. */
+export function tierUnlocked(t: Tier, volume30d: number, points: number): boolean {
+  return volume30d >= t.volumeReq || points >= t.pointsReq;
+}
+
+/** Highest tier the user has earned (TIERS is ordered basic → platinum). */
+export function highestUnlockedTier(volume30d: number, points: number): TierId {
+  let best: TierId = 'basic';
+  for (const t of TIERS) if (tierUnlocked(t, volume30d, points)) best = t.id;
+  return best;
+}
+
+/** Progress toward a tier (0..1) on whichever path — volume or points — is closer. */
+export function tierProgress(t: Tier, volume30d: number, points: number): number {
+  const vol = t.volumeReq > 0 ? volume30d / t.volumeReq : 1;
+  const pts = t.pointsReq > 0 ? points / t.pointsReq : 1;
+  return Math.max(0, Math.min(1, Math.max(vol, pts)));
+}
+
 /* ---------------- unit economics ---------------- */
 
 // Program-level assumptions (transparent so pricing can be defended + tuned).
 const INTERCHANGE = 0.010; // net to the program after Visa/issuer split (~1.0%)
+const TRADING_FEE_NET = 0.0015; // net Pointer take per $ of trading volume, after cashback/routing
 const BORROW_SPREAD = 0.020; // effective margin over Kamino on credit-mode spend
 const YIELD_SPREAD = 0.003; // small cut on idle collateral swept to yield
 const PROCESSING = 12; // KYC + issuing + support, per active member / yr
@@ -119,23 +152,31 @@ const LOUNGE_CAP = 10; // cost cap for "unlimited" tiers
 export type TierEconomics = {
   annualSpend: number;
   creditSpend: number;
-  revenue: { fee: number; interchange: number; borrowSpread: number; yieldSpread: number; total: number };
+  annualTradingVolume: number;
+  revenue: { tradingFees: number; interchange: number; borrowSpread: number; yieldSpread: number; total: number };
   cost: { cashback: number; perks: number; processing: number; total: number };
   marginUsd: number;
   marginPctOfSpend: number;
 };
 
-/** Per-member annual P&L for a tier under the assumptions above. */
+/** Per-member annual P&L. There's NO subscription fee — the perks are funded by
+ *  the trading fees an active user already generates (30-day gate × 12), plus card
+ *  interchange + the credit-mode borrow spread. This is why usage-gated tiers are
+ *  MORE profitable than a flat fee: a higher tier means more volume = more fees. */
 export function tierEconomics(t: Tier): TierEconomics {
   const spend = ANNUAL_SPEND[t.id];
   const creditMix = CREDIT_MIX[t.id];
   const creditSpend = spend * creditMix;
   const cashSpend = spend - creditSpend;
 
+  // A tier-holder sustains ~its 30-day volume gate → annualize it for fee revenue.
+  const annualTradingVolume = t.volumeReq * 12;
+  const tradingFees = annualTradingVolume * TRADING_FEE_NET;
+
   const interchange = spend * INTERCHANGE;
   const borrowSpread = creditSpend * BORROW_SPREAD;
   const yieldSpread = spend * 0.2 * YIELD_SPREAD; // ~20% of spend-equivalent sits idle earning
-  const revenueTotal = t.annualFee + interchange + borrowSpread + yieldSpread;
+  const revenueTotal = tradingFees + interchange + borrowSpread + yieldSpread;
 
   // Cashback is blended: higher rate on the credit portion, lower on cash.
   const cashback = creditSpend * (t.cashbackCredit / 100) + cashSpend * (t.cashbackCash / 100);
@@ -146,7 +187,8 @@ export function tierEconomics(t: Tier): TierEconomics {
   return {
     annualSpend: spend,
     creditSpend,
-    revenue: { fee: t.annualFee, interchange, borrowSpread, yieldSpread, total: revenueTotal },
+    annualTradingVolume,
+    revenue: { tradingFees, interchange, borrowSpread, yieldSpread, total: revenueTotal },
     cost: { cashback, perks, processing: PROCESSING, total: costTotal },
     marginUsd: revenueTotal - costTotal,
     marginPctOfSpend: spend > 0 ? ((revenueTotal - costTotal) / spend) * 100 : 0,

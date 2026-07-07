@@ -5,9 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { DragSheet } from './DragSheet';
 import { PressScale } from './PressScale';
 import { colors, radius } from '../src/theme';
-import { usd, group } from '../src/format';
+import { usd, group, compactUsd } from '../src/format';
 import { showToast } from '../src/toast';
-import { TIERS, tierById, type Tier } from '../src/financial/tiers';
+import { TIERS, tierById, tierUnlocked, tierProgress, type Tier } from '../src/financial/tiers';
+import { useVolume30d, usePtrPoints } from '../src/financial/usage';
 import { useTier, setTier } from '../src/financial/credit';
 import { useKycLevel, kycLevelNow, tierKyc, type KycLevel } from '../src/financial/kyc';
 import { KycSheet } from './KycSheet';
@@ -25,6 +26,8 @@ const CARD_W = W - 36; // full-bleed within the sheet's 18px padding
 export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const current = useTier();
   const kycLevel = useKycLevel();
+  const volume = useVolume30d();
+  const points = usePtrPoints();
   const currentIdx = Math.max(0, TIERS.findIndex((t) => t.id === current));
   const [idx, setIdx] = useState(currentIdx);
   const [kycNeed, setKycNeed] = useState<KycLevel | null>(null);
@@ -38,6 +41,11 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
   // A card needs KYC (lite/full); the borrow itself never does. If under-verified,
   // route through the KYC sheet first, then apply the tier.
   const upgrade = (tier: Tier) => {
+    if (!tierUnlocked(tier, volume, points)) {
+      const need = tier.volumeReq - volume;
+      showToast(`Trade ${compactUsd(Math.max(0, need))} more to unlock ${tier.name}`, { sub: `or reach ${group(String(tier.pointsReq))} PTR Points`, kind: 'info' });
+      return;
+    }
     const need = tierKyc(tier.id);
     if (kycLevel < need) {
       setPending(tier);
@@ -45,7 +53,7 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
       return;
     }
     setTier(tier.id);
-    showToast(`${tier.name} membership active`, { sub: tier.annualFee > 0 ? `${usd(tier.annualFee, 0)}/yr` : 'Free', kind: 'success' });
+    showToast(`${tier.name} membership active`, { sub: `${tier.cashbackCredit}% cashback · no fee`, kind: 'success' });
   };
   const onKycClose = () => {
     setKycNeed(null);
@@ -67,7 +75,7 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
         pointerEvents="none"
       />
       <Text style={s.title}>Pointer Card</Text>
-      <Text style={s.sub}>Free to start. Upgrade when your lifestyle catches up.</Text>
+      <Text style={s.sub}>No annual fee — tiers are earned by how much you trade.</Text>
 
       <ScrollView
         horizontal
@@ -82,7 +90,7 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
       >
         {TIERS.map((t) => (
           <View key={t.id} style={{ width: CARD_W, paddingHorizontal: 18 }}>
-            <TierCard tier={t} current={t.id === current} kycLevel={kycLevel} onUpgrade={() => upgrade(t)} />
+            <TierCard tier={t} current={t.id === current} kycLevel={kycLevel} volume={volume} points={points} onUpgrade={() => upgrade(t)} />
           </View>
         ))}
       </ScrollView>
@@ -94,8 +102,8 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
       </View>
 
       <Text style={s.foot}>
-        Cashback is funded by card interchange + the Credit-mode borrow spread — not the fee. Rates apply to your account,
-        use any card.
+        Your trading volume (terminal + mobile) unlocks your tier and funds the perks — no subscription. Cashback comes from
+        interchange + the Credit-mode borrow spread.
       </Text>
 
       <KycSheet visible={kycNeed !== null} onClose={onKycClose} requireLevel={kycNeed ?? 1} />
@@ -103,10 +111,13 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
   );
 }
 
-function TierCard({ tier, current, kycLevel, onUpgrade }: { tier: Tier; current: boolean; kycLevel: KycLevel; onUpgrade: () => void }) {
+function TierCard({ tier, current, kycLevel, volume, points, onUpgrade }: { tier: Tier; current: boolean; kycLevel: KycLevel; volume: number; points: number; onUpgrade: () => void }) {
   const needsKyc = kycLevel < tierKyc(tier.id);
   const { ink, sub } = faceInk(tier.gradient);
   const lightMetal = ink === '#0A0C10';
+  const unlocked = tierUnlocked(tier, volume, points);
+  const progress = tierProgress(tier, volume, points);
+  const volNeeded = Math.max(0, tier.volumeReq - volume);
 
   return (
     <View style={s.card}>
@@ -148,15 +159,39 @@ function TierCard({ tier, current, kycLevel, onUpgrade }: { tier: Tier; current:
       </View>
 
       <View style={s.feeRow}>
-        <View>
-          <Text style={s.fee}>{tier.annualFee > 0 ? usd(tier.annualFee, 0) : 'Free'}</Text>
-          {tier.annualFee > 0 ? <Text style={s.feeUnit}>per year</Text> : <Text style={s.feeUnit}>on signup</Text>}
+        <View style={{ flex: 1 }}>
+          {tier.volumeReq === 0 ? (
+            <>
+              <Text style={s.fee}>Included</Text>
+              <Text style={s.feeUnit}>free for everyone</Text>
+            </>
+          ) : unlocked ? (
+            <>
+              <Text style={[s.fee, { color: colors.bull }]}>Unlocked</Text>
+              <Text style={s.feeUnit}>earned by your volume</Text>
+            </>
+          ) : (
+            <>
+              <Text style={s.fee}>{compactUsd(tier.volumeReq)}</Text>
+              <Text style={s.feeUnit}>30-day volume · or {group(String(tier.pointsReq))} pts</Text>
+            </>
+          )}
         </View>
         <View style={s.cashbackPill}>
           <Text style={[s.cashbackPct, { color: tier.accent }]}>{tier.cashbackCredit}%</Text>
           <Text style={s.cashbackLabel}>cashback</Text>
         </View>
       </View>
+
+      {/* unlock progress — how close your usage is to earning this tier */}
+      {tier.volumeReq > 0 && !unlocked ? (
+        <View style={s.progressWrap}>
+          <View style={s.progressTrack}>
+            <View style={[s.progressFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: tier.accent }]} />
+          </View>
+          <Text style={s.progressText}>{compactUsd(volume)} traded · {compactUsd(volNeeded)} to go</Text>
+        </View>
+      ) : null}
 
       <Text style={s.tagline}>{tier.tagline}</Text>
 
@@ -174,17 +209,22 @@ function TierCard({ tier, current, kycLevel, onUpgrade }: { tier: Tier; current:
           <Ionicons name="checkmark-circle" size={17} color={colors.bull} />
           <Text style={s.ctaCurrentText}>Current plan</Text>
         </View>
+      ) : !unlocked ? (
+        <PressScale onPress={onUpgrade} to={0.98} style={[s.cta, s.ctaLocked]}>
+          <Ionicons name="lock-closed" size={15} color={colors.fgMuted} />
+          <Text style={s.ctaLockedText}>Keep trading to unlock</Text>
+        </PressScale>
       ) : (
         <PressScale onPress={onUpgrade} to={0.97} style={[s.cta, s.ctaMetal, { backgroundColor: tier.accent }]}>
           <LinearGradient colors={tier.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
           <LinearGradient colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.ctaSheen} pointerEvents="none" />
           {needsKyc ? <Ionicons name="shield-checkmark" size={15} color={darkText(tier.accent) ? '#0A0C10' : '#fff'} /> : null}
           <Text style={[s.ctaText, { color: darkText(tier.accent) ? '#0A0C10' : '#fff' }]}>
-            {needsKyc ? `Verify to get ${tier.name}` : tier.annualFee > 0 ? `Get ${tier.name}` : `Switch to ${tier.name}`}
+            {needsKyc ? `Verify to get ${tier.name}` : `Get ${tier.name}`}
           </Text>
         </PressScale>
       )}
-      {needsKyc ? <Text style={s.kycHint}>ID needed for the card — borrowing + in-app spend stays ID-free.</Text> : null}
+      {needsKyc && unlocked ? <Text style={s.kycHint}>ID needed for the card — borrowing + in-app spend stays ID-free.</Text> : null}
     </View>
   );
 }
@@ -240,7 +280,11 @@ const s = StyleSheet.create({
   cashbackPill: { alignItems: 'flex-end' },
   cashbackPct: { fontSize: 26, fontWeight: '800' },
   cashbackLabel: { color: colors.fgMuted, fontSize: 12 },
-  tagline: { color: colors.fgSecondary, fontSize: 13.5, marginTop: 10 },
+  progressWrap: { marginTop: 14 },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: colors.bgRaised2, overflow: 'hidden' },
+  progressFill: { height: 6, borderRadius: 3 },
+  progressText: { color: colors.fgMuted, fontSize: 12, fontWeight: '600', marginTop: 7 },
+  tagline: { color: colors.fgSecondary, fontSize: 13.5, marginTop: 12 },
 
   rows: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 4 },
   perk: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9 },
@@ -253,6 +297,8 @@ const s = StyleSheet.create({
   ctaText: { fontSize: 16, fontWeight: '800' },
   ctaCurrent: { backgroundColor: colors.bullSoft },
   ctaCurrentText: { color: colors.bull, fontSize: 15, fontWeight: '700' },
+  ctaLocked: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  ctaLockedText: { color: colors.fgMuted, fontSize: 15, fontWeight: '700' },
 
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 16 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.borderStrong },

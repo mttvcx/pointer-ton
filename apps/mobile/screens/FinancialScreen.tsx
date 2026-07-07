@@ -33,7 +33,8 @@ import { SendMoneySheet, type SendRecipient } from '../components/SendMoneySheet
 import { CardsSheet } from '../components/CardsSheet';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
-import { tierById } from '../src/financial/tiers';
+import { tierById, highestUnlockedTier, TIERS } from '../src/financial/tiers';
+import { useVolume30d, usePtrPoints } from '../src/financial/usage';
 import { demoRewards } from '../src/financial/rewards';
 import type { PulseBundle } from '../src/types';
 
@@ -151,6 +152,11 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const tierId = useTier();
   const tier = tierById(tierId);
   const conciergeUnlocked = tier.concierge != null;
+  const volume30d = useVolume30d();
+  const ptrPoints = usePtrPoints();
+  const unlockedTierId = highestUnlockedTier(volume30d, ptrPoints);
+  const order = TIERS.map((t) => t.id);
+  const canLevelUp = order.indexOf(unlockedTierId) > order.indexOf(tierId);
   const borrowed = useBorrowed();
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const openState = (key: StateKey) => setSheet({ kind: 'state', key });
@@ -370,9 +376,11 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Ionicons name="ribbon-outline" size={19} color={tier.accent} />
               <View style={{ flex: 1 }}>
                 <Text style={s.dualTitle}>{tier.name}</Text>
-                <Text style={s.dualSub} numberOfLines={1}>{tier.cashbackCredit}% cashback</Text>
+                <Text style={[s.dualSub, canLevelUp && { color: colors.bull, fontWeight: '700' }]} numberOfLines={1}>
+                  {canLevelUp ? `${tierById(unlockedTierId).name} unlocked →` : `${tier.cashbackCredit}% cashback`}
+                </Text>
               </View>
-              <Ionicons name="chevron-forward" size={15} color={colors.fgMuted} />
+              {canLevelUp ? <View style={s.levelDot} /> : <Ionicons name="chevron-forward" size={15} color={colors.fgMuted} />}
             </PressScale>
           </View>
         </Rise>
@@ -724,6 +732,7 @@ const s = StyleSheet.create({
   dualBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: radius.lg, paddingHorizontal: 12, paddingVertical: 13, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   dualTitle: { color: colors.fg, fontSize: 14, fontWeight: '700' },
   dualSub: { color: colors.fgMuted, fontSize: 11.5, marginTop: 1 },
+  levelDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.bull },
   statRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   statTile: { flex: 1, borderRadius: radius.lg, padding: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   statIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
