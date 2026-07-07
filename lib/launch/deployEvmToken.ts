@@ -4,26 +4,20 @@ import { createWalletClient, createPublicClient, http, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mainnet, bsc, base } from 'viem/chains';
 import type { LaunchPackageLaunchpad } from '@/lib/launch/types';
+import { deployEvmPad, evmPadNeedsBase64Image, evmPadNeedsMetadataUri } from '@/lib/launch/evmPads';
+import { buildEvmLaunchMeta } from '@/lib/launch/evmLaunchMeta';
 
 /**
- * EVM token deploy (ETH / BNB / Base) — the live counterpart to deployPumpToken.
- *
- * Signs with a server-held EVM burner (EVM_DEPLOY_WALLET_KEY) via viem, mirroring
- * the Solana deploy's key-never-touches-client model + explicit enable seatbelt.
- *
- * The last mile — the launchpad factory call — is intentionally a single seam
- * (`deployViaLaunchpad`). Each EVM launchpad (four.meme / clanker / flaunch / …)
- * has its own factory contract or API; we plug the verified address + ABI in
- * there rather than guessing (a wrong contract address burns real funds). Until a
- * factory is wired for the chosen launchpad, this throws `evm_launchpad_not_wired`
- * so nothing silently no-ops or misfires.
+ * EVM token deploy (ETH / BNB / Base) — the server (auto-launch) counterpart to
+ * deployPumpToken. Signs with the server EVM burner (EVM_DEPLOY_WALLET_KEY) via
+ * viem, then dispatches through the shared pad registry (deployEvmPad) — the same
+ * clanker / zora / flaunch integrations the client path uses. Pads that need
+ * pre-uploaded metadata get it server-side here; unwired pads throw honestly.
  */
 
 export type EvmDeployChain = 'eth' | 'bnb' | 'base';
 
 const VIEM_CHAIN: Record<EvmDeployChain, Chain> = { eth: mainnet, bnb: bsc, base: base };
-/** clanker-supported chain ids (literals to satisfy the SDK's chainId union). */
-const CLANKER_CHAIN_ID = { eth: 1, bnb: 56, base: 8453 } as const;
 
 /** RPC URL per chain — env override, else the chain's public default. */
 function rpcUrl(chain: EvmDeployChain): string {
@@ -81,41 +75,45 @@ function clients(chain: EvmDeployChain) {
  * factory (Base), flaunch (Base). Given `clients()` (a funded viem wallet), submit
  * the create tx and return the token address + tx hash.
  */
-async function deployViaLaunchpad(
-  chain: EvmDeployChain,
-  input: DeployEvmTokenInput,
-  c: ReturnType<typeof clients>,
-): Promise<DeployEvmTokenResult> {
-  // clanker — verified v4 factory (Ethereum / Base / BSC) via the maintained SDK,
-  // signed by the server burner. Mirrors the client-side deployEvmClient path.
-  if (input.launchpad === 'clanker') {
-    const chainId = CLANKER_CHAIN_ID[chain];
-    const { Clanker } = await import('clanker-sdk/v4');
-    const clanker = new Clanker({ wallet: c.wallet, publicClient: c.publicClient } as unknown as ConstructorParameters<typeof Clanker>[0]);
-    const socialMediaUrls = input.twitter ? [{ platform: 'x', url: input.twitter }] : [];
-    const res = await clanker.deploy({
-      name: input.name,
-      symbol: input.symbol,
-      image: input.imageUrl ?? '',
-      chainId,
-      tokenAdmin: c.account.address,
-      metadata: { description: input.description ?? '', socialMediaUrls, auditUrls: [] },
-    });
-    if (res.error) throw new Error(res.error.message || 'clanker_deploy_failed');
-    const waited = await res.waitForTransaction();
-    if (waited.error) throw new Error(waited.error.message || 'clanker_confirm_failed');
-    return { contractAddress: waited.address, txHash: res.txHash, chain };
-  }
-
-  // Other pads (four.meme / flaunch / uniswap / …) still need their verified
-  // factory wired — throw rather than guess a contract (a wrong address burns funds).
-  throw new Error(`evm_launchpad_not_wired:${input.launchpad}`);
-}
-
 export async function deployEvmToken(
   chain: EvmDeployChain,
   input: DeployEvmTokenInput,
 ): Promise<DeployEvmTokenResult> {
   const c = clients(chain); // throws if the burner key is missing/invalid
-  return deployViaLaunchpad(chain, input, c);
+
+  // Pads that need pre-uploaded metadata (zora JSON URI / flaunch base64 image)
+  // get it server-side here; clanker takes the image URL directly.
+  let metadataUri: string | null = null;
+  let base64Image: string | null = null;
+  if (evmPadNeedsMetadataUri(input.launchpad) || evmPadNeedsBase64Image(input.launchpad)) {
+    const meta = await buildEvmLaunchMeta({
+      name: input.name,
+      symbol: input.symbol,
+      description: input.description ?? null,
+      imageUrl: input.imageUrl ?? null,
+      twitter: input.twitter ?? null,
+      website: input.website ?? null,
+    });
+    metadataUri = meta.metadataUri;
+    base64Image = meta.base64Image;
+  }
+
+  const { tokenAddress, txHash } = await deployEvmPad({
+    launchpad: input.launchpad,
+    chain,
+    walletClient: c.wallet,
+    publicClient: c.publicClient,
+    account: c.account.address,
+    name: input.name,
+    symbol: input.symbol,
+    description: input.description,
+    imageUrl: input.imageUrl ?? null,
+    twitter: input.twitter ?? null,
+    metadataUri,
+    base64Image,
+  });
+
+  // Shape-compat: contractAddress is empty for pads that only return a tx (flaunch);
+  // callers fall back to the tx hash for the explorer link.
+  return { contractAddress: tokenAddress || txHash, txHash, chain };
 }

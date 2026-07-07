@@ -102,7 +102,32 @@ export function useClientLaunch() {
     ): Promise<{ tokenAddress: string; txHash: string; explorerUrl: string }> => {
       const wallet = evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0];
       if (!wallet) throw new Error('No EVM wallet connected');
-      const { deployEvmClient } = await import('@/lib/launch/deployEvmClient');
+      const { deployEvmClient, evmClientNeedsMeta } = await import('@/lib/launch/deployEvmClient');
+
+      // Pads like zora/flaunch need server-prepped metadata (JSON URI / base64
+      // image) — fetch it first (server-side dodges browser CORS), then deploy.
+      let metadataUri: string | null = null;
+      let base64Image: string | null = null;
+      if (evmClientNeedsMeta(input.launchpad)) {
+        const token = await getAccessToken();
+        const res = await fetch('/api/launch/evm-meta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            name: input.name,
+            symbol: input.symbol,
+            description: input.description ?? null,
+            imageUrl: input.imageUrl ?? null,
+            twitter: input.twitter ?? null,
+            website: input.website ?? null,
+          }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { metadataUri?: string | null; base64Image?: string | null; message?: string };
+        if (!res.ok) throw new Error(j.message ?? 'metadata_prep_failed');
+        metadataUri = j.metadataUri ?? null;
+        base64Image = j.base64Image ?? null;
+      }
+
       return deployEvmClient(wallet, chain, {
         name: input.name,
         symbol: input.symbol,
@@ -111,9 +136,11 @@ export function useClientLaunch() {
         twitter: input.twitter ?? null,
         website: input.website ?? null,
         launchpad: input.launchpad,
+        metadataUri,
+        base64Image,
       });
     },
-    [evmWallets],
+    [evmWallets, getAccessToken],
   );
 
   return { deploySol, deployEvm };

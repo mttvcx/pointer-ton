@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
+    "@flaunch/sdk": "^0.9.20",
     "@google/generative-ai": "^0.24.1",
     "@hpke/chacha20poly1305": "^1.8.0",
     "@hpke/core": "^1.9.0",
@@ -72,6 +73,7 @@
     "@tonconnect/ui-react": "^2.4.4",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
+    "@zoralabs/coins-sdk": "^0.7.1",
     "autoprefixer": "^10.5.0",
     "bs58": "^6.0.0",
     "clanker-sdk": "^4.2.16",

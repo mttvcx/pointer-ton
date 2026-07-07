@@ -4,28 +4,29 @@ import { createWalletClient, createPublicClient, http, custom } from 'viem';
 import { mainnet, bsc, base } from 'viem/chains';
 import type { ConnectedWallet } from '@privy-io/react-auth';
 import type { LaunchPackageLaunchpad } from '@/lib/launch/types';
+import {
+  deployEvmPad,
+  evmExplorerUrl,
+  evmPadNeedsBase64Image,
+  evmPadNeedsMetadataUri,
+  type EvmPadChain,
+} from '@/lib/launch/evmPads';
 
 /**
  * Client-side EVM launch — deploys from the USER's own wallet (their "main wallet
  * is the deploy wallet"), no server burner key. Builds a viem walletClient from
- * the Privy EVM wallet's EIP-1193 provider and drives the maintained clanker-sdk
- * (verified factory on-chain — we never hand-author a contract address). The
- * clanker v4 factory supports Ethereum (1), Base (8453) and BSC (56).
+ * the Privy EVM wallet's EIP-1193 provider and drives the shared pad registry
+ * (clanker / zora-creator / flaunch — verified SDKs, never a hand-authored
+ * contract). Pads that need pre-uploaded metadata (zora JSON URI, flaunch base64
+ * image) get it from /api/launch/evm-meta first (server-side, dodges CORS).
  *
- * Only the `clanker` pad is wired so far; other pads throw an honest "not wired"
- * so nothing silently misfires. Real-money path — test small before relying on it.
+ * Real-money path — test small before relying on it.
  */
 
-export type EvmClientChain = 'eth' | 'bnb' | 'base';
+export type EvmClientChain = EvmPadChain;
 
 const VIEM_CHAIN = { eth: mainnet, bnb: bsc, base: base } as const;
-/** clanker-supported chain ids (literals so they satisfy the SDK's chainId union). */
 const CHAIN_ID = { eth: 1, bnb: 56, base: 8453 } as const;
-const EXPLORER: Record<EvmClientChain, (a: string) => string> = {
-  eth: (a) => `https://etherscan.io/token/${a}`,
-  bnb: (a) => `https://bscscan.com/token/${a}`,
-  base: (a) => `https://basescan.org/token/${a}`,
-};
 
 export type DeployEvmClientInput = {
   name: string;
@@ -35,6 +36,9 @@ export type DeployEvmClientInput = {
   twitter?: string | null;
   website?: string | null;
   launchpad: LaunchPackageLaunchpad;
+  /** Pre-fetched server metadata (zora URI / flaunch base64 image), if needed. */
+  metadataUri?: string | null;
+  base64Image?: string | null;
 };
 
 export async function deployEvmClient(
@@ -42,11 +46,6 @@ export async function deployEvmClient(
   chain: EvmClientChain,
   input: DeployEvmClientInput,
 ): Promise<{ tokenAddress: string; txHash: string; explorerUrl: string }> {
-  // Only clanker is wired to a real factory so far — keep the rest honest.
-  if (input.launchpad !== 'clanker') {
-    throw new Error(`${input.launchpad} isn’t wired for launch yet — pick clanker.`);
-  }
-
   const chainId = CHAIN_ID[chain];
   // Make sure the Privy wallet is on the target chain before we build the client.
   await wallet.switchChain(chainId);
@@ -55,25 +54,25 @@ export async function deployEvmClient(
   const walletClient = createWalletClient({ account, chain: VIEM_CHAIN[chain], transport: custom(provider) });
   const publicClient = createPublicClient({ chain: VIEM_CHAIN[chain], transport: http() });
 
-  // Heavy SDK stays out of the main bundle. clanker-sdk bundles its own copy of
-  // viem, so its client types are structurally unrelated to the app's viem — cast
-  // across that version boundary (runtime shape is identical).
-  const { Clanker } = await import('clanker-sdk/v4');
-  const clanker = new Clanker({ wallet: walletClient, publicClient } as unknown as ConstructorParameters<typeof Clanker>[0]);
-
-  const socialMediaUrls = input.twitter ? [{ platform: 'x', url: input.twitter }] : [];
-  const res = await clanker.deploy({
+  const { tokenAddress, txHash } = await deployEvmPad({
+    launchpad: input.launchpad,
+    chain,
+    walletClient,
+    publicClient,
+    account,
     name: input.name,
     symbol: input.symbol,
-    image: input.imageUrl ?? '',
-    chainId,
-    tokenAdmin: account,
-    metadata: { description: input.description ?? '', socialMediaUrls, auditUrls: [] },
+    description: input.description,
+    imageUrl: input.imageUrl ?? null,
+    twitter: input.twitter ?? null,
+    metadataUri: input.metadataUri ?? null,
+    base64Image: input.base64Image ?? null,
   });
-  if (res.error) throw new Error(res.error.message || 'clanker_deploy_failed');
 
-  const waited = await res.waitForTransaction();
-  if (waited.error) throw new Error(waited.error.message || 'clanker_confirm_failed');
+  return { tokenAddress, txHash, explorerUrl: evmExplorerUrl(chain, tokenAddress, txHash) };
+}
 
-  return { tokenAddress: waited.address, txHash: res.txHash, explorerUrl: EXPLORER[chain](waited.address) };
+/** Whether a pad needs the server metadata step before the client can deploy it. */
+export function evmClientNeedsMeta(launchpad: LaunchPackageLaunchpad): boolean {
+  return evmPadNeedsMetadataUri(launchpad) || evmPadNeedsBase64Image(launchpad);
 }
