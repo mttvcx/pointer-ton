@@ -58,6 +58,14 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
 
   return (
     <DragSheet visible={visible} onClose={onClose}>
+      {/* silver sheet-glow — the finance section's metallic identity */}
+      <LinearGradient
+        colors={['rgba(214,220,226,0.20)', 'rgba(150,158,168,0.05)', 'transparent']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={s.sheetGlow}
+        pointerEvents="none"
+      />
       <Text style={s.title}>Pointer Card</Text>
       <Text style={s.sub}>Free to start. Upgrade when your lifestyle catches up.</Text>
 
@@ -97,27 +105,45 @@ export function CardTiersSheet({ visible, onClose }: { visible: boolean; onClose
 
 function TierCard({ tier, current, kycLevel, onUpgrade }: { tier: Tier; current: boolean; kycLevel: KycLevel; onUpgrade: () => void }) {
   const needsKyc = kycLevel < tierKyc(tier.id);
+  const { ink, sub } = faceInk(tier.gradient);
+  const lightMetal = ink === '#0A0C10';
 
   return (
     <View style={s.card}>
-      {/* metal card face */}
+      {/* metal card face — real brushed depth: base gradient + diagonal sheen +
+          brushed streaks + a moving shine + a polished top edge + a darkened
+          bottom edge so it reads like milled metal, not a flat swatch. */}
       <View style={s.face}>
         <LinearGradient colors={tier.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        {/* brushed anisotropic streaks */}
         <LinearGradient
-          colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0)']}
+          colors={lightMetal
+            ? ['rgba(255,255,255,0.5)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.28)', 'rgba(0,0,0,0.06)']
+            : ['rgba(255,255,255,0.22)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.12)', 'rgba(0,0,0,0.10)']}
+          locations={[0, 0.42, 0.66, 1]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 0.6, y: 1 }}
-          style={s.faceSheen}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
-        <CardShine intensity={0.4} />
+        {/* top-down polish */}
+        <LinearGradient
+          colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.14)']}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        <CardShine intensity={lightMetal ? 0.5 : 0.32} />
+        <View style={s.faceEdge} pointerEvents="none" />
         <View style={s.faceTop}>
-          <Text style={s.faceBrand}>pointer.</Text>
-          <Text style={s.faceTier}>{tier.name}</Text>
+          <Text style={[s.faceBrand, { color: ink }]}>pointer.</Text>
+          <Text style={[s.faceTier, { color: sub }]}>{tier.name}</Text>
         </View>
         <View style={s.faceBottom}>
-          <Text style={s.faceMode}>CREDIT</Text>
-          <VisaMark size={24} />
+          <Text style={[s.faceMode, { color: ink }]}>CREDIT</Text>
+          <VisaMark size={24} tint={ink} style={{ opacity: 0.92 }} />
         </View>
       </View>
 
@@ -149,7 +175,9 @@ function TierCard({ tier, current, kycLevel, onUpgrade }: { tier: Tier; current:
           <Text style={s.ctaCurrentText}>Current plan</Text>
         </View>
       ) : (
-        <PressScale onPress={onUpgrade} to={0.97} style={[s.cta, { backgroundColor: tier.accent }]}>
+        <PressScale onPress={onUpgrade} to={0.97} style={[s.cta, s.ctaMetal, { backgroundColor: tier.accent }]}>
+          <LinearGradient colors={tier.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+          <LinearGradient colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.ctaSheen} pointerEvents="none" />
           {needsKyc ? <Ionicons name="shield-checkmark" size={15} color={darkText(tier.accent) ? '#0A0C10' : '#fff'} /> : null}
           <Text style={[s.ctaText, { color: darkText(tier.accent) ? '#0A0C10' : '#fff' }]}>
             {needsKyc ? `Verify to get ${tier.name}` : tier.annualFee > 0 ? `Get ${tier.name}` : `Switch to ${tier.name}`}
@@ -171,28 +199,40 @@ function Perk({ icon, label, value, muted }: { icon: React.ComponentProps<typeof
   );
 }
 
-/** True when the accent is light enough to need dark button text. */
-function darkText(hex: string): boolean {
+/** Perceived luminance 0..255 of a hex color. */
+function lum(hex: string): number {
   const h = hex.replace('#', '');
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
-  return 0.299 * r + 0.587 * g + 0.114 * b > 150;
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/** True when the accent is light enough to need dark button text. */
+function darkText(hex: string): boolean {
+  return lum(hex) > 150;
+}
+
+/** Ink for the card face — dark on light metals (silver/chrome/gold), light on
+ *  dark metals (gunmetal/obsidian). Uses the average of the gradient stops. */
+function faceInk(gradient: [string, string]): { ink: string; sub: string } {
+  const avg = (lum(gradient[0]) + lum(gradient[1])) / 2;
+  return avg > 150 ? { ink: '#0A0C10', sub: 'rgba(10,12,16,0.60)' } : { ink: '#F4F6F8', sub: 'rgba(255,255,255,0.72)' };
 }
 
 const s = StyleSheet.create({
+  sheetGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 260 },
   title: { color: colors.fg, fontSize: 21, fontWeight: '800', textAlign: 'center' },
   sub: { color: colors.fgMuted, fontSize: 13.5, textAlign: 'center', marginTop: 6 },
 
-  card: { borderRadius: radius.lg, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', backgroundColor: colors.bgRaised },
-  face: { height: 150, borderRadius: 16, overflow: 'hidden', padding: 16, justifyContent: 'space-between' },
-  faceSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '70%' },
+  card: { borderRadius: radius.lg, padding: 16, borderWidth: 1, borderColor: 'rgba(214,220,226,0.18)', backgroundColor: colors.bgRaised },
+  face: { height: 150, borderRadius: 16, overflow: 'hidden', padding: 16, justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
+  faceEdge: { position: 'absolute', top: 0, left: 0, right: 0, height: 1.5, backgroundColor: 'rgba(255,255,255,0.55)' },
   faceTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  faceBrand: { color: '#0A0C10', fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
-  faceTier: { color: '#0A0C10', fontSize: 13, fontWeight: '700', opacity: 0.7 },
+  faceBrand: { fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
+  faceTier: { fontSize: 13, fontWeight: '700' },
   faceBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  faceMode: { color: '#0A0C10', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
-  faceVisa: { color: '#0A0C10', fontSize: 20, fontWeight: '800', fontStyle: 'italic', letterSpacing: 0.5 },
+  faceMode: { fontSize: 13, fontWeight: '700', letterSpacing: 1 },
 
   feeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   fee: { color: colors.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
@@ -208,6 +248,8 @@ const s = StyleSheet.create({
   perkValue: { color: colors.fg, fontSize: 13.5, fontWeight: '700' },
 
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.md, paddingVertical: 14, marginTop: 14 },
+  ctaMetal: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', shadowColor: '#C7CCD1', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
+  ctaSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '55%' },
   ctaText: { fontSize: 16, fontWeight: '800' },
   ctaCurrent: { backgroundColor: colors.bullSoft },
   ctaCurrentText: { color: colors.bull, fontSize: 15, fontWeight: '700' },

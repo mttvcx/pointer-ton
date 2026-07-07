@@ -43,8 +43,9 @@ export const TIERS: Tier[] = [
     loungesLabel: '—',
     loungeVisits: 0,
     fastTrack: 0,
-    gradient: ['#2C6BEF', '#1E3A8A'],
-    accent: '#3D8BFF',
+    // Brushed gunmetal — the entry metal (no blue; the finance section is silver).
+    gradient: ['#9AA2AD', '#5C636E'],
+    accent: '#D7DCE2',
     tagline: 'Spend without selling. Free to start.',
   },
   {
@@ -58,8 +59,9 @@ export const TIERS: Tier[] = [
     loungesLabel: '1 visit / year',
     loungeVisits: 1,
     fastTrack: 0,
-    gradient: ['#C7CCD1', '#8A9099'],
-    accent: '#C7CCD1',
+    // Polished chrome — the brightest silver.
+    gradient: ['#EDF1F5', '#AEB7C2'],
+    accent: '#EFF3F8',
     tagline: 'For the everyday spender.',
   },
   {
@@ -73,8 +75,9 @@ export const TIERS: Tier[] = [
     loungesLabel: '4 visits / year',
     loungeVisits: 4,
     fastTrack: 2,
-    gradient: ['#E7C567', '#B8860B'],
-    accent: '#E7C567',
+    // Champagne gold — warm metal, still in the metal family.
+    gradient: ['#EAD08A', '#B8860B'],
+    accent: '#F0D486',
     tagline: 'When your lifestyle catches up.',
   },
   {
@@ -88,8 +91,9 @@ export const TIERS: Tier[] = [
     loungesLabel: 'Unlimited',
     loungeVisits: Infinity,
     fastTrack: 5,
-    gradient: ['#D9DEE4', '#9BA3AD'],
-    accent: '#EAEEF2',
+    // Obsidian graphite with an icy sheen — the darkest, top metal.
+    gradient: ['#454B54', '#16191E'],
+    accent: '#E6EBF0',
     tagline: 'No limits. Keep your upside.',
   },
 ];

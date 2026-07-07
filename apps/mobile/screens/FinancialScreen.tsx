@@ -312,8 +312,11 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         <Rise delay={170}>
         <PressScale to={0.99} onPress={() => (fin.status === 'active' ? openPanel('card') : setActivating(true))} style={s.card}>
           <LinearGradient colors={['#123A2C', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-          <LinearGradient colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 0.8 }} style={s.cardGloss} pointerEvents="none" />
-          <CardShine />
+          {/* silver brushed streak over the green — "some green some silver" */}
+          <LinearGradient colors={['rgba(214,220,226,0.16)', 'rgba(255,255,255,0)', 'rgba(214,220,226,0.08)']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+          <LinearGradient colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 0.8 }} style={s.cardGloss} pointerEvents="none" />
+          <View style={s.cardEdge} pointerEvents="none" />
+          <CardShine intensity={0.4} />
           <View style={s.cardTop}>
             <View style={s.cardBrand}>
               <Logo size={22} style={{ tintColor: '#fff' }} />
@@ -698,7 +701,8 @@ const s = StyleSheet.create({
   creditStripSub: { color: colors.fgMuted, fontSize: 12, marginTop: 1 },
   creditStripNote: { color: colors.fgFaint, fontSize: 12, marginTop: 12 },
 
-  card: { borderRadius: radius.lg, overflow: 'hidden', marginTop: 22, padding: 18, borderWidth: 1, borderColor: colors.accent + '33', height: 190, justifyContent: 'space-between' },
+  card: { borderRadius: radius.lg, overflow: 'hidden', marginTop: 22, padding: 18, borderWidth: 1, borderColor: 'rgba(214,220,226,0.28)', height: 190, justifyContent: 'space-between', shadowColor: '#C7CCD1', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  cardEdge: { position: 'absolute', top: 0, left: 0, right: 0, height: 1.5, backgroundColor: 'rgba(255,255,255,0.4)' },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardBrandText: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
