@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import type { LaunchImageStrategy, LaunchPackageLaunchpad } from '@/lib/launch/types';
+import type { AppChainId } from '@/lib/chains/appChain';
 
 /** Advanced deploy feature toggles (J7-style cards). */
 export type LaunchFeatures = {
@@ -45,6 +46,8 @@ export type LaunchModalDraft = {
   name: string;
   symbol: string;
   description: string;
+  /** Deploy target chain — drives the deploy dispatcher (SOL pump.fun vs EVM). */
+  chain: AppChainId;
   launchpad: LaunchPackageLaunchpad;
   imageStrategy: LaunchImageStrategy;
   launchBuySol: number;

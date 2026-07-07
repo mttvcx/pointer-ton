@@ -1,9 +1,17 @@
 'use client';
 
-import type { LaunchPackage, LaunchPackageVariant, TweetLaunchInput } from '@/lib/launch/types';
+import { defaultLaunchpadForChain, launchpadsForChain, type LaunchPackage, type LaunchPackageVariant, type TweetLaunchInput } from '@/lib/launch/types';
 import type { LaunchModalDraft } from '@/store/launchModal';
 import { useLaunchModalStore } from '@/store/launchModal';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
+import { useUIStore } from '@/store/ui';
+import type { AppChainId } from '@/lib/chains/appChain';
+
+/** The deploy chain for a new launch — the active chain, but never TON (no launch path). */
+function deployChain(): AppChainId {
+  const c = useUIStore.getState().activeChain;
+  return c === 'ton' ? 'sol' : c;
+}
 
 export function variantToDraft(
   tweetSubject: string,
@@ -12,6 +20,12 @@ export function variantToDraft(
   confidence: number,
 ): LaunchModalDraft {
   const buySol = useAutoLaunchStore.getState().launchBuySol;
+  const chain = deployChain();
+  // Keep the AI's launchpad only if it's valid for this chain; else fall back.
+  const pads = launchpadsForChain(chain);
+  const launchpad = pads.includes(variant.suggestedLaunchpad)
+    ? variant.suggestedLaunchpad
+    : defaultLaunchpadForChain(chain);
   return {
     tweetSubject,
     tweetText: tweet.text,
@@ -21,7 +35,8 @@ export function variantToDraft(
     name: variant.suggestedName,
     symbol: variant.suggestedTicker,
     description: variant.narrative,
-    launchpad: variant.suggestedLaunchpad,
+    chain,
+    launchpad,
     imageStrategy: variant.imageStrategy,
     launchBuySol: buySol,
     confidence,
@@ -56,6 +71,7 @@ export function openLaunchFromPackage(
 /** Open launch modal with tweet context only (no AI package yet). */
 export function openLaunchFromTweet(tweetSubject: string, tweet: TweetLaunchInput): void {
   const buySol = useAutoLaunchStore.getState().launchBuySol;
+  const chain = deployChain();
   useLaunchModalStore.getState().openWithDraft({
     tweetSubject,
     tweetText: tweet.text,
@@ -65,7 +81,8 @@ export function openLaunchFromTweet(tweetSubject: string, tweet: TweetLaunchInpu
     name: '',
     symbol: '',
     description: tweet.text.slice(0, 500),
-    launchpad: 'pump.fun',
+    chain,
+    launchpad: defaultLaunchpadForChain(chain),
     imageStrategy: tweet.imageUrls?.[0] ? 'use_tweet_image' : 'no_image',
     launchBuySol: buySol,
     confidence: 0,
@@ -82,6 +99,7 @@ export function openLaunchFromSuggestion(
   focusField: 'name' | 'ticker',
 ): void {
   const buySol = useAutoLaunchStore.getState().launchBuySol;
+  const chain = deployChain();
   useLaunchModalStore.getState().openWithDraft({
     tweetSubject,
     tweetText: tweet.text,
@@ -91,7 +109,8 @@ export function openLaunchFromSuggestion(
     name: suggestion.name,
     symbol: suggestion.ticker.replace(/^\$/, '').toUpperCase(),
     description: tweet.text.slice(0, 500),
-    launchpad: 'pump.fun',
+    chain,
+    launchpad: defaultLaunchpadForChain(chain),
     imageStrategy: tweet.imageUrls?.[0] ? 'use_tweet_image' : 'no_image',
     launchBuySol: buySol,
     confidence: 0,

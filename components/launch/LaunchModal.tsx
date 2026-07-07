@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { BadgePercent, Layers, ListChecks, Rocket, Split, Users, Zap } from 'lucide-react';
 import { CloseButton } from '@/components/ui/CloseButton';
 import {
-  LAUNCH_PACKAGE_LAUNCHPADS,
+  launchpadsForChain,
   type LaunchPackageLaunchpad,
 } from '@/lib/launch/types';
 import { protocolBrand } from '@/lib/tokens/protocolBrand';
@@ -185,7 +185,7 @@ export function LaunchModal() {
           <div>
             <span className="mb-1 block text-[10px] font-medium text-fg-muted">Launchpad</span>
             <div className="flex flex-wrap gap-1.5">
-              {LAUNCH_PACKAGE_LAUNCHPADS.map((id) => {
+              {launchpadsForChain(draft.chain).map((id) => {
                 const brand = protocolBrand(id);
                 const active = draft.launchpad === id;
                 return (

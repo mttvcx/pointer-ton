@@ -5,6 +5,8 @@ import bs58 from 'bs58';
 import { getHeliusRpcUrl } from '@/lib/utils/constants';
 import { generateLaunchPackage } from '@/lib/launch/generateLaunchPackage';
 import type { TweetLaunchInput } from '@/lib/launch/types';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { deployEvmToken, evmAutoLaunchEnabled } from '@/lib/launch/deployEvmToken';
 
 /**
  * pump.fun token deploy via PumpPortal's local-transaction API. Signs with the
@@ -135,22 +137,45 @@ const launchedTweetIds = new Set<string>();
 export async function autoLaunchFromTweet(
   tweet: TweetLaunchInput,
   userId: string,
+  chain: AppChainId = 'sol',
 ): Promise<DeployPumpTokenResult | null> {
-  if (!autoLaunchDeployEnabled()) return null;
-  const tweetId = tweet.id ?? '';
-  if (tweetId && launchedTweetIds.has(tweetId)) return null;
-  if (tweetId) launchedTweetIds.add(tweetId);
+  const isEvm = chain === 'eth' || chain === 'bnb' || chain === 'base';
+  // Each chain has its own two-seatbelt enable gate.
+  if (isEvm ? !evmAutoLaunchEnabled() : !autoLaunchDeployEnabled()) return null;
 
-  const { package: pkg } = await generateLaunchPackage(tweet, userId);
+  // Dedupe per chain — the same tweet can launch on SOL and an EVM chain.
+  const dedupeKey = `${chain}:${tweet.id ?? ''}`;
+  if (tweet.id && launchedTweetIds.has(dedupeKey)) return null;
+  if (tweet.id) launchedTweetIds.add(dedupeKey);
+
+  const { package: pkg } = await generateLaunchPackage(tweet, userId, chain);
   if (!pkg.shouldLaunch || !pkg.suggestedName?.trim() || !pkg.suggestedTicker?.trim()) return null;
 
   const imageUrl = pkg.imageStrategy === 'use_tweet_image' ? (tweet.imageUrls ?? [])[0] ?? null : null;
+  const twitter = `https://x.com/${tweet.authorHandle.replace(/^@/, '')}`;
+
+  if (isEvm) {
+    // Shape-compat with the Solana result so callers stay unchanged:
+    // contractAddress→mint, txHash→signature.
+    const r = await deployEvmToken(chain, {
+      name: pkg.suggestedName,
+      symbol: pkg.suggestedTicker,
+      description: pkg.narrative,
+      imageUrl,
+      twitter,
+      website: null,
+      launchpad: pkg.suggestedLaunchpad,
+      devBuyNative: 0,
+    });
+    return { mint: r.contractAddress, signature: r.txHash };
+  }
+
   return deployPumpToken({
     name: pkg.suggestedName,
     symbol: pkg.suggestedTicker,
     description: pkg.narrative,
     imageUrl,
-    twitter: `https://x.com/${tweet.authorHandle.replace(/^@/, '')}`,
+    twitter,
     devBuySol: 0,
   });
 }
