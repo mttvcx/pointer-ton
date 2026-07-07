@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
-import { BadgePercent, Layers, ListChecks, Rocket, Split, Users, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BadgePercent, Layers, ListChecks, Loader2, Rocket, Split, Users, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import { CloseButton } from '@/components/ui/CloseButton';
+import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
   launchpadsForChain,
   type LaunchPackageLaunchpad,
@@ -24,10 +26,56 @@ export function LaunchModal() {
   const patchDraft = useLaunchModalStore((s) => s.patchDraft);
   const close = useLaunchModalStore((s) => s.close);
   const defaultBuySol = useAutoLaunchStore((s) => s.launchBuySol);
-  const deployWallet = useXMonitorSettings((s) => s.deployWallet);
   const feePreset = useXMonitorSettings((s) => s.feePreset);
   const deployMode = useXMonitorSettings((s) => s.deployMode);
+  const { getAccessToken } = usePointerAuth();
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
+
+  const [deploying, setDeploying] = useState(false);
+
+  const handleDeploy = async () => {
+    const d = useLaunchModalStore.getState().draft;
+    if (!d || deploying) return;
+    if (!d.name.trim() || !d.symbol.trim()) {
+      toast.error('Add a name and ticker before deploying.');
+      return;
+    }
+    setDeploying(true);
+    const t = toast.loading(`Launching $${d.symbol.replace(/^\$/, '').toUpperCase()} on ${d.chain.toUpperCase()}…`);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/launch/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          name: d.name,
+          symbol: d.symbol,
+          description: d.description,
+          imageUrl: d.imageUrls?.[0] ?? null,
+          twitter: d.twitterUrl ?? d.tweetUrl ?? null,
+          website: d.website ?? null,
+          chain: d.chain,
+          launchpad: d.launchpad,
+          devBuyNative: d.launchBuySol,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; tokenAddress?: string; explorerUrl?: string; message?: string };
+      if (!res.ok || !json.ok) {
+        toast.error(json.message ?? 'Deploy failed — try again.', { id: t });
+        return;
+      }
+      toast.success(`Launched! ${shortenAddress(json.tokenAddress ?? '', 4)}`, {
+        id: t,
+        description: json.explorerUrl ? 'View on explorer' : undefined,
+        action: json.explorerUrl ? { label: 'Open', onClick: () => window.open(json.explorerUrl, '_blank', 'noopener,noreferrer') } : undefined,
+      });
+      close();
+    } catch {
+      toast.error('Network error — deploy not sent.', { id: t });
+    } finally {
+      setDeploying(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -289,21 +337,31 @@ export function LaunchModal() {
         <footer className="shrink-0 border-t border-border-subtle px-4 py-3">
           <button
             type="button"
-            title="On-chain deploy coming soon"
+            onClick={handleDeploy}
+            disabled={deploying}
+            title={`Deploy $${draft.symbol.replace(/^\$/, '').toUpperCase() || 'token'} on ${draft.chain.toUpperCase()}`}
             className={cn(
-              'btn-press w-full rounded-sm border border-accent-primary/40 bg-accent-primary/20 py-2.5 text-[12px] font-semibold text-accent-primary',
+              'btn-press flex w-full items-center justify-center gap-2 rounded-sm border border-accent-primary/40 bg-accent-primary/20 py-2.5 text-[12px] font-semibold text-accent-primary',
               'transition-all duration-150 hover:-translate-y-0.5 hover:border-accent-primary/60 hover:bg-accent-primary/30',
               'hover:shadow-[0_6px_18px_-6px_rgb(var(--pulse-accent-rgb)/0.5)] active:translate-y-0',
+              'disabled:pointer-events-none disabled:opacity-60',
             )}
           >
-            Deploy <span className="font-normal text-fg-muted">· coming soon</span>
+            {deploying ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} /> Launching…
+              </>
+            ) : (
+              <>
+                <Rocket className="h-3.5 w-3.5" strokeWidth={2.5} /> Deploy on {draft.chain.toUpperCase()}
+              </>
+            )}
           </button>
           <p className="mt-2 text-center text-[9px] text-fg-muted">
-            Deploy from{' '}
-            <span className="font-mono text-fg-secondary">
-              {deployWallet ? shortenAddress(deployWallet, 4) : 'prompt at deploy'}
-            </span>{' '}
-            · {defaultBuySol} SOL dev buy · <span className="uppercase text-fg-secondary">{feePreset}</span> fee
+            Signs with the server launch wallet ·{' '}
+            <span className="text-fg-secondary tabular-nums">{draft.launchBuySol || defaultBuySol}</span>{' '}
+            {draft.chain === 'sol' ? 'SOL' : draft.chain === 'bnb' ? 'BNB' : draft.chain === 'ton' ? 'TON' : 'ETH'} dev buy ·{' '}
+            <span className="uppercase text-fg-secondary">{feePreset}</span> fee
           </p>
         </footer>
       </div>
