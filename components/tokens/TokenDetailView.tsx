@@ -37,7 +37,6 @@ import { formatRelativeShort } from '@/lib/format';
 import { InlineBarCell } from '@/components/tokens/cells/InlineBarCell';
 import { SortIndicator } from '@/components/tokens/cells/SortableTh';
 import { WalletIdentityAnchor } from '@/components/wallet/identity/WalletIdentityAnchor';
-import { KnownWalletActivityStrip } from '@/components/identity/KnownWalletActivityStrip';
 import { useUIStore } from '@/store/ui';
 import { ChainIcon } from '@/components/squads/ChainIcon';
 import { TerminalUsdPrice } from '@/lib/utils/terminalBalanceFormat';
@@ -671,7 +670,6 @@ export function TokenDetailView({
             >
               <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0.5 pt-0.5">
                 <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
-                <KnownWalletActivityStrip chain={activeChain} mint={mint} className="mx-2 mb-2" />
               </div>
               {tradesPanel ? (
                 <TokenLiveTradesSidePanel
