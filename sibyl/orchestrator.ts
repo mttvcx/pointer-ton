@@ -37,13 +37,28 @@ const RUNNERS: Record<Exclude<AgentName, 'judge'>, (ctx: AgentContext) => Promis
   analog: runAnalogAgent,
 };
 
+/** Human-readable labels for the live "thinking" trace (never names a model). */
+const AGENT_LABEL: Record<Exclude<AgentName, 'judge'>, string> = {
+  market: 'Reading market structure',
+  wallet: 'Tracing wallet flows',
+  narrative: 'Mapping the narrative',
+  social: 'Scanning social signal',
+  risk: 'Grading rug risk',
+  dune: 'Querying on-chain data',
+  analog: 'Finding historical analogs',
+};
+
+export type SibylStage = { key: string; label: string; status: 'active' | 'done' };
+
 export async function askSibyl(
   query: string,
   tier: PlanTier = 'FREE',
-  opts?: { userId?: string | null },
+  opts?: { userId?: string | null; onStage?: (s: SibylStage) => void },
 ): Promise<SibylAnswer> {
+  const onStage = opts?.onStage;
   const intent = classifyIntent(query);
   const mode = clampModeToPlan(intent.mode, tier);
+  onStage?.({ key: 'intent', label: 'Understanding your question', status: 'done' });
 
   const ctx: AgentContext = {
     query,
@@ -54,13 +69,30 @@ export async function askSibyl(
   };
 
   const specialists = intent.agents.filter((a): a is Exclude<AgentName, 'judge'> => a !== 'judge');
-  // Run specialists + recall prior memory of this subject in parallel.
+  // Run specialists + recall prior memory of this subject in parallel — emitting a
+  // real "active"/"done" stage per agent so the UI shows the actual work, not a
+  // canned loading animation.
   const [results, recall] = await Promise.all([
-    Promise.all(specialists.map((a) => RUNNERS[a](ctx).catch(() => null))).then((rs) => rs.filter((r): r is AgentResult => r != null)),
+    Promise.all(
+      specialists.map((a) => {
+        onStage?.({ key: a, label: AGENT_LABEL[a], status: 'active' });
+        return RUNNERS[a](ctx)
+          .then((r) => {
+            onStage?.({ key: a, label: AGENT_LABEL[a], status: 'done' });
+            return r;
+          })
+          .catch(() => {
+            onStage?.({ key: a, label: AGENT_LABEL[a], status: 'done' });
+            return null;
+          });
+      }),
+    ).then((rs) => rs.filter((r): r is AgentResult => r != null)),
     withTimeout(recallSubject(ctx).catch(() => null), 1500, null),
   ]);
 
+  onStage?.({ key: 'judge', label: 'Weighing the verdict', status: 'active' });
   const answer = await runJudge(query, mode, results);
+  onStage?.({ key: 'judge', label: 'Weighing the verdict', status: 'done' });
   if (recall && recall.seenCount > 0) answer.memory = { seenCount: recall.seenCount, firstSeen: recall.firstSeen };
 
   // Write-through into the flywheel (bounded so it never delays/breaks the response).

@@ -1,9 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { SibylAnswer, SibylCard } from '@/sibyl/types';
 import { CardRenderer } from '@/components/sibyl/SibylCards';
 import { sibylSerif } from '@/components/sibyl/fonts';
 import { TwitterProfileHoverTrigger } from '@/components/tokens/PulseRichPopovers';
+
+/** Reveal `text` character-by-character when `enabled` — the "AI writing it out" feel. */
+function useTypewriter(text: string, enabled: boolean): { shown: string; done: boolean } {
+  const [shown, setShown] = useState(enabled ? '' : text);
+  useEffect(() => {
+    if (!enabled) {
+      setShown(text);
+      return;
+    }
+    setShown('');
+    let i = 0;
+    const id = setInterval(() => {
+      i += 2;
+      setShown(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, 18);
+    return () => clearInterval(id);
+  }, [text, enabled]);
+  return { shown, done: shown.length >= text.length };
+}
 
 /** Cards read best in-flow in this order — token/chart lead, then structure. */
 const CARD_ORDER: SibylCard['type'][] = ['token', 'chart', 'holders', 'risk', 'table', 'dune', 'narrative', 'social', 'similar', 'timeline', 'wallet', 'kol'];
@@ -12,9 +33,10 @@ function orderCards(cards: SibylCard[]): SibylCard[] {
 }
 
 /** The CT-native answer block: verdict → confidence → why → action → inline cards. */
-export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
+export function SibylAnswerView({ answer, typeOut = false }: { answer: SibylAnswer; typeOut?: boolean }) {
   const conf = Math.round(answer.confidence);
   const cards = orderCards(answer.cards);
+  const { shown: verdictShown, done: verdictDone } = useTypewriter(answer.verdict, typeOut);
   return (
     <div className="space-y-4">
       {/* worked-through meta */}
@@ -41,7 +63,10 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
       {/* verdict — serif headline */}
       <div>
         <div className="s-faint text-[9px] font-semibold uppercase tracking-[0.18em]">Verdict</div>
-        <div className={`${sibylSerif.className} s-fg mt-0.5 text-[26px] leading-[1.15] tracking-tight`}>{answer.verdict}</div>
+        <div className={`${sibylSerif.className} s-fg mt-0.5 text-[26px] leading-[1.15] tracking-tight`}>
+          {verdictShown}
+          {typeOut && !verdictDone ? <span className="ml-0.5 inline-block animate-pulse">▋</span> : null}
+        </div>
       </div>
 
       {/* confidence */}
@@ -118,9 +143,21 @@ export function SibylAnswerView({ answer }: { answer: SibylAnswer }) {
       {/* sources */}
       <div className="s-border s-faint flex flex-wrap items-center gap-1.5 border-t pt-2.5 text-[10px]">
         <span className="uppercase tracking-wider">Sources</span>
-        {answer.sources.map((s) => (
-          <span key={s.label} className="s-panel2 s-muted rounded-md px-1.5 py-0.5">{s.label}</span>
-        ))}
+        {answer.sources.map((s) =>
+          s.url ? (
+            <a
+              key={s.label}
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="s-panel2 s-muted rounded-md px-1.5 py-0.5 underline-offset-2 transition hover:underline hover:text-[var(--s-accent)]"
+            >
+              {s.label}
+            </a>
+          ) : (
+            <span key={s.label} className="s-panel2 s-muted rounded-md px-1.5 py-0.5">{s.label}</span>
+          ),
+        )}
       </div>
     </div>
   );

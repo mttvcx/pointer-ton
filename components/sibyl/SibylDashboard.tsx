@@ -9,7 +9,9 @@ import { sibylSerif } from '@/components/sibyl/fonts';
 import { clearChats, exportChats, getChat, importChats, listChats, newChatId, saveChat, type StoredChat, type StoredMsg } from '@/components/sibyl/chatStore';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 
-type Msg = { id: string; role: 'user' | 'sibyl'; text?: string; answer?: SibylAnswer };
+type Msg = { id: string; role: 'user' | 'sibyl'; text?: string; answer?: SibylAnswer; typing?: boolean };
+/** A real backend pipeline stage (from the SSE stream) for the live thinking trace. */
+type LiveStage = { key: string; label: string; status: 'active' | 'done' };
 type Plan = { tier: string; label: string; price: number; maxMode: string };
 type ThemeChoice = 'system' | 'light' | 'dark';
 
@@ -243,6 +245,33 @@ function ThinkingTrace({ query }: { query: string }) {
   );
 }
 
+/* Live thinking trace driven by REAL backend pipeline stages (SSE), not a timer.
+   Each agent shows a spinner while active and a check when its work lands. */
+function LiveTrace({ stages }: { stages: LiveStage[] }) {
+  return (
+    <div className="media-glass rise flex w-full max-w-[560px] flex-col gap-2.5 rounded-2xl px-4 py-3.5 s-fg">
+      <div className="flex items-center gap-2.5">
+        <span className="h-4 w-4 animate-spin rounded-full border-[1.6px] s-border border-t-white/85" />
+        <span className="shimmer text-[13px] font-medium">Thinking…</span>
+      </div>
+      <div className="space-y-1 pt-0.5">
+        {stages.map((s) => (
+          <div key={s.key} className="rise flex items-center gap-2 text-[12px]">
+            {s.status === 'done' ? (
+              <span className="text-emerald-400">
+                <I d="M20 6 9 17l-5-5" className="h-3.5 w-3.5" />
+              </span>
+            ) : (
+              <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] s-border border-t-white/80" />
+            )}
+            <span className={s.status === 'done' ? 's-faint' : 's-fg'}>{s.label}…</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* Voice-mode overlay: white pulse rippling outward through a pixel grid. */
 /** A single account-menu row — renders as a link when `href` is set, else a button. */
 function MenuItem({ icon, children, onClick, href, sub }: { icon: React.ReactNode; children: React.ReactNode; onClick?: () => void; href?: string; sub?: boolean }) {
@@ -301,6 +330,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [liveStages, setLiveStages] = useState<LiveStage[]>([]);
   const [status, setStatus] = useState<{ modelMock: boolean; liveProviders: number; memory: { scans: number; entities: number; resolved: number } | null } | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [menu, setMenu] = useState<null | 'model' | 'account' | 'upgrade' | 'plus' | 'plan'>(null);
@@ -511,27 +541,69 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
     setAttachment(null);
     setMessages((m) => [...m, { id: nid(), role: 'user', text: query }]);
     setLoading(true);
+    setLiveStages([]);
     try {
       const token = await getAccessToken().catch(() => null);
-      const res = await fetch('/api/sibyl/chat', {
+      // Stream: real pipeline stages arrive as they happen, then the final answer.
+      const res = await fetch('/api/sibyl/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ query }),
       });
-      if (res.status === 429) {
-        const err = (await res.json().catch(() => ({}))) as { message?: string };
-        setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: err.message ?? 'Daily scan limit reached. Upgrade for more.' }]);
-        setUpgradeOpen(true);
-        void refreshUsage();
-        return;
+      if (!res.ok || !res.body) throw new Error('stream_failed');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let gotAnswer = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop() ?? '';
+        for (const chunk of chunks) {
+          const ev = chunk.match(/^event: (.+)$/m)?.[1];
+          const dataLine = chunk.match(/^data: ([\s\S]+)$/m)?.[1];
+          if (!ev || !dataLine) continue;
+          let data: Record<string, unknown>;
+          try {
+            data = JSON.parse(dataLine);
+          } catch {
+            continue;
+          }
+          if (ev === 'stage') {
+            const stage = data as unknown as LiveStage;
+            setLiveStages((prev) => {
+              const i = prev.findIndex((s) => s.key === stage.key);
+              if (i >= 0) {
+                const next = [...prev];
+                next[i] = stage;
+                return next;
+              }
+              return [...prev, stage];
+            });
+          } else if (ev === 'answer') {
+            gotAnswer = true;
+            const u = data.usage as { used: number; cap: number; remaining: number | null } | undefined;
+            if (u) setUsage((cur) => ({ used: u.used, cap: u.cap, remaining: u.remaining, tokenUsage: cur?.tokenUsage ?? '' }));
+            const answer = data.answer as SibylAnswer | undefined;
+            setMessages((m) => [...m, answer ? { id: nid(), role: 'sibyl', answer, typing: true } : { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+          } else if (ev === 'cap') {
+            setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: (data.message as string) ?? 'Daily scan limit reached. Upgrade for more.' }]);
+            setUpgradeOpen(true);
+            void refreshUsage();
+          } else if (ev === 'error') {
+            setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+          }
+        }
       }
-      const data = (await res.json()) as { answer?: SibylAnswer; usage?: { used: number; cap: number; remaining: number | null } };
-      if (data.usage) setUsage((u) => ({ used: data.usage!.used, cap: data.usage!.cap, remaining: data.usage!.remaining, tokenUsage: u?.tokenUsage ?? '' }));
-      setMessages((m) => [...m, data.answer ? { id: nid(), role: 'sibyl', answer: data.answer } : { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+      if (!gotAnswer) setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
     } catch {
       setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Network error.' }]);
     } finally {
       setLoading(false);
+      setLiveStages([]);
       setMessages((cur) => {
         persist(id!, cur, query);
         return cur;
@@ -770,11 +842,17 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                   </div>
                 ) : (
                   <div key={m.id} className="s-glass s-border s-fg rise rounded-2xl border p-5">
-                    {m.answer ? <SibylAnswerView answer={m.answer} /> : <div className="s-muted text-[13px]">{m.text}</div>}
+                    {m.answer ? <SibylAnswerView answer={m.answer} typeOut={m.typing} /> : <div className="s-muted text-[13px]">{m.text}</div>}
                   </div>
                 ),
               )}
-              {loading ? <ThinkingTrace query={scans.length ? (scans[scans.length - 1]!.text ?? '') : input} /> : null}
+              {loading ? (
+                liveStages.length ? (
+                  <LiveTrace stages={liveStages} />
+                ) : (
+                  <ThinkingTrace query={scans.length ? (scans[scans.length - 1]!.text ?? '') : input} />
+                )
+              ) : null}
             </div>
           </div>
 
