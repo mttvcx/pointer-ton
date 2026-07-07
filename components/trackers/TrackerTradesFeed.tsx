@@ -654,7 +654,6 @@ export function TrackerTradesFeed({ className, zebra = false }: { className?: st
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { authenticated, getAccessToken } = usePointerAuth();
   const activeChain = useUIStore((s) => s.activeChain);
-  const isEvm = activeChain === 'eth' || activeChain === 'bnb' || activeChain === 'base';
   const preview = useWalletTrackerPreviewStore((s) => s.preview);
   const columns = useTradesTableSettings((s) => s.columns);
   const amountUnit = useTradesTableSettings((s) => s.amountUnit);
@@ -735,11 +734,6 @@ export function TrackerTradesFeed({ className, zebra = false }: { className?: st
           <p className="px-3 py-6 text-center text-[11px] text-fg-muted">Loading trades…</p>
         ) : q.isError ? (
           <p className="px-3 py-6 text-center text-[11px] text-fg-muted">Couldn&apos;t load trades — retry shortly.</p>
-        ) : trades.length === 0 && isEvm ? (
-          <p className="px-3 py-6 text-center text-[11px] leading-relaxed text-fg-muted">
-            {activeChain.toUpperCase()} tracked wallets &amp; KOLs are live — the {activeChain.toUpperCase()} trade
-            feed is being wired to its data source.<br />Your EVM wallets and groups already work here.
-          </p>
         ) : trades.length === 0 ? (
           <p className="px-3 py-6 text-center text-[11px] leading-relaxed text-fg-muted">
             No trades from your tracked wallets yet.<br />They&apos;ll stream in here as your wallets trade.
