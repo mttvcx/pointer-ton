@@ -360,9 +360,11 @@ export function Topbar() {
     <header
       className={cn(
         'sticky top-0 isolate box-border grid min-h-[var(--app-topbar-h)] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-white/[0.06] bg-bg-base px-2 py-0.5 pt-[env(safe-area-inset-top,0px)] sm:gap-2 sm:px-2.5 sm:py-1',
-        // While the account menu is open, lift the whole header stacking context
-        // above the floating docks (z-221) so its scrim can dim them too.
-        avatarMenuOpen ? 'z-[300]' : 'z-[100]',
+        // The header holds critical controls (chain, wallet, account) — keep it
+        // ABOVE the floating docks (z-221) at all times so they never cover the
+        // wallet/account chips. When the account menu opens, lift further (z-300)
+        // so its scrim can dim the docks too.
+        avatarMenuOpen ? 'z-[300]' : 'z-[230]',
       )}
     >
       {/* Left — logo + primary nav (above center chrome so Championship / $PTR stay clickable) */}
