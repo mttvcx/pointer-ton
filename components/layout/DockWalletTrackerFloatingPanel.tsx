@@ -235,9 +235,12 @@ export function DockWalletTrackerFloatingPanel() {
     if (onWalletMgmtPage && open) setOpen(false);
   }, [onWalletMgmtPage, open, setOpen]);
 
+  // Wallet tracker is available on SOL + EVM (eth/bnb/base). Only TON has no
+  // tracked-wallet data, so close there.
+  const trackerChainSupported = activeChain !== 'ton';
   useEffect(() => {
-    if (activeChain !== 'sol' && open) setOpen(false);
-  }, [activeChain, open, setOpen]);
+    if (!trackerChainSupported && open) setOpen(false);
+  }, [trackerChainSupported, open, setOpen]);
 
   const readMetrics = () => {
     const { topbar, botbar } = readLayoutChromePx();
@@ -347,10 +350,10 @@ export function DockWalletTrackerFloatingPanel() {
   }, [setPosition, floatDimsFromRefs]);
 
   useEffect(() => {
-    if (!open || activeChain !== 'sol' || onWalletMgmtPage) return;
+    if (!open || !trackerChainSupported || onWalletMgmtPage) return;
     const id = requestAnimationFrame(() => requestAnimationFrame(floatingSnapOnce));
     return () => cancelAnimationFrame(id);
-  }, [open, activeChain, onWalletMgmtPage, floatingSnapOnce]);
+  }, [open, trackerChainSupported, onWalletMgmtPage, floatingSnapOnce]);
 
   useEffect(() => {
     if (!open || dockSnap || typeof window === 'undefined') return;
@@ -590,7 +593,7 @@ export function DockWalletTrackerFloatingPanel() {
     };
   }, [clampPanelSize, floatDimsFromRefs, floatingSnapOnce, setDockSnap, setPanelSize, setPosition]);
 
-  if (!open || activeChain !== 'sol' || onWalletMgmtPage) return null;
+  if (!open || !trackerChainSupported || onWalletMgmtPage) return null;
 
   void layoutEpoch;
   const { topbar, botbar, maxFloatH, dockedTopPx, copilotRightInset } = readMetrics();

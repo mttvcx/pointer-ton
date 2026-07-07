@@ -3,6 +3,7 @@ import { listTrackedWalletTradesForUser, mintsMissingMetadata } from '@/lib/db/t
 import { ensureTokenRowFromDas } from '@/lib/helius/feed';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { verifyPrivyAccessToken } from '@/lib/privy/config';
+import { isAppChainId, type AppChainId } from '@/lib/chains/appChain';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,16 +35,21 @@ export async function GET(req: NextRequest) {
 
   const limitParam = req.nextUrl.searchParams.get('limit');
   const limit = Math.min(80, Math.max(1, limitParam ? Number(limitParam) || 40 : 40));
+  const chainParam = req.nextUrl.searchParams.get('chain');
+  const chain: AppChainId = chainParam && isAppChainId(chainParam) ? chainParam : 'sol';
 
   try {
-    const trades = await listTrackedWalletTradesForUser(user.id, limit);
+    const trades = await listTrackedWalletTradesForUser(user.id, chain, limit);
 
     // Progressive enrichment: fill the token cache for mints still missing
     // symbol/image so the next poll shows them. Post-response, capped, and
-    // cache-safe (already-enriched mints don't re-hit DAS).
-    const missing = mintsMissingMetadata(trades).slice(0, 8);
-    if (missing.length) {
-      after(() => Promise.allSettled(missing.map((m) => ensureTokenRowFromDas(m))));
+    // cache-safe (already-enriched mints don't re-hit DAS). Solana-only —
+    // ensureTokenRowFromDas is a Helius (SOL) call.
+    if (chain === 'sol') {
+      const missing = mintsMissingMetadata(trades).slice(0, 8);
+      if (missing.length) {
+        after(() => Promise.allSettled(missing.map((m) => ensureTokenRowFromDas(m))));
+      }
     }
 
     return NextResponse.json({ trades });

@@ -1,6 +1,9 @@
 import 'server-only';
 import { createAdminSupabase } from '@/lib/supabase/server';
 import { listTrackedWalletsForUser } from '@/lib/db/wallets';
+import { inferMintKind } from '@/lib/chains/mintKind';
+import type { AppChainId } from '@/lib/chains/appChain';
+import { listEvmTrackedWalletTrades } from '@/lib/db/evmTrackerTrades';
 
 /**
  * Live-trades feed for the wallet tracker. Reads REAL parsed swaps from
@@ -29,6 +32,7 @@ const num = (v: unknown): number | null =>
 
 export async function listTrackedWalletTradesForUser(
   userId: string,
+  chain: AppChainId = 'sol',
   limit = 40,
 ): Promise<TrackerTradeRow[]> {
   const tracked = await listTrackedWalletsForUser(userId);
@@ -37,7 +41,24 @@ export async function listTrackedWalletTradesForUser(
   const labelByAddr = new Map<string, string | null>(
     tracked.map((t) => [t.wallet_address, t.label ?? null]),
   );
-  const addrs = tracked.map((t) => t.wallet_address);
+
+  // Scope the tracked wallets to the active chain by address kind. EVM (0x…)
+  // wallets route to the EVM adapter; SOL wallets read the mint_swaps index.
+  // (EVM sub-chain — eth vs bnb vs base — is refined from the group's app_chain
+  // once a real EVM trade source lands; for now all EVM chains share the seam.)
+  if (chain === 'eth' || chain === 'bnb' || chain === 'base') {
+    const evm = tracked
+      .filter((t) => inferMintKind(t.wallet_address) === 'evm')
+      .map((t) => ({ address: t.wallet_address, label: t.label ?? null }));
+    if (evm.length === 0) return [];
+    return listEvmTrackedWalletTrades(evm, chain, limit);
+  }
+  if (chain === 'ton') return [];
+
+  const addrs = tracked
+    .filter((t) => inferMintKind(t.wallet_address) === 'sol')
+    .map((t) => t.wallet_address);
+  if (addrs.length === 0) return [];
 
   const supabase = createAdminSupabase();
   // Over-fetch so the signature+side dedupe still leaves us `limit` rows.

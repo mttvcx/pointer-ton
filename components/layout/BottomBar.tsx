@@ -395,7 +395,8 @@ function DockTrackerSlot({
   const togglePnlPeek = usePnlTrackerStore((s) => s.toggleOpen);
 
   const onWalletTrackerPeek = () => {
-    if (activeChain !== 'sol') {
+    // Tracker is available on SOL + EVM (eth/bnb/base); TON has no wallet data.
+    if (activeChain === 'ton') {
       router.push('/track');
       return;
     }
