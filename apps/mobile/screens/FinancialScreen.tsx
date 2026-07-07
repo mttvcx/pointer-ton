@@ -111,6 +111,25 @@ type Sheet = { kind: 'state'; key: StateKey } | { kind: 'panel'; panel: Panel };
 // back to where positions actually live).
 const STATE_ACTION: Record<StateKey, Panel | null> = { trading: null, earning: 'yield', spendable: 'card', reserved: 'tax' };
 
+/**
+ * Fades + eases each Financial phase (intro → passcode → activation → dashboard)
+ * so moving between them is a soft transition, not a hard cut. Re-runs whenever
+ * the phase key `k` changes.
+ */
+function PhaseFade({ k, children }: { k: string; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(14)).current;
+  useEffect(() => {
+    opacity.setValue(0);
+    ty.setValue(14);
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.spring(ty, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 1 }),
+    ]).start();
+  }, [k]);
+  return <Animated.View style={{ flex: 1, opacity, transform: [{ translateY: ty }] }}>{children}</Animated.View>;
+}
+
 export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
   const insets = useSafeAreaInsets();
   const fin = useFinancial();
@@ -206,17 +225,35 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   // First-run: a one-time PITCH (no ID) → the KYC-free dashboard. Borrowing +
   // spending in-app + sending need no verification; only ordering a card does, so
   // the name/ID flow (FinancialActivation) is triggered from the card, not here.
-  if (activating) return <FinancialActivation onClose={() => setActivating(false)} />;
+  // A slow grey wash that settles in when the dashboard mounts — the finance
+  // section breathing into its cooler, glassier, more-silver identity.
+  const greyWash = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(greyWash, { toValue: 1, duration: 850, useNativeDriver: true }).start();
+  }, []);
+
+  if (activating) return <PhaseFade k="activation"><FinancialActivation onClose={() => setActivating(false)} /></PhaseFade>;
   if (settingPasscode)
-    return <PasscodeSetup onDone={() => { setSettingPasscode(false); enterFinancial(); }} onClose={() => setSettingPasscode(false)} />;
-  if (!entered) return <FinancialIntro onStart={() => setSettingPasscode(true)} />;
+    return <PhaseFade k="passcode"><PasscodeSetup onDone={() => { setSettingPasscode(false); enterFinancial(); }} onClose={() => setSettingPasscode(false)} /></PhaseFade>;
+  if (!entered) return <PhaseFade k="intro"><FinancialIntro onStart={() => setSettingPasscode(true)} /></PhaseFade>;
 
   return (
+    <PhaseFade k="dashboard">
     <Screen>
+      {/* Grey glass wash — the whole finance surface reads cooler/greyer than the
+          green app, and eases in when you land here. */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: greyWash }]} pointerEvents="none">
+        <LinearGradient
+          colors={['rgba(124,132,142,0.18)', 'rgba(92,100,110,0.09)', 'rgba(70,76,84,0.03)']}
+          start={{ x: 0.3, y: 0 }}
+          end={{ x: 0.7, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
       {/* Silver metallic top-glow — the premium finance identity, distinct from
           the app's green. Sits behind the header/hero, fades into the app bg. */}
       <LinearGradient
-        colors={['rgba(210,216,222,0.16)', 'rgba(150,158,168,0.05)', 'transparent']}
+        colors={['rgba(210,216,222,0.18)', 'rgba(150,158,168,0.06)', 'transparent']}
         start={{ x: 0.25, y: 0 }}
         end={{ x: 0.75, y: 1 }}
         style={s.metalGlow}
@@ -638,6 +675,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
         ) : null}
       </DragSheet>
     </Screen>
+    </PhaseFade>
   );
 }
 

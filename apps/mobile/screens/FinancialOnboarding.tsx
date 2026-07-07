@@ -81,7 +81,7 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
           <Text style={s.slideTitle}>{cur.title}</Text>
           <Text style={s.slideSub}>{cur.sub}</Text>
           <View style={s.visualWrap}>
-            <IntroVisual kind={cur.visual} />
+            <IntroVisual />
           </View>
         </Slide>
 
@@ -98,37 +98,42 @@ export function FinancialIntro({ onStart }: { onStart: () => void }) {
   );
 }
 
-/** The 3D visual for a slide — floating coins, the metal card, or a hero coin. */
-function IntroVisual({ kind }: { kind: 'coins' | 'card' | 'usdc' }) {
-  if (kind === 'card') {
-    return (
-      <View style={s.introCard}>
-        <LinearGradient colors={['#12332A', '#0E241C', '#06100D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-        <LinearGradient colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.7, y: 1 }} style={s.introCardSheen} pointerEvents="none" />
-        <CardShine intensity={0.34} />
-        <View style={s.introCardTop}>
-          <View style={s.introCardBrand}>
-            <Logo size={20} style={{ tintColor: '#fff' }} />
-            <Text style={s.introCardBrandText}>pointer.</Text>
-          </View>
-          <Ionicons name="wifi" size={16} color="rgba(255,255,255,0.5)" style={{ transform: [{ rotate: '90deg' }] }} />
-        </View>
-        <View style={s.introCardNumRow}>
-          <Text style={s.introCardNum}>4242  ••••  ••••  8817</Text>
-          <VisaMark size={18} />
-        </View>
-      </View>
-    );
-  }
-  if (kind === 'usdc') {
-    return <Image source={require('../assets/crypto/usdc.png')} style={s.heroCoin} resizeMode="contain" />;
-  }
+/** The Financial hero visual — the perfected silver Pointer card with Visa. (No
+ *  3D coins here; those stay on login / elsewhere in the app, just not in finance.) */
+function IntroVisual() {
   return (
-    <View style={s.cluster}>
-      <Image source={require('../assets/crypto/btc.png')} style={[s.coin, { top: 6, left: 28, transform: [{ rotate: '-8deg' }] }]} resizeMode="contain" />
-      <Image source={require('../assets/crypto/eth.png')} style={[s.coin, { top: 62, right: 18, transform: [{ rotate: '9deg' }] }]} resizeMode="contain" />
-      <Image source={require('../assets/crypto/sol.png')} style={[s.coin, { bottom: 0, left: 46, transform: [{ rotate: '5deg' }] }]} resizeMode="contain" />
-      <Image source={require('../assets/crypto/usdc.png')} style={[s.coinSm, { top: 0, right: 54, transform: [{ rotate: '-6deg' }] }]} resizeMode="contain" />
+    <View style={s.introCard}>
+      <LinearGradient colors={['#EDF1F5', '#C2C9D2', '#9BA3AD']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      {/* brushed metal streaks + top polish */}
+      <LinearGradient
+        colors={['rgba(255,255,255,0.5)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.28)', 'rgba(0,0,0,0.06)']}
+        locations={[0, 0.42, 0.66, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={['rgba(255,255,255,0.42)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.12)']}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <CardShine intensity={0.5} />
+      <View style={s.introCardEdge} pointerEvents="none" />
+      <View style={s.introCardTop}>
+        <View style={s.introCardBrand}>
+          <Logo size={20} style={{ tintColor: '#0A0C10' }} />
+          <Text style={[s.introCardBrandText, { color: '#0A0C10' }]}>pointer.</Text>
+        </View>
+        <Ionicons name="wifi" size={16} color="rgba(10,12,16,0.4)" style={{ transform: [{ rotate: '90deg' }] }} />
+      </View>
+      <View style={s.introCardNumRow}>
+        <Text style={[s.introCardNum, { color: 'rgba(10,12,16,0.82)' }]}>4242  ••••  ••••  8817</Text>
+        <VisaMark size={20} tint="#0A0C10" />
+      </View>
     </View>
   );
 }
@@ -342,7 +347,8 @@ const s = StyleSheet.create({
   coinSm: { position: 'absolute', width: 92, height: 92 },
   heroCoin: { width: 210, height: 210 },
   introCardWrap: { alignItems: 'center', marginBottom: 6 },
-  introCard: { width: 260, height: 158, borderRadius: 18, overflow: 'hidden', padding: 16, justifyContent: 'space-between', borderWidth: 1, borderColor: colors.accent + '33', transform: [{ perspective: 900 }, { rotateY: '-9deg' }, { rotateZ: '-3deg' }], shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 26, shadowOffset: { width: 0, height: 14 } },
+  introCard: { width: 286, height: 180, borderRadius: 20, overflow: 'hidden', padding: 18, justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', transform: [{ perspective: 900 }, { rotateY: '-9deg' }, { rotateZ: '-3deg' }], shadowColor: '#C7CCD1', shadowOpacity: 0.5, shadowRadius: 30, shadowOffset: { width: 0, height: 16 } },
+  introCardEdge: { position: 'absolute', top: 0, left: 0, right: 0, height: 1.5, backgroundColor: 'rgba(255,255,255,0.6)' },
   introCardSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
   introCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   introCardBrand: { flexDirection: 'row', alignItems: 'center', gap: 7 },

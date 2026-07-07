@@ -1,7 +1,7 @@
 import './src/polyfills';
 import './src/fontPatch';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
@@ -58,18 +58,49 @@ function useModeCrossfade(target: boolean) {
   return { opacity, committed };
 }
 
-function AnimatedMount({ routeKey, children }: { routeKey: string; children: React.ReactNode }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const ty = useRef(new Animated.Value(12)).current;
+const SCREEN_W = Dimensions.get('window').width;
+
+/**
+ * A pushed screen (token / perp / trader) that slides in from the right on mount
+ * and slides back out on pop — the iOS push feel. The screen underneath stays
+ * mounted, so sliding this one away reveals where you came from (no hard cut).
+ */
+function StackLayer({ closing, onClosed, children }: { closing: boolean; onClosed: () => void; children: React.ReactNode }) {
+  const tx = useRef(new Animated.Value(SCREEN_W)).current;
   useEffect(() => {
-    opacity.setValue(0);
-    ty.setValue(12);
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 190, useNativeDriver: true }),
-      Animated.spring(ty, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 2 }),
-    ]).start();
-  }, [routeKey]);
-  return <Animated.View style={{ flex: 1, opacity, transform: [{ translateY: ty }] }}>{children}</Animated.View>;
+    Animated.spring(tx, { toValue: 0, useNativeDriver: true, speed: 15, bounciness: 0 }).start();
+  }, []);
+  useEffect(() => {
+    if (!closing) return;
+    Animated.timing(tx, { toValue: SCREEN_W, duration: 230, useNativeDriver: true }).start(({ finished }) => {
+      if (finished) onClosed();
+    });
+  }, [closing]);
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, s.stackLayer, { transform: [{ translateX: tx }] }]}>{children}</Animated.View>
+  );
+}
+
+/**
+ * A tab pane that mounts lazily on first visit and then STAYS mounted, fading in/
+ * out on activation. Revisiting a tab is instant (no remount, no refetch) — kills
+ * the tab-switch lag from rebuilding Home/Financial every time.
+ */
+function TabPane({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(active);
+  const opacity = useRef(new Animated.Value(active ? 1 : 0)).current;
+  useEffect(() => {
+    if (active && !mounted) setMounted(true);
+  }, [active]);
+  useEffect(() => {
+    Animated.timing(opacity, { toValue: active ? 1 : 0, duration: 170, useNativeDriver: true }).start();
+  }, [active, mounted]);
+  if (!mounted) return null;
+  return (
+    <Animated.View pointerEvents={active ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, { opacity }]}>
+      {children}
+    </Animated.View>
+  );
 }
 
 type TraderRef = { handle: string; name?: string; color?: string; initial?: string };
@@ -86,6 +117,7 @@ function Shell() {
   // A real navigation stack so token → trader → token → … back-navigates one level
   // (revealing the screen you came from) instead of dumping you back on a tab.
   const [stack, setStack] = useState<StackRoute[]>([]);
+  const [closing, setClosing] = useState(false); // top stack screen is animating out
   const [advanced, setAdvanced] = useState(false);
   const finTakeover = useFinancialTakeover();
   const { opacity: modeOpacity, committed: adv } = useModeCrossfade(advanced);
@@ -191,54 +223,64 @@ function Shell() {
   const pushToken = (bundle: PulseBundle) => setStack((s) => [...s, { kind: 'token', bundle }]);
   const pushPerp = (market: PerpMarket) => setStack((s) => [...s, { kind: 'perp', market }]);
   const pushTrader = (t: TraderRef) => setStack((s) => [...s, { kind: 'trader', ...t }]);
-  const pop = () => setStack((s) => s.slice(0, -1));
+  // Pop = play the slide-out on the top screen, then actually remove it.
+  const pop = () => { if (stack.length > 0) setClosing(true); };
   const go = (t: NavTab) => {
     setStack([]);
+    setClosing(false);
     setTab(t);
   };
-
-  const tabScreen =
-    tab === 'home' ? (
-      <HomeScreen onOpenToken={pushToken} onOpenPerp={pushPerp} onOpenTrader={pushTrader} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
-    ) : tab === 'search' ? (
-      <SearchScreen onOpenToken={pushToken} />
-    ) : tab === 'financial' ? (
-      <FinancialScreen onOpenToken={pushToken} />
-    ) : tab === 'social' ? (
-      adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={pushTrader} onOpenToken={pushToken} />
-    ) : (
-      <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
-    );
 
   return (
     <View style={s.root}>
       <Animated.View style={{ flex: 1, opacity: modeOpacity }}>
-        {/* Base tab layer — always mounted so a full swipe-back reveals it in place. */}
-        <AnimatedMount routeKey={tab}>{tabScreen}</AnimatedMount>
+        {/* Base tab layer — every visited tab stays mounted and crossfades, so
+            switching tabs is instant (no rebuild) instead of a laggy remount. */}
+        <View style={{ flex: 1 }}>
+          <TabPane active={tab === 'home'}>
+            <HomeScreen onOpenToken={pushToken} onOpenPerp={pushPerp} onOpenTrader={pushTrader} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
+          </TabPane>
+          <TabPane active={tab === 'search'}>
+            <SearchScreen onOpenToken={pushToken} />
+          </TabPane>
+          <TabPane active={tab === 'financial'}>
+            <FinancialScreen onOpenToken={pushToken} />
+          </TabPane>
+          <TabPane active={tab === 'social'}>
+            {adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={pushTrader} onOpenToken={pushToken} />}
+          </TabPane>
+          <TabPane active={tab === 'profile'}>
+            <ProfileScreen onOpenSettings={() => openSettings()} onEditProfile={() => openSettings('Account', true)} />
+          </TabPane>
+        </View>
 
-        {/* Overlay stack — each pushed screen sits above the one it came from and
-            slides itself in/out, so popping reveals the previous screen underneath. */}
-        {stack.map((route, i) => (
-          <View
-            key={`${route.kind}-${route.kind === 'token' ? route.bundle.token.mint : route.kind === 'perp' ? route.market.id : route.handle}-${i}`}
-            style={StyleSheet.absoluteFill}
-          >
-            {route.kind === 'token' ? (
-              <TokenScreen bundle={route.bundle} onBack={pop} advanced={adv} onOpenTrader={pushTrader} />
-            ) : route.kind === 'perp' ? (
-              <PerpScreen market={route.market} onBack={pop} />
-            ) : (
-              <TraderProfileScreen
-                handle={route.handle}
-                name={route.name}
-                color={route.color}
-                initial={route.initial}
-                onBack={pop}
-                onOpenToken={pushToken}
-              />
-            )}
-          </View>
-        ))}
+        {/* Overlay stack — each pushed screen slides in from the right on mount and
+            slides back out on pop, revealing the screen underneath. */}
+        {stack.map((route, i) => {
+          const isTop = i === stack.length - 1;
+          return (
+            <StackLayer
+              key={`${route.kind}-${route.kind === 'token' ? route.bundle.token.mint : route.kind === 'perp' ? route.market.id : route.handle}-${i}`}
+              closing={isTop && closing}
+              onClosed={() => { setClosing(false); setStack((s) => s.slice(0, -1)); }}
+            >
+              {route.kind === 'token' ? (
+                <TokenScreen bundle={route.bundle} onBack={pop} advanced={adv} onOpenTrader={pushTrader} />
+              ) : route.kind === 'perp' ? (
+                <PerpScreen market={route.market} onBack={pop} />
+              ) : (
+                <TraderProfileScreen
+                  handle={route.handle}
+                  name={route.name}
+                  color={route.color}
+                  initial={route.initial}
+                  onBack={pop}
+                  onOpenToken={pushToken}
+                />
+              )}
+            </StackLayer>
+          );
+        })}
       </Animated.View>
 
       {stack.length === 0 && !finTakeover ? (
@@ -282,5 +324,6 @@ export default function App() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
+  stackLayer: { backgroundColor: colors.bg, shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: -6, height: 0 }, elevation: 16 },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.bg },
 });
