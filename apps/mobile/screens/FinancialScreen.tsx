@@ -31,6 +31,7 @@ import { AccountDetailsSheet } from '../components/AccountDetailsSheet';
 import { PayeePickerSheet } from '../components/PayeePickerSheet';
 import { SendMoneySheet, type SendRecipient } from '../components/SendMoneySheet';
 import { CardsSheet } from '../components/CardsSheet';
+import { CashbackSheet } from '../components/CashbackSheet';
 import { useSpendMode, useTier, useBorrowed, healthFactor, healthBand } from '../src/financial/credit';
 import { collateralLine, demoCollateralHoldings } from '../src/financial/collateral';
 import { tierById, highestUnlockedTier, TIERS } from '../src/financial/tiers';
@@ -164,6 +165,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const [conciergeOpen, setConciergeOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [cardsOpen, setCardsOpen] = useState(false);
+  const [cashbackOpen, setCashbackOpen] = useState(false);
   const [payeeOpen, setPayeeOpen] = useState(false);
   const [sendTo, setSendTo] = useState<SendRecipient | null>(null);
   const spendMode = useSpendMode();
@@ -410,9 +412,6 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Text style={s.cashbackStrong}>+{usd(rewards.thisMonthUsd)}</Text> cashback this month, paid into your yield
             </Text>
           </View>
-          <Text style={s.boostHint}>
-            Boosted: {tier.boosts.ai.rate}% AI · {tier.boosts.airlines.rate}% airlines · {tier.boosts.rides.rate}% rides
-          </Text>
 
           <View style={{ marginTop: 12 }}>
             <Sparkline data={m.yieldHistory} />
@@ -420,6 +419,21 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
           {/* honest yield disclosure — variable, DeFi, not a bank account */}
           <Text style={s.variableNote}>Variable rate from on-chain lending — not a savings account, not guaranteed.</Text>
         </PressScale>
+        </Rise>
+
+        {/* Cashback boosts — tap for the enforced rates + monthly caps */}
+        <Rise delay={215}>
+          <PressScale to={0.98} onPress={() => setCashbackOpen(true)} style={s.cashbackEntry}>
+            <GlassFill />
+            <Ionicons name="pricetags" size={17} color={colors.accentGlow} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.cashbackEntryTitle}>Cashback boosts</Text>
+              <Text style={s.cashbackEntrySub} numberOfLines={1}>
+                {tier.boosts.ai.rate}% AI · {tier.boosts.airlines.rate}% airlines · {tier.boosts.rides.rate}% rides
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={colors.fgMuted} />
+          </PressScale>
         </Rise>
 
         {/* ─────────── Your capital (deeper controls, underneath) ─────────── */}
@@ -612,6 +626,7 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
 
       <DepositFlow visible={deposit} onClose={() => setDeposit(false)} />
       <CardsSheet visible={cardsOpen} onClose={() => setCardsOpen(false)} />
+      <CashbackSheet visible={cashbackOpen} onClose={() => setCashbackOpen(false)} tierId={tierId} />
       <CardTiersSheet visible={tiersOpen} onClose={() => setTiersOpen(false)} />
       <ConciergeSheet
         visible={conciergeOpen}
@@ -840,7 +855,9 @@ const s = StyleSheet.create({
   cashbackIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accent + '22', alignItems: 'center', justifyContent: 'center' },
   cashbackText: { color: colors.fgSecondary, fontSize: 12.5, flex: 1, lineHeight: 17 },
   cashbackStrong: { color: colors.accentGlow, fontWeight: '800' },
-  boostHint: { color: colors.fgFaint, fontSize: 11.5, fontWeight: '600', marginTop: 10 },
+  cashbackEntry: { flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: radius.lg, padding: 14, marginTop: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  cashbackEntryTitle: { color: colors.fg, fontSize: 14.5, fontWeight: '700' },
+  cashbackEntrySub: { color: colors.fgMuted, fontSize: 12, marginTop: 1 },
 
   reserveRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 14, marginTop: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   reserveIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },

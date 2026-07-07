@@ -16,7 +16,8 @@ import {
   CATEGORY_META, CARD_CATEGORIES, type PointerCard, type CardCategory,
 } from '../src/financial/cards';
 import { useTier } from '../src/financial/credit';
-import { tierById } from '../src/financial/tiers';
+import { tierById, CATEGORY_META as SPEND_CATEGORY_META } from '../src/financial/tiers';
+import { categoryForTxn } from '../src/financial/cashback';
 
 type CardView = { k: 'list' } | { k: 'manage'; id: string } | { k: 'create' };
 type IonName = React.ComponentProps<typeof Ionicons>['name'];
@@ -133,6 +134,7 @@ function CardThumb({ card, gradient }: { card: PointerCard; gradient: [string, s
 
 function ManageCard({ card, gradient, ink, onBack, onDeleted }: { card: PointerCard; gradient: [string, string]; ink: string; onBack: () => void; onDeleted: () => void }) {
   const [edit, setEdit] = useState<'nickname' | 'limit' | 'details' | null>(null);
+  const tier = tierById(useTier());
   const pct = card.monthlyLimit > 0 ? Math.min(1, card.spentThisMonth / card.monthlyLimit) : 0;
   const over = card.monthlyLimit > 0 && card.spentThisMonth >= card.monthlyLimit;
 
@@ -207,16 +209,28 @@ function ManageCard({ card, gradient, ink, onBack, onDeleted }: { card: PointerC
       {/* transactions */}
       <Text style={s.section}>Spends</Text>
       {card.spends.length ? (
-        card.spends.map((t) => (
-          <View key={t.id} style={s.txn}>
-            <View style={s.txnIcon}><Ionicons name={t.icon as any} size={17} color={colors.fgSecondary} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.txnMerchant} numberOfLines={1}>{t.merchant}</Text>
-              <Text style={s.txnWhen}>{t.when}</Text>
+        card.spends.map((t) => {
+          const cat = categoryForTxn({ merchant: t.merchant });
+          const boostRate = cat !== 'base' ? tier.boosts[cat].rate : 0;
+          return (
+            <View key={t.id} style={s.txn}>
+              <View style={s.txnIcon}><Ionicons name={t.icon as any} size={17} color={colors.fgSecondary} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.txnMerchant} numberOfLines={1}>{t.merchant}</Text>
+                <View style={s.txnMetaRow}>
+                  <Text style={s.txnWhen}>{t.when}</Text>
+                  {cat !== 'base' ? (
+                    <View style={s.txnCat}>
+                      <Ionicons name={SPEND_CATEGORY_META[cat].icon as any} size={9} color={colors.bull} />
+                      <Text style={s.txnCatText}>{boostRate}% {SPEND_CATEGORY_META[cat].label}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+              <Text style={s.txnAmt}>-{usd(t.amount)}</Text>
             </View>
-            <Text style={s.txnAmt}>-{usd(t.amount)}</Text>
-          </View>
-        ))
+          );
+        })
       ) : (
         <Text style={s.empty}>No spends yet on this card.</Text>
       )}
@@ -455,7 +469,10 @@ const s = StyleSheet.create({
   txn: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   txnIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.bgRaised2, alignItems: 'center', justifyContent: 'center' },
   txnMerchant: { color: colors.fg, fontSize: 15, fontWeight: '600' },
-  txnWhen: { color: colors.fgMuted, fontSize: 12.5, marginTop: 1 },
+  txnMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  txnWhen: { color: colors.fgMuted, fontSize: 12.5 },
+  txnCat: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.bullSoft, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
+  txnCatText: { color: colors.bull, fontSize: 10, fontWeight: '700' },
   txnAmt: { color: colors.fg, fontSize: 15, fontWeight: '700' },
   empty: { color: colors.fgMuted, fontSize: 14, paddingVertical: 16 },
 

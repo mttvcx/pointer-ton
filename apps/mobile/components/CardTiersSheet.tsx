@@ -204,6 +204,7 @@ function TierCard({ tier, current, kycLevel, volume, points, onUpgrade }: { tier
               <Ionicons name={CATEGORY_META[c].icon as any} size={15} color={tier.accent} />
               <Text style={[s.boostRate, { color: tier.accent }]}>{tier.boosts[c].rate}%</Text>
               <Text style={s.boostLabel}>{CATEGORY_META[c].label}</Text>
+              <Text style={s.boostCap}>to ${tier.boosts[c].capMonthly}/mo</Text>
             </View>
           ))}
         </View>
@@ -306,6 +307,7 @@ const s = StyleSheet.create({
   boostChip: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 10, borderRadius: radius.sm, backgroundColor: colors.bg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   boostRate: { fontSize: 16, fontWeight: '800' },
   boostLabel: { color: colors.fgMuted, fontSize: 10.5, fontWeight: '600' },
+  boostCap: { color: colors.fgFaint, fontSize: 9.5, marginTop: 1 },
   boostBase: { color: colors.fgFaint, fontSize: 11.5, marginTop: 9 },
 
   rows: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 4 },

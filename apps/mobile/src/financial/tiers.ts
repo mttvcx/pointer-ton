@@ -218,23 +218,26 @@ export function tierEconomics(t: Tier): TierEconomics {
   const creditMix = CREDIT_MIX[t.id];
   const creditSpend = spend * creditMix;
   const mix = CATEGORY_MIX[t.id];
+  const baseBlend = creditMix * (t.cashbackCredit / 100) + (1 - creditMix) * (t.cashbackCash / 100);
 
-  // Per-category P&L: cashback capped monthly, merchant funds most of it.
+  // Per-category P&L — mirrors the real cashback engine exactly: boost rate up to
+  // the monthly cap, base rate beyond it; merchant funds only the boosted slice.
   const categories: CategoryLine[] = CATEGORY_ORDER.map((c) => {
     const catSpend = spend * mix[c];
     const rate = t.boosts[c].rate;
-    const raw = catSpend * (rate / 100);
-    const cap = t.boosts[c].capMonthly * 12;
-    const cashback = Math.min(raw, cap);
-    const merchant = catSpend * MERCHANT_FUNDING[c];
+    const annualCap = t.boosts[c].capMonthly * 12;
+    const boostCashback = Math.min(catSpend * (rate / 100), annualCap);
+    const boostedSpend = rate > 0 ? (boostCashback / rate) * 100 : 0;
+    const overCap = Math.max(0, catSpend - boostedSpend);
+    const cashback = boostCashback + overCap * baseBlend; // base rate beyond the cap
+    const merchant = boostedSpend * MERCHANT_FUNDING[c]; // merchant funds the boosted slice
     const interchange = catSpend * INTERCHANGE;
-    return { category: c, spend: catSpend, rate, cashback, capped: raw > cap, merchant, interchange, margin: merchant + interchange - cashback };
+    return { category: c, spend: catSpend, rate, cashback, capped: catSpend * (rate / 100) > annualCap, merchant, interchange, margin: merchant + interchange - cashback };
   });
 
   const categorySpend = categories.reduce((s, c) => s + c.spend, 0);
   const baseSpend = spend - categorySpend;
-  // Base cashback blends credit vs cash rate over the non-category spend.
-  const baseCashback = baseSpend * (creditMix * (t.cashbackCredit / 100) + (1 - creditMix) * (t.cashbackCash / 100));
+  const baseCashback = baseSpend * baseBlend;
   const baseInterchange = baseSpend * INTERCHANGE;
 
   const annualTradingVolume = t.volumeReq * 12;
