@@ -80,6 +80,8 @@ export type PnlSharePayload = {
   pnlPct: number | null;
   investedUsd: number | null;
   positionUsd: number | null;
+  /** Gross proceeds from sells — drives the "TOTAL SOLD" stat. */
+  soldUsd?: number | null;
   realizedUsd?: number | null;
   unrealizedUsd?: number | null;
   /** Override stat row labels (e.g. monthly PNL share). */

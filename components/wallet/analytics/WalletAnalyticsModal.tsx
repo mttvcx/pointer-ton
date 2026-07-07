@@ -177,6 +177,7 @@ export function WalletAnalyticsModal() {
       pnlPct: row.pnlPct,
       investedUsd: row.boughtUsd,
       positionUsd: row.remainingUsd,
+      soldUsd: row.soldUsd,
       realizedUsd: null,
       unrealizedUsd: null,
     };

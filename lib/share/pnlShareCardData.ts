@@ -36,7 +36,16 @@ function fmtSignedUsd(v: number | null | undefined): string {
 
 function fmtSolStat(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—';
-  return `${formatShareSolInteger(v, false)} SOL`;
+  const abs = Math.abs(v);
+  // Whole SOL for ≥1 (clean look); keep 1–2 decimals for sub-1 amounts so a real
+  // buy/sell doesn't collapse to a bare "0" (which reads as "o" in the card font).
+  const body =
+    abs >= 1
+      ? formatShareSolInteger(v, false)
+      : abs > 0
+        ? abs.toFixed(2).replace(/\.?0+$/, '') || '0'
+        : '0';
+  return `${body} SOL`;
 }
 
 function fmtPct(v: number | null | undefined): string | null {
@@ -129,14 +138,18 @@ export function payloadToShareCardData(params: {
 
   const rate = solUsd != null && solUsd > 0 ? solUsd : null;
 
+  // "TOTAL SOLD" = gross sell proceeds. Prefer the explicit soldUsd; fall back to
+  // positionUsd for sources that overload it (e.g. the monthly card = sell volume).
+  const soldUsd = payload.soldUsd ?? payload.positionUsd;
+
   let totalBought = '—';
   let totalSold = '—';
   if (chainTicker === 'SOL' && rate != null) {
     totalBought = payload.investedUsd != null ? fmtSolStat(payload.investedUsd / rate) : '—';
-    totalSold = payload.positionUsd != null ? fmtSolStat(payload.positionUsd / rate) : '—';
+    totalSold = soldUsd != null ? fmtSolStat(soldUsd / rate) : '—';
   } else {
     totalBought = payload.investedUsd != null ? formatCompactUsd(payload.investedUsd) : '—';
-    totalSold = payload.positionUsd != null ? formatCompactUsd(payload.positionUsd) : '—';
+    totalSold = soldUsd != null ? formatCompactUsd(soldUsd) : '—';
   }
 
   const calendarDays = payload.calendarDays ?? [];
