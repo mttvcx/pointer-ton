@@ -7,10 +7,9 @@ import { useAutoLaunchStore } from '@/store/autoLaunch';
 import { useUIStore } from '@/store/ui';
 import type { AppChainId } from '@/lib/chains/appChain';
 
-/** The deploy chain for a new launch — the active chain, but never TON (no launch path). */
+/** The deploy chain for a new launch — the active chain (all chains launchable). */
 function deployChain(): AppChainId {
-  const c = useUIStore.getState().activeChain;
-  return c === 'ton' ? 'sol' : c;
+  return useUIStore.getState().activeChain;
 }
 
 export function variantToDraft(

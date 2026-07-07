@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BadgePercent, Layers, ListChecks, Loader2, Rocket, Split, Users, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { CloseButton } from '@/components/ui/CloseButton';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import {
@@ -29,6 +30,8 @@ export function LaunchModal() {
   const feePreset = useXMonitorSettings((s) => s.feePreset);
   const deployMode = useXMonitorSettings((s) => s.deployMode);
   const { getAccessToken } = usePointerAuth();
+  const [tonConnectUI] = useTonConnectUI();
+  const tonWallet = useTonWallet();
   const { mounted, visible } = useOverlayPresence(open, OVERLAY_ANIM_CLOSE_MS);
 
   const [deploying, setDeploying] = useState(false);
@@ -40,8 +43,43 @@ export function LaunchModal() {
       toast.error('Add a name and ticker before deploying.');
       return;
     }
+    const ticker = d.symbol.replace(/^\$/, '').toUpperCase();
+
+    // TON launches deploy from the user's own TonConnect wallet (client-side),
+    // not a server burner — TON is the "your wallet is the deploy wallet" chain.
+    if (d.chain === 'ton') {
+      if (!tonWallet?.account?.address) {
+        toast.error('Connect your TON wallet first (chain switcher → TON).');
+        return;
+      }
+      setDeploying(true);
+      const tt = toast.loading(`Launching $${ticker} on TON — approve in your wallet…`);
+      try {
+        const { deployTonJetton } = await import('@/lib/launch/deployTonJetton');
+        const { jettonAddress } = await deployTonJetton(tonConnectUI, {
+          name: d.name,
+          symbol: ticker,
+          description: d.description,
+          imageUrl: d.imageUrls?.[0] ?? null,
+          ownerAddress: tonWallet.account.address,
+        });
+        toast.success(`Launched $${ticker} on TON!`, {
+          id: tt,
+          description: `${jettonAddress.slice(0, 6)}…${jettonAddress.slice(-4)}`,
+          action: { label: 'Open', onClick: () => window.open(`https://tonviewer.com/${jettonAddress}`, '_blank', 'noopener,noreferrer') },
+        });
+        close();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'ton_deploy_failed';
+        toast.error(/reject|cancel|declin/i.test(msg) ? 'Deploy cancelled.' : 'TON deploy failed — try again.', { id: tt });
+      } finally {
+        setDeploying(false);
+      }
+      return;
+    }
+
     setDeploying(true);
-    const t = toast.loading(`Launching $${d.symbol.replace(/^\$/, '').toUpperCase()} on ${d.chain.toUpperCase()}…`);
+    const t = toast.loading(`Launching $${ticker} on ${d.chain.toUpperCase()}…`);
     try {
       const token = await getAccessToken();
       const res = await fetch('/api/launch/deploy', {
@@ -230,7 +268,7 @@ export function LaunchModal() {
             </label>
           </div>
 
-          <div>
+          <div className={draft.chain === 'ton' ? 'hidden' : undefined}>
             <span className="mb-1 block text-[10px] font-medium text-fg-muted">Launchpad</span>
             <div className="flex flex-wrap gap-1.5">
               {launchpadsForChain(draft.chain).map((id) => {
