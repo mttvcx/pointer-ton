@@ -53,16 +53,22 @@ export function sharePeriodHeadline(
   shareHeader: string | null | undefined,
   timeframe: WalletAnalyticsTimeframe,
 ): string {
-  if (shareKind === 'monthly' && shareHeader?.trim()) {
-    const trimmed = shareHeader.trim();
-    const match = trimmed.match(/^([A-Za-z]+)\s+(\d{4})$/);
-    if (match) {
-      return `${match[1]!.slice(0, 3).toUpperCase()} ${match[2]} REALIZED`;
+  // Calendar / monthly share — carries a period (month name, or the 30D/7D window).
+  if (shareKind === 'monthly') {
+    if (shareHeader?.trim()) {
+      const trimmed = shareHeader.trim();
+      const match = trimmed.match(/^([A-Za-z]+)\s+(\d{4})$/);
+      if (match) {
+        return `${match[1]!.slice(0, 3).toUpperCase()} ${match[2]} REALIZED`;
+      }
+      return `${trimmed.toUpperCase()} REALIZED`;
     }
-    return `${trimmed.toUpperCase()} REALIZED`;
+    const tf = TF_LABEL[timeframe] ?? '30D';
+    return `${tf} REALIZED`;
   }
-  const tf = TF_LABEL[timeframe] ?? '30D';
-  return `${tf} REALIZED`;
+  // Position / trade share — a specific position's realized PnL, NOT a time window,
+  // so it must not claim "30D". Just "REALIZED".
+  return 'REALIZED';
 }
 
 export function shareUsernameHandle(
