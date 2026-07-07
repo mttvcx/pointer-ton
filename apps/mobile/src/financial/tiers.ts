@@ -12,6 +12,21 @@
 
 export type TierId = 'basic' | 'silver' | 'gold' | 'platinum';
 
+// Boosted-cashback merchant categories. High rates (up to 10%) are ONLY safe
+// because (a) they're capped monthly and (b) they're largely merchant-funded
+// (card-linked offers / affiliate) — you can't pay 10% out of ~0.8% interchange.
+export type SpendCategory = 'ai' | 'airlines' | 'rides';
+
+export const CATEGORY_META: Record<SpendCategory, { label: string; icon: string; examples: string }> = {
+  ai: { label: 'AI tools', icon: 'sparkles', examples: 'Claude · ChatGPT · Cursor' },
+  airlines: { label: 'Airlines', icon: 'airplane', examples: 'Emirates · British · Turkish' },
+  rides: { label: 'Rides', icon: 'car', examples: 'Uber · Bolt · Wheely' },
+};
+export const CATEGORY_ORDER: SpendCategory[] = ['ai', 'airlines', 'rides'];
+
+/** A category boost: credit-mode cashback %, capped at `capMonthly` $ of cashback. */
+export type Boost = { rate: number; capMonthly: number };
+
 export type Tier = {
   id: TierId;
   name: string;
@@ -34,6 +49,8 @@ export type Tier = {
   gradient: [string, string];
   accent: string;
   tagline: string;
+  /** Boosted cashback by merchant category (base rate = cashbackCredit). */
+  boosts: Record<SpendCategory, Boost>;
 };
 
 export const TIERS: Tier[] = [
@@ -54,6 +71,7 @@ export const TIERS: Tier[] = [
     gradient: ['#9AA2AD', '#5C636E'],
     accent: '#D7DCE2',
     tagline: 'Spend without selling. Free to start.',
+    boosts: { ai: { rate: 3, capMonthly: 5 }, airlines: { rate: 3, capMonthly: 5 }, rides: { rate: 2, capMonthly: 5 } },
   },
   {
     id: 'silver',
@@ -72,6 +90,7 @@ export const TIERS: Tier[] = [
     gradient: ['#EDF1F5', '#AEB7C2'],
     accent: '#EFF3F8',
     tagline: 'For the everyday spender.',
+    boosts: { ai: { rate: 5, capMonthly: 15 }, airlines: { rate: 5, capMonthly: 15 }, rides: { rate: 3, capMonthly: 10 } },
   },
   {
     id: 'gold',
@@ -90,6 +109,7 @@ export const TIERS: Tier[] = [
     gradient: ['#EAD08A', '#B8860B'],
     accent: '#F0D486',
     tagline: 'When your lifestyle catches up.',
+    boosts: { ai: { rate: 8, capMonthly: 40 }, airlines: { rate: 8, capMonthly: 30 }, rides: { rate: 4, capMonthly: 20 } },
   },
   {
     id: 'platinum',
@@ -108,6 +128,7 @@ export const TIERS: Tier[] = [
     gradient: ['#454B54', '#16191E'],
     accent: '#E6EBF0',
     tagline: 'No limits. Keep your upside.',
+    boosts: { ai: { rate: 10, capMonthly: 100 }, airlines: { rate: 10, capMonthly: 60 }, rides: { rate: 5, capMonthly: 40 } },
   },
 ];
 
@@ -149,47 +170,97 @@ const ANNUAL_SPEND: Record<TierId, number> = { basic: 6_000, silver: 36_000, gol
 const CREDIT_MIX: Record<TierId, number> = { basic: 0.35, silver: 0.5, gold: 0.6, platinum: 0.65 };
 const LOUNGE_CAP = 10; // cost cap for "unlimited" tiers
 
+// What a merchant / affiliate network pays US to route a customer, per $ spent in
+// that category. This is what makes 10% cashback survivable — the merchant funds
+// most of it. Airlines pay little (loss-leader, held in check by the cap); AI tools
+// pay a lot (card-linked offers / affiliate); rides sit in between.
+const MERCHANT_FUNDING: Record<SpendCategory, number> = { ai: 0.12, airlines: 0.02, rides: 0.06 };
+
+// Share of a member's annual CARD spend that lands in each boosted category (the
+// rest is "base" spend). Richer tiers travel + buy AI more.
+const CATEGORY_MIX: Record<TierId, Record<SpendCategory, number>> = {
+  basic: { ai: 0.02, airlines: 0.05, rides: 0.06 },
+  silver: { ai: 0.03, airlines: 0.06, rides: 0.06 },
+  gold: { ai: 0.035, airlines: 0.09, rides: 0.055 },
+  platinum: { ai: 0.04, airlines: 0.1, rides: 0.05 },
+};
+
+export type CategoryLine = {
+  category: SpendCategory;
+  spend: number;
+  rate: number;
+  cashback: number; // after the monthly cap
+  capped: boolean;
+  merchant: number; // merchant-funded revenue
+  interchange: number;
+  margin: number; // merchant + interchange − cashback
+};
+
 export type TierEconomics = {
   annualSpend: number;
   creditSpend: number;
   annualTradingVolume: number;
-  revenue: { tradingFees: number; interchange: number; borrowSpread: number; yieldSpread: number; total: number };
+  categories: CategoryLine[];
+  baseSpend: number;
+  baseCashback: number;
+  revenue: { tradingFees: number; interchange: number; merchant: number; borrowSpread: number; yieldSpread: number; total: number };
   cost: { cashback: number; perks: number; processing: number; total: number };
   marginUsd: number;
   marginPctOfSpend: number;
 };
 
-/** Per-member annual P&L. There's NO subscription fee — the perks are funded by
- *  the trading fees an active user already generates (30-day gate × 12), plus card
- *  interchange + the credit-mode borrow spread. This is why usage-gated tiers are
- *  MORE profitable than a flat fee: a higher tier means more volume = more fees. */
+/** Per-member annual P&L. No subscription — perks are funded by the trading fees an
+ *  active user already generates (30-day gate × 12) + interchange + the credit-mode
+ *  borrow spread + merchant funding on boosted categories. Category cashback is
+ *  merchant-funded and monthly-capped, so even 10% categories don't bleed. */
 export function tierEconomics(t: Tier): TierEconomics {
   const spend = ANNUAL_SPEND[t.id];
   const creditMix = CREDIT_MIX[t.id];
   const creditSpend = spend * creditMix;
-  const cashSpend = spend - creditSpend;
+  const mix = CATEGORY_MIX[t.id];
 
-  // A tier-holder sustains ~its 30-day volume gate → annualize it for fee revenue.
+  // Per-category P&L: cashback capped monthly, merchant funds most of it.
+  const categories: CategoryLine[] = CATEGORY_ORDER.map((c) => {
+    const catSpend = spend * mix[c];
+    const rate = t.boosts[c].rate;
+    const raw = catSpend * (rate / 100);
+    const cap = t.boosts[c].capMonthly * 12;
+    const cashback = Math.min(raw, cap);
+    const merchant = catSpend * MERCHANT_FUNDING[c];
+    const interchange = catSpend * INTERCHANGE;
+    return { category: c, spend: catSpend, rate, cashback, capped: raw > cap, merchant, interchange, margin: merchant + interchange - cashback };
+  });
+
+  const categorySpend = categories.reduce((s, c) => s + c.spend, 0);
+  const baseSpend = spend - categorySpend;
+  // Base cashback blends credit vs cash rate over the non-category spend.
+  const baseCashback = baseSpend * (creditMix * (t.cashbackCredit / 100) + (1 - creditMix) * (t.cashbackCash / 100));
+  const baseInterchange = baseSpend * INTERCHANGE;
+
   const annualTradingVolume = t.volumeReq * 12;
   const tradingFees = annualTradingVolume * TRADING_FEE_NET;
-
-  const interchange = spend * INTERCHANGE;
   const borrowSpread = creditSpend * BORROW_SPREAD;
-  const yieldSpread = spend * 0.2 * YIELD_SPREAD; // ~20% of spend-equivalent sits idle earning
-  const revenueTotal = tradingFees + interchange + borrowSpread + yieldSpread;
+  const yieldSpread = spend * 0.2 * YIELD_SPREAD;
 
-  // Cashback is blended: higher rate on the credit portion, lower on cash.
-  const cashback = creditSpend * (t.cashbackCredit / 100) + cashSpend * (t.cashbackCash / 100);
+  const interchangeTotal = categories.reduce((s, c) => s + c.interchange, 0) + baseInterchange;
+  const merchantTotal = categories.reduce((s, c) => s + c.merchant, 0);
+  const categoryCashback = categories.reduce((s, c) => s + c.cashback, 0);
+  const cashbackTotal = baseCashback + categoryCashback;
+
+  const revenueTotal = tradingFees + interchangeTotal + merchantTotal + borrowSpread + yieldSpread;
   const loungeVisits = Number.isFinite(t.loungeVisits) ? t.loungeVisits : LOUNGE_CAP;
   const perks = loungeVisits * LOUNGE_COST + t.fastTrack * FASTTRACK_COST + (t.concierge ? CONCIERGE_COST[t.concierge] ?? 0 : 0);
-  const costTotal = cashback + perks + PROCESSING;
+  const costTotal = cashbackTotal + perks + PROCESSING;
 
   return {
     annualSpend: spend,
     creditSpend,
     annualTradingVolume,
-    revenue: { tradingFees, interchange, borrowSpread, yieldSpread, total: revenueTotal },
-    cost: { cashback, perks, processing: PROCESSING, total: costTotal },
+    categories,
+    baseSpend,
+    baseCashback,
+    revenue: { tradingFees, interchange: interchangeTotal, merchant: merchantTotal, borrowSpread, yieldSpread, total: revenueTotal },
+    cost: { cashback: cashbackTotal, perks, processing: PROCESSING, total: costTotal },
     marginUsd: revenueTotal - costTotal,
     marginPctOfSpend: spend > 0 ? ((revenueTotal - costTotal) / spend) * 100 : 0,
   };

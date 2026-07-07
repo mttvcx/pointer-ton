@@ -410,6 +410,9 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
               <Text style={s.cashbackStrong}>+{usd(rewards.thisMonthUsd)}</Text> cashback this month, paid into your yield
             </Text>
           </View>
+          <Text style={s.boostHint}>
+            Boosted: {tier.boosts.ai.rate}% AI · {tier.boosts.airlines.rate}% airlines · {tier.boosts.rides.rate}% rides
+          </Text>
 
           <View style={{ marginTop: 12 }}>
             <Sparkline data={m.yieldHistory} />
@@ -837,6 +840,7 @@ const s = StyleSheet.create({
   cashbackIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.accent + '22', alignItems: 'center', justifyContent: 'center' },
   cashbackText: { color: colors.fgSecondary, fontSize: 12.5, flex: 1, lineHeight: 17 },
   cashbackStrong: { color: colors.accentGlow, fontWeight: '800' },
+  boostHint: { color: colors.fgFaint, fontSize: 11.5, fontWeight: '600', marginTop: 10 },
 
   reserveRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 14, marginTop: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
   reserveIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },

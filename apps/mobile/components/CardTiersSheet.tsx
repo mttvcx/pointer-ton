@@ -7,7 +7,7 @@ import { PressScale } from './PressScale';
 import { colors, radius } from '../src/theme';
 import { usd, group, compactUsd } from '../src/format';
 import { showToast } from '../src/toast';
-import { TIERS, tierById, tierUnlocked, tierProgress, type Tier } from '../src/financial/tiers';
+import { TIERS, tierById, tierUnlocked, tierProgress, CATEGORY_META, CATEGORY_ORDER, type Tier } from '../src/financial/tiers';
 import { useVolume30d, usePtrPoints } from '../src/financial/usage';
 import { useTier, setTier } from '../src/financial/credit';
 import { useKycLevel, kycLevelNow, tierKyc, type KycLevel } from '../src/financial/kyc';
@@ -195,6 +195,21 @@ function TierCard({ tier, current, kycLevel, volume, points, onUpgrade }: { tier
 
       <Text style={s.tagline}>{tier.tagline}</Text>
 
+      {/* Boosted cashback by category — the eye-catching rates, on top of base */}
+      <View style={s.boosts}>
+        <Text style={s.boostTitle}>BOOSTED CASHBACK</Text>
+        <View style={s.boostRow}>
+          {CATEGORY_ORDER.map((c) => (
+            <View key={c} style={s.boostChip}>
+              <Ionicons name={CATEGORY_META[c].icon as any} size={15} color={tier.accent} />
+              <Text style={[s.boostRate, { color: tier.accent }]}>{tier.boosts[c].rate}%</Text>
+              <Text style={s.boostLabel}>{CATEGORY_META[c].label}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={s.boostBase}>{tier.cashbackCredit}% on everything else · caps apply</Text>
+      </View>
+
       <View style={s.rows}>
         <Perk icon="card-outline" label="Monthly limit" value={`$${group(String(tier.monthlyLimit))}`} />
         <Perk icon="cash-outline" label="Credit-mode cashback" value={`${tier.cashbackCredit}%`} />
@@ -285,6 +300,13 @@ const s = StyleSheet.create({
   progressFill: { height: 6, borderRadius: 3 },
   progressText: { color: colors.fgMuted, fontSize: 12, fontWeight: '600', marginTop: 7 },
   tagline: { color: colors.fgSecondary, fontSize: 13.5, marginTop: 12 },
+  boosts: { marginTop: 14, borderRadius: radius.md, backgroundColor: colors.bgRaised2, padding: 12 },
+  boostTitle: { color: colors.fgMuted, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6 },
+  boostRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  boostChip: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 10, borderRadius: radius.sm, backgroundColor: colors.bg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  boostRate: { fontSize: 16, fontWeight: '800' },
+  boostLabel: { color: colors.fgMuted, fontSize: 10.5, fontWeight: '600' },
+  boostBase: { color: colors.fgFaint, fontSize: 11.5, marginTop: 9 },
 
   rows: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 4 },
   perk: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9 },
