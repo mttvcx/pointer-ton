@@ -1,7 +1,8 @@
 import type { ProtocolBrandId } from '@/lib/tokens/protocolBrand';
+import type { AppChainId } from '@/lib/chains/appChain';
 
 /** Solana launchpads the AI may recommend (subset of ProtocolBrandId). */
-export const LAUNCH_PACKAGE_LAUNCHPADS = [
+export const SOL_LAUNCHPADS = [
   'pump.fun',
   'bonk',
   'moonshot',
@@ -10,7 +11,41 @@ export const LAUNCH_PACKAGE_LAUNCHPADS = [
   'heaven',
 ] as const satisfies readonly ProtocolBrandId[];
 
+/** EVM launchpads the AI may recommend, per chain (first = default). */
+export const EVM_LAUNCHPADS: Record<'eth' | 'bnb' | 'base', readonly ProtocolBrandId[]> = {
+  eth: ['clanker', 'uniswap', 'virtuals'],
+  bnb: ['four.meme', 'pancakeswap', 'flap'],
+  base: ['clanker', 'flaunch', 'zora-creator', 'bankr', 'virtuals'],
+};
+
+/** Every launchpad the AI may pick across all chains (deduped union). */
+export const LAUNCH_PACKAGE_LAUNCHPADS = [
+  ...SOL_LAUNCHPADS,
+  'clanker',
+  'uniswap',
+  'virtuals',
+  'four.meme',
+  'pancakeswap',
+  'flap',
+  'flaunch',
+  'zora-creator',
+  'bankr',
+] as const satisfies readonly ProtocolBrandId[];
+
 export type LaunchPackageLaunchpad = (typeof LAUNCH_PACKAGE_LAUNCHPADS)[number];
+
+/** Launchpads valid for a chain (Solana set, or the EVM set for that chain). */
+export function launchpadsForChain(chain: AppChainId): readonly LaunchPackageLaunchpad[] {
+  if (chain === 'eth') return EVM_LAUNCHPADS.eth as readonly LaunchPackageLaunchpad[];
+  if (chain === 'bnb') return EVM_LAUNCHPADS.bnb as readonly LaunchPackageLaunchpad[];
+  if (chain === 'base') return EVM_LAUNCHPADS.base as readonly LaunchPackageLaunchpad[];
+  return SOL_LAUNCHPADS as readonly LaunchPackageLaunchpad[];
+}
+
+/** The default launchpad for a chain (first in its list). */
+export function defaultLaunchpadForChain(chain: AppChainId): LaunchPackageLaunchpad {
+  return launchpadsForChain(chain)[0]!;
+}
 
 export type LaunchImageStrategy = 'use_tweet_image' | 'generate' | 'no_image';
 

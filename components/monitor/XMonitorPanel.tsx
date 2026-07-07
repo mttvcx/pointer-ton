@@ -353,7 +353,7 @@ export function XMonitorPanel({
     feedHoveredRef.current = feedHovered;
   }, [feedHovered]);
   useEffect(() => {
-    if (!showDemo || activeChain !== 'sol') {
+    if (!showDemo || activeChain === 'ton') {
       setStreamRows([]);
       return;
     }
@@ -369,11 +369,12 @@ export function XMonitorPanel({
   }, [showDemo, activeChain]);
 
   const { rows: allRows, mock, banner } = useMemo(() => {
-    if (activeChain !== 'sol') {
+    // X launches run on SOL + EVM (eth/base/bnb). TON has no launch path.
+    if (activeChain === 'ton') {
       return {
         rows: showDemo ? streamRows : [],
         mock: showDemo,
-        banner: 'Live X listens are Solana-only — switch chain to SOL.',
+        banner: 'X launches aren’t available on TON — switch to SOL, ETH, Base, or BNB.',
       };
     }
     if (serverRows.length === 0) {
@@ -411,7 +412,7 @@ export function XMonitorPanel({
     data: packages,
     isFetching: packagesLoading,
     isError: packagesError,
-  } = useLaunchPackages(tweets, tweets.length > 0 && activeChain === 'sol' && !mock);
+  } = useLaunchPackages(tweets, tweets.length > 0 && activeChain !== 'ton' && !mock, activeChain);
 
   const packageBySubject = useMemo(() => {
     const map = new Map<string, LaunchPackage>();

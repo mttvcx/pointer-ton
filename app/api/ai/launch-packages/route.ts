@@ -23,6 +23,7 @@ const TweetBody = z
 const Body = z
   .object({
     tweets: z.array(TweetBody).min(1).max(8),
+    chain: z.enum(['sol', 'eth', 'bnb', 'base', 'ton']).optional(),
   })
   .strict();
 
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_body', message }, { status: 400 });
   }
 
+  const chain = body.chain ?? 'sol';
+
   try {
     const items: LaunchPackagesBatchItem[] = [];
 
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
       };
       const subject = tweetLaunchCacheSubject(tweet);
       try {
-        const out = await generateLaunchPackage(tweet, auth.user.id);
+        const out = await generateLaunchPackage(tweet, auth.user.id, chain);
         items.push({
           subject,
           package: out.package,

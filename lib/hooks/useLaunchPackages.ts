@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import type { LaunchPackage, TweetLaunchInput } from '@/lib/launch/types';
+import type { AppChainId } from '@/lib/chains/appChain';
 
 export type LaunchPackageResult = {
   subject: string;
@@ -12,14 +13,19 @@ export type LaunchPackageResult = {
   fromCache: boolean;
 };
 
-export function useLaunchPackages(tweets: TweetLaunchInput[], enabled: boolean) {
+export function useLaunchPackages(
+  tweets: TweetLaunchInput[],
+  enabled: boolean,
+  chain: AppChainId = 'sol',
+) {
   const { authenticated, getAccessToken } = usePointerAuth();
   const key = tweets
     .map((t) => `${t.id ?? ''}:${(t.text ?? '').slice(0, 40)}`)
     .join('|');
 
   return useQuery({
-    queryKey: ['launch-packages', key],
+    // Chain in the key so switching SOL↔EVM re-suggests the right launchpads.
+    queryKey: ['launch-packages', chain, key],
     enabled: enabled && authenticated && tweets.length > 0,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
@@ -32,7 +38,7 @@ export function useLaunchPackages(tweets: TweetLaunchInput[], enabled: boolean) 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tweets }),
+        body: JSON.stringify({ tweets, chain }),
       });
       const json: unknown = await res.json();
       if (!res.ok) throw new Error('launch_packages_failed');
