@@ -22,6 +22,11 @@ import { normalizeTwitterHandle } from '@/lib/alerts/solMintFromText';
 import { cn } from '@/lib/utils/cn';
 import { TerminalCheckbox } from '@/components/ui/TerminalCheckbox';
 import { useAutoLaunchStore } from '@/store/autoLaunch';
+import { defaultLaunchpadForChain, launchpadsForChain } from '@/lib/launch/types';
+import type { LaunchChain } from '@/lib/alerts/automationRuleModel';
+
+/** Chains an auto-launch rule can fire on server-side (TON is manual-only). */
+const AUTO_LAUNCH_CHAINS: readonly Exclude<LaunchChain, 'ton'>[] = ['sol', 'eth', 'base', 'bnb'];
 
 export type AutomationRuleDraft = {
   name: string;
@@ -168,9 +173,17 @@ export function automationDraftToBody(draft: AutomationRuleDraft) {
     };
   } else if (draft.actionType === 'deploy') {
     const launchPrefs = useAutoLaunchStore.getState();
+    const chain = (AUTO_LAUNCH_CHAINS as readonly string[]).includes(String(draft.actionConfig.chain))
+      ? (draft.actionConfig.chain as Exclude<LaunchChain, 'ton'>)
+      : 'sol';
+    const launchpad = draft.actionConfig.launchpad
+      ? String(draft.actionConfig.launchpad)
+      : defaultLaunchpadForChain(chain);
     actionConfig = {
       launchMode: launchPrefs.launchMode,
       launchBuySol: launchPrefs.launchBuySol,
+      chain,
+      launchpad,
     };
   }
 
@@ -509,11 +522,60 @@ export function AutomationRuleBuilder({
         </div>
       ) : null}
 
-      {draft.actionType === 'deploy' ? (
-        <p className="text-[10px] leading-snug text-fg-muted">
-          Fires automatically when Auto rules is on in X monitor. Uses AI launcher when that toggle is on.
-        </p>
-      ) : null}
+      {draft.actionType === 'deploy'
+        ? (() => {
+            const deployChain = (AUTO_LAUNCH_CHAINS as readonly string[]).includes(
+              String(draft.actionConfig.chain),
+            )
+              ? (draft.actionConfig.chain as Exclude<LaunchChain, 'ton'>)
+              : 'sol';
+            const deployPad = String(draft.actionConfig.launchpad ?? defaultLaunchpadForChain(deployChain));
+            return (
+              <div className="space-y-2">
+                <p className="text-[10px] leading-snug text-fg-muted">
+                  Fires automatically when Auto rules is on in X monitor. Uses AI launcher when that toggle
+                  is on. Deploys on the chain + pad below — <span className="text-fg-secondary">regardless of
+                  the chain you&apos;re viewing</span> when it fires.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="space-y-1">
+                    <FieldLabel>Launch chain</FieldLabel>
+                    <select
+                      value={deployChain}
+                      onChange={(e) => {
+                        const ch = e.target.value as Exclude<LaunchChain, 'ton'>;
+                        patchAction({ chain: ch, launchpad: defaultLaunchpadForChain(ch) });
+                      }}
+                      className={inputCls}
+                      style={fieldStyle}
+                    >
+                      {AUTO_LAUNCH_CHAINS.map((ch) => (
+                        <option key={ch} value={ch}>
+                          {ch.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <FieldLabel>Launchpad</FieldLabel>
+                    <select
+                      value={deployPad}
+                      onChange={(e) => patchAction({ launchpad: e.target.value })}
+                      className={inputCls}
+                      style={fieldStyle}
+                    >
+                      {launchpadsForChain(deployChain).map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            );
+          })()
+        : null}
 
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1">

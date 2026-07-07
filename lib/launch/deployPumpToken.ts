@@ -4,7 +4,8 @@ import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { getHeliusRpcUrl } from '@/lib/utils/constants';
 import { generateLaunchPackage } from '@/lib/launch/generateLaunchPackage';
-import type { TweetLaunchInput } from '@/lib/launch/types';
+import type { TweetLaunchInput, LaunchPackageLaunchpad } from '@/lib/launch/types';
+import { pumpPortalPool } from '@/lib/launch/buildSolLaunchTx';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { deployEvmToken, evmAutoLaunchEnabled } from '@/lib/launch/deployEvmToken';
 
@@ -62,6 +63,8 @@ export type DeployPumpTokenInput = {
   twitter?: string | null;
   telegram?: string | null;
   website?: string | null;
+  /** Solana pad — pump.fun or bonk (letsbonk). Others fall back to pump.fun. */
+  launchpad?: LaunchPackageLaunchpad | null;
   /** Dev buy in SOL (clamped to MAX_DEV_BUY_SOL). 0 = create only. */
   devBuySol?: number;
 };
@@ -97,6 +100,7 @@ export async function deployPumpToken(input: DeployPumpTokenInput): Promise<Depl
 
   // 2) Ask PumpPortal to build the create transaction (unsigned).
   const devBuy = Math.min(MAX_DEV_BUY_SOL, Math.max(0, input.devBuySol ?? 0));
+  const pool = pumpPortalPool(input.launchpad ?? 'pump.fun') ?? 'pump';
   const ppRes = await fetch(PUMPPORTAL_LOCAL_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -109,7 +113,7 @@ export async function deployPumpToken(input: DeployPumpTokenInput): Promise<Depl
       amount: devBuy,
       slippage: 10,
       priorityFee: 0.0005,
-      pool: 'pump',
+      pool,
     }),
     signal: AbortSignal.timeout(15_000),
   });
@@ -134,12 +138,23 @@ const launchedTweetIds = new Set<string>();
  * from the tweet, then deploys via {@link deployPumpToken}. No-op unless
  * `autoLaunchDeployEnabled()` and the AI says `shouldLaunch`. Deduped per tweet id.
  */
+export type AutoLaunchOpts = {
+  /** Pad pinned on the rule — overrides the AI's suggestion when provided. */
+  launchpad?: LaunchPackageLaunchpad | null;
+  /** Dev buy in the chain's native unit (SOL / ETH / BNB). 0 = create only. */
+  devBuyNative?: number | null;
+};
+
 export async function autoLaunchFromTweet(
   tweet: TweetLaunchInput,
   userId: string,
   chain: AppChainId = 'sol',
+  opts: AutoLaunchOpts = {},
 ): Promise<DeployPumpTokenResult | null> {
   const isEvm = chain === 'eth' || chain === 'bnb' || chain === 'base';
+  // TON auto-launch needs the user's TonConnect wallet (client-side) — there is
+  // no server TON signer, so auto-launch can't fire on TON. Deploy TON manually.
+  if (chain === 'ton') return null;
   // Each chain has its own two-seatbelt enable gate.
   if (isEvm ? !evmAutoLaunchEnabled() : !autoLaunchDeployEnabled()) return null;
 
@@ -153,6 +168,9 @@ export async function autoLaunchFromTweet(
 
   const imageUrl = pkg.imageStrategy === 'use_tweet_image' ? (tweet.imageUrls ?? [])[0] ?? null : null;
   const twitter = `https://x.com/${tweet.authorHandle.replace(/^@/, '')}`;
+  // Rule's pinned pad wins over the AI's suggestion.
+  const launchpad = opts.launchpad ?? pkg.suggestedLaunchpad;
+  const devBuy = Math.max(0, opts.devBuyNative ?? 0);
 
   if (isEvm) {
     // Shape-compat with the Solana result so callers stay unchanged:
@@ -164,8 +182,8 @@ export async function autoLaunchFromTweet(
       imageUrl,
       twitter,
       website: null,
-      launchpad: pkg.suggestedLaunchpad,
-      devBuyNative: 0,
+      launchpad,
+      devBuyNative: devBuy,
     });
     return { mint: r.contractAddress, signature: r.txHash };
   }
@@ -176,6 +194,7 @@ export async function autoLaunchFromTweet(
     description: pkg.narrative,
     imageUrl,
     twitter,
-    devBuySol: 0,
+    launchpad,
+    devBuySol: devBuy,
   });
 }

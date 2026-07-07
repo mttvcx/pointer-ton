@@ -20,7 +20,7 @@ import {
   pickTwitterListenMint,
 } from '@/lib/alerts/twitterListenMintPick';
 import { notifyUser } from '@/lib/push/notifyUser';
-import { autoLaunchDeployEnabled, autoLaunchFromTweet } from '@/lib/launch/deployPumpToken';
+import { autoLaunchFromTweet } from '@/lib/launch/deployPumpToken';
 
 export type TwitterListenIngestTweet = {
   id: string;
@@ -270,16 +270,20 @@ export async function emitTwitterListenAlerts(tweets: TwitterListenIngestTweet[]
         });
         inserts += 1;
 
-        // Auto-launch: deploy a token from this tweet via the server burner.
-        // Gated behind POINTER_AUTO_LAUNCH_ENABLED + a configured deploy wallet;
-        // fire-and-forget so it never blocks the alert loop. Deduped per tweet.
-        if (requested === 'auto_launch' && autoLaunchDeployEnabled()) {
+        // Auto-launch: deploy a token from this tweet via the server burner, on
+        // the CHAIN + PAD pinned on the rule (independent of the user's active
+        // chain). autoLaunchFromTweet self-gates per chain (POINTER_AUTO_LAUNCH_ENABLED
+        // for SOL, POINTER_EVM_LAUNCH_ENABLED for EVM) and dedupes per tweet, so a
+        // fire-and-forget call never blocks the alert loop or double-launches.
+        if (requested === 'auto_launch') {
           void autoLaunchFromTweet(
             { id: t.id, text: t.text ?? '', authorHandle: handleNorm, imageUrls, tweetUrl: t.tweetUrl ?? null },
             config.userId,
+            config.launchChain,
+            { launchpad: config.launchpad, devBuyNative: config.launchBuySol },
           )
             .then((res) => {
-              if (res) console.log('[auto-launch] deployed', res.mint, res.signature);
+              if (res) console.log(`[auto-launch] deployed on ${config.launchChain}`, res.mint, res.signature);
             })
             .catch((e) => console.warn('[auto-launch] failed:', e instanceof Error ? e.message : e));
         }

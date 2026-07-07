@@ -9,6 +9,10 @@ import {
   hammingThresholdFromPreset,
   type HammingThresholdPreset as HashPreset,
 } from '@/lib/image/perceptualHash';
+import { LAUNCH_PACKAGE_LAUNCHPADS, type LaunchPackageLaunchpad } from '@/lib/launch/types';
+
+/** Chains an auto-launch rule can deploy on. */
+export type LaunchChain = 'sol' | 'eth' | 'base' | 'bnb' | 'ton';
 
 export const AUTOMATION_RULE_TYPE = 'automation' as const;
 
@@ -163,6 +167,13 @@ export const DeployActionConfigSchema = z
   .object({
     launchMode: z.enum(['manual', 'ai']).optional(),
     launchBuySol: z.number().positive().max(420).nullable().optional(),
+    /**
+     * Chain + launchpad the auto-launch deploys on — pinned per rule, so "if this
+     * account tweets, launch on THIS chain/pad" fires regardless of whatever chain
+     * the user is viewing at the time. Defaults to Solana / pump.fun when omitted.
+     */
+    chain: z.enum(['sol', 'eth', 'base', 'bnb', 'ton']).optional(),
+    launchpad: z.enum(LAUNCH_PACKAGE_LAUNCHPADS).optional(),
   })
   .strict();
 
@@ -503,6 +514,10 @@ export type TwitterListenExecutionView = {
   buySolPreset: number | null;
   maxSolPerDay: number | null;
   slippageBps: number | null;
+  /** Auto-launch target — chain + pad pinned on the rule (deploy action only). */
+  launchChain: LaunchChain;
+  launchpad: LaunchPackageLaunchpad | null;
+  launchBuySol: number | null;
   activityFilter: ActivityFilter;
   disableAfterSuccess: boolean;
   cooldownSeconds: number;
@@ -575,6 +590,13 @@ export function twitterListenViewFromAutomation(rule: AutomationRule): TwitterLi
       ? (rule.actionConfig.slippageBps ?? null)
       : null;
 
+  // Auto-launch target — pinned per rule so it fires on this chain/pad regardless
+  // of what chain the user is viewing. Defaults to Solana / pump.fun.
+  const deployCfg = rule.actionType === 'deploy' ? (rule.actionConfig as z.infer<typeof DeployActionConfigSchema>) : null;
+  const launchChain: LaunchChain = deployCfg?.chain ?? 'sol';
+  const launchpad: LaunchPackageLaunchpad | null = deployCfg?.launchpad ?? null;
+  const launchBuySol = deployCfg?.launchBuySol ?? null;
+
   return {
     ruleId: rule.id,
     ruleName: rule.name,
@@ -591,6 +613,9 @@ export function twitterListenViewFromAutomation(rule: AutomationRule): TwitterLi
     buySolPreset,
     maxSolPerDay: rule.dailyCapSol,
     slippageBps,
+    launchChain,
+    launchpad,
+    launchBuySol,
     activityFilter: rule.activityFilter,
     disableAfterSuccess: rule.disableAfterSuccess,
     cooldownSeconds: rule.cooldownSeconds,

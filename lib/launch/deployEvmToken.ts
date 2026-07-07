@@ -22,6 +22,8 @@ import type { LaunchPackageLaunchpad } from '@/lib/launch/types';
 export type EvmDeployChain = 'eth' | 'bnb' | 'base';
 
 const VIEM_CHAIN: Record<EvmDeployChain, Chain> = { eth: mainnet, bnb: bsc, base: base };
+/** clanker-supported chain ids (literals to satisfy the SDK's chainId union). */
+const CLANKER_CHAIN_ID = { eth: 1, bnb: 56, base: 8453 } as const;
 
 /** RPC URL per chain — env override, else the chain's public default. */
 function rpcUrl(chain: EvmDeployChain): string {
@@ -80,12 +82,33 @@ function clients(chain: EvmDeployChain) {
  * the create tx and return the token address + tx hash.
  */
 async function deployViaLaunchpad(
-  _chain: EvmDeployChain,
+  chain: EvmDeployChain,
   input: DeployEvmTokenInput,
-  _c: ReturnType<typeof clients>,
+  c: ReturnType<typeof clients>,
 ): Promise<DeployEvmTokenResult> {
-  // TODO(evm-launch): implement per launchpad using its verified factory
-  // (viem writeContract → wait for receipt → read the created token address).
+  // clanker — verified v4 factory (Ethereum / Base / BSC) via the maintained SDK,
+  // signed by the server burner. Mirrors the client-side deployEvmClient path.
+  if (input.launchpad === 'clanker') {
+    const chainId = CLANKER_CHAIN_ID[chain];
+    const { Clanker } = await import('clanker-sdk/v4');
+    const clanker = new Clanker({ wallet: c.wallet, publicClient: c.publicClient } as unknown as ConstructorParameters<typeof Clanker>[0]);
+    const socialMediaUrls = input.twitter ? [{ platform: 'x', url: input.twitter }] : [];
+    const res = await clanker.deploy({
+      name: input.name,
+      symbol: input.symbol,
+      image: input.imageUrl ?? '',
+      chainId,
+      tokenAdmin: c.account.address,
+      metadata: { description: input.description ?? '', socialMediaUrls, auditUrls: [] },
+    });
+    if (res.error) throw new Error(res.error.message || 'clanker_deploy_failed');
+    const waited = await res.waitForTransaction();
+    if (waited.error) throw new Error(waited.error.message || 'clanker_confirm_failed');
+    return { contractAddress: waited.address, txHash: res.txHash, chain };
+  }
+
+  // Other pads (four.meme / flaunch / uniswap / …) still need their verified
+  // factory wired — throw rather than guess a contract (a wrong address burns funds).
   throw new Error(`evm_launchpad_not_wired:${input.launchpad}`);
 }
 
