@@ -24,6 +24,8 @@ const CHAIN_ID = { eth: 1, bnb: 56, base: 8453 } as const;
 /** Whether a pad has a wired factory on a given chain. */
 export function evmPadWired(chain: EvmPadChain, pad: LaunchPackageLaunchpad): boolean {
   if (pad === 'clanker') return true; // eth / base / bnb
+  // bankr's launch product deploys clanker tokens under the hood → same factory.
+  if (pad === 'bankr') return chain === 'base';
   if (pad === 'zora-creator') return chain === 'base';
   if (pad === 'flaunch') return chain === 'base';
   return false;
@@ -70,7 +72,7 @@ export async function deployEvmPad(p: EvmPadParams): Promise<EvmPadResult> {
   }
   const chainId = CHAIN_ID[p.chain];
 
-  if (p.launchpad === 'clanker') {
+  if (p.launchpad === 'clanker' || p.launchpad === 'bankr') {
     const { Clanker } = await import('clanker-sdk/v4');
     const clanker = new Clanker({ wallet: p.walletClient, publicClient: p.publicClient } as unknown as ConstructorParameters<typeof Clanker>[0]);
     const socialMediaUrls = p.twitter ? [{ platform: 'x', url: p.twitter }] : [];
