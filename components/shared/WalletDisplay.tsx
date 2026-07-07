@@ -5,6 +5,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { useWalletLabels, labelColorClass } from '@/lib/hooks/useWalletLabels';
 import { cn } from '@/lib/utils/cn';
+import { AppleEmoji } from '@/components/ui/AppleEmoji';
 import { useWalletIntelStore } from '@/store/walletIntelStore';
 
 function chainFromAddress(addr: string): AppChainId {
@@ -44,7 +45,17 @@ export function WalletDisplay({
     r.labeled ? labelColorClass(r.color) : 'text-fg-secondary',
   );
 
-  const inner = <span className={textCls}>{r.text}</span>;
+  // Render the label emoji as the Apple/iOS glyph (not the host-OS font); the
+  // label text follows without the baked-in native emoji prefix.
+  const inner =
+    r.labeled && r.emoji ? (
+      <span className={cn('inline-flex min-w-0 items-center', textCls)}>
+        <AppleEmoji emoji={r.emoji} size={13} className="mr-1 shrink-0" />
+        <span className="min-w-0 truncate">{r.label}</span>
+      </span>
+    ) : (
+      <span className={textCls}>{r.text}</span>
+    );
 
   const linked =
     href != null ? (

@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Picker from '@emoji-mart/react';
+import emojiData from '@emoji-mart/data';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Smile, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { AppleEmoji } from '@/components/ui/AppleEmoji';
 import { useOverlayPresence } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
@@ -11,29 +14,6 @@ import { cn } from '@/lib/utils/cn';
 import { shortenAddress } from '@/lib/utils/addresses';
 import { useWalletLabelsStore } from '@/store/walletLabels';
 import { CloseButton } from '@/components/ui/CloseButton';
-
-const EMOJI_OPTIONS = [
-  '\u{1f40b}',
-  '\u{1f3af}',
-  '\u{1f48e}',
-  '\u{1f525}',
-  '\u{1f47b}',
-  '\u{1f9e0}',
-  '\u{1f438}',
-  '\u{1f680}',
-  '\u{26a1}',
-  '\u{1f440}',
-  '\u{1f98d}',
-  '\u{1f4cc}',
-  '\u{1f4b0}',
-  '\u{1f3b0}',
-  '\u{1f3c6}',
-  '\u{1f319}',
-  '\u{1f9ea}',
-  '\u{1f4c8}',
-  '\u{1f6e1}\u{fe0f}',
-  '\u2b50',
-] as const;
 
 const COLOR_OPTIONS = [
   { id: 'yellow', label: 'Yellow', cls: 'bg-yellow-400/90' },
@@ -98,6 +78,7 @@ function LabelWalletForm({
   const [emoji, setEmoji] = useState<string | null>(existing?.emoji ?? null);
   const [color, setColor] = useState<string>(existing?.color ?? 'yellow');
   const [busy, setBusy] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   async function onSave() {
     const t = label.trim();
@@ -199,24 +180,53 @@ function LabelWalletForm({
       <span className="mt-3 block text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
         Emoji
       </span>
-      <div className="mt-1.5 grid grid-cols-10 gap-1">
-        {EMOJI_OPTIONS.map((e) => (
+      <div className="mt-1.5 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setPickerOpen((v) => !v)}
+          className={cn(
+            'btn-press flex h-9 w-9 items-center justify-center rounded-md border text-[18px] transition',
+            pickerOpen ? 'border-accent-primary bg-accent-primary/15' : 'border-border-subtle hover:bg-bg-hover',
+          )}
+          aria-label="Choose emoji"
+        >
+          {emoji ? <AppleEmoji emoji={emoji} size={20} /> : <Smile className="h-4 w-4 text-fg-muted" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPickerOpen((v) => !v)}
+          className="text-[12px] text-accent-primary transition hover:text-accent-glow"
+        >
+          {emoji ? 'Change emoji' : 'Choose emoji'}
+        </button>
+        {emoji ? (
           <button
-            key={e}
             type="button"
-            onClick={() => setEmoji((cur) => (cur === e ? null : e))}
-            className={cn(
-              'btn-press flex h-8 items-center justify-center rounded-md border text-[15px] transition',
-              emoji === e
-                ? 'border-accent-primary bg-accent-primary/15'
-                : 'border-border-subtle hover:bg-bg-hover',
-            )}
-            aria-label={`Select emoji ${e}`}
+            onClick={() => setEmoji(null)}
+            className="ml-auto inline-flex items-center gap-1 text-[11px] text-fg-muted transition hover:text-fg-primary"
           >
-            {e}
+            <X className="h-3 w-3" /> Clear
           </button>
-        ))}
+        ) : null}
       </div>
+      {pickerOpen ? (
+        <div className="mt-2 overflow-hidden rounded-lg border border-border-subtle">
+          <Picker
+            data={emojiData}
+            set="apple"
+            theme="dark"
+            previewPosition="none"
+            skinTonePosition="search"
+            navPosition="top"
+            perLine={9}
+            maxFrequentRows={1}
+            onEmojiSelect={(e: { native?: string }) => {
+              if (e?.native) setEmoji(e.native);
+              setPickerOpen(false);
+            }}
+          />
+        </div>
+      ) : null}
 
       <span className="mt-3 block text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
         Color

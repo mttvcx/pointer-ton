@@ -43,6 +43,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@flaunch/sdk": "^0.9.20",
     "@google/generative-ai": "^0.24.1",
     "@hpke/chacha20poly1305": "^1.8.0",
@@ -81,6 +83,7 @@
     "clsx": "^2.1.1",
     "d3-force": "^3.0.0",
     "date-fns": "^4.1.0",
+    "emoji-mart": "^5.6.0",
     "helius-sdk": "^2.2.2",
     "html-to-image": "^1.11.13",
     "idb": "^8.0.3",
