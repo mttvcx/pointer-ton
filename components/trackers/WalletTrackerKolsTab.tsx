@@ -10,6 +10,8 @@ import { useWalletIntelStore } from '@/store/walletIntelStore';
 import { useWalletGroupsStore } from '@/store/walletGroups';
 import { useKolPrefsStore } from '@/store/kolPrefs';
 import { DEMO_KOLS, type DemoKol } from '@/lib/dev/kolsDemo';
+import { EVM_KOLS } from '@/lib/dev/evmKolsDemo';
+import { useUIStore } from '@/store/ui';
 
 function KolAvatar({ handle }: { handle: string }) {
   const [err, setErr] = useState(false);
@@ -205,7 +207,9 @@ function KolRow({ k }: { k: DemoKol }) {
       <KolAvatar handle={k.handle} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[12px] font-semibold text-fg-primary">{k.name}</p>
-        <p className="truncate text-[10px] text-fg-muted">@{k.handle}</p>
+        <p className="truncate text-[10px] text-fg-muted">
+          {k.handle ? `@${k.handle}` : shortenAddress(k.wallet, 4)}
+        </p>
       </div>
 
       <button
@@ -240,15 +244,17 @@ function KolRow({ k }: { k: DemoKol }) {
         >
           <LineChart className="h-4 w-4" strokeWidth={2} />
         </button>
-        <a
-          href={`https://x.com/${k.handle}`}
-          target="_blank"
-          rel="noreferrer"
-          title="Open X profile"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-[13px] font-bold text-fg-muted transition-colors hover:text-fg-secondary"
-        >
-          𝕏
-        </a>
+        {k.handle ? (
+          <a
+            href={`https://x.com/${k.handle}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Open X profile"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[13px] font-bold text-fg-muted transition-colors hover:text-fg-secondary"
+          >
+            𝕏
+          </a>
+        ) : null}
         <MinBubbleMenu address={k.wallet} />
       </div>
     </div>
@@ -262,8 +268,11 @@ function KolRow({ k }: { k: DemoKol }) {
  */
 export function WalletTrackerKolsTab() {
   const [q, setQ] = useState('');
-  // Curated KOL directory — always shown (no longer gated behind Trades preview).
-  const list = DEMO_KOLS;
+  const activeChain = useUIStore((s) => s.activeChain);
+  // Curated KOL directory, per chain: EVM chains show the EVM KOL set, everything
+  // else (SOL) shows the Solana directory.
+  const list =
+    activeChain === 'eth' || activeChain === 'bnb' || activeChain === 'base' ? EVM_KOLS : DEMO_KOLS;
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return list;
