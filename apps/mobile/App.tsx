@@ -24,6 +24,7 @@ import { SocialScreen } from './screens/SocialScreen';
 import { TraderProfileScreen } from './screens/TraderProfileScreen';
 import { AlertsScreen } from './screens/AlertsScreen';
 import { FinancialScreen } from './screens/FinancialScreen';
+import { PacksScreen } from './screens/PacksScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { OnboardingFlow } from './screens/OnboardingFlow';
@@ -245,6 +246,9 @@ function Shell() {
           </TabPane>
           <TabPane active={tab === 'financial'}>
             <FinancialScreen onOpenToken={pushToken} />
+          </TabPane>
+          <TabPane active={tab === 'packs'}>
+            <PacksScreen />
           </TabPane>
           <TabPane active={tab === 'social'}>
             {adv ? <AlertsScreen /> : <SocialScreen onOpenTrader={pushTrader} onOpenToken={pushToken} />}

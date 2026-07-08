@@ -17,11 +17,11 @@ try {
   liquid = false;
 }
 
-export type NavTab = 'home' | 'search' | 'financial' | 'social' | 'profile';
+export type NavTab = 'home' | 'search' | 'financial' | 'packs' | 'social' | 'profile';
 
-// Slot order: 0 home · 1 search · 2 brand(Adv) · 3 financial(card) · 4 social · 5 profile.
-const SLOT_OF: Record<NavTab, number> = { home: 0, search: 1, financial: 3, social: 4, profile: 5 };
-const SLOTS = 6;
+// Slot order: 0 home · 1 search · 2 brand(Adv) · 3 financial · 4 packs · 5 social · 6 profile.
+const SLOT_OF: Record<NavTab, number> = { home: 0, search: 1, financial: 3, packs: 4, social: 5, profile: 6 };
+const SLOTS = 7;
 const HEIGHT = 64;
 const SEL_H = 58;
 
@@ -76,6 +76,9 @@ export function GlassNav({
       </Slot>
       <Slot onPress={() => onSelect('financial')}>
         <Ionicons name={active === 'financial' ? 'card' : 'card-outline'} size={23} color={color('financial')} />
+      </Slot>
+      <Slot onPress={() => onSelect('packs')}>
+        <Ionicons name={active === 'packs' ? 'ticket' : 'ticket-outline'} size={23} color={color('packs')} />
       </Slot>
       <Slot onPress={() => onSelect('social')}>
         <Ionicons name={advanced ? 'notifications' : 'people'} size={23} color={color('social')} />
