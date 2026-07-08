@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ArrowUp, Bot, ChevronDown, Coins, Lock, Menu, Mic, Paperclip, Plus, Search, Sparkles, Square, X,
+  ArrowUp, Bot, BookmarkPlus, ChevronDown, ChevronLeft, Coins, Folder, FolderPlus, Lock, Menu, Mic, Paperclip, Plus, Search, Sparkles, Square, Trash2, X,
 } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { SibylAnswerView } from '@/components/sibyl/SibylAnswerView';
 import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
 import { SIBYL_MODELS } from '@/lib/sibyl/models';
+import { useSibylSpaces } from '@/store/sibylSpaces';
 import type { SibylAnswer } from '@/sibyl/types';
 
 /**
@@ -30,6 +31,8 @@ export function SibylApp() {
   const displayName = user?.google?.name ?? user?.twitter?.username ?? user?.email?.address ?? 'Guest';
   const [drawer, setDrawer] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [view, setView] = useState<'chat' | 'spaces'>('chat');
+  const [saveItem, setSaveItem] = useState<{ title: string; body: string } | null>(null);
   const [specialty, setSpecialty] = useState<Specialty>('general');
   const [modelKey, setModelKey] = useState<ModelKey>('oracle');
   const [modelSheet, setModelSheet] = useState(false);
@@ -185,6 +188,10 @@ export function SibylApp() {
           </button>
         </header>
 
+        {view === 'spaces' ? (
+          <SpacesView onBack={() => setView('chat')} />
+        ) : (
+        <>
         {/* main scroll area */}
         <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-4">
           {empty ? (
@@ -205,6 +212,23 @@ export function SibylApp() {
                         {m.text || <span className="sib-dot sib-faint">▋</span>}
                       </div>
                     )}
+                    {(m.answer || (m.text && m.text.length > 3)) && !loading ? (
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSaveItem(
+                              m.answer
+                                ? { title: m.answer.verdict, body: answerToText(m.answer) }
+                                : { title: (m.text ?? '').split('\n')[0]?.slice(0, 80) ?? 'Saved', body: m.text ?? '' },
+                            )
+                          }
+                          className="sib-hover flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] sib-faint"
+                        >
+                          <BookmarkPlus className="h-3.5 w-3.5" /> Save to Space
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ),
               )}
@@ -260,13 +284,16 @@ export function SibylApp() {
             </form>
           </div>
         </div>
+        </>
+        )}
 
         {drawer ? (
           <Drawer
             specialty={specialty}
             authenticated={authenticated}
             displayName={displayName}
-            onSpecialty={(s) => { setSpecialty(s); setDrawer(false); }}
+            onSpecialty={(s) => { setSpecialty(s); setView('chat'); setDrawer(false); }}
+            onSpaces={() => { setView('spaces'); setDrawer(false); }}
             onSignIn={() => { void login(); setDrawer(false); }}
             onUpgrade={() => { setUpgradeOpen(true); setDrawer(false); }}
             onClose={() => setDrawer(false)}
@@ -274,6 +301,7 @@ export function SibylApp() {
         ) : null}
         {modelSheet ? <ModelSheet active={modelKey} onPick={(k) => { setModelKey(k); setModelSheet(false); }} onClose={() => setModelSheet(false)} /> : null}
         <SibylUpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
+        {saveItem ? <SaveSheet item={saveItem} onClose={() => setSaveItem(null)} /> : null}
       </div>
     </div>
   );
@@ -281,6 +309,13 @@ export function SibylApp() {
 
 function specialtyPrompt(sp: Specialty, starter: string): string {
   return sp === 'crypto' ? `${starter}: ` : `${starter}: `;
+}
+
+function answerToText(a: SibylAnswer): string {
+  return (
+    a.body?.trim() ||
+    [a.verdict, ...(a.why ?? []).map((w) => `• ${w}`), a.action].filter(Boolean).join('\n')
+  );
 }
 
 function Home({ specialty, starters, onPick }: { specialty: Specialty; starters: string[]; onPick: (s: string) => void }) {
@@ -349,12 +384,13 @@ function LiveTrace({ stages, veil, attested }: { stages: Stage[]; veil: boolean;
 }
 
 function Drawer({
-  specialty, authenticated, displayName, onSpecialty, onSignIn, onUpgrade, onClose,
+  specialty, authenticated, displayName, onSpecialty, onSpaces, onSignIn, onUpgrade, onClose,
 }: {
   specialty: Specialty;
   authenticated: boolean;
   displayName: string;
   onSpecialty: (s: Specialty) => void;
+  onSpaces: () => void;
   onSignIn: () => void;
   onUpgrade: () => void;
   onClose: () => void;
@@ -375,7 +411,8 @@ function Drawer({
           <DrawerItem active={specialty === 'general'} onClick={() => onSpecialty('general')} icon={<Sparkles className="h-4 w-4" />} label="Chat" />
           <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider sib-faint">Specialties</div>
           <DrawerItem active={specialty === 'crypto'} onClick={() => onSpecialty('crypto')} icon={<Bot className="h-4 w-4" />} label="Crypto" badge="Council" />
-          <DrawerItem disabled icon={<Coins className="h-4 w-4" />} label="Spaces" badge="Soon" />
+          <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider sib-faint">Library</div>
+          <DrawerItem onClick={onSpaces} icon={<Coins className="h-4 w-4" />} label="Spaces" />
         </nav>
         <div className="mt-auto space-y-1 border-t sib-border pt-3">
           <DrawerItem onClick={onUpgrade} icon={<Sparkles className="h-4 w-4" />} label="Upgrade" />
@@ -453,6 +490,160 @@ function ModelSheet({ active, onPick, onClose }: { active: ModelKey; onPick: (k:
                 {r.tag === 'veil' ? '🔒 Private' : 'Anon'}
               </span>
             )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Spaces — local research folders. Nothing leaves the device (localStorage),
+ * matching the privacy story. Folder list ⇄ folder detail (saved items).
+ */
+function SpacesView({ onBack }: { onBack: () => void }) {
+  const { spaces, createSpace, deleteSpace, removeItem } = useSibylSpaces();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const open = spaces.find((s) => s.id === openId) ?? null;
+
+  if (open) {
+    return (
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className="mx-auto max-w-[480px]">
+          <button type="button" onClick={() => setOpenId(null)} className="sib-hover mb-3 -ml-1 flex items-center gap-1 rounded-lg py-1 pr-2 text-[13px] sib-muted">
+            <ChevronLeft className="h-4 w-4" /> Spaces
+          </button>
+          <div className="mb-4 flex items-center gap-2.5">
+            <Folder className="h-5 w-5 sib-accent" />
+            <h1 className="text-[20px] font-semibold tracking-tight">{open.name}</h1>
+            <span className="text-[12px] sib-faint">{open.items.length}</span>
+          </div>
+          {open.items.length === 0 ? (
+            <p className="mt-10 text-center text-[13px] sib-faint">Nothing saved here yet. Tap “Save to Space” on any answer.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {open.items.map((it) => (
+                <div key={it.id} className="sib-glass rounded-2xl p-3.5">
+                  <div className="mb-1 flex items-start justify-between gap-2">
+                    <div className="text-[13.5px] font-medium sib-fg">{it.title}</div>
+                    <button type="button" onClick={() => removeItem(open.id, it.id)} className="sib-hover rounded-lg p-1" aria-label="Remove">
+                      <Trash2 className="h-3.5 w-3.5 sib-faint" />
+                    </button>
+                  </div>
+                  <div className="line-clamp-4 whitespace-pre-wrap text-[12.5px] leading-relaxed sib-muted">{it.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="mx-auto max-w-[480px]">
+        <div className="mb-1 flex items-center justify-between">
+          <h1 className="text-[22px] font-semibold tracking-tight">Spaces</h1>
+          <button type="button" onClick={() => setCreating((v) => !v)} className="sib-hover flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] sib-accent">
+            <FolderPlus className="h-4 w-4" /> New
+          </button>
+        </div>
+        <p className="mb-4 text-[12px] sib-faint">Your research folders — saved on this device only.</p>
+
+        {creating ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const n = newName.trim();
+              if (!n) return;
+              createSpace(n);
+              setNewName('');
+              setCreating(false);
+            }}
+            className="sib-glass mb-4 flex items-center gap-2 rounded-2xl px-3 py-2"
+          >
+            <Folder className="h-4 w-4 sib-faint" />
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Space name…"
+              className="flex-1 bg-transparent text-[14px] outline-none placeholder:text-[color:var(--sib-faint)]"
+            />
+            <button type="submit" className="rounded-full px-3 py-1 text-[12px] font-semibold text-white" style={{ background: 'var(--sib-accent)' }}>Add</button>
+          </form>
+        ) : null}
+
+        {spaces.length === 0 ? (
+          <div className="mt-12 flex flex-col items-center text-center">
+            <Folder className="mb-3 h-8 w-8 sib-faint" />
+            <p className="text-[13px] sib-faint">No spaces yet. Create one, then save answers into it.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {spaces.map((s) => (
+              <div key={s.id} className="sib-glass sib-hover flex items-center gap-3 rounded-2xl px-3.5 py-3">
+                <button type="button" onClick={() => setOpenId(s.id)} className="flex flex-1 items-center gap-3 text-left">
+                  <Folder className="h-5 w-5 sib-accent" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14px] font-medium sib-fg">{s.name}</div>
+                    <div className="text-[11.5px] sib-faint">{s.items.length} saved</div>
+                  </div>
+                </button>
+                <button type="button" onClick={() => deleteSpace(s.id)} className="sib-hover rounded-lg p-1.5" aria-label="Delete space">
+                  <Trash2 className="h-4 w-4 sib-faint" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Bottom sheet to save an answer into a Space (pick existing or create). */
+function SaveSheet({ item, onClose }: { item: { title: string; body: string }; onClose: () => void }) {
+  const { spaces, createSpace, addItem } = useSibylSpaces();
+  const [newName, setNewName] = useState('');
+  const saveTo = (spaceId: string) => {
+    addItem(spaceId, { title: item.title || 'Saved', body: item.body });
+    onClose();
+  };
+  return (
+    <div className="absolute inset-0 z-50 flex items-end">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/50" />
+      <div className="sib-glass sib-rise relative z-10 max-h-[70%] w-full overflow-y-auto rounded-t-3xl p-3 pb-6">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+        <div className="mb-2 px-1 text-[13px] font-semibold sib-fg">Save to Space</div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = newName.trim();
+            if (!n) return;
+            saveTo(createSpace(n));
+          }}
+          className="sib-panel mb-2 flex items-center gap-2 rounded-2xl px-3 py-2"
+        >
+          <FolderPlus className="h-4 w-4 sib-faint" />
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New space…"
+            className="flex-1 bg-transparent text-[14px] outline-none placeholder:text-[color:var(--sib-faint)]"
+          />
+          {newName.trim() ? (
+            <button type="submit" className="rounded-full px-3 py-1 text-[12px] font-semibold text-white" style={{ background: 'var(--sib-accent)' }}>Create & save</button>
+          ) : null}
+        </form>
+        {spaces.map((s) => (
+          <button key={s.id} type="button" onClick={() => saveTo(s.id)} className="sib-hover flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left">
+            <Folder className="h-5 w-5 sib-accent" />
+            <span className="flex-1 text-[14px] sib-fg">{s.name}</span>
+            <span className="text-[11.5px] sib-faint">{s.items.length}</span>
           </button>
         ))}
       </div>
