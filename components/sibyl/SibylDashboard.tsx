@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SibylAnswer } from '@/sibyl/types';
 import { SibylAnswerView } from '@/components/sibyl/SibylAnswerView';
-import { SIBYL_MODELS } from '@/lib/sibyl/models';
 import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
 import { SibylSettingsModal } from '@/components/sibyl/SibylSettingsModal';
 import { sibylSerif } from '@/components/sibyl/fonts';
@@ -25,11 +24,14 @@ const DELEGATIONS = [
   'Is Ansem in this?',
 ];
 
+/** The one model selector: capability tiers + the confidential Veil model. `mode`
+ *  drives the execution backend (fast = normal, confidential = attested TEE). */
 const MODELS = [
-  { id: 'sibyl-7', name: 'Sibyl 7.0', note: 'Flagship — full specialist fan-out', locked: false },
-  { id: 'sibyl-7-pro', name: 'Sibyl 7.0 Pro', note: 'Deeper scans, adversarial verify', locked: true },
-  { id: 'sibyl-deep', name: 'Sibyl Deep Research', note: 'Long-horizon, many sources', locked: true },
-  { id: 'sibyl-fast', name: 'Sibyl Flash', note: 'Sub-second hover facts', locked: true },
+  { id: 'sibyl-7', name: 'Sibyl 7.0', note: 'Flagship — the Oracle Council', locked: false, mode: 'fast' as const },
+  { id: 'sibyl-veil', name: 'Sibyl Veil', note: 'Confidential — private, attested enclave', locked: false, mode: 'confidential' as const },
+  { id: 'sibyl-7-pro', name: 'Sibyl 7.0 Pro', note: 'Deeper scans, adversarial verify', locked: true, mode: 'fast' as const },
+  { id: 'sibyl-deep', name: 'Sibyl Deep Research', note: 'Long-horizon, many sources', locked: true, mode: 'fast' as const },
+  { id: 'sibyl-fast', name: 'Sibyl Flash', note: 'Sub-second hover facts', locked: true, mode: 'fast' as const },
 ];
 
 const ECOSYSTEM = [
@@ -332,7 +334,8 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [liveStages, setLiveStages] = useState<LiveStage[]>([]);
-  const [execMode, setExecMode] = useState<'fast' | 'secure' | 'confidential'>('fast');
+  const [activeModelId, setActiveModelId] = useState('sibyl-7');
+  const activeModel = MODELS.find((m) => m.id === activeModelId) ?? MODELS[0]!;
   const [modeApplied, setModeApplied] = useState<{ applied: string; note: string | null } | null>(null);
   const [attested, setAttested] = useState<boolean | null>(null);
   const [status, setStatus] = useState<{ modelMock: boolean; liveProviders: number; memory: { scans: number; entities: number; resolved: number } | null } | null>(null);
@@ -554,7 +557,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
       const res = await fetch('/api/sibyl/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ query, mode: execMode }),
+        body: JSON.stringify({ query, mode: activeModel.mode }),
       });
       if (!res.ok || !res.body) throw new Error('stream_failed');
 
@@ -875,41 +878,17 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
               <VoicePulse onClose={() => setVoice(false)} />
             ) : (
               <div className="mx-auto max-w-[760px]">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-0.5 rounded-full s-panel2 p-0.5 text-[11px]">
-                    {([
-                      ['fast', '⚡ Fast'],
-                      ['secure', '🛡 Private'],
-                      ['confidential', `🏛 ${SIBYL_MODELS.veil.name}`],
-                    ] as const).map(([m, label]) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setExecMode(m)}
-                        className={`rounded-full px-2.5 py-1 transition ${execMode === m ? 'font-medium text-white' : 's-faint h-fg'}`}
-                        style={execMode === m ? { background: 'var(--s-accent)' } : undefined}
-                        title={
-                          m === 'fast'
-                            ? 'Best models, fastest'
-                            : m === 'secure'
-                              ? 'Anonymized retrieval + nothing stored'
-                              : 'Attested TEE enclave — enterprise'
-                        }
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {modeApplied ? (
+                {modeApplied && modeApplied.applied !== 'fast' ? (
+                  <div className="mb-2 flex items-center justify-end">
                     <span className="text-[10px] s-faint">
                       {modeApplied.applied === 'confidential'
                         ? attested
                           ? '🔒 Verified enclave'
                           : 'Verifying enclave…'
-                        : modeApplied.note ?? (modeApplied.applied === 'secure' ? '🛡 Private · zero-retention' : null)}
+                        : modeApplied.note ?? '🛡 Private · zero-retention'}
                     </span>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
                 {attachment ? (
                   <div className="mb-2 flex w-fit items-center gap-2 rounded-lg s-panel2 px-2.5 py-1 text-[11px] s-fg">
                     <IconUpload /> {attachment}
@@ -951,20 +930,39 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                   <div className="relative shrink-0">
                     <button type="button" data-menu-trigger onClick={() => setMenu(menu === 'model' ? null : 'model')} className="flex items-center gap-1.5 rounded-lg s-panel2 px-2.5 py-1.5 text-[12px] font-medium s-fg transition h-panel2">
                       <span className="sibyl-mark s-accent h-3.5 w-3.5" />
-                      Sibyl 7.0
+                      {activeModel.name}
                       <span className="text-[9px] s-faint">▾</span>
                     </button>
                     {menu === 'model' ? (
                       <div className="menu-glass pop stagger absolute bottom-[calc(100%+8px)] left-0 w-[236px] origin-bottom-left space-y-0.5 rounded-xl p-1.5 shadow-2xl">
-                        {MODELS.map((mo) => (
-                          <div key={mo.id} className={`flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 ${mo.locked ? 'opacity-55' : 's-panel2'}`}>
-                            <div>
-                              <div className="text-[12.5px] font-medium s-fg">{mo.name}</div>
-                              <div className="text-[10.5px] s-faint">{mo.note}</div>
-                            </div>
-                            <span className="mt-0.5 s-faint">{mo.locked ? <I d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM8 11V7a4 4 0 1 1 8 0v4" className="h-3 w-3" /> : <I d="M20 6 9 17l-5-5" className="h-3.5 w-3.5" />}</span>
-                          </div>
-                        ))}
+                        {MODELS.map((mo) => {
+                          const selected = mo.id === activeModelId;
+                          return (
+                            <button
+                              key={mo.id}
+                              type="button"
+                              disabled={mo.locked}
+                              onClick={() => {
+                                if (mo.locked) return;
+                                setActiveModelId(mo.id);
+                                setMenu(null);
+                              }}
+                              className={`flex w-full items-start justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition ${mo.locked ? 'opacity-55' : selected ? 's-panel2' : 'h-panel2'}`}
+                            >
+                              <div>
+                                <div className="text-[12.5px] font-medium s-fg">{mo.name}</div>
+                                <div className="text-[10.5px] s-faint">{mo.note}</div>
+                              </div>
+                              <span className="mt-0.5 s-faint">
+                                {mo.locked ? (
+                                  <I d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM8 11V7a4 4 0 1 1 8 0v4" className="h-3 w-3" />
+                                ) : selected ? (
+                                  <I d="M20 6 9 17l-5-5" className="h-3.5 w-3.5" />
+                                ) : null}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : null}
                   </div>
