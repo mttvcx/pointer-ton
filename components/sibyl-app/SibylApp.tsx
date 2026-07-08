@@ -37,8 +37,10 @@ export function SibylApp() {
   const [attested, setAttested] = useState<boolean | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesRef = useRef<Msg[]>([]);
 
   useEffect(() => {
+    messagesRef.current = messages;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, stages, loading]);
 
@@ -60,19 +62,63 @@ export function SibylApp() {
       setAttested(null);
       const ac = new AbortController();
       abortRef.current = ac;
+      const mode = modelKey === 'veil' ? 'confidential' : 'fast';
+      const parseSse = (chunk: string): { ev?: string; data?: Record<string, unknown> } => {
+        const ev = chunk.match(/^event: (.+)$/m)?.[1];
+        const dl = chunk.match(/^data: ([\s\S]+)$/m)?.[1];
+        if (!ev || !dl) return {};
+        try {
+          return { ev, data: JSON.parse(dl) };
+        } catch {
+          return {};
+        }
+      };
       try {
         const token = await getAccessToken().catch(() => null);
-        const res = await fetch('/api/sibyl/chat/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ query, mode: modelKey === 'veil' ? 'confidential' : 'fast' }),
-          signal: ac.signal,
-        });
+        const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+
+        if (specialty === 'general') {
+          // GENERAL = plain private AI chat: token-stream text into a live message.
+          const history = messagesRef.current
+            .filter((x) => typeof x.text === 'string' && x.text.length > 0)
+            .slice(-8)
+            .map((x) => ({ role: x.role === 'user' ? 'user' : 'assistant', content: x.text! }));
+          const asstId = nid();
+          setMessages((m) => [...m, { id: asstId, role: 'sibyl', text: '' }]);
+          const res = await fetch('/api/sibyl/general/stream', { method: 'POST', headers, body: JSON.stringify({ query, mode, history }), signal: ac.signal });
+          if (!res.ok || !res.body) throw new Error('stream_failed');
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = '';
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const chunks = buf.split('\n\n');
+            buf = chunks.pop() ?? '';
+            for (const chunk of chunks) {
+              const { ev, data } = parseSse(chunk);
+              if (!ev || !data) continue;
+              if (ev === 'token') {
+                const t = (data as { t?: string }).t ?? '';
+                if (t) setMessages((m) => m.map((x) => (x.id === asstId ? { ...x, text: (x.text ?? '') + t } : x)));
+              } else if (ev === 'attestation') setAttested(Boolean((data as { verified?: boolean }).verified));
+              else if (ev === 'error' || ev === 'cap') {
+                const msg = (data as { message?: string }).message ?? 'Sibyl hit an error.';
+                setMessages((m) => m.map((x) => (x.id === asstId && !x.text ? { ...x, text: msg } : x)));
+              }
+            }
+          }
+          return;
+        }
+
+        // CRYPTO = the Council: live per-agent trace, then a structured answer.
+        let gotAnswer = false;
+        const res = await fetch('/api/sibyl/chat/stream', { method: 'POST', headers, body: JSON.stringify({ query, mode }), signal: ac.signal });
         if (!res.ok || !res.body) throw new Error('stream_failed');
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let buf = '';
-        let gotAnswer = false;
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -80,15 +126,8 @@ export function SibylApp() {
           const chunks = buf.split('\n\n');
           buf = chunks.pop() ?? '';
           for (const chunk of chunks) {
-            const ev = chunk.match(/^event: (.+)$/m)?.[1];
-            const dl = chunk.match(/^data: ([\s\S]+)$/m)?.[1];
-            if (!ev || !dl) continue;
-            let data: Record<string, unknown>;
-            try {
-              data = JSON.parse(dl);
-            } catch {
-              continue;
-            }
+            const { ev, data } = parseSse(chunk);
+            if (!ev || !data) continue;
             if (ev === 'attestation') setAttested(Boolean((data as { verified?: boolean }).verified));
             else if (ev === 'stage') {
               const s = data as unknown as Stage;
@@ -121,7 +160,7 @@ export function SibylApp() {
         abortRef.current = null;
       }
     },
-    [loading, getAccessToken, modelKey],
+    [loading, getAccessToken, modelKey, specialty],
   );
 
   const empty = messages.length === 0 && !loading;
@@ -156,11 +195,17 @@ export function SibylApp() {
                   </div>
                 ) : (
                   <div key={m.id} className="sib-rise sib-glass rounded-2xl p-4">
-                    {m.answer ? <SibylAnswerView answer={m.answer} typeOut={m.typing} /> : <div className="sib-muted text-[13.5px]">{m.text}</div>}
+                    {m.answer ? (
+                      <SibylAnswerView answer={m.answer} typeOut={m.typing} />
+                    ) : (
+                      <div className="whitespace-pre-wrap text-[14px] leading-relaxed sib-fg">
+                        {m.text || <span className="sib-dot sib-faint">▋</span>}
+                      </div>
+                    )}
                   </div>
                 ),
               )}
-              {loading ? <LiveTrace stages={stages} veil={modelKey === 'veil'} attested={attested} /> : null}
+              {loading && specialty === 'crypto' ? <LiveTrace stages={stages} veil={modelKey === 'veil'} attested={attested} /> : null}
             </div>
           )}
         </div>
