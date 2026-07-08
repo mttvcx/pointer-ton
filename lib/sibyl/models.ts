@@ -14,10 +14,9 @@
  */
 export const SIBYL_COMPANY = 'Pointer';
 export const SIBYL_FAMILY = 'Sibyl';
-export const SIBYL_VERSION = '7.0';
 
-/** The multi-agent reasoning engine that powers the flagship. */
-export const SIBYL_COUNCIL = 'Oracle Council';
+/** The multi-agent reasoning engine that powers Oracle. */
+export const SIBYL_COUNCIL = 'Council';
 
 export type SibylModelKey = 'flagship' | 'veil';
 
@@ -25,10 +24,10 @@ export const SIBYL_MODELS: Record<
   SibylModelKey,
   { key: SibylModelKey; name: string; full: string; blurb: string }
 > = {
-  // Flagship — the full Oracle Council fan-out.
-  flagship: { key: 'flagship', name: `Sibyl ${SIBYL_VERSION}`, full: `Sibyl ${SIBYL_VERSION}`, blurb: `Flagship — the ${SIBYL_COUNCIL}.` },
-  // Confidential — the same council, running privately inside an attested enclave.
-  veil: { key: 'veil', name: 'Sibyl Veil', full: 'Sibyl Veil', blurb: 'Confidential — private, attested enclave.' },
+  // Flagship model — Oracle (like Opus). Powered by the full Council fan-out.
+  flagship: { key: 'flagship', name: 'Oracle 7.0', full: 'Sibyl Oracle 7.0', blurb: 'Flagship — the full Council.' },
+  // Confidential model — Veil (a "veiled" oracle), runs privately in an attested enclave.
+  veil: { key: 'veil', name: 'Veil 6.5', full: 'Sibyl Veil 6.5', blurb: 'Confidential — private, attested enclave.' },
 };
 
 /** Product model name for a given execution mode. */

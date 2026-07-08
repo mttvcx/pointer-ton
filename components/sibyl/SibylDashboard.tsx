@@ -27,11 +27,11 @@ const DELEGATIONS = [
 /** The one model selector: capability tiers + the confidential Veil model. `mode`
  *  drives the execution backend (fast = normal, confidential = attested TEE). */
 const MODELS = [
-  { id: 'sibyl-7', name: 'Sibyl 7.0', note: 'Flagship — the Oracle Council', locked: false, mode: 'fast' as const },
-  { id: 'sibyl-veil', name: 'Sibyl Veil', note: 'Confidential — private, attested enclave', locked: false, mode: 'confidential' as const },
-  { id: 'sibyl-7-pro', name: 'Sibyl 7.0 Pro', note: 'Deeper scans, adversarial verify', locked: true, mode: 'fast' as const },
-  { id: 'sibyl-deep', name: 'Sibyl Deep Research', note: 'Long-horizon, many sources', locked: true, mode: 'fast' as const },
-  { id: 'sibyl-fast', name: 'Sibyl Flash', note: 'Sub-second hover facts', locked: true, mode: 'fast' as const },
+  { id: 'sibyl-7', name: 'Oracle 7.0', note: 'Flagship — the full Council', locked: false, mode: 'fast' as const },
+  { id: 'sibyl-veil', name: 'Veil 6.5', note: 'Confidential — private, attested enclave', locked: false, mode: 'confidential' as const },
+  { id: 'sibyl-7-pro', name: 'Oracle Pro', note: 'Deeper scans, adversarial verify', locked: true, mode: 'fast' as const },
+  { id: 'sibyl-deep', name: 'Deep Research', note: 'Long-horizon, many sources', locked: true, mode: 'fast' as const },
+  { id: 'sibyl-fast', name: 'Flash', note: 'Sub-second hover facts', locked: true, mode: 'fast' as const },
 ];
 
 const ECOSYSTEM = [
