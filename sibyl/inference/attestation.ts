@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { AttestationResult } from '@/sibyl/inference/types';
+import { verifyPhalaAttestation } from '@/sibyl/inference/phalaAttestation';
 
 /**
  * Fetch + verify the confidential enclave's attestation BEFORE any prompt is sent.
@@ -30,7 +31,10 @@ function envProvider(): string | null {
 }
 
 export function attestationConfigured(): boolean {
-  return Boolean(process.env.SIBYL_CONFIDENTIAL_ATTESTATION_URL?.trim());
+  return (
+    envProvider() === 'phala' ||
+    Boolean(process.env.SIBYL_CONFIDENTIAL_ATTESTATION_URL?.trim())
+  );
 }
 
 export function getCachedAttestation(): AttestationResult | null {
@@ -40,6 +44,13 @@ export function getCachedAttestation(): AttestationResult | null {
 export async function fetchAndVerifyAttestation(force = false): Promise<AttestationResult> {
   const fresh = getCachedAttestation();
   if (fresh && !force) return fresh;
+
+  // Provider-specific verifier (Phala). Others fall through to the generic URL path.
+  if (envProvider() === 'phala') {
+    const result = await verifyPhalaAttestation();
+    if (result.verified) cached = { at: Date.now(), result };
+    return result;
+  }
 
   const url = process.env.SIBYL_CONFIDENTIAL_ATTESTATION_URL?.trim();
   const now = new Date().toISOString();

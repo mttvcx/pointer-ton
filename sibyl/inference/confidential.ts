@@ -36,8 +36,16 @@ export function confidentialAllowUnverified(): boolean {
   return process.env.SIBYL_CONFIDENTIAL_ALLOW_UNVERIFIED?.trim() === '1';
 }
 
-function confidentialModel(): string {
-  return process.env.SIBYL_CONFIDENTIAL_MODEL?.trim() || 'deepseek-ai/DeepSeek-V3';
+/**
+ * Per-tier confidential model — preserves Sibyl's multi-model design INSIDE the
+ * enclave: run a cheap open model for the 7 agents (bulk extraction) and a stronger
+ * one for the judge (synthesis), exactly like the normal router does. Set
+ * `SIBYL_CONFIDENTIAL_MODEL_CHEAP` / `_REASON` / `_TOOL` / `_JUDGE` to differentiate;
+ * otherwise everything uses `SIBYL_CONFIDENTIAL_MODEL`.
+ */
+function confidentialModelForTier(tier?: string): string {
+  const perTier = tier ? process.env[`SIBYL_CONFIDENTIAL_MODEL_${tier.toUpperCase()}`]?.trim() : undefined;
+  return perTier || process.env.SIBYL_CONFIDENTIAL_MODEL?.trim() || 'qwen/qwen3.6-35b-a3b';
 }
 
 export type ConfidentialCallInput = {
@@ -46,6 +54,8 @@ export type ConfidentialCallInput = {
   json?: boolean;
   maxTokens?: number;
   temperature?: number;
+  /** Router tier (cheap/reason/tool/judge) → picks the per-tier confidential model. */
+  tier?: string;
 };
 
 export type ConfidentialCallResult = {
@@ -70,7 +80,7 @@ export async function callConfidentialModel(input: ConfidentialCallInput): Promi
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
       body: JSON.stringify({
-        model: confidentialModel(),
+        model: confidentialModelForTier(input.tier),
         temperature: input.temperature ?? 0.4,
         max_tokens: input.maxTokens ?? 700,
         ...(input.json ? { response_format: { type: 'json_object' } } : {}),

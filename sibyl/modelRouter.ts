@@ -89,6 +89,7 @@ export async function callModel(input: CallModelInput): Promise<string> {
       json: input.json,
       maxTokens: input.maxTokens,
       temperature: input.temperature,
+      tier: input.tier, // keeps the cheap-agents / strong-judge model mix inside the TEE
     });
     reportAttestation(attestation);
     // `text` is non-null only when the enclave call actually ran (attested, or the
