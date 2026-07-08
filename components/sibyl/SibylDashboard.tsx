@@ -331,6 +331,9 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [liveStages, setLiveStages] = useState<LiveStage[]>([]);
+  const [execMode, setExecMode] = useState<'fast' | 'secure' | 'confidential'>('fast');
+  const [modeApplied, setModeApplied] = useState<{ applied: string; note: string | null } | null>(null);
+  const [attested, setAttested] = useState<boolean | null>(null);
   const [status, setStatus] = useState<{ modelMock: boolean; liveProviders: number; memory: { scans: number; entities: number; resolved: number } | null } | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [menu, setMenu] = useState<null | 'model' | 'account' | 'upgrade' | 'plus' | 'plan'>(null);
@@ -542,13 +545,15 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
     setMessages((m) => [...m, { id: nid(), role: 'user', text: query }]);
     setLoading(true);
     setLiveStages([]);
+    setModeApplied(null);
+    setAttested(null);
     try {
       const token = await getAccessToken().catch(() => null);
       // Stream: real pipeline stages arrive as they happen, then the final answer.
       const res = await fetch('/api/sibyl/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, mode: execMode }),
       });
       if (!res.ok || !res.body) throw new Error('stream_failed');
 
@@ -572,7 +577,14 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
           } catch {
             continue;
           }
-          if (ev === 'stage') {
+          if (ev === 'mode') {
+            const applied = String((data as { applied?: string }).applied ?? 'fast');
+            const note = ((data as { note?: string | null }).note ?? null) as string | null;
+            setModeApplied({ applied, note });
+            setAttested(applied === 'confidential' ? false : null);
+          } else if (ev === 'attestation') {
+            setAttested(Boolean((data as { verified?: boolean }).verified));
+          } else if (ev === 'stage') {
             const stage = data as unknown as LiveStage;
             setLiveStages((prev) => {
               const i = prev.findIndex((s) => s.key === stage.key);
@@ -862,6 +874,41 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
               <VoicePulse onClose={() => setVoice(false)} />
             ) : (
               <div className="mx-auto max-w-[760px]">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-0.5 rounded-full s-panel2 p-0.5 text-[11px]">
+                    {([
+                      ['fast', '⚡ Fast'],
+                      ['secure', '🛡 Private'],
+                      ['confidential', '🏛 Confidential'],
+                    ] as const).map(([m, label]) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setExecMode(m)}
+                        className={`rounded-full px-2.5 py-1 transition ${execMode === m ? 'font-medium text-white' : 's-faint h-fg'}`}
+                        style={execMode === m ? { background: 'var(--s-accent)' } : undefined}
+                        title={
+                          m === 'fast'
+                            ? 'Best models, fastest'
+                            : m === 'secure'
+                              ? 'Anonymized retrieval + nothing stored'
+                              : 'Attested TEE enclave — enterprise'
+                        }
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {modeApplied ? (
+                    <span className="text-[10px] s-faint">
+                      {modeApplied.applied === 'confidential'
+                        ? attested
+                          ? '🔒 Verified enclave'
+                          : 'Verifying enclave…'
+                        : modeApplied.note ?? (modeApplied.applied === 'secure' ? '🛡 Private · zero-retention' : null)}
+                    </span>
+                  ) : null}
+                </div>
                 {attachment ? (
                   <div className="mb-2 flex w-fit items-center gap-2 rounded-lg s-panel2 px-2.5 py-1 text-[11px] s-fg">
                     <IconUpload /> {attachment}

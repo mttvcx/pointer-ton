@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { askSibyl } from '@/sibyl/orchestrator';
 import { getSibylUsage, sibylUserId } from '@/sibyl/serverAuth';
+import { resolveExecMode } from '@/sibyl/inference/resolveMode';
+import type { AttestationResult } from '@/sibyl/inference/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,6 +19,8 @@ export const dynamic = 'force-dynamic';
  */
 const Body = z.object({
   query: z.string().trim().min(1).max(500),
+  /** Execution mode — fast (default) / secure / confidential (TEE). */
+  mode: z.enum(['fast', 'secure', 'confidential']).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -43,9 +47,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const answer = await askSibyl(parsed.data.query, usage.effectiveTier, { userId });
+    const resolved = resolveExecMode(parsed.data.mode, usage.effectiveTier);
+    let attestation: AttestationResult | null = null;
+    const answer = await askSibyl(parsed.data.query, usage.effectiveTier, {
+      userId,
+      execMode: resolved.applied,
+      onAttestation: (a) => {
+        attestation = a;
+      },
+    });
     return NextResponse.json({
       answer,
+      mode: resolved,
+      ...(attestation ? { attestation } : {}),
       usage: { used: usage.used + 1, cap: usage.cap, remaining: usage.cap > 0 ? Math.max(0, usage.cap - usage.used - 1) : null },
     });
   } catch (e) {

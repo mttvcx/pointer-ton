@@ -15,6 +15,8 @@ import {
   runWalletAgent,
 } from '@/sibyl/agents/runners';
 import { recallSubject, recordScan } from '@/sibyl/memory/persist';
+import { runWithInference } from '@/sibyl/inference/context';
+import { isPrivateMode, type AttestationResult, type InferenceMode } from '@/sibyl/inference/types';
 
 /** Bound a promise so a slow/hung dependency can never stall the response. */
 function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -53,8 +55,19 @@ export type SibylStage = { key: string; label: string; status: 'active' | 'done'
 export async function askSibyl(
   query: string,
   tier: PlanTier = 'FREE',
-  opts?: { userId?: string | null; onStage?: (s: SibylStage) => void },
+  opts?: {
+    userId?: string | null;
+    onStage?: (s: SibylStage) => void;
+    /** Execution mode — fast (normal) / secure / confidential (TEE). Default fast. */
+    execMode?: InferenceMode;
+    /** Called once with the enclave attestation when running confidential. */
+    onAttestation?: (a: AttestationResult) => void;
+  },
 ): Promise<SibylAnswer> {
+  const execMode = opts?.execMode ?? 'fast';
+  // The whole pipeline (agents + judge) runs inside the inference context, so the
+  // single callModel seam routes every call to the right backend for `execMode`.
+  return runWithInference({ mode: execMode, onAttestation: opts?.onAttestation }, async () => {
   const onStage = opts?.onStage;
   const intent = classifyIntent(query);
   const mode = clampModeToPlan(intent.mode, tier);
@@ -95,7 +108,12 @@ export async function askSibyl(
   onStage?.({ key: 'judge', label: 'Weighing the verdict', status: 'done' });
   if (recall && recall.seenCount > 0) answer.memory = { seenCount: recall.seenCount, firstSeen: recall.firstSeen };
 
-  // Write-through into the flywheel (bounded so it never delays/breaks the response).
-  await withTimeout(recordScan(answer, ctx, { userId: opts?.userId ?? null }).catch(() => undefined), 3000, undefined);
+  // Write-through into the flywheel — SKIPPED in private modes (zero-retention):
+  // Sibyl still learns from public on-chain OUTCOMES elsewhere; we just never log
+  // the user's query/answer in secure/confidential sessions.
+  if (!isPrivateMode(execMode)) {
+    await withTimeout(recordScan(answer, ctx, { userId: opts?.userId ?? null }).catch(() => undefined), 3000, undefined);
+  }
   return answer;
+  });
 }

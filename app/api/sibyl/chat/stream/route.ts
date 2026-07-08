@@ -2,6 +2,8 @@ import { type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { askSibyl, type SibylStage } from '@/sibyl/orchestrator';
 import { getSibylUsage, sibylUserId } from '@/sibyl/serverAuth';
+import { resolveExecMode } from '@/sibyl/inference/resolveMode';
+import type { AttestationResult } from '@/sibyl/inference/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +18,11 @@ export const dynamic = 'force-dynamic';
  * Same server-owned plan enforcement as the JSON route: tier + cap from the Privy
  * session, never the body.
  */
-const Body = z.object({ query: z.string().trim().min(1).max(500) });
+const Body = z.object({
+  query: z.string().trim().min(1).max(500),
+  /** Execution mode — fast (default) / secure (anon + zero-retention) / confidential (TEE). */
+  mode: z.enum(['fast', 'secure', 'confidential']).optional(),
+});
 
 function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -51,9 +57,13 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const emit = (event: string, data: unknown) => controller.enqueue(encoder.encode(sse(event, data)));
       try {
+        const resolved = resolveExecMode(parsed.data.mode, usage.effectiveTier);
+        emit('mode', resolved); // { requested, applied, note } — client shows the badge honestly
         const answer = await askSibyl(parsed.data.query, usage.effectiveTier, {
           userId,
+          execMode: resolved.applied,
           onStage: (s: SibylStage) => emit('stage', s),
+          onAttestation: (a: AttestationResult) => emit('attestation', a),
         });
         emit('answer', {
           answer,

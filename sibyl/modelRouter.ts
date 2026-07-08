@@ -2,6 +2,8 @@ import 'server-only';
 
 import type { ScanMode } from '@/sibyl/types';
 import { sibylMockMode } from '@/sibyl/config';
+import { currentInferenceMode, reportAttestation } from '@/sibyl/inference/context';
+import { callConfidentialModel, confidentialConfigured, confidentialFailClosed } from '@/sibyl/inference/confidential';
 
 /**
  * Model router — the margin engine. Sibyl never sends every call to a frontier
@@ -75,6 +77,25 @@ export type CallModelInput = {
  */
 export async function callModel(input: CallModelInput): Promise<string> {
   if (sibylMockMode()) return input.mock;
+
+  // Confidential mode → route EVERY model call (agents + judge) through the attested
+  // TEE endpoint. Verified once per request (cached). Fails CLOSED: if the enclave
+  // can't be verified we return the safe mock rather than leak the prompt to a
+  // non-confidential model. `secure`/`fast` fall through to the normal path below.
+  if (currentInferenceMode() === 'confidential' && confidentialConfigured()) {
+    const { text, attestation } = await callConfidentialModel({
+      system: input.system,
+      user: input.user,
+      json: input.json,
+      maxTokens: input.maxTokens,
+      temperature: input.temperature,
+    });
+    reportAttestation(attestation);
+    if (attestation.verified && text) return text;
+    if (confidentialFailClosed()) return input.mock; // never downgrade silently
+    // else: fall through to the normal backend (soft fallback, opt-in via env)
+  }
+
   const key = apiKey();
   if (!key) return input.mock;
 
