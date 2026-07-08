@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { Logo } from '../components/Logo';
 import { GoogleIcon } from '../components/GoogleIcon';
 import { PressScale } from '../components/PressScale';
 import { useAuth } from '../src/auth';
+import { showToast } from '../src/toast';
 
 // Founder's grass + sky background — the image IS the screen container.
 const BG = require('../assets/scene/login-field.png');
@@ -80,6 +81,7 @@ function FloatingCoin({ f }: { f: Float }) {
 export function LoginScreen({ onEnter }: { onEnter: () => void }) {
   const insets = useSafeAreaInsets();
   const auth = useAuth();
+  const [busy, setBusy] = useState<'apple' | 'google' | null>(null);
   const brand = useRef(new Animated.Value(0)).current; // wordmark + bird appear first
   const foot = useRef(new Animated.Value(0)).current; // subtext + buttons fade in last
 
@@ -89,9 +91,23 @@ export function LoginScreen({ onEnter }: { onEnter: () => void }) {
   }, [auth.demo, auth.isLoggedIn]);
 
   // Demo: buttons just enter. Real: kick off Privy OAuth (resolves via the effect).
-  const signIn = (provider: 'apple' | 'google') => {
+  // Surface any failure so a broken sign-in isn't an invisible dead button.
+  const signIn = async (provider: 'apple' | 'google') => {
     if (auth.demo) return onEnter();
-    auth.loginWithOAuth(provider).catch(() => undefined);
+    if (busy) return;
+    if (!auth.ready) {
+      showToast('Still starting up — try again in a second', { kind: 'info' });
+      return;
+    }
+    setBusy(provider);
+    try {
+      await auth.loginWithOAuth(provider);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      showToast('Sign-in failed', { sub: msg.slice(0, 120), kind: 'error' });
+    } finally {
+      setBusy(null);
+    }
   };
 
   useEffect(() => {
@@ -119,12 +135,24 @@ export function LoginScreen({ onEnter }: { onEnter: () => void }) {
 
         <Animated.View style={[s.actions, { opacity: foot }]}>
           <PressScale style={s.apple} onPress={() => signIn('apple')}>
-            <Ionicons name="logo-apple" size={24} color="#000" />
-            <Text style={s.appleText}>Sign in with Apple</Text>
+            {busy === 'apple' ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <>
+                <Ionicons name="logo-apple" size={24} color="#000" />
+                <Text style={s.appleText}>Sign in with Apple</Text>
+              </>
+            )}
           </PressScale>
           <PressScale style={s.google} onPress={() => signIn('google')}>
-            <GoogleIcon size={22} />
-            <Text style={s.googleText}>Sign in with Google</Text>
+            {busy === 'google' ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <GoogleIcon size={22} />
+                <Text style={s.googleText}>Sign in with Google</Text>
+              </>
+            )}
           </PressScale>
           <Text style={s.terms}>By signing up, you agree to our Terms of Service and Privacy Policy.</Text>
         </Animated.View>

@@ -12,6 +12,7 @@ import {
 import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { AuthContext, registerTokenGetter, type AuthState } from './index';
 import { syncPointerAccount } from './sync';
+import { showToast } from '../toast';
 import { PRIVY_APP_ID, PRIVY_CLIENT_ID } from '../env';
 
 /** REAL auth — Privy embedded wallet. Loaded only when not in demo mode. */
@@ -52,7 +53,14 @@ function avatarOf(u: unknown): string | null {
 function Bridge({ children }: { children: React.ReactNode }) {
   const { user, isReady, logout } = usePrivy();
   const { sendCode, loginWithCode } = useLoginWithEmail();
-  const { login: loginOAuth } = useLoginWithOAuth();
+  // Surface OAuth failures (Privy delivers most of them via onError, not the
+  // promise) so a misconfigured sign-in shows the real reason instead of nothing.
+  const { login: loginOAuth } = useLoginWithOAuth({
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err);
+      showToast('Sign-in error', { sub: String(msg).slice(0, 140), kind: 'error' });
+    },
+  });
   const linkedHandle = useRef<string | null>(null);
   const { link: linkOAuth } = useLinkWithOAuth({ onSuccess: (u: unknown) => { linkedHandle.current = twitterOf(u); } });
   const solana = useEmbeddedSolanaWallet();
