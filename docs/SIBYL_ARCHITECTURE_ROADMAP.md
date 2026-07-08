@@ -250,6 +250,49 @@ privacy compounds *on top* later using seams we lay early.
 
 ---
 
+## 8b. Adopted refinements (naming + council + surfaces)
+
+Sharpened after review. These are decided direction, folded into the pillars above.
+
+**Naming — why, not arbitrary** (source of truth: `lib/sibyl/models.ts`):
+- **Sibyl** — a prophetess/oracle → prophetic crypto intelligence (the family).
+- **Sibyl 7.0** — the flagship model.
+- **Oracle Council** — the multi-agent reasoning ENGINE (never call it "multi-agent"
+  internally — it's the *Council*). A council of diverse top models fused by the judge
+  → out-reasons any single model (mixture-of-agents).
+- **Sibyl Veil** — the confidential model (a "veiled" oracle in an attested enclave).
+- **Institution**, not "Enterprise" — funds think *Fund / Desk / Trading Firm / VC*.
+  Tiers read Free → Pro → Professional → **Institution**.
+
+**The Council roster (Pillar 1 §2.3) — expanded:**
+`Wallet · Narrative · Social · Risk · Analog · Macro · Culture · Execution → Judge`
+- **+ Macro agent** — *crypto* macro (not econ 101): ETF flows, stablecoin supply,
+  BTC dominance, ETH rotation, alt-season, listings, unlocks/treasury, VC funding,
+  liquidity, regulation. High-signal context the specialists lack.
+- **Split Narrative → Narrative / Social / + Culture agent.** Culture is the moat:
+  70%/PvE/cards metas, CT in-jokes, who's-who (Ansem/Brez/Luke), attention mechanics —
+  exactly what generic models have *no* clue about. Ours because of the flywheel + KOL
+  registry.
+
+**The flywheel is THE moat (elevate Pillar 1 §2.5 + Pillar-5 framing):**
+`User → question → reasoning → OUTCOME → dataset → retrieval → fine-tune → better Sibyl`
+— and Pointer is the fuel: millions of trades, wallet behavior, **hover/attention**,
+charts viewed, alerts created, narratives watched, executions → outcomes. **Pointer =
+the world's best crypto telemetry**, and Sibyl is what it's for. No one else has this.
+Privacy note: behavioral capture is **consented + privacy-gated** (the outcomes-vs-user
+split from Pillar 6), and zero in Veil sessions.
+
+**Extension = a data agent, not just UI** (feeds the flywheel): hovered→didn't buy→
+bought→closed→ignored is high-value behavioral signal (with consent + controls).
+
+**CryptoBench deserves its own loop** (promote from a bullet to the engine of the
+company): `Sibyl → CryptoBench → model selection → training → CryptoBench → repeat`.
+Owning the benchmark is both the eval that makes "best" *provable* and a marketing moat.
+
+**Reports / artifacts** (new surface, Pillar 3): not just chat answers —
+`Analyze token → generate memo → export PDF → investment committee`. Artifacts are what
+an Institution actually circulates; this is a major Y2 workspace deliverable.
+
 ## 9. One-paragraph summary (for the top of the deck)
 
 Sibyl already has the two hard-to-copy assets: a single clean inference seam and a compounding,
