@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SibylAnswer } from '@/sibyl/types';
 import { SibylAnswerView } from '@/components/sibyl/SibylAnswerView';
+import { SIBYL_MODELS } from '@/lib/sibyl/models';
 import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
 import { SibylSettingsModal } from '@/components/sibyl/SibylSettingsModal';
 import { sibylSerif } from '@/components/sibyl/fonts';
@@ -879,7 +880,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                     {([
                       ['fast', '⚡ Fast'],
                       ['secure', '🛡 Private'],
-                      ['confidential', '🏛 Confidential'],
+                      ['confidential', `🏛 ${SIBYL_MODELS.veil.name}`],
                     ] as const).map(([m, label]) => (
                       <button
                         key={m}
