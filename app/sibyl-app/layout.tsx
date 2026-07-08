@@ -1,9 +1,20 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Sibyl — private AI',
   description: 'Sibyl by Pointer — a private AI. Ask anything; crypto intelligence on tap.',
+  manifest: '/sibyl-app.webmanifest',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Sibyl' },
+  icons: { apple: '/sibyl-app-icon.png' },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#07080c',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
 };
 
 /**

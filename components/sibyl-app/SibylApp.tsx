@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { SibylAnswerView } from '@/components/sibyl/SibylAnswerView';
+import { SibylUpgradeModal } from '@/components/sibyl/SibylUpgradeModal';
 import { SIBYL_MODELS } from '@/lib/sibyl/models';
 import type { SibylAnswer } from '@/sibyl/types';
 
@@ -25,8 +26,10 @@ const GENERAL_STARTERS = ['Explain a concept simply', 'Draft something for me', 
 const CRYPTO_STARTERS = ['Analyze a token', 'Check a wallet', 'Scan a KOL', "What's the meta?"];
 
 export function SibylApp() {
-  const { getAccessToken } = usePointerAuth();
+  const { getAccessToken, authenticated, login, user } = usePointerAuth();
+  const displayName = user?.google?.name ?? user?.twitter?.username ?? user?.email?.address ?? 'Guest';
   const [drawer, setDrawer] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [specialty, setSpecialty] = useState<Specialty>('general');
   const [modelKey, setModelKey] = useState<ModelKey>('oracle');
   const [modelSheet, setModelSheet] = useState(false);
@@ -258,8 +261,19 @@ export function SibylApp() {
           </div>
         </div>
 
-        {drawer ? <Drawer specialty={specialty} onSpecialty={(s) => { setSpecialty(s); setDrawer(false); }} onClose={() => setDrawer(false)} /> : null}
+        {drawer ? (
+          <Drawer
+            specialty={specialty}
+            authenticated={authenticated}
+            displayName={displayName}
+            onSpecialty={(s) => { setSpecialty(s); setDrawer(false); }}
+            onSignIn={() => { void login(); setDrawer(false); }}
+            onUpgrade={() => { setUpgradeOpen(true); setDrawer(false); }}
+            onClose={() => setDrawer(false)}
+          />
+        ) : null}
         {modelSheet ? <ModelSheet active={modelKey} onPick={(k) => { setModelKey(k); setModelSheet(false); }} onClose={() => setModelSheet(false)} /> : null}
+        <SibylUpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
       </div>
     </div>
   );
@@ -334,7 +348,17 @@ function LiveTrace({ stages, veil, attested }: { stages: Stage[]; veil: boolean;
   );
 }
 
-function Drawer({ specialty, onSpecialty, onClose }: { specialty: Specialty; onSpecialty: (s: Specialty) => void; onClose: () => void }) {
+function Drawer({
+  specialty, authenticated, displayName, onSpecialty, onSignIn, onUpgrade, onClose,
+}: {
+  specialty: Specialty;
+  authenticated: boolean;
+  displayName: string;
+  onSpecialty: (s: Specialty) => void;
+  onSignIn: () => void;
+  onUpgrade: () => void;
+  onClose: () => void;
+}) {
   return (
     <div className="absolute inset-0 z-40 flex">
       <div className="sib-glass sib-rise relative z-10 flex h-full w-[82%] max-w-[320px] flex-col p-4">
@@ -354,8 +378,28 @@ function Drawer({ specialty, onSpecialty, onClose }: { specialty: Specialty; onS
           <DrawerItem disabled icon={<Coins className="h-4 w-4" />} label="Spaces" badge="Soon" />
         </nav>
         <div className="mt-auto space-y-1 border-t sib-border pt-3">
-          <DrawerItem disabled icon={<Sparkles className="h-4 w-4" />} label="Upgrade" />
-          <DrawerItem disabled icon={<Menu className="h-4 w-4" />} label="Settings" />
+          <DrawerItem onClick={onUpgrade} icon={<Sparkles className="h-4 w-4" />} label="Upgrade" />
+          {/* account footer */}
+          {authenticated ? (
+            <div className="mt-2 flex items-center gap-2.5 rounded-xl sib-panel px-3 py-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold text-white" style={{ background: 'var(--sib-accent)' }}>
+                {displayName.slice(0, 1).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-medium sib-fg">{displayName}</div>
+                <div className="text-[10.5px] sib-faint">Signed in</div>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="mt-2 w-full rounded-xl py-2.5 text-[13px] font-semibold text-white transition"
+              style={{ background: 'var(--sib-accent)' }}
+            >
+              Sign in / Sign up
+            </button>
+          )}
         </div>
       </div>
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/50" />

@@ -1,0 +1,15 @@
+{
+  "name": "Sibyl — private AI",
+  "short_name": "Sibyl",
+  "description": "Sibyl by Pointer — a private AI. Ask anything; crypto intelligence on tap.",
+  "start_url": "/sibyl-app",
+  "scope": "/sibyl-app",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07080c",
+  "theme_color": "#07080c",
+  "icons": [
+    { "src": "/sibyl-app-icon.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "/sibyl-app-icon.png", "sizes": "256x256", "type": "image/png", "purpose": "maskable" }
+  ]
+}
