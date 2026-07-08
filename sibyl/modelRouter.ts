@@ -91,7 +91,9 @@ export async function callModel(input: CallModelInput): Promise<string> {
       temperature: input.temperature,
     });
     reportAttestation(attestation);
-    if (attestation.verified && text) return text;
+    // `text` is non-null only when the enclave call actually ran (attested, or the
+    // testing switch allowed it) — so returning it here can't leak to a normal model.
+    if (text) return text;
     if (confidentialFailClosed()) return input.mock; // never downgrade silently
     // else: fall through to the normal backend (soft fallback, opt-in via env)
   }

@@ -26,6 +26,16 @@ export function confidentialFailClosed(): boolean {
   return process.env.SIBYL_CONFIDENTIAL_FAIL_OPEN?.trim() !== '1';
 }
 
+/**
+ * TESTING ONLY. When `SIBYL_CONFIDENTIAL_ALLOW_UNVERIFIED=1`, the enclave call
+ * proceeds even if attestation isn't verified yet (badge shows "unverified"). Lets
+ * you smoke-test the TEE endpoint before the provider-specific attestation adapter
+ * is wired. NEVER set this in production — it removes the whole guarantee.
+ */
+export function confidentialAllowUnverified(): boolean {
+  return process.env.SIBYL_CONFIDENTIAL_ALLOW_UNVERIFIED?.trim() === '1';
+}
+
 function confidentialModel(): string {
   return process.env.SIBYL_CONFIDENTIAL_MODEL?.trim() || 'deepseek-ai/DeepSeek-V3';
 }
@@ -50,7 +60,8 @@ export async function callConfidentialModel(input: ConfidentialCallInput): Promi
 
   // Reuse a cached verified attestation across the many model calls in one scan.
   const attestation = getCachedAttestation() ?? (await fetchAndVerifyAttestation());
-  if (!endpoint || !attestation.verified) {
+  // Proceed only if attested — unless the testing switch explicitly allows it.
+  if (!endpoint || (!attestation.verified && !confidentialAllowUnverified())) {
     return { text: null, attestation };
   }
 
