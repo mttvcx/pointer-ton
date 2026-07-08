@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { Monitor } from 'lucide-react';
 import {
   FOUNDER_BETA_MIN_VIEWPORT_PX,
@@ -13,6 +14,9 @@ import {
  */
 export function FounderBetaDesktopGate({ children }: { children: ReactNode }) {
   const enabled = isFounderBetaMode();
+  const pathname = usePathname();
+  // The Sibyl app is deliberately mobile-first — exempt it from the desktop gate.
+  const exempt = pathname?.startsWith('/sibyl-app') ?? false;
   const [tooNarrow, setTooNarrow] = useState(false);
 
   useEffect(() => {
@@ -24,7 +28,7 @@ export function FounderBetaDesktopGate({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener('change', update);
   }, [enabled]);
 
-  if (!enabled || !tooNarrow) return <>{children}</>;
+  if (!enabled || !tooNarrow || exempt) return <>{children}</>;
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-bg-base px-6 py-10 text-center">
