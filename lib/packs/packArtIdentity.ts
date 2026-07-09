@@ -45,6 +45,16 @@ export const PACK_ART_IDENTITY: Record<PackType, PackArtIdentity> = {
     heroCallout: '+2,840 SOL',
     microLabel: 'High conviction',
   },
+  diamond: {
+    tier: 'diamond',
+    chips: [
+      { text: 'Diamond Hands' },
+      { text: 'Cold Storage' },
+      { text: 'Conviction' },
+    ],
+    heroCallout: '+5,600 SOL',
+    microLabel: 'Never selling',
+  },
   legendary: {
     tier: 'legendary',
     chips: [

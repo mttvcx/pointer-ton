@@ -1,4 +1,4 @@
-export type PackType = 'bronze' | 'silver' | 'gold' | 'legendary';
+export type PackType = 'bronze' | 'silver' | 'gold' | 'diamond' | 'legendary';
 
 export type RewardRarity =
   | 'common'

@@ -3,6 +3,9 @@ import { describe, it } from 'node:test';
 import {
   computePackEconomics,
   computePerCardEvSol,
+  jackpotWithinPool,
+  maxAffordableJackpotSol,
+  JACKPOT_POOL_DIVISOR,
   MAX_FULL_OPEN_EV_BPS,
   MODELED_HOUSE_EDGE_MIN_BPS,
 } from '@/lib/packs/packEconomics';
@@ -60,6 +63,40 @@ describe('pack economics — house edge / EV invariants', () => {
       }
     });
   }
+});
+
+describe('pack economics — jackpot solvency (1/20 rule)', () => {
+  it('divisor is 20 and the helpers agree', () => {
+    assert.equal(JACKPOT_POOL_DIVISOR, 20);
+    assert.equal(maxAffordableJackpotSol(200), 10); // 200 / 20
+    assert.equal(jackpotWithinPool(10, 200), true); // exactly 1/20
+    assert.equal(jackpotWithinPool(10.5, 200), false); // over 1/20
+    assert.equal(jackpotWithinPool(1, 200), true);
+    assert.equal(maxAffordableJackpotSol(0), 0);
+  });
+
+  it('every tier keeps max jackpot at or under 1/20 of its reserve pool', () => {
+    for (const solUsd of SOL_USD_SCENARIOS) {
+      for (const template of PACK_TEMPLATE_LIST) {
+        const price = computeDynamicPackPrice(template.type, solUsd);
+        const config = buildPackConfigFromTemplate(template, price);
+        assert.ok(
+          jackpotWithinPool(config.maxPayoutSol, config.rewardPoolBudgetSol),
+          `${template.type}: maxPayout ${config.maxPayoutSol} > pool/20 ${config.rewardPoolBudgetSol / 20}`,
+        );
+      }
+    }
+  });
+
+  it('flags a pack whose max jackpot exceeds 1/20 of the pool', () => {
+    const template = PACK_TEMPLATE_LIST[0]!;
+    const config = buildPackConfigFromTemplate(template, computeDynamicPackPrice(template.type, 72));
+    // Push maxPayout above pool/20 but keep it under the pool itself, to isolate the 1/20 check.
+    config.maxPayoutSol = config.rewardPoolBudgetSol / 10;
+    const report = computePackEconomics(config);
+    assert.equal(report.valid, false);
+    assert.ok(report.errors.some((e) => e.includes(`1/${JACKPOT_POOL_DIVISOR}`)));
+  });
 });
 
 describe('pack economics — validation guards', () => {

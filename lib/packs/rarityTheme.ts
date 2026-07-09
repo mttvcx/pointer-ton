@@ -79,6 +79,13 @@ export const PACK_VISUAL: Record<
     gradient: 'from-[#2a1f08]/90 to-transparent',
     icon: '◆',
   },
+  diamond: {
+    accent: 'text-[#a5f3fc]',
+    border: 'border-[#22d3ee]/40',
+    glow: 'shadow-[0_30px_96px_-18px_rgba(34,211,238,0.5)]',
+    gradient: 'from-[#08222a]/90 to-transparent',
+    icon: '◆',
+  },
   legendary: {
     accent: 'text-[#e9d5ff]',
     border: 'border-[#a855f7]/45',

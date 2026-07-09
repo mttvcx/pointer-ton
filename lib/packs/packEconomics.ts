@@ -6,6 +6,32 @@ export const MODELED_HOUSE_EDGE_MIN_BPS = 2200;
 /** Max modeled payout EV as a fraction of pack price (78% of price). */
 export const MAX_FULL_OPEN_EV_BPS = 7800;
 
+/**
+ * Jackpot solvency divisor. A jackpot payout may only be paid when it is at most
+ * 1/20th of the internal reserve pool (rewardPoolBudgetSol at the config level, or
+ * the live treasury balance at award time). Guarantees we never pay a single
+ * jackpot larger than 5% of the pool, so one hit can never dent solvency.
+ */
+export const JACKPOT_POOL_DIVISOR = 20;
+
+/** Largest jackpot the pool can afford under the 1/20 rule. */
+export function maxAffordableJackpotSol(
+  internalPoolSol: number,
+  divisor: number = JACKPOT_POOL_DIVISOR,
+): number {
+  if (!Number.isFinite(internalPoolSol) || internalPoolSol <= 0 || divisor <= 0) return 0;
+  return internalPoolSol / divisor;
+}
+
+/** True when a jackpot of `jackpotSol` is within the 1/20-of-pool solvency limit. */
+export function jackpotWithinPool(
+  jackpotSol: number,
+  internalPoolSol: number,
+  divisor: number = JACKPOT_POOL_DIVISOR,
+): boolean {
+  return jackpotSol <= maxAffordableJackpotSol(internalPoolSol, divisor) + 1e-9;
+}
+
 function slotEstimatedCostSol(slot: PackOutcomeSlot, packPriceSol: number): number {
   if (slot.estimatedCostSol != null && Number.isFinite(slot.estimatedCostSol)) {
     return slot.estimatedCostSol;
@@ -86,6 +112,15 @@ export function computePackEconomics(config: PackConfig): PackEconomicsReport {
   if (config.maxPayoutSol > config.rewardPoolBudgetSol) {
     errors.push(
       `maxPayoutSol (${config.maxPayoutSol}) exceeds rewardPoolBudgetSol (${config.rewardPoolBudgetSol})`,
+    );
+  }
+
+  // Jackpot solvency: the advertised max jackpot must be at most 1/20th of the
+  // internal reserve pool, so a single top hit can never exceed 5% of the pool.
+  if (!jackpotWithinPool(config.maxPayoutSol, config.rewardPoolBudgetSol)) {
+    errors.push(
+      `maxPayoutSol (${config.maxPayoutSol}) exceeds 1/${JACKPOT_POOL_DIVISOR} of rewardPoolBudgetSol ` +
+        `(${(config.rewardPoolBudgetSol / JACKPOT_POOL_DIVISOR).toFixed(4)} SOL)`,
     );
   }
 

@@ -20,6 +20,8 @@ const SHELF_HOVER: Record<PackType, string> = {
     'hover:border-sky-400/40 hover:shadow-[0_0_0_1px_rgba(147,197,253,0.35),0_0_40px_-6px_rgba(56,189,248,0.42),0_24px_80px_-24px_rgba(56,189,248,0.38)]',
   gold:
     'hover:border-amber-400/45 hover:shadow-[0_0_0_1px_rgba(253,224,71,0.42),0_0_44px_-6px_rgba(251,191,36,0.52),0_28px_90px_-20px_rgba(251,191,36,0.48)]',
+  diamond:
+    'hover:border-cyan-300/50 hover:shadow-[0_0_0_1px_rgba(165,243,252,0.44),0_0_46px_-6px_rgba(34,211,238,0.55),0_30px_96px_-18px_rgba(34,211,238,0.5)]',
   legendary:
     'hover:border-violet-400/55 hover:shadow-[0_0_0_1px_rgba(216,180,254,0.48),0_0_48px_-6px_rgba(147,51,234,0.58),0_32px_100px_-16px_rgba(147,51,234,0.52)]',
 };
@@ -28,6 +30,7 @@ const SHELF_BORDER: Record<PackType, string> = {
   bronze: 'border-amber-900/25',
   silver: 'border-sky-900/30',
   gold: 'border-amber-500/20',
+  diamond: 'border-cyan-400/25',
   legendary: 'border-violet-400/25',
 };
 

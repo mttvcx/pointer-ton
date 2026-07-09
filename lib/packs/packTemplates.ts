@@ -314,6 +314,85 @@ function goldTemplate(): PackTemplate {
   };
 }
 
+function diamondTemplate(): PackTemplate {
+  return {
+    type: 'diamond',
+    label: 'Diamond',
+    tagline: 'Cold conviction — diamond hands & rare upside',
+    cardsPerOpen: 5,
+    jackpotBudgetBps: 190,
+    maxNormalReturnPctOfPack: 0.45,
+    maxJackpotReturnPctOfPack: 1.7,
+    rewardPoolBudgetMultiplier: 70,
+    outcomes: [
+      {
+        rarity: 'common',
+        kind: 'token_reward',
+        probabilityBps: 4700,
+        minReturnPctOfPack: 0.085,
+        maxReturnPctOfPack: 0.13,
+        title: 'Ice floor',
+      },
+      {
+        rarity: 'uncommon',
+        kind: 'token_reward',
+        probabilityBps: 2800,
+        minReturnPctOfPack: 0.11,
+        maxReturnPctOfPack: 0.17,
+        title: 'Cold runner',
+      },
+      {
+        rarity: 'uncommon',
+        kind: 'points_multiplier',
+        probabilityBps: 900,
+        multiplier: 1.5,
+        estimatedCostPctOfPack: 0.009,
+        title: 'Points freeze',
+      },
+      {
+        rarity: 'rare',
+        kind: 'token_reward',
+        probabilityBps: 1000,
+        minReturnPctOfPack: 0.15,
+        maxReturnPctOfPack: 0.23,
+        title: 'Frozen alpha',
+      },
+      {
+        rarity: 'epic',
+        kind: 'cashback_multiplier',
+        probabilityBps: 350,
+        multiplier: 1.6,
+        estimatedCostPctOfPack: 0.018,
+        title: 'Cashback ice',
+      },
+      {
+        rarity: 'legendary',
+        kind: 'legendary_reward',
+        probabilityBps: 200,
+        minReturnPctOfPack: 0.3,
+        maxReturnPctOfPack: 0.45,
+        title: 'Diamond pull',
+      },
+      {
+        rarity: 'legendary',
+        kind: 'rare_access_badge',
+        probabilityBps: 35,
+        badgeLabel: 'Vault pass',
+        estimatedCostPctOfPack: 0.005,
+        title: 'Vault Pass',
+      },
+      {
+        rarity: 'mythic',
+        kind: 'legendary_reward',
+        probabilityBps: 15,
+        minReturnPctOfPack: 0.6,
+        maxReturnPctOfPack: 1.05,
+        title: 'Diamond jackpot',
+      },
+    ],
+  };
+}
+
 function legendaryTemplate(): PackTemplate {
   return {
     type: 'legendary',
@@ -397,6 +476,7 @@ export const PACK_TEMPLATES: Record<PackType, PackTemplate> = {
   bronze: bronzeTemplate(),
   silver: silverTemplate(),
   gold: goldTemplate(),
+  diamond: diamondTemplate(),
   legendary: legendaryTemplate(),
 };
 
@@ -404,6 +484,7 @@ export const PACK_TEMPLATE_LIST: PackTemplate[] = [
   PACK_TEMPLATES.bronze,
   PACK_TEMPLATES.silver,
   PACK_TEMPLATES.gold,
+  PACK_TEMPLATES.diamond,
   PACK_TEMPLATES.legendary,
 ];
 
@@ -413,6 +494,7 @@ function assertTemplatesValidAtReferencePrice(): void {
     bronze: 0.15,
     silver: 0.5,
     gold: 2,
+    diamond: 4,
     legendary: 5,
   };
   for (const template of PACK_TEMPLATE_LIST) {

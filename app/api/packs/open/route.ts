@@ -40,7 +40,7 @@ export const dynamic = 'force-dynamic';
 // `after()` task post-response; keep the function alive long enough to finish.
 export const maxDuration = 60;
 
-const PackTypeSchema = z.enum(['bronze', 'silver', 'gold', 'legendary']);
+const PackTypeSchema = z.enum(['bronze', 'silver', 'gold', 'diamond', 'legendary']);
 
 const TestCelebrationSchema = z.enum(['jackpot', 'legendary_elite', 'epic_surge']);
 

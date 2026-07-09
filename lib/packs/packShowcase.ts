@@ -34,6 +34,7 @@ const MIN_SHOWCASE_RANK: Record<PackType, number> = {
   bronze: RANK.rare,
   silver: RANK.epic,
   gold: RANK.legendary,
+  diamond: RANK.legendary,
   legendary: RANK.legendary,
 };
 

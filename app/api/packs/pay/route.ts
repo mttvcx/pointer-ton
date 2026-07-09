@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 
 const BodySchema = z
   .object({
-    packType: z.enum(['bronze', 'silver', 'gold', 'legendary']),
+    packType: z.enum(['bronze', 'silver', 'gold', 'diamond', 'legendary']),
     userWallet: z.string().min(32).max(64),
   })
   .strict();

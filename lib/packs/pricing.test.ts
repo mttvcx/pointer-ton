@@ -20,16 +20,17 @@ describe('pack pricing', () => {
     assert.ok(CLEAN_SOL_AMOUNTS.includes(roundToCleanSolAmount(0.486)));
   });
 
-  it('at SOL 72 yields ~0.15 / 0.5 / 2 / 5 SOL tiers', () => {
+  it('at SOL 72 yields ~0.15 / 0.5 / 2 / 4 / 5 SOL tiers', () => {
     assert.equal(computeDynamicPackPrice('bronze', 72), 0.15);
     assert.equal(computeDynamicPackPrice('silver', 72), 0.5);
     assert.equal(computeDynamicPackPrice('gold', 72), 2);
+    assert.equal(computeDynamicPackPrice('diamond', 72), 4);
     assert.equal(computeDynamicPackPrice('legendary', 72), 5);
   });
 
   it('at SOL 80 still yields clean values', () => {
     const snap = getPackPriceSnapshot(80);
-    for (const type of ['bronze', 'silver', 'gold', 'legendary'] as const) {
+    for (const type of ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const) {
       assert.ok(CLEAN_SOL_AMOUNTS.includes(snap.packs[type].packPriceSol));
     }
   });

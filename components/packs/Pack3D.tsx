@@ -41,6 +41,13 @@ const TIERS: Record<PackType, Tier> = {
     word: 'GOLD',
     cast: ['/logos/protocols/moonshot.png', '/logos/protocols/virtuals.png', '/logos/protocols/bags.png'],
   },
+  diamond: {
+    bg: ['#1c4a55', '#0f2f38', '#06171d'],
+    glow: '#8ff0ff',
+    metal: '#a5f3fc',
+    word: 'DIAMOND',
+    cast: ['/logos/protocols/jupiter.png', '/logos/protocols/hyperliquid.png', '/logos/protocols/raydium.png'],
+  },
   legendary: {
     bg: ['#3a1f5e', '#25123f', '#100621'],
     glow: '#c98cff',

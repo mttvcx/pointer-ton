@@ -26,6 +26,11 @@ function DecorativeChips({ type }: { type: PackType }) {
       'pack-chip--pos-br',
       'pack-chip--pos-mr',
     ],
+    diamond: [
+      'pack-chip--pos-tl',
+      'pack-chip--pos-tr',
+      'pack-chip--pos-bl',
+    ],
     legendary: [
       'pack-chip--pos-tl',
       'pack-chip--pos-tr',

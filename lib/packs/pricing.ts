@@ -17,6 +17,7 @@ export const PACK_USD_BANDS: Record<PackType, PackUsdBand> = {
   bronze: { targetUsd: 10, minUsd: 5, maxUsd: 20, maxSol: 0.25 },
   silver: { targetUsd: 35, minUsd: 20, maxUsd: 60, maxSol: 1 },
   gold: { targetUsd: 150, minUsd: 100, maxUsd: 250, maxSol: 3 },
+  diamond: { targetUsd: 270, minUsd: 200, maxUsd: 450, maxSol: 6 },
   legendary: { targetUsd: 400, minUsd: 250, maxUsd: 600, maxSol: 7.5 },
 };
 
@@ -111,7 +112,7 @@ export type PackPriceSnapshot = {
 export function getPackPriceSnapshot(solUsd: number): PackPriceSnapshot {
   const rate = solUsd > 0 ? solUsd : getFallbackSolUsd();
   const packs = {} as Record<PackType, PackPriceSnapshotEntry>;
-  const types: PackType[] = ['bronze', 'silver', 'gold', 'legendary'];
+  const types: PackType[] = ['bronze', 'silver', 'gold', 'diamond', 'legendary'];
   for (const type of types) {
     const band = PACK_USD_BANDS[type];
     const rawTargetSol = band.targetUsd / rate;
