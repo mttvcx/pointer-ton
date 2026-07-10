@@ -6,6 +6,7 @@ import { PressScale } from './PressScale';
 import { colors, radius } from '../src/theme';
 import { usd } from '../src/format';
 import { RARITY, solToUsd, type Pack, type PackRarity } from '../src/packs/api';
+import { packArtFor } from '../src/packs/packArt';
 
 const ORDER: PackRarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 const SIZE = 220;
@@ -25,6 +26,7 @@ export function PackOddsSheet({ pack, solUsd, onClose }: { pack: Pack | null; so
 
   if (!pack) return null;
 
+  const art = packArtFor(pack.type);
   const r = (SIZE - STROKE) / 2;
   const C = 2 * Math.PI * r;
   let offset = 0;
@@ -32,7 +34,7 @@ export function PackOddsSheet({ pack, solUsd, onClose }: { pack: Pack | null; so
   return (
     <DragSheet visible={pack !== null} onClose={onClose} fullDrag>
       <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-        <Text style={s.title}>{pack.label}</Text>
+        <Text style={[s.title, { fontFamily: art.titleFont, color: art.accent }]}>{pack.label.toUpperCase()}</Text>
 
         <View style={s.wheelWrap}>
           <Svg width={SIZE} height={SIZE} style={{ transform: [{ rotate: '-90deg' }] }}>

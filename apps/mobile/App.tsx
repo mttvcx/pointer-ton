@@ -305,7 +305,19 @@ function Shell() {
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold });
+  const [fontsLoaded] = useFonts({
+    Sora_400Regular,
+    Sora_500Medium,
+    Sora_600SemiBold,
+    Sora_700Bold,
+    Sora_800ExtraBold,
+    // Per-tier pack heading fonts (each tier has its own vibe).
+    PackStarter: require('./assets/fonts/LuckiestGuy.ttf'), // playful
+    PackDegen: require('./assets/fonts/Bungee.ttf'), // blocky
+    PackWhale: require('./assets/fonts/Anton.ttf'), // heavy
+    PackDiamond: require('./assets/fonts/Orbitron.ttf'), // techy
+    PackOracle: require('./assets/fonts/Cinzel.ttf'), // royal
+  });
 
   return (
     <SafeAreaProvider>

@@ -8,6 +8,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 
+export type PackType = 'bronze' | 'silver' | 'gold' | 'diamond' | 'legendary';
+
 export type PackRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
 
 export type PackOddsRow = { rarity: PackRarity; probabilityBps: number; probabilityPct: string; kinds: string[] };

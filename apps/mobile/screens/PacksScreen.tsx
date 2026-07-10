@@ -1,24 +1,27 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '../components/Screen';
-import { Logo } from '../components/Logo';
 import { PressScale } from '../components/PressScale';
 import { GlassFill } from '../components/GlassFill';
-import { CardShine } from '../components/CardShine';
 import { colors, radius } from '../src/theme';
 import { usd } from '../src/format';
 import { showToast } from '../src/toast';
 import { useCashBalance } from '../src/account';
-import { usePacks, solToUsd, foilFor, RARITY, type Pack } from '../src/packs/api';
+import { usePacks, solToUsd, RARITY, type Pack } from '../src/packs/api';
+import { packArtFor } from '../src/packs/packArt';
 import { usePulls } from '../src/packs/collection';
 import { PackOddsSheet } from '../components/PackOddsSheet';
 import { PackRevealSheet } from '../components/PackRevealSheet';
 
 const W = Dimensions.get('window').width;
-const PACK_W = Math.min(300, W - 90); // leaves side peeks of neighbours
+const H = Dimensions.get('window').height;
+const PACK_W = Math.min(300, W - 90); // page width — leaves side peeks of neighbours
+// The pack front is the hero: as big as fits, its real 685×1200 proportions.
+const PACK_CARD_H = Math.min(H * 0.46, 440);
+const PACK_CARD_W = Math.round((PACK_CARD_H * 685) / 1200);
 
 export function PacksScreen() {
   const insets = useSafeAreaInsets();
@@ -55,6 +58,16 @@ export function PacksScreen() {
         <View style={s.loading}><Text style={s.emptyText}>No packs available right now.</Text></View>
       ) : (
         <>
+          {active ? (() => {
+            const art = packArtFor(active.type);
+            return (
+              <View style={s.titleWrap}>
+                <Text style={[s.name, { fontFamily: art.titleFont, color: art.accent }]} numberOfLines={1}>{active.label.toUpperCase()}</Text>
+                <Text style={s.subline}>{art.subline}</Text>
+              </View>
+            );
+          })() : null}
+
           <ScrollView
             horizontal
             pagingEnabled
@@ -67,16 +80,13 @@ export function PacksScreen() {
           >
             {packs.map((p) => (
               <View key={p.type} style={{ width: PACK_W, alignItems: 'center', justifyContent: 'center' }}>
-                <FoilPack pack={p} />
+                <PackFront pack={p} onPress={() => setOddsFor(p)} />
               </View>
             ))}
           </ScrollView>
 
           {active ? (
             <View style={[s.info, { paddingBottom: insets.bottom + 100 }]}>
-              <Text style={s.kicker}>{active.tagline || 'Memecoin'}</Text>
-              <Text style={s.name}>{active.label}</Text>
-
               <View style={s.stats}>
                 <Stat label="Min" value={usd(solToUsd(active.minReturnSol, solUsd), 0)} />
                 <View style={s.statDiv} />
@@ -127,29 +137,27 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
   );
 }
 
-/** The pack itself — a foil wrapper (we have no pack art, so the foil IS the art). */
-function FoilPack({ pack }: { pack: Pack }) {
-  const foil = foilFor(pack.type);
+/** The real pack FRONT — clean full-bleed rendered face (title/hero/subline baked
+ *  in). Static by default; lifts + scales slightly on press only. No frame. */
+function PackFront({ pack, onPress }: { pack: Pack; onPress?: () => void }) {
+  const art = packArtFor(pack.type);
+  const scale = useRef(new Animated.Value(1)).current;
+  const ty = useRef(new Animated.Value(0)).current;
+  const animate = (toScale: number, toY: number) =>
+    Animated.parallel([
+      Animated.spring(scale, { toValue: toScale, useNativeDriver: true, speed: 20, bounciness: 7 }),
+      Animated.spring(ty, { toValue: toY, useNativeDriver: true, speed: 20, bounciness: 7 }),
+    ]).start();
   return (
-    <View style={s.pack}>
-      <LinearGradient colors={foil} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
-      <LinearGradient
-        colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0.28)', 'rgba(0,0,0,0.08)']}
-        locations={[0, 0.4, 0.68, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <CardShine intensity={0.55} period={2600} />
-      <View style={s.packEdge} pointerEvents="none" />
-      <View style={s.packCrimp} pointerEvents="none" />
-      <View style={s.packBody}>
-        <Logo size={30} style={{ tintColor: 'rgba(10,12,16,0.85)' }} />
-        <Text style={s.packLabel}>{pack.label}</Text>
-        <Text style={s.packBrand}>pointer.</Text>
-      </View>
-    </View>
+    <Pressable onPressIn={() => animate(1.05, -8)} onPressOut={() => animate(1, 0)} onPress={onPress} accessibilityLabel={`${art.themedName} pack`}>
+      <Animated.View style={[s.packShadow, { width: PACK_CARD_W, height: PACK_CARD_H, transform: [{ scale }, { translateY: ty }] }]}>
+        <View style={s.packClip}>
+          <Image source={art.image} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+          {/* subtle foil top-edge highlight */}
+          <LinearGradient colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.packTopHi} pointerEvents="none" />
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -193,17 +201,17 @@ const s = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: colors.fgMuted, fontSize: 15 },
 
-  carousel: { flexGrow: 0, marginTop: 10 },
-  pack: { width: PACK_W - 26, aspectRatio: 0.72, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 22, shadowOffset: { width: 0, height: 14 } },
-  packEdge: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: 'rgba(255,255,255,0.65)' },
-  packCrimp: { position: 'absolute', top: 16, left: 0, right: 0, height: 1, backgroundColor: 'rgba(0,0,0,0.12)' },
-  packBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 18 },
-  packLabel: { color: '#0A0C10', fontSize: 24, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5 },
-  packBrand: { color: 'rgba(10,12,16,0.6)', fontSize: 13, fontWeight: '800' },
+  titleWrap: { alignItems: 'center', marginTop: 4, paddingHorizontal: 20 },
+  name: { fontSize: 30, letterSpacing: 1, textAlign: 'center' },
+  subline: { color: colors.fgMuted, fontSize: 13.5, marginTop: 5, textAlign: 'center' },
 
-  info: { paddingHorizontal: 24, alignItems: 'center', marginTop: 14 },
-  kicker: { color: colors.fgMuted, fontSize: 14, fontWeight: '600' },
-  name: { color: colors.fg, fontSize: 30, fontWeight: '800', letterSpacing: -0.6, marginTop: 4 },
+  carousel: { flexGrow: 0, marginTop: 8 },
+  // full-bleed pack front — shadow on the outer, clip on the inner (iOS-safe)
+  packShadow: { borderRadius: 11, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 14 }, elevation: 12 },
+  packClip: { flex: 1, borderRadius: 11, overflow: 'hidden' },
+  packTopHi: { position: 'absolute', top: 0, left: 0, right: 0, height: '13%' },
+
+  info: { paddingHorizontal: 24, alignItems: 'center', marginTop: 12 },
   stats: { flexDirection: 'row', alignItems: 'center', marginTop: 18, gap: 14 },
   stat: { alignItems: 'center' },
   statDiv: { width: 1, height: 34, backgroundColor: colors.border },

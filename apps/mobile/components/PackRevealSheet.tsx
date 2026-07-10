@@ -1,16 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Animated, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DragSheet } from './DragSheet';
 import { PressScale } from './PressScale';
 import { GlassFill } from './GlassFill';
-import { CardShine } from './CardShine';
 import { colors, radius } from '../src/theme';
 import { usd } from '../src/format';
 import { showToast } from '../src/toast';
 import { copyText } from '../src/clipboard';
-import { openPackSimulated, foilFor, RARITY, type Pack, type PackOpenResult, type PackReward } from '../src/packs/api';
+import { openPackSimulated, RARITY, type Pack, type PackOpenResult, type PackReward } from '../src/packs/api';
+import { packArtFor } from '../src/packs/packArt';
 import { addPulls } from '../src/packs/collection';
 
 type Phase = 'opening' | 'revealed' | 'error';
@@ -75,7 +74,7 @@ export function PackRevealSheet({ pack, onClose }: { pack: Pack | null; onClose:
 
   if (!pack) return null;
 
-  const foil = foilFor(pack.type);
+  const art = packArtFor(pack.type);
   const highlight = res ? RARITY[res.highlightRarity] : RARITY.rare;
   const shakeX = shake.interpolate({ inputRange: [-1, 1], outputRange: [-7, 7] });
 
@@ -90,7 +89,9 @@ export function PackRevealSheet({ pack, onClose }: { pack: Pack | null; onClose:
         {phase === 'opening' ? (
           <View style={s.center}>
             <Animated.View style={[s.miniPack, { transform: [{ translateX: shakeX }] }]}>
-              <LinearGradientPack foil={foil} />
+              <View style={s.miniPackInner}>
+                <Image source={art.image} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+              </View>
             </Animated.View>
             <Text style={s.opening}>Opening {pack.label}…</Text>
             <ActivityIndicator color={colors.accent} style={{ marginTop: 14 }} />
@@ -185,22 +186,11 @@ function FairLine({ label, value }: { label: string; value?: string }) {
   );
 }
 
-// tiny inline pack visual for the opening state
-function LinearGradientPack({ foil }: { foil: [string, string, string] }) {
-  return (
-    <View style={s.miniPackInner}>
-      <LinearGradient colors={foil} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      <CardShine intensity={0.5} />
-      <View style={s.miniPackEdge} pointerEvents="none" />
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   body: { paddingHorizontal: 20, paddingBottom: 14, paddingTop: 4 },
   center: { alignItems: 'center', paddingVertical: 30 },
-  miniPack: { width: 120, height: 168 },
-  miniPackInner: { flex: 1, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  miniPack: { width: 124, height: Math.round((124 * 1200) / 685) },
+  miniPackInner: { flex: 1, borderRadius: 12, overflow: 'hidden' },
   miniPackEdge: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: 'rgba(255,255,255,0.6)' },
   opening: { color: colors.fg, fontSize: 17, fontWeight: '700', marginTop: 20 },
 
