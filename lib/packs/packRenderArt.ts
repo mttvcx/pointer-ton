@@ -16,8 +16,16 @@ export const PACK_RENDER_IMAGE: Record<PackType, string | null> = {
   legendary: '/packs/renders/pointer_legendary.png',
 };
 
+/**
+ * Bump when the render PNGs are re-exported (same filenames) so browsers and the
+ * CDN fetch the new bytes instead of serving the cached old pack. v5 = real 3D
+ * crimped foil seals.
+ */
+export const PACK_RENDER_VERSION = 5;
+
 export function packRenderImage(type: PackType): string | null {
-  return PACK_RENDER_IMAGE[type] ?? null;
+  const src = PACK_RENDER_IMAGE[type];
+  return src ? `${src}?v=${PACK_RENDER_VERSION}` : null;
 }
 
 /**
