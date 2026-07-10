@@ -3,7 +3,7 @@
 import type { PackType } from '@/types/pack';
 import { PACK_ART_IDENTITY } from '@/lib/packs/packArtIdentity';
 import { PACK_POINTER_LOGO } from '@/lib/packs/constants';
-import { packFrontImage } from '@/lib/packs/packRenderArt';
+import { packRenderImage } from '@/lib/packs/packRenderArt';
 import { PackFoilArtLayer } from '@/components/packs/packFoilArtLayers';
 import { cn } from '@/lib/utils/cn';
 
@@ -111,32 +111,25 @@ export function PackFoilDesign({
 }) {
   const isOpen = variant === 'open';
   const isLegendary = type === 'legendary';
-  const front = packFrontImage(type);
+  const render = packRenderImage(type);
 
-  // Premium path: the full-bleed pack front (title + pointer. + hero baked in),
-  // shown as the pack itself — no frame, no crimp bands, whole design visible.
-  // Lifts + sheens on hover.
-  if (front) {
+  // Premium path: the real 3D foil-pack render — crumpled foil, crimped ends,
+  // title + pointer. + hero baked in. Floats freely (transparent cutout), no
+  // frame, lifts on hover.
+  if (render) {
     return (
       <div className={cn('pack-render group/foil relative flex h-full w-full items-center justify-center', className)}>
-        <div
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={render}
+          alt={`${label} pack`}
           className={cn(
-            'relative h-full overflow-hidden rounded-[11px] shadow-[0_28px_54px_-10px_rgba(0,0,0,0.7)] transition-transform duration-300 ease-out will-change-transform',
-            isOpen ? '' : 'group-hover/foil:-translate-y-2.5 group-hover/foil:scale-[1.05]',
+            'h-full w-full object-contain drop-shadow-[0_26px_50px_rgba(0,0,0,0.62)] transition-transform duration-300 ease-out will-change-transform',
+            isOpen ? 'scale-[1.05]' : 'scale-[1.1] group-hover/foil:-translate-y-2.5 group-hover/foil:scale-[1.18]',
           )}
-          style={{ aspectRatio: '685 / 1200' }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={front} alt={`${label} pack`} className="h-full w-full object-cover" draggable={false} loading="lazy" />
-          {/* foil top-edge highlight */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-white/30 to-transparent" aria-hidden />
-          {/* hover foil sheen sweep */}
-          <div
-            className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover/foil:opacity-100"
-            style={{ background: 'linear-gradient(115deg, transparent 36%, rgba(255,255,255,0.16) 50%, transparent 62%)' }}
-            aria-hidden
-          />
-        </div>
+          draggable={false}
+          loading="lazy"
+        />
       </div>
     );
   }
