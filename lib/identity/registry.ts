@@ -78,26 +78,43 @@ function upsertSeedRow(row: IdentitySeedRow, opts?: { allowWeaker?: boolean }): 
     return false;
   }
 
-  const displayName = row.displayName.trim();
-  if (!displayName) return false;
+  const incomingDisplayName = row.displayName.trim();
+  if (!incomingDisplayName) return false;
 
   const profileId = existing?.profile.id ?? newId('id');
   const walletId = existing?.wallet.id ?? newId('wal');
   const ts = nowIso();
 
+  // Display name follows source priority, not merge order. Bootstrap is
+  // last-wins (allowWeaker) so a later but lower-priority source (e.g. CabalSpy
+  // "DV" / SolScanner "dv", priority 57/56) would otherwise clobber a
+  // higher-priority source's fuller, curated name (e.g. Axiom "dvces", 58).
+  // Keep the higher-priority name; still let later sources enrich the avatar
+  // and socials below (CabalSpy contributes avatar + telegram on overlaps).
+  const existingNamePriority = existing?.profile.sourcePriority ?? -1;
+  const keepExistingName = !!existing && existingNamePriority >= incomingPriority;
+  const displayName = keepExistingName
+    ? existing!.profile.displayName
+    : incomingDisplayName;
+
   const profile: IdentityProfile = {
     id: profileId,
     displayName,
-    normalizedDisplayName: normalizeDisplayName(displayName),
-    avatarUrl: row.avatarUrl?.trim() || null,
-    twitterHandle: normalizeTwitterHandle(row.twitterHandle),
-    telegramHandle: row.telegramHandle?.trim() || null,
-    websiteUrl: row.websiteUrl?.trim() || null,
-    notes: row.notes?.trim() || null,
-    primaryCategory: row.category ?? 'kol',
+    normalizedDisplayName: keepExistingName
+      ? existing!.profile.normalizedDisplayName
+      : normalizeDisplayName(incomingDisplayName),
+    avatarUrl: row.avatarUrl?.trim() || existing?.profile.avatarUrl || null,
+    twitterHandle:
+      normalizeTwitterHandle(row.twitterHandle) ??
+      existing?.profile.twitterHandle ??
+      null,
+    telegramHandle: row.telegramHandle?.trim() || existing?.profile.telegramHandle || null,
+    websiteUrl: row.websiteUrl?.trim() || existing?.profile.websiteUrl || null,
+    notes: row.notes?.trim() || existing?.profile.notes || null,
+    primaryCategory: row.category ?? existing?.profile.primaryCategory ?? 'kol',
     badges: mergeBadges(row.category ?? 'kol', row.badges),
-    verified: Boolean(row.verified),
-    sourcePriority: incomingPriority,
+    verified: Boolean(row.verified) || Boolean(existing?.profile.verified),
+    sourcePriority: Math.max(incomingPriority, existingNamePriority),
     createdAt: existing?.profile.createdAt ?? ts,
     updatedAt: ts,
   };
