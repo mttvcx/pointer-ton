@@ -117,28 +117,21 @@ export function PackFoilDesign({
   // title + pointer. + hero baked in. Floats freely (transparent cutout), no
   // frame, lifts on hover.
   if (render) {
+    // Real 3D foil pack — crumpled foil, crimped bristly seals, title + hero all
+    // baked into the render. Floats freely (transparent cutout), lifts on hover.
     return (
       <div className={cn('pack-render group/foil relative flex h-full w-full items-center justify-center', className)}>
-        {/* Aspect-locked to the render (757×1200) so the crimp seals bracket the
-            pack exactly, whatever the stage size. */}
-        <div
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={render}
+          alt={`${label} pack`}
           className={cn(
-            'relative h-full max-w-full drop-shadow-[0_26px_50px_rgba(0,0,0,0.62)] transition-transform duration-300 ease-out will-change-transform',
-            'aspect-[757/1200]',
-            isOpen ? 'scale-[1.05]' : 'scale-[1.06] group-hover/foil:-translate-y-2.5 group-hover/foil:scale-[1.14]',
+            'h-full w-full object-contain drop-shadow-[0_26px_50px_rgba(0,0,0,0.62)] transition-transform duration-300 ease-out will-change-transform',
+            isOpen ? 'scale-[1.05]' : 'scale-[1.08] group-hover/foil:-translate-y-2.5 group-hover/foil:scale-[1.16]',
           )}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={render}
-            alt={`${label} pack`}
-            className="absolute inset-0 h-full w-full object-contain"
-            draggable={false}
-            loading="lazy"
-          />
-          <span className="pack-crimp pack-crimp--top" aria-hidden />
-          <span className="pack-crimp pack-crimp--bottom" aria-hidden />
-        </div>
+          draggable={false}
+          loading="lazy"
+        />
       </div>
     );
   }

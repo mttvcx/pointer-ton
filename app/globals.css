@@ -1328,40 +1328,8 @@
   transform: translateX(-50%) scale(1.05);
 }
 
-/* Foil crimp seal — the crinkled, bristly sealed ends of the pack.
-   Metallic vertical crinkle streaks, softly faded into the print (no hard
-   line, no dashes) so it reads as folded foil rather than a drawn border. */
-.pack-crimp {
-  position: absolute;
-  left: 2.5%;
-  right: 2.5%;
-  height: 7.5%;
-  z-index: 6;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.55) 0 0.6px,
-      rgba(28, 32, 42, 0.5) 0.6px 1.7px,
-      rgba(200, 210, 226, 0.46) 1.7px 2.5px,
-      rgba(64, 72, 88, 0.38) 2.5px 3.6px
-    ),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(140, 150, 170, 0.04) 50%, rgba(0, 0, 0, 0.3));
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4);
-  opacity: 0.92;
-}
-.pack-crimp--top {
-  top: 0.4%;
-  border-radius: 3px 3px 1px 1px;
-  -webkit-mask-image: linear-gradient(180deg, black 0, black 62%, transparent 100%);
-  mask-image: linear-gradient(180deg, black 0, black 62%, transparent 100%);
-}
-.pack-crimp--bottom {
-  bottom: 0.4%;
-  border-radius: 1px 1px 3px 3px;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0, black 38%, black 100%);
-  mask-image: linear-gradient(180deg, transparent 0, black 38%, black 100%);
-}
+/* (The crimp seals are now real 3D geometry baked into the pack render, so the
+   old CSS crimp overlay was removed to avoid doubling up.) */
 
 .pack-foil-shine {
   background:
