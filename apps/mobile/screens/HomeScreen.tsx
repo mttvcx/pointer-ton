@@ -73,6 +73,7 @@ export function HomeScreen({
   advanced,
   onOpenEducation,
   onOpenReferral,
+  active = true,
 }: {
   onOpenToken: (b: PulseBundle) => void;
   onOpenPerp: (m: PerpMarket) => void;
@@ -80,11 +81,12 @@ export function HomeScreen({
   advanced: boolean;
   onOpenEducation: () => void;
   onOpenReferral: () => void;
+  active?: boolean;
 }) {
   return advanced ? (
     <PulseBoard onOpenToken={onOpenToken} />
   ) : (
-    <SimpleHome onOpenToken={onOpenToken} onOpenPerp={onOpenPerp} onOpenTrader={onOpenTrader} onOpenEducation={onOpenEducation} onOpenReferral={onOpenReferral} />
+    <SimpleHome onOpenToken={onOpenToken} onOpenPerp={onOpenPerp} onOpenTrader={onOpenTrader} onOpenEducation={onOpenEducation} onOpenReferral={onOpenReferral} focused={active} />
   );
 }
 
@@ -94,12 +96,14 @@ function SimpleHome({
   onOpenTrader,
   onOpenEducation,
   onOpenReferral,
+  focused,
 }: {
   onOpenToken: (b: PulseBundle) => void;
   onOpenPerp: (m: PerpMarket) => void;
   onOpenTrader: (t: TraderRef) => void;
   onOpenEducation: () => void;
   onOpenReferral: () => void;
+  focused: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [active, setActive] = useState(0);
@@ -127,7 +131,9 @@ function SimpleHome({
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerFade = scrollY.interpolate({ inputRange: [0, 46], outputRange: [0, 1], extrapolate: 'clamp' });
 
-  const q = useQuery({ queryKey: ['live-tokens'], queryFn: () => getLiveTokens(), staleTime: 30_000, refetchInterval: 45_000 });
+  // Poll only while Home is the visible tab — no background refetching from a
+  // hidden (but kept-mounted) tab.
+  const q = useQuery({ queryKey: ['live-tokens'], queryFn: () => getLiveTokens(), staleTime: 30_000, refetchInterval: focused ? 45_000 : false });
 
   const tokens = useMemo(() => {
     let items = [...(q.data ?? [])];

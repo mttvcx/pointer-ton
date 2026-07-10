@@ -131,7 +131,7 @@ function PhaseFade({ k, children }: { k: string; children: React.ReactNode }) {
   return <Animated.View style={{ flex: 1, opacity, transform: [{ translateY: ty }] }}>{children}</Animated.View>;
 }
 
-export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b: PulseBundle) => void }) {
+export function FinancialScreen({ onOpenToken: _onOpenToken, active = true }: { onOpenToken: (b: PulseBundle) => void; active?: boolean }) {
   const insets = useSafeAreaInsets();
   const fin = useFinancial();
   const entered = useFinancialEntered();
@@ -187,9 +187,12 @@ export function FinancialScreen({ onOpenToken: _onOpenToken }: { onOpenToken: (b
   const [earned, setEarned] = useState(m.earnedToday);
   const perSec = (m.total * (m.apy / 100)) / (365 * 24 * 60 * 60);
   useEffect(() => {
+    // Only tick while this tab is on screen — otherwise it re-renders the whole
+    // (heavy) Financial screen every second in the background and jams the app.
+    if (!active) return;
     const id = setInterval(() => setEarned((e) => e + perSec), 1000);
     return () => clearInterval(id);
-  }, [perSec]);
+  }, [perSec, active]);
 
   // Count-up on the flagship number when the page first mounts — a beat of
   // "here's everything you've got, working." Ease-out over ~850ms.

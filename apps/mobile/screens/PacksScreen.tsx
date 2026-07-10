@@ -88,10 +88,6 @@ export function PacksScreen() {
           {active ? (
             <View style={[s.info, { paddingBottom: insets.bottom + 100 }]}>
               <View style={s.stats}>
-                <Stat label="Min" value={usd(solToUsd(active.minReturnSol, solUsd), 0)} />
-                <View style={s.statDiv} />
-                <Stat label="Max" value={usd(solToUsd(active.maxPayoutSol, solUsd), 0)} big />
-                <View style={s.statDiv} />
                 <Stat label="Rarities" value={String(active.odds.length)} />
               </View>
 
@@ -141,6 +137,10 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
  *  in). Static by default; lifts + scales slightly on press only. No frame. */
 function PackFront({ pack, onPress }: { pack: Pack; onPress?: () => void }) {
   const art = packArtFor(pack.type);
+  // Size the card to the image's REAL aspect so the whole front shows — no crop.
+  const src = Image.resolveAssetSource(art.image);
+  const aspect = src?.width && src?.height ? src.width / src.height : art.aspectRatio;
+  const cardW = Math.round(PACK_CARD_H * aspect);
   const scale = useRef(new Animated.Value(1)).current;
   const ty = useRef(new Animated.Value(0)).current;
   const animate = (toScale: number, toY: number) =>
@@ -150,11 +150,9 @@ function PackFront({ pack, onPress }: { pack: Pack; onPress?: () => void }) {
     ]).start();
   return (
     <Pressable onPressIn={() => animate(1.05, -8)} onPressOut={() => animate(1, 0)} onPress={onPress} accessibilityLabel={`${art.themedName} pack`}>
-      <Animated.View style={[s.packShadow, { width: PACK_CARD_W, height: PACK_CARD_H, transform: [{ scale }, { translateY: ty }] }]}>
+      <Animated.View style={[s.packShadow, { width: cardW, height: PACK_CARD_H, transform: [{ scale }, { translateY: ty }] }]}>
         <View style={s.packClip}>
-          <Image source={art.image} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-          {/* subtle foil top-edge highlight */}
-          <LinearGradient colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.packTopHi} pointerEvents="none" />
+          <Image source={art.image} resizeMode="contain" style={{ width: '100%', height: '100%' }} fadeDuration={0} />
         </View>
       </Animated.View>
     </Pressable>

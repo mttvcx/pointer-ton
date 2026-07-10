@@ -239,13 +239,13 @@ function Shell() {
             switching tabs is instant (no rebuild) instead of a laggy remount. */}
         <View style={{ flex: 1 }}>
           <TabPane active={tab === 'home'}>
-            <HomeScreen onOpenToken={pushToken} onOpenPerp={pushPerp} onOpenTrader={pushTrader} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} />
+            <HomeScreen onOpenToken={pushToken} onOpenPerp={pushPerp} onOpenTrader={pushTrader} advanced={adv} onOpenEducation={() => setEduOpen(true)} onOpenReferral={() => setRefOpen(true)} active={tab === 'home'} />
           </TabPane>
           <TabPane active={tab === 'search'}>
             <SearchScreen onOpenToken={pushToken} />
           </TabPane>
           <TabPane active={tab === 'financial'}>
-            <FinancialScreen onOpenToken={pushToken} />
+            <FinancialScreen onOpenToken={pushToken} active={tab === 'financial'} />
           </TabPane>
           <TabPane active={tab === 'packs'}>
             <PacksScreen />
