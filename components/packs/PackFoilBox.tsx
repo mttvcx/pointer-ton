@@ -31,14 +31,8 @@ export function PackFoilBox({ packType, label, phase }: PackFoilBoxProps) {
           <div className="pack-burst-glow pointer-events-none absolute left-1/2 top-1/2 -z-10" aria-hidden />
         ) : null}
 
-        <div
-          className={cn(
-            'pack-shelf-shell',
-            `pack-shelf-shell--${packType}`,
-            phase === 'burst' && profile !== 'calm' && 'pack-foil-card--burst',
-          )}
-        >
-          <div className="relative h-56 w-40 overflow-hidden rounded-[10px]">
+        <div className={cn(phase === 'burst' && profile !== 'calm' && 'pack-foil-card--burst')}>
+          <div className="relative h-72 w-52">
             <PackFoilDesign type={packType} label={label} variant="open" />
           </div>
         </div>

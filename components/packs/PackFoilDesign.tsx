@@ -116,31 +116,22 @@ export function PackFoilDesign({
   // Premium path: a full 3D foil-pack render (title + logo + hero baked in).
   // Show it as the pack face and keep only the hover sheen for foil life.
   if (render) {
+    // The pack floats freely — no frame, no box, no colored panel. Transparent
+    // render sits directly on the card, scales up, lifts on hover.
     return (
       <div
-        className={cn(
-          'pack-render group/foil relative flex items-center justify-center overflow-hidden rounded-[10px]',
-          isOpen ? 'h-56 w-40' : 'h-full w-full',
-          className,
-        )}
-        style={{ background: 'radial-gradient(130% 100% at 50% 8%, #141821 0%, #0a0c12 58%, #06070b 100%)' }}
+        className={cn('pack-render group/foil relative flex h-full w-full items-center justify-center', className)}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={render}
           alt={`${label} pack`}
           className={cn(
-            'relative z-[2] h-full w-full object-contain drop-shadow-[0_22px_44px_rgba(0,0,0,0.62)] transition-transform duration-300 ease-out will-change-transform',
-            isOpen ? 'scale-[1.08]' : 'scale-[1.16] group-hover/foil:-translate-y-1.5 group-hover/foil:scale-[1.23]',
+            'h-full w-full object-contain drop-shadow-[0_26px_50px_rgba(0,0,0,0.65)] transition-transform duration-300 ease-out will-change-transform',
+            isOpen ? 'scale-[1.05]' : 'scale-[1.12] group-hover/foil:-translate-y-2.5 group-hover/foil:scale-[1.2]',
           )}
           draggable={false}
           loading="lazy"
-        />
-        {/* hover sheen sweep */}
-        <div
-          className="pointer-events-none absolute inset-0 z-[3] opacity-0 transition-opacity duration-500 group-hover/foil:opacity-100"
-          style={{ background: 'linear-gradient(115deg, transparent 34%, rgba(255,255,255,0.13) 49%, transparent 63%)' }}
-          aria-hidden
         />
       </div>
     );

@@ -2,6 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Per-tier pack title fonts — each pack tier has its own vibe (matches the
+ * baked pack-render fonts so the card heading and the pack agree). */
+@font-face {
+  font-family: 'PackStarter';
+  src: url('/fonts/LuckiestGuy.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PackDegen';
+  src: url('/fonts/Bungee.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PackWhale';
+  src: url('/fonts/Anton.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PackDiamond';
+  src: url('/fonts/Orbitron.ttf') format('truetype');
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PackOracle';
+  src: url('/fonts/Cinzel.ttf') format('truetype');
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+.pack-title--bronze { font-family: 'PackStarter', system-ui, sans-serif; letter-spacing: 0.02em; }
+.pack-title--silver { font-family: 'PackDegen', system-ui, sans-serif; letter-spacing: 0.01em; }
+.pack-title--gold { font-family: 'PackWhale', system-ui, sans-serif; letter-spacing: 0.03em; }
+.pack-title--diamond { font-family: 'PackDiamond', system-ui, sans-serif; letter-spacing: 0.12em; font-weight: 800; }
+.pack-title--legendary { font-family: 'PackOracle', serif; letter-spacing: 0.06em; font-weight: 700; }
+
 @layer base {
   /*
    * One app-wide product font: Inter with system fallbacks.

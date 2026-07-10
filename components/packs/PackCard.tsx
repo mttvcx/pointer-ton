@@ -50,7 +50,8 @@ export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
         <header className="relative z-10 shrink-0 text-center">
           <h2
             className={cn(
-              'text-2xl font-bold uppercase tracking-[0.16em] sm:text-[28px]',
+              'text-[26px] uppercase leading-none sm:text-[30px]',
+              `pack-title--${config.type}`,
               vis.accent,
             )}
           >
@@ -58,13 +59,9 @@ export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
           </h2>
         </header>
 
-        <div className="pack-tcg-stage relative z-0 my-4 flex flex-1 items-end justify-center overflow-visible px-2 pb-1 pt-2 [perspective:1200px]">
-          <div className="pack-tcg-lift relative h-[13.5rem] w-[9.25rem] overflow-hidden rounded-[12px]">
-            <div className={cn('pack-shelf-shell h-full w-full overflow-hidden', `pack-shelf-shell--${config.type}`)}>
-              <div className="relative h-full w-full overflow-hidden rounded-[10px]">
-                <PackFoilDesign type={config.type} label={config.label} variant="shelf" />
-              </div>
-            </div>
+        <div className="pack-tcg-stage relative z-0 my-2 flex flex-1 items-center justify-center overflow-visible px-1">
+          <div className="relative h-[17.5rem] w-full">
+            <PackFoilDesign type={config.type} label={config.label} variant="shelf" />
           </div>
         </div>
 
