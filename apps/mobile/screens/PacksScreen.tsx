@@ -17,7 +17,7 @@ import { PackOddsSheet } from '../components/PackOddsSheet';
 import { PackRevealSheet } from '../components/PackRevealSheet';
 
 const W = Dimensions.get('window').width;
-const PACK_W = Math.min(300, W - 90); // page width — leaves side peeks of neighbours
+const PACK_W = Math.min(350, W - 44); // page width — small side peeks, pack is the hero
 
 export function PacksScreen() {
   const insets = useSafeAreaInsets();
@@ -56,16 +56,6 @@ export function PacksScreen() {
         <View style={s.loading}><Text style={s.emptyText}>No packs available right now.</Text></View>
       ) : (
         <>
-          {active ? (() => {
-            const art = packArtFor(active.type);
-            return (
-              <View style={s.titleWrap}>
-                <Text style={[s.name, { fontFamily: art.titleFont, color: art.accent }]} numberOfLines={1}>{active.label.toUpperCase()}</Text>
-                <Text style={s.subline}>{art.subline}</Text>
-              </View>
-            );
-          })() : null}
-
           <View style={s.carousel} onLayout={(e) => setCarouselH(Math.round(e.nativeEvent.layout.height))}>
             <ScrollView
               horizontal
@@ -86,10 +76,6 @@ export function PacksScreen() {
 
           {active ? (
             <View style={[s.info, { paddingBottom: insets.bottom + 100 }]}>
-              <View style={s.stats}>
-                <Stat label="Rarities" value={String(active.odds.length)} />
-              </View>
-
               <View style={s.chips}>
                 <PressScale to={0.96} onPress={() => setOddsFor(active)} style={s.chip}>
                   <GlassFill />
