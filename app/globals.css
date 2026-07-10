@@ -1102,8 +1102,8 @@
 }
 
 @keyframes packFoilFloat {
-  0%, 100% { transform: translateY(0) rotateX(8deg) rotateY(-6deg); }
-  50% { transform: translateY(-14px) rotateX(10deg) rotateY(6deg); }
+  0%, 100% { transform: translateY(0) rotateX(3deg) rotateY(-1.5deg); }
+  50% { transform: translateY(-14px) rotateX(4deg) rotateY(1.5deg); }
 }
 
 @keyframes packFoilFloatCalm {

@@ -119,27 +119,29 @@ export function PackFoilDesign({
     return (
       <div
         className={cn(
-          'pack-collectible pack-collectible--render group/foil relative flex items-center justify-center overflow-hidden',
-          `pack-collectible--${type}`,
-          isOpen ? 'pack-collectible--open h-56 w-40' : 'pack-collectible--shelf h-full w-full',
+          'pack-render group/foil relative flex items-center justify-center overflow-hidden rounded-[10px]',
+          isOpen ? 'h-56 w-40' : 'h-full w-full',
           className,
         )}
+        style={{ background: 'radial-gradient(130% 100% at 50% 8%, #141821 0%, #0a0c12 58%, #06070b 100%)' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={render}
           alt={`${label} pack`}
-          className="h-full w-full object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.55)]"
+          className={cn(
+            'relative z-[2] h-full w-full object-contain drop-shadow-[0_22px_44px_rgba(0,0,0,0.62)] transition-transform duration-300 ease-out will-change-transform',
+            isOpen ? 'scale-[1.08]' : 'scale-[1.16] group-hover/foil:-translate-y-1.5 group-hover/foil:scale-[1.23]',
+          )}
           draggable={false}
           loading="lazy"
         />
+        {/* hover sheen sweep */}
         <div
-          className="pack-collectible__sheen pointer-events-none absolute inset-0 z-[13] opacity-0 transition-opacity duration-500 group-hover/foil:opacity-100"
+          className="pointer-events-none absolute inset-0 z-[3] opacity-0 transition-opacity duration-500 group-hover/foil:opacity-100"
+          style={{ background: 'linear-gradient(115deg, transparent 34%, rgba(255,255,255,0.13) 49%, transparent 63%)' }}
           aria-hidden
         />
-        {isOpen ? (
-          <div className="pack-collectible__sheen pack-collectible__sheen--active pointer-events-none absolute inset-0 z-[13]" aria-hidden />
-        ) : null}
       </div>
     );
   }
