@@ -3,14 +3,14 @@
 -- lib/ext/smartFollowers.ts → submitSmartFollowers), read back on the profile
 -- hover / right-rail card (getSmartFollowers). Server-only (service role).
 --
--- This table was referenced by the code but never created — without it every
--- capture upsert throws and nothing is ever stored, so smart followers always
--- read 0. Run this in the Supabase SQL editor to turn the feature on.
+-- NOTE: this table already exists in prod (created ad-hoc, ~230 rows). This file
+-- is the tracked definition so it's reproducible on a fresh database. It is
+-- idempotent (IF NOT EXISTS) — safe to run, a no-op where the table is present.
 
 create table if not exists kol_smart_followers (
   handle           text        not null,
   follower_handle  text        not null,
-  created_at       timestamptz not null default now(),
+  first_seen       timestamptz not null default now(),
   primary key (handle, follower_handle)
 );
 
