@@ -93,6 +93,20 @@ function AiRecap({ mint }: { mint: string }) {
 
 const shortMint = (m: string) => (m.length > 12 ? `${m.slice(0, 4)}…${m.slice(-4)}` : m);
 
+const CHAIN_LABEL: Record<string, string> = {
+  solana: 'SOL', ethereum: 'ETH', base: 'BASE', bsc: 'BNB', arbitrum: 'ARB',
+  polygon: 'POLY', avalanche: 'AVAX', optimism: 'OP', blast: 'BLAST',
+};
+function ChainBadge({ chain }: { chain?: string | null }) {
+  if (!chain) return null;
+  const label = CHAIN_LABEL[chain] ?? chain.slice(0, 4).toUpperCase();
+  return (
+    <span style={{ fontSize: 9.5, fontWeight: 700, color: '#c8ccff', background: 'rgba(124,131,255,0.16)', border: '1px solid rgba(124,131,255,0.4)', borderRadius: 999, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+      {label}
+    </span>
+  );
+}
+
 /** Copy-to-clipboard control for the contract address. Actually copies (with a
  *  fallback for shadow-DOM/content-script contexts) — never navigates. */
 function CopyCa({ mint }: { mint: string }) {
@@ -202,8 +216,11 @@ export function TokenCard({ data }: { data: TokenIntel }) {
           <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-hover)' }} />
         )}
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--fg-primary)' }}>
-            {data.symbol ?? `${data.mint.slice(0, 4)}…`}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--fg-primary)' }}>
+              {data.symbol ?? `${data.mint.slice(0, 4)}…`}
+            </span>
+            <ChainBadge chain={data.chain} />
           </div>
           <div style={{ color: 'var(--fg-muted)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {data.name ?? data.mint}

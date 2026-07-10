@@ -5,7 +5,10 @@
  * *summarizes* what this verifies.
  */
 
-export type EntityKind = 'token' | 'wallet' | 'evm' | 'handle';
+// 'unknown' = an ambiguous Solana address (could be a mint or a wallet). We never
+// guess from length — the hover resolves it against the backend (a token has a
+// market; a wallet doesn't).
+export type EntityKind = 'token' | 'wallet' | 'evm' | 'unknown' | 'handle';
 
 export interface DetectedEntity {
   kind: EntityKind;
@@ -21,19 +24,30 @@ const SOL_ADDRESS_RE = new RegExp(`\\b${BASE58}{32,44}\\b`, 'g');
 const EVM_ADDRESS_RE = /\b0x[a-fA-F0-9]{40}\b/g;
 const X_HANDLE_RE = /(?:^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{1,15})\b/g;
 
-/** pump.fun mints end in "pump"; bonk.fun in "bonk" — a strong token hint. */
-function looksLikeMint(addr: string): boolean {
-  return /pump$|bonk$|moon$/i.test(addr) || addr.length >= 43;
-}
+// launchpad mint suffixes — a strong, RELIABLE token signal (length is NOT).
+const MINT_SUFFIX_RE = /(pump|bonk|moon|fun)$/i;
+// Words near an address that reveal whether it's a wallet or a contract.
+const WALLET_CTX_RE = /\b(wallet|wallets|holder|holders|deployer|dev|sender|recipient|owner|account|address)\b/i;
+const TOKEN_CTX_RE = /\b(ca|contract|token|mint|coin|ticker|chart)\b|\$[A-Za-z]/i;
 
 /** Reject obvious base58 false-positives (tx signatures are 64–88 chars; we bound at 44). */
 function isPlausibleSolAddress(addr: string): boolean {
   return addr.length >= 32 && addr.length <= 44;
 }
 
+/** Classify an ambiguous Solana address using the ~42 chars of text before it. */
+function classifySol(raw: string, before: string, hint?: 'token' | 'wallet'): EntityKind {
+  if (MINT_SUFFIX_RE.test(raw)) return 'token';
+  if (hint) return hint;
+  const ctx = before.slice(-42);
+  if (WALLET_CTX_RE.test(ctx)) return 'wallet';
+  if (TOKEN_CTX_RE.test(ctx)) return 'token';
+  return 'unknown'; // resolve on hover
+}
+
 /**
  * Extract entities from a string. `hint` lets a site adapter bias ambiguous
- * base58 toward token vs wallet (e.g. DexScreener pages are token-context).
+ * base58 toward token vs wallet (e.g. a token page is token-context).
  */
 export function detectInText(
   text: string,
@@ -54,9 +68,8 @@ export function detectInText(
     const raw = m[0];
     if (!isPlausibleSolAddress(raw) || seen.has(raw)) continue;
     seen.add(raw);
-    const kind: EntityKind =
-      hint === 'wallet' ? 'wallet' : hint === 'token' || looksLikeMint(raw) ? 'token' : 'wallet';
-    out.push({ kind, value: raw, raw });
+    const before = text.slice(0, m.index ?? 0);
+    out.push({ kind: classifySol(raw, before, hint), value: raw, raw });
   }
 
   for (const m of text.matchAll(X_HANDLE_RE)) {
@@ -78,7 +91,7 @@ export function classifyExact(value: string): DetectedEntity | null {
   }
   EVM_ADDRESS_RE.lastIndex = 0;
   if (isPlausibleSolAddress(v) && new RegExp(`^${BASE58}{32,44}$`).test(v)) {
-    return { kind: looksLikeMint(v) ? 'token' : 'wallet', value: v, raw: v };
+    return { kind: MINT_SUFFIX_RE.test(v) ? 'token' : 'unknown', value: v, raw: v };
   }
   const h = v.replace(/^@/, '');
   if (/^[A-Za-z0-9_]{1,15}$/.test(h) && v.startsWith('@')) {

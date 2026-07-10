@@ -10,6 +10,20 @@ import themeCss from '@/ui/theme.css?inline';
 let mount: HTMLElement | null = null;
 let root: Root | null = null;
 let hideTimer: number | undefined;
+let activeAnchor: HTMLElement | null = null;
+
+/** Outline the element the open card is describing so the link is obvious. */
+function setAnchorActive(el: HTMLElement | null): void {
+  if (activeAnchor && activeAnchor !== el) {
+    activeAnchor.style.background = '';
+    activeAnchor.style.boxShadow = '';
+  }
+  activeAnchor = el;
+  if (el) {
+    el.style.background = 'rgba(124,131,255,0.14)';
+    el.style.boxShadow = '0 0 0 1.5px rgba(124,131,255,0.6), 0 4px 18px -6px rgba(124,131,255,0.55)';
+  }
+}
 
 function ensureHost(): { mount: HTMLElement; root: Root } {
   if (mount && root) return { mount, root };
@@ -43,11 +57,13 @@ export function showCard(anchor: HTMLElement, node: ReactNode): void {
   m.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 380))}px`;
   m.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - 260)}px`;
   m.style.display = 'block';
+  setAnchorActive(anchor);
   r.render(node);
 }
 
 export function scheduleHideCard(): void {
   hideTimer = window.setTimeout(() => {
     if (mount) mount.style.display = 'none';
+    setAnchorActive(null);
   }, 140);
 }

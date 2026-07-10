@@ -1,8 +1,9 @@
 import { twitterAdapter } from '@/adapters/twitter';
 import type { HoverTarget } from '@/adapters/types';
 import { pointer } from '@/pointer/client';
-import type { TokenIntel } from '@/pointer/types';
+import type { TokenIntel, WalletIntel } from '@/pointer/types';
 import { TokenCard } from '@/ui/cards/TokenCard';
+import { WalletCard } from '@/ui/cards/WalletCard';
 import { showCard, scheduleHideCard } from '@/ui/cardHost';
 import { startTwitterLabels } from '@/lib/twitterLabels';
 import { startTwitterHoverCard } from '@/lib/twitterHoverCard';
@@ -148,10 +149,11 @@ export default defineContentScript({
     startPnlRing();
 
     function bindHover(target: HoverTarget) {
-      // Only token/CA entities have a live card today; profiles are Phase 3.
-      if (target.entity.kind !== 'token' && target.entity.kind !== 'evm') return;
+      const k = target.entity.kind;
+      // Every on-chain address gets a card: token / EVM / ambiguous / wallet.
+      if (k !== 'token' && k !== 'evm' && k !== 'unknown' && k !== 'wallet') return;
       target.anchor.addEventListener('pointerenter', () => {
-        hoverTimer = window.setTimeout(() => openToken(target), HOVER_INTENT_MS);
+        hoverTimer = window.setTimeout(() => openEntity(target), HOVER_INTENT_MS);
       });
       target.anchor.addEventListener('pointerleave', () => {
         window.clearTimeout(hoverTimer);
@@ -159,17 +161,39 @@ export default defineContentScript({
       });
     }
 
-    async function openToken(target: HoverTarget) {
-      showCard(target.anchor, <LoadingCard />);
-      const res = await pointer.token(target.entity.value);
+    async function openEntity(target: HoverTarget) {
+      const { anchor, entity } = target;
+      showCard(anchor, <LoadingCard />);
+      // Known wallet → wallet card straight away.
+      if (entity.kind === 'wallet') {
+        await openWallet(anchor, entity.value);
+        return;
+      }
+      // token / EVM / ambiguous → resolve as a token; if the backend says it's not
+      // a token (no market anywhere), it's a wallet — fall back cleanly.
+      const res = await pointer.token(entity.value);
       if (res.ok) {
-        showCard(target.anchor, <TokenCard data={res.data as TokenIntel} />);
+        const data = res.data as TokenIntel & { notToken?: boolean };
+        if (data.notToken) {
+          await openWallet(anchor, entity.value);
+          return;
+        }
+        showCard(anchor, <TokenCard data={data} />);
       } else if (needsConnect(res.error)) {
-        // No scoped token yet, or the service worker was waking — either way the
-        // user just needs to connect. Show a clean prompt, never a dead end.
-        showCard(target.anchor, <ConnectCard />);
+        showCard(anchor, <ConnectCard />);
       } else {
-        showCard(target.anchor, <ConnectCard note="Couldn't load — retry, or open the popup." />);
+        showCard(anchor, <ConnectCard note="Couldn't load — retry, or open the popup." />);
+      }
+    }
+
+    async function openWallet(anchor: HTMLElement, address: string) {
+      const res = await pointer.wallet(address);
+      if (res.ok) {
+        showCard(anchor, <WalletCard data={res.data as WalletIntel} />);
+      } else if (needsConnect(res.error)) {
+        showCard(anchor, <ConnectCard />);
+      } else {
+        showCard(anchor, <ConnectCard note="Couldn't load — retry, or open the popup." />);
       }
     }
   },

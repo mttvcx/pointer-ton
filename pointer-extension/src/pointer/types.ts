@@ -33,6 +33,10 @@ export interface ExtMe {
 
 export interface TokenIntel {
   mint: string;
+  /** "solana" | "ethereum" | "base" | "bsc" | … (from the resolver). */
+  chain?: string | null;
+  /** DexScreener pair page (EVM/cross-chain fallback link). */
+  pairUrl?: string | null;
   symbol: string | null;
   name: string | null;
   iconUrl: string | null;
