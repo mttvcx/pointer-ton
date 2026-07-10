@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, LayoutAnimation, Modal, PanResponder, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../src/theme';
 
@@ -114,6 +115,11 @@ export function DragSheet({
       >
         <View style={s.grab}>
           <View style={s.handle} />
+          {/* Always-available exit — a scrollable child can swallow the drag gesture,
+              so never rely on drag/scrim alone to dismiss. */}
+          <Pressable onPress={close} hitSlop={12} style={s.closeBtn}>
+            <Ionicons name="close" size={19} color={colors.fgSecondary} />
+          </Pressable>
         </View>
         {children}
       </Animated.View>
@@ -137,4 +143,5 @@ const s = StyleSheet.create({
   },
   grab: { alignItems: 'center', paddingTop: 14, paddingBottom: 20 },
   handle: { width: 48, height: 5, borderRadius: 3, backgroundColor: colors.borderStrong },
+  closeBtn: { position: 'absolute', top: 8, right: 6, width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgRaised2 },
 });
