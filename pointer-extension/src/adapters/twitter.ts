@@ -23,16 +23,19 @@ export const twitterAdapter: SiteAdapter = {
       targets.push({ entity: { kind: 'handle', value: m[1]!.toLowerCase(), raw: `@${m[1]}` }, anchor: a });
     }
 
-    // Addresses in tweet text — wallets, contracts (any chain), ambiguous ones.
-    const tweets = root.querySelectorAll<HTMLElement>('[data-testid="tweetText"]:not([data-pt-ca])');
-    for (const el of tweets) {
+    // Addresses in tweet text AND profile bios (incl. the hover card + right-rail
+    // "WALLET ADDY:" / "CA:" lines) — wallets, contracts (any chain), ambiguous.
+    const containers = root.querySelectorAll<HTMLElement>(
+      '[data-testid="tweetText"]:not([data-pt-ca]), [data-testid="UserDescription"]:not([data-pt-ca])',
+    );
+    for (const el of containers) {
       const found = detectInText(el.textContent ?? '');
       el.dataset.ptCa = '1';
       if (found.length === 0) continue;
       for (const entity of found) {
         if (entity.kind === 'handle') continue;
         // Wrap the exact address so the card anchors to (and outlines) just it —
-        // not the whole tweet. Falls back to the tweet element if it can't wrap.
+        // not the whole tweet/bio. Falls back to the container if it can't wrap.
         const anchor = wrapMatch(el, entity.raw) ?? el;
         targets.push({ entity, anchor, badge: true });
       }
