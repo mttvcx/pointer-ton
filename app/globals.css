@@ -19,6 +19,8 @@
    */
   :root {
     --app-topbar-h: calc(56px + env(safe-area-inset-top, 0px));
+    /** Emergency/status banner height above the topbar (0 when no banner is shown). */
+    --app-banner-h: 0px;
     --app-watchlist-bar-h: 32px;
     /** Pulse | Stocks rail under topbar (`PulseModeRail` h-9). */
     --pulse-mode-rail-h: 2.25rem;

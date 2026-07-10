@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Info, Wrench } from 'lucide-react';
 
@@ -33,23 +34,36 @@ export function EmergencyBanner() {
     retry: false,
   });
 
-  if (!data) return null;
-
   // Maintenance is the strongest signal, then an explicit banner, then read-only.
   let content: { message: string; level: 'info' | 'warn' | 'critical' } | null = null;
-  if (data.maintenance) {
+  if (data?.maintenance) {
     content = { message: 'Pointer is in maintenance — trading, AI and writes are paused. Read-only access is available.', level: 'critical' };
-  } else if (data.banner) {
+  } else if (data?.banner) {
     content = data.banner;
-  } else if (data.readOnly) {
+  } else if (data?.readOnly) {
     content = { message: 'Pointer is temporarily read-only — trading and writes are paused.', level: 'warn' };
   }
+
+  const ref = useRef<HTMLDivElement | null>(null);
+  const message = content?.message ?? null;
+  // Publish the banner's height so fixed overlays (docks, hover cards, toasts,
+  // copilot pill) can offset below it. 0 when no banner is shown.
+  useEffect(() => {
+    const root = document.documentElement;
+    const h = message && ref.current ? ref.current.offsetHeight : 0;
+    root.style.setProperty('--app-banner-h', `${h}px`);
+    return () => {
+      root.style.setProperty('--app-banner-h', '0px');
+    };
+  }, [message]);
+
   if (!content) return null;
 
   const tone = TONE[content.level];
-  const Icon = data.maintenance ? Wrench : tone.Icon;
+  const Icon = data?.maintenance ? Wrench : tone.Icon;
   return (
     <div
+      ref={ref}
       role="status"
       aria-live="polite"
       className={`flex w-full items-center justify-center gap-2 border-b px-4 py-1.5 text-[12px] font-medium ${tone.bg}`}

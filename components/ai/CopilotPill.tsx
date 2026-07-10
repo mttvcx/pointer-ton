@@ -150,7 +150,7 @@ function CopilotPillExpandedCard({
       />
       <div
         className="pointer-events-none fixed left-1/2 z-[630] w-[min(720px,calc(100vw-20px))] -translate-x-1/2"
-        style={{ top: 'calc(var(--app-topbar-h) + 10px)' }}
+        style={{ top: 'calc(var(--app-banner-h, 0px) + var(--app-topbar-h) + 10px)' }}
       >
         <div
           role="dialog"

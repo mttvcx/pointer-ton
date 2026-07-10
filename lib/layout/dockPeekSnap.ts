@@ -54,11 +54,13 @@ export function snapDockPeekCoords(
 
 export function readLayoutChromePx(): { topbar: number; botbar: number } {
   if (typeof document === 'undefined') return { topbar: 48, botbar: 40 };
-  const top =
-    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-topbar-h')) || 48;
-  const bot =
-    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-bottombar-h')) || 40;
-  return { topbar: top, botbar: bot };
+  const cs = getComputedStyle(document.documentElement);
+  const top = Number.parseFloat(cs.getPropertyValue('--app-topbar-h')) || 48;
+  // Emergency/status banner sits above the topbar and pushes it down; fixed
+  // overlays must offset by it too, or they ride up under the banner.
+  const banner = Number.parseFloat(cs.getPropertyValue('--app-banner-h')) || 0;
+  const bot = Number.parseFloat(cs.getPropertyValue('--app-bottombar-h')) || 40;
+  return { topbar: top + banner, botbar: bot };
 }
 
 /** Top edge of routed page content (`<main>`) — includes watchlist + Pulse chrome when present. */

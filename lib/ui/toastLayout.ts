@@ -31,7 +31,7 @@ export function toastPlacement(_kind: 'copy' | 'app' = 'app'): ToastPlacement {
 }
 
 export function toastOffset(placement: ToastPlacement) {
-  const top = 'calc(var(--app-topbar-h) + 12px)';
+  const top = 'calc(var(--app-banner-h, 0px) + var(--app-topbar-h) + 12px)';
   const bottom = 'calc(var(--app-bottombar-h) + 12px)';
   const side = '14px';
 
