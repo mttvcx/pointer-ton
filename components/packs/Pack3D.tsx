@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { PackType } from '@/types/pack';
+import { packFrontImage } from '@/lib/packs/packRenderArt';
 
 /**
  * Real 3D foil booster pack — vanilla three.js (R3F won't init under Next's
@@ -197,8 +198,18 @@ function drawCast(ctx: CanvasRenderingContext2D, imgs: (HTMLImageElement | null)
   });
 }
 
+/** Draw a pre-rendered pack-front panel full-height, centred, on a dark canvas. */
+function drawFront(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
+  ctx.fillStyle = '#05060a';
+  ctx.fillRect(0, 0, ART_W, ART_H);
+  const scale = ART_H / img.height;
+  const w = img.width * scale;
+  ctx.drawImage(img, (ART_W - w) / 2, 0, w, ART_H);
+}
+
 function buildArt(type: PackType): { tex: THREE.CanvasTexture; refresh: () => Promise<void> } {
   const t = TIERS[type];
+  const front = packFrontImage(type);
   const c = document.createElement('canvas');
   c.width = ART_W;
   c.height = ART_H;
@@ -210,6 +221,16 @@ function buildArt(type: PackType): { tex: THREE.CanvasTexture; refresh: () => Pr
   tex.anisotropy = 8;
 
   const refresh = async () => {
+    // Premium path: the real rendered pack front (title + pointer. + hero baked in).
+    if (front) {
+      const img = await loadImg(front);
+      if (img) {
+        drawFront(ctx, img);
+        tex.needsUpdate = true;
+        return;
+      }
+    }
+    // Fallback: procedural canvas front.
     const [logo, ...cast] = await Promise.all([loadImg(LOGO_SRC), ...t.cast.map(loadImg)]);
     drawBase(ctx, t);
     // Pointer mark top-centre

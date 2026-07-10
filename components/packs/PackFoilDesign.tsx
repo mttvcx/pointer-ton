@@ -3,6 +3,7 @@
 import type { PackType } from '@/types/pack';
 import { PACK_ART_IDENTITY } from '@/lib/packs/packArtIdentity';
 import { PACK_POINTER_LOGO } from '@/lib/packs/constants';
+import { packRenderImage } from '@/lib/packs/packRenderArt';
 import { PackFoilArtLayer } from '@/components/packs/packFoilArtLayers';
 import { cn } from '@/lib/utils/cn';
 
@@ -110,6 +111,38 @@ export function PackFoilDesign({
 }) {
   const isOpen = variant === 'open';
   const isLegendary = type === 'legendary';
+  const render = packRenderImage(type);
+
+  // Premium path: a full 3D foil-pack render (title + logo + hero baked in).
+  // Show it as the pack face and keep only the hover sheen for foil life.
+  if (render) {
+    return (
+      <div
+        className={cn(
+          'pack-collectible pack-collectible--render group/foil relative flex items-center justify-center overflow-hidden',
+          `pack-collectible--${type}`,
+          isOpen ? 'pack-collectible--open h-56 w-40' : 'pack-collectible--shelf h-full w-full',
+          className,
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={render}
+          alt={`${label} pack`}
+          className="h-full w-full object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.55)]"
+          draggable={false}
+          loading="lazy"
+        />
+        <div
+          className="pack-collectible__sheen pointer-events-none absolute inset-0 z-[13] opacity-0 transition-opacity duration-500 group-hover/foil:opacity-100"
+          aria-hidden
+        />
+        {isOpen ? (
+          <div className="pack-collectible__sheen pack-collectible__sheen--active pointer-events-none absolute inset-0 z-[13]" aria-hidden />
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div
