@@ -119,17 +119,26 @@ export function PackFoilDesign({
   if (render) {
     return (
       <div className={cn('pack-render group/foil relative flex h-full w-full items-center justify-center', className)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={render}
-          alt={`${label} pack`}
+        {/* Aspect-locked to the render (757×1200) so the crimp seals bracket the
+            pack exactly, whatever the stage size. */}
+        <div
           className={cn(
-            'h-full w-full object-contain drop-shadow-[0_26px_50px_rgba(0,0,0,0.62)] transition-transform duration-300 ease-out will-change-transform',
-            isOpen ? 'scale-[1.05]' : 'scale-[1.1] group-hover/foil:-translate-y-2.5 group-hover/foil:scale-[1.18]',
+            'relative h-full max-w-full drop-shadow-[0_26px_50px_rgba(0,0,0,0.62)] transition-transform duration-300 ease-out will-change-transform',
+            'aspect-[757/1200]',
+            isOpen ? 'scale-[1.05]' : 'scale-[1.06] group-hover/foil:-translate-y-2.5 group-hover/foil:scale-[1.14]',
           )}
-          draggable={false}
-          loading="lazy"
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={render}
+            alt={`${label} pack`}
+            className="absolute inset-0 h-full w-full object-contain"
+            draggable={false}
+            loading="lazy"
+          />
+          <span className="pack-crimp pack-crimp--top" aria-hidden />
+          <span className="pack-crimp pack-crimp--bottom" aria-hidden />
+        </div>
       </div>
     );
   }

@@ -105,7 +105,7 @@ export function PacksTerminal({ className }: { className?: string }) {
         </p>
       ) : null}
 
-      <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+      <div className="pack-arena flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {packs.map((pack) => (
             <PackCard

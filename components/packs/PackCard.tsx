@@ -40,7 +40,7 @@ export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
   return (
     <article
       className={cn(
-        'pack-tcg-shelf group relative isolate overflow-visible rounded-md border bg-[#040508] transition-[border-color,box-shadow] duration-400',
+        'pack-tcg-shelf group relative isolate overflow-visible rounded-md border bg-[#070810]/55 backdrop-blur-md transition-[border-color,box-shadow] duration-400',
         SHELF_BORDER[config.type],
         SHELF_HOVER[config.type],
         `pack-tcg-shelf--${config.type}`,
@@ -60,7 +60,9 @@ export function PackCard({ config, onSelect, onDetails }: PackCardProps) {
         </header>
 
         <div className="pack-tcg-stage relative z-0 my-2 flex flex-1 items-center justify-center overflow-visible px-1">
-          <div className="relative h-[17.5rem] w-full">
+          <div className={cn('pack-glow', `pack-glow--${config.type}`)} aria-hidden />
+          <div className="pack-pedestal" aria-hidden />
+          <div className="relative z-[1] h-[17.5rem] w-full">
             <PackFoilDesign type={config.type} label={config.label} variant="shelf" />
           </div>
         </div>
