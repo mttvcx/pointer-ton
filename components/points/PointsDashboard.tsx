@@ -974,7 +974,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                         >
                           <td className="px-3 py-2.5 tabular-nums text-fg-secondary">{r.rank}</td>
                           <td className="px-3 py-2.5 text-fg-primary">
-                            {r.username ?? shortenAddress(r.wallet_address ?? r.user_id, 4)}
+                            {shortenAddress(r.wallet_address ?? r.user_id, 5)}
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             <span className="rounded-md border border-border-subtle bg-bg-sunken/50 px-2 py-0.5 tabular-nums font-medium">

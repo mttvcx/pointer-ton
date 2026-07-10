@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChampionshipLeaderboardEntry } from '@/lib/championship/types';
 import { TraderStatsPanel } from '@/components/championship/TraderStatsPanel';
 import { PROVISIONAL_LEADERBOARD_COPY } from '@/lib/championship/uiCopy';
+import { anonLabel } from '@/lib/championship/privacy';
 import { formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
 
@@ -121,7 +122,7 @@ export function SoloLeaderboardArena({
                       #{row.rank}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-medium text-fg-primary">
-                      {row.participant.displayName}
+                      {anonLabel(row.participant.walletAddress, row.participant.userId)}
                     </span>
                     <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-fg-primary">
                       {formatNumber(row.score.finalScore, { decimals: 0 })}

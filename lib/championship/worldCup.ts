@@ -4,6 +4,7 @@ import {
   SQUAD_WC_QUALIFIER_POINTS,
 } from '@/lib/championship/config';
 import type { ChampionshipLeaderboardEntry, SquadLeaderboardEntry, WorldCupQualifierEntry } from '@/lib/championship/types';
+import { anonLabel } from '@/lib/championship/privacy';
 
 export function soloWcPointsForRank(rank: number): number {
   return placementPointsForRank(rank, SOLO_WC_QUALIFIER_POINTS);
@@ -45,7 +46,7 @@ export function buildWorldCupStandings(
       const prev = map.get(key);
       map.set(key, {
         entityId: row.participant.userId,
-        displayName: row.participant.displayName,
+        displayName: anonLabel(row.participant.walletAddress, row.participant.userId),
         kind: 'solo',
         qualifierPoints: (prev?.qualifierPoints ?? 0) + pts,
         weeklyPodiums: (prev?.weeklyPodiums ?? 0) + (row.rank <= 3 ? 1 : 0),

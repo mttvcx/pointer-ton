@@ -5,6 +5,7 @@ import type { SquadLeaderboardEntry } from '@/lib/championship/types';
 import { PROVISIONAL_LEADERBOARD_COPY } from '@/lib/championship/uiCopy';
 import { formatCompactUsd, formatNumber } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { anonLabel } from '@/lib/championship/privacy';
 import { Users } from 'lucide-react';
 
 interface SquadLeaderboardArenaProps {
@@ -151,7 +152,7 @@ export function SquadLeaderboardArena({
                     <span className="flex items-center gap-2 text-sm text-fg-secondary">
                       <span className="font-mono text-xs tabular-nums text-fg-muted">#{i + 1}</span>
                       <Users className="h-3.5 w-3.5 text-fg-muted" aria-hidden />
-                      {m.displayName}
+                      {anonLabel(undefined, m.userId)}
                     </span>
                     <span className="font-mono text-sm tabular-nums font-medium text-fg-primary">
                       {formatNumber(m.score, { decimals: 0 })}

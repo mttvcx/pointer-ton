@@ -4,6 +4,7 @@ import type { ChampionshipLeaderboardEntry } from '@/lib/championship/types';
 import { ScoreLegend, ScoreRing, type ScoreRingSegment } from '@/components/championship/ScoreRing';
 import { formatCompactUsd, formatNumber, formatPercent } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils/cn';
+import { anonLabel } from '@/lib/championship/privacy';
 
 function scoreSegments(entry: ChampionshipLeaderboardEntry): ScoreRingSegment[] {
   const { score } = entry;
@@ -51,7 +52,7 @@ export function TraderStatsPanel({ entry, isViewer, emptyLabel }: TraderStatsPan
               {isViewer ? 'Your stats' : 'Trader stats'}
             </p>
             <h3 className="mt-0.5 truncate text-lg font-bold tracking-tight text-fg-primary">
-              {participant.displayName}
+              {anonLabel(participant.walletAddress, participant.userId)}
             </h3>
             {participant.handle ? (
               <p className="truncate text-xs text-fg-muted">@{participant.handle}</p>
