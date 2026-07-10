@@ -80,6 +80,11 @@ function shortenAddress(value: string, chars = 4) {
   return `${value.slice(0, chars)}...${value.slice(-chars)}`;
 }
 
+/** Points are shown scaled up for a bigger, more exciting number. Display only —
+ *  ranking, storage, and the award formula are unchanged. */
+const POINTS_DISPLAY_SCALE = 1000;
+const fmtPoints = (n: number) => formatNumber(Math.round(n * POINTS_DISPLAY_SCALE));
+
 function displayNameFromUser(user: {
   twitter?: { username?: string };
   google?: { name?: string };
@@ -549,7 +554,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                                 size={24}
                                 className="opacity-95 drop-shadow-[0_0_12px_rgb(var(--accent-primary-rgb)/0.45)]"
                               />
-                              {formatNumber(points.totalPoints)}
+                              {fmtPoints(points.totalPoints)}
                             </p>
                           </div>
                           <div>
@@ -781,7 +786,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                         points.breakdown.map((row) => (
                           <tr key={row.event_type} className="border-b border-border-subtle/80 last:border-0">
                             <td className="px-3 py-2 text-[11px] text-fg-secondary">{row.event_type}</td>
-                            <td className="px-3 py-2 text-right tabular-nums text-fg-primary">{formatNumber(row.total)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-fg-primary">{fmtPoints(row.total)}</td>
                           </tr>
                         ))
                       )}
@@ -874,7 +879,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                   </div>
                 </div>
                 <p className="bg-gradient-to-br from-white via-fg-primary to-fg-secondary bg-clip-text text-[clamp(1.65rem,4.5vw,2.35rem)] font-bold tabular-nums tracking-tight text-transparent drop-shadow-[0_0_28px_rgba(167,139,250,0.25)]">
-                  {formatNumber(points.totalPoints)}
+                  {fmtPoints(points.totalPoints)}
                 </p>
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
                   Season 1 {PTR_TICKER}
@@ -978,7 +983,7 @@ export function PointsDashboard({ className }: { className?: string }) {
                           </td>
                           <td className="px-3 py-2.5 text-right">
                             <span className="rounded-md border border-border-subtle bg-bg-sunken/50 px-2 py-0.5 tabular-nums font-medium">
-                              {formatNumber(r.total_points)}
+                              {fmtPoints(r.total_points)}
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-fg-secondary">{r.active_days}</td>
