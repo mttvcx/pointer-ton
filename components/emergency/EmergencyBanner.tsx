@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Info, Wrench } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 
 type Status = {
   maintenance: boolean;
@@ -34,15 +34,12 @@ export function EmergencyBanner() {
     retry: false,
   });
 
-  // Maintenance is the strongest signal, then an explicit banner, then read-only.
-  let content: { message: string; level: 'info' | 'warn' | 'critical' } | null = null;
-  if (data?.maintenance) {
-    content = { message: 'Pointer is in maintenance — trading, AI and writes are paused. Read-only access is available.', level: 'critical' };
-  } else if (data?.banner) {
-    content = data.banner;
-  } else if (data?.readOnly) {
-    content = { message: 'Pointer is temporarily read-only — trading and writes are paused.', level: 'warn' };
-  }
+  // Only show a banner the operator explicitly set (info/warn/critical). We do
+  // NOT auto-synthesize a scary bar for maintenance / read-only / fail-closed —
+  // those pause things server-side and surface a contextual message at the point
+  // of action instead of alarming every visitor. (publicStatus already strips
+  // the automatic fail-closed banner.)
+  const content = data?.banner ?? null;
 
   const ref = useRef<HTMLDivElement | null>(null);
   const message = content?.message ?? null;
@@ -60,7 +57,7 @@ export function EmergencyBanner() {
   if (!content) return null;
 
   const tone = TONE[content.level];
-  const Icon = data?.maintenance ? Wrench : tone.Icon;
+  const Icon = tone.Icon;
   return (
     <div
       ref={ref}

@@ -154,5 +154,9 @@ export async function publicStatus(): Promise<{
   banner: EmergencyBanner | null;
 }> {
   const c = await getControls();
-  return { maintenance: c.maintenance, readOnly: c.readOnly, banner: c.banner };
+  // Only ever surface an ADMIN-SET banner to users. The automatic fail-closed
+  // safety state (Redis unreachable, etc.) must never flash a scary bar — it's
+  // an internal infra signal, and the server-side guards already fail safe.
+  const adminSet = !!c.updatedBy && c.updatedBy !== 'fail-closed';
+  return { maintenance: c.maintenance, readOnly: c.readOnly, banner: adminSet ? c.banner : null };
 }
