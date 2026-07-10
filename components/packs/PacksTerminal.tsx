@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { PackTestCelebration } from '@/lib/packs/celebrations';
-import type { PackPublicConfig } from '@/types/pack';
+import type { PackPublicConfig, PackType } from '@/types/pack';
 import { PackCard } from '@/components/packs/PackCard';
 import { PackDetailsModal } from '@/components/packs/PackDetailsModal';
 import { PackOpenFlow } from '@/components/packs/PackOpenFlow';
@@ -41,7 +41,11 @@ export function PacksTerminal({ className }: { className?: string }) {
     },
   });
 
-  const packs = packsQuery.data?.packs ?? fallbackPacks;
+  // Shelf order: legendary leads, diamond ends the first (4-wide) row, bronze last.
+  const PACK_ORDER: PackType[] = ['legendary', 'silver', 'gold', 'diamond', 'bronze'];
+  const packs = [...(packsQuery.data?.packs ?? fallbackPacks)].sort(
+    (a, b) => PACK_ORDER.indexOf(a.type) - PACK_ORDER.indexOf(b.type),
+  );
   // Default to simulated until the catalog confirms live commerce — never
   // imply real charging before the server says so.
   const live = packsQuery.data?.live ?? false;
