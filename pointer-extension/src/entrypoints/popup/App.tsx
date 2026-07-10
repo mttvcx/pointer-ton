@@ -45,6 +45,17 @@ export function PopupApp({ mode = 'popup' }: { mode?: Mode }) {
     };
   }, [refresh]);
 
+  // Safety net: never spin on "Connecting…" forever. If the first probe is still
+  // pending after 8s (worker cold-start / API blip), fall back to the connect
+  // screen — the 2.5s poll flips it to connected the moment me() lands.
+  useEffect(() => {
+    if (state.phase !== 'loading') return;
+    const t = window.setTimeout(() => {
+      setState((s) => (s.phase === 'loading' ? { phase: 'disconnected' } : s));
+    }, 8000);
+    return () => window.clearTimeout(t);
+  }, [state.phase]);
+
   const connected = state.phase === 'connected';
   const me = connected ? state.me : null;
 
@@ -154,30 +165,18 @@ function Loading() {
 
 function Disconnected({ onConnect }: { onConnect: () => void }) {
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6, padding: '0 10px' }}>
-      <div
-        style={{
-          display: 'grid',
-          placeItems: 'center',
-          width: 92,
-          height: 92,
-          borderRadius: 28,
-          marginBottom: 18,
-          background: 'linear-gradient(150deg, var(--pt-accent-soft), rgba(154,124,255,0.04))',
-          border: '1px solid var(--pt-accent-line)',
-          boxShadow: 'var(--pt-accent-glow)',
-        }}
-      >
-        <img src="/pointer-bird.png" alt="" width={46} height={46} style={{ objectFit: 'contain' }} />
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 0, padding: '0 14px' }}>
+      {/* Bird dominates — ~2/3 of the popup width, no box around it. */}
+      <img src="/pointer-bird.png" alt="Pointer" width={198} height={198} style={{ objectFit: 'contain', marginBottom: 4 }} />
+      {/* Web wordmark: semibold (not heavy), tracking-tight, all white incl. the period. */}
+      <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1, color: '#fff' }}>
+        pointer.
       </div>
-      <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.035em', lineHeight: 1 }}>
-        pointer<span style={{ color: 'var(--pt-accent)' }}>.</span>
-      </div>
-      <p style={{ margin: '12px 0 0', fontSize: 14.5, fontWeight: 600, lineHeight: 1.5, maxWidth: 280, color: 'var(--fg-primary)' }}>
-        The all-in-one crypto intelligence tool — labels, PnL, and AI on every token, wallet, and profile you browse.
+      <p style={{ margin: '14px 0 0', fontSize: 13.5, fontWeight: 500, lineHeight: 1.5, maxWidth: 252, color: 'var(--fg-secondary)' }}>
+        Labels, PnL, and AI on every token, wallet, and profile you browse.
       </p>
-      <div style={{ width: '100%', marginTop: 22 }}>
-        <GlassButton variant="accent" block onClick={onConnect}>
+      <div style={{ width: '100%', marginTop: 24 }}>
+        <GlassButton variant="primary" block onClick={onConnect}>
           <Ic.Plug size={16} /> Connect Pointer
         </GlassButton>
       </div>

@@ -2,7 +2,6 @@ import { apiBase } from '@/pointer/auth';
 import type { ExtMe } from '@/pointer/types';
 import { GlassButton, GlassCard, Ic, Pill, ProgressBar } from './components';
 
-const SITES = ['X', 'DexScreener', 'Solscan', 'Axiom', 'Pump.fun', 'GMGN', 'Photon', 'BullX'];
 const UNLOCK_SOL = 5;
 const base = () => apiBase();
 
@@ -65,23 +64,12 @@ export function Home({ me, onNav }: { me: ExtMe; onNav: (t: Nav) => void }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {actions.map((a) => (
             <button key={a.label} className="glass glass-card glass-card--hover" style={{ padding: 13, gap: 9, alignItems: 'flex-start', flexDirection: 'row' }} onClick={a.run}>
-              <span style={{ display: 'grid', placeItems: 'center', width: 32, height: 32, borderRadius: 10, color: 'var(--pt-accent)', background: 'var(--pt-accent-soft)', border: '1px solid var(--pt-accent-line)' }}>{a.icon}</span>
+              <span style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: 8, color: 'var(--pt-accent)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)' }}>{a.icon}</span>
               <span style={{ fontSize: 12.5, fontWeight: 600, alignSelf: 'center', textAlign: 'left' }}>{a.label}</span>
             </button>
           ))}
         </div>
       </div>
-
-      {/* live on */}
-      <GlassCard>
-        <div className="section-label" style={{ marginBottom: 10 }}>Live on</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {SITES.map((s) => (
-            <Pill key={s} chip style={{ height: 25, fontSize: 11.5 }}>{s}</Pill>
-          ))}
-        </div>
-        <p className="meta" style={{ margin: '11px 0 0' }}>Hover any contract, wallet, or profile for an instant Pointer card.</p>
-      </GlassCard>
 
       <GlassButton variant="primary" block href={base()}>
         Open Pointer <Ic.External size={15} />

@@ -9,34 +9,34 @@
  */
 
 :root {
-  /* Pointer AI accent — restrained indigo-violet, used sparingly. */
-  --pt-accent: #7c83ff;
-  --pt-accent-2: #9a7cff;
-  --pt-accent-soft: rgba(124, 131, 255, 0.14);
-  --pt-accent-line: rgba(124, 131, 255, 0.32);
-  --pt-accent-glow: 0 0 0 1px rgba(124, 131, 255, 0.35), 0 6px 22px -8px rgba(124, 131, 255, 0.55);
+  /* Mono accent — no purple. Grey/white like pointer.trade; accent = the glyph only. */
+  --pt-accent: #e5e7eb;
+  --pt-accent-2: #c9ced6;
+  --pt-accent-soft: rgba(255, 255, 255, 0.05);
+  --pt-accent-line: rgba(255, 255, 255, 0.11);
+  --pt-accent-glow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 
   /* Premium gold — only for Premium surfaces. */
   --pt-gold-1: #f6df9a;
   --pt-gold-2: #c89a4e;
   --pt-gold-line: rgba(228, 196, 132, 0.45);
 
-  /* Glass surfaces — translucent white over the dark base, layered. */
-  --glass-1: rgba(255, 255, 255, 0.035);
-  --glass-2: rgba(255, 255, 255, 0.06);
-  --glass-3: rgba(255, 255, 255, 0.09);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-border-strong: rgba(255, 255, 255, 0.14);
-  --glass-blur: blur(22px) saturate(1.35);
-  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Surfaces — flat near-black like pointer.trade; faint borders, no heavy glass. */
+  --glass-1: rgba(255, 255, 255, 0.02);
+  --glass-2: rgba(255, 255, 255, 0.035);
+  --glass-3: rgba(255, 255, 255, 0.055);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-border-strong: rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(10px) saturate(1.05);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 
-  /* Radii + shadow scale. */
-  --r-xl: 20px;
-  --r-card: 16px;
-  --r-btn: 12px;
+  /* Radii + shadow scale — tight + sharp (mono, not bubbly). */
+  --r-xl: 10px;
+  --r-card: 8px;
+  --r-btn: 7px;
   --r-pill: 999px;
-  --sh-card: 0 10px 34px -16px rgba(0, 0, 0, 0.9), var(--glass-hi);
-  --sh-pop: 0 18px 50px -18px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--glass-border);
+  --sh-card: 0 6px 22px -14px rgba(0, 0, 0, 0.85);
+  --sh-pop: 0 16px 44px -18px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--glass-border);
 
   /* Motion. */
   --ease: cubic-bezier(0.22, 0.8, 0.28, 1);
@@ -69,8 +69,7 @@ body {
   height: 600px;
   overflow: hidden;
   background:
-    radial-gradient(120% 60% at 50% -10%, rgba(124, 131, 255, 0.1), transparent 60%),
-    radial-gradient(90% 50% at 100% 0%, rgba(154, 124, 255, 0.06), transparent 55%),
+    radial-gradient(120% 55% at 50% -10%, rgba(255, 255, 255, 0.035), transparent 62%),
     var(--bg-base);
   isolation: isolate;
 }
@@ -550,7 +549,7 @@ body {
 }
 .input:focus {
   border-color: var(--pt-accent-line);
-  background: rgba(124, 131, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* ───────────────────────── segmented ───────────────────────── */

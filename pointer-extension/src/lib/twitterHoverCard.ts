@@ -79,7 +79,42 @@ async function enrich(card: HTMLElement): Promise<void> {
     else panel.remove();
     return;
   }
-  render(panel, res.data as unknown as ProfileSummary, handle);
+  const data = res.data as unknown as ProfileSummary;
+  injectNameBadge(card, data); // our label next to X's name (X's hovercard has no testid we can rely on)
+  render(panel, data, handle);
+}
+
+/** Stamp our KOL/role label next to the display name inside X's hovercard header. */
+function injectNameBadge(card: HTMLElement, data: ProfileSummary): void {
+  if (card.querySelector('.pt-hc-name-pill')) return; // already stamped
+  const label = data.labels?.length ? data.labels[0] : data.badge;
+  if (!label) return;
+  const name = (data.name ?? '').trim();
+  if (!name) return;
+
+  // Prefer the leaf span holding exactly the display name; fall back to the
+  // avatar+name link. (X's hovercard has no stable testid for the name.)
+  let target: HTMLElement | null = null;
+  for (const el of Array.from(card.querySelectorAll<HTMLElement>('span, div'))) {
+    if (el.children.length === 0 && (el.textContent ?? '').trim() === name) {
+      target = el;
+      break;
+    }
+  }
+  const leaf = !!target;
+  if (!target) {
+    target = Array.from(card.querySelectorAll<HTMLAnchorElement>('a[href^="/"]')).find(
+      (a) => /^\/[A-Za-z0-9_]{1,15}$/.test(a.getAttribute('href') ?? '') && !!a.querySelector('img'),
+    ) ?? null;
+  }
+  if (!target) return;
+
+  const pill = document.createElement('span');
+  pill.className = 'pt-hc-name-pill';
+  pill.textContent = label;
+  Object.assign(pill.style, { display: 'inline-flex', alignItems: 'center', margin: '0 0 0 6px', padding: '1px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: '700', letterSpacing: '0.02em', color: '#c8ccff', background: 'rgba(124,131,255,0.16)', border: '1px solid rgba(124,131,255,0.45)', verticalAlign: 'middle', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
+  if (leaf) target.insertAdjacentElement('afterend', pill);
+  else target.appendChild(pill);
 }
 
 function header(): HTMLElement {
@@ -103,15 +138,8 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
     return;
   }
 
-  // identity: name + label (KOL) — right under X's own name
-  const idRow = document.createElement('div');
-  Object.assign(idRow.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '11px' } as CSSStyleDeclaration);
-  const idNm = document.createElement('span');
-  idNm.textContent = data.name ?? `@${handle}`;
-  Object.assign(idNm.style, { fontSize: '14px', fontWeight: '800' } as CSSStyleDeclaration);
-  idRow.appendChild(idNm);
-  for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) idRow.appendChild(pill(l));
-  panel.appendChild(idRow);
+  // No identity line — the name + KOL label already show up in X's own name row
+  // (stamped by twitterLabels). The panel is just the PnL chart.
 
   // header: timeframe toggle (left)
   const head = document.createElement('div');

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireExtAuth } from '@/lib/ext/auth';
 import { explainToken } from '@/lib/ai/pipelines/explainToken';
 import { explainWallet } from '@/lib/ai/pipelines/explainWallet';
+import { tokenNarrative } from '@/lib/ai/pipelines/tokenNarrative';
 import { isValidPublicKey } from '@/lib/utils/addresses';
 
 export const runtime = 'nodejs';
@@ -25,6 +26,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ kind: strin
   }
 
   try {
+    if (kind === 'recap') {
+      // Free-tier 24h X-native narrative (Grok). Not aiAccess-gated — it's the
+      // simple AI on the free plan. Soft-unavailable when Grok isn't configured
+      // (no paywall on the free feature).
+      const n = await tokenNarrative(ref, Date.now());
+      if (!n) {
+        return NextResponse.json({ kind, ref, ai: null, unavailable: 'recap_not_configured' });
+      }
+      return NextResponse.json({
+        kind,
+        ref,
+        ai: { summary: n.narrative, model: n.model },
+        cached: n.cached,
+      });
+    }
     if (kind === 'token') {
       const r = await explainToken({ userId: auth.userId, mint: ref, surface: 'hover' });
       return NextResponse.json({ kind, ref, ai: r.data, cached: r.cacheHit });

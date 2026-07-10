@@ -224,9 +224,15 @@ export function ChainSelector({ value, onChange }: { value: Chain; onChange: (c:
   const ref = useOutside(() => setOpen(false));
   return (
     <div style={{ position: 'relative' }} ref={ref}>
-      <button className="pill" onClick={() => setOpen((o) => !o)} aria-label="Select chain">
-        <ChainMark chain={value} size={16} />
-        <Ic.ChevronDown size={13} />
+      <button
+        className="pill"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Select chain"
+        style={{ background: 'transparent', border: 'none', boxShadow: 'none', padding: '2px 3px', gap: 4, height: 'auto' }}
+      >
+        <ChainMark chain={value} size={17} />
+        <span style={{ fontSize: 11.5, fontWeight: 650, color: 'var(--fg-secondary)' }}>{value.sym}</span>
+        <Ic.ChevronDown size={12} />
       </button>
       {open && (
         <div className="popover" style={{ top: '100%', right: 0, marginTop: 8, minWidth: 168, padding: 5 }}>
@@ -268,17 +274,17 @@ export function UsageIndicator({ usage }: { usage: Usage }) {
   const unlockPct = usage.solBalance != null ? Math.min(100, (usage.solBalance / UNLOCK_SOL) * 100) : null;
   return (
     <div style={{ position: 'relative' }} ref={ref}>
-      <button className="pill" onClick={() => setOpen((o) => !o)} aria-label="AI usage" style={{ flexDirection: 'column', alignItems: 'stretch', height: 'auto', padding: '4px 9px', gap: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ color: usage.aiAccess ? 'var(--pt-accent)' : 'var(--fg-muted)', display: 'grid', placeItems: 'center' }}>
-            {usage.aiAccess ? <Ic.Sparkle size={13} /> : <Ic.Lock size={12} />}
-          </span>
-          <span style={{ fontSize: 11.5, fontWeight: 700 }}>
-            {usage.aiAccess ? 'AI' : unlockPct != null ? `${Math.round(unlockPct)}%` : 'AI'}
-          </span>
+      <button
+        className="pill"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="AI usage"
+        style={{ background: 'transparent', border: 'none', boxShadow: 'none', flexDirection: 'row', alignItems: 'center', height: 'auto', padding: '2px 4px', gap: 5 }}
+      >
+        <span style={{ color: usage.aiAccess ? 'var(--fg-primary)' : 'var(--fg-muted)', display: 'grid', placeItems: 'center' }}>
+          {usage.aiAccess ? <Ic.Sparkle size={13} /> : <Ic.Lock size={12} />}
         </span>
-        <span className="usage-underline" style={{ width: 28 }}>
-          <span style={{ width: `${usage.aiAccess ? 100 : unlockPct ?? 8}%` }} />
+        <span style={{ fontSize: 11.5, fontWeight: 650, color: usage.aiAccess ? 'var(--fg-secondary)' : 'var(--fg-muted)' }}>
+          {usage.aiAccess ? 'AI' : unlockPct != null ? `${Math.round(unlockPct)}%` : 'AI'}
         </span>
       </button>
       {open && <UsagePopover usage={usage} />}
