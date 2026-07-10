@@ -17,11 +17,7 @@ import { PackOddsSheet } from '../components/PackOddsSheet';
 import { PackRevealSheet } from '../components/PackRevealSheet';
 
 const W = Dimensions.get('window').width;
-const H = Dimensions.get('window').height;
 const PACK_W = Math.min(300, W - 90); // page width — leaves side peeks of neighbours
-// The pack front is the hero: as big as fits, its real 685×1200 proportions.
-const PACK_CARD_H = Math.min(H * 0.46, 440);
-const PACK_CARD_W = Math.round((PACK_CARD_H * 685) / 1200);
 
 export function PacksScreen() {
   const insets = useSafeAreaInsets();
@@ -31,6 +27,7 @@ export function PacksScreen() {
   const [idx, setIdx] = useState(0);
   const [oddsFor, setOddsFor] = useState<Pack | null>(null);
   const [openFor, setOpenFor] = useState<Pack | null>(null);
+  const [carouselH, setCarouselH] = useState(0); // measured space for the pack → never clips
 
   const packs = (q.data?.packs ?? []).filter((p) => p.enabled !== false);
   const solUsd = q.data?.solUsd ?? 0;
@@ -42,8 +39,9 @@ export function PacksScreen() {
       <View style={[s.headerWrap, { paddingTop: insets.top + 10 }]}>
         <View style={s.toggle}>
           {(['packs', 'collection'] as const).map((v) => (
-            <PressScale key={v} to={0.97} onPress={() => setView(v)} style={s.toggleBtn}>
-              <Ionicons name={v === 'packs' ? 'ticket-outline' : 'grid-outline'} size={16} color={view === v ? colors.fg : colors.fgMuted} />
+            <PressScale key={v} to={0.96} onPress={() => setView(v)} style={[s.toggleBtn, view === v && s.toggleBtnOn]}>
+              <GlassFill active={view === v} />
+              <Ionicons name={v === 'packs' ? 'ticket' : 'grid'} size={16} color={view === v ? colors.fg : colors.fgMuted} />
               <Text style={[s.toggleText, view === v && s.toggleTextOn]}>{v === 'packs' ? 'Packs' : 'Collection'}</Text>
             </PressScale>
           ))}
@@ -68,22 +66,23 @@ export function PacksScreen() {
             );
           })() : null}
 
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={PACK_W}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingHorizontal: (W - PACK_W) / 2 }}
-            onMomentumScrollEnd={(e) => setIdx(Math.round(e.nativeEvent.contentOffset.x / PACK_W))}
-            style={s.carousel}
-          >
-            {packs.map((p) => (
-              <View key={p.type} style={{ width: PACK_W, alignItems: 'center', justifyContent: 'center' }}>
-                <PackFront pack={p} onPress={() => setOddsFor(p)} />
-              </View>
-            ))}
-          </ScrollView>
+          <View style={s.carousel} onLayout={(e) => setCarouselH(Math.round(e.nativeEvent.layout.height))}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={PACK_W}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingHorizontal: (W - PACK_W) / 2 }}
+              onMomentumScrollEnd={(e) => setIdx(Math.round(e.nativeEvent.contentOffset.x / PACK_W))}
+            >
+              {packs.map((p) => (
+                <View key={p.type} style={{ width: PACK_W, height: carouselH || undefined, alignItems: 'center', justifyContent: 'center' }}>
+                  <PackFront pack={p} cardH={carouselH ? carouselH - 14 : 300} onPress={() => setOddsFor(p)} />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
 
           {active ? (
             <View style={[s.info, { paddingBottom: insets.bottom + 100 }]}>
@@ -135,12 +134,14 @@ function Stat({ label, value, big }: { label: string; value: string; big?: boole
 
 /** The real pack FRONT — clean full-bleed rendered face (title/hero/subline baked
  *  in). Static by default; lifts + scales slightly on press only. No frame. */
-function PackFront({ pack, onPress }: { pack: Pack; onPress?: () => void }) {
+function PackFront({ pack, cardH, onPress }: { pack: Pack; cardH: number; onPress?: () => void }) {
   const art = packArtFor(pack.type);
-  // Size the card to the image's REAL aspect so the whole front shows — no crop.
+  // Size the card to the image's REAL aspect AND the height it's actually given —
+  // so the whole front always shows, never clipped, whatever the screen size.
   const src = Image.resolveAssetSource(art.image);
   const aspect = src?.width && src?.height ? src.width / src.height : art.aspectRatio;
-  const cardW = Math.round(PACK_CARD_H * aspect);
+  const h = Math.max(180, Math.min(cardH, Math.round((PACK_W - 20) / aspect)));
+  const w = Math.round(h * aspect);
   const scale = useRef(new Animated.Value(1)).current;
   const ty = useRef(new Animated.Value(0)).current;
   const animate = (toScale: number, toY: number) =>
@@ -150,7 +151,7 @@ function PackFront({ pack, onPress }: { pack: Pack; onPress?: () => void }) {
     ]).start();
   return (
     <Pressable onPressIn={() => animate(1.05, -8)} onPressOut={() => animate(1, 0)} onPress={onPress} accessibilityLabel={`${art.themedName} pack`}>
-      <Animated.View style={[s.packShadow, { width: cardW, height: PACK_CARD_H, transform: [{ scale }, { translateY: ty }] }]}>
+      <Animated.View style={[s.packShadow, { width: w, height: h, transform: [{ scale }, { translateY: ty }] }]}>
         <View style={s.packClip}>
           <Image source={art.image} resizeMode="contain" style={{ width: '100%', height: '100%' }} fadeDuration={0} />
         </View>
@@ -191,8 +192,9 @@ function CollectionView({ bottomPad }: { bottomPad: number }) {
 
 const s = StyleSheet.create({
   headerWrap: { paddingHorizontal: 18, paddingBottom: 6, alignItems: 'center' },
-  toggle: { flexDirection: 'row', gap: 6, backgroundColor: colors.bgRaised2, borderRadius: radius.pill, padding: 4 },
-  toggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: radius.pill },
+  toggle: { flexDirection: 'row', gap: 8 },
+  toggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 9, borderRadius: radius.pill, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+  toggleBtnOn: { borderColor: 'rgba(255,255,255,0.28)' },
   toggleText: { color: colors.fgMuted, fontSize: 14.5, fontWeight: '700' },
   toggleTextOn: { color: colors.fg },
 
@@ -203,7 +205,7 @@ const s = StyleSheet.create({
   name: { fontSize: 30, letterSpacing: 1, textAlign: 'center' },
   subline: { color: colors.fgMuted, fontSize: 13.5, marginTop: 5, textAlign: 'center' },
 
-  carousel: { flexGrow: 0, marginTop: 8 },
+  carousel: { flex: 1, marginTop: 8, minHeight: 200 },
   // full-bleed pack front — shadow on the outer, clip on the inner (iOS-safe)
   packShadow: { borderRadius: 11, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 14 }, elevation: 12 },
   packClip: { flex: 1, borderRadius: 11, overflow: 'hidden' },
