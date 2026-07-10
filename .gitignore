@@ -61,3 +61,5 @@ anchor/**/*.so
 
 # Untracked sibling app (separate project; never commit here)
 apps/
+
+.env*

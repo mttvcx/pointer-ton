@@ -28,6 +28,7 @@ import type { LeaderboardPageResult } from '@/lib/points/leaderboardTypes';
 import { PointerBirdMark } from '@/components/branding/PointerBirdMark';
 import { ReferralDashboard } from '@/components/referral/ReferralDashboard';
 import { RewardsClaimHub } from '@/components/rewards/RewardsClaimHub';
+import { DailyMissions } from '@/components/points/DailyMissions';
 import { CampaignRadarSection } from '@/components/points/CampaignRadar';
 import { ChainGlyph } from '@/components/points/ChainGlyph';
 import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
@@ -597,6 +598,9 @@ export function PointsDashboard({ className }: { className?: string }) {
                 </div>
               </div>
             </GlassPanel>
+
+            {/* Daily missions — friendly face on the points events */}
+            <DailyMissions />
 
             {/* Eligibility & transparency — primary campaign governance */}
             <GlassPanel variant="primary" className="p-5 sm:p-6">
