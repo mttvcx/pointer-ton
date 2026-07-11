@@ -26,6 +26,7 @@ async function renderSharePng(node: HTMLElement, options?: PngExportOptions): Pr
     // The live node is visually shrunk via `transform: scale(fitScale)` to fit the
     // modal. Capture at its NATIVE 1920×1080 (not shrunk into the corner).
     style: { transform: 'none', transformOrigin: 'top left' },
+    filter: (el) => (el as HTMLElement).dataset?.pnlDrag !== '1',
     ...(options?.backgroundColor != null ? { backgroundColor: options.backgroundColor } : {}),
   });
 }
@@ -46,10 +47,9 @@ export async function renderCardOverlayImage(node: HTMLElement): Promise<HTMLIma
     // Capture at NATIVE 1920×1080 — the live node is shrunk via transform:scale to
     // fit the modal; without this the card renders tiny in the corner of the frame.
     style: { transform: 'none', transformOrigin: 'top left' },
-    // No backgroundColor → transparent. Drop only the <video> background (video
-    // export always uses a video) so the card overlay stays intact — including any
-    // logo <img>; the exporter draws the real moving video beneath it.
-    filter: (el) => (el as HTMLElement).tagName !== 'VIDEO',
+    // No backgroundColor → transparent. Drop the <video> background + the drag
+    // layer (video export draws the real moving video beneath the overlay).
+    filter: (el) => (el as HTMLElement).tagName !== 'VIDEO' && (el as HTMLElement).dataset?.pnlDrag !== '1',
   });
   const img = new Image();
   img.src = dataUrl;

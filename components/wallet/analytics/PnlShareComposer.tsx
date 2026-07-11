@@ -504,6 +504,11 @@ export function PnlShareComposer() {
                 videoZoom={composer.videoZoom}
                 videoMuted={videoMuted}
                 videoPaused
+                onPanChange={
+                  hasUploadedMedia
+                    ? (pan) => (composer.mode === 'video' ? composer.setVideoPan(pan) : composer.setImagePan(pan))
+                    : undefined
+                }
                 referralCode={referralQ.data?.code ?? null}
                 amountMotionBasis={shareAmountMotionBasis}
                 amountMotionFrozen={busy === 'png' || busy === 'copy' || busy === 'video'}
@@ -674,11 +679,7 @@ export function PnlShareComposer() {
 
           {hasUploadedMedia ? (
             <ShareBackgroundPositionControls
-              pan={composer.mode === 'video' ? composer.videoPan : composer.imagePan}
               zoom={composer.mode === 'video' ? composer.videoZoom : composer.imageZoom}
-              onPan={(pan) =>
-                composer.mode === 'video' ? composer.setVideoPan(pan) : composer.setImagePan(pan)
-              }
               onZoom={(zoom) =>
                 composer.mode === 'video' ? composer.setVideoZoom(zoom) : composer.setImageZoom(zoom)
               }

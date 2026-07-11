@@ -3,22 +3,18 @@
 import { modalSectionLabelClass } from '@/lib/ui/modalChrome';
 
 export function ShareBackgroundPositionControls({
-  pan,
   zoom,
-  onPan,
   onZoom,
   onReset,
 }: {
-  pan: { x: number; y: number };
   zoom: number;
-  onPan: (pan: { x: number; y: number }) => void;
   onZoom: (zoom: number) => void;
   onReset: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#191919]/80 p-4 shadow-2xl backdrop-blur-2xl">
       <div className="flex items-center justify-between gap-2">
-        <p className={modalSectionLabelClass}>Background position</p>
+        <p className={modalSectionLabelClass}>Background</p>
         <button
           type="button"
           onClick={onReset}
@@ -27,23 +23,8 @@ export function ShareBackgroundPositionControls({
           Reset
         </button>
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <FrameSlider
-          label="X"
-          value={pan.x}
-          min={-50}
-          max={50}
-          step={1}
-          onChange={(x) => onPan({ ...pan, x })}
-        />
-        <FrameSlider
-          label="Y"
-          value={pan.y}
-          min={-50}
-          max={50}
-          step={1}
-          onChange={(y) => onPan({ ...pan, y })}
-        />
+      <p className="mt-1 text-[11px] text-fg-muted">Drag the preview to reposition · zoom below.</p>
+      <div className="mt-3">
         <FrameSlider
           label="Zoom"
           value={zoom}

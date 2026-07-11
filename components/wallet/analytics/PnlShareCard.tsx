@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { PointerPnLShareCard } from '@/components/wallet/analytics/pnl-share/PointerPnLShareCard';
 import { BackgroundLayer } from '@/components/wallet/analytics/pnl-share/BackgroundLayer';
 import { payloadToShareCardData } from '@/lib/share/pnlShareCardData';
@@ -9,14 +9,35 @@ import type { PnlSharePayload, ShareOverlaySettings, ShareBackgroundPresetId } f
 import type { PnlMomentBasis } from '@/components/wallet/analytics/PnlMomentAmount';
 import { cn } from '@/lib/utils/cn';
 
+type CoverBox = { left: number; top: number; width: number; height: number };
+
 /**
- * Map a −50..50 pan to a translate% clamped to the zoom overflow, so an
- * object-cover video never pans off into black. At zoom 1 there's no overflow, so
- * pan does nothing (matches the video exporter's clamped cover math).
+ * Position media (its NATURAL w×h) to cover the card, scaled by zoom and offset by
+ * pan (−50..50), clamped so it always fills the frame — you can pan within the
+ * object-cover crop (aspect mismatch) AND the zoom overflow, never revealing black.
+ * Mirrors the video exporter's cover math, so the preview == the export.
  */
-function coverPanPct(pan: number, zoom: number): number {
-  const max = Math.max(0, (zoom - 1) / 2) * 100;
-  return (Math.max(-50, Math.min(50, pan)) / 50) * max;
+function coverLayout(
+  media: { w: number; h: number } | null,
+  cardW: number,
+  cardH: number,
+  pan: { x: number; y: number },
+  zoom: number,
+): CoverBox {
+  if (!media || media.w < 2 || media.h < 2) return { left: 0, top: 0, width: cardW, height: cardH };
+  const z = Math.max(1, Math.min(4, zoom || 1));
+  const coverScale = Math.max(cardW / media.w, cardH / media.h) * z;
+  const width = media.w * coverScale;
+  const height = media.h * coverScale;
+  const overflowX = Math.max(0, (width - cardW) / 2);
+  const overflowY = Math.max(0, (height - cardH) / 2);
+  const clamp = (v: number) => Math.max(-50, Math.min(50, v));
+  return {
+    left: (cardW - width) / 2 + (clamp(pan.x) / 50) * overflowX,
+    top: (cardH - height) / 2 + (clamp(pan.y) / 50) * overflowY,
+    width,
+    height,
+  };
 }
 
 function useCardFitScale(outerRef: RefObject<HTMLDivElement | null>) {
@@ -53,6 +74,8 @@ export const PnlShareCard = forwardRef<
     videoZoom?: number;
     videoMuted?: boolean;
     referralCode?: string | null;
+    /** When set, the media background is drag-to-reposition (composer only). */
+    onPanChange?: (pan: { x: number; y: number }) => void;
     className?: string;
     amountMotionBasis?: PnlMomentBasis | null;
     amountMotionFrozen?: boolean;
@@ -78,6 +101,7 @@ export const PnlShareCard = forwardRef<
     videoZoom = 1,
     videoMuted = false,
     referralCode,
+    onPanChange,
     className,
     chainTicker = 'USD',
     solUsd,
@@ -92,6 +116,36 @@ export const PnlShareCard = forwardRef<
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fitScale = useCardFitScale(previewRef);
   const showCustomMedia = Boolean(customImageSrc || videoSrc);
+
+  // Natural media size → cover-positioned so panning has real crop to move within.
+  const [mediaDim, setMediaDim] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => setMediaDim(null), [videoSrc, customImageSrc]);
+  const activePan = videoSrc ? videoPan : imagePan;
+  const activeZoom = videoSrc ? videoZoom : imageZoom;
+  const box = coverLayout(mediaDim, PNL_SHARE_CARD_REF.w, PNL_SHARE_CARD_REF.h, activePan, activeZoom);
+  const overflowX = Math.max(0, (box.width - PNL_SHARE_CARD_REF.w) / 2);
+  const overflowY = Math.max(0, (box.height - PNL_SHARE_CARD_REF.h) / 2);
+  const mediaStyle = { left: box.left, top: box.top, width: box.width, height: box.height } as const;
+
+  // Grab-and-drag reposition (composer only). Screen delta → card px (÷fitScale) →
+  // pan units (÷overflow ×50), clamped to ±50 so you can't drag into black.
+  const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const onDragDown = (e: React.PointerEvent) => {
+    if (!onPanChange) return;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    drag.current = { sx: e.clientX, sy: e.clientY, px: activePan.x, py: activePan.y };
+  };
+  const onDragMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d || !onPanChange) return;
+    const s = fitScale || 1;
+    const nx = overflowX > 0.5 ? d.px + ((e.clientX - d.sx) / s / overflowX) * 50 : d.px;
+    const ny = overflowY > 0.5 ? d.py + ((e.clientY - d.sy) / s / overflowY) * 50 : d.py;
+    onPanChange({ x: Math.max(-50, Math.min(50, nx)), y: Math.max(-50, Math.min(50, ny)) });
+  };
+  const onDragUp = () => {
+    drag.current = null;
+  };
 
   const cardData = payloadToShareCardData({
     payload,
@@ -130,17 +184,15 @@ export const PnlShareCard = forwardRef<
           <div className="absolute inset-0 z-0 overflow-hidden">
             <video
               ref={videoRef}
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute max-w-none object-cover"
               src={videoSrc}
               muted={videoMuted}
               playsInline
               loop
               autoPlay={!videoPaused}
               preload="metadata"
-              style={{
-                transform: `translate(${coverPanPct(videoPan.x, videoZoom)}%, ${coverPanPct(videoPan.y, videoZoom)}%) scale(${videoZoom})`,
-                transformOrigin: 'center center',
-              }}
+              onLoadedMetadata={(e) => setMediaDim({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
+              style={mediaStyle}
             />
           </div>
         ) : null}
@@ -151,11 +203,10 @@ export const PnlShareCard = forwardRef<
             <img
               src={customImageSrc}
               alt=""
-              className="h-full w-full object-cover"
-              style={{
-                transform: `translate(${coverPanPct(imagePan.x, imageZoom)}%, ${coverPanPct(imagePan.y, imageZoom)}%) scale(${imageZoom})`,
-                transformOrigin: 'center center',
-              }}
+              className="absolute max-w-none object-cover"
+              draggable={false}
+              onLoad={(e) => setMediaDim({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+              style={mediaStyle}
             />
           </div>
         ) : null}
@@ -179,6 +230,18 @@ export const PnlShareCard = forwardRef<
           motionRevealKey={amountRevealKey}
           className="z-[2]"
         />
+
+        {onPanChange && showCustomMedia ? (
+          <div
+            data-pnl-drag="1"
+            className="absolute inset-0 z-[6] touch-none select-none"
+            style={{ cursor: drag.current ? 'grabbing' : 'grab' }}
+            onPointerDown={onDragDown}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragUp}
+            onPointerCancel={onDragUp}
+          />
+        ) : null}
       </div>
     </div>
   );
