@@ -9,6 +9,16 @@ import type { PnlSharePayload, ShareOverlaySettings, ShareBackgroundPresetId } f
 import type { PnlMomentBasis } from '@/components/wallet/analytics/PnlMomentAmount';
 import { cn } from '@/lib/utils/cn';
 
+/**
+ * Map a −50..50 pan to a translate% clamped to the zoom overflow, so an
+ * object-cover video never pans off into black. At zoom 1 there's no overflow, so
+ * pan does nothing (matches the video exporter's clamped cover math).
+ */
+function coverPanPct(pan: number, zoom: number): number {
+  const max = Math.max(0, (zoom - 1) / 2) * 100;
+  return (Math.max(-50, Math.min(50, pan)) / 50) * max;
+}
+
 function useCardFitScale(outerRef: RefObject<HTMLDivElement | null>) {
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
@@ -117,20 +127,22 @@ export const PnlShareCard = forwardRef<
         }}
       >
         {videoSrc ? (
-          <video
-            ref={videoRef}
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-            src={videoSrc}
-            muted={videoMuted}
-            playsInline
-            loop
-            autoPlay={!videoPaused}
-            preload="metadata"
-            style={{
-              transform: `translate(${videoPan.x}%, ${videoPan.y}%) scale(${videoZoom})`,
-              transformOrigin: 'center center',
-            }}
-          />
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            <video
+              ref={videoRef}
+              className="absolute inset-0 h-full w-full object-cover"
+              src={videoSrc}
+              muted={videoMuted}
+              playsInline
+              loop
+              autoPlay={!videoPaused}
+              preload="metadata"
+              style={{
+                transform: `translate(${coverPanPct(videoPan.x, videoZoom)}%, ${coverPanPct(videoPan.y, videoZoom)}%) scale(${videoZoom})`,
+                transformOrigin: 'center center',
+              }}
+            />
+          </div>
         ) : null}
 
         {customImageSrc && !videoSrc ? (
@@ -141,7 +153,7 @@ export const PnlShareCard = forwardRef<
               alt=""
               className="h-full w-full object-cover"
               style={{
-                transform: `translate(${imagePan.x}%, ${imagePan.y}%) scale(${imageZoom})`,
+                transform: `translate(${coverPanPct(imagePan.x, imageZoom)}%, ${coverPanPct(imagePan.y, imageZoom)}%) scale(${imageZoom})`,
                 transformOrigin: 'center center',
               }}
             />

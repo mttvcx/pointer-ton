@@ -47,8 +47,10 @@ function drawVideoCover(
   const sh = Math.min(vh, height / (coverScale * safeZoom));
   const maxX = Math.max(0, (vw - sw) / 2);
   const maxY = Math.max(0, (vh - sh) / 2);
-  const sx = (vw - sw) / 2 + (Math.max(-50, Math.min(50, pan.x)) / 50) * maxX;
-  const sy = (vh - sh) / 2 + (Math.max(-50, Math.min(50, pan.y)) / 50) * maxY;
+  // Sign matches the preview's CSS translate direction (translate +pan reveals
+  // content to the LEFT/UP), so the export frames exactly like the maker.
+  const sx = (vw - sw) / 2 - (Math.max(-50, Math.min(50, pan.x)) / 50) * maxX;
+  const sy = (vh - sh) / 2 - (Math.max(-50, Math.min(50, pan.y)) / 50) * maxY;
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
 }
 

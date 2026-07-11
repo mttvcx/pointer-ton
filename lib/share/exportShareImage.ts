@@ -23,6 +23,9 @@ async function renderSharePng(node: HTMLElement, options?: PngExportOptions): Pr
     width: PNL_SHARE_CARD_REF.w,
     height: PNL_SHARE_CARD_REF.h,
     pixelRatio: 2,
+    // The live node is visually shrunk via `transform: scale(fitScale)` to fit the
+    // modal. Capture at its NATIVE 1920×1080 (not shrunk into the corner).
+    style: { transform: 'none', transformOrigin: 'top left' },
     ...(options?.backgroundColor != null ? { backgroundColor: options.backgroundColor } : {}),
   });
 }
@@ -40,6 +43,9 @@ export async function renderCardOverlayImage(node: HTMLElement): Promise<HTMLIma
     width: PNL_SHARE_CARD_REF.w,
     height: PNL_SHARE_CARD_REF.h,
     pixelRatio: 1,
+    // Capture at NATIVE 1920×1080 — the live node is shrunk via transform:scale to
+    // fit the modal; without this the card renders tiny in the corner of the frame.
+    style: { transform: 'none', transformOrigin: 'top left' },
     // No backgroundColor → transparent. Drop only the <video> background (video
     // export always uses a video) so the card overlay stays intact — including any
     // logo <img>; the exporter draws the real moving video beneath it.
