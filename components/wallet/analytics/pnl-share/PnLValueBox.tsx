@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react';
 import { PnlMomentAmount, type PnlMomentBasis } from '@/components/wallet/analytics/PnlMomentAmount';
 import { SolGlyph } from '@/components/chains/SolGlyph';
+import { ChromePanel } from '@/components/wallet/analytics/pnl-share/ChromePanel';
 import { MetallicText } from '@/components/wallet/analytics/pnl-share/MetallicText';
 import type { OverlayAccent, ShareBackgroundPresetId } from '@/lib/share/types';
 import { fitShareHeroFontSize } from '@/lib/share/pnlShareFormat';
@@ -90,16 +91,25 @@ export function PnLValueBox({
     </>
   );
 
-  // No panel/box behind the amount — it reads directly on the background like the
-  // title and stats. The metallic text keeps its own shadow for legibility.
+  // A light METALLIC backing bar (soft glass + top sheen) — NOT the heavy dark
+  // panel. Gives the amount a subtle backing so it doesn't read as empty.
   return (
-    <div
-      className={cn('flex items-center overflow-hidden whitespace-nowrap', className)}
+    <ChromePanel
+      intensity="soft"
+      rounded="md"
+      accent={accent}
+      theme={theme}
+      className={cn('px-8', className)}
       style={{ minHeight: PNL_SHARE_POS.heroBox.h }}
     >
-      <div className="flex flex-nowrap items-center gap-5 overflow-hidden whitespace-nowrap">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)' }}
+        aria-hidden
+      />
+      <div className="flex h-full min-h-[inherit] flex-nowrap items-center gap-5 overflow-hidden whitespace-nowrap py-5">
         {heroRow}
       </div>
-    </div>
+    </ChromePanel>
   );
 }

@@ -99,7 +99,9 @@ export function PnlShareComposer() {
   const [customAudioName, setCustomAudioName] = useState<string | null>(null);
   const [busy, setBusy] = useState<'png' | 'copy' | 'video' | null>(null);
   const [videoProg, setVideoProg] = useState(0);
-  const [videoMuted, setVideoMuted] = useState(false);
+  // Muted by default — uploading/playing a clip shouldn't blast its audio; Sound
+  // is a deliberate toggle (also gates whether the clip's audio is in the export).
+  const [videoMuted, setVideoMuted] = useState(true);
   const [videoPlaying, setVideoPlaying] = useState(false);
 
   const solUsdQ = useQuery({

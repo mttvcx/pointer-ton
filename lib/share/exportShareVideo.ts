@@ -278,8 +278,6 @@ export async function exportShareVideoWebm(params: {
     };
   });
 
-  recorder.start(100);
-
   /**
    * Sound off — deterministic frame-by-frame seek at 30fps (no reliance on real-time playback).
    * Avoids decoder stalls that commonly hit 1×1 off-screen `<video>` elements.
@@ -291,6 +289,11 @@ export async function exportShareVideoWebm(params: {
     videoEl.pause();
 
     await seekToTime(videoEl, 0, durationSec);
+    // Prime frame 0 on the canvas, THEN start recording — otherwise the first ~1s
+    // records a blank/frozen canvas before real frames land.
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    drawFrame(0);
+    recorder.start(100);
 
     const totalFrames = Math.max(1, Math.round(durationSec * fps));
 
@@ -321,11 +324,15 @@ export async function exportShareVideoWebm(params: {
   videoEl.loop = false;
   videoEl.pause();
 
-  const startedAt = performance.now();
-
   await seekToTime(videoEl, 0, durationSec);
   await videoEl.play().catch(() => {});
   if (audioMix) await audioMix.start();
+
+  // Draw the first real frame + start recording NOW (video is actually playing),
+  // so the export doesn't open on a ~1s frozen frame during spin-up.
+  drawFrame(videoEl.currentTime);
+  recorder.start(100);
+  const startedAt = performance.now();
 
   await new Promise<void>((resolve) => {
     const draw = () => {
