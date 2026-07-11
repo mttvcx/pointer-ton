@@ -5,6 +5,7 @@
  * content. Survives SPA navigation.
  */
 import { pointer } from '@/pointer/client';
+import { apiBase } from '@/pointer/auth';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
 import type { WalletIntel } from '@/pointer/types';
 import { attachFollowerHover } from '@/lib/followerHover';
@@ -413,7 +414,7 @@ function fillInline(card: HTMLElement, data: ProfileSummary | null, handle: stri
   }
   for (const l of data.labels?.length ? data.labels : data.badge ? [data.badge] : []) head.appendChild(pill(l));
   const powered = document.createElement('a');
-  powered.href = 'https://pointer.trade';
+  powered.href = apiBase();
   powered.target = '_blank';
   powered.rel = 'noreferrer';
   Object.assign(powered.style, { marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'rgb(160,166,173)', fontWeight: '600', textDecoration: 'none', whiteSpace: 'nowrap' } as CSSStyleDeclaration);

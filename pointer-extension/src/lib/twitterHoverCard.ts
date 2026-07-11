@@ -6,6 +6,7 @@
  * only non-native colour, exactly where Pointer content lives.
  */
 import { pointer } from '@/pointer/client';
+import { apiBase } from '@/pointer/auth';
 import type { ProfileSummary } from '@/ui/cards/ProfileCard';
 import { getWalletData } from '@/lib/walletData';
 
@@ -236,7 +237,7 @@ function render(panel: HTMLElement, data: ProfileSummary, handle: string): void 
 /** Pointer wordmark lockup — bigger bird + clearer label. */
 function poweredBy(): HTMLElement {
   const a = document.createElement('a');
-  a.href = 'https://pointer.trade';
+  a.href = apiBase();
   a.target = '_blank';
   a.rel = 'noreferrer';
   Object.assign(a.style, { marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', whiteSpace: 'nowrap' } as CSSStyleDeclaration);
