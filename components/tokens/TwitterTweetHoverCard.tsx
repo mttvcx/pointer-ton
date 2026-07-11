@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { type ReactNode } from 'react';
 import {
   BadgeCheck,
   Bookmark,
@@ -83,60 +82,10 @@ function TwitterTweetHoverShell({ children }: { children: ReactNode }) {
   );
 }
 
-function TwitterTweetMediaHover({ src, className }: { src: string; className?: string }) {
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [hovered, setHovered] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [panelPos, setPanelPos] = useState<{
-    left: number;
-    width: number;
-    anchorBottom: number;
-  } | null>(null);
-  const [topPx, setTopPx] = useState(0);
-
-  const clearHoverTimer = () => {
-    if (hoverTimer.current) {
-      clearTimeout(hoverTimer.current);
-      hoverTimer.current = null;
-    }
-  };
-
-  const syncPanelPos = useCallback(() => {
-    const el = anchorRef.current;
-    if (!el || typeof window === 'undefined') return;
-    const r = el.getBoundingClientRect();
-    const width = Math.min(320, Math.max(r.width * 2.2, 200));
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
-    setPanelPos({ left, width, anchorBottom: r.bottom });
-    setTopPx(r.bottom + 8); // refined to fit the viewport once the card measures
-  }, []);
-
-  // Keep the WHOLE card on screen: open below the anchor, but shift it up only as
-  // much as needed so it never clips at the bottom (lands mid-screen near the
-  // viewport bottom). Runs before paint, so there's no visible jump.
-  useLayoutEffect(() => {
-    if (!hovered || !panelPos || typeof window === 'undefined') return;
-    const h = cardRef.current?.offsetHeight ?? 0;
-    const gap = 8;
-    const maxTop = window.innerHeight - h - gap;
-    setTopPx(Math.max(gap, Math.min(panelPos.anchorBottom + gap, maxTop)));
-  }, [hovered, panelPos]);
-
-  const scheduleOpen = () => {
-    clearHoverTimer();
-    syncPanelPos();
-    setHovered(true);
-  };
-
-  const scheduleClose = () => {
-    clearHoverTimer();
-    hoverTimer.current = setTimeout(() => {
-      setHovered(false);
-      setPanelPos(null);
-    }, 120);
-  };
-
+/** Tweet media, shown inline and BOUNDED inside the scrollable card (Axiom-style)
+ *  — no second floating full-size preview (that blew up and bled off-screen on
+ *  narrow windows). Click searches the image on Google Lens. */
+function TweetMedia({ src, maxH = 380, className }: { src: string; maxH?: number; className?: string }) {
   const openLens = () => {
     window.open(
       `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(absImageUrl(src))}`,
@@ -144,77 +93,31 @@ function TwitterTweetMediaHover({ src, className }: { src: string; className?: s
       'noopener,noreferrer',
     );
   };
-
-  useEffect(() => {
-    if (!hovered) return;
-    const close = () => {
-      setHovered(false);
-      setPanelPos(null);
-    };
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [hovered]);
-
-  const previewPanel =
-    hovered && panelPos && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            ref={cardRef}
-            className="pointer-events-auto fixed z-[280] overflow-x-hidden overflow-y-auto rounded-xl border border-white/[0.12] bg-[#0a0c10] shadow-[0_20px_48px_-12px_rgba(0,0,0,0.9)] [scrollbar-width:none]"
-            style={{
-              top: topPx,
-              left: panelPos.left,
-              width: panelPos.width,
-              maxHeight: 'calc(100vh - 16px)',
-            }}
-            data-row-click-skip="true"
-            onMouseEnter={scheduleOpen}
-            onMouseLeave={scheduleClose}
-          >
-            <button
-              type="button"
-              aria-label="Search this image on Google Lens"
-              data-row-click-skip="true"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openLens();
-              }}
-              className="group/preview relative block w-full overflow-hidden transition hover:brightness-105"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="block h-auto w-full object-cover" draggable={false} />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/preview:bg-black/35">
-                <Camera
-                  className="h-6 w-6 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/preview:opacity-100"
-                  strokeWidth={2}
-                  aria-hidden
-                />
-              </span>
-            </button>
-          </div>,
-          document.body,
-        )
-      : null;
-
   return (
-    <>
-      <div
-        ref={anchorRef}
-        className={cn('group/media relative overflow-hidden rounded-xl border border-white/[0.1]', className)}
-        onMouseEnter={scheduleOpen}
-        onMouseLeave={scheduleClose}
-        data-row-click-skip="true"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="block w-full object-cover transition duration-200 group-hover/media:scale-[1.02]" draggable={false} />
-      </div>
-      {previewPanel}
-    </>
+    <button
+      type="button"
+      aria-label="Search this image on Google Lens"
+      data-row-click-skip="true"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openLens();
+      }}
+      className={cn(
+        'group/media relative block overflow-hidden rounded-xl border border-white/[0.1] bg-[#0a0c10]',
+        className,
+      )}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="block w-full object-contain" style={{ maxHeight: maxH }} draggable={false} />
+      <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/media:bg-black/25">
+        <Camera
+          className="h-6 w-6 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/media:opacity-100"
+          strokeWidth={2}
+          aria-hidden
+        />
+      </span>
+    </button>
   );
 }
 
@@ -480,14 +383,9 @@ function QuotedTweetCard({ quote }: { quote: TwitterTweetPreviewQuote }) {
             </p>
           ) : null}
           {quoteMediaUrls.length > 0 ? (
-            <div
-              className={cn(
-                'mt-2 grid gap-1',
-                quoteMediaUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1',
-              )}
-            >
+            <div className="mt-2 flex flex-col gap-2">
               {quoteMediaUrls.slice(0, 4).map((url) => (
-                <TwitterTweetMediaHover key={url} src={url} />
+                <TweetMedia key={url} src={url} maxH={240} />
               ))}
             </div>
           ) : null}
@@ -612,14 +510,9 @@ function TwitterTweetHoverBody({ data }: { data: TwitterTweetPreview }) {
         {data.quotedTweet ? <QuotedTweetCard quote={data.quotedTweet} /> : null}
 
         {mediaUrls.length > 0 ? (
-          <div
-            className={cn(
-              'mt-3 grid gap-1',
-              mediaUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1',
-            )}
-          >
+          <div className="mt-3 flex flex-col gap-2">
             {mediaUrls.slice(0, 4).map((url) => (
-              <TwitterTweetMediaHover key={url} src={url} />
+              <TweetMedia key={url} src={url} />
             ))}
           </div>
         ) : null}
