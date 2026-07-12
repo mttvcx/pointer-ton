@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
         const { endpoint, key, model } = generalUpstream(resolved.applied);
         if (!endpoint || !key) {
-          emit('token', { t: 'Sibyl isn’t configured for this mode yet.' });
+          emit('token', { t: 'Harve isn’t configured for this mode yet.' });
           emit('done', { usage: { used: usage.used, cap: usage.cap } });
           controller.close();
           return;
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${key}`,
             'HTTP-Referer': 'https://pointer.am',
-            'X-Title': 'Sibyl by Pointer',
+            'X-Title': 'Harve by Pointer',
           },
           body: JSON.stringify({ model, stream: true, temperature: 0.6, max_tokens: 1200, messages }),
           signal: AbortSignal.timeout(120_000),

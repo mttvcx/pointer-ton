@@ -110,7 +110,7 @@ export async function callModel(input: CallModelInput): Promise<string> {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${key}`,
         'HTTP-Referer': 'https://pointer.am',
-        'X-Title': 'Sibyl by Pointer',
+        'X-Title': 'Harve by Pointer',
       },
       body: JSON.stringify({
         model,

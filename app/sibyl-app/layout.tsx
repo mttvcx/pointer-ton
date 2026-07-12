@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Sibyl — private AI',
-  description: 'Sibyl by Pointer — a private AI. Ask anything; crypto intelligence on tap.',
+  title: 'Harve — private AI',
+  description: 'Harve by Pointer — a private AI. Ask anything; crypto intelligence on tap.',
   manifest: '/sibyl-app.webmanifest',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Sibyl' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Harve' },
   icons: { apple: '/sibyl-app-icon.png' },
 };
 

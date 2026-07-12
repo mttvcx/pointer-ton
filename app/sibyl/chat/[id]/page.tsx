@@ -4,7 +4,7 @@ import { SibylDashboard } from '@/components/sibyl/SibylDashboard';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Sibyl — crypto intelligence engine',
+  title: 'Harve — crypto intelligence engine',
 };
 
 export default async function SibylChatPage({ params }: { params: Promise<{ id: string }> }) {

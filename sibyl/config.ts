@@ -25,8 +25,8 @@ export function sibylForceMock(): boolean {
 }
 
 export const SIBYL = {
-  name: 'Sibyl',
+  name: 'Harve',
   tagline: 'The intelligence engine for crypto.',
   /** Where it will live; today it rides the Pointer deployment under /sibyl. */
-  futureHost: 'ai.pointer.am',
+  futureHost: 'harve.ai',
 } as const;

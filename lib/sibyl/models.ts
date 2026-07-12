@@ -1,19 +1,22 @@
 /**
- * Sibyl model family — the single source of truth for naming.
+ * Harve model family — the single source of truth for naming.
  *
  * Why these names (so branding reads intentional, not arbitrary):
- *   • Sibyl  — a prophetess / oracle: prophetic crypto intelligence.
+ *   • Harve  — Pointer's crypto-intelligence analyst: a name, not a tool, so it
+ *     reads as someone who reads the market for you (and quietly, harve → harvest:
+ *     it harvests alpha out of the noise).
  *   • Oracle Council — the multi-agent reasoning ENGINE (specialist fan-out + judge);
  *     a council of models that out-reasons any single one (mixture-of-agents).
- *   • Veil   — confidential / private inference (a "veiled" oracle, running inside
- *     an attested TEE enclave).
+ *   • Veil   — confidential / private inference (runs inside an attested TEE enclave).
  *
- * Analogy:  Anthropic·Claude·Opus·4.8  →  Pointer·Sibyl·(7.0 / Veil)·7.0.
+ * Analogy:  Anthropic·Claude·Opus·4.8  →  Pointer·Harve·(Oracle / Veil).
  * The underlying inference (open/closed models, TEE or not) is an implementation
- * detail Sibyl NEVER reveals — see SIBYL_STYLE identity. Client-safe (no server-only).
+ * detail Harve NEVER reveals — see SIBYL_STYLE identity. Client-safe (no server-only).
+ * (Internal identifiers/routes/env vars keep the `sibyl`/`SIBYL_` prefix — opaque
+ * wiring, unrelated to the product name.)
  */
 export const SIBYL_COMPANY = 'Pointer';
-export const SIBYL_FAMILY = 'Sibyl';
+export const SIBYL_FAMILY = 'Harve';
 
 /** The multi-agent reasoning engine that powers Oracle. */
 export const SIBYL_COUNCIL = 'Council';
@@ -25,9 +28,9 @@ export const SIBYL_MODELS: Record<
   { key: SibylModelKey; name: string; full: string; blurb: string }
 > = {
   // Flagship model — Oracle (like Opus). Powered by the full Council fan-out.
-  flagship: { key: 'flagship', name: 'Oracle 7.0', full: 'Sibyl Oracle 7.0', blurb: 'Flagship — the full Council.' },
+  flagship: { key: 'flagship', name: 'Oracle 7.0', full: 'Harve Oracle 7.0', blurb: 'Flagship — the full Council.' },
   // Confidential model — Veil (a "veiled" oracle), runs privately in an attested enclave.
-  veil: { key: 'veil', name: 'Veil 6.5', full: 'Sibyl Veil 6.5', blurb: 'Confidential — private, attested enclave.' },
+  veil: { key: 'veil', name: 'Veil 6.5', full: 'Harve Veil 6.5', blurb: 'Confidential — private, attested enclave.' },
 };
 
 /** Product model name for a given execution mode. */

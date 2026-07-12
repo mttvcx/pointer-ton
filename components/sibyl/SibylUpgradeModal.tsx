@@ -70,7 +70,7 @@ export function SibylUpgradeModal({ open, onClose, currentTier = 'FREE' }: { ope
         <div className="overflow-y-auto px-6 py-8 md:px-10">
           <div className="text-center">
             <h2 className={`${sibylSerif.className} text-[34px] leading-tight tracking-tight text-white`}>Choose your plan</h2>
-            <p className="mx-auto mt-2 max-w-[460px] text-[13px] leading-relaxed text-white/55">Sibyl gets sharper the more you scan. Upgrade for deeper scans, persistent memory, and API access — margins stay high, so pricing stays fair.</p>
+            <p className="mx-auto mt-2 max-w-[460px] text-[13px] leading-relaxed text-white/55">Harve gets sharper the more you scan. Upgrade for deeper scans, persistent memory, and API access — margins stay high, so pricing stays fair.</p>
           </div>
 
           {/* billing toggle */}
@@ -156,7 +156,7 @@ export function SibylUpgradeModal({ open, onClose, currentTier = 'FREE' }: { ope
             </button>
           </div>
 
-          <div className="mt-5 text-center text-[11px] text-white/30">Billing launches soon — this is a preview of Sibyl’s plans. No charge yet.</div>
+          <div className="mt-5 text-center text-[11px] text-white/30">Billing launches soon — this is a preview of Harve’s plans. No charge yet.</div>
         </div>
       </div>
     </div>

@@ -96,7 +96,7 @@ export function SibylSettingsModal({
               </button>
             ))}
           </div>
-          <div className="mt-auto px-2 pt-3 text-[10px] s-faint">Sibyl 7.0 · preview</div>
+          <div className="mt-auto px-2 pt-3 text-[10px] s-faint">Harve 7.0 · preview</div>
         </div>
 
         {/* right pane */}
@@ -108,10 +108,10 @@ export function SibylSettingsModal({
 
           {section === 'general' ? (
             <div>
-              <Row title="Default engine" desc="Sibyl routes to the right specialists automatically. Higher tiers unlock deeper reasoning.">
-                <span className="rounded-lg s-panel2 px-2.5 py-1.5 text-[12px] font-medium s-fg">Sibyl 7.0</span>
+              <Row title="Default engine" desc="Harve routes to the right specialists automatically. Higher tiers unlock deeper reasoning.">
+                <span className="rounded-lg s-panel2 px-2.5 py-1.5 text-[12px] font-medium s-fg">Harve 7.0</span>
               </Row>
-              <Row title="Underlying model" desc="Sibyl always presents as one engine — the provider stack stays masked.">
+              <Row title="Underlying model" desc="Harve always presents as one engine — the provider stack stays masked.">
                 <span className="text-[11px] s-faint">Masked · always on</span>
               </Row>
               <Row title="Streaming responses" desc="Show specialist reasoning as it resolves.">
@@ -134,7 +134,7 @@ export function SibylSettingsModal({
                   ))}
                 </div>
               </Row>
-              <Row title="Accent" desc="Sibyl blue — used for actions and highlights.">
+              <Row title="Accent" desc="Harve blue — used for actions and highlights.">
                 <span className="h-5 w-5 rounded-full ring-1 s-border" style={{ background: 'var(--s-accent)' }} />
               </Row>
               <Row title="Animated background" desc="The field-of-grass hero on the entry screen (dark only).">
@@ -155,7 +155,7 @@ export function SibylSettingsModal({
                 <button type="button" onClick={onClear} className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-[12px] font-medium text-rose-400 transition hover:bg-rose-500/20">Clear</button>
               </Row>
               <div className="mt-4 rounded-xl s-panel2 p-3 text-[11px] leading-relaxed s-faint">
-                Sibyl keeps your chats on-device (localStorage). Nothing is uploaded until you sign in and enable sync.
+                Harve keeps your chats on-device (localStorage). Nothing is uploaded until you sign in and enable sync.
               </div>
             </div>
           ) : null}
@@ -194,7 +194,7 @@ export function SibylSettingsModal({
 
           {section === 'about' ? (
             <div>
-              <Row title="Version" desc="Sibyl by Pointer — crypto intelligence engine.">
+              <Row title="Version" desc="Harve by Pointer — crypto intelligence engine.">
                 <span className="text-[12px] s-fg">7.0 preview</span>
               </Row>
               <Row title="Live status">
@@ -203,7 +203,7 @@ export function SibylSettingsModal({
                 </span>
               </Row>
               {memory ? (
-                <Row title="Flywheel memory" desc="What Sibyl has learned and graded so far.">
+                <Row title="Flywheel memory" desc="What Harve has learned and graded so far.">
                   <span className="text-[11px] s-faint">{memory.scans.toLocaleString()} scans · {memory.entities.toLocaleString()} remembered · {memory.resolved.toLocaleString()} graded</span>
                 </Row>
               ) : null}

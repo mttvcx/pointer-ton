@@ -12,7 +12,7 @@ import { useSibylSpaces } from '@/store/sibylSpaces';
 import type { SibylAnswer } from '@/sibyl/types';
 
 /**
- * Sibyl app (standalone, mobile-first, Venice-clean, liquid glass). General AI by
+ * Harve app (standalone, mobile-first, Venice-clean, liquid glass). General AI by
  * default; Crypto is a Specialty tab → the Council. Thin client to /api/sibyl/*.
  */
 
@@ -110,7 +110,7 @@ export function SibylApp() {
                 if (t) setMessages((m) => m.map((x) => (x.id === asstId ? { ...x, text: (x.text ?? '') + t } : x)));
               } else if (ev === 'attestation') setAttested(Boolean((data as { verified?: boolean }).verified));
               else if (ev === 'error' || ev === 'cap') {
-                const msg = (data as { message?: string }).message ?? 'Sibyl hit an error.';
+                const msg = (data as { message?: string }).message ?? 'Harve hit an error.';
                 setMessages((m) => m.map((x) => (x.id === asstId && !x.text ? { ...x, text: msg } : x)));
               }
             }
@@ -149,13 +149,13 @@ export function SibylApp() {
             } else if (ev === 'answer') {
               gotAnswer = true;
               const answer = data.answer as SibylAnswer | undefined;
-              setMessages((m) => [...m, answer ? { id: nid(), role: 'sibyl', answer, typing: true } : { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+              setMessages((m) => [...m, answer ? { id: nid(), role: 'sibyl', answer, typing: true } : { id: nid(), role: 'sibyl', text: 'Harve hit an error. Try again.' }]);
             } else if (ev === 'cap' || ev === 'error') {
-              setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: (data.message as string) ?? 'Sibyl hit a limit. Try again.' }]);
+              setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: (data.message as string) ?? 'Harve hit a limit. Try again.' }]);
             }
           }
         }
-        if (!gotAnswer) setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+        if (!gotAnswer) setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Harve hit an error. Try again.' }]);
       } catch (e) {
         if (!(e instanceof DOMException && e.name === 'AbortError')) {
           setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Network error.' }]);
@@ -182,7 +182,7 @@ export function SibylApp() {
           <button type="button" onClick={() => setDrawer(true)} className="sib-hover rounded-lg p-1.5" aria-label="Menu">
             <Menu className="h-5 w-5 sib-muted" />
           </button>
-          <span className="text-[15px] font-semibold tracking-tight">Sibyl</span>
+          <span className="text-[15px] font-semibold tracking-tight">Harve</span>
           <button type="button" onClick={() => setMessages([])} className="sib-hover rounded-lg p-1.5" aria-label="New chat">
             <Plus className="h-5 w-5 sib-muted" />
           </button>
@@ -340,7 +340,7 @@ function Home({ specialty, starters, onPick }: { specialty: Specialty; starters:
           {specialty === 'crypto' ? 'What are we hunting?' : 'Ask anything, privately.'}
         </h1>
         <p className="mt-1 text-[13px] sib-faint">
-          {specialty === 'crypto' ? 'Crypto specialty — the Oracle Council.' : 'Sibyl by Pointer'}
+          {specialty === 'crypto' ? 'Crypto specialty — the Oracle Council.' : 'Harve by Pointer'}
         </p>
       </div>
       <div className="relative z-10 mt-7 flex flex-wrap justify-center gap-2 px-4">
@@ -399,7 +399,7 @@ function Drawer({
     <div className="absolute inset-0 z-40 flex">
       <div className="sib-glass sib-rise relative z-10 flex h-full w-[82%] max-w-[320px] flex-col p-4">
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-[17px] font-semibold tracking-tight">Sibyl</span>
+          <span className="text-[17px] font-semibold tracking-tight">Harve</span>
           <button type="button" onClick={onClose} className="sib-hover rounded-lg p-1.5" aria-label="Close">
             <X className="h-4 w-4 sib-muted" />
           </button>

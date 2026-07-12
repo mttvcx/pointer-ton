@@ -356,7 +356,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
 
   const [videoMounted, setVideoMounted] = useState(!initialChatId);
 
-  // Auth bridges automatically: Sibyl lives inside the app's PrivyProvider, so a
+  // Auth bridges automatically: Harve lives inside the app's PrivyProvider, so a
   // session started anywhere in Pointer (same browser) is already authenticated here.
   const { authenticated, user, signIn, logout, getAccessToken } = usePointerAuth();
   const acctName =
@@ -517,7 +517,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
     reader.onload = () => {
       const n = importChats(String(reader.result ?? ''));
       setChats(listChats());
-      if (n === 0) window.alert('That file didn’t contain any Sibyl chats.');
+      if (n === 0) window.alert('That file didn’t contain any Harve chats.');
     };
     reader.readAsText(f);
   };
@@ -604,17 +604,17 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
             const u = data.usage as { used: number; cap: number; remaining: number | null } | undefined;
             if (u) setUsage((cur) => ({ used: u.used, cap: u.cap, remaining: u.remaining, tokenUsage: cur?.tokenUsage ?? '' }));
             const answer = data.answer as SibylAnswer | undefined;
-            setMessages((m) => [...m, answer ? { id: nid(), role: 'sibyl', answer, typing: true } : { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+            setMessages((m) => [...m, answer ? { id: nid(), role: 'sibyl', answer, typing: true } : { id: nid(), role: 'sibyl', text: 'Harve hit an error. Try again.' }]);
           } else if (ev === 'cap') {
             setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: (data.message as string) ?? 'Daily scan limit reached. Upgrade for more.' }]);
             setUpgradeOpen(true);
             void refreshUsage();
           } else if (ev === 'error') {
-            setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+            setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Harve hit an error. Try again.' }]);
           }
         }
       }
-      if (!gotAnswer) setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Sibyl hit an error. Try again.' }]);
+      if (!gotAnswer) setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Harve hit an error. Try again.' }]);
     } catch {
       setMessages((m) => [...m, { id: nid(), role: 'sibyl', text: 'Network error.' }]);
     } finally {
@@ -679,7 +679,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
           <div className="flex items-center gap-2.5 px-1 py-1.5">
             <span className="sibyl-mark s-accent h-7 w-7" />
             <div className="leading-none">
-              <div className={`${sibylSerif.className} text-[18px] leading-none s-fg`}>Sibyl</div>
+              <div className={`${sibylSerif.className} text-[18px] leading-none s-fg`}>Harve</div>
               <div className="mt-1 flex items-center gap-1 text-[10px] s-faint">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <span>powered by</span>
@@ -838,7 +838,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                   <span className="sibyl-mark fade-up mx-auto mb-6 h-14 w-14 s-fg drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]" style={{ animationDelay: '0ms' }} />
                   <h1 className={`${sibylSerif.className} fade-up text-[46px] leading-[1.05] tracking-tight drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)]`} style={{ animationDelay: '90ms' }}>Delegate any crypto question.</h1>
                   <p className="fade-up mx-auto mt-3 max-w-[440px] text-[13.5px] leading-relaxed s-muted drop-shadow-[0_1px_12px_rgba(0,0,0,0.5)]" style={{ animationDelay: '170ms' }}>
-                    Tokens, wallets, KOLs, narratives, terminal fees. Sibyl runs the specialists, pulls the chain + CT data, and comes back with a verdict.
+                    Tokens, wallets, KOLs, narratives, terminal fees. Harve runs the specialists, pulls the chain + CT data, and comes back with a verdict.
                   </p>
                   <div className="mx-auto mt-8 grid max-w-[560px] grid-cols-1 gap-2 sm:grid-cols-2">
                     {DELEGATIONS.map((e, i) => (
