@@ -24,7 +24,9 @@ export function LaunchpadBadge({ launchPad }: { launchPad: string | null }) {
           loading="lazy"
           decoding="async"
           className={cn(
-            'h-3.5 w-3.5 shrink-0 rounded-full object-cover opacity-90',
+            // Axiom-style: protocol marks in the token row read as muted monochrome
+            // icons (grayscale) so a busy full-color logo (e.g. Noxa) doesn't shout.
+            'h-3.5 w-3.5 shrink-0 rounded-full object-cover opacity-80 grayscale transition group-hover:opacity-100 group-hover:grayscale-0',
             protocolId === 'bonk' && 'bg-[#f7931a] p-0.5',
           )}
           aria-hidden

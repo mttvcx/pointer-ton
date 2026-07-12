@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { openAlertRulesModal } from '@/components/alerts/AlertRulesModal';
 import {
   AlertTriangle,
   Loader2,
@@ -14,7 +13,6 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
-  ChevronRight,
 } from 'lucide-react';
 import {
   type ExplainTokenOutput,
@@ -41,13 +39,6 @@ type WalletResult = CommonResult & { data: ExplainWalletOutput };
 
 const COPILOT_CARD =
   'rounded-sm border border-white/[0.08] bg-bg-raised px-3 py-2';
-
-const COPILOT_ACTION =
-  'btn-press inline-flex items-center gap-0.5 rounded-sm border border-white/[0.1] bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-primary hover:bg-white/[0.08]';
-
-function dispatchCopilotAsk(detail: string) {
-  window.dispatchEvent(new CustomEvent('pointer-copilot-quick-ask', { detail }));
-}
 
 const DEBOUNCE_MS = 350;
 
@@ -85,10 +76,6 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
   );
 
   const enabled = Boolean(authenticated && debounced && copilotSurfaceOpen);
-
-  const openAlertBuilder = useCallback(() => {
-    openAlertRulesModal();
-  }, []);
 
   const query = useQuery({
     queryKey,
@@ -152,22 +139,9 @@ export function ContextCard({ entity }: { entity: EntityRef | null }) {
               Co-Pilot is ready
             </p>
             <p className="mt-1 text-[11px] leading-snug text-fg-muted">
-              Hover a token, open a token page, or ask anything about market structure, holders, or alerts.
+              Hover a token or open a token page and the AI’s read appears here — market
+              structure, holders, and risk. It’s a view, not a search box.
             </p>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {(
-                [
-                  ['explain', 'Explain token', () => dispatchCopilotAsk('What should I check first on a new TON token?')],
-                  ['risks', 'Find risks', () => dispatchCopilotAsk('What are the most common rug and bundle risks on fresh launches?')],
-                  ['alert', 'Build alert', openAlertBuilder],
-                ] as const
-              ).map(([key, label, fn]) => (
-                <button key={key} type="button" onClick={fn} className={COPILOT_ACTION}>
-                  {label}
-                  <ChevronRight className="h-2.5 w-2.5 opacity-60" aria-hidden />
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </div>
