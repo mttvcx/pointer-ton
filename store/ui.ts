@@ -202,7 +202,9 @@ export const useUIStore = create<UIState>()(
     (set, get) => ({
       lockedEntity: null,
       hoveredEntity: null,
-      panelOpen: true,
+      // Closed by default — never auto-open on a fresh sign-in. The user opens the
+      // co-pilot view deliberately (pill / topbar / `]`).
+      panelOpen: false,
       panelCollapsed: false,
       panelWidth: PANEL_DEFAULT,
       lastCopilotAlertsReadAt: null,

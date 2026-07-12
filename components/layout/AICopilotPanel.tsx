@@ -22,7 +22,6 @@ import {
 } from '@/store/ui';
 import { useCopilotMode } from '@/components/copilot/CopilotModeContext';
 import { ContextCard } from '@/components/ai/ContextCard';
-import { AskBox } from '@/components/ai/AskBox';
 import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
@@ -713,9 +712,10 @@ export function AICopilotPanel() {
           paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
         }}
       >
+        {/* Passive VIEW — shows the AI's read on whatever token you hover/lock.
+            No text-entry box; the co-pilot is a display surface, not a chat input. */}
         <div className="flex flex-col gap-2 pb-2">
           <ContextCard entity={entity} />
-          <AskBox entity={entity} />
           {xMonitorOpen ? (
             <AlertBuilderEmbeddedPlaceholder />
           ) : (
