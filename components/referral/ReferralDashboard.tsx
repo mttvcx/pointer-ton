@@ -272,7 +272,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-[12px] font-semibold text-fg-primary">{APP_NAME} invite</p>
-                      <p className="truncate text-[10px] text-fg-muted">pointer.xyz · referral</p>
+                      <p className="truncate text-[10px] text-fg-muted">pointer.am · referral</p>
                     </div>
                   </div>
                   <p className="mt-3 flex-1 break-all text-[11px] leading-relaxed text-fg-secondary">

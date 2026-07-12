@@ -8,16 +8,18 @@ import { CustomThemeImport } from '@/components/theme/CustomThemeImport';
 import { DisplayPreferences } from '@/components/preferences/DisplayPreferences';
 import { AutoSellSettings } from '@/components/settings/AutoSellSettings';
 import { WatchlistSettingsSection } from '@/components/settings/WatchlistSettingsSection';
+import { SoundSettingsSection } from '@/components/settings/SoundSettingsSection';
 import { useOverlayPresence, OVERLAY_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { overlayBackdropClasses, overlayPanelClasses } from '@/lib/ui/overlayMotion';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/ui';
 
-type SettingsTab = 'general' | 'watchlist';
+type SettingsTab = 'general' | 'watchlist' | 'sounds';
 
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'general', label: 'General' },
+  { id: 'sounds', label: 'Sounds' },
   { id: 'watchlist', label: 'Watchlist' },
 ];
 
@@ -138,6 +140,8 @@ export function SettingsModal() {
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {tab === 'watchlist' ? (
             <WatchlistSettingsSection />
+          ) : tab === 'sounds' ? (
+            <SoundSettingsSection />
           ) : (
             <div className="space-y-6">
               <section>

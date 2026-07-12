@@ -19,6 +19,7 @@ import { CustomFontBootstrap } from '@/components/layout/bottomBar/CustomFontBoo
 import { FirstTimeSpotlightOnboarding } from '@/components/onboarding/FirstTimeSpotlightOnboarding';
 import { FeatureAnnouncementGate } from '@/components/onboarding/FeatureAnnouncementGate';
 import { TokenInstantTradeHost } from '@/components/trading/TokenInstantTradeHost';
+import { ToastSoundBridge } from '@/components/layout/ToastSoundBridge';
 
 /** Heavy hosts — separate chunk from app layout so route transitions stay fast. */
 export function DeferredAppShellHosts() {
@@ -43,6 +44,7 @@ export function DeferredAppShellHosts() {
       <CustomFontBootstrap />
       <FirstTimeSpotlightOnboarding />
       <FeatureAnnouncementGate />
+      <ToastSoundBridge />
     </>
   );
 }

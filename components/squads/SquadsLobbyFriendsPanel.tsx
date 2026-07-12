@@ -1,12 +1,24 @@
 'use client';
 
+import { useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import { LayoutGrid, RefreshCw, Search, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
 import { toast } from 'sonner';
 
 const DEMO_FRIENDS = [
   { id: '1', handle: 'testerr34', monogram: 'TE', leader: true },
 ] as const;
+
+async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function SquadsLobbyFriendsPanel({
   lobbyTitle,
@@ -18,6 +30,38 @@ export function SquadsLobbyFriendsPanel({
   onClose: () => void;
 }) {
   const count = DEMO_FRIENDS.length;
+  const { getAccessToken } = usePrivy();
+  const [copying, setCopying] = useState(false);
+
+  async function copyInviteLink() {
+    if (copying) return;
+    setCopying(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        toast.error('Sign in to get your invite link.');
+        return;
+      }
+      const res = await fetch('/api/referrals/code', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('code');
+      const { code } = (await res.json()) as { code?: string };
+      if (!code) throw new Error('empty');
+      const url = buildReferralInviteUrl(code);
+      const ok = await writeClipboard(url);
+      if (ok) {
+        toast.success('Invite link copied', { description: url });
+      } else {
+        // Clipboard blocked (e.g. no focus) — surface the link so it's still usable.
+        toast.message('Invite link', { description: url });
+      }
+    } catch {
+      toast.error('Could not fetch your invite link. Try again.');
+    } finally {
+      setCopying(false);
+    }
+  }
 
   return (
     <div className="absolute inset-0 z-[3] flex flex-col bg-bg-raised">
@@ -45,10 +89,11 @@ export function SquadsLobbyFriendsPanel({
           </button>
           <button
             type="button"
-            onClick={() => toast.message('Invite link copied')}
-            className="btn-press shrink-0 rounded-md bg-accent-primary px-3 py-2 text-[11px] font-semibold text-fg-inverse transition hover:brightness-110"
+            onClick={() => void copyInviteLink()}
+            disabled={copying}
+            className="btn-press shrink-0 rounded-md bg-accent-primary px-3 py-2 text-[11px] font-semibold text-fg-inverse transition hover:brightness-110 disabled:opacity-50"
           >
-            Add Friend
+            {copying ? 'Copying…' : 'Add Friend'}
           </button>
         </div>
 
