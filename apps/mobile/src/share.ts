@@ -12,7 +12,7 @@ export async function shareText(message: string, url?: string) {
 /** "Join Pointer" invite carrying the user's referral code (falls back to a plain
  *  invite if they haven't claimed one yet). Used by the Social + Profile share. */
 export function shareReferral(code: string) {
-  const base = 'https://pointer.trade';
+  const base = 'https://pointer.am';
   const url = code ? `${base}/?ref=${encodeURIComponent(code)}` : base;
   const message = code
     ? `Join me on Pointer — use my code ${code} and get 50% of your trading fees back. Buy any token with Apple Pay in seconds.`

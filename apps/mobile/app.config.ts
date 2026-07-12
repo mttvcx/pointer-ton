@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   extra: {
     // Read by src/env.ts. Set via .env (EXPO_PUBLIC_*) or EAS build profile env.
-    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://pointer-ton-orcin.vercel.app',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://pointer.am',
     privyAppId: process.env.EXPO_PUBLIC_PRIVY_APP_ID ?? '',
     privyClientId: process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID ?? '',
     // Crossmint client-side key (ck_…) for the Apple Pay → token checkout.
