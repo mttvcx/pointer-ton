@@ -20,7 +20,6 @@ import {
 import { useAlertsTickerQuery } from '@/lib/hooks/useAlertsTicker';
 import { useCopilotPillInsight } from '@/lib/hooks/useCopilotPillInsight';
 import { ContextCard } from '@/components/ai/ContextCard';
-import { AskBox } from '@/components/ai/AskBox';
 import { XMonitorCopilotCard } from '@/components/monitor/XMonitorCopilotCard';
 import { AlertBuilderEmbeddedPlaceholder } from '@/components/alerts/AlertRulesPopoutHost';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
@@ -239,7 +238,6 @@ function CopilotPillExpandedCard({
               </p>
             </div>
             <ContextCard entity={entity} />
-            <AskBox entity={entity} />
             {xMonitorOpen ? (
               <AlertBuilderEmbeddedPlaceholder />
             ) : (
