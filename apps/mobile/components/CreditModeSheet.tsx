@@ -100,7 +100,12 @@ export function CreditModeSheet({
 
     setBusy(true);
     try {
-      const res = await prepareBorrow({ amountUsd: amt, collateralMint: WSOL_MINT, collateralUsd: line.eligibleValue, borrowedUsd: borrowed });
+      // On a first borrow (nothing pledged yet) the atomic deposit+borrow route
+      // needs collateral to deposit in the same tx. TODO: populate from the user's
+      // real SOL balance in lamports once per-token holdings are wired here; until
+      // then it's undefined → borrow-only (the web route ignores it, backwards-safe).
+      const depositBaseUnits: string | undefined = undefined;
+      const res = await prepareBorrow({ amountUsd: amt, collateralMint: WSOL_MINT, collateralUsd: line.eligibleValue, borrowedUsd: borrowed, depositBaseUnits });
 
       if (res.simulated || !res.txBase64) {
         // Kamino isn't enabled/deployed yet → reflect locally, but don't claim a

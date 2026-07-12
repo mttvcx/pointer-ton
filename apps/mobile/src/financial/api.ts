@@ -47,13 +47,18 @@ export async function prepareYieldDeposit(owner: string, amountUsd: number): Pro
 
 type BorrowResponse = { simulated: boolean; txBase64?: string };
 
-/** Credit mode: prepare an unsigned Kamino deposit+borrow tx (the app signs it via
- *  Privy). `simulated:true` = Kamino not wired yet → reflect the borrow locally. */
+/** Credit mode: prepare an unsigned Kamino (deposit+)borrow tx (the app signs it via
+ *  Privy). `simulated:true` = Kamino not wired yet → reflect the borrow locally.
+ *  `depositBaseUnits` (optional) = collateral to deposit in the SAME tx before
+ *  borrowing (token base units, e.g. SOL lamports), so a first borrow is one tap /
+ *  one signature. Omitted → borrow-only (collateral already deposited). Backwards-
+ *  compatible: the backend ignores it until the atomic deposit+borrow route ships. */
 export async function prepareBorrow(input: {
   amountUsd: number;
   collateralMint: string;
   collateralUsd: number;
   borrowedUsd: number;
+  depositBaseUnits?: string;
 }): Promise<BorrowResponse> {
   return api<BorrowResponse>('/api/financial/credit/borrow', { token: await authToken(), method: 'POST', body: input });
 }
