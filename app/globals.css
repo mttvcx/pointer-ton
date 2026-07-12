@@ -272,12 +272,14 @@
   --signal-info-rgb: 94 187 255;
 
   /*
-   * Desk uses the same pigment stack as the page (`--bg-raised`); zebra is a whisper
-   * toward hover/mid so it never reads as a separate “theme inside the theme”.
+   * Desk DERIVES from the themed surfaces (not hardcoded grey), so the workspace
+   * tracks the active theme — default, axiom, or any custom theme — instead of
+   * reading as a flat grey "theme inside the theme". Panel = raised surface;
+   * zebra whispers from raised → hover.
    */
-  --desk-panel-rgb: 18 18 20;
-  --desk-zebra-a-rgb: 18 18 20;
-  --desk-zebra-b-rgb: 22 22 26;
+  --desk-panel-rgb: var(--bg-raised-rgb);
+  --desk-zebra-a-rgb: var(--bg-raised-rgb);
+  --desk-zebra-b-rgb: var(--bg-hover-rgb);
 
   --font-mono: var(--font-geist), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     Arial, sans-serif;
@@ -360,9 +362,9 @@
   --signal-warn-rgb: 255 181 71;
   --signal-info-rgb: 156 163 175;
 
-  --desk-panel-rgb: 18 18 20;
-  --desk-zebra-a-rgb: 18 18 20;
-  --desk-zebra-b-rgb: 22 22 26;
+  --desk-panel-rgb: var(--bg-raised-rgb);
+  --desk-zebra-a-rgb: var(--bg-raised-rgb);
+  --desk-zebra-b-rgb: var(--bg-hover-rgb);
 
   /* shadcn HSL bridge — matches the Axiom surface tokens above. */
   --background: 240 4% 5%;

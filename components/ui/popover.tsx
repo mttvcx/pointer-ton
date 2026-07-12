@@ -105,6 +105,8 @@ type ContentProps = {
   sideOffset?: number;
   /** Skip fade in/out — avoids double-animation feel on fast toggle (e.g. wallet chip). */
   disableAnimation?: boolean;
+  /** Dim the page behind the popover (like a lightweight dialog). Off by default. */
+  backdrop?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -113,6 +115,7 @@ function Content({
   align = 'end',
   sideOffset = 8,
   disableAnimation = false,
+  backdrop = false,
   className,
   children,
 }: ContentProps) {
@@ -173,19 +176,31 @@ function Content({
   if (!mounted) return null;
 
   return createPortal(
-    <div
-      ref={contentRef}
-      role="dialog"
-      className={cn(
-        'fixed z-[200]',
-        !disableAnimation && popoverPanelClasses(visible),
-        disableAnimation && 'opacity-100',
-        className,
-      )}
-      style={{ top: pos.top, right: pos.right }}
-    >
-      {children}
-    </div>,
+    <>
+      {backdrop ? (
+        <div
+          aria-hidden
+          onMouseDown={() => setOpen(false)}
+          className={cn(
+            'fixed inset-0 z-[199] bg-black/55 backdrop-blur-[1px] transition-opacity duration-150',
+            visible ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+      ) : null}
+      <div
+        ref={contentRef}
+        role="dialog"
+        className={cn(
+          'fixed z-[201]',
+          !disableAnimation && popoverPanelClasses(visible),
+          disableAnimation && 'opacity-100',
+          className,
+        )}
+        style={{ top: pos.top, right: pos.right }}
+      >
+        {children}
+      </div>
+    </>,
     document.body,
   );
 }
