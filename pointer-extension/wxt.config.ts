@@ -37,9 +37,6 @@ export default defineConfig({
       // Pointer's own API — the background worker fetches /api/ext here.
       'https://pointer.am/*',
       'https://*.pointer.am/*',
-      'https://pointer-ton-orcin.vercel.app/*',
-      'https://pointer.trade/*',
-      'https://*.pointer.trade/*',
       // The site with a content-script adapter today. Add more hosts as adapters ship.
       'https://x.com/*',
       'https://twitter.com/*',
@@ -51,9 +48,6 @@ export default defineConfig({
         ...(LOCAL ? ['http://localhost/*'] : []),
         'https://pointer.am/*',
         'https://*.pointer.am/*',
-        'https://pointer-ton-orcin.vercel.app/*',
-        'https://pointer.trade/*',
-        'https://*.pointer.trade/*',
       ],
     },
     // The hover-card Shadow DOM loads the Pointer logo + Geist font from the

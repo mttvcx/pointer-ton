@@ -162,8 +162,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
           <h1 className="text-lg font-semibold text-white">Sign in to Pointer</h1>
           <p className="mt-2 max-w-md text-sm text-fg-secondary">
-            Sign in with email, Google, X, or Phantom wallet via Privy. Link TON via TonConnect when you trade on
-            TON.
+            Sign in with email, Google, X, or Phantom wallet via Privy.
           </p>
           <button
             type="button"
