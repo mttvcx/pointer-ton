@@ -3,13 +3,14 @@
 import { useCallback, useMemo } from 'react';
 import bs58 from 'bs58';
 import { useTonConnectUI } from '@tonconnect/ui-react';
-import { usePrivy, type User } from '@privy-io/react-auth';
+import { usePrivy, useWallets as useEvmWallets, type User } from '@privy-io/react-auth';
 import {
   useSignAndSendTransaction,
   useSignTransaction,
   useWallets,
 } from '@privy-io/react-auth/solana';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
+import { submitEvmSwap } from '@/lib/evm/submitEvmSwap';
 
 function swapTxBytesFromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -56,6 +57,7 @@ export function usePointerTradeSubmit() {
   const { signAndSendTransaction } = useSignAndSendTransaction();
   const { signTransaction } = useSignTransaction();
   const { wallets } = useWallets();
+  const { wallets: evmWallets } = useEvmWallets();
   const embeddedAddresses = useMemo(
     () => new Set(listEmbeddedSolanaAddresses(user)),
     [user],
@@ -69,6 +71,22 @@ export function usePointerTradeSubmit() {
       getAccessToken: () => Promise<string | null>;
     }): Promise<{ signature: string }> => {
       const { quote, walletAddress, mint, getAccessToken } = opts;
+
+      // EVM swap — the user's Privy EVM wallet approves (if needed), sends, and
+      // confirms the swap client-side. v1 does NOT server-record the trade (EVM
+      // fee/cashback/points economics are a follow-up); the swap itself is final
+      // on-chain once this resolves.
+      if (quote.chain === 'evm') {
+        const evm = quote.evm;
+        if (!evm) throw new Error('missing_evm_quote');
+        const wallet =
+          evmWallets.find((w) => w.address.toLowerCase() === walletAddress.toLowerCase()) ??
+          evmWallets.find((w) => w.walletClientType === 'privy') ??
+          evmWallets[0];
+        if (!wallet) throw new Error('evm_wallet_not_found');
+        const { txHash } = await submitEvmSwap(wallet, evm.appChain, evm);
+        return { signature: txHash };
+      }
 
       if (quote.chain === 'sol') {
         if (!quote.swapTransaction) {
@@ -183,7 +201,7 @@ export function usePointerTradeSubmit() {
           : '';
       return { signature };
     },
-    [tonConnectUI, signAndSendTransaction, signTransaction, wallets, embeddedAddresses],
+    [tonConnectUI, signAndSendTransaction, signTransaction, wallets, evmWallets, embeddedAddresses],
   );
 
   return { submitFromQuote };

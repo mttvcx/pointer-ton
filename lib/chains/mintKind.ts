@@ -53,15 +53,29 @@ export function appChainForMintNavigation(mint: string, activeChain: AppChainId)
   return activeChain;
 }
 
-/** Phase 1 swap execution is live on Solana + TON only. */
+/**
+ * Swap execution is live on Solana + TON. EVM spot swaps (eth/bnb/base via LiFi)
+ * are flag-gated OFF: `NEXT_PUBLIC_EVM_TRADE_ENABLED=1` opens the UI; the money
+ * routes independently require the server flag `POINTER_EVM_TRADE_ENABLED`.
+ * Robinhood is excluded — no aggregator indexes it yet (needs a direct Uniswap route).
+ */
 export function isTradableAppChain(chain: AppChainId): boolean {
-  return chain === 'sol' || chain === 'ton';
+  if (chain === 'sol' || chain === 'ton') return true;
+  if (
+    process.env.NEXT_PUBLIC_EVM_TRADE_ENABLED === '1' &&
+    (chain === 'eth' || chain === 'bnb' || chain === 'base')
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** Whether quote/sign/execute is wired for this mint shape. */
 export function isTradableMint(mint: string): boolean {
   const k = inferMintKind(mint.trim());
-  return k === 'sol' || k === 'ton';
+  if (k === 'sol' || k === 'ton') return true;
+  if (k === 'evm' && process.env.NEXT_PUBLIC_EVM_TRADE_ENABLED === '1') return true;
+  return false;
 }
 
 /** Tracker watchlist addresses must match the selected header chain (TON / Solana / EVM). */

@@ -19,6 +19,8 @@ export type LifiQuoteResult = {
     toAmount: string;
     toAmountMin: string;
     fromAmount: string;
+    /** ERC-20 spender to approve before an EVM swap (the LiFi diamond / router). */
+    approvalAddress?: string;
   };
   action: {
     fromToken: { symbol: string; decimals: number };

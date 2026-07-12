@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useWallets as useEvmWallets } from '@privy-io/react-auth';
 import type { AppChainId } from '@/lib/chains/appChain';
+import { isEvmTradeChain } from '@/lib/evm/evmTradeChains';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import { tokenRawForSellPct } from '@/lib/hooks/useSpotTradeExecution';
@@ -119,6 +121,18 @@ export function usePulseQuickBuy() {
 
   const { wallet, ready: walletsReady } = useActiveSolanaWallet(myWalletsQ.data?.wallets);
 
+  // EVM chains trade from the user's Privy EVM wallet (not the Solana one). The
+  // whole EVM path is flag-gated; isEvmTradeChain only matches eth/bnb/base.
+  const { wallets: evmWallets } = useEvmWallets();
+  const evmTradeChain = isEvmTradeChain(activeChain);
+  const evmWallet = useMemo(
+    () => evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0],
+    [evmWallets],
+  );
+  /** Wallet address the trade quotes/signs from — EVM address on eth/bnb/base, else Solana. */
+  const tradeAddress = evmTradeChain ? evmWallet?.address ?? null : wallet?.address ?? null;
+  const tradeWalletReady = evmTradeChain ? Boolean(evmWallet) : walletsReady && Boolean(wallet);
+
   const activeWalletRow = useMemo(
     () => myWalletsQ.data?.wallets.find((w) => w.wallet_address === wallet?.address),
     [myWalletsQ.data?.wallets, wallet?.address],
@@ -162,7 +176,7 @@ export function usePulseQuickBuy() {
       const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
       const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
       const baseLanding = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
-      const blitzOn = isBlitzWallet(wallet!.address, blitzWalletAddresses);
+      const blitzOn = isBlitzWallet(wallet?.address ?? '', blitzWalletAddresses);
       const presetFees =
         activePreset != null
           ? {
@@ -182,7 +196,8 @@ export function usePulseQuickBuy() {
         body: JSON.stringify({
           mint,
           side: 'buy' as const,
-          userPublicKey: wallet!.address,
+          userPublicKey: tradeAddress ?? wallet?.address ?? '',
+          chain: activeChain,
           ...buyQuoteAmountFields(asset, amount),
           slippageBps,
           dynamicSlippage,
@@ -207,7 +222,7 @@ export function usePulseQuickBuy() {
       if (!executable) throw new Error('No swap transaction from quote');
       return ok;
     },
-    [activePreset, wallet, blitzWalletAddresses],
+    [activePreset, wallet, blitzWalletAddresses, tradeAddress, activeChain],
   );
 
   /** Use a fresh, matching prefetched quote if present; otherwise fetch fresh. */
@@ -290,10 +305,11 @@ export function usePulseQuickBuy() {
         return { ok: false, error: res.error };
       }
 
-      if (!walletsReady || !wallet) {
+      if (!tradeWalletReady || !tradeAddress) {
         return fail(walletConnectRequiredMessage(activeChain));
       }
-      if (activeWalletRow?.is_imported === true) {
+      // Imported-key view-only guard only applies to Solana (EVM has no key imports).
+      if (!evmTradeChain && activeWalletRow?.is_imported === true) {
         return fail('View-only wallet — use a linked trading wallet.');
       }
       if (!Number.isFinite(amount) || amount <= 0) {
@@ -315,7 +331,7 @@ export function usePulseQuickBuy() {
         if (!silent && toastId) toast.loading('Sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           mint,
           getAccessToken,
         });
@@ -355,10 +371,10 @@ export function usePulseQuickBuy() {
         })();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
         invalidateTokenDeskAfterTrade(qc, mint, {
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           reason: silent ? 'pulse_auto_buy' : 'pulse_quick_buy',
         });
-        if (asset === 'sol') {
+        if (asset === 'sol' && wallet) {
           addInstantTradeBuyTon(mint, wallet.address, amount);
         }
         if (silent) return { ok: true, signature: sig ?? null };
@@ -373,6 +389,9 @@ export function usePulseQuickBuy() {
     [
       walletsReady,
       wallet,
+      tradeAddress,
+      tradeWalletReady,
+      evmTradeChain,
       activeWalletRow?.is_imported,
       getAccessToken,
       getOrFetchBuyQuote,
@@ -410,6 +429,15 @@ export function usePulseQuickBuy() {
         return { ok: false, error: res.error };
       }
 
+      // EVM buys are live; EVM sells need an on-chain token-balance path (next pass).
+      if (evmTradeChain) {
+        if (!silent) {
+          toast.message('EVM selling is next', {
+            description: 'Buys are live on Ethereum, BNB, and Base — selling lands in the follow-up.',
+          });
+        }
+        return silent ? fail('EVM sell not enabled yet') : undefined;
+      }
       if (!walletsReady || !wallet) {
         if (!silent) {
           toast.error(walletConnectRequiredTitle(activeChain), {
@@ -490,6 +518,7 @@ export function usePulseQuickBuy() {
             mint,
             side: 'sell' as const,
             userPublicKey: wallet.address,
+            chain: activeChain,
             amountTokenRaw,
             slippageBps,
             dynamicSlippage,
@@ -581,6 +610,7 @@ export function usePulseQuickBuy() {
     [
       walletsReady,
       wallet,
+      evmTradeChain,
       activeWalletRow?.is_imported,
       getAccessToken,
       activePreset,
@@ -655,11 +685,13 @@ export function usePulseQuickBuy() {
     /** Mint currently executing (not queued) — informational only. */
     busyMint: activeMint,
     queueSize,
-    walletReady: walletsReady && !!wallet,
+    walletReady: tradeWalletReady,
     canTrade: Boolean(
-      wallet && !activeWalletRow?.is_imported && isTradableAppChain(activeChain),
+      tradeAddress &&
+        (evmTradeChain || !activeWalletRow?.is_imported) &&
+        isTradableAppChain(activeChain),
     ),
-    /** True when header chain has no swap backend (ETH/BNB/Base browse-only). */
+    /** True when header chain has a swap backend (EVM requires the trade flag). */
     chainTradable: isTradableAppChain(activeChain),
   };
 }

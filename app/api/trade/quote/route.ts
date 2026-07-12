@@ -1,7 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
+import { parseEther } from 'viem';
 import { z } from 'zod';
 import { inferMintKind } from '@/lib/chains/mintKind';
+import { buildEvmSwapQuote } from '@/lib/evm/evmSwapQuote';
+import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
+import {
+  assertTradingAllowed,
+  EmergencyBlockedError,
+  emergencyBlockedResponse,
+} from '@/lib/emergency/controls';
 import { getUserByPrivyId } from '@/lib/db/users';
 import { tradingFreezeGateOrNull } from '@/lib/trade/accountControlGate';
 import { userCanUseWalletForTrading } from '@/lib/db/userWallets';
@@ -26,6 +34,8 @@ const QuoteBodySchema = z
     mint: z.string().min(1),
     side: z.enum(['buy', 'sell']),
     userPublicKey: z.string().min(1),
+    /** Disambiguates which EVM chain a 0x mint is on (eth/bnb/base). Ignored for sol/ton. */
+    chain: z.enum(['sol', 'ton', 'eth', 'bnb', 'base', 'robinhood']).optional(),
     amountSol: z.number().positive().optional(),
     amountUsdc: z.number().positive().optional(),
     amountSolOut: z.number().positive().optional(),
@@ -144,6 +154,77 @@ export async function POST(req: NextRequest) {
   }
 
   const chainKind = inferMintKind(body.mint);
+
+  // EVM spot swap (LiFi) — flag-gated OFF; the server flag is the authoritative
+  // money gate (the client flag only controls UI). Robinhood is excluded (no
+  // aggregator coverage yet).
+  if (chainKind === 'evm') {
+    if (process.env.POINTER_EVM_TRADE_ENABLED !== '1') {
+      return NextResponse.json(
+        { error: 'evm_trading_disabled', message: 'EVM trading is not enabled yet.' },
+        { status: 400 },
+      );
+    }
+    const appChain = body.chain;
+    if (appChain !== 'eth' && appChain !== 'bnb' && appChain !== 'base') {
+      return NextResponse.json(
+        { error: 'unsupported_evm_chain', message: 'EVM trading is live on Ethereum, BNB, and Base.' },
+        { status: 400 },
+      );
+    }
+    // Emergency kill-switch (global + per-chain) BEFORE we build a quote — no quote,
+    // no swap. Fails closed if the controls store is unreadable.
+    try {
+      await assertTradingAllowed(appChain);
+    } catch (e) {
+      if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+      throw e;
+    }
+    try {
+      const slippageBps = body.slippageBps;
+      // Buy spends native gas (amountSol carries the native amount); sell sends token raw.
+      let sellAmountRaw: string;
+      if (body.side === 'buy') {
+        if (!(body.amountSol != null && body.amountSol > 0)) {
+          return NextResponse.json({ error: 'invalid_body', message: 'amount required' }, { status: 400 });
+        }
+        sellAmountRaw = parseEther(String(body.amountSol)).toString();
+      } else {
+        if (!body.amountTokenRaw) {
+          return NextResponse.json({ error: 'invalid_body', message: 'amountTokenRaw required' }, { status: 400 });
+        }
+        sellAmountRaw = body.amountTokenRaw;
+      }
+      const evm = await buildEvmSwapQuote({
+        chain: appChain,
+        side: body.side,
+        token: body.mint,
+        wallet: body.userPublicKey,
+        sellAmountRaw,
+        slippageBps,
+      });
+      const resp: TradeQuoteApiOk = {
+        side: body.side,
+        mint: body.mint,
+        chain: 'evm',
+        evm: { ...evm, appChain },
+        quote: {},
+        swapTransaction: null,
+        tonConnect: null,
+        presetsSol: [0.01, 0.05, 0.1, 0.5],
+        summary: {
+          amountInRaw: evm.sellAmountRaw,
+          amountOutRaw: evm.buyAmountRaw,
+          amountSolEstimate: 0,
+        },
+      };
+      return NextResponse.json(resp);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'evm_quote_failed';
+      return NextResponse.json({ error: 'evm_quote_failed', message }, { status: 502 });
+    }
+  }
+
   if (chainKind !== 'sol' && chainKind !== 'ton') {
     return NextResponse.json({ error: 'unsupported_mint_chain' }, { status: 400 });
   }

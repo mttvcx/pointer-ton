@@ -1,5 +1,8 @@
 /** Normalized quote response from `POST /api/trade/quote` (STON.fi + TonConnect). */
 
+import type { EvmSwapQuote } from '@/lib/evm/evmSwapQuote';
+import type { EvmTradeChain } from '@/lib/evm/evmTradeChains';
+
 export type TonConnectTradePayload = {
   validUntil: number;
   messages: Array<{
@@ -13,8 +16,10 @@ export type TradeQuoteApiOk = {
   side: 'buy' | 'sell';
   /** Jetton master or SPL mint (normalized for chain). */
   mint: string;
-  /** When `sol`, quote uses Jupiter + Privy Solana signing — not TonConnect. */
-  chain?: 'ton' | 'sol';
+  /** `sol` → Jupiter+Privy Solana; `ton` → TonConnect; `evm` → LiFi + Privy EVM wallet. */
+  chain?: 'ton' | 'sol' | 'evm';
+  /** EVM swap payload (client executes via the user's Privy EVM wallet). */
+  evm?: (EvmSwapQuote & { appChain: EvmTradeChain }) | null;
   quote: Record<string, unknown>;
   /** Jupiter unsigned swap tx (base64) when `chain === 'sol'`. */
   swapTransaction: string | null;
