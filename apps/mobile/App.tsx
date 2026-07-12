@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/sora';
 import { AppAuthProvider, useAuth } from './src/auth';
 import { isOnboarded, markOnboarded } from './src/onboarded';
+import { useMe } from './src/account';
 import { registerForPush } from './src/push';
 import { HomeScreen } from './screens/HomeScreen';
 import { TokenScreen } from './screens/TokenScreen';
@@ -157,6 +158,17 @@ function Shell() {
     setTab('home'); // land on Home after onboarding, not wherever the tab last was
     setOnboarded(true);
   };
+
+  // If you already have a Pointer account (signed up on the web), the server has
+  // your onboarding done — skip the app's onboarding AND its referral-code step
+  // (a referrer can't be set/changed after signup). New sign-ups still see it.
+  const me = useMe();
+  useEffect(() => {
+    if (obReady && !onboarded && me.data?.onboardingCompletedAt) {
+      if (auth.walletAddress) markOnboarded(auth.walletAddress);
+      setOnboarded(true);
+    }
+  }, [obReady, onboarded, me.data?.onboardingCompletedAt, auth.walletAddress]);
 
   // Register for push once signed in (real build only; no-op until a rebuild
   // includes expo-notifications).

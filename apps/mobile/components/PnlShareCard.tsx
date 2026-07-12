@@ -174,7 +174,7 @@ export function PnlShareCard({
         </View>
 
         <View style={s.footer}>
-          <Text style={s.brand}>pointer.trade</Text>
+          <Text style={s.brand}>pointer.am</Text>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={s.offer}>50% off fees with code</Text>
             <Text style={s.code}>{refCode}</Text>
