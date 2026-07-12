@@ -18,10 +18,35 @@ function pickMode(q: string): ScanMode {
   return 'STANDARD_SCAN';
 }
 
+const GREETING = /^(gm+|gn+|hey+|hi+|hello+|yo+|sup|wassup|wagwan|howdy|hola|greetings|good\s+(morning|evening|afternoon|night))\b/;
+const SMALLTALK = /^(thanks?|thank\s+you|thx|ty|nice|cool|great|awesome|ok(ay)?|k|lol|lmao|lmfao|haha+|hehe|nvm|np|no\s+problem|wyd|test(ing)?|bye|cya|gg)\b/;
+const META = /(who\s+are\s+you|what\s+are\s+you|what\s+can\s+you\s+do|what\s+do\s+you\s+do|how\s+do\s+you\s+work|what'?s?\s+your\s+name|are\s+you\s+(a\s+)?(bot|ai|real|human|there)|how\s+are\s+you|how'?s\s+it\s+going|how\s+you\s+doing|^help\b)/;
+
+/**
+ * A greeting, thanks, or meta-question about the assistant — NOT an analyzable
+ * subject. These must never trigger a scan (which would fabricate handles/
+ * verdicts); they get a conversational reply instead.
+ */
+function isChitchat(q: string): boolean {
+  const s = q.trim().toLowerCase();
+  if (!s) return true;
+  if (META.test(s)) return true;
+  const words = s.split(/\s+/).length;
+  // Greetings/smalltalk only count when the message is short — so "gm what's the
+  // CA for X" still routes to a real scan, but "hey man" does not.
+  if ((GREETING.test(s) || SMALLTALK.test(s)) && words <= 4) return true;
+  return false;
+}
+
 export function classifyIntent(query: string): SibylIntent {
   const q = query.trim();
   const lower = q.toLowerCase();
   const mode = pickMode(q);
+
+  // Greeting / smalltalk / "who are you" → conversational, never a scan.
+  if (isChitchat(q)) {
+    return { query, subject: { kind: 'chitchat', ref: null }, mode: 'QUICK_SCAN', agents: [] };
+  }
 
   // Market/company question ("Axiom fees today").
   if (TERMINALS.test(q) && /(fee|volume|made|market share|usage|today|yesterday)/i.test(q)) {
@@ -50,7 +75,9 @@ export function classifyIntent(query: string): SibylIntent {
     return { query, subject: { kind: 'token', ref: null, chain: 'sol' }, mode, agents: agentsForToken(mode) };
   }
 
-  return { query, subject: { kind: 'unknown', ref: null }, mode, agents: ['narrative', 'social', 'judge'] };
+  // Unrecognized, non-crypto input — reply conversationally instead of fabricating
+  // a narrative/social scan out of nothing.
+  return { query, subject: { kind: 'chitchat', ref: null }, mode: 'QUICK_SCAN', agents: [] };
 }
 
 function agentsForToken(mode: ScanMode): AgentName[] {

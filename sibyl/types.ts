@@ -25,7 +25,7 @@ export type SibylIntent = {
   query: string;
   /** Resolved subject if we found one. */
   subject: {
-    kind: 'token' | 'wallet' | 'person' | 'narrative' | 'market_question' | 'unknown';
+    kind: 'token' | 'wallet' | 'person' | 'narrative' | 'market_question' | 'chitchat' | 'unknown';
     /** Mint / wallet address / handle / meta name. */
     ref: string | null;
     chain?: 'sol' | 'eth' | 'base' | 'bnb';
@@ -124,4 +124,6 @@ export type SibylAnswer = {
   caveats?: string[];
   /** Prior memory of this subject (the flywheel) — set when Sibyl has seen it before. */
   memory?: { seenCount: number; firstSeen: string | null } | null;
+  /** Conversational reply (greeting / smalltalk / meta) — render as prose, no verdict UI. */
+  chat?: boolean;
 };

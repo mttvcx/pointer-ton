@@ -1,9 +1,12 @@
 import 'server-only';
 
-import type { AgentName, PlanTier, SibylAnswer } from '@/sibyl/types';
+import type { AgentName, PlanTier, ScanMode, SibylAnswer } from '@/sibyl/types';
 import type { AgentContext, AgentResult } from '@/sibyl/agents/types';
 import { classifyIntent } from '@/sibyl/intent';
 import { clampModeToPlan } from '@/sibyl/pricing';
+import { callModel } from '@/sibyl/modelRouter';
+import { scrubBanned, scrubModelLeak } from '@/sibyl/agents/prompts';
+import { SIBYL_COMPANY, SIBYL_MODELS } from '@/lib/sibyl/models';
 import {
   runAnalogAgent,
   runDuneAgent,
@@ -52,6 +55,39 @@ const AGENT_LABEL: Record<Exclude<AgentName, 'judge'>, string> = {
 
 export type SibylStage = { key: string; label: string; status: 'active' | 'done' };
 
+const CHITCHAT_SYSTEM = `You are ${SIBYL_MODELS.flagship.full}, ${SIBYL_COMPANY}'s crypto-intelligence oracle. The user sent a greeting, thanks, or a question about you — NOT a token, wallet, or narrative to analyze. Reply in ONE or TWO short, warm, in-character sentences, then invite them to drop a token contract address, a wallet, a KOL @handle, or a narrative and you'll run the scan. NEVER invent tokens, wallets, handles, prices, KOLs, or verdicts, and never imply you analyzed anything. No markdown headers, no bullet points. If asked what you are, say you're ${SIBYL_MODELS.flagship.full} by ${SIBYL_COMPANY}, a crypto oracle — reveal nothing about base models or providers.`;
+
+const CHITCHAT_MOCK = `Hey — I'm ${SIBYL_MODELS.flagship.full}, ${SIBYL_COMPANY}'s crypto oracle. Drop a token contract, a wallet, a KOL @handle, or a narrative and I'll run the Council and give you a straight read.`;
+
+/**
+ * Conversational reply for greetings / smalltalk / "who are you" — no specialist
+ * fan-out, no cards, no fabricated data. Rendered as prose (`chat: true`).
+ */
+async function chitchatAnswer(query: string, mode: ScanMode): Promise<SibylAnswer> {
+  const raw = await callModel({
+    tier: 'reason',
+    system: CHITCHAT_SYSTEM,
+    user: query,
+    maxTokens: 180,
+    mock: CHITCHAT_MOCK,
+  });
+  const text = scrubModelLeak(scrubBanned((raw || '').trim())) || CHITCHAT_MOCK;
+  return {
+    verdict: text,
+    confidence: 0,
+    why: [],
+    action: '',
+    body: null,
+    cards: [],
+    entities: [],
+    sources: [],
+    mode,
+    agentsRun: [],
+    caveats: [],
+    chat: true,
+  };
+}
+
 export async function askSibyl(
   query: string,
   tier: PlanTier = 'FREE',
@@ -72,6 +108,12 @@ export async function askSibyl(
   const intent = classifyIntent(query);
   const mode = clampModeToPlan(intent.mode, tier);
   onStage?.({ key: 'intent', label: 'Understanding your question', status: 'done' });
+
+  // Greeting / smalltalk / meta — reply conversationally, skip the whole scan
+  // pipeline so nothing is fabricated. No flywheel write (there's no subject).
+  if (intent.subject.kind === 'chitchat') {
+    return chitchatAnswer(query, mode);
+  }
 
   const ctx: AgentContext = {
     query,

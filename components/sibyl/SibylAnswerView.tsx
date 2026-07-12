@@ -37,6 +37,18 @@ export function SibylAnswerView({ answer, typeOut = false }: { answer: SibylAnsw
   const conf = Math.round(answer.confidence);
   const cards = orderCards(answer.cards);
   const { shown: verdictShown, done: verdictDone } = useTypewriter(answer.verdict, typeOut);
+
+  // Conversational reply (greeting / smalltalk / meta) — plain prose, none of the
+  // verdict/confidence/cards chrome (there's no subject to grade).
+  if (answer.chat) {
+    return (
+      <div className="s-fg text-[14px] leading-relaxed">
+        {verdictShown}
+        {typeOut && !verdictDone ? <span className="ml-0.5 inline-block animate-pulse">▋</span> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* worked-through meta */}
