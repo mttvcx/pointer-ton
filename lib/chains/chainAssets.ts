@@ -92,6 +92,18 @@ export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {
   ton: 'The Open Network',
 };
 
+/**
+ * Icon for the NATIVE spend token on the buy button (may differ from the chain
+ * icon). Robinhood's gas is ETH, so it shows an ETH mark badged with the
+ * Robinhood feather — not the plain chain feather. Falls back to the chain icon.
+ */
+const NATIVE_SPEND_ICON: Partial<Record<AppChainId, string>> = {
+  robinhood: '/chains/robinhood-native.svg',
+};
+export function nativeSpendIconSrc(chain: AppChainId): string {
+  return NATIVE_SPEND_ICON[chain] ?? CHAIN_ICON_PNG[chain];
+}
+
 export const CHAIN_TICKER: Record<AppChainId, string> = {
   sol: 'SOL',
   eth: 'ETH',

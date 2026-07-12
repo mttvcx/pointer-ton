@@ -45,7 +45,7 @@ import { PresetHoverCard } from '@/components/tokens/PresetHoverCard';
 import { usePulseMetricsHydration } from '@/lib/hooks/usePulseMetricsHydration';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import { usePulseHiddenMintsStore, normalizePulseTwitterHandle, normalizeWebsiteDomain } from '@/store/pulseHiddenMints';
-import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import { CHAIN_ICON_PNG, nativeSpendIconSrc } from '@/lib/chains/chainAssets';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
 import { cn } from '@/lib/utils/cn';
 import { usePulseColumnStore } from '@/store/pulseColumns';
@@ -651,7 +651,7 @@ function PulseColumnBody({
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element -- chain pill matches PulseChainSelector
                   <img
-                    src={CHAIN_ICON_PNG[activeChain]}
+                    src={nativeSpendIconSrc(activeChain)}
                     alt=""
                     width={14}
                     height={14}

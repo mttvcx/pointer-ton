@@ -177,7 +177,7 @@ const BRANDS: Record<ProtocolBrandId, ProtocolBrand> = {
   megaton: { id: 'megaton', label: 'Megaton', color: '#ff6b35', logoFile: 'megaton.png' },
   bsc: { id: 'bsc', label: 'BNB', color: '#f0b90b', logoFile: 'bsc.png' },
   base: { id: 'base', label: 'Base', color: '#0052ff', logoFile: 'base.png' },
-  robinhood: { id: 'robinhood', label: 'Robinhood', color: '#00c805', logoFile: 'robinhood.svg', tooltip: 'Robinhood Chain — new pools' },
+  robinhood: { id: 'robinhood', label: 'Robinhood', color: '#CCFF00', logoFile: 'robinhood.svg', tooltip: 'Robinhood Chain — new pools' },
   noxa: { id: 'noxa', label: 'Noxa', color: '#d4a017', logoFile: 'noxa.png', tooltip: 'Noxa launchpad (fun.noxa.fi)' },
   raydium: {
     id: 'raydium',
