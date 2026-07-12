@@ -66,6 +66,7 @@ export function CreditModeSheet({
   const borrowed = useBorrowed();
   const auth = useAuth();
   const [amount, setAmount] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   // Only allowlisted blue-chips back the line — filter the holdings to eligible
   // collateral, so a random memecoin contributes ZERO borrowing power.
@@ -80,29 +81,58 @@ export function CreditModeSheet({
     onClose();
   };
 
-  const doBorrow = () => {
-    if (amount <= 0 || amount > available) return;
-    // OPTIMISTIC: reflect the borrow instantly (never blocks the UI). The real
-    // on-chain borrow fires in the background and only does anything once Kamino
-    // is keyed + the credit route is deployed — until then this is a clean sim.
+  // A borrow moves real money, so we NEVER fake success: the line only reflects the
+  // borrow after the on-chain tx is actually signed + sent (real), or when the
+  // backend explicitly says it's simulated (Kamino not live yet — labeled honestly).
+  const doBorrow = async () => {
+    if (busy || amount <= 0 || amount > available) return;
     const amt = amount;
-    borrow(amt);
-    onBorrowed?.(amt);
-    setSpendMode('credit');
-    showToast(`Borrowed ${usd(amt, 0)}`, { sub: 'Your crypto stays invested — no sale, no tax event', kind: 'success' });
-    setAmount(0);
-    if (!auth.demo && auth.walletAddress) {
-      void (async () => {
-        try {
-          const res = await prepareBorrow({ amountUsd: amt, collateralMint: WSOL_MINT, collateralUsd: line.eligibleValue, borrowedUsd: borrowed });
-          if (res.txBase64) {
-            const token = await auth.getToken();
-            await auth.signAndSend(res.txBase64, SOLANA_RPC_URL, token ?? '');
-          }
-        } catch {
-          /* not deployed / not keyed → the local reflect above already covered it */
-        }
-      })();
+
+    // Demo / not signed in → local simulation only, clearly labeled.
+    if (auth.demo || !auth.walletAddress) {
+      borrow(amt);
+      onBorrowed?.(amt);
+      setSpendMode('credit');
+      setAmount(0);
+      showToast(`Borrowed ${usd(amt, 0)} (demo)`, { sub: 'No real funds move in demo', kind: 'info' });
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await prepareBorrow({ amountUsd: amt, collateralMint: WSOL_MINT, collateralUsd: line.eligibleValue, borrowedUsd: borrowed });
+
+      if (res.simulated || !res.txBase64) {
+        // Kamino isn't enabled/deployed yet → reflect locally, but don't claim a
+        // real money movement.
+        borrow(amt);
+        onBorrowed?.(amt);
+        setSpendMode('credit');
+        setAmount(0);
+        showToast(`Borrowed ${usd(amt, 0)}`, { sub: 'Simulated — Credit goes live when Kamino is on', kind: 'info' });
+        return;
+      }
+
+      // REAL borrow: sign + broadcast via Privy (non-custodial — keys never leave
+      // the device). Only reflect once the tx is actually sent.
+      const token = await auth.getToken();
+      const sig = await auth.signAndSend(res.txBase64, SOLANA_RPC_URL, token ?? '');
+      if (!sig) throw new Error('broadcast_failed');
+      borrow(amt);
+      onBorrowed?.(amt);
+      setSpendMode('credit');
+      setAmount(0);
+      showToast(`Borrowed ${usd(amt, 0)}`, { sub: 'Your crypto stays invested — no sale, no tax event', kind: 'success' });
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      const msg = /over_limit/.test(raw)
+        ? 'That would push past your credit limit'
+        : /no_wallet/.test(raw)
+          ? 'No wallet is linked to your account'
+          : raw;
+      showToast('Borrow failed', { sub: msg.slice(0, 120), kind: 'error' });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -227,8 +257,8 @@ export function CreditModeSheet({
           </View>
 
           <SheetButton
-            label={amount <= 0 ? 'Enter an amount' : amount > available ? 'Over your limit' : `Borrow ${usd(amount, 0)} · spend without selling`}
-            variant={amount <= 0 || amount > available ? 'disabled' : 'long'}
+            label={busy ? 'Borrowing…' : amount <= 0 ? 'Enter an amount' : amount > available ? 'Over your limit' : `Borrow ${usd(amount, 0)} · spend without selling`}
+            variant={busy || amount <= 0 || amount > available ? 'disabled' : 'long'}
             onPress={doBorrow}
             style={{ marginTop: 16 }}
           />
