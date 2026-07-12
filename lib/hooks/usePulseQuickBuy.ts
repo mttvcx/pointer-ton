@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useWallets as useEvmWallets } from '@privy-io/react-auth';
 import type { AppChainId } from '@/lib/chains/appChain';
 import { isEvmTradeChain } from '@/lib/evm/evmTradeChains';
+import { readEvmTokenBalanceRaw } from '@/lib/evm/evmBalance';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
 import { tokenRawForSellPct } from '@/lib/hooks/useSpotTradeExecution';
@@ -429,16 +430,7 @@ export function usePulseQuickBuy() {
         return { ok: false, error: res.error };
       }
 
-      // EVM buys are live; EVM sells need an on-chain token-balance path (next pass).
-      if (evmTradeChain) {
-        if (!silent) {
-          toast.message('EVM selling is next', {
-            description: 'Buys are live on Ethereum, BNB, and Base — selling lands in the follow-up.',
-          });
-        }
-        return silent ? fail('EVM sell not enabled yet') : undefined;
-      }
-      if (!walletsReady || !wallet) {
+      if (!tradeWalletReady || !tradeAddress) {
         if (!silent) {
           toast.error(walletConnectRequiredTitle(activeChain), {
             description: walletConnectRequiredMessage(activeChain),
@@ -446,7 +438,7 @@ export function usePulseQuickBuy() {
         }
         return silent ? fail('Wallet not connected') : undefined;
       }
-      if (activeWalletRow?.is_imported === true) {
+      if (!evmTradeChain && activeWalletRow?.is_imported === true) {
         if (!silent) {
           toast.error('View-only wallet', {
             description: viewOnlyWalletTradeMessage(activeChain),
@@ -469,22 +461,28 @@ export function usePulseQuickBuy() {
       const toastId = silent ? undefined : toast.loading('Sell: quote...');
       const __t0 = performance.now();
       try {
-        const balRes = await fetch(
-          `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet.address)}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        const balJson: unknown = await balRes.json();
-        if (!balRes.ok) {
-          const msg =
-            typeof balJson === 'object' && balJson && 'message' in balJson
-              ? String((balJson as { message: unknown }).message)
-              : balRes.statusText;
-          throw new Error(msg);
+        let rawAmount: string;
+        if (evmTradeChain) {
+          // EVM: read the ERC-20 balance on-chain (no Solana-style balance route).
+          rawAmount = await readEvmTokenBalanceRaw(activeChain, mint, tradeAddress);
+        } else {
+          const balRes = await fetch(
+            `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(tradeAddress)}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          const balJson: unknown = await balRes.json();
+          if (!balRes.ok) {
+            const msg =
+              typeof balJson === 'object' && balJson && 'message' in balJson
+                ? String((balJson as { message: unknown }).message)
+                : balRes.statusText;
+            throw new Error(msg);
+          }
+          rawAmount =
+            typeof balJson === 'object' && balJson && 'rawAmount' in balJson
+              ? String((balJson as { rawAmount: unknown }).rawAmount)
+              : '0';
         }
-        const rawAmount =
-          typeof balJson === 'object' && balJson && 'rawAmount' in balJson
-            ? String((balJson as { rawAmount: unknown }).rawAmount)
-            : '0';
         const amountTokenRaw = tokenRawForSellPct(rawAmount, sellPct);
         if (!amountTokenRaw) {
           if (!silent && toastId) toast.dismiss(toastId);
@@ -494,7 +492,7 @@ export function usePulseQuickBuy() {
         const slippageBps = activePreset?.slippage_bps ?? DEFAULT_SLIPPAGE_BPS;
         const dynamicSlippage = activePreset?.dynamic_slippage ?? true;
         const baseLanding = mevModeToLanding(activePreset?.mev_mode ?? 'reduced');
-        const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+        const blitzOn = isBlitzWallet(wallet?.address ?? '', blitzWalletAddresses);
         const presetFees =
           activePreset != null
             ? {
@@ -517,7 +515,7 @@ export function usePulseQuickBuy() {
           body: JSON.stringify({
             mint,
             side: 'sell' as const,
-            userPublicKey: wallet.address,
+            userPublicKey: tradeAddress ?? wallet?.address ?? '',
             chain: activeChain,
             amountTokenRaw,
             slippageBps,
@@ -548,7 +546,7 @@ export function usePulseQuickBuy() {
         if (!silent && toastId) toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           mint,
           getAccessToken,
         });
@@ -592,10 +590,10 @@ export function usePulseQuickBuy() {
           typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
             ? Math.max(0, ok.summary.amountSolEstimate)
             : 0;
-        if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
+        if (estOut > 0 && wallet) addInstantTradeSellTon(mint, wallet.address, estOut);
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
         invalidateTokenDeskAfterTrade(qc, mint, {
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           reason: 'pulse_quick_sell',
         });
         if (silent) return { ok: true, signature: sig ?? null };
@@ -611,6 +609,8 @@ export function usePulseQuickBuy() {
       walletsReady,
       wallet,
       evmTradeChain,
+      tradeAddress,
+      tradeWalletReady,
       activeWalletRow?.is_imported,
       getAccessToken,
       activePreset,
