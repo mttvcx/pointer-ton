@@ -6,7 +6,7 @@ import { getTokenByMint, type TokenRow } from '@/lib/db/tokens';
 import type { Json } from '@/lib/supabase/types';
 import type { LaunchpadId } from '@/lib/utils/constants';
 
-export type GeckoPulseNetwork = 'eth' | 'bsc' | 'base';
+export type GeckoPulseNetwork = 'eth' | 'bsc' | 'base' | 'robinhood';
 
 type GeckoTokenAttrs = {
   address?: string;
@@ -51,7 +51,7 @@ export async function ensureTokenRowFromGeckoEvm(mintParam: string): Promise<Tok
   const existing = await getTokenByMint(mint);
   if (existing) return existing;
 
-  for (const network of ['eth', 'bsc', 'base'] as const) {
+  for (const network of ['eth', 'bsc', 'base', 'robinhood'] as const) {
     const u = `https://api.geckoterminal.com/api/v2/networks/${network}/tokens/${encodeURIComponent(mint)}`;
     const res = await fetch(u, {
       headers: { accept: 'application/json' },
@@ -96,6 +96,7 @@ export async function ensureTokenRowFromGeckoEvm(mintParam: string): Promise<Tok
 function launchpadForNetwork(n: GeckoPulseNetwork): LaunchpadId {
   if (n === 'eth') return 'eth';
   if (n === 'bsc') return 'bsc';
+  if (n === 'robinhood') return 'robinhood';
   return 'base';
 }
 

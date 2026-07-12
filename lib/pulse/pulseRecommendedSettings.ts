@@ -17,6 +17,7 @@ export const RECOMMENDED_PROTOCOL_IDS: Record<AppChainId, readonly string[]> = {
   eth: ['eth', 'uniswap-v3', 'uniswap-v4', 'clanker'],
   bnb: ['bsc', 'four.meme', 'flap', 'pancakeswap'],
   base: ['base', 'clanker', 'bankr', 'zora-content', 'virtuals'],
+  robinhood: ['robinhood', 'noxa', 'uniswap', 'bankr'],
 };
 
 export const PULSE_RECOMMENDED_CHECKLIST = [

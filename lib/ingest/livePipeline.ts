@@ -41,6 +41,7 @@ export async function runDiscoverTokens(): Promise<DiscoverTokensReport> {
       geckoEth: 0,
       geckoBsc: 0,
       geckoBase: 0,
+      geckoRobinhood: 0,
     };
   }
   const poll = await runScheduledPulsePoll();

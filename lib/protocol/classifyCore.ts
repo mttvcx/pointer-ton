@@ -35,14 +35,16 @@ function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
-function inferChainId(mint: string, geckoNetwork?: 'eth' | 'bsc' | 'base' | null, launchPad?: string | null): AppChainId {
+function inferChainId(mint: string, geckoNetwork?: 'eth' | 'bsc' | 'base' | 'robinhood' | null, launchPad?: string | null): AppChainId {
   if (geckoNetwork === 'eth') return 'eth';
   if (geckoNetwork === 'bsc') return 'bnb';
   if (geckoNetwork === 'base') return 'base';
+  if (geckoNetwork === 'robinhood') return 'robinhood';
   const pad = (launchPad ?? '').toLowerCase();
   if (pad === 'eth') return 'eth';
   if (pad === 'bsc') return 'bnb';
   if (pad === 'base') return 'base';
+  if (pad === 'robinhood' || pad === 'noxa') return 'robinhood';
   if (pad === 'ton') return 'ton';
   const kind = inferMintKind(mint);
   if (kind === 'sol') return 'sol';
@@ -160,7 +162,7 @@ function resolveUnknownClassificationSource(hint?: ClassificationSource): Classi
   return 'unknown';
 }
 
-export function parseGeckoDexProtocol(pool: unknown, network: 'eth' | 'bsc' | 'base'): { protocol_id: CanonicalProtocolId; dex_id: string } | null {
+export function parseGeckoDexProtocol(pool: unknown, network: 'eth' | 'bsc' | 'base' | 'robinhood'): { protocol_id: CanonicalProtocolId; dex_id: string } | null {
   const row = asRecord(pool);
   if (!row) return null;
   const rel = asRecord(row.relationships);
@@ -170,6 +172,7 @@ export function parseGeckoDexProtocol(pool: unknown, network: 'eth' | 'bsc' | 'b
   const dexSlug = dexIdRaw.includes('_') ? dexIdRaw.split('_').slice(1).join('_') : dexIdRaw;
   const d = dexSlug.toLowerCase();
   if (d.includes('pancake')) return { protocol_id: 'pancakeswap', dex_id: d || 'pancakeswap' };
+  if (d.includes('noxa')) return { protocol_id: 'noxa', dex_id: d || 'noxa' };
   if (d.includes('uniswap')) {
     if (d.includes('v4')) return { protocol_id: 'uniswap_v4', dex_id: d };
     if (d.includes('v3')) return { protocol_id: 'uniswap_v3', dex_id: d };
@@ -179,9 +182,10 @@ export function parseGeckoDexProtocol(pool: unknown, network: 'eth' | 'bsc' | 'b
   return null;
 }
 
-function genericEvmProtocol(network: 'eth' | 'bsc' | 'base'): CanonicalProtocolId {
+function genericEvmProtocol(network: 'eth' | 'bsc' | 'base' | 'robinhood'): CanonicalProtocolId {
   if (network === 'eth') return 'eth';
   if (network === 'bsc') return 'bsc';
+  if (network === 'robinhood') return 'robinhood';
   return 'base';
 }
 
@@ -364,7 +368,7 @@ export function classifyTokenProtocol(input: ClassifierInput): TokenClassificati
   if (fromLegacy) {
     let protocol_id: CanonicalProtocolId = fromLegacy;
     if (fromLegacy === 'pump_fun' && hasStructuredMayhemFlag(input.raw_metadata)) protocol_id = 'pump_fun_mayhem';
-    const isEvmGeneric = fromLegacy === 'eth' || fromLegacy === 'bsc' || fromLegacy === 'base';
+    const isEvmGeneric = fromLegacy === 'eth' || fromLegacy === 'bsc' || fromLegacy === 'base' || fromLegacy === 'robinhood';
     return buildResult({
       protocol_id,
       classification_source: 'launch_pad_legacy',
@@ -375,7 +379,15 @@ export function classifyTokenProtocol(input: ClassifierInput): TokenClassificati
   }
 
   const generic =
-    chain_id === 'eth' ? 'eth' : chain_id === 'bnb' ? 'bsc' : chain_id === 'base' ? 'base' : null;
+    chain_id === 'eth'
+      ? 'eth'
+      : chain_id === 'bnb'
+        ? 'bsc'
+        : chain_id === 'base'
+          ? 'base'
+          : chain_id === 'robinhood'
+            ? 'robinhood'
+            : null;
 
   if (chain_id === 'sol' && !generic) {
     return buildResult({

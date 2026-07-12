@@ -17,6 +17,7 @@ const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   eth: 'ethereum',
   bnb: 'bsc',
   base: 'base',
+  robinhood: 'robinhood',
 };
 
 const STALE_MS = 5 * 60_000;

@@ -333,12 +333,14 @@ export async function runScheduledPulsePoll(): Promise<{
   geckoEth: number;
   geckoBsc: number;
   geckoBase: number;
+  geckoRobinhood: number;
 }> {
   const ton = await pollPulseColumn();
   let solDas = 0;
   let geckoEth = 0;
   let geckoBsc = 0;
   let geckoBase = 0;
+  let geckoRobinhood = 0;
   try {
     solDas = await pollSolanaPulseFromDas();
   } catch (err) {
@@ -363,7 +365,13 @@ export async function runScheduledPulsePoll(): Promise<{
     const msg = err instanceof Error ? err.message : String(err);
     console.warn('[pointer][pulse Gecko] Base poll failed:', msg);
   }
-  return { tonapi: ton.inserted, solDas, geckoEth, geckoBsc, geckoBase };
+  try {
+    geckoRobinhood = await pollGeckoNewPools('robinhood');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[pointer][pulse Gecko] Robinhood poll failed:', msg);
+  }
+  return { tonapi: ton.inserted, solDas, geckoEth, geckoBsc, geckoBase, geckoRobinhood };
 }
 
 export async function getPulseFeed(

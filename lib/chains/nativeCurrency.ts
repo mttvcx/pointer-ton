@@ -11,6 +11,8 @@ export function nativeTicker(chain: AppChainId): string {
       return 'BNB';
     case 'base':
       return 'BASE';
+    case 'robinhood':
+      return 'ETH';
     case 'ton':
     default:
       return 'TON';
@@ -29,6 +31,8 @@ export function nativeUsdTickerSymbol(chain: AppChainId): 'SOL' | 'TON' | 'BNB' 
     case 'bnb':
       return 'BNB';
     case 'base':
+      return 'ETH';
+    case 'robinhood':
       return 'ETH';
     case 'ton':
     default:

@@ -26,6 +26,6 @@ export function filterIdsFromTokenRow(token: {
 
 export function chainFromTokenRow(token: { chain_id?: string | null }, fallback: AppChainId): AppChainId {
   const c = token.chain_id;
-  if (c === 'sol' || c === 'ton' || c === 'eth' || c === 'bnb' || c === 'base') return c;
+  if (c === 'sol' || c === 'ton' || c === 'eth' || c === 'bnb' || c === 'base' || c === 'robinhood') return c;
   return fallback;
 }

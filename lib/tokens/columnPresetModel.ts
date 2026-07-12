@@ -251,6 +251,7 @@ const CHAIN_BUCKET_FILTER_ID: Partial<Record<AppChainId, string>> = {
   base: 'base',
   bnb: 'bsc',
   eth: 'eth',
+  robinhood: 'robinhood',
   ton: 'ton',
 };
 

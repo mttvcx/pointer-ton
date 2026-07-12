@@ -27,7 +27,7 @@ export function mintMatchesAppChain(mint: string, chain: AppChainId): boolean {
   const k = inferMintKind(mint);
   if (chain === 'ton') return k === 'ton';
   if (chain === 'sol') return k === 'sol';
-  if (chain === 'eth' || chain === 'bnb' || chain === 'base') return k === 'evm';
+  if (chain === 'eth' || chain === 'bnb' || chain === 'base' || chain === 'robinhood') return k === 'evm';
   return false;
 }
 
@@ -46,7 +46,8 @@ export function appChainForMintNavigation(mint: string, activeChain: AppChainId)
   if (k === 'ton') return 'ton';
   if (k === 'sol') return 'sol';
   if (k === 'evm') {
-    if (activeChain === 'eth' || activeChain === 'bnb' || activeChain === 'base') return activeChain;
+    if (activeChain === 'eth' || activeChain === 'bnb' || activeChain === 'base' || activeChain === 'robinhood')
+      return activeChain;
     return 'eth';
   }
   return activeChain;
@@ -81,6 +82,7 @@ export function explorerTokenHrefFromMint(mint: string, evmPrefer: AppChainId): 
   if (k === 'evm') {
     if (evmPrefer === 'bnb') return `https://bscscan.com/token/${raw}`;
     if (evmPrefer === 'base') return `https://basescan.org/token/${raw}`;
+    if (evmPrefer === 'robinhood') return `https://robinhoodchain.blockscout.com/token/${raw}`;
     return `https://etherscan.io/token/${raw}`;
   }
   return `https://tonviewer.com/${encodeURIComponent(raw)}`;
@@ -93,5 +95,6 @@ export function explorerTokenAriaLabel(chain: AppChainId): string {
   if (chain === 'eth') return 'Etherscan token explorer';
   if (chain === 'bnb') return 'BscScan token explorer';
   if (chain === 'base') return 'Basescan token explorer';
+  if (chain === 'robinhood') return 'Robinhood Chain explorer';
   return 'Token explorer';
 }

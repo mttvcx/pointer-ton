@@ -26,6 +26,7 @@ const CHAIN_IMPORT: Record<AppChainId, { name: string; field: string; hint: stri
   eth: { name: 'Ethereum', field: '', hint: '' },
   bnb: { name: 'BNB', field: '', hint: '' },
   base: { name: 'Base', field: '', hint: '' },
+  robinhood: { name: 'Robinhood', field: '', hint: '' },
 };
 
 export function ImportWalletModal({

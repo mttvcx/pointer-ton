@@ -88,6 +88,22 @@ export const CHAIN_FUNDING: Record<AppChainId, ChainFundingConfig> = {
       networkWalletsPrefix: 'base',
     },
   },
+  robinhood: {
+    pickerLabel: 'Robinhood Chain',
+    chips: [
+      { symbol: 'ETH', swatchClass: SW.base },
+      { symbol: 'USDC', swatchClass: 'bg-[#2775ca]' },
+    ],
+    onramper: {
+      defaultCryptoId: 'eth',
+      popularCryptos: 'eth,usdc',
+      // Robinhood Chain (Arbitrum Orbit, mainnet mid-2026) — Onramper has no network
+      // slug for it yet, so the fiat on-ramp shows nothing rather than mis-routing to
+      // another chain. Users bridge ETH in (LayerZero / Arbitrum) until an on-ramp lists it.
+      onlyCryptoNetworks: 'robinhood',
+      networkWalletsPrefix: 'robinhood',
+    },
+  },
   bnb: {
     pickerLabel: 'BNB Chain',
     chips: [

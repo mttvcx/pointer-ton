@@ -21,6 +21,7 @@ const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   eth: 'ethereum',
   bnb: 'bsc',
   base: 'base',
+  robinhood: 'robinhood',
 };
 
 type DexLatestResponse = {

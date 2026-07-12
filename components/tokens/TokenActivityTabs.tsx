@@ -72,6 +72,7 @@ const NATIVE_USD_HINT: Record<AppChainId, number> = {
   ton: 5.5,
   bnb: 650,
   base: 3200,
+  robinhood: 3200,
 };
 
 type TabId = 'trades' | 'positions' | 'orders' | 'holders' | 'traders' | 'dev_tokens';

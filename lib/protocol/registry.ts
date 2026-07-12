@@ -41,6 +41,8 @@ export const LAUNCH_PAD_TO_PROTOCOL_ID: Record<string, CanonicalProtocolId> = {
   eth: 'eth',
   bsc: 'bsc',
   base: 'base',
+  robinhood: 'robinhood',
+  noxa: 'noxa',
   ton: 'ton',
 };
 
@@ -57,13 +59,15 @@ export const PROTOCOL_REGISTRY: ProtocolRegistryEntry[] = [
   { protocol_id: 'raydium', display_name: 'Raydium', filter_id: 'raydium', chain_ids: ['sol'], family: 'raydium' },
   { protocol_id: 'meteora', display_name: 'Meteora', filter_id: 'meteora', chain_ids: ['sol'], family: 'meteora' },
   { protocol_id: 'pancakeswap', display_name: 'PancakeSwap', filter_id: 'pancakeswap', chain_ids: ['bnb'], family: 'pancakeswap' },
-  { protocol_id: 'uniswap', display_name: 'Uniswap', filter_id: 'uniswap', chain_ids: ['eth', 'bnb', 'base'], family: 'uniswap' },
+  { protocol_id: 'uniswap', display_name: 'Uniswap', filter_id: 'uniswap', chain_ids: ['eth', 'bnb', 'base', 'robinhood'], family: 'uniswap' },
   { protocol_id: 'uniswap_v2', display_name: 'Uniswap V2', filter_id: 'uniswap-v2', chain_ids: ['eth'], family: 'uniswap' },
   { protocol_id: 'uniswap_v3', display_name: 'Uniswap V3', filter_id: 'uniswap-v3', chain_ids: ['eth'], family: 'uniswap' },
   { protocol_id: 'uniswap_v4', display_name: 'Uniswap V4', filter_id: 'uniswap-v4', chain_ids: ['eth'], family: 'uniswap' },
   { protocol_id: 'eth', display_name: 'Ethereum', filter_id: 'eth', chain_ids: ['eth'], family: 'evm' },
   { protocol_id: 'bsc', display_name: 'BNB Chain', filter_id: 'bsc', chain_ids: ['bnb'], family: 'evm' },
   { protocol_id: 'base', display_name: 'Base', filter_id: 'base', chain_ids: ['base'], family: 'evm' },
+  { protocol_id: 'robinhood', display_name: 'Robinhood Chain', filter_id: 'robinhood', chain_ids: ['robinhood'], family: 'evm' },
+  { protocol_id: 'noxa', display_name: 'Noxa', filter_id: 'noxa', chain_ids: ['robinhood'], family: 'noxa' },
   { protocol_id: 'ton', display_name: 'TON', filter_id: 'ton', chain_ids: ['ton'], family: 'ton' },
 ];
 
@@ -106,6 +110,7 @@ export const PULSE_SUPPORTED_FILTER_IDS: Record<AppChainId, readonly string[]> =
     'virtuals',
     'klik',
   ],
+  robinhood: ['robinhood', 'noxa', 'uniswap', 'bankr'],
 };
 
 export function protocolIdToFilterId(protocolId: string | null | undefined): string | null {

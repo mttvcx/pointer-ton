@@ -12,10 +12,11 @@ export const SOL_LAUNCHPADS = [
 ] as const satisfies readonly ProtocolBrandId[];
 
 /** EVM launchpads the AI may recommend, per chain (first = default). */
-export const EVM_LAUNCHPADS: Record<'eth' | 'bnb' | 'base', readonly ProtocolBrandId[]> = {
+export const EVM_LAUNCHPADS: Record<'eth' | 'bnb' | 'base' | 'robinhood', readonly ProtocolBrandId[]> = {
   eth: ['clanker', 'uniswap', 'virtuals'],
   bnb: ['four.meme', 'pancakeswap', 'flap'],
   base: ['clanker', 'flaunch', 'zora-creator', 'bankr', 'virtuals'],
+  robinhood: ['noxa', 'uniswap'],
 };
 
 /** Every launchpad the AI may pick across all chains (deduped union). */
@@ -30,6 +31,7 @@ export const LAUNCH_PACKAGE_LAUNCHPADS = [
   'flaunch',
   'zora-creator',
   'bankr',
+  'noxa',
 ] as const satisfies readonly ProtocolBrandId[];
 
 export type LaunchPackageLaunchpad = (typeof LAUNCH_PACKAGE_LAUNCHPADS)[number];
@@ -39,6 +41,7 @@ export function launchpadsForChain(chain: AppChainId): readonly LaunchPackageLau
   if (chain === 'eth') return EVM_LAUNCHPADS.eth as readonly LaunchPackageLaunchpad[];
   if (chain === 'bnb') return EVM_LAUNCHPADS.bnb as readonly LaunchPackageLaunchpad[];
   if (chain === 'base') return EVM_LAUNCHPADS.base as readonly LaunchPackageLaunchpad[];
+  if (chain === 'robinhood') return EVM_LAUNCHPADS.robinhood as readonly LaunchPackageLaunchpad[];
   return SOL_LAUNCHPADS as readonly LaunchPackageLaunchpad[];
 }
 

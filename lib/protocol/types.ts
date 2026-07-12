@@ -19,9 +19,11 @@ export type CanonicalProtocolId =
   | 'uniswap_v2'
   | 'uniswap_v3'
   | 'uniswap_v4'
+  | 'noxa'
   | 'eth'
   | 'bsc'
   | 'base'
+  | 'robinhood'
   | 'ton';
 
 export type TokenKind =

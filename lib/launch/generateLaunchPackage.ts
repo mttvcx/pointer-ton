@@ -12,6 +12,7 @@ const CHAIN_LABEL: Record<AppChainId, string> = {
   eth: 'Ethereum',
   bnb: 'BNB Chain',
   base: 'Base',
+  robinhood: 'Robinhood Chain',
   ton: 'TON',
 };
 

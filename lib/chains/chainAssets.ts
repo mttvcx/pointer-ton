@@ -11,6 +11,7 @@ export const CHAIN_ICON_PNG: Record<AppChainId, string> = {
   eth: '/chains/eth.png',
   bnb: '/chains/bnb.png',
   base: '/chains/base.png',
+  robinhood: '/chains/robinhood.svg',
   ton: '/chains/ton.png',
 };
 
@@ -79,6 +80,7 @@ export const chainLogoSrc: Record<string, string> = {
   hyperliquid: '/chains/hyperliquid.svg',
   ethereum: '/chains/eth.png',
   eth: '/chains/eth.png',
+  robinhood: '/chains/robinhood.svg',
 };
 
 export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {
@@ -86,6 +88,7 @@ export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {
   eth: 'Ethereum',
   bnb: 'BNB',
   base: 'Base',
+  robinhood: 'Robinhood Chain',
   ton: 'The Open Network',
 };
 
@@ -94,6 +97,8 @@ export const CHAIN_TICKER: Record<AppChainId, string> = {
   eth: 'ETH',
   bnb: 'BNB',
   base: 'BASE',
+  // Robinhood Chain's gas token is ETH (Arbitrum Orbit L2) — badge it as ETH.
+  robinhood: 'ETH',
   ton: 'TON',
 };
 

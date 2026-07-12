@@ -34,6 +34,7 @@ const CHAIN_PATH: Partial<Record<AppChainId, string>> = {
   eth: 'ethereum',
   bnb: 'bsc',
   base: 'base',
+  robinhood: 'robinhood',
 };
 
 function mergeDexExtendedMetrics(prev: Json | null | undefined, next: Json | null | undefined): Json {

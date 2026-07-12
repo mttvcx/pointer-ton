@@ -203,6 +203,10 @@ export const LAUNCHPAD_LABELS = {
   bsc: 'BNB Chain',
   /** Base chain meme / new-pool discovery (Gecko Terminal ingest). */
   base: 'Base',
+  /** Robinhood Chain new-pool discovery (Gecko Terminal ingest). */
+  robinhood: 'Robinhood Chain',
+  /** Noxa launchpad on Robinhood Chain (fun.noxa.fi). */
+  noxa: 'Noxa',
   unknown: 'Unknown',
 } as const;
 export type LaunchpadId = keyof typeof LAUNCHPAD_LABELS;
@@ -230,6 +234,8 @@ export const LAUNCHPAD_AUTHORITIES: Record<LaunchpadId, string | null> = {
   eth: null,
   bsc: null,
   base: null,
+  robinhood: null,
+  noxa: null,
   unknown: null,
 };
 

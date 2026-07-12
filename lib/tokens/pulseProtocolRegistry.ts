@@ -68,6 +68,8 @@ export const PULSE_COLUMN_PROTOCOL_LABEL: Record<string, string> = {
   virtuals: 'Virtuals',
   bsc: 'BNB (new pools)',
   base: 'Base (new pools)',
+  robinhood: 'Robinhood (new pools)',
+  noxa: 'Noxa',
   bankr: 'Bankr',
   flaunch: 'Flaunch',
   'zora-content': 'Zora Content',

@@ -7,6 +7,7 @@ export const CHAIN_BUCKET_AVATAR_PROTOCOLS = new Set<ProtocolBrandId>([
   'bsc',
   'eth',
   'base',
+  'robinhood',
   'ton',
 ]);
 
@@ -30,6 +31,7 @@ export function protocolBrandIdFromDexId(
   if (dexId.includes('four') && dexId.includes('meme')) return 'four.meme';
   if (dexId.includes('flap')) return 'flap';
   if (dexId.includes('clanker')) return 'clanker';
+  if (dexId.includes('noxa')) return 'noxa';
   if (dexId.includes('bankr')) return 'bankr';
   if (dexId.includes('flaunch')) return 'flaunch';
   if (dexId.includes('zora') && dexId.includes('creator')) return 'zora-creator';

@@ -3,18 +3,19 @@ import { inferMintKind, mintMatchesAppChain } from '@/lib/chains/mintKind';
 import type { Tables } from '@/lib/supabase/types';
 
 /** Gecko Terminal network slug stored on `tokens.raw_metadata.geckoNetwork`. */
-export type GeckoEvmNetwork = 'eth' | 'bsc' | 'base';
+export type GeckoEvmNetwork = 'eth' | 'bsc' | 'base' | 'robinhood';
 
 export function geckoNetworkFromRawMetadata(raw: unknown): GeckoEvmNetwork | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const n = (raw as Record<string, unknown>).geckoNetwork;
-  if (n === 'eth' || n === 'bsc' || n === 'base') return n;
+  if (n === 'eth' || n === 'bsc' || n === 'base' || n === 'robinhood') return n;
   return null;
 }
 
 export function appChainFromGeckoNetwork(n: GeckoEvmNetwork): AppChainId {
   if (n === 'eth') return 'eth';
   if (n === 'bsc') return 'bnb';
+  if (n === 'robinhood') return 'robinhood';
   return 'base';
 }
 
@@ -22,6 +23,7 @@ export function geckoNetworkForAppChain(chain: AppChainId): GeckoEvmNetwork | nu
   if (chain === 'eth') return 'eth';
   if (chain === 'bnb') return 'bsc';
   if (chain === 'base') return 'base';
+  if (chain === 'robinhood') return 'robinhood';
   return null;
 }
 
@@ -50,6 +52,11 @@ function launchPadHintsAppChain(launchPad: string | null | undefined, chain: App
       p.includes('flaunch')
     );
   }
+  if (chain === 'robinhood') {
+    // Only robinhood-specific launchpads — uniswap/bankr are shared with eth/base,
+    // so the reliable signal is the geckoNetwork metadata checked above.
+    return p === 'robinhood' || p.includes('noxa');
+  }
   return false;
 }
 
@@ -62,7 +69,7 @@ export function tokenMatchesAppChain(
   chain: AppChainId,
 ): boolean {
   if (!mintMatchesAppChain(token.mint, chain)) return false;
-  if (chain !== 'eth' && chain !== 'bnb' && chain !== 'base') return true;
+  if (chain !== 'eth' && chain !== 'bnb' && chain !== 'base' && chain !== 'robinhood') return true;
 
   const gn = geckoNetworkFromRawMetadata(token.raw_metadata);
   if (gn) return appChainFromGeckoNetwork(gn) === chain;

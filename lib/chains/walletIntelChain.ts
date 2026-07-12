@@ -17,7 +17,8 @@ export function appChainForWalletAddress(
     if (
       preferChain === 'eth' ||
       preferChain === 'bnb' ||
-      preferChain === 'base'
+      preferChain === 'base' ||
+      preferChain === 'robinhood'
     ) {
       return preferChain;
     }

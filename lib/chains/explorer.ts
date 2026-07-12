@@ -17,6 +17,8 @@ export function explorerAccountUrlForChain(address: string, chain: AppChainId): 
       return `https://bscscan.com/address/${encodeURIComponent(a)}`;
     case 'base':
       return `https://basescan.org/address/${encodeURIComponent(a)}`;
+    case 'robinhood':
+      return `https://robinhoodchain.blockscout.com/address/${encodeURIComponent(a)}`;
     case 'ton':
     default:
       return `https://tonviewer.com/${encodeURIComponent(a)}`;

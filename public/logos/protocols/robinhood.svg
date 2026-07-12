@@ -1,0 +1,14 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Robinhood Chain">
+  <defs>
+    <linearGradient id="rhBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2AE06E"/>
+      <stop offset="1" stop-color="#009E2B"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#rhBg)"/>
+  <g transform="translate(12 12) scale(1.6667)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/>
+    <path d="M16 8 2 22"/>
+    <path d="M17.5 15H9"/>
+  </g>
+</svg>
