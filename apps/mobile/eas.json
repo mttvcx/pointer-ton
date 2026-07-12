@@ -7,7 +7,7 @@
       "ios": { "simulator": false },
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://pointer-ton-orcin.vercel.app",
+        "EXPO_PUBLIC_API_URL": "https://pointer.am",
         "EXPO_PUBLIC_PRIVY_APP_ID": "cmoot23of00cf0cjx8h7wpppu",
         "EXPO_PUBLIC_PRIVY_CLIENT_ID": "client-WY6YgjkCQGuXnbD4ZZ2opKaHaTbCg6Vi3prADDS3J4MtB",
         "EXPO_PUBLIC_CROSSMINT_CLIENT_KEY": "ck_staging_5ZSwz6a8ZWhNQ8cE2z9ew6psxVUguvTnuaZZQiP2kBtF4N4ZBe5FJTvMHw9uTUfVw5G2wMhpqkXZf7R2J7YZPsFvsT5LSJuDjcbDje8AByWvWXNxAFJ8btNgkEm8WKmWBu3hoUJ5RMS4viP9A3T3HeyQhQMoYipf2wGiQXJJ1pRpJKvc58NgzYpZN8kusqKLB6PP5shyGA4WkD79xEtmDL7E"
