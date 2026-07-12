@@ -386,7 +386,7 @@ export function drawPnlCardFrame(
   );
   ctx.font = `600 ${Math.round(pos.footerDomain.fontSize * ts)}px ui-sans-serif, system-ui, sans-serif`;
   ctx.fillStyle = cardTheme.accent;
-  ctx.fillText('pointer.trade', colX, pos.footerDomain.y * scale);
+  ctx.fillText('pointer.am', colX, pos.footerDomain.y * scale);
   ctx.fillStyle = 'rgba(255,255,255,0.78)';
   ctx.font = `500 ${Math.round(pos.footerPromo.fontSize * ts)}px ui-sans-serif, system-ui, sans-serif`;
   ctx.fillText('Save 50% off fees, forever.', colX, pos.footerPromo.y * scale);

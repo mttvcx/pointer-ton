@@ -6,7 +6,7 @@ import { usePrivy } from '@privy-io/react-auth';
 
 /**
  * Pointer Extension connect / approve screen. The user is already logged into
- * pointer.trade; they approve linking this browser extension. We mint a single-use
+ * pointer.am; they approve linking this browser extension. We mint a single-use
  * code server-side and hand it to the extension via `externally_connectable`
  * messaging — the scoped token is then minted on the extension's own server call,
  * so it never touches this page's JS.

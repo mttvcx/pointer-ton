@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${key}`,
-            'HTTP-Referer': 'https://pointer.trade',
+            'HTTP-Referer': 'https://pointer.am',
             'X-Title': 'Sibyl by Pointer',
           },
           body: JSON.stringify({ model, stream: true, temperature: 0.6, max_tokens: 1200, messages }),

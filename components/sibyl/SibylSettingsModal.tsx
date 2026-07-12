@@ -208,7 +208,7 @@ export function SibylSettingsModal({
                 </Row>
               ) : null}
               <div className="mt-4 flex gap-2">
-                <a href="https://pointer.trade" target="_blank" rel="noreferrer" className="flex-1 rounded-lg s-panel2 px-3 py-2 text-center text-[12px] font-medium s-fg transition h-panel2">Home</a>
+                <a href="https://pointer.am" target="_blank" rel="noreferrer" className="flex-1 rounded-lg s-panel2 px-3 py-2 text-center text-[12px] font-medium s-fg transition h-panel2">Home</a>
                 <a href="https://discord.gg" target="_blank" rel="noreferrer" className="flex-1 rounded-lg s-panel2 px-3 py-2 text-center text-[12px] font-medium s-fg transition h-panel2">Discord</a>
                 <a href="https://x.com" target="_blank" rel="noreferrer" className="flex-1 rounded-lg s-panel2 px-3 py-2 text-center text-[12px] font-medium s-fg transition h-panel2">X / Twitter</a>
               </div>

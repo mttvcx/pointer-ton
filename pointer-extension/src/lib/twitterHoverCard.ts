@@ -245,7 +245,7 @@ function poweredBy(): HTMLElement {
   img.src = LOGO;
   Object.assign(img.style, { width: '18px', height: '18px', objectFit: 'contain' } as CSSStyleDeclaration);
   const t = document.createElement('span');
-  t.textContent = 'powered by pointer.trade';
+  t.textContent = 'powered by pointer.am';
   Object.assign(t.style, { fontSize: '11.5px', fontWeight: '600', color: 'rgb(160,166,173)' } as CSSStyleDeclaration);
   a.append(img, t);
   return a;

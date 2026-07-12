@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /** Revoke this extension session (the family). Authed by the scoped token itself,
- *  so a user can disconnect from the extension; pointer.trade can also revoke a
+ *  so a user can disconnect from the extension; pointer.am can also revoke a
  *  listed connection server-side via the same family handle. */
 export async function POST(req: NextRequest) {
   const auth = await requireExtAuth(req);

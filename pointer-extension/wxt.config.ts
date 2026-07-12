@@ -11,13 +11,11 @@ export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
   // API base is deterministic per build mode (overrides any committed .env): local
-  // dev → :3001, everything else → pointer.trade. Prevents a store/prod build from
-  // accidentally shipping localhost.
+  // dev → :3001, everything else → pointer.am (the live canonical domain). Prevents
+  // a store/prod build from accidentally shipping localhost.
   vite: () => ({
     define: {
-      // pointer.trade isn't live yet (NXDOMAIN) — prod points at the actual Vercel
-      // deployment. Swap to pointer.trade once that domain is configured.
-      'import.meta.env.VITE_POINTER_API_BASE': JSON.stringify(LOCAL ? 'http://localhost:3001' : 'https://pointer-ton-orcin.vercel.app'),
+      'import.meta.env.VITE_POINTER_API_BASE': JSON.stringify(LOCAL ? 'http://localhost:3001' : 'https://pointer.am'),
     },
   }),
   manifest: {
@@ -37,6 +35,8 @@ export default defineConfig({
     host_permissions: [
       ...(LOCAL ? ['http://localhost/*', 'http://127.0.0.1/*'] : []),
       // Pointer's own API — the background worker fetches /api/ext here.
+      'https://pointer.am/*',
+      'https://*.pointer.am/*',
       'https://pointer-ton-orcin.vercel.app/*',
       'https://pointer.trade/*',
       'https://*.pointer.trade/*',
@@ -44,11 +44,13 @@ export default defineConfig({
       'https://x.com/*',
       'https://twitter.com/*',
     ],
-    // Only pointer.trade may message the extension (the connect handshake hands a
-    // single-use code in; nothing else can reach the background externally).
+    // Only Pointer's own domains may message the extension (the connect handshake
+    // hands a single-use code in; nothing else can reach the background externally).
     externally_connectable: {
       matches: [
         ...(LOCAL ? ['http://localhost/*'] : []),
+        'https://pointer.am/*',
+        'https://*.pointer.am/*',
         'https://pointer-ton-orcin.vercel.app/*',
         'https://pointer.trade/*',
         'https://*.pointer.trade/*',

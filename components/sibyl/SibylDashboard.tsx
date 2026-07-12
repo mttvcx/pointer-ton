@@ -35,10 +35,10 @@ const MODELS = [
 ];
 
 const ECOSYSTEM = [
-  { label: 'pointer.trade', href: 'https://pointer.trade' },
-  { label: 'Financial', href: 'https://pointer.trade' },
-  { label: 'Mobile', href: 'https://pointer.trade' },
-  { label: 'Extension', href: 'https://pointer.trade' },
+  { label: 'pointer.am', href: 'https://pointer.am' },
+  { label: 'Financial', href: 'https://pointer.am' },
+  { label: 'Mobile', href: 'https://pointer.am' },
+  { label: 'Extension', href: 'https://pointer.am' },
 ];
 
 /** Contextual thinking plan from the raw query — drives the live trace (never names a model). */
@@ -757,7 +757,7 @@ export function SibylDashboard({ initialChatId }: { initialChatId?: string } = {
                 </button>
                 {acctSub === 'learn' ? (
                   <div className="stagger ml-3 border-l s-border pl-2">
-                    <MenuItem sub href="https://pointer.trade" icon={<I d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" className="h-4 w-4" />}>Pointer home</MenuItem>
+                    <MenuItem sub href="https://pointer.am" icon={<I d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" className="h-4 w-4" />}>Pointer home</MenuItem>
                     <MenuItem sub href="https://discord.gg" icon={<I d="M8 12a1 1 0 1 0 0-.01M16 12a1 1 0 1 0 0-.01M7 5.5c4-1.5 6-1.5 10 0M7 18.5c4 1.5 6 1.5 10 0M7 5.5 5 8v8l2 2.5M17 5.5 19 8v8l-2 2.5" className="h-4 w-4" />}>Discord</MenuItem>
                     <MenuItem sub href="https://x.com" icon={<I d="M4 4l16 16M20 4 4 20" className="h-4 w-4" />}>X / Twitter</MenuItem>
                   </div>

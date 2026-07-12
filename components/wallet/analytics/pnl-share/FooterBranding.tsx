@@ -51,7 +51,7 @@ export function FooterBranding({
           className="font-sans font-semibold tracking-wide"
           style={{ fontSize: pos.footerDomain.fontSize, lineHeight: 1.2, color: cardTheme.accent }}
         >
-          pointer.trade
+          pointer.am
         </span>
       </span>
       <p

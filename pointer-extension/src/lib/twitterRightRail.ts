@@ -148,7 +148,7 @@ function buildCard(handle: string, id: string): HTMLElement {
   t.textContent = 'Pointer';
   Object.assign(t.style, { fontWeight: '800', fontSize: '15px', letterSpacing: '-0.02em' } as CSSStyleDeclaration);
   const hh = document.createElement('span');
-  hh.textContent = 'powered by pointer.trade';
+  hh.textContent = 'powered by pointer.am';
   Object.assign(hh.style, { marginLeft: 'auto', fontSize: '11.5px', fontWeight: '600', color: 'rgb(160,166,173)' } as CSSStyleDeclaration);
   head.append(img, t, hh);
   const body = document.createElement('div');
@@ -422,7 +422,7 @@ function fillInline(card: HTMLElement, data: ProfileSummary | null, handle: stri
   plogo.src = LOGO;
   Object.assign(plogo.style, { width: '18px', height: '18px', objectFit: 'contain' } as CSSStyleDeclaration);
   const ptxt = document.createElement('span');
-  ptxt.textContent = 'powered by pointer.trade';
+  ptxt.textContent = 'powered by pointer.am';
   powered.append(plogo, ptxt);
   head.appendChild(powered);
   body.appendChild(head);

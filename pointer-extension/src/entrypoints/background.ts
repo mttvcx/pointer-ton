@@ -196,7 +196,7 @@ export default defineBackground(() => {
     return true; // async response
   });
 
-  // The connect handshake: ONLY pointer.trade (externally_connectable) can send the
+  // The connect handshake: ONLY Pointer's own domains (externally_connectable) can send the
   // single-use code, which we exchange server-side for the scoped token.
   chrome.runtime.onMessageExternal.addListener(
     (msg: { pointerConnect?: { code?: string } }, _sender, sendResponse) => {

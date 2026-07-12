@@ -109,7 +109,7 @@ export async function callModel(input: CallModelInput): Promise<string> {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${key}`,
-        'HTTP-Referer': 'https://ai.pointer-ton-orcin.vercel.app',
+        'HTTP-Referer': 'https://pointer.am',
         'X-Title': 'Sibyl by Pointer',
       },
       body: JSON.stringify({
