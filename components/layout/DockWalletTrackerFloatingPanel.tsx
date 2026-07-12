@@ -737,7 +737,11 @@ export function DockWalletTrackerFloatingPanel() {
           <CloseButton
             data-no-drag
             label="Close Wallet Tracker"
-            className="absolute right-1 top-1/2 z-10 -translate-y-1/2"
+            // z-30 must sit ABOVE the free-float resize handles (edges z-20, corners
+            // z-[21]) — the X lives in the top-right where the top/right/tr handles all
+            // converge, so at a lower z they'd swallow the click (panel resizes instead
+            // of closing) while the button still shows its hover state. Keep this above 21.
+            className="absolute right-1 top-1/2 z-30 -translate-y-1/2"
             onClick={() => setOpen(false)}
           />
         </header>
