@@ -84,7 +84,7 @@ const EvmExecuteSchema = z
   .object({
     chain: z.literal('evm'),
     txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
-    appChain: z.enum(['eth', 'bnb', 'base']),
+    appChain: z.enum(['eth', 'bnb', 'base', 'robinhood']),
     wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
     mint: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
     side: z.enum(['buy', 'sell']),

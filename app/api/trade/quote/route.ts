@@ -4,6 +4,7 @@ import { parseEther } from 'viem';
 import { z } from 'zod';
 import { inferMintKind } from '@/lib/chains/mintKind';
 import { buildEvmSwapQuote } from '@/lib/evm/evmSwapQuote';
+import { buildRobinhoodSwapQuote } from '@/lib/evm/robinhoodSwap';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import {
   assertTradingAllowed,
@@ -166,9 +167,9 @@ export async function POST(req: NextRequest) {
       );
     }
     const appChain = body.chain;
-    if (appChain !== 'eth' && appChain !== 'bnb' && appChain !== 'base') {
+    if (appChain !== 'eth' && appChain !== 'bnb' && appChain !== 'base' && appChain !== 'robinhood') {
       return NextResponse.json(
-        { error: 'unsupported_evm_chain', message: 'EVM trading is live on Ethereum, BNB, and Base.' },
+        { error: 'unsupported_evm_chain', message: 'EVM trading is live on Ethereum, BNB, Base, and Robinhood.' },
         { status: 400 },
       );
     }
@@ -195,14 +196,24 @@ export async function POST(req: NextRequest) {
         }
         sellAmountRaw = body.amountTokenRaw;
       }
-      const evm = await buildEvmSwapQuote({
-        chain: appChain,
-        side: body.side,
-        token: body.mint,
-        wallet: body.userPublicKey,
-        sellAmountRaw,
-        slippageBps,
-      });
+      // Robinhood (4663) → direct Uniswap V3; eth/bnb/base → LiFi aggregator.
+      const evm =
+        appChain === 'robinhood'
+          ? await buildRobinhoodSwapQuote({
+              side: body.side,
+              token: body.mint,
+              wallet: body.userPublicKey,
+              sellAmountRaw,
+              slippageBps,
+            })
+          : await buildEvmSwapQuote({
+              chain: appChain,
+              side: body.side,
+              token: body.mint,
+              wallet: body.userPublicKey,
+              sellAmountRaw,
+              slippageBps,
+            });
       const resp: TradeQuoteApiOk = {
         side: body.side,
         mint: body.mint,

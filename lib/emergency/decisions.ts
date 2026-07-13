@@ -3,8 +3,8 @@
  * is unit-testable in isolation. The I/O wrapper lives in `controls.ts`.
  */
 
-export type EmergencyChain = 'sol' | 'base' | 'eth' | 'bnb' | 'ton';
-export const EMERGENCY_CHAINS: readonly EmergencyChain[] = ['sol', 'base', 'eth', 'bnb', 'ton'];
+export type EmergencyChain = 'sol' | 'base' | 'eth' | 'bnb' | 'robinhood' | 'ton';
+export const EMERGENCY_CHAINS: readonly EmergencyChain[] = ['sol', 'base', 'eth', 'bnb', 'robinhood', 'ton'];
 
 export type EmergencyBannerLevel = 'info' | 'warn' | 'critical';
 export type EmergencyBanner = { message: string; level: EmergencyBannerLevel };
@@ -33,7 +33,7 @@ export function defaultControls(): EmergencyControls {
     packs: true,
     cashback: true,
     referral: true,
-    chains: { sol: true, base: true, eth: true, bnb: true, ton: true },
+    chains: { sol: true, base: true, eth: true, bnb: true, robinhood: true, ton: true },
     maintenance: false,
     readOnly: false,
     banner: null,
@@ -51,7 +51,7 @@ export function failClosedControls(): EmergencyControls {
     packs: false,
     cashback: false,
     referral: false,
-    chains: { sol: false, base: false, eth: false, bnb: false, ton: false },
+    chains: { sol: false, base: false, eth: false, bnb: false, robinhood: false, ton: false },
     maintenance: false,
     readOnly: true,
     banner: {

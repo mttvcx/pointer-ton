@@ -63,7 +63,7 @@ export function isTradableAppChain(chain: AppChainId): boolean {
   if (chain === 'sol' || chain === 'ton') return true;
   if (
     process.env.NEXT_PUBLIC_EVM_TRADE_ENABLED === '1' &&
-    (chain === 'eth' || chain === 'bnb' || chain === 'base')
+    (chain === 'eth' || chain === 'bnb' || chain === 'base' || chain === 'robinhood')
   ) {
     return true;
   }

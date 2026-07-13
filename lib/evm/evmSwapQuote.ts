@@ -50,6 +50,8 @@ export type BuildEvmSwapInput = {
 const HEX40 = /^0x[a-fA-F0-9]{40}$/;
 
 export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSwapQuote> {
+  // Robinhood routes through direct Uniswap (buildRobinhoodSwapQuote), never LiFi.
+  if (input.chain === 'robinhood') throw new Error('robinhood_uses_uniswap');
   const chainId = EVM_NUMERIC_CHAIN_ID[input.chain];
   const token = input.token.trim();
   const wallet = input.wallet.trim();

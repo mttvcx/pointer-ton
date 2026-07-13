@@ -12,6 +12,7 @@ import type { EvmTradeChain } from '@/lib/evm/evmTradeChains';
 const CG_ID: Record<EvmTradeChain, 'ethereum' | 'binancecoin'> = {
   eth: 'ethereum',
   base: 'ethereum',
+  robinhood: 'ethereum', // Robinhood Chain gas is ETH
   bnb: 'binancecoin',
 };
 
