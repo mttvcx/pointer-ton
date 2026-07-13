@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PublicKey } from '@solana/web3.js';
 import { useWallets as usePrivySolWallets } from '@privy-io/react-auth/solana';
+import { useWallets as useEvmWallets } from '@privy-io/react-auth';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
+import { isEvmTradeChain } from '@/lib/evm/evmTradeChains';
+import { readEvmTokenBalanceRaw } from '@/lib/evm/evmBalance';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
@@ -110,6 +113,18 @@ export function useSpotTradeExecution(
   const { wallet, wallets, ready: walletsReady, activeAddress, setActiveWalletAddress } =
     useActiveSolanaWallet(myWalletsQ.data?.wallets);
 
+  // EVM chains (eth/bnb/base) trade from the user's Privy EVM wallet. Flag-gated;
+  // isEvmTradeChain excludes robinhood (no aggregator route yet).
+  const { wallets: evmWallets } = useEvmWallets();
+  const evmTradeChain = isEvmTradeChain(activeChain);
+  const evmWallet = useMemo(
+    () => evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0],
+    [evmWallets],
+  );
+  /** Address the trade quotes/signs from — EVM address on eth/bnb/base, else Solana. */
+  const tradeAddress = evmTradeChain ? evmWallet?.address ?? null : wallet?.address ?? null;
+  const tradeWalletReady = evmTradeChain ? Boolean(evmWallet) : walletsReady && Boolean(wallet);
+
   const { wallets: privySolWallets } = usePrivySolWallets();
 
   const signingWalletAddresses = useMemo(() => {
@@ -141,12 +156,16 @@ export function useSpotTradeExecution(
   );
 
   const { data: balanceData, refetch: refetchBalance } = useQuery({
-    queryKey: ['trade-balance', mint, wallet?.address],
+    queryKey: ['trade-balance', mint, tradeAddress],
     queryFn: async () => {
+      // EVM: read the ERC-20 balance on-chain (no Solana-style balance route).
+      if (evmTradeChain && (activeChain === 'eth' || activeChain === 'bnb' || activeChain === 'base')) {
+        return { rawAmount: await readEvmTokenBalanceRaw(activeChain, mint, tradeAddress ?? '') };
+      }
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const res = await fetch(
-        `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet!.address)}`,
+        `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(tradeAddress ?? '')}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       const json: unknown = await res.json();
@@ -159,7 +178,7 @@ export function useSpotTradeExecution(
       }
       return json as { rawAmount: string };
     },
-    enabled: Boolean(walletsReady && wallet?.address && mint),
+    enabled: Boolean(tradeWalletReady && tradeAddress && mint),
     staleTime: 10_000,
   });
 
@@ -288,11 +307,11 @@ export function useSpotTradeExecution(
       }
       const asset: SolSpendAsset =
         spendAssetOverride ?? (activeChain === 'sol' ? spendAsset : 'sol');
-      if (!wallet) {
+      if (!tradeAddress) {
         toast.error(walletConnectRequiredMessage(activeChain));
         return;
       }
-      if (activeWalletRow?.is_imported === true) {
+      if (!evmTradeChain && activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
           description: viewOnlyWalletTradeMessage(activeChain),
         });
@@ -308,7 +327,7 @@ export function useSpotTradeExecution(
         return;
       }
 
-      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const blitzOn = isBlitzWallet(wallet?.address ?? '', blitzWalletAddresses);
       const presetFees =
         activePreset != null
           ? {
@@ -333,7 +352,8 @@ export function useSpotTradeExecution(
           body: JSON.stringify({
             mint,
             side: 'buy' as const,
-            userPublicKey: wallet.address,
+            userPublicKey: tradeAddress,
+            chain: activeChain,
             ...buyQuoteAmountFields(asset, amount),
             slippageBps: effectiveSlippageBps,
             dynamicSlippage,
@@ -352,9 +372,11 @@ export function useSpotTradeExecution(
         }
         const ok = json as TradeQuoteApiOk;
         const executable =
-          ok.chain === 'sol'
-            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
-            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+          ok.chain === 'evm'
+            ? Boolean(ok.evm)
+            : ok.chain === 'sol'
+              ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+              : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
         if (!executable) {
           throw new Error('No swap transaction from quote');
         }
@@ -362,7 +384,7 @@ export function useSpotTradeExecution(
         toast.loading('Buy: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           mint,
           getAccessToken,
         });
@@ -386,7 +408,7 @@ export function useSpotTradeExecution(
           });
           if (posted) void qc.invalidateQueries({ queryKey: ['alerts-ticker'] });
         })();
-        if (asset === 'sol') {
+        if (asset === 'sol' && wallet) {
           addInstantTradeCostBasisTon(mint, wallet.address, amount);
           addInstantTradeBuyTon(mint, wallet.address, amount);
         }
@@ -394,7 +416,7 @@ export function useSpotTradeExecution(
         void refetchUsdcBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
         invalidateTokenDeskAfterTrade(qc, mint, {
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           reason: 'spot_trade',
         });
       } catch (e) {
@@ -405,6 +427,8 @@ export function useSpotTradeExecution(
     },
     [
       wallet,
+      tradeAddress,
+      evmTradeChain,
       activeWalletRow?.is_imported,
       activeChain,
       spendAsset,
@@ -439,11 +463,11 @@ export function useSpotTradeExecution(
         }
         return;
       }
-      if (!wallet) {
+      if (!tradeAddress) {
         toast.error(walletConnectRequiredMessage(activeChain));
         return;
       }
-      if (activeWalletRow?.is_imported === true) {
+      if (!evmTradeChain && activeWalletRow?.is_imported === true) {
         toast.error('View-only wallet', {
           description: viewOnlyWalletTradeMessage(activeChain),
         });
@@ -462,7 +486,7 @@ export function useSpotTradeExecution(
         return;
       }
 
-      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const blitzOn = isBlitzWallet(wallet?.address ?? '', blitzWalletAddresses);
       const presetFees =
         activePreset != null
           ? {
@@ -487,7 +511,8 @@ export function useSpotTradeExecution(
           body: JSON.stringify({
             mint,
             side: 'sell' as const,
-            userPublicKey: wallet.address,
+            userPublicKey: tradeAddress,
+            chain: activeChain,
             amountTokenRaw,
             slippageBps: effectiveSlippageBps,
             dynamicSlippage,
@@ -506,9 +531,11 @@ export function useSpotTradeExecution(
         }
         const ok = json as TradeQuoteApiOk;
         const executable =
-          ok.chain === 'sol'
-            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
-            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+          ok.chain === 'evm'
+            ? Boolean(ok.evm)
+            : ok.chain === 'sol'
+              ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+              : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
         if (!executable) {
           throw new Error('No swap transaction from quote');
         }
@@ -516,7 +543,7 @@ export function useSpotTradeExecution(
         toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           mint,
           getAccessToken,
         });
@@ -548,11 +575,11 @@ export function useSpotTradeExecution(
           typeof ok.summary.amountSolEstimate === 'number' && Number.isFinite(ok.summary.amountSolEstimate)
             ? Math.max(0, ok.summary.amountSolEstimate)
             : 0;
-        if (estOut > 0) addInstantTradeSellTon(mint, wallet.address, estOut);
+        if (estOut > 0 && wallet) addInstantTradeSellTon(mint, wallet.address, estOut);
         void refetchBalance();
         void qc.invalidateQueries({ queryKey: ['wallets-my'] });
         invalidateTokenDeskAfterTrade(qc, mint, {
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           reason: 'spot_trade',
         });
       } catch (e) {
@@ -563,6 +590,8 @@ export function useSpotTradeExecution(
     },
     [
       wallet,
+      tradeAddress,
+      evmTradeChain,
       activeWalletRow?.is_imported,
       activeChain,
       balanceRaw,
@@ -594,6 +623,11 @@ export function useSpotTradeExecution(
           console.debug('[useSpotTradeExecution] sandbox sellSolOut failed', res.error);
           toast.error('SANDBOX sell failed', { description: 'Please try again.' });
         }
+        return;
+      }
+      // "Sell for exact native-out" is a Solana/TON flow — EVM uses the % sell.
+      if (evmTradeChain || !tradeAddress) {
+        toast.message('Use the % sell on this chain.');
         return;
       }
       if (!wallet) {
@@ -660,9 +694,11 @@ export function useSpotTradeExecution(
         }
         const ok = json as TradeQuoteApiOk;
         const executable =
-          ok.chain === 'sol'
-            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
-            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+          ok.chain === 'evm'
+            ? Boolean(ok.evm)
+            : ok.chain === 'sol'
+              ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+              : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
         if (!executable) {
           throw new Error('No swap transaction from quote');
         }
@@ -670,7 +706,7 @@ export function useSpotTradeExecution(
         toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
-          walletAddress: wallet.address,
+          walletAddress: tradeAddress,
           mint,
           getAccessToken,
         });
@@ -720,6 +756,8 @@ export function useSpotTradeExecution(
     },
     [
       wallet,
+      tradeAddress,
+      evmTradeChain,
       activeWalletRow?.is_imported,
       activeChain,
       getAccessToken,
