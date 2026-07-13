@@ -11,6 +11,7 @@ import {
 } from '@privy-io/react-auth/solana';
 import type { TradeQuoteApiOk } from '@/lib/trading/quoteTypes';
 import { submitEvmSwap } from '@/lib/evm/submitEvmSwap';
+import { weiToNativeFloat } from '@/lib/evm/evmTradeChains';
 
 function swapTxBytesFromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -85,6 +86,34 @@ export function usePointerTradeSubmit() {
           evmWallets[0];
         if (!wallet) throw new Error('evm_wallet_not_found');
         const { txHash } = await submitEvmSwap(wallet, evm.appChain, evm);
+        // Record the trade + credit fair volume points (best-effort — the on-chain
+        // swap is already final; recording failing never undoes the trade).
+        try {
+          const token = await getAccessToken();
+          if (token) {
+            const nativeNotional =
+              quote.side === 'buy'
+                ? weiToNativeFloat(evm.sellAmountRaw)
+                : weiToNativeFloat(evm.buyAmountRaw);
+            await fetch('/api/trade/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                chain: 'evm',
+                txHash,
+                appChain: evm.appChain,
+                wallet: wallet.address,
+                mint,
+                side: quote.side,
+                amountInRaw: evm.sellAmountRaw,
+                amountOutRaw: evm.buyAmountRaw,
+                nativeNotional,
+              }),
+            });
+          }
+        } catch {
+          /* recording is best-effort */
+        }
         return { signature: txHash };
       }
 

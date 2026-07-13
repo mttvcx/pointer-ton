@@ -82,3 +82,12 @@ export const ERC20_ABI = [
 export function isEvmTradeEnabled(): boolean {
   return process.env.NEXT_PUBLIC_EVM_TRADE_ENABLED === '1';
 }
+
+/** Convert a wei string to a native float (6dp) without Number precision loss on large wei. */
+export function weiToNativeFloat(wei: string): number {
+  try {
+    return Number((BigInt(wei) * 1_000_000n) / 10n ** 18n) / 1e6;
+  } catch {
+    return 0;
+  }
+}

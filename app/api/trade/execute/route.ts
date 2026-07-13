@@ -20,6 +20,9 @@ import { ingestExecutedSolSwap } from '@/lib/trade/ingestExecutedSwap';
 import { broadcastSignedTransaction } from '@/lib/solana/broadcast';
 import { enforceTradeRateLimit } from '@/lib/rate-limit/userAction';
 import { waitForSolConfirmation } from '@/lib/solana/confirm';
+import { getSolUsdPrice } from '@/lib/packs/pricing';
+import { getNativeUsdForEvmChain } from '@/lib/prices/nativeUsd';
+import { verifyEvmSwapTx } from '@/lib/evm/verifyEvmTx';
 import {
   assertTradingAllowed,
   EmergencyBlockedError,
@@ -70,6 +73,27 @@ const TonExecuteSchema = z
   })
   .strict();
 
+/**
+ * EVM swap record — the client already executed + confirmed the swap on-chain
+ * (its own Privy wallet). This route only RECORDS it + credits fair volume
+ * points. No funds move here. `nativeNotional` = ETH/BNB spent (buy) or received
+ * (sell); it's normalized to a SOL-equivalent so points are fair across chains.
+ * Cashback/referral are skipped — LiFi swaps take no Pointer fee (nothing to rebate).
+ */
+const EvmExecuteSchema = z
+  .object({
+    chain: z.literal('evm'),
+    txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+    appChain: z.enum(['eth', 'bnb', 'base']),
+    wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    mint: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    side: z.enum(['buy', 'sell']),
+    amountInRaw: z.string().regex(/^\d+$/),
+    amountOutRaw: z.string().regex(/^\d+$/),
+    nativeNotional: z.number().nonnegative(),
+  })
+  .strict();
+
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const accessToken = authHeader?.startsWith('Bearer ')
@@ -101,6 +125,76 @@ export async function POST(req: NextRequest) {
   if (tradeRl) return tradeRl;
 
   const json: unknown = await req.json();
+
+  // ── EVM swap record (buy/sell already executed client-side) ──────────────
+  const parsedEvm = EvmExecuteSchema.safeParse(json);
+  if (parsedEvm.success) {
+    const b = parsedEvm.data;
+    // Per-chain emergency kill-switch (fails closed).
+    try {
+      await assertTradingAllowed(b.appChain);
+    } catch (e) {
+      if (e instanceof EmergencyBlockedError) return emergencyBlockedResponse(e);
+      throw e;
+    }
+    // Idempotency — same tx hash converges on the existing row (no double points).
+    const existing = await getTradeBySignature(b.txHash);
+    if (existing) {
+      return NextResponse.json({ signature: b.txHash, tradeId: existing.id, status: 'confirmed' });
+    }
+    // Anti-fraud: the receipt must exist, have succeeded, and be FROM this wallet
+    // before we credit points. RPC error → record best-effort, no points.
+    const verified = await verifyEvmSwapTx(b.appChain, b.txHash, b.wallet);
+    if (verified && verified.ok === false) {
+      return NextResponse.json({ error: 'tx_not_verified' }, { status: 400 });
+    }
+    const rewardable = verified?.ok === true;
+
+    const trade = await insertTrade({
+      id: randomUUID(),
+      user_id: user.id,
+      mint: b.mint,
+      side: b.side,
+      amount_in_raw: b.amountInRaw,
+      amount_out_raw: b.amountOutRaw,
+      amount_sol: b.nativeNotional, // native (ETH/BNB) notional
+      platform_fee_lamports: 0, // LiFi swaps take no Pointer fee → no cashback/referral
+      tx_signature: b.txHash,
+      status: 'confirmed',
+      submitted_at: new Date().toISOString(),
+      confirmed_at: new Date().toISOString(),
+    });
+
+    // Fair volume points: normalize native notional → SOL-equivalent so 1 ETH of
+    // volume ≈ 15 SOL, not 1. Best-effort; a price hiccup never blocks the record.
+    if (rewardable && b.nativeNotional > 0) {
+      try {
+        const [{ solUsd }, nativeUsd] = await Promise.all([
+          getSolUsdPrice(),
+          getNativeUsdForEvmChain(b.appChain),
+        ]);
+        const solEquiv = solUsd > 0 ? (b.nativeNotional * nativeUsd) / solUsd : 0;
+        if (solEquiv > 0) {
+          await awardPoints(user.id, 'trade_volume', {
+            dedupeKey: `trade:${b.txHash}`,
+            amountSol: solEquiv,
+            metadata: { mint: b.mint, side: b.side, chain: b.appChain, signature: b.txHash },
+          });
+          const n = await countConfirmedTradesForUser(user.id);
+          if (n === 1) {
+            await awardPoints(user.id, 'first_trade', {
+              dedupeKey: 'first_trade',
+              metadata: { signature: b.txHash },
+            });
+          }
+        }
+      } catch {
+        /* best-effort rewards */
+      }
+    }
+    return NextResponse.json({ signature: b.txHash, tradeId: trade.id, status: 'confirmed' });
+  }
+
   const parsedSol = SolExecuteSchema.safeParse(json);
 
   // Emergency global + per-chain trading kill switch / maintenance / read-only.
