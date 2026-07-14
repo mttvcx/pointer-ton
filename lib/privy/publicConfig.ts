@@ -1,7 +1,9 @@
 import type { PrivyClientConfig } from '@privy-io/react-auth';
 import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 import { createSolanaRpc, createSolanaRpcSubscriptions } from '@solana/kit';
+import { mainnet, base, bsc } from 'viem/chains';
 import { PRIVY_APP_ID } from '@/lib/privy/appId';
+import { robinhoodChain } from '@/lib/evm/evmTradeChains';
 import { getClientSolanaRpcUrls } from '@/lib/solana/clientRpcUrl';
 
 const solanaRpcUrls = getClientSolanaRpcUrls();
@@ -15,6 +17,10 @@ const solanaConnectors = toSolanaWalletConnectors({
 /** `<PrivyProvider config={privyClientConfig} />` */
 export const privyClientConfig: PrivyClientConfig = {
   loginMethods: ['wallet', 'email', 'google', 'twitter'],
+  // EVM chains the embedded wallet may switch to — without these, switchChain()
+  // to Base/BNB fails and swaps error with "current chain does not match target".
+  defaultChain: mainnet,
+  supportedChains: [mainnet, base, bsc, robinhoodChain],
   appearance: {
     theme: 'dark',
     accentColor: '#7C5CFF',
