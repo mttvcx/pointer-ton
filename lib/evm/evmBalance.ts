@@ -1,27 +1,7 @@
 'use client';
 
-import { createPublicClient, http, fallback } from 'viem';
-import { ERC20_ABI, EVM_VIEM_CHAIN, type EvmTradeChain } from '@/lib/evm/evmTradeChains';
-
-/**
- * Reliable, CORS-enabled public RPCs per EVM chain, used client-side for balance
- * reads. viem's default `http()` points at flaky endpoints (e.g. cloudflare-eth),
- * which would intermittently read balances as 0 — so we use a `fallback` across a
- * couple of solid public providers.
- */
-const CLIENT_RPCS: Record<EvmTradeChain, string[]> = {
-  eth: ['https://ethereum-rpc.publicnode.com', 'https://eth.drpc.org', 'https://rpc.ankr.com/eth'],
-  bnb: ['https://bsc-rpc.publicnode.com', 'https://bsc.drpc.org'],
-  base: ['https://base-rpc.publicnode.com', 'https://base.drpc.org'],
-  robinhood: ['https://rpc.mainnet.chain.robinhood.com'],
-};
-
-function client(chain: EvmTradeChain) {
-  return createPublicClient({
-    chain: EVM_VIEM_CHAIN[chain],
-    transport: fallback(CLIENT_RPCS[chain].map((u) => http(u))),
-  });
-}
+import { ERC20_ABI, type EvmTradeChain } from '@/lib/evm/evmTradeChains';
+import { evmPublicClient as client } from '@/lib/evm/evmRpc';
 
 const HEX40 = /^0x[a-fA-F0-9]{40}$/;
 

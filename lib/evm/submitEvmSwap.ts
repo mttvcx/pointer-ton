@@ -1,6 +1,6 @@
 'use client';
 
-import { createWalletClient, createPublicClient, custom, http } from 'viem';
+import { createWalletClient, custom } from 'viem';
 import type { ConnectedWallet } from '@privy-io/react-auth';
 import {
   ERC20_ABI,
@@ -8,7 +8,12 @@ import {
   EVM_NUMERIC_CHAIN_ID,
   type EvmTradeChain,
 } from '@/lib/evm/evmTradeChains';
+import { evmPublicClient } from '@/lib/evm/evmRpc';
 import type { EvmSwapQuote } from '@/lib/evm/evmSwapQuote';
+
+/** How long to wait for a swap receipt before returning optimistically (server verifies). */
+const RECEIPT_TIMEOUT_MS = 60_000;
+const APPROVE_TIMEOUT_MS = 90_000;
 
 const HEX40 = /^0x[a-fA-F0-9]{40}$/;
 
@@ -33,12 +38,19 @@ export async function submitEvmSwap(
   if (typeof quote.data !== 'string' || !quote.data.startsWith('0x')) throw new Error('bad_calldata');
 
   // Make sure the Privy wallet is on the target chain before building the client.
-  await wallet.switchChain(chainId);
-  const provider = await wallet.getEthereumProvider();
+  // Time-boxed — a hung switchChain/provider must surface an error, never freeze.
+  const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, rej) => setTimeout(() => rej(new Error(label)), ms)),
+    ]);
+  await withTimeout(wallet.switchChain(chainId), 20_000, 'wallet_switch_chain_timeout');
+  const provider = await withTimeout(wallet.getEthereumProvider(), 15_000, 'wallet_provider_timeout');
   const account = wallet.address as `0x${string}`;
   const viemChain = EVM_VIEM_CHAIN[chain];
   const walletClient = createWalletClient({ account, chain: viemChain, transport: custom(provider) });
-  const publicClient = createPublicClient({ chain: viemChain, transport: http() });
+  // Reliable RPCs (never viem's flaky default) so receipt-waiting can't hang for minutes.
+  const publicClient = evmPublicClient(chain);
 
   const value = BigInt(quote.value || '0x0');
   const sellAmount = BigInt(quote.sellAmountRaw);
@@ -63,7 +75,10 @@ export async function submitEvmSwap(
         chain: viemChain,
         account,
       });
-      const approveRcpt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      const approveRcpt = await publicClient.waitForTransactionReceipt({
+        hash: approveHash,
+        timeout: APPROVE_TIMEOUT_MS,
+      });
       if (approveRcpt.status !== 'success') throw new Error('approve_failed');
     }
   }
@@ -78,8 +93,19 @@ export async function submitEvmSwap(
   });
 
   onStage?.('confirming');
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-  if (receipt.status !== 'success') throw new Error('swap_reverted');
+  try {
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: RECEIPT_TIMEOUT_MS,
+    });
+    if (receipt.status !== 'success') throw new Error('swap_reverted');
+  } catch (err) {
+    // A genuine on-chain revert propagates. Anything else (slow RPC, receipt
+    // timeout) — the tx is already broadcast, so stop blocking the UI and return
+    // the hash; /api/trade/execute confirms real success via verifyEvmSwapTx
+    // before crediting points/cashback.
+    if (err instanceof Error && err.message === 'swap_reverted') throw err;
+  }
 
   return { txHash };
 }

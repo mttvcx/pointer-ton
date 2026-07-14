@@ -996,7 +996,8 @@ export function BuySellPanel({
       setQuoteForKey(null);
       setQuoteWallet(null);
       console.error('[BuySellPanel] trade failed', e);
-      toast.error('Trade failed — please try again');
+      const msg = e instanceof Error ? e.message : 'Trade failed';
+      toast.error('Trade failed', { description: msg.slice(0, 200) });
     }
   }, [
     wallet,
