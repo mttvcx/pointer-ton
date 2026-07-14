@@ -71,6 +71,9 @@ import { useTradingStore } from '@/store/trading';
 import { shortenAddress } from '@/lib/utils/addresses';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
+import { useWallets as useEvmWallets } from '@privy-io/react-auth';
+import { isEvmTradeChain, type EvmTradeChain } from '@/lib/evm/evmTradeChains';
+import { readEvmNativeBalance } from '@/lib/evm/evmBalance';
 import { cn } from '@/lib/utils/cn';
 import { CHAIN_TICKER } from '@/lib/chains/chainAssets';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
@@ -188,6 +191,22 @@ export function Topbar() {
     fallbackLamports: activeWalletRow?.balance_lamports,
     getAccessToken,
   });
+
+  // EVM native balance (ETH/BNB) — read on-chain from the Privy EVM wallet, since
+  // there's no Solana-style balance row for EVM. Feeds the header + wallet popover.
+  const { wallets: evmWallets } = useEvmWallets();
+  const evmTradeChain = isEvmTradeChain(activeChain);
+  const evmWalletAddress = useMemo(
+    () => (evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0])?.address ?? null,
+    [evmWallets],
+  );
+  const evmNativeBalQ = useQuery({
+    queryKey: ['evm-native-balance', activeChain, evmWalletAddress],
+    queryFn: () => readEvmNativeBalance(activeChain as EvmTradeChain, evmWalletAddress ?? ''),
+    enabled: authenticated && evmTradeChain && Boolean(evmWalletAddress),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
   const spendAsset = useTradingStore((s) => s.spendAsset);
   const setSpendAsset = useTradingStore((s) => s.setSpendAsset);
 
@@ -304,7 +323,14 @@ export function Topbar() {
     return parseLamportsStringToSol(row?.balance_lamports ?? null) ?? 0;
   }, [activeChain, walletAddress, liveNativeUi, myWalletsQ.data?.wallets]);
 
-  const headerNativeUi = activeChain === 'sol' ? solUi : activeChain === 'ton' ? tonBalanceUi : null;
+  const headerNativeUi =
+    activeChain === 'sol'
+      ? solUi
+      : activeChain === 'ton'
+        ? tonBalanceUi
+        : evmTradeChain
+          ? evmNativeBalQ.data ?? null
+          : null;
 
   const usdcUi = useMemo(() => {
     const h = portfolioQ.data?.holdings?.find((x) => x.mint === USDC_MINT_MAINNET);
