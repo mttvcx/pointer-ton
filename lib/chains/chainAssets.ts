@@ -98,7 +98,9 @@ export const CHAIN_DROPDOWN_LABEL: Record<AppChainId, string> = {
  * Robinhood feather — not the plain chain feather. Falls back to the chain icon.
  */
 const NATIVE_SPEND_ICON: Partial<Record<AppChainId, string>> = {
-  robinhood: '/chains/robinhood-native.svg',
+  // Robinhood's gas token is ETH — the spend/balance/amount icon is the ETH diamond
+  // badged with the Robinhood leaf (user-supplied). The chain SELECTOR stays leaf-only.
+  robinhood: '/chains/eth-robinhood-v2.svg',
 };
 export function nativeSpendIconSrc(chain: AppChainId): string {
   return NATIVE_SPEND_ICON[chain] ?? CHAIN_ICON_PNG[chain];

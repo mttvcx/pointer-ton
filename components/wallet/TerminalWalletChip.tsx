@@ -2,7 +2,7 @@
 
 import { ChevronDown, Wallet } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
-import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import { nativeSpendIconSrc } from '@/lib/chains/chainAssets';
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
 import { cn } from '@/lib/utils/cn';
 
@@ -83,7 +83,7 @@ export function TerminalWalletChip({
           </span>
         ) : null}
         <AssetPair
-          iconSrc={CHAIN_ICON_PNG[activeChain]}
+          iconSrc={nativeSpendIconSrc(activeChain)}
           amount={nativeBalance}
           isNative
           size="dock"
@@ -115,7 +115,7 @@ export function TerminalWalletChip({
       ) : null}
 
       <AssetPair
-        iconSrc={CHAIN_ICON_PNG[activeChain]}
+        iconSrc={nativeSpendIconSrc(activeChain)}
         amount={nativeBalance}
         isNative
         size={isDock ? 'dock' : 'header'}

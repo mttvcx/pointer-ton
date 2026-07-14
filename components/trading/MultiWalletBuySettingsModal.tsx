@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PrefField, PrefToggle, SegmentedControl } from '@/components/preferences/controls';
 import { CloseButton } from '@/components/ui/CloseButton';
 import {
@@ -37,6 +38,9 @@ export function MultiWalletBuySettingsModal({
   const activeChain = useUIStore((s) => s.activeChain);
   const nativeSym = nativeTicker(activeChain);
   const [s, setS] = useState<MultiWalletBuySettings>(defaultMultiWalletBuySettings);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -44,7 +48,16 @@ export function MultiWalletBuySettingsModal({
     return () => cancelAnimationFrame(raf);
   }, [open]);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open || !mounted) return null;
 
   function patch<K extends keyof MultiWalletBuySettings>(key: K, value: MultiWalletBuySettings[K]) {
     setS((prev) => {
@@ -61,12 +74,16 @@ export function MultiWalletBuySettingsModal({
   const totalOut =
     s.distribution === 'per_wallet' ? previewChip * wallets : previewChip;
 
-  return (
-    <div className="fixed inset-0 z-[530] flex animate-in fade-in items-center justify-center bg-black/65 p-4 duration-200">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[530] flex animate-in fade-in items-center justify-center bg-black/65 p-4 duration-200"
+      onClick={onClose}
+    >
       <div
         className="flex max-h-[90vh] w-full max-w-md animate-in zoom-in-95 fade-in flex-col overflow-hidden rounded-xl border border-border-subtle bg-bg-base shadow-2xl duration-200"
         role="dialog"
         aria-labelledby="multi-wallet-buy-settings-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
           <h2 id="multi-wallet-buy-settings-title" className="text-sm font-semibold text-fg-primary">
@@ -179,6 +196,7 @@ export function MultiWalletBuySettingsModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

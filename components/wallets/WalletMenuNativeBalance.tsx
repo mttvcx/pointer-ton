@@ -1,7 +1,7 @@
 'use client';
 
 import type { AppChainId } from '@/lib/chains/appChain';
-import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import { nativeSpendIconSrc } from '@/lib/chains/chainAssets';
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
 import { cn } from '@/lib/utils/cn';
 
@@ -22,7 +22,7 @@ export function WalletMenuNativeBalance({
   return (
     <span className={cn('inline-flex items-center gap-1.5', className)}>
       <img
-        src={CHAIN_ICON_PNG[activeChain]}
+        src={nativeSpendIconSrc(activeChain)}
         alt=""
         width={14}
         height={14}

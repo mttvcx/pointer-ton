@@ -37,7 +37,7 @@ import { useSpotTradeExecution } from '@/lib/hooks/useSpotTradeExecution';
 import { useTradingStore, type PresetSlot, INSTANT_TRADE_WALLET_CAP } from '@/store/trading';
 import { useUIStore } from '@/store/ui';
 import { nativeTicker } from '@/lib/chains/nativeCurrency';
-import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import { nativeSpendIconSrc } from '@/lib/chains/chainAssets';
 import { formatNumber, lamportsToSol, rawToUi } from '@/lib/utils/formatters';
 import { BlitzWalletChip } from '@/components/trading/BlitzWalletChip';
 import { WalletMenuNativeBalance } from '@/components/wallets/WalletMenuNativeBalance';
@@ -1544,7 +1544,7 @@ export function CompactInstantTradePanel({
                         <QuoteTokenIcon kind="usdc" className="h-3 w-3 shrink-0" />
                       ) : (
                         <img
-                          src={CHAIN_ICON_PNG[activeChain]}
+                          src={nativeSpendIconSrc(activeChain)}
                           alt=""
                           className="h-3 w-3 shrink-0 object-contain opacity-90"
                           draggable={false}
@@ -1566,7 +1566,7 @@ export function CompactInstantTradePanel({
                 ) : (
                   <>
                     <img
-                      src={CHAIN_ICON_PNG[activeChain]}
+                      src={nativeSpendIconSrc(activeChain)}
                       alt=""
                       className="h-3 w-3 shrink-0 object-contain"
                       draggable={false}
@@ -1802,7 +1802,7 @@ export function CompactInstantTradePanel({
                   >
                     <span className="sr-only">Bought </span>
                     <img
-                      src={CHAIN_ICON_PNG[activeChain]}
+                      src={nativeSpendIconSrc(activeChain)}
                       alt=""
                       width={12}
                       height={12}
@@ -1821,7 +1821,7 @@ export function CompactInstantTradePanel({
                   >
                     <span className="sr-only">Sold </span>
                     <img
-                      src={CHAIN_ICON_PNG[activeChain]}
+                      src={nativeSpendIconSrc(activeChain)}
                       alt=""
                       width={12}
                       height={12}
@@ -1840,7 +1840,7 @@ export function CompactInstantTradePanel({
                   >
                     <span className="sr-only">Remaining </span>
                     <img
-                      src={CHAIN_ICON_PNG[activeChain]}
+                      src={nativeSpendIconSrc(activeChain)}
                       alt=""
                       width={12}
                       height={12}
@@ -1862,7 +1862,7 @@ export function CompactInstantTradePanel({
                   >
                     <span className="sr-only">PnL </span>
                     <img
-                      src={CHAIN_ICON_PNG[activeChain]}
+                      src={nativeSpendIconSrc(activeChain)}
                       alt=""
                       width={12}
                       height={12}

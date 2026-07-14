@@ -5,7 +5,7 @@ import { Check, Copy, Settings, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import type { AppChainId } from '@/lib/chains/appChain';
-import { CHAIN_ICON_PNG } from '@/lib/chains/chainAssets';
+import { nativeSpendIconSrc } from '@/lib/chains/chainAssets';
 import { useOverlayPresence, SETTINGS_POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { toastCopied, toastCopyFailed } from '@/lib/ui/copyToast';
 import { SettingsPopoverPortal } from '@/components/ui/SettingsPopoverPortal';
@@ -154,7 +154,7 @@ export function TradingWalletPickerPopover({
         <Wallet className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
         <span className="tabular-nums">{selectedCount}</span>
         <img
-          src={CHAIN_ICON_PNG[activeChain]}
+          src={nativeSpendIconSrc(activeChain)}
           alt=""
           width={14}
           height={14}
