@@ -9,6 +9,7 @@ import {
   Bot,
   ChevronDown,
   Layers,
+  Loader2,
   ShieldCheck,
   Sparkles,
   Zap,
@@ -140,10 +141,15 @@ export default function LandingPage() {
   const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
   const [signInOpen, setSignInOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FeatureTabId>('pulse');
+  // When a sign-in is mid-flight (OAuth just returned to `/`, or auth is about to
+  // resolve) we show a full-screen "Signing you in…" gate instead of the marketing
+  // page — otherwise the ~2s Privy session-restore looks like a failed login.
+  const [entering, setEntering] = useState(false);
 
-  /** OAuth return — show loading toast until Privy session restores. */
+  /** OAuth return — show the entering gate + loading toast until Privy restores. */
   useEffect(() => {
     if (!readLandingEnterPending()) return;
+    setEntering(true);
     toastAuthenticating();
   }, []);
 
@@ -155,6 +161,7 @@ export default function LandingPage() {
     const requireFreshSignIn = readLandingRequireSignIn();
     if (requireFreshSignIn && !pendingEnter) return;
 
+    setEntering(true); // keep the gate up through the navigation, no marketing flash
     clearLandingEnterPending();
     clearLandingRequireSignIn();
     setSignInOpen(false);
@@ -163,11 +170,13 @@ export default function LandingPage() {
     router.push('/pulse');
   }, [privyReady, privyAuthenticated, router]);
 
-  /** OAuth hung — dismiss spinner toast after 45s so user isn't stuck forever. */
+  /** OAuth hung — drop the gate + toast after 45s so the user isn't stuck forever. */
   useEffect(() => {
     if (!readLandingEnterPending()) return;
     const t = window.setTimeout(() => {
       if (!privyAuthenticated) {
+        setEntering(false);
+        clearLandingEnterPending();
         toast.error('Sign-in timed out', {
           description: 'Close any OAuth popup, refresh, and try Google again.',
         });
@@ -187,6 +196,10 @@ export default function LandingPage() {
   }, [privyAuthenticated, router]);
 
   const ctaLabel = 'Start Trading';
+
+  if (entering) {
+    return <SigningInGate />;
+  }
 
   return (
     <main className="relative isolate min-h-screen overflow-x-hidden bg-bg-base text-fg-primary">
@@ -255,6 +268,36 @@ export default function LandingPage() {
       <LandingSignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
 
       <LandingFooter />
+    </main>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * Signing-in gate — shown while an OAuth/login is resolving so the ~2s Privy
+ * session-restore never looks like a logged-out marketing page.
+ * ------------------------------------------------------------------------- */
+function SigningInGate() {
+  return (
+    <main className="relative isolate flex min-h-screen flex-col items-center justify-center gap-5 overflow-hidden bg-bg-base px-6 text-center text-fg-primary">
+      <LandingAmbientBackdrop />
+      <div className="relative z-10 flex flex-col items-center gap-5">
+        {/* eslint-disable-next-line @next/next/no-img-element -- brand mark */}
+        <img
+          src="/branding/pointer-bird.png"
+          alt=""
+          width={64}
+          height={64}
+          className="h-14 w-auto animate-pulse object-contain drop-shadow-[0_6px_24px_rgb(var(--accent-primary-rgb)/0.5)]"
+          draggable={false}
+        />
+        <div className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight">
+          <Loader2 className="h-4 w-4 animate-spin text-accent-glow" strokeWidth={2.5} />
+          Signing you in…
+        </div>
+        <p className="max-w-xs text-[13px] leading-relaxed text-fg-muted">
+          Setting up your session — you&apos;ll land in the terminal in a second.
+        </p>
+      </div>
     </main>
   );
 }

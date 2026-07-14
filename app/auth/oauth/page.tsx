@@ -42,11 +42,19 @@ function OAuthBridgeInner() {
 
   useEffect(() => {
     if (!ready || startedRef.current || returning) return;
+    // Already signed in (returning session, or a stray second mount) → don't
+    // re-open Google, just bounce home. Re-calling initOAuth is what restarts the
+    // account-chooser loop.
+    if (authenticated) {
+      startedRef.current = true;
+      if (!window.opener) window.location.assign('/');
+      return;
+    }
     if (provider !== 'google' && provider !== 'twitter') return;
     startedRef.current = true;
     // Only start the flow — calling initOAuth again on return restarts Google (account chooser loop).
     void initOAuth({ provider }).catch(() => notifyOpener(false));
-  }, [ready, provider, returning, initOAuth]);
+  }, [ready, authenticated, provider, returning, initOAuth]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-bg-base px-6 text-center text-sm text-fg-muted">
