@@ -22,6 +22,7 @@ import { ImportWalletModal } from '@/components/wallets/ImportWalletModal';
 import { OS, WalletMonogram, WalletTableRowShell } from '@/components/portfolio/walletOs';
 import { useActiveWalletStore } from '@/store/activeWallet';
 import { generateEmbeddedWalletForChain } from '@/lib/wallets/embeddedCreate';
+import { resolveWalletDisplayNames } from '@/lib/wallets/walletDisplayName';
 
 async function authJson<T>(
   token: string,
@@ -203,6 +204,8 @@ export function WalletsManage({ className }: { className?: string }) {
 
   const rows = listQ.data?.wallets ?? [];
   const chainRows = rows.filter((w) => mintMatchesAppChain(w.wallet_address, activeChain));
+  // Friendly per-chain "Pointer Wallet N" names (respects custom renames).
+  const walletDisplayNames = useMemo(() => resolveWalletDisplayNames(chainRows), [chainRows]);
   const activeRows = chainRows.filter((w) => w.is_active && !w.is_archived);
   const activeWallet =
     chainRows.find((w) => w.wallet_address === activeWalletAddress) ?? activeRows[0] ?? null;
@@ -324,7 +327,7 @@ export function WalletsManage({ className }: { className?: string }) {
               </span>
             </div>
             <p className="mt-0.5 text-[12px] text-[#8b93a3]">
-              Embedded, imported, and linked wallets for this chain. Set which wallet executes trades.
+              Your Pointer, imported, and linked wallets for this chain. Set which wallet executes trades.
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -334,7 +337,7 @@ export function WalletsManage({ className }: { className?: string }) {
               onClick={() => void onCreateEmbedded()}
               className="btn-press focus-ring rounded-md bg-[#5865F2] px-2.5 py-1.5 text-[11px] font-semibold text-[#05070d] disabled:opacity-50"
             >
-              {creating ? 'Creating...' : 'Create Embedded'}
+              {creating ? 'Creating...' : 'New Wallet'}
             </button>
             <button
               type="button"
@@ -361,29 +364,31 @@ export function WalletsManage({ className }: { className?: string }) {
                   <p className="font-semibold text-white">No {nativeSym} wallets yet</p>
                   <p>Create or import a wallet for this chain to start trading.</p>
                   <button type="button" onClick={() => void onCreateEmbedded()} className="rounded-md bg-[#5865F2] px-3 py-1.5 text-[11px] font-semibold text-[#05070d]">
-                    Create Embedded
+                    New Wallet
                   </button>
                 </div>
               ) : (
                 chainRows.map((w) => {
                   const sol = w.balance_lamports ? lamportsToSol(BigInt(w.balance_lamports)) : 0;
                   const isActiveTrading = activeWalletAddress === w.wallet_address;
+                  const displayName = walletDisplayNames.get(w.id) ?? w.label ?? 'Pointer Wallet';
                   return (
                     <WalletTableRowShell key={w.id} selected={isActiveTrading} className="px-2 py-1.5">
                       <div className="grid grid-cols-[1.25fr_1.4fr_0.7fr_0.8fr_3rem] items-center gap-1 text-[12px]">
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
-                          <WalletMonogram address={w.wallet_address} label={w.label} />
+                          <WalletMonogram address={w.wallet_address} label={displayName} />
                           <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <WalletLabelEditor
                             wallet={w}
+                            displayName={displayName}
                             onSave={(label) => patchMutation.mutate({ id: w.id, body: { label } })}
                           />
                           {w.is_primary ? <span className="shrink-0 rounded-full border border-[#4a62d6]/35 bg-[#2f3f8a]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#8da2ff]">Primary</span> : null}
                           {isActiveTrading ? <span className="shrink-0 rounded-full border border-cyan-900/40 bg-cyan-950/40 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-200/95">Trading</span> : null}
                         </div>
-                        {w.is_imported ? <div className="mt-0.5 text-[10px] text-[#8b93a3]">Imported key</div> : <div className="mt-0.5 text-[10px] text-[#6d8098]">Embedded</div>}
+                        {w.is_imported ? <div className="mt-0.5 text-[10px] text-[#8b93a3]">Imported key</div> : null}
                           </div>
                         </div>
                       </div>
@@ -452,9 +457,9 @@ export function WalletsManage({ className }: { className?: string }) {
               {activeWallet ? (
                 <div className="space-y-2">
                   <div className="flex items-start gap-2.5">
-                    <WalletMonogram address={activeWallet.wallet_address} label={activeWallet.label} />
+                    <WalletMonogram address={activeWallet.wallet_address} label={walletDisplayNames.get(activeWallet.id) ?? activeWallet.label} />
                     <div className="min-w-0">
-                    <div className="font-semibold text-white">{activeWallet.label?.trim() || 'Untitled wallet'}</div>
+                    <div className="font-semibold text-white">{activeWallet.label?.trim() || walletDisplayNames.get(activeWallet.id) || 'Pointer Wallet'}</div>
                     <div className="mt-0.5 truncate text-[11px] tabular-nums text-[#8b93a3]">{shortenAddress(activeWallet.wallet_address, 10)}</div>
                     </div>
                   </div>
@@ -516,12 +521,16 @@ export function WalletsManage({ className }: { className?: string }) {
 
 function WalletLabelEditor({
   wallet,
+  displayName,
   onSave,
 }: {
   wallet: MyWalletRow;
+  /** Resolved friendly name (e.g. "Pointer Wallet 1") shown when there's no custom label. */
+  displayName?: string;
   onSave: (label: string | null) => void;
 }) {
-  const [val, setVal] = useState(wallet.label ?? '');
+  const shown = wallet.label?.trim() || displayName || 'Pointer Wallet';
+  const [val, setVal] = useState(shown);
   const [editing, setEditing] = useState(false);
 
   if (!editing) {
@@ -529,12 +538,12 @@ function WalletLabelEditor({
       <button
         type="button"
         onClick={() => {
-          setVal(wallet.label ?? '');
+          setVal(shown);
           setEditing(true);
         }}
         className="truncate text-left text-[12px] font-medium text-fg-primary hover:text-accent-primary"
       >
-        {wallet.label?.trim() || 'Untitled'}
+        {shown}
       </button>
     );
   }
@@ -556,7 +565,7 @@ function WalletLabelEditor({
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
         if (e.key === 'Escape') {
           setEditing(false);
-          setVal(wallet.label ?? '');
+          setVal(shown);
         }
       }}
       className="focus-ring w-full max-w-[200px] rounded border border-border-subtle bg-bg-base px-1.5 py-0.5 text-[12px] text-fg-primary"

@@ -108,6 +108,8 @@ export function usePointerTradeSubmit() {
                 amountInRaw: evm.sellAmountRaw,
                 amountOutRaw: evm.buyAmountRaw,
                 nativeNotional,
+                // Whether LiFi actually took the 1.5% fee on this swap — gates cashback.
+                pointerFeeBps: evm.pointerFeeBps ?? 0,
               }),
             });
           }

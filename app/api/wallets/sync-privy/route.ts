@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
       await insertUserWallet({
         user_id: user.id,
         wallet_address: normalized,
-        label: 'Pointer EVM',
+        label: 'Pointer Wallet',
         is_primary: isPrimary,
         slot: n0 + created,
         is_archived: false,

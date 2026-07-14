@@ -46,8 +46,10 @@ export function listPrivyLinkedSolanaWalletsFromUser(user: PrivyUserLinkedAccoun
   return out;
 }
 
-export function labelForLinkedSolanaWallet(w: PrivyLinkedSolanaWallet, isPrimary: boolean): string {
-  if (w.isEmbedded) return isPrimary ? 'Pointer Wallet' : 'Pointer Solana';
+export function labelForLinkedSolanaWallet(w: PrivyLinkedSolanaWallet, _isPrimary: boolean): string {
+  // Pointer-created wallets are stored with the auto label "Pointer Wallet"; the UI
+  // renders them as "Pointer Wallet N" (numbered per chain) via resolveWalletDisplayNames.
+  if (w.isEmbedded) return 'Pointer Wallet';
   if (w.connectorType === 'phantom') return 'Phantom';
   if (w.connectorType === 'solflare') return 'Solflare';
   if (w.connectorType === 'backpack') return 'Backpack';

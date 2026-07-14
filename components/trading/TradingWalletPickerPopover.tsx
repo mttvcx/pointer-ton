@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Check, Copy, Settings, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
@@ -15,6 +15,7 @@ import { WalletMenuTokenBalance } from '@/components/wallets/WalletMenuTokenBala
 import { TerminalNativeBalance } from '@/lib/utils/terminalBalanceFormat';
 import { lamportsToSol, rawToUi } from '@/lib/utils/formatters';
 import { shortenAddress } from '@/lib/utils/addresses';
+import { resolveWalletDisplayNames } from '@/lib/wallets/walletDisplayName';
 import { Z_APP_MODAL_OVERLAY } from '@/lib/ui/zLayers';
 import { cn } from '@/lib/utils/cn';
 
@@ -93,6 +94,7 @@ export function TradingWalletPickerPopover({
   tokenBalanceRawByAddress,
 }: TradingWalletPickerPopoverProps) {
   const { mounted, visible } = useOverlayPresence(open, SETTINGS_POPOVER_ANIM_CLOSE_MS);
+  const pickerDisplayNames = useMemo(() => resolveWalletDisplayNames(wallets), [wallets]);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ top: 0, right: 0 });
@@ -219,7 +221,7 @@ export function TradingWalletPickerPopover({
             const tokenUi = showTokenColumn
               ? walletTokenUi(w.wallet_address, tokenBalanceRawByAddress, tokenDecimals)
               : 0;
-            const label = w.label?.trim() || `Wallet ${i + 1}`;
+            const label = pickerDisplayNames.get(w.id) ?? w.label?.trim() ?? `Pointer Wallet ${i + 1}`;
             return (
               <button
                 key={w.id}

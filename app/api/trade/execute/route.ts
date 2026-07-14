@@ -94,6 +94,8 @@ const EvmExecuteSchema = z
     amountInRaw: z.string().regex(/^\d+$/),
     amountOutRaw: z.string().regex(/^\d+$/),
     nativeNotional: z.number().nonnegative(),
+    /** Fee actually charged by the quote (0 or 150). Cashback only accrues when > 0. */
+    pointerFeeBps: z.number().int().min(0).max(200).optional(),
   })
   .strict();
 
@@ -152,7 +154,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'tx_not_verified' }, { status: 400 });
     }
     const rewardable = verified?.ok === true;
-    const feeActive = evmFeeActiveForChain(b.appChain);
+    // Cashback accrues ONLY when the quote confirmed LiFi actually took the fee
+    // (b.pointerFeeBps > 0) AND the server still has EVM fees enabled. If the fee
+    // gracefully fell back to a no-fee swap, no cashback — we never rebate an
+    // uncollected fee. Cross-checking the server flag caps client trust.
+    const feeActive = evmFeeActiveForChain(b.appChain) && (b.pointerFeeBps ?? 0) > 0;
 
     // Price up-front (best-effort) so the recorded fee, the cashback basis, and the
     // volume points all derive from ONE SOL-equivalent notional. A price hiccup

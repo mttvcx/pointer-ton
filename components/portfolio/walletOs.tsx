@@ -60,7 +60,7 @@ function KindBadges({ w, tradingAddress }: { w: MyWalletRow; tradingAddress: str
         </span>
       ) : (
         <span className="rounded border border-emerald-900/50 bg-emerald-950/30 px-1.5 py-px text-[9px] font-semibold text-emerald-200/90">
-          Embedded
+          Pointer
         </span>
       )}
       {isTrading ? (

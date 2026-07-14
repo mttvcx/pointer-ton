@@ -27,6 +27,8 @@ export type GlassModalProps = {
   zClass?: string;
   maxWidthClass?: string;
   className?: string;
+  /** Premium liquid-glass shell (translucent + backdrop blur) instead of the flat raised panel. */
+  glass?: boolean;
 };
 
 /**
@@ -43,6 +45,7 @@ export function GlassModal({
   zClass = Z_APP_MODAL_OVERLAY,
   maxWidthClass = 'max-w-md',
   className,
+  glass = false,
 }: GlassModalProps) {
   const [portalReady, setPortalReady] = useState(() => typeof document !== 'undefined');
 
@@ -81,11 +84,23 @@ export function GlassModal({
       <div
         role="dialog"
         aria-modal="true"
-        className={cn(modalPanelClass, maxWidthClass, overlayPanelClasses(visible), className)}
+        className={cn(
+          glass
+            ? 'creator-glass-strong relative z-10 flex w-full flex-col overflow-hidden rounded-2xl shadow-2xl'
+            : modalPanelClass,
+          maxWidthClass,
+          overlayPanelClasses(visible),
+          className,
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {hasHeader ? (
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
+          <div
+            className={cn(
+              'flex shrink-0 items-start justify-between gap-3',
+              glass ? 'border-b border-white/[0.08] px-5 py-3.5' : 'border-b border-border-subtle px-4 py-3',
+            )}
+          >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 {title ? (
@@ -116,7 +131,12 @@ export function GlassModal({
         ) : null}
 
         {footer ? (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-4 py-3">
+          <div
+            className={cn(
+              'flex shrink-0 flex-wrap items-center justify-end gap-2 border-t px-4 py-3',
+              glass ? 'border-white/[0.08]' : 'border-border-subtle',
+            )}
+          >
             {footer}
           </div>
         ) : null}

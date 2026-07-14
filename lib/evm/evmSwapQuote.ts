@@ -7,7 +7,7 @@ import {
   isNativeEvmToken,
   type EvmTradeChain,
 } from '@/lib/evm/evmTradeChains';
-import { EVM_FEE_BPS, evmFeeActiveForChain, evmFeeFractionForChain } from '@/lib/evm/evmFee';
+import { EVM_FEE_BPS, evmFeeFractionForChain } from '@/lib/evm/evmFee';
 
 /**
  * Normalized EVM swap quote returned to the client. The client validates
@@ -89,7 +89,7 @@ export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSw
   // Pointer's 1.5% fee (only when enabled + this is a LiFi chain). 0 = no fee sent.
   const feeFraction = evmFeeFractionForChain(input.chain);
 
-  const lifi = await fetchLifiQuote({
+  const baseParams = {
     fromChain: String(chainId),
     toChain: String(chainId), // same-chain swap
     fromToken,
@@ -98,23 +98,36 @@ export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSw
     fromAddress: wallet,
     toAddress: wallet,
     slippage: input.slippageBps / 10_000,
-    fee: feeFraction > 0 ? feeFraction : undefined,
-  });
+  } as const;
+
+  // GRACEFUL FALLBACK — the trade must never break because of fee config.
+  // Try WITH the fee; if LiFi rejects it (integrator not fee-authorized yet) or
+  // silently ignores it (fee not present in feeCosts), fall back to a plain no-fee
+  // swap so the swap still executes. `feeApplied` then tells the execute route
+  // whether cashback may accrue — we NEVER rebate a fee that wasn't collected.
+  let lifi;
+  let feeApplied = false;
+  if (feeFraction > 0) {
+    try {
+      const withFee = await fetchLifiQuote({ ...baseParams, fee: feeFraction });
+      if (lifiIntegratorFeeApplied(withFee.estimate.feeCosts, feeFraction)) {
+        lifi = withFee;
+        feeApplied = true;
+      } else {
+        lifi = await fetchLifiQuote(baseParams); // silent-ignore → explicit no-fee
+      }
+    } catch {
+      lifi = await fetchLifiQuote(baseParams); // fee rejected → no-fee swap still works
+    }
+  } else {
+    lifi = await fetchLifiQuote(baseParams);
+  }
 
   const tx = lifi.transactionRequest;
   if (!tx?.to || !tx?.data) throw new Error('lifi_no_transaction');
   if (!HEX40.test(tx.to)) throw new Error('lifi_bad_to');
   // Same-chain safety: the calldata target chain must match what we quoted.
   if (tx.chainId != null && tx.chainId !== chainId) throw new Error('lifi_chain_mismatch');
-
-  // Fail-safe: when the fee is ON, refuse a quote we can't confirm charged it —
-  // better to block the trade than to swap fee-free and later rebate cashback we
-  // never collected. (LiFi normally rejects unauthorized fees outright; this
-  // guards the silent-ignore case.)
-  const feeApplied = feeFraction > 0 && lifiIntegratorFeeApplied(lifi.estimate.feeCosts, feeFraction);
-  if (feeFraction > 0 && !feeApplied) {
-    throw new Error('evm_fee_not_applied');
-  }
 
   const sellNative = isNativeEvmToken(fromToken);
 
@@ -130,6 +143,7 @@ export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSw
     buyAmountRaw: lifi.estimate.toAmount,
     minBuyAmountRaw: lifi.estimate.toAmountMin,
     tool: lifi.tool ?? 'lifi',
-    pointerFeeBps: evmFeeActiveForChain(input.chain) ? EVM_FEE_BPS : 0,
+    // Only claims a fee when LiFi actually applied it → cashback stays honest.
+    pointerFeeBps: feeApplied ? EVM_FEE_BPS : 0,
   };
 }

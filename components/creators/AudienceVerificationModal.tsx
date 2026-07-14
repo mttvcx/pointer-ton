@@ -36,7 +36,7 @@ function PhoneExampleVideo({ src, platformLabel }: { src: string; platformLabel:
   }, [src]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       <div className="mb-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Example</p>
         <p className="mt-0.5 text-[13px] font-medium text-fg-primary">One continuous clip</p>
@@ -45,8 +45,8 @@ function PhoneExampleVideo({ src, platformLabel }: { src: string; platformLabel:
         </p>
       </div>
 
-      <div className="relative mx-auto flex w-full max-w-[280px] flex-1 flex-col">
-        <div className="pointer-events-none absolute -inset-3 rounded-[2rem] bg-accent-primary/10 blur-2xl" />
+      <div className="relative mx-auto flex w-full max-w-[248px] flex-col">
+        <div className="pointer-events-none absolute -inset-2 rounded-[2rem] bg-accent-primary/10 blur-2xl" />
         <div className="relative overflow-hidden rounded-[1.75rem] border-[3px] border-white/10 bg-black shadow-[0_24px_60px_-24px_rgba(0,0,0,0.9)]">
           <div className="absolute left-1/2 top-2 z-10 h-1.5 w-16 -translate-x-1/2 rounded-full bg-white/20" />
           <video
@@ -143,8 +143,9 @@ export function AudienceVerificationModal({
           <span className="capitalize">{account.platform}</span> · @{account.handle}
         </>
       }
-      maxWidthClass="max-w-6xl"
-      className="max-h-[min(92vh,880px)]"
+      glass
+      maxWidthClass="max-w-5xl"
+      className="max-h-[min(92vh,860px)]"
       footer={
         canUpload ? (
           <>
@@ -176,12 +177,12 @@ export function AudienceVerificationModal({
         )
       }
     >
-      <div className="-mx-4 -my-3 grid min-h-[420px] gap-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:divide-x lg:divide-white/[0.06]">
-        <div className="space-y-4 pb-4 lg:pr-5 lg:pb-0">
-          <div className="rounded-lg border border-signal-warn/30 bg-signal-warn/10 p-3">
-            <div className="flex gap-2">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <div className="min-w-0 space-y-3.5">
+          <div className="rounded-xl border border-signal-warn/25 bg-signal-warn/[0.08] p-3.5">
+            <div className="flex gap-2.5">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-signal-warn" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-[12px] font-semibold text-signal-warn">Physical recording required</p>
                 <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-fg-secondary">
                   {VERIFICATION_REJECT_RULES.map((rule) => (
@@ -195,14 +196,14 @@ export function AudienceVerificationModal({
             </div>
           </div>
 
-          <div className="rounded-lg border border-border-subtle bg-bg-sunken/60 p-3">
+          <div className="creator-glass-quiet rounded-xl p-3.5">
             <p className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">Where to navigate</p>
             <p className="mt-1 text-[12px] leading-relaxed text-fg-primary">{guide.analyticsPath}</p>
           </div>
 
-          <div>
+          <div className="creator-glass-quiet rounded-xl p-3.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Steps</p>
-            <ol className="mt-2 space-y-2">
+            <ol className="mt-2.5 space-y-2">
               {guide.steps.map((step, i) => (
                 <li key={step} className="flex gap-3 text-[12px] leading-relaxed text-fg-secondary">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-primary/15 text-[10px] font-bold tabular-nums text-accent-glow">
@@ -216,7 +217,7 @@ export function AudienceVerificationModal({
 
           {canUpload ? (
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Your recording</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Your recording</p>
               <div
                 role="button"
                 tabIndex={0}
@@ -235,14 +236,14 @@ export function AudienceVerificationModal({
                 }}
                 onClick={() => inputRef.current?.click()}
                 className={cn(
-                  'mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 transition-colors',
+                  'flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-7 transition-colors',
                   dragOver
                     ? 'border-accent-primary bg-accent-primary/10'
-                    : 'border-border-subtle bg-bg-sunken/40 hover:border-accent-primary/40 hover:bg-bg-hover/40',
+                    : 'border-white/15 bg-white/[0.02] hover:border-accent-primary/40 hover:bg-white/[0.04]',
                 )}
               >
                 <Upload className="h-6 w-6 text-fg-muted" />
-                <p className="mt-2 text-[13px] font-medium text-fg-primary">
+                <p className="mt-2 max-w-full truncate text-[13px] font-medium text-fg-primary">
                   {file ? file.name : 'Drop MP4/MOV or click to browse'}
                 </p>
                 <p className="mt-1 text-[11px] text-fg-muted">Max 50MB · one continuous clip</p>
@@ -256,7 +257,7 @@ export function AudienceVerificationModal({
               </div>
             </div>
           ) : (
-            <div className="flex items-start gap-2 rounded-lg border border-border-subtle bg-bg-sunken/50 p-3 text-[12px] text-fg-secondary">
+            <div className="creator-glass-quiet flex items-start gap-2 rounded-xl p-3.5 text-[12px] text-fg-secondary">
               {account.verification_status === 'verified' ? (
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-signal-bull" />
               ) : (
@@ -271,7 +272,7 @@ export function AudienceVerificationModal({
           )}
         </div>
 
-        <div className="border-t border-white/[0.06] bg-bg-sunken/30 pt-4 lg:border-t-0 lg:pl-5 lg:pt-0">
+        <div className="min-w-0 lg:border-l lg:border-white/[0.06] lg:pl-5">
           <PhoneExampleVideo src={guide.exampleVideoSrc} platformLabel={guide.platformLabel} />
         </div>
       </div>
