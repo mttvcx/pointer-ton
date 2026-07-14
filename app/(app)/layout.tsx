@@ -11,6 +11,7 @@ import { ProtocolLogoPreloader } from '@/components/tokens/ProtocolLogoPreloader
 import { Topbar } from '@/components/layout/Topbar';
 import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
+import { LayoutSync } from '@/components/layout/LayoutSync';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { XMonitorContextBar } from '@/components/monitor/XMonitorContextBar';
 import { XMonitorCaToast } from '@/components/monitor/XMonitorCaToast';
@@ -189,6 +190,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {!isMobile && onPulseRoute ? <PulseChromeStack /> : null}
       {!isMobile ? <CopilotStripSlot /> : null}
       <GlobalSearchModal />
+      <LayoutSync />
       <WalletLabelsBootstrap />
       <LabelWalletModal />
       <LaunchModal />
