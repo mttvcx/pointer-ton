@@ -84,12 +84,26 @@ export async function submitEvmSwap(
   }
 
   onStage?.('swapping');
+  // Pre-compute nonce + gas on reliable RPCs so viem doesn't run the (slow)
+  // estimation through the wallet provider — that estimation is what hung for
+  // minutes. Fees are left to the wallet (Privy now uses fast RPCs via override).
+  const to = quote.to as `0x${string}`;
+  const data = quote.data as `0x${string}`;
+  const [nonce, gas] = await Promise.all([
+    publicClient.getTransactionCount({ address: account }).catch(() => undefined),
+    publicClient
+      .estimateGas({ account, to, data, value })
+      .then((g) => (g * 12n) / 10n) // +20% headroom
+      .catch(() => undefined), // simulation failed → let the wallet estimate
+  ]);
   const txHash = await walletClient.sendTransaction({
     account,
     chain: viemChain,
-    to: quote.to as `0x${string}`,
-    data: quote.data as `0x${string}`,
+    to,
+    data,
     value,
+    ...(nonce != null ? { nonce } : {}),
+    ...(gas != null ? { gas } : {}),
   });
 
   onStage?.('confirming');
