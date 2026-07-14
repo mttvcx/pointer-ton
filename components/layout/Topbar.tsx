@@ -192,14 +192,20 @@ export function Topbar() {
     getAccessToken,
   });
 
-  // EVM native balance (ETH/BNB) — read on-chain from the Privy EVM wallet, since
-  // there's no Solana-style balance row for EVM. Feeds the header + wallet popover.
+  // EVM native balance (ETH/BNB) — read on-chain, since there's no Solana-style
+  // balance row for EVM. Prefer the synced wallet row (always present once
+  // synced); fall back to the Privy EVM wallet (which can lag on load).
   const { wallets: evmWallets } = useEvmWallets();
   const evmTradeChain = isEvmTradeChain(activeChain);
-  const evmWalletAddress = useMemo(
-    () => (evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0])?.address ?? null,
-    [evmWallets],
-  );
+  const evmWalletAddress = useMemo(() => {
+    if (!evmTradeChain) return null;
+    const row = myWalletsQ.data?.wallets?.find((w) =>
+      mintMatchesAppChain(w.wallet_address, activeChain),
+    );
+    const privyAddr = (evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0])
+      ?.address;
+    return row?.wallet_address ?? privyAddr ?? null;
+  }, [evmTradeChain, myWalletsQ.data?.wallets, activeChain, evmWallets]);
   const evmNativeBalQ = useQuery({
     queryKey: ['evm-native-balance', activeChain, evmWalletAddress],
     queryFn: () => readEvmNativeBalance(activeChain as EvmTradeChain, evmWalletAddress ?? ''),
