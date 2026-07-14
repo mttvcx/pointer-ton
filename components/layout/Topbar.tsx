@@ -289,7 +289,7 @@ export function Topbar() {
           : [];
       return Array.isArray(arr) ? arr : [];
     },
-    enabled: authenticated && activeChain === 'sol',
+    enabled: authenticated && (activeChain === 'sol' || isEvmTradeChain(activeChain)),
     staleTime: 25_000,
     refetchInterval: 30_000,
   });
@@ -354,12 +354,21 @@ export function Topbar() {
   }, [portfolioQ.data?.solUsd, tickersQ.data]);
 
   const totalUsd = useMemo(() => {
-    if (activeChain !== 'sol') return null;
-    const sol = solUi ?? 0;
-    const solPart =
-      solUsdEstimate != null && Number.isFinite(solUsdEstimate) ? sol * solUsdEstimate : 0;
-    return solPart + usdcUi;
-  }, [activeChain, solUsdEstimate, solUi, usdcUi]);
+    if (activeChain === 'sol') {
+      const sol = solUi ?? 0;
+      const solPart =
+        solUsdEstimate != null && Number.isFinite(solUsdEstimate) ? sol * solUsdEstimate : 0;
+      return solPart + usdcUi;
+    }
+    if (evmTradeChain) {
+      // EVM total = native balance × its USD price (Base/Robinhood price as ETH).
+      const bal = evmNativeBalQ.data ?? 0;
+      const sym = activeChain === 'bnb' ? 'BNB' : 'ETH';
+      const px = tickersQ.data?.find((t) => t.symbol === sym)?.usdPrice;
+      return px != null && Number.isFinite(px) ? bal * px : null;
+    }
+    return null;
+  }, [activeChain, evmTradeChain, solUsdEstimate, solUi, usdcUi, evmNativeBalQ.data, tickersQ.data]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
