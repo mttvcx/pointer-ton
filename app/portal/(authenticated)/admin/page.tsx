@@ -132,18 +132,18 @@ export default function CreatorAdminPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-lg font-semibold">Admin review</h1>
-        <p className="text-[13px] text-fg-muted">Verifications, clip fraud flags, botting, stolen content, appeals.</p>
+        <h1 className="text-xl font-semibold tracking-tight">Admin review</h1>
+        <p className="mt-0.5 text-[13px] text-fg-muted">Verifications, clip fraud flags, botting, stolen content, appeals.</p>
       </div>
 
-      <section>
-        <h2 className="text-[13px] font-semibold">Pending verifications</h2>
-        <ul className="mt-2 space-y-2">
+      <section className="creator-glass rounded-2xl p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Pending verifications</h2>
+        <ul className="mt-3 space-y-2">
           {(q.data?.verifications ?? []).length === 0 ? (
             <li className="text-[12px] text-fg-muted">None pending</li>
           ) : null}
           {(q.data?.verifications ?? []).map((v) => (
-            <li key={v.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle p-3 text-[12px]">
+            <li key={v.id} className="creator-glass-quiet flex flex-wrap items-center gap-2 rounded-xl p-3 text-[12px]">
               <span className="font-mono text-fg-muted">{v.id.slice(0, 8)}…</span>
               <button type="button" onClick={() => void reviewVerification(v.id, true, 'basic')} className="rounded bg-signal-bull/20 px-2 py-1">
                 Approve BASIC
@@ -159,14 +159,14 @@ export default function CreatorAdminPage() {
         </ul>
       </section>
 
-      <section>
-        <h2 className="text-[13px] font-semibold">Pending clips</h2>
-        <ul className="mt-2 space-y-3">
+      <section className="creator-glass rounded-2xl p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Pending clips</h2>
+        <ul className="mt-3 space-y-3">
           {(q.data?.videos ?? []).length === 0 ? (
             <li className="text-[12px] text-fg-muted">None pending</li>
           ) : null}
           {(q.data?.videos ?? []).map((v) => (
-            <li key={v.id} className="rounded-md border border-border-subtle p-3 text-[12px]">
+            <li key={v.id} className="creator-glass-quiet rounded-xl p-3 text-[12px]">
               <a href={v.post_url} target="_blank" rel="noreferrer" className="text-accent-primary hover:underline">
                 {v.post_url}
               </a>
@@ -181,7 +181,7 @@ export default function CreatorAdminPage() {
                   placeholder="View override"
                   value={viewOverrides[v.id] ?? ''}
                   onChange={(e) => setViewOverrides((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                  className="w-28 rounded border border-border-subtle bg-bg-sunken px-2 py-0.5 font-mono text-[11px]"
+                  className="creator-field w-28 rounded-lg px-2 py-0.5 font-mono text-[11px]"
                 />
                 <button
                   type="button"
@@ -208,14 +208,14 @@ export default function CreatorAdminPage() {
         </ul>
       </section>
 
-      <section>
-        <h2 className="text-[13px] font-semibold">Pending appeals</h2>
-        <ul className="mt-2 space-y-2">
+      <section className="creator-glass rounded-2xl p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Pending appeals</h2>
+        <ul className="mt-3 space-y-2">
           {(q.data?.appeals ?? []).length === 0 ? (
             <li className="text-[12px] text-fg-muted">None pending</li>
           ) : null}
           {(q.data?.appeals ?? []).map((a) => (
-            <li key={a.id} className="rounded-md border border-border-subtle p-3 text-[12px]">
+            <li key={a.id} className="creator-glass-quiet rounded-xl p-3 text-[12px]">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">
                   {(a.creators?.discord_global_name || a.creators?.discord_username || 'creator') as string}
@@ -241,24 +241,24 @@ export default function CreatorAdminPage() {
         </ul>
       </section>
 
-      <section className="rounded-md border border-border-subtle p-4">
-        <h2 className="text-[13px] font-semibold">Blacklist Discord ID</h2>
-        <form onSubmit={(e) => void blacklist(e)} className="mt-2 flex flex-wrap gap-2">
+      <section className="creator-glass rounded-2xl border-signal-bear/20 p-5">
+        <h2 className="text-sm font-semibold tracking-tight text-signal-bear">Blacklist Discord ID</h2>
+        <form onSubmit={(e) => void blacklist(e)} className="mt-3 flex flex-wrap gap-2">
           <input
             value={blacklistId}
             onChange={(e) => setBlacklistId(e.target.value)}
             placeholder="Discord user ID"
-            className="min-w-[12rem] flex-1 rounded-md border border-border-subtle bg-bg-sunken px-3 py-1.5 text-[12px]"
+            className="creator-field min-w-[12rem] flex-1 rounded-lg px-3 py-1.5 text-[12px] text-fg-primary placeholder:text-fg-muted"
             required
           />
           <input
             value={blacklistReason}
             onChange={(e) => setBlacklistReason(e.target.value)}
             placeholder="Reason"
-            className="min-w-[12rem] flex-1 rounded-md border border-border-subtle bg-bg-sunken px-3 py-1.5 text-[12px]"
+            className="creator-field min-w-[12rem] flex-1 rounded-lg px-3 py-1.5 text-[12px] text-fg-primary placeholder:text-fg-muted"
             required
           />
-          <button type="submit" className="rounded-md bg-signal-bear/20 px-4 py-1.5 text-[12px] font-semibold">
+          <button type="submit" className="rounded-lg bg-signal-bear/20 px-4 py-1.5 text-[12px] font-semibold text-signal-bear ring-1 ring-inset ring-signal-bear/30 transition-colors hover:bg-signal-bear/30">
             Blacklist
           </button>
         </form>

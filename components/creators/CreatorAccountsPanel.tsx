@@ -8,6 +8,7 @@ import {
   AudienceVerificationModal,
   type VerificationAccount,
 } from '@/components/creators/AudienceVerificationModal';
+import { CreatorSelect } from '@/components/creators/CreatorSelect';
 import type { CreatorPlatform } from '@/lib/creators/config';
 import {
   verificationStatusLabel,
@@ -94,9 +95,9 @@ export function CreatorAccountsPanel({
 
   return (
     <>
-      <section className={cn('rounded-lg border border-border-subtle bg-bg-raised', compact ? 'p-3' : 'p-4')}>
+      <section className={cn('creator-glass rounded-2xl', compact ? 'p-3' : 'p-5')}>
         {!compact && needsVerificationCount > 0 ? (
-          <div className="mb-4 flex items-start gap-3 rounded-lg border border-signal-warn/30 bg-signal-warn/10 p-3">
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-signal-warn/30 bg-signal-warn/10 p-3">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-signal-warn" />
             <div>
               <p className="text-[12px] font-semibold text-fg-primary">Verification required</p>
@@ -110,38 +111,43 @@ export function CreatorAccountsPanel({
 
         {showAddForm ? (
           <>
-            <h2 className="text-[13px] font-semibold">Connect social account</h2>
-            <form onSubmit={(e) => void addAccount(e)} className="mt-3 flex flex-wrap gap-2">
-              <select
+            <h2 className="text-sm font-semibold tracking-tight">Connect social account</h2>
+            <p className="mt-0.5 text-[12px] text-fg-muted">Link where you post your Pointer clips.</p>
+            <form onSubmit={(e) => void addAccount(e)} className="mt-3.5 flex flex-wrap items-stretch gap-2">
+              <CreatorSelect
                 value={platform}
-                onChange={(e) => setPlatform(e.target.value as CreatorPlatform)}
-                className="rounded-md border border-border-subtle bg-bg-sunken px-2 py-1.5 text-[13px]"
-              >
-                <option value="tiktok">TikTok</option>
-                <option value="instagram">Instagram</option>
-                <option value="x">X</option>
-              </select>
+                onChange={(v) => setPlatform(v as CreatorPlatform)}
+                ariaLabel="Platform"
+                className="w-32"
+                options={[
+                  { value: 'tiktok', label: 'TikTok' },
+                  { value: 'instagram', label: 'Instagram' },
+                  { value: 'x', label: 'X' },
+                ]}
+              />
               <input
                 value={handle}
                 onChange={(e) => setHandle(e.target.value)}
                 placeholder="@handle"
-                className="min-w-[8rem] flex-1 rounded-md border border-border-subtle bg-bg-sunken px-3 py-1.5 text-[13px]"
+                className="creator-field min-w-[8rem] flex-1 rounded-lg px-3 py-2 text-[13px] text-fg-primary placeholder:text-fg-muted"
               />
               <button
                 type="submit"
-                className="rounded-md bg-accent-primary px-4 py-1.5 text-[12px] font-semibold text-fg-inverse"
+                className="creator-btn-primary rounded-lg px-5 py-2 text-[12px] font-semibold text-white"
               >
                 Add
               </button>
             </form>
           </>
         ) : (
-          <h2 className="text-[13px] font-semibold">Your accounts</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Your accounts</h2>
         )}
 
-        <ul className={cn('space-y-2', showAddForm ? 'mt-3' : 'mt-2')}>
+        <ul className={cn('space-y-2', showAddForm ? 'mt-4' : 'mt-3')}>
           {accounts.length === 0 ? (
-            <li className="text-[12px] text-fg-muted">No accounts linked yet.</li>
+            <li className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-[12px] text-fg-muted">
+              No accounts linked yet.
+            </li>
           ) : (
             accounts.map((a) => {
               const tone = verificationStatusTone(a.verification_status);
@@ -154,7 +160,7 @@ export function CreatorAccountsPanel({
               return (
                 <li
                   key={a.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg-sunken px-3 py-2.5"
+                  className="creator-glass-quiet creator-interactive flex flex-wrap items-center justify-between gap-2 rounded-xl px-3.5 py-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-medium capitalize">
@@ -177,7 +183,7 @@ export function CreatorAccountsPanel({
                       <button
                         type="button"
                         onClick={() => openVerify(a)}
-                        className="rounded-md border border-border-subtle px-2.5 py-1 text-[11px] font-semibold hover:bg-bg-hover"
+                        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-semibold transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10"
                       >
                         {a.verification_status === 'needs_verification' || a.verification_status === 'rejected'
                           ? 'Verify'

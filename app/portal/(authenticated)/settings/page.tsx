@@ -49,13 +49,21 @@ export default function CreatorSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-lg font-semibold">Settings</h1>
-        <p className="text-[13px] text-fg-muted">Connect accounts, verify audience, payouts, appeals.</p>
+        <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-0.5 text-[13px] text-fg-muted">Connect accounts, verify audience, payouts, appeals.</p>
       </div>
 
-      <section className="rounded-lg border border-border-subtle bg-bg-raised p-4">
-        <h2 className="text-[13px] font-semibold">Profile</h2>
-        <p className="mt-1 text-[12px] text-fg-muted">Discord · {meQ.data?.creator.discordUsername ?? '…'}</p>
+      <section className="creator-glass rounded-2xl p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Profile</h2>
+        <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5865F2]/20 text-[13px] font-bold text-[#8b96ff] ring-1 ring-[#5865F2]/30">
+            {(meQ.data?.creator.discordUsername ?? '·').slice(0, 1).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">Discord</p>
+            <p className="truncate text-[13px] font-medium">{meQ.data?.creator.discordUsername ?? '…'}</p>
+          </div>
+        </div>
       </section>
 
       <CreatorAccountsPanel
@@ -64,19 +72,23 @@ export default function CreatorSettingsPage() {
         initialVerifyAccountId={verifyAccountId}
       />
 
-      <section className="rounded-lg border border-border-subtle bg-bg-raised p-4">
-        <h2 className="text-[13px] font-semibold">Appeal a rejection or ban</h2>
-        <form onSubmit={(e) => void submitAppeal(e)} className="mt-2 space-y-2">
+      <section className="creator-glass rounded-2xl p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Appeal a rejection or ban</h2>
+        <p className="mt-0.5 text-[12px] text-fg-muted">Include concrete proof — screenshots, analytics, original post.</p>
+        <form onSubmit={(e) => void submitAppeal(e)} className="mt-3 space-y-3">
           <textarea
             value={appealMsg}
             onChange={(e) => setAppealMsg(e.target.value)}
             rows={4}
             placeholder="Explain with concrete proof…"
-            className="w-full rounded-md border border-border-subtle bg-bg-sunken px-3 py-2 text-[13px]"
+            className="creator-field w-full resize-none rounded-xl px-3 py-2.5 text-[13px] text-fg-primary placeholder:text-fg-muted"
             minLength={20}
             required
           />
-          <button type="submit" className="rounded-md border border-border-subtle px-4 py-2 text-[12px] font-semibold hover:bg-bg-hover">
+          <button
+            type="submit"
+            className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-2 text-[12px] font-semibold transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10"
+          >
             Submit appeal
           </button>
         </form>

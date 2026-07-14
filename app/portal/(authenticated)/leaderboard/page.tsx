@@ -21,24 +21,32 @@ export default function CreatorLeaderboardPage() {
   const data = q.data;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">Leaderboard</h1>
-          <p className="text-[13px] text-fg-muted">Monthly prize pool + rankings</p>
+          <h1 className="text-xl font-semibold tracking-tight">Leaderboard</h1>
+          <p className="mt-0.5 text-[13px] text-fg-muted">Monthly prize pool + rankings</p>
         </div>
-        <div className="flex rounded-md border border-border-subtle p-0.5 text-[11px]">
+        <div className="creator-glass-quiet flex rounded-full p-1 text-[11px]">
           <button
             type="button"
             onClick={() => setVerifiedOnly(true)}
-            className={verifiedOnly ? 'rounded bg-bg-hover px-3 py-1 font-semibold' : 'px-3 py-1 text-fg-muted'}
+            className={
+              verifiedOnly
+                ? 'rounded-full bg-accent-primary/20 px-3.5 py-1 font-semibold text-accent-glow ring-1 ring-inset ring-accent-primary/30'
+                : 'px-3.5 py-1 text-fg-muted transition-colors hover:text-fg-secondary'
+            }
           >
             Verified
           </button>
           <button
             type="button"
             onClick={() => setVerifiedOnly(false)}
-            className={!verifiedOnly ? 'rounded bg-bg-hover px-3 py-1 font-semibold' : 'px-3 py-1 text-fg-muted'}
+            className={
+              !verifiedOnly
+                ? 'rounded-full bg-accent-primary/20 px-3.5 py-1 font-semibold text-accent-glow ring-1 ring-inset ring-accent-primary/30'
+                : 'px-3.5 py-1 text-fg-muted transition-colors hover:text-fg-secondary'
+            }
           >
             Unverified
           </button>
@@ -47,25 +55,50 @@ export default function CreatorLeaderboardPage() {
 
       {data ? (
         <>
-          <div className="rounded-lg border border-border-subtle bg-bg-raised p-4 text-center">
-            <p className="text-[11px] uppercase tracking-wide text-fg-muted">Prize pool</p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums">${data.prizePoolUsd.toFixed(0)}</p>
+          <div className="creator-glass-strong rounded-2xl p-6 text-center">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-fg-muted">Prize pool</p>
+            <p className="creator-gradient-text mt-1.5 text-4xl font-semibold tabular-nums">
+              ${data.prizePoolUsd.toFixed(0)}
+            </p>
           </div>
-          <ol className="divide-y divide-border-subtle rounded-lg border border-border-subtle">
-            {data.rankings.map((r) => (
-              <li key={r.rank} className="flex items-center justify-between px-4 py-3 text-[13px]">
-                <span>
-                  <span className="mr-2 font-mono tabular-nums text-fg-muted">#{r.rank}</span>
-                  {r.username}
-                </span>
-                <span className="tabular-nums text-fg-secondary">
-                  {formatCompactUsd(r.views).replace('$', '')} views
-                </span>
-              </li>
-            ))}
+          <ol className="creator-glass divide-y divide-white/[0.05] overflow-hidden rounded-2xl">
+            {data.rankings.map((r) => {
+              const medal =
+                r.rank === 1
+                  ? 'text-[#ffd35a]'
+                  : r.rank === 2
+                    ? 'text-[#cbd5e1]'
+                    : r.rank === 3
+                      ? 'text-[#d69a5c]'
+                      : 'text-fg-muted';
+              return (
+                <li
+                  key={r.rank}
+                  className="flex items-center justify-between px-4 py-3 text-[13px] transition-colors hover:bg-white/[0.02]"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className={`w-7 font-mono text-[13px] font-semibold tabular-nums ${medal}`}>
+                      #{r.rank}
+                    </span>
+                    <span className="font-medium">{r.username}</span>
+                  </span>
+                  <span className="tabular-nums text-fg-secondary">
+                    {formatCompactUsd(r.views).replace('$', '')} views
+                  </span>
+                </li>
+              );
+            })}
+            {data.rankings.length === 0 ? (
+              <li className="px-4 py-8 text-center text-[13px] text-fg-muted">No ranked creators yet.</li>
+            ) : null}
           </ol>
         </>
-      ) : null}
+      ) : (
+        <div className="space-y-4">
+          <div className="creator-glass h-28 animate-pulse rounded-2xl" />
+          <div className="creator-glass h-64 animate-pulse rounded-2xl" />
+        </div>
+      )}
     </div>
   );
 }

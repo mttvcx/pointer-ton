@@ -16,11 +16,11 @@ export default async function PortalLoginPage({
   const devLogin = isCreatorDevLoginEnabled();
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-bg-base px-4 text-fg-primary">
-      <div className="w-full max-w-sm text-center">
+    <div className="creator-canvas flex min-h-dvh flex-col items-center justify-center px-4 text-fg-primary">
+      <div className="creator-glass-strong relative z-10 w-full max-w-sm rounded-2xl p-7 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/branding/pointer-bird.png" alt="" width={48} height={48} className="mx-auto h-12 w-auto" />
-        <h1 className="mt-4 text-xl font-semibold tracking-tight">Pointer Creator Portal</h1>
+        <img src="/branding/pointer-bird.png" alt="" width={48} height={48} className="mx-auto h-12 w-auto drop-shadow-[0_0_18px_rgba(0,119,182,0.5)]" />
+        <h1 className="creator-gradient-text mt-4 text-xl font-semibold tracking-tight">Pointer Creator Portal</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-fg-muted">
           Clip Pointer on TikTok, Instagram, and X. Get paid by views — Discord is required for the program.
         </p>
