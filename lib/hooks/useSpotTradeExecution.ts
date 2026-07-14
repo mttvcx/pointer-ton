@@ -341,7 +341,7 @@ export function useSpotTradeExecution(
       const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
       const tradeLanding = blitzLanding ?? landing;
 
-      const toastId = toast.loading('Buy: quote...');
+      const toastId = toast.loading('Attempting transaction');
       try {
         const res = await fetch('/api/trade/quote', {
           method: 'POST',
@@ -381,7 +381,6 @@ export function useSpotTradeExecution(
           throw new Error('No swap transaction from quote');
         }
 
-        toast.loading('Buy: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
           walletAddress: tradeAddress,
@@ -389,7 +388,7 @@ export function useSpotTradeExecution(
           getAccessToken,
         });
 
-        toast.success('Buy complete', {
+        toast.success('Transaction confirmed!', {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
@@ -422,7 +421,7 @@ export function useSpotTradeExecution(
       } catch (e) {
         toast.dismiss(toastId);
         console.error('[useSpotTradeExecution] buy failed', e);
-        toast.error('Buy failed', { description: 'Please try again.' });
+        toast.error('Transaction failed');
       }
     },
     [
@@ -500,7 +499,7 @@ export function useSpotTradeExecution(
       const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
       const tradeLanding = blitzLanding ?? landing;
 
-      const toastId = toast.loading('Sell: quote...');
+      const toastId = toast.loading('Attempting transaction');
       try {
         const res = await fetch('/api/trade/quote', {
           method: 'POST',
@@ -540,7 +539,6 @@ export function useSpotTradeExecution(
           throw new Error('No swap transaction from quote');
         }
 
-        toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
           walletAddress: tradeAddress,
@@ -548,7 +546,7 @@ export function useSpotTradeExecution(
           getAccessToken,
         });
 
-        toast.success('Sell complete', {
+        toast.success('Transaction confirmed!', {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
@@ -585,7 +583,7 @@ export function useSpotTradeExecution(
       } catch (e) {
         toast.dismiss(toastId);
         console.error('[useSpotTradeExecution] sell failed', e);
-        toast.error('Sell failed', { description: 'Please try again.' });
+        toast.error('Transaction failed');
       }
     },
     [
@@ -664,7 +662,7 @@ export function useSpotTradeExecution(
       const { fees: feeExtra, landing: blitzLanding } = buildBlitzAwareFees(blitzOn, presetFees);
       const tradeLanding = blitzLanding ?? landing;
 
-      const toastId = toast.loading('Sell: quote...');
+      const toastId = toast.loading('Attempting transaction');
       try {
         const res = await fetch('/api/trade/quote', {
           method: 'POST',
@@ -703,7 +701,6 @@ export function useSpotTradeExecution(
           throw new Error('No swap transaction from quote');
         }
 
-        toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
           walletAddress: tradeAddress,
@@ -711,7 +708,7 @@ export function useSpotTradeExecution(
           getAccessToken,
         });
 
-        toast.success('Sell complete', {
+        toast.success('Transaction confirmed!', {
           id: toastId,
           description: sig ? `${sig.slice(0, 8)}...` : undefined,
         });
@@ -751,7 +748,7 @@ export function useSpotTradeExecution(
       } catch (e) {
         toast.dismiss(toastId);
         console.error('[useSpotTradeExecution] sellSolOut failed', e);
-        toast.error('Sell failed', { description: 'Please try again.' });
+        toast.error('Transaction failed');
       }
     },
     [

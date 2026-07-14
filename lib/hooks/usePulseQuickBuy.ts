@@ -280,7 +280,7 @@ export function usePulseQuickBuy() {
         opts?.spendAsset ?? (activeChain === 'sol' ? spendAsset : 'sol');
       const fail = (error: string): QuickBuyResult => {
         if (!silent) {
-          toast.error('Quick buy failed', { description: error.slice(0, 200) });
+          toast.error('Transaction failed', { description: error.slice(0, 200) });
         }
         return { ok: false, error };
       };
@@ -324,14 +324,13 @@ export function usePulseQuickBuy() {
         return fail('Sign in required.');
       }
 
-      const toastId = silent ? undefined : toast.loading('Getting quote...');
+      const toastId = silent ? undefined : toast.loading('Attempting transaction');
       const __t0 = performance.now();
       try {
         // Uses a warm prefetched quote when the queue had one ready, else fetches.
         const ok = await getOrFetchBuyQuote(mint, amount, asset, token);
         const __tQuote = performance.now();
 
-        if (!silent && toastId) toast.loading('Sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
           walletAddress: tradeAddress,
@@ -350,9 +349,9 @@ export function usePulseQuickBuy() {
         );
 
         if (!silent && toastId) {
-          toast.success(`Filled in ${__total}ms`, {
+          toast.success('Transaction confirmed!', {
             id: toastId,
-            description: `quote ${__q}ms · sign+exec ${__se}ms${sig ? ` · ${sig.slice(0, 6)}…` : ''}`,
+            description: `Filled in ${__total}ms`,
           });
         }
         const chainRes: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
@@ -386,7 +385,7 @@ export function usePulseQuickBuy() {
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
         console.error('[usePulseQuickBuy] quick buy failed', e);
-        toast.error('Quick buy failed', { description: msg.slice(0, 200) });
+        toast.error('Transaction failed', { description: msg.slice(0, 200) });
       }
     },
     [
@@ -460,7 +459,7 @@ export function usePulseQuickBuy() {
         return silent ? fail('Sign in required') : undefined;
       }
 
-      const toastId = silent ? undefined : toast.loading('Sell: quote...');
+      const toastId = silent ? undefined : toast.loading('Attempting transaction');
       const __t0 = performance.now();
       try {
         let rawAmount: string;
@@ -547,7 +546,6 @@ export function usePulseQuickBuy() {
         }
 
         const __tQuote = performance.now();
-        if (!silent && toastId) toast.loading('Sell: sign in wallet...', { id: toastId });
         const { signature: sig } = await submitFromQuote({
           quote: ok,
           walletAddress: tradeAddress,
@@ -564,9 +562,9 @@ export function usePulseQuickBuy() {
         );
 
         if (!silent && toastId) {
-          toast.success(`Sold in ${__total}ms`, {
+          toast.success('Transaction confirmed!', {
             id: toastId,
-            description: `quote+bal ${__q}ms · sign+exec ${__se}ms${sig ? ` · ${sig.slice(0, 6)}…` : ''}`,
+            description: `Filled in ${__total}ms`,
           });
         }
         const chainResSell: AppChainId = ok.chain === 'sol' || ok.chain === 'ton' ? ok.chain : activeChain;
@@ -606,7 +604,7 @@ export function usePulseQuickBuy() {
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
         console.error('[usePulseQuickBuy] quick sell failed', e);
-        toast.error('Quick sell failed', { description: msg.slice(0, 200) });
+        toast.error('Transaction failed', { description: msg.slice(0, 200) });
       }
     },
     [

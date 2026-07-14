@@ -851,7 +851,7 @@ export function BuySellPanel({
       return;
     }
 
-    const toastId = toast.loading('Getting quote...');
+    const toastId = toast.loading('Attempting transaction');
     try {
       const blitzOn = isBlitzWallet(wallet?.address ?? '', blitzWalletAddresses);
       const presetFees =
@@ -926,7 +926,6 @@ export function BuySellPanel({
       setQuoteForKey(paramsKey);
       setQuoteWallet(tradeAddress);
 
-      toast.loading('Sign in wallet...', { id: toastId });
       const { signature: sig } = await submitFromQuote({
         quote: ok,
         walletAddress: tradeAddress,
@@ -934,7 +933,7 @@ export function BuySellPanel({
         getAccessToken,
       });
 
-      toast.success(tab === 'buy' ? 'Buy complete' : 'Sell complete', {
+      toast.success('Transaction confirmed!', {
         id: toastId,
         description: sig ? `Signature: ${sig.slice(0, 8)}...` : undefined,
       });

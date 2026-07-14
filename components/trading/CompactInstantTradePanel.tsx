@@ -1061,10 +1061,11 @@ export function CompactInstantTradePanel({
     };
   }, [bounds.w, bounds.h]);
 
-  const buyChips =
-    editSlots || !presetLayout.topRowOnlyCompact ? buyValues : buyValues.slice(0, 4);
-  const sellChips =
-    editSlots || !presetLayout.topRowOnlyCompact ? sellValues : sellValues.slice(0, 4);
+  // Edit mode must respect the current row layout — in compact (1-row) mode we
+  // still only show the 4 visible chips to edit, never force the 2-row (8-chip)
+  // grid. Expand the panel to 2 rows to edit all 8.
+  const buyChips = presetLayout.topRowOnlyCompact ? buyValues.slice(0, 4) : buyValues;
+  const sellChips = presetLayout.topRowOnlyCompact ? sellValues.slice(0, 4) : sellValues;
 
   const netSessionPnl = tradeDeskStats.netPnlSol;
   const netPctForTitle = tradeDeskStats.netPnlPct;
