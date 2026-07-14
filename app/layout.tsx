@@ -43,7 +43,17 @@ const geist = Geist({
   display: 'swap',
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL?.trim() || 'https://pointer.am';
+const SHARE_TITLE = `${APP_NAME} — Where the sharpest traders are.`;
+const SHARE_DESCRIPTION = 'Lowest fees. Best rewards. Fastest execution.';
+/** Social/referral unfurl image — served from /public/og. 1280×720. */
+const SHARE_IMAGE = '/og/pointer-share.png';
+
 export const metadata: Metadata = {
+  // Resolves relative OG/Twitter image paths to absolute URLs (required by
+  // X / Discord / Telegram crawlers). Inherited by every route — including
+  // referral links — unless a page sets its own metadata.
+  metadataBase: new URL(SITE_URL),
   title: {
     default: `${APP_NAME} | Where the sharpest traders are.`,
     // Pass-through template so per-page titles render verbatim (no " | Pointer" wrapper).
@@ -56,6 +66,27 @@ export const metadata: Metadata = {
     icon: '/favicon.png',
     shortcut: '/favicon.png',
     apple: '/favicon.png',
+  },
+  openGraph: {
+    type: 'website',
+    siteName: APP_NAME,
+    url: SITE_URL,
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    images: [
+      {
+        url: SHARE_IMAGE,
+        width: 1280,
+        height: 720,
+        alt: `${APP_NAME} — Where the sharpest traders are.`,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    images: [SHARE_IMAGE],
   },
 };
 
