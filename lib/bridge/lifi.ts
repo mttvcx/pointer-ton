@@ -12,6 +12,23 @@ export type LifiQuoteParams = {
   fromAddress: string;
   toAddress: string;
   slippage?: number;
+  /**
+   * Integrator fee as a decimal fraction (e.g. 0.015 = 1.5%). LiFi collects it to
+   * the integrator's configured fee wallet. Requires the integrator to be
+   * authorized for fees — unauthorized fee requests are rejected by the API.
+   */
+  fee?: number;
+};
+
+/** A non-gas fee line item in a LiFi estimate (includes the integrator fee). */
+export type LifiFeeCost = {
+  name?: string;
+  description?: string;
+  percentage?: string;
+  amount?: string;
+  amountUSD?: string;
+  included?: boolean;
+  token?: { symbol?: string; address?: string; decimals?: number };
 };
 
 export type LifiQuoteResult = {
@@ -21,6 +38,8 @@ export type LifiQuoteResult = {
     fromAmount: string;
     /** ERC-20 spender to approve before an EVM swap (the LiFi diamond / router). */
     approvalAddress?: string;
+    /** Non-gas fees applied to this route (protocol + our integrator fee). */
+    feeCosts?: LifiFeeCost[];
   };
   action: {
     fromToken: { symbol: string; decimals: number };
@@ -48,6 +67,11 @@ export async function fetchLifiQuote(params: LifiQuoteParams): Promise<LifiQuote
     integrator: INTEGRATOR,
     slippage: String(params.slippage ?? 0.005),
   });
+  // Integrator fee — only sent when > 0 (LiFi rejects unauthorized fee requests,
+  // which is the desired loud failure if the integrator isn't fee-registered yet).
+  if (params.fee != null && params.fee > 0) {
+    qs.set('fee', String(params.fee));
+  }
 
   const res = await fetch(`${LIFI_BASE}/quote?${qs.toString()}`, { cache: 'no-store' });
   const json: unknown = await res.json().catch(() => ({}));

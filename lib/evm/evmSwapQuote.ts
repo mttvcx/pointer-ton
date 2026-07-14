@@ -1,12 +1,13 @@
 import 'server-only';
 
-import { fetchLifiQuote } from '@/lib/bridge/lifi';
+import { fetchLifiQuote, type LifiFeeCost } from '@/lib/bridge/lifi';
 import {
   EVM_NATIVE_SENTINEL,
   EVM_NUMERIC_CHAIN_ID,
   isNativeEvmToken,
   type EvmTradeChain,
 } from '@/lib/evm/evmTradeChains';
+import { EVM_FEE_BPS, evmFeeActiveForChain, evmFeeFractionForChain } from '@/lib/evm/evmFee';
 
 /**
  * Normalized EVM swap quote returned to the client. The client validates
@@ -30,6 +31,8 @@ export type EvmSwapQuote = {
   buyAmountRaw: string;
   minBuyAmountRaw: string;
   tool: string;
+  /** Pointer fee charged on this swap (bps). 0 when the EVM fee is off / not applied. */
+  pointerFeeBps: number;
 };
 
 export type BuildEvmSwapInput = {
@@ -49,6 +52,24 @@ export type BuildEvmSwapInput = {
 
 const HEX40 = /^0x[a-fA-F0-9]{40}$/;
 
+/**
+ * Did LiFi actually apply our integrator fee? We match on the fee percentage
+ * (LiFi echoes it back as `percentage`) with a tolerance, or an integrator-named
+ * fee line. Used to guarantee: when fees are ON, a *successful* quote always
+ * carries the fee — so the execute route can safely rebate cashback.
+ */
+function lifiIntegratorFeeApplied(feeCosts: LifiFeeCost[] | undefined, expectedFraction: number): boolean {
+  if (!feeCosts?.length) return false;
+  return feeCosts.some((fc) => {
+    const amt = Number(fc.amount ?? '0');
+    if (!(amt > 0)) return false;
+    const pct = Number(fc.percentage);
+    if (Number.isFinite(pct) && Math.abs(pct - expectedFraction) <= 0.0005) return true;
+    const label = `${fc.name ?? ''} ${fc.description ?? ''}`.toLowerCase();
+    return /lifi|integrator|pointer/.test(label);
+  });
+}
+
 export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSwapQuote> {
   // Robinhood routes through direct Uniswap (buildRobinhoodSwapQuote), never LiFi.
   if (input.chain === 'robinhood') throw new Error('robinhood_uses_uniswap');
@@ -65,6 +86,9 @@ export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSw
   const fromToken = input.side === 'buy' ? EVM_NATIVE_SENTINEL : token;
   const toToken = input.side === 'buy' ? token : EVM_NATIVE_SENTINEL;
 
+  // Pointer's 1.5% fee (only when enabled + this is a LiFi chain). 0 = no fee sent.
+  const feeFraction = evmFeeFractionForChain(input.chain);
+
   const lifi = await fetchLifiQuote({
     fromChain: String(chainId),
     toChain: String(chainId), // same-chain swap
@@ -74,6 +98,7 @@ export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSw
     fromAddress: wallet,
     toAddress: wallet,
     slippage: input.slippageBps / 10_000,
+    fee: feeFraction > 0 ? feeFraction : undefined,
   });
 
   const tx = lifi.transactionRequest;
@@ -81,6 +106,15 @@ export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSw
   if (!HEX40.test(tx.to)) throw new Error('lifi_bad_to');
   // Same-chain safety: the calldata target chain must match what we quoted.
   if (tx.chainId != null && tx.chainId !== chainId) throw new Error('lifi_chain_mismatch');
+
+  // Fail-safe: when the fee is ON, refuse a quote we can't confirm charged it —
+  // better to block the trade than to swap fee-free and later rebate cashback we
+  // never collected. (LiFi normally rejects unauthorized fees outright; this
+  // guards the silent-ignore case.)
+  const feeApplied = feeFraction > 0 && lifiIntegratorFeeApplied(lifi.estimate.feeCosts, feeFraction);
+  if (feeFraction > 0 && !feeApplied) {
+    throw new Error('evm_fee_not_applied');
+  }
 
   const sellNative = isNativeEvmToken(fromToken);
 
@@ -96,5 +130,6 @@ export async function buildEvmSwapQuote(input: BuildEvmSwapInput): Promise<EvmSw
     buyAmountRaw: lifi.estimate.toAmount,
     minBuyAmountRaw: lifi.estimate.toAmountMin,
     tool: lifi.tool ?? 'lifi',
+    pointerFeeBps: evmFeeActiveForChain(input.chain) ? EVM_FEE_BPS : 0,
   };
 }

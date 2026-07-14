@@ -202,5 +202,9 @@ export async function buildRobinhoodSwapQuote(input: {
     buyAmountRaw: quote.amountOut.toString(),
     minBuyAmountRaw: minOut.toString(),
     tool: `uniswap-v3-${quote.fee}`,
+    // Robinhood routes direct through Uniswap V3 — no aggregator fee hook, so no
+    // Pointer fee is collected here (and thus no cashback) until a fee mechanism
+    // exists for direct swaps. LiFi chains (eth/bnb/base) carry the 1.5% fee.
+    pointerFeeBps: 0,
   };
 }

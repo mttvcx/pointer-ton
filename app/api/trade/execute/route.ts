@@ -23,6 +23,7 @@ import { waitForSolConfirmation } from '@/lib/solana/confirm';
 import { getSolUsdPrice } from '@/lib/packs/pricing';
 import { getNativeUsdForEvmChain } from '@/lib/prices/nativeUsd';
 import { verifyEvmSwapTx } from '@/lib/evm/verifyEvmTx';
+import { EVM_CASHBACK_BASIS_BPS, EVM_FEE_BPS, evmFeeActiveForChain } from '@/lib/evm/evmFee';
 import {
   assertTradingAllowed,
   EmergencyBlockedError,
@@ -75,10 +76,12 @@ const TonExecuteSchema = z
 
 /**
  * EVM swap record — the client already executed + confirmed the swap on-chain
- * (its own Privy wallet). This route only RECORDS it + credits fair volume
- * points. No funds move here. `nativeNotional` = ETH/BNB spent (buy) or received
- * (sell); it's normalized to a SOL-equivalent so points are fair across chains.
- * Cashback/referral are skipped — LiFi swaps take no Pointer fee (nothing to rebate).
+ * (its own Privy wallet). This route only RECORDS it + credits fair volume points
+ * + cashback/referral. No funds move here. `nativeNotional` = ETH/BNB spent (buy)
+ * or received (sell); it's normalized to a SOL-equivalent so points + rebates are
+ * fair across chains. When the EVM fee is live (eth/bnb/base, LiFi took the 1.5%),
+ * cashback (0.5%) + referral (0.3%) accrue off a 1%-equiv basis — identical rebate
+ * to SOL/TON. Robinhood + fee-off chains take no fee → no cashback (see lib/evm/evmFee).
  */
 const EvmExecuteSchema = z
   .object({
@@ -149,6 +152,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'tx_not_verified' }, { status: 400 });
     }
     const rewardable = verified?.ok === true;
+    const feeActive = evmFeeActiveForChain(b.appChain);
+
+    // Price up-front (best-effort) so the recorded fee, the cashback basis, and the
+    // volume points all derive from ONE SOL-equivalent notional. A price hiccup
+    // degrades to 0 (record the trade, skip rewards) — never blocks the record.
+    let solEquiv = 0;
+    if (rewardable && b.nativeNotional > 0) {
+      try {
+        const [{ solUsd }, nativeUsd] = await Promise.all([
+          getSolUsdPrice(),
+          getNativeUsdForEvmChain(b.appChain),
+        ]);
+        solEquiv = solUsd > 0 ? (b.nativeNotional * nativeUsd) / solUsd : 0;
+      } catch {
+        /* price unavailable — record the trade, skip rewards */
+      }
+    }
+    const solEquivLamports = solEquiv > 0 ? solToLamports(solEquiv) : 0n;
+    // Fee actually charged on-chain (1.5%-equiv) — recorded for accounting.
+    const feeLamportsActual =
+      feeActive && solEquivLamports > 0n
+        ? Number((solEquivLamports * BigInt(EVM_FEE_BPS)) / 10_000n)
+        : 0;
+    // Cashback/referral BASIS = 1%-equiv, so the shared 50%/30% shares rebate
+    // 0.5% / 0.3% — identical to SOL/TON while EVM charges 1.5% (lib/evm/evmFee).
+    const cashbackBasisLamports =
+      feeActive && solEquivLamports > 0n
+        ? Number((solEquivLamports * BigInt(EVM_CASHBACK_BASIS_BPS)) / 10_000n)
+        : 0;
 
     const trade = await insertTrade({
       id: randomUUID(),
@@ -158,7 +190,7 @@ export async function POST(req: NextRequest) {
       amount_in_raw: b.amountInRaw,
       amount_out_raw: b.amountOutRaw,
       amount_sol: b.nativeNotional, // native (ETH/BNB) notional
-      platform_fee_lamports: 0, // LiFi swaps take no Pointer fee → no cashback/referral
+      platform_fee_lamports: feeLamportsActual, // 1.5%-equiv (0 when fee off)
       tx_signature: b.txHash,
       status: 'confirmed',
       submitted_at: new Date().toISOString(),
@@ -167,31 +199,50 @@ export async function POST(req: NextRequest) {
 
     // Fair volume points: normalize native notional → SOL-equivalent so 1 ETH of
     // volume ≈ 15 SOL, not 1. Best-effort; a price hiccup never blocks the record.
-    if (rewardable && b.nativeNotional > 0) {
+    if (rewardable && solEquiv > 0) {
       try {
-        const [{ solUsd }, nativeUsd] = await Promise.all([
-          getSolUsdPrice(),
-          getNativeUsdForEvmChain(b.appChain),
-        ]);
-        const solEquiv = solUsd > 0 ? (b.nativeNotional * nativeUsd) / solUsd : 0;
-        if (solEquiv > 0) {
-          await awardPoints(user.id, 'trade_volume', {
-            dedupeKey: `trade:${b.txHash}`,
-            amountSol: solEquiv,
-            metadata: { mint: b.mint, side: b.side, chain: b.appChain, signature: b.txHash },
+        await awardPoints(user.id, 'trade_volume', {
+          dedupeKey: `trade:${b.txHash}`,
+          amountSol: solEquiv,
+          metadata: { mint: b.mint, side: b.side, chain: b.appChain, signature: b.txHash },
+        });
+        const n = await countConfirmedTradesForUser(user.id);
+        if (n === 1) {
+          await awardPoints(user.id, 'first_trade', {
+            dedupeKey: 'first_trade',
+            metadata: { signature: b.txHash },
           });
-          const n = await countConfirmedTradesForUser(user.id);
-          if (n === 1) {
-            await awardPoints(user.id, 'first_trade', {
-              dedupeKey: 'first_trade',
-              metadata: { signature: b.txHash },
-            });
-          }
         }
       } catch {
         /* best-effort rewards */
       }
     }
+
+    // Cashback (0.5%) + referral (0.3%) — only when the 1.5% fee was actually
+    // charged (feeActive ⇒ the quote guaranteed the LiFi integrator fee, or threw
+    // 'evm_fee_not_applied'). Same accrual path as SOL/TON, just a different basis.
+    if (rewardable && cashbackBasisLamports > 0) {
+      try {
+        await recordReferralEarningFromTrade({
+          referredUserId: user.id,
+          tradeId: trade.id,
+          platformFeeLamports: cashbackBasisLamports,
+        });
+      } catch {
+        /* best-effort */
+      }
+      try {
+        await recordTradeCashbackAccrual({
+          userId: user.id,
+          tradeId: trade.id,
+          platformFeeLamports: cashbackBasisLamports,
+          signature: b.txHash,
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
+
     return NextResponse.json({ signature: b.txHash, tradeId: trade.id, status: 'confirmed' });
   }
 
