@@ -26,7 +26,6 @@ import { cn } from '@/lib/utils/cn';
 import { APP_NAME } from '@/lib/utils/constants';
 import { GlassPanel, HeroBackdrop } from '@/components/points/missionControlPrimitives';
 import { buildReferralInviteUrl } from '@/lib/referral/referralUrls';
-import { cashbackSharePct } from '@/lib/cashback/constants';
 
 function displayInviteName(user: {
   twitter?: { username?: string };
@@ -131,20 +130,16 @@ export function ReferralDashboard({ className }: { className?: string }) {
   // Referrer's cut of referee fees (30%). Drives the dashboard fee-share stats.
   const sharePct =
     codeData?.feeShareBps != null ? (codeData.feeShareBps / 100).toFixed(0) : '30';
-  // Trader cashback the *recruit* earns (50%) — the marketing hook on the invite.
-  const cashbackPct = cashbackSharePct();
   const shareUrl = codeData?.code ? buildReferralInviteUrl(codeData.code) : '';
 
   // Marketing copy only — the referral CODE rides inside the link (shareUrl), so
   // there's no "use my code" line. The X composer passes this as `text` + the link
   // as `url`, so the invite link unfurls the Pointer share card.
   const xShareMessage =
-    `Where the sharpest traders are.\n\n` +
-    `⚡ Fastest fills\n` +
-    `💸 Lowest fees\n` +
-    `🎁 ${cashbackPct}% cashback — forever\n` +
-    `🏆 Points that actually reward you\n\n` +
-    `Get in early 👇`;
+    `Get in early while points are still easy to earn.\n\n` +
+    `Fastest fills.\n` +
+    `Lowest fees and highest cashback.\n` +
+    `The biggest airdrop in crypto is being built.`;
   // Full shareable text (copy + link) for the preview + "Copy message".
   const xShareFull = shareUrl ? `${xShareMessage}\n\n${shareUrl}` : xShareMessage;
 
