@@ -545,7 +545,9 @@ export function BuySellPanel({
     return chips;
   }, [buyChipAmounts]);
 
-  const canEditBuyChips = activeChain === 'sol' && spendAsset === 'sol';
+  // Editable on every chain (chips map to the shared preset amounts, used as the
+  // native buy size). Only SOL+USDC is locked — it uses fixed USDC presets.
+  const canEditBuyChips = !(activeChain === 'sol' && spendAsset === 'usdc');
 
   useEffect(() => {
     setBuyChipsEditing(false);
@@ -591,7 +593,7 @@ export function BuySellPanel({
     if (buyChipsEditing) {
       const amounts = buyChipsDraft.map((s) => Number.parseFloat(s.trim()));
       if (amounts.some((n) => !Number.isFinite(n) || n <= 0)) {
-        toast.error('Enter four valid SOL amounts');
+        toast.error(`Enter four valid ${nativeSym} amounts`);
         return;
       }
       if (!activePreset) {
