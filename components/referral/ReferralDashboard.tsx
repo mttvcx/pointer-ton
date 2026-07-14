@@ -135,9 +135,18 @@ export function ReferralDashboard({ className }: { className?: string }) {
   const cashbackPct = cashbackSharePct();
   const shareUrl = codeData?.code ? buildReferralInviteUrl(codeData.code) : '';
 
-  const xShareMessage = codeData?.code
-    ? `${cashbackPct}% cashback. Forever.\nUse my referral code: "${codeData.code}"`
-    : '';
+  // Marketing copy only — the referral CODE rides inside the link (shareUrl), so
+  // there's no "use my code" line. The X composer passes this as `text` + the link
+  // as `url`, so the invite link unfurls the Pointer share card.
+  const xShareMessage =
+    `Where the sharpest traders are.\n\n` +
+    `⚡ Fastest fills\n` +
+    `💸 Lowest fees\n` +
+    `🎁 ${cashbackPct}% cashback — forever\n` +
+    `🏆 Points that actually reward you\n\n` +
+    `Get in early 👇`;
+  // Full shareable text (copy + link) for the preview + "Copy message".
+  const xShareFull = shareUrl ? `${xShareMessage}\n\n${shareUrl}` : xShareMessage;
 
   const loading = codeLoading || earnLoading;
 
@@ -450,7 +459,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
               />
             </div>
             <div className="mt-5 whitespace-pre-line rounded-xl border border-white/[0.08] bg-bg-sunken/80 p-4 text-[11px] leading-relaxed text-fg-secondary ring-1 ring-white/[0.04]">
-              {xShareMessage}
+              {xShareFull}
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               <button
@@ -468,7 +477,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
                 type="button"
                 className="focus-ring btn-press inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/12 bg-bg-hover px-4 py-2.5 text-[12px] font-semibold text-fg-primary min-[400px]:flex-none"
                 onClick={() => {
-                  void navigator.clipboard.writeText(xShareMessage);
+                  void navigator.clipboard.writeText(xShareFull);
                   toast.success('Message copied');
                 }}
               >
@@ -477,7 +486,7 @@ export function ReferralDashboard({ className }: { className?: string }) {
               </button>
             </div>
             <a
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(xShareMessage)}`}
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(xShareMessage)}${shareUrl ? `&url=${encodeURIComponent(shareUrl)}` : ''}`}
               target="_blank"
               rel="noreferrer"
               className="focus-ring btn-press mt-3 flex w-full items-center justify-center rounded-xl border border-cyan-400/30 bg-cyan-500/10 py-2.5 text-[12px] font-semibold text-cyan-50 ring-1 ring-cyan-400/25 transition hover:bg-cyan-500/15"
