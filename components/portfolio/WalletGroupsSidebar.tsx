@@ -10,6 +10,7 @@ import {
   type StoredWalletGroup,
 } from '@/lib/trade/walletGroups';
 import { useWalletGroupsStore } from '@/store/walletGroups';
+import { resolveWalletDisplayNames } from '@/lib/wallets/walletDisplayName';
 import { cn } from '@/lib/utils/cn';
 
 type Props = {
@@ -39,6 +40,7 @@ export function WalletGroupsSidebar({
     () => new Set(wallets.map((w) => w.wallet_address)),
     [wallets],
   );
+  const walletNames = useMemo(() => resolveWalletDisplayNames(wallets), [wallets]);
   const allAddresses = useMemo(() => wallets.map((w) => w.wallet_address), [wallets]);
   const ungroupedCount = useMemo(
     () => ungroupedWalletAddresses(allAddresses, groups).length,
@@ -118,11 +120,13 @@ export function WalletGroupsSidebar({
             const expanded = expandedId === g.id;
 
             return (
-              <div key={g.id} className="rounded-lg border border-transparent">
+              <div key={g.id}>
                 <div
                   className={cn(
-                    'flex items-center gap-1 rounded-lg px-1.5 py-1 transition',
-                    selected && 'border-border-subtle bg-bg-sunken',
+                    'flex items-center gap-1 rounded-lg px-1.5 py-1.5 ring-1 ring-inset transition-colors',
+                    selected
+                      ? 'bg-accent-primary/12 ring-accent-primary/30'
+                      : 'ring-transparent hover:bg-white/[0.04]',
                   )}
                 >
                   {!isUngrouped ? (
@@ -146,9 +150,15 @@ export function WalletGroupsSidebar({
                     onClick={() => onSelectGroup(isUngrouped ? UNGROUPED_GROUP_ID : g.id)}
                     className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                   >
-                    <Folder className="h-3.5 w-3.5 shrink-0 text-accent-primary/80" strokeWidth={2} />
+                    <Folder
+                      className={cn(
+                        'h-3.5 w-3.5 shrink-0',
+                        selected ? 'text-accent-glow' : 'text-accent-primary/70',
+                      )}
+                      strokeWidth={2}
+                    />
                     <span className="truncate text-[11px] font-medium text-fg-primary">{g.label}</span>
-                    <span className="ml-auto shrink-0 tabular-nums text-[10px] text-fg-muted">
+                    <span className="ml-auto shrink-0 rounded-full bg-white/[0.06] px-1.5 py-0.5 tabular-nums text-[10px] text-fg-muted">
                       {g.walletCount}
                     </span>
                   </button>
@@ -178,7 +188,7 @@ export function WalletGroupsSidebar({
                         const inGroup = groups
                           .find((x) => x.id === g.id)
                           ?.walletAddresses.includes(w.wallet_address);
-                        const label = w.label?.trim() || `Wallet ${w.slot}`;
+                        const label = walletNames.get(w.id) ?? w.label?.trim() ?? 'Pointer Wallet';
                         return (
                           <label
                             key={w.id}
