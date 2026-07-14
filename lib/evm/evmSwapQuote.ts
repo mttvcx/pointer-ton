@@ -64,7 +64,11 @@ function lifiIntegratorFeeApplied(feeCosts: LifiFeeCost[] | undefined, expectedF
     const amt = Number(fc.amount ?? '0');
     if (!(amt > 0)) return false;
     const pct = Number(fc.percentage);
-    if (Number.isFinite(pct) && Math.abs(pct - expectedFraction) <= 0.0005) return true;
+    if (Number.isFinite(pct)) {
+      // LiFi may echo the fee as a fraction (0.015) OR a percent (1.5) — accept both.
+      if (Math.abs(pct - expectedFraction) <= 0.0005) return true;
+      if (Math.abs(pct - expectedFraction * 100) <= 0.05) return true;
+    }
     const label = `${fc.name ?? ''} ${fc.description ?? ''}`.toLowerCase();
     return /lifi|integrator|pointer/.test(label);
   });
