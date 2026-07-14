@@ -109,9 +109,19 @@ export const CHAIN_TICKER: Record<AppChainId, string> = {
   eth: 'ETH',
   bnb: 'BNB',
   base: 'BASE',
-  // Robinhood Chain's gas token is ETH (Arbitrum Orbit L2) — badge it as ETH.
+  // Robinhood Chain's gas token is ETH (Arbitrum Orbit L2) — balances/amounts show ETH.
   robinhood: 'ETH',
   ton: 'TON',
+};
+
+/**
+ * Ticker shown in the CHAIN SELECTOR only (top pill + dropdown rows). Robinhood
+ * is branded 'HOOD' here for identity, even though its gas token is ETH — balance
+ * and native-amount labels still use {@link CHAIN_TICKER} (the real ETH gas token).
+ */
+export const CHAIN_SELECTOR_TICKER: Record<AppChainId, string> = {
+  ...CHAIN_TICKER,
+  robinhood: 'HOOD',
 };
 
 export const ORDERED_CHAINS: AppChainId[] = [...APP_CHAIN_IDS];

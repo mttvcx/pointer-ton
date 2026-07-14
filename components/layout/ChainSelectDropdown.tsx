@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import type { AppChainId } from '@/lib/chains/appChain';
-import { CHAIN_DROPDOWN_LABEL, CHAIN_ICON_PNG, CHAIN_TICKER, ORDERED_CHAINS } from '@/lib/chains/chainAssets';
+import { CHAIN_DROPDOWN_LABEL, CHAIN_ICON_PNG, CHAIN_SELECTOR_TICKER, ORDERED_CHAINS } from '@/lib/chains/chainAssets';
 import { useOverlayPresence, POPOVER_ANIM_CLOSE_MS } from '@/lib/hooks/useOverlayPresence';
 import { popoverPanelClasses } from '@/lib/ui/overlayMotion';
 import { cn } from '@/lib/utils/cn';
@@ -107,7 +107,7 @@ export function ChainSelectDropdown({
         />
         {showTicker ? (
           <span className="inline-flex items-center gap-0.5 tabular-nums">
-            {CHAIN_TICKER[activeChain]}
+            {CHAIN_SELECTOR_TICKER[activeChain]}
             <ChevronDown
               className={cn(
                 'h-3 w-3 shrink-0 text-fg-muted transition-transform duration-200 ease-out',
@@ -170,7 +170,7 @@ export function ChainSelectDropdown({
                   draggable={false}
                 />
                 <span className="min-w-0 flex-1 font-medium">{CHAIN_DROPDOWN_LABEL[id]}</span>
-                <span className="shrink-0 tabular-nums text-[10px] text-fg-muted">{CHAIN_TICKER[id]}</span>
+                <span className="shrink-0 tabular-nums text-[10px] text-fg-muted">{CHAIN_SELECTOR_TICKER[id]}</span>
               </button>
             );
           })}

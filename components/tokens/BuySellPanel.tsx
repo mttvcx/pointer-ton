@@ -5,6 +5,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MyWalletRow } from '@/lib/hooks/useActiveSolanaWallet';
 import { useActiveSolanaWallet } from '@/lib/hooks/useActiveSolanaWallet';
+import { useWallets as useEvmWallets } from '@privy-io/react-auth';
+import { isEvmTradeChain, weiToNativeFloat } from '@/lib/evm/evmTradeChains';
+import { readEvmTokenBalanceRaw } from '@/lib/evm/evmBalance';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePointerTradeSubmit } from '@/lib/hooks/usePointerTradeSubmit';
@@ -202,6 +205,19 @@ export function BuySellPanel({
     () => myWalletsQ.data?.wallets.find((w) => w.wallet_address === wallet?.address),
     [myWalletsQ.data?.wallets, wallet?.address],
   );
+
+  // EVM chains (eth/bnb/base/robinhood) trade from the user's Privy EMBEDDED EVM
+  // wallet — NOT the Solana wallet — so the Solana `is_imported` gate must not
+  // apply here. Mirrors useSpotTradeExecution (the instant-trade dock path).
+  const { wallets: evmWallets } = useEvmWallets();
+  const evmTradeChain = isEvmTradeChain(activeChain);
+  const evmWallet = useMemo(
+    () => evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0],
+    [evmWallets],
+  );
+  /** Address the trade quotes/signs from — EVM address on eth/bnb/base/robinhood, else Solana. */
+  const tradeAddress = evmTradeChain ? evmWallet?.address ?? null : wallet?.address ?? null;
+  const tradeWalletReady = evmTradeChain ? Boolean(evmWallet) : walletsReady && Boolean(wallet);
   const solBalPreview = useMemo(() => {
     const lam = activeWalletRow?.balance_lamports;
     if (lam == null || lam === '') return null;
@@ -211,7 +227,8 @@ export function BuySellPanel({
       return null;
     }
   }, [activeWalletRow?.balance_lamports]);
-  const tradingBlockedImported = activeWalletRow?.is_imported === true;
+  // Only Solana/TON imported wallets are view-only; EVM trades from the Privy EVM wallet.
+  const tradingBlockedImported = !evmTradeChain && activeWalletRow?.is_imported === true;
   const mintTradable = isTradableMint(mint);
   const chainMatchesMint = mintMatchesAppChain(mint, activeChain);
   const tradingUnavailable = !mintTradable || !chainMatchesMint;
@@ -346,12 +363,16 @@ export function BuySellPanel({
   const buyAmountSol = buyAmount;
 
   const { data: balanceData, refetch: refetchBalance } = useQuery({
-    queryKey: ['trade-balance', mint, wallet?.address],
+    queryKey: ['trade-balance', mint, tradeAddress],
     queryFn: async () => {
+      // EVM: read the ERC-20 balance on-chain (no Solana-style balance route).
+      if (evmTradeChain && isEvmTradeChain(activeChain)) {
+        return { rawAmount: await readEvmTokenBalanceRaw(activeChain, mint, tradeAddress ?? '') };
+      }
       const token = await getAccessToken();
       if (!token) throw new Error('no_token');
       const res = await fetch(
-        `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(wallet!.address)}`,
+        `/api/trade/balance?mint=${encodeURIComponent(mint)}&wallet=${encodeURIComponent(tradeAddress ?? '')}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       const json: unknown = await res.json();
@@ -364,7 +385,7 @@ export function BuySellPanel({
       }
       return json as { rawAmount: string };
     },
-    enabled: Boolean(walletsReady && wallet?.address && mint),
+    enabled: Boolean(tradeWalletReady && tradeAddress && mint),
     staleTime: 10_000,
   });
 
@@ -770,9 +791,12 @@ export function BuySellPanel({
     if (quote.side === 'buy') {
       return `${formatNumber(rawToUi(quote.summary.amountOutRaw, decimals), { decimals: 4 })} ${symbol ?? 'tokens'}`;
     }
-    return `${formatNumber(lamportsToSol(BigInt(quote.summary.amountOutRaw)), {
-      decimals: 5,
-    })} ${nativeSym}`;
+    // EVM native out is wei (18dp); Solana/TON is lamports (9dp).
+    const nativeOut =
+      quote.chain === 'evm'
+        ? weiToNativeFloat(quote.summary.amountOutRaw)
+        : lamportsToSol(BigInt(quote.summary.amountOutRaw));
+    return `${formatNumber(nativeOut, { decimals: 5 })} ${nativeSym}`;
   }, [quote, decimals, symbol, nativeSym]);
 
   const formattedPay = useMemo(() => {
@@ -784,21 +808,25 @@ export function BuySellPanel({
           rawToUi(quote.summary.amountInRaw, USDC_DECIMALS);
         return `${formatNumber(est, { decimals: 2 })} USDC`;
       }
-      return `${formatNumber(lamportsToSol(BigInt(quote.summary.amountInRaw)), {
-        decimals: 4,
-      })} ${nativeSym}`;
+      // EVM native in is wei (18dp); Solana/TON is lamports (9dp).
+      const nativeIn =
+        quote.chain === 'evm'
+          ? weiToNativeFloat(quote.summary.amountInRaw)
+          : lamportsToSol(BigInt(quote.summary.amountInRaw));
+      return `${formatNumber(nativeIn, { decimals: 4 })} ${nativeSym}`;
     }
     return `${formatNumber(rawToUi(quote.summary.amountInRaw, decimals), { decimals: 4 })} ${symbol ?? 'tokens'}`;
   }, [quote, decimals, symbol, nativeSym]);
 
   const runTrade = useCallback(async () => {
-    if (!wallet) {
+    if (!tradeAddress) {
       toast.error(walletConnectRequiredTitle(activeChain), {
         description: walletConnectRequiredMessage(activeChain),
       });
       return;
     }
-    if (activeWalletRow?.is_imported === true) {
+    // EVM trades from the Privy EVM wallet — the Solana is_imported gate doesn't apply.
+    if (!evmTradeChain && activeWalletRow?.is_imported === true) {
       toast.error('View-only wallet', {
         description: viewOnlyWalletTradeMessage(activeChain),
       });
@@ -823,7 +851,7 @@ export function BuySellPanel({
 
     const toastId = toast.loading('Getting quote...');
     try {
-      const blitzOn = isBlitzWallet(wallet.address, blitzWalletAddresses);
+      const blitzOn = isBlitzWallet(wallet?.address ?? '', blitzWalletAddresses);
       const presetFees =
         activePreset != null
           ? {
@@ -843,7 +871,8 @@ export function BuySellPanel({
           ? {
               mint,
               side: 'buy' as const,
-              userPublicKey: wallet.address,
+              userPublicKey: tradeAddress,
+              chain: activeChain,
               ...buyQuoteAmountFields(buyAsset, buyAmount!),
               slippageBps: effectiveSlippageBps,
               dynamicSlippage,
@@ -854,7 +883,8 @@ export function BuySellPanel({
           : {
               mint,
               side: 'sell' as const,
-              userPublicKey: wallet.address,
+              userPublicKey: tradeAddress,
+              chain: activeChain,
               amountTokenRaw: sellAmountTokenRaw!,
               slippageBps: effectiveSlippageBps,
               dynamicSlippage,
@@ -881,21 +911,23 @@ export function BuySellPanel({
       }
       const ok = json as TradeQuoteApiOk;
       const executable =
-        ok.chain === 'sol'
-          ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
-          : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+        ok.chain === 'evm'
+          ? Boolean(ok.evm)
+          : ok.chain === 'sol'
+            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
       if (!executable) {
         throw new Error('No swap transaction from quote');
       }
 
       setQuote(ok);
       setQuoteForKey(paramsKey);
-      setQuoteWallet(wallet.address);
+      setQuoteWallet(tradeAddress);
 
       toast.loading('Sign in wallet...', { id: toastId });
       const { signature: sig } = await submitFromQuote({
         quote: ok,
-        walletAddress: wallet.address,
+        walletAddress: tradeAddress,
         mint,
         getAccessToken,
       });
@@ -966,6 +998,8 @@ export function BuySellPanel({
     }
   }, [
     wallet,
+    tradeAddress,
+    evmTradeChain,
     activeChain,
     nativeSym,
     getAccessToken,
@@ -1075,11 +1109,11 @@ export function BuySellPanel({
       className="relative flex w-full min-w-0 flex-col bg-bg-raised text-[12px] text-fg-primary"
     >
       <div className="space-y-3 px-3 pb-5 pt-2 lg:px-3 lg:pb-4">
-        {!walletsReady ? (
+        {!tradeWalletReady && !evmTradeChain && !walletsReady ? (
           <p className="flex items-center gap-2 rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px] text-fg-secondary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading wallet...
           </p>
-        ) : !wallet ? (
+        ) : !tradeWalletReady ? (
           <p className="rounded border border-border-subtle bg-bg-raised px-2 py-1 text-[11px] text-signal-warn">
             {noWalletLinkedBanner(activeChain)}
           </p>
@@ -1393,7 +1427,7 @@ export function BuySellPanel({
         <div className="pt-0.5">
           <button
             type="button"
-            disabled={!wallet || tradingBlockedImported || tradingUnavailable || (panelMode === 'limit_mcap' && targetMcUsd == null)}
+            disabled={!tradeWalletReady || tradingBlockedImported || tradingUnavailable || (panelMode === 'limit_mcap' && targetMcUsd == null)}
             onClick={() => {
               if (panelMode === 'limit_mcap') {
                 toast.message('MC limit buy', { description: 'MC-triggered execution is not live yet. Use Market to swap now.' });
