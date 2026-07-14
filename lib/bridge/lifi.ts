@@ -2,6 +2,8 @@ import 'server-only';
 
 const LIFI_BASE = 'https://li.quest/v1';
 const INTEGRATOR = process.env.LIFI_INTEGRATOR?.trim() || 'pointer';
+/** Authenticates the request as our registered integrator so integrator fees attribute + collect. */
+const LIFI_API_KEY = process.env.LIFI_API_KEY?.trim();
 
 export type LifiQuoteParams = {
   fromChain: string;
@@ -73,7 +75,10 @@ export async function fetchLifiQuote(params: LifiQuoteParams): Promise<LifiQuote
     qs.set('fee', String(params.fee));
   }
 
-  const res = await fetch(`${LIFI_BASE}/quote?${qs.toString()}`, { cache: 'no-store' });
+  const res = await fetch(`${LIFI_BASE}/quote?${qs.toString()}`, {
+    cache: 'no-store',
+    headers: LIFI_API_KEY ? { 'x-lifi-api-key': LIFI_API_KEY } : undefined,
+  });
   const json: unknown = await res.json().catch(() => ({}));
 
   if (!res.ok) {
