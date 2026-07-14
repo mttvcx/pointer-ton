@@ -217,9 +217,11 @@ export function usePulseQuickBuy() {
       }
       const ok = json as TradeQuoteApiOk;
       const executable =
-        ok.chain === 'sol'
-          ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
-          : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+        ok.chain === 'evm'
+          ? Boolean(ok.evm)
+          : ok.chain === 'sol'
+            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
       if (!executable) throw new Error('No swap transaction from quote');
       return ok;
     },
@@ -384,7 +386,7 @@ export function usePulseQuickBuy() {
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
         console.error('[usePulseQuickBuy] quick buy failed', e);
-        toast.error('Quick buy failed', { description: 'Please try again.' });
+        toast.error('Quick buy failed', { description: msg.slice(0, 200) });
       }
     },
     [
@@ -535,9 +537,11 @@ export function usePulseQuickBuy() {
         }
         const ok = json as TradeQuoteApiOk;
         const executable =
-          ok.chain === 'sol'
-            ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
-            : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
+          ok.chain === 'evm'
+            ? Boolean(ok.evm)
+            : ok.chain === 'sol'
+              ? Boolean(ok.swapTransaction && ok.summary?.amountOutRaw != null)
+              : Boolean(ok.tonConnect?.messages?.length && ok.summary?.amountOutRaw);
         if (!executable) {
           throw new Error('No swap transaction from quote');
         }
@@ -602,7 +606,7 @@ export function usePulseQuickBuy() {
         const msg = e instanceof Error ? e.message : 'Trade failed';
         if (silent) return { ok: false, error: msg };
         console.error('[usePulseQuickBuy] quick sell failed', e);
-        toast.error('Quick sell failed', { description: 'Please try again.' });
+        toast.error('Quick sell failed', { description: msg.slice(0, 200) });
       }
     },
     [
