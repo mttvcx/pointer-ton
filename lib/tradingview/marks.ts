@@ -3,6 +3,47 @@
 import { resolveWalletIdentity } from '@/lib/identity/identityService';
 import type { TvMark } from '@/types/tradingview';
 
+/** Bubble categories, mirroring Axiom's Display Options menu (top → bottom). */
+export type MarkCategory =
+  | 'outliers'
+  | 'migration'
+  | 'dexPaid'
+  | 'myTrades'
+  | 'devTrades'
+  | 'trackedTrades'
+  | 'kolTrades'
+  | 'sniperTrades'
+  | 'xMentions'
+  | 'lobbyTrades'
+  | 'alertBubbles'
+  | 'feeClaimEvents';
+
+/** `supported` = Pointer has a live data source feeding it today. */
+export const MARK_CATEGORIES: { key: MarkCategory; label: string; supported: boolean }[] = [
+  { key: 'outliers', label: 'Outliers', supported: false },
+  { key: 'migration', label: 'Migration', supported: false },
+  { key: 'dexPaid', label: 'DEX Paid', supported: false },
+  { key: 'myTrades', label: 'My Trades', supported: false },
+  { key: 'devTrades', label: 'Dev Trades', supported: true },
+  { key: 'trackedTrades', label: 'Tracked Trades', supported: true },
+  { key: 'kolTrades', label: 'KOL Trades', supported: true },
+  { key: 'sniperTrades', label: 'Sniper Trades', supported: true },
+  { key: 'xMentions', label: 'X Mentions', supported: false },
+  { key: 'lobbyTrades', label: 'Lobby Trades', supported: false },
+  { key: 'alertBubbles', label: 'Alert Bubbles', supported: false },
+  { key: 'feeClaimEvents', label: 'Fee Claim Events', supported: false },
+];
+
+/** Default filter state — all on except Outliers (matches Axiom's default). */
+export function defaultMarkFilters(): Record<MarkCategory, boolean> {
+  const f = {} as Record<MarkCategory, boolean>;
+  for (const c of MARK_CATEGORIES) f[c.key] = c.key !== 'outliers';
+  return f;
+}
+
+/** A chart mark tagged with the category it belongs to (stripped before TV sees it). */
+export type PointerMark = TvMark & { category: MarkCategory };
+
 /**
  * Builds the chart's trade bubbles from REAL data:
  * - global on-chain trades (`/chain-trades`, from mint_swaps) → dev + KOL bubbles
@@ -46,7 +87,7 @@ export async function buildChartMarks(opts: {
   authenticated: boolean;
   getToken: () => Promise<string | null>;
   cap?: number;
-}): Promise<TvMark[]> {
+}): Promise<PointerMark[]> {
   const { mint, creatorWallet, bull, bear, cap = 80 } = opts;
   const creator = creatorWallet?.toLowerCase() ?? null;
   const dark = '#0b0b0d';
@@ -70,9 +111,9 @@ export async function buildChartMarks(opts: {
   }
 
   const trackedByTx = new Map(tracked.map((t) => [t.txSignature, t]));
-  const marks: TvMark[] = [];
+  const marks: PointerMark[] = [];
   const seen = new Set<string>();
-  const push = (m: TvMark) => {
+  const push = (m: PointerMark) => {
     if (marks.length >= cap || seen.has(String(m.id))) return;
     seen.add(String(m.id));
     marks.push(m);
@@ -88,45 +129,39 @@ export async function buildChartMarks(opts: {
     const bg = buy ? bull : bear;
     const identity = resolveWalletIdentity({ chain: 'sol', address: wallet });
     const isDev = Boolean(t.desk_badges?.includes('dev')) || (creator != null && wallet.toLowerCase() === creator);
+    const isSniper = Boolean(t.desk_badges?.includes('sniper'));
     const labeled = Boolean(identity.avatarUrl) || identity.displayName !== identity.shortAddress;
     const tracker = trackedByTx.get(t.tx_signature);
-    if (!isDev && !labeled && !tracker) continue; // notable only
+    if (!isDev && !labeled && !isSniper && !tracker) continue; // notable only
 
     const name = tracker?.trackerLabel || (labeled ? identity.displayName : null) || (isDev ? 'Dev' : identity.shortAddress);
     const verb = buy ? 'bought' : 'sold';
+    const base = {
+      id: t.tx_signature,
+      time: timeSec,
+      color: { border: bg, background: bg },
+      text: `${name} ${verb}`,
+      labelFontColor: dark,
+    };
 
     if (isDev) {
-      push({
-        id: t.tx_signature,
-        time: timeSec,
-        color: { border: bg, background: bg },
-        text: `${name} ${verb}`,
-        label: buy ? 'DB' : 'DS',
-        labelFontColor: dark,
-        minSize: 18,
-      });
+      push({ ...base, category: 'devTrades', label: buy ? 'DB' : 'DS', minSize: 18 });
     } else if (identity.avatarUrl) {
       push({
-        id: t.tx_signature,
-        time: timeSec,
-        color: { border: bg, background: bg },
-        text: `${name} ${verb}`,
+        ...base,
+        category: 'kolTrades',
         label: initials(name),
         labelFontColor: '#ffffff',
         minSize: 20,
         borderWidth: 2,
         imageUrl: identity.avatarUrl,
       });
+    } else if (labeled) {
+      push({ ...base, category: 'kolTrades', label: initials(name), minSize: 16 });
+    } else if (isSniper) {
+      push({ ...base, category: 'sniperTrades', label: 'SN', minSize: 15 });
     } else {
-      push({
-        id: t.tx_signature,
-        time: timeSec,
-        color: { border: bg, background: bg },
-        text: `${name} ${verb}`,
-        label: buy ? 'B' : 'S',
-        labelFontColor: dark,
-        minSize: 14,
-      });
+      push({ ...base, category: 'trackedTrades', label: buy ? 'B' : 'S', minSize: 14 });
     }
   }
 
@@ -140,6 +175,7 @@ export async function buildChartMarks(opts: {
     push({
       id: t.txSignature,
       time: t.time,
+      category: 'trackedTrades',
       color: { border: bg, background: bg },
       text: `${name} ${buy ? 'bought' : 'sold'}`,
       label: identity.avatarUrl ? initials(name) : buy ? 'B' : 'S',

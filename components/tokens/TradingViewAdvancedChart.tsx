@@ -7,7 +7,8 @@ import { useUIStore } from '@/store/ui';
 import { nativeTicker, nativeUsdTickerSymbol } from '@/lib/chains/nativeCurrency';
 import { useNativeUsdSpot } from '@/lib/hooks/useJupiterTickers';
 import { createPointerDatafeed, type DatafeedMarkFetcher, type ViewConfig } from '@/lib/tradingview/datafeed';
-import { buildChartMarks } from '@/lib/tradingview/marks';
+import { buildChartMarks, defaultMarkFilters, type MarkCategory } from '@/lib/tradingview/marks';
+import { mountDisplayMenu } from '@/lib/tradingview/displayOptions';
 import {
   pointerChartOverrides,
   pointerChromeCss,
@@ -145,14 +146,15 @@ export function TradingViewAdvancedChart({
   const authRef = useRef({ authenticated, getAccessToken });
   authRef.current = { authenticated, getAccessToken };
 
-  // Bubbles on/off (the header "Bubbles" toggle drives this; datafeed reads it).
-  const bubblesRef = useRef(true);
+  // Bubble controls: master "Hide All" + per-category filters (Display Options).
+  const hideAllRef = useRef(false);
+  const filtersRef = useRef<Record<MarkCategory, boolean>>(defaultMarkFilters());
 
   const fetchMarks = useCallback<DatafeedMarkFetcher>(
     async () => {
-      if (!bubblesRef.current) return [];
+      if (hideAllRef.current) return [];
       const { authenticated: authed, getAccessToken: getTok } = authRef.current;
-      return buildChartMarks({
+      const marks = await buildChartMarks({
         mint,
         creatorWallet: creatorWallet ?? null,
         bull: cssColor('--signal-bull', '#34d399'),
@@ -160,6 +162,7 @@ export function TradingViewAdvancedChart({
         authenticated: authed,
         getToken: getTok,
       });
+      return marks.filter((m) => filtersRef.current[m.category] !== false);
     },
     [mint, creatorWallet],
   );
@@ -243,24 +246,45 @@ export function TradingViewAdvancedChart({
             reload();
           };
 
-          // Bubbles toggle (dev / KOL / tracked trade markers).
-          const bubblesBtn = widget.createButton({ align: 'left', useTradingViewStyle: false });
-          styleHeaderButton(bubblesBtn);
-          const paintBubbles = () => {
-            const on = bubblesRef.current;
-            bubblesBtn.textContent = on ? '● Bubbles' : '○ Bubbles';
-            bubblesBtn.style.color = on
-              ? cssColor('--signal-bull', '#34d399')
-              : cssColor('--fg-muted', '#8b92a4');
+          // Display Options dropdown (Axiom-style bubble category menu).
+          const displayBtn = widget.createButton({ align: 'left', useTradingViewStyle: false });
+          styleHeaderButton(displayBtn);
+          displayBtn.textContent = 'Display Options ▾';
+          displayBtn.style.color = cssColor('--fg-secondary', '#c7ccd6');
+          displayBtn.title = 'Configure chart display options';
+          mountDisplayMenu({
+            anchor: displayBtn,
+            getState: (k) => filtersRef.current[k] !== false,
+            setState: (k, v) => {
+              filtersRef.current[k] = v;
+            },
+            colors: {
+              popup: cssColor('--bg-hover', '#1b1b20'),
+              border: 'rgba(255,255,255,0.10)',
+              text: cssColor('--fg-secondary', '#c7ccd6'),
+              muted: cssColor('--fg-muted', '#8b92a4'),
+              // Vivid "enabled" dot (theme accent is greyscale) — Axiom uses teal-green.
+              accent: cssColor('--signal-bull', '#3ddc97'),
+              hover: cssColor('--bg-base', '#0b0b0d'),
+            },
+            onChange: () => widgetRef.current?.activeChart().refreshMarks(),
+          });
+
+          // Hide / Show All Bubbles master toggle.
+          const hideBtn = widget.createButton({ align: 'left', useTradingViewStyle: false });
+          styleHeaderButton(hideBtn);
+          const paintHide = () => {
+            hideBtn.textContent = hideAllRef.current ? 'Show All Bubbles' : 'Hide All Bubbles';
+            hideBtn.style.color = cssColor('--fg-secondary', '#c7ccd6');
           };
-          paintBubbles();
-          bubblesBtn.title = 'Toggle dev / KOL / tracked trade bubbles';
-          bubblesBtn.onclick = () => {
-            bubblesRef.current = !bubblesRef.current;
-            paintBubbles();
+          paintHide();
+          hideBtn.title = 'Show / hide all trade bubbles';
+          hideBtn.onclick = () => {
+            hideAllRef.current = !hideAllRef.current;
+            paintHide();
             const chart = widgetRef.current?.activeChart();
-            if (bubblesRef.current) chart?.refreshMarks();
-            else chart?.clearMarks();
+            if (hideAllRef.current) chart?.clearMarks();
+            else chart?.refreshMarks();
           };
         });
 
