@@ -10,12 +10,17 @@ export const searchModalIconBtnClass =
 export const searchModalChipIdleClass =
   'border-0 bg-transparent text-fg-muted hover:bg-white/[0.07] hover:text-fg-secondary hover:backdrop-blur-sm';
 
-/** Axiom-style protocol filter pills — neutral chrome, real logos at ~18px. */
+/**
+ * Axiom-style protocol filter chips — rectangular, clearly outlined, logos ~20px.
+ * globals.css sets an `!important` default border-color on every element, so the
+ * selected state is drawn with an inset box-shadow ring (immune to that rule)
+ * plus a tinted fill instead of a border-color swap.
+ */
 export const searchModalFilterChipIdleClass =
-  'border-border-subtle bg-bg-sunken/50 text-fg-secondary hover:border-border-default hover:bg-bg-hover hover:text-fg-primary';
+  'bg-bg-sunken/40 text-fg-secondary hover:bg-bg-hover hover:text-fg-primary';
 
 export const searchModalFilterChipActiveClass =
-  'border-border-default bg-bg-hover text-fg-primary shadow-[inset_0_0_0_1px_rgb(var(--border-subtle-rgb)/0.35)]';
+  'bg-white/[0.06] text-fg-primary shadow-[inset_0_0_0_1.5px_rgb(var(--signal-bull-rgb))]';
 
 export const searchModalInputShellClass =
   'flex h-10 items-center rounded-lg border-0 bg-white/[0.04] px-2.5 transition-[background-color,box-shadow] duration-150 focus-within:bg-white/[0.06] focus-within:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]';

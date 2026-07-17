@@ -11,6 +11,9 @@ type SummaryToken = {
   symbol: string | null;
   name: string | null;
   image_url: string | null;
+  /** Launchpad / DEX the token belongs to — drives the protocol filter chips. */
+  protocol_id: string | null;
+  protocol_family: string | null;
   /** Latest DB snapshot metrics — null when never snapshotted (render `—`). */
   market_cap_usd: number | null;
   volume_24h_usd: number | null;
@@ -49,6 +52,8 @@ export async function GET(req: NextRequest) {
         symbol: row?.symbol ?? null,
         name: row?.name ?? null,
         image_url: row?.image_url ?? null,
+        protocol_id: row?.protocol_id ?? null,
+        protocol_family: row?.protocol_family ?? null,
         market_cap_usd: num(snap?.market_cap_usd),
         volume_24h_usd: num(snap?.volume_24h_usd),
         liquidity_usd: num(snap?.liquidity_usd),

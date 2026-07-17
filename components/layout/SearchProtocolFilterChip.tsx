@@ -39,20 +39,20 @@ export function SearchProtocolFilterChip({
       aria-pressed={active}
       title="Filters search results only"
       className={cn(
-        'focus-ring inline-flex h-8 shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors',
+        'focus-ring inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3.5 text-[13px] font-semibold transition-colors',
         active ? searchModalFilterChipActiveClass : searchModalFilterChipIdleClass,
       )}
     >
       {protocolLogo ? (
-        <ProtocolBrandIcon protocolId={protocolLogo} dotClassName="h-[18px] w-[18px]" />
+        <ProtocolBrandIcon protocolId={protocolLogo} dotClassName="h-5 w-5" />
       ) : MetaIcon ? (
         <span
           className={cn(
-            'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-border-subtle bg-bg-hover',
-            active && 'border-border-default bg-bg-raised',
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-hover',
+            active && 'border-[rgb(var(--signal-bull-rgb)/0.5)] bg-[rgb(var(--signal-bull-rgb)/0.12)]',
           )}
         >
-          <MetaIcon className="h-3 w-3 text-fg-muted" strokeWidth={2.25} aria-hidden />
+          <MetaIcon className="h-3.5 w-3.5 text-fg-muted" strokeWidth={2.25} aria-hidden />
         </span>
       ) : null}
       {label}

@@ -24,6 +24,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { toast } from 'sonner';
 import { CHAIN_DROPDOWN_LABEL } from '@/lib/chains/chainAssets';
 import { mintMatchesAppChain } from '@/lib/chains/mintKind';
+import { protocolChipsForChain, tokenMatchesProtocolChip } from '@/lib/search/protocolChips';
 import { isValidGlobalSearchQuery } from '@/lib/ethereum/EthereumSearch';
 import {
   buildSearchPathForQuery,
@@ -66,6 +67,9 @@ type SummaryRow = {
   symbol: string | null;
   name: string | null;
   image_url: string | null;
+  /** Launchpad / DEX — drives the protocol filter chips. */
+  protocol_id?: string | null;
+  protocol_family?: string | null;
   /** Latest DB snapshot metrics from /api/tokens/summary (null = never snapshotted). */
   market_cap_usd?: number | null;
   volume_24h_usd?: number | null;
@@ -165,6 +169,12 @@ export function GlobalSearchModal() {
   const { mounted: overlayMounted, visible } = useOverlayPresence(open);
 
   const [usdcOnly, setUsdcOnly] = useState(false);
+  const [selectedProtocols, setSelectedProtocols] = useState<Set<string>>(() => new Set());
+  const protocolChips = useMemo(() => protocolChipsForChain(activeChain), [activeChain]);
+  // Protocols differ per chain — clear the selection when the chain changes.
+  useEffect(() => {
+    setSelectedProtocols(new Set());
+  }, [activeChain]);
   const [sortMode, setSortMode] = useState<SortMode>('relevance');
   /** Row vertical density toggled via list icon. */
   const [compactRows, setCompactRows] = useState(false);
@@ -367,14 +377,20 @@ export function GlobalSearchModal() {
 
   const historyEnriched = useMemo(() => {
     const searchMints = new Set(searchRaw.map((r) => r.mint));
-    const rows = historyRaw
+    let rows = historyRaw
       .filter((r) => !searchMints.has(r.mint))
       .map((row) => enrichSummaryWithLive(row, null));
+    if (selectedProtocols.size > 0) {
+      const active = protocolChips.filter((c) => selectedProtocols.has(c.id));
+      rows = rows.filter((r) =>
+        active.some((c) => tokenMatchesProtocolChip(c, r.protocol_id, r.protocol_family)),
+      );
+    }
     if (rows.length === 0 && !loadingHistory && uiDemo && activeChain === 'ton') {
       return DEMO_SEARCH_RECENTS.map(enrichSummary);
     }
     return rows;
-  }, [historyRaw, searchRaw, loadingHistory, uiDemo, activeChain]);
+  }, [historyRaw, searchRaw, loadingHistory, uiDemo, activeChain, selectedProtocols, protocolChips]);
 
   const searchEnriched = useMemo(() => {
     return searchRaw.map((row) => enrichSummaryWithLive(row, previewLive));
@@ -392,7 +408,7 @@ export function GlobalSearchModal() {
   }, [searchEnriched, usdcOnly, sortMode]);
 
   const hasSearchSection = queryLooksLikeCa && (searchRaw.length > 0 || loadingSearch);
-  const filtersActive = usdcOnly;
+  const filtersActive = usdcOnly || selectedProtocols.size > 0;
   const closeSearch = () => {
     setOpen(false);
     setSearchQuery('');
@@ -433,6 +449,22 @@ export function GlobalSearchModal() {
         <div className="shrink-0 border-b border-border-subtle px-4 pt-2.5 pb-2 sm:px-5">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {protocolChips.map((chip) => (
+                <SearchProtocolFilterChip
+                  key={chip.id}
+                  label={chip.label}
+                  active={selectedProtocols.has(chip.id)}
+                  protocolLogo={chip.logo}
+                  onClick={() =>
+                    setSelectedProtocols((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(chip.id)) next.delete(chip.id);
+                      else next.add(chip.id);
+                      return next;
+                    })
+                  }
+                />
+              ))}
               <SearchProtocolFilterChip
                 key="usdc"
                 label="USDC"
@@ -440,9 +472,6 @@ export function GlobalSearchModal() {
                 onClick={() => setUsdcOnly((v) => !v)}
                 MetaIcon={CircleDollarSign}
               />
-              {filtersActive ? (
-                <span className="text-[10px] text-fg-muted">· USDC pairs only</span>
-              ) : null}
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-0.5">
