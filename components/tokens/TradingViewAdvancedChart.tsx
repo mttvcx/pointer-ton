@@ -70,7 +70,7 @@ function fmtPrice(p: number): string {
   return `$${p.toExponential(2)}`;
 }
 
-function applyChromeCss(container: HTMLElement | null) {
+function applyChromeCss(container: HTMLElement | null, surface?: string) {
   const iframe = container?.querySelector('iframe');
   const doc = iframe?.contentDocument;
   if (!doc) return;
@@ -80,7 +80,7 @@ function applyChromeCss(container: HTMLElement | null) {
     style.id = CHROME_STYLE_ID;
     doc.head.appendChild(style);
   }
-  style.textContent = pointerChromeCss();
+  style.textContent = pointerChromeCss(surface);
 }
 
 /** A plain header button styled to sit in the TradingView toolbar. */
@@ -145,8 +145,12 @@ export function TradingViewAdvancedChart({
   const authRef = useRef({ authenticated, getAccessToken });
   authRef.current = { authenticated, getAccessToken };
 
+  // Bubbles on/off (the header "Bubbles" toggle drives this; datafeed reads it).
+  const bubblesRef = useRef(true);
+
   const fetchMarks = useCallback<DatafeedMarkFetcher>(
     async () => {
+      if (!bubblesRef.current) return [];
       const { authenticated: authed, getAccessToken: getTok } = authRef.current;
       return buildChartMarks({
         mint,
@@ -238,11 +242,31 @@ export function TradingViewAdvancedChart({
             paintQuote();
             reload();
           };
+
+          // Bubbles toggle (dev / KOL / tracked trade markers).
+          const bubblesBtn = widget.createButton({ align: 'left', useTradingViewStyle: false });
+          styleHeaderButton(bubblesBtn);
+          const paintBubbles = () => {
+            const on = bubblesRef.current;
+            bubblesBtn.textContent = on ? '● Bubbles' : '○ Bubbles';
+            bubblesBtn.style.color = on
+              ? cssColor('--signal-bull', '#34d399')
+              : cssColor('--fg-muted', '#8b92a4');
+          };
+          paintBubbles();
+          bubblesBtn.title = 'Toggle dev / KOL / tracked trade bubbles';
+          bubblesBtn.onclick = () => {
+            bubblesRef.current = !bubblesRef.current;
+            paintBubbles();
+            const chart = widgetRef.current?.activeChart();
+            if (bubblesRef.current) chart?.refreshMarks();
+            else chart?.clearMarks();
+          };
         });
 
         widget.onChartReady(() => {
           if (disposed) return;
-          applyChromeCss(containerRef.current);
+          applyChromeCss(containerRef.current, resolveContainerBg(containerRef.current));
           // Re-pull marks a couple times as the identity registry hydrates.
           refreshTimers.push(
             window.setTimeout(() => widgetRef.current?.activeChart().refreshMarks(), 2_500),
@@ -274,8 +298,9 @@ export function TradingViewAdvancedChart({
           const w = widgetRef.current;
           if (disposed || !w) return;
           const applyRest = () => {
-            w.applyOverrides(pointerChartOverrides(resolveContainerBg(containerRef.current)));
-            applyChromeCss(containerRef.current);
+            const surface = resolveContainerBg(containerRef.current);
+            w.applyOverrides(pointerChartOverrides(surface));
+            applyChromeCss(containerRef.current, surface);
           };
           const next = pointerThemeName();
           if (next !== lastTheme) {

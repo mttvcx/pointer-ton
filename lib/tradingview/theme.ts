@@ -98,14 +98,16 @@ export function pointerToolbarBg(): string {
 }
 
 /**
- * TradingView chrome (toolbar, dropdowns, popups, dialogs) is themed via its
- * documented `--tv-color-*` CSS variables. We map them onto Pointer's palette
- * and inject the result into the widget iframe so menus blend in seamlessly.
+ * TradingView chrome (toolbars, dropdowns, popups, dialogs) themed via its
+ * documented `--tv-color-*` CSS variables, injected into the widget iframe.
+ * `surface` is the chart container's real background — ALL the chrome bars
+ * (top toolbar, left drawing rail, bottom controls, panes) paint that exact
+ * color so there's no darker "strip" seam around the chart. Popups sit a hair
+ * lighter (`--bg-hover`) so menus read as raised.
  */
-export function pointerChromeCss(): string {
-  const platform = cssColor('--bg-base', '#0b0b0d');
-  const pane = cssColor('--bg-raised', '#121214');
-  const popup = cssColor('--bg-raised', '#121214');
+export function pointerChromeCss(surface?: string): string {
+  const bg = surface || cssColor('--bg-raised', '#121214');
+  const popup = cssColor('--bg-hover', '#1b1b20');
   const hover = cssColor('--bg-hover', '#1b1b20');
   const text = cssColor('--fg-secondary', '#c7ccd6');
   const textHover = cssColor('--fg-primary', '#ffffff');
@@ -114,8 +116,8 @@ export function pointerChromeCss(): string {
   const divider = rgba('--fg-primary', 0.08, [255, 255, 255]);
   return `
 :root {
-  --tv-color-platform-background: ${platform};
-  --tv-color-pane-background: ${pane};
+  --tv-color-platform-background: ${bg};
+  --tv-color-pane-background: ${bg};
   --tv-color-toolbar-button-background-hover: ${hover};
   --tv-color-toolbar-button-background-secondary-hover: ${hover};
   --tv-color-toolbar-button-background-expanded: ${hover};
@@ -135,8 +137,12 @@ export function pointerChromeCss(): string {
   --tv-color-popup-element-secondary-text: ${muted};
   --tv-color-popup-element-hint-text: ${muted};
 }
-.chart-page, .layout__area--top, .layout__area--left, .chart-controls-bar {
-  background: ${platform} !important;
+html, body,
+.chart-page, .chart-container, .chart-container-border,
+.layout__area--top, .layout__area--left, .layout__area--right, .layout__area--bottom,
+.chart-controls-bar, .chart-controls-bar-buttons {
+  background: ${bg} !important;
+  background-color: ${bg} !important;
 }
 `;
 }
