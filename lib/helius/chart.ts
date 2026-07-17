@@ -145,6 +145,21 @@ export function mergeLiveSpot(bars: OhlcBar[], intervalSec: number, spotUsd: num
 
 export async function getTokenChartBars(mint: string, interval: ChartInterval): Promise<OhlcBar[]> {
   const intervalSec = chartIntervalSeconds(interval);
+
+  // Primary source: real DEX candles from GeckoTerminal (free OHLCV, all chains).
+  // Our own snapshot table only has candles for tokens we happened to poll, so
+  // it's used as a fallback when Gecko has no indexed pool for this mint.
+  try {
+    const { getGeckoChartBars } = await import('@/lib/market/geckoOhlcv');
+    const gecko = await getGeckoChartBars(mint, interval);
+    if (gecko.length > 1) {
+      const spot = await getLiveTokenSpotUsd(mint);
+      return mergeLiveSpot(gecko, intervalSec, spot);
+    }
+  } catch {
+    // fall through to snapshot aggregation
+  }
+
   const spanDays =
     interval === '1d' || interval === '5d'
       ? 180

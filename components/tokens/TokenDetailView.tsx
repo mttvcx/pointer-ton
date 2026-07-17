@@ -48,6 +48,16 @@ const TokenChart = dynamic(
     loading: () => <Skeleton className="h-[420px] w-full rounded-lg" />,
   },
 );
+const TradingViewAdvancedChart = dynamic(
+  () =>
+    import('@/components/tokens/TradingViewAdvancedChart').then((m) => ({
+      default: m.TradingViewAdvancedChart,
+    })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[420px] w-full rounded-lg" />,
+  },
+);
 const BuySellPanel = dynamic(
   () => import('@/components/tokens/BuySellPanel').then((m) => ({ default: m.BuySellPanel })),
   {
@@ -669,7 +679,18 @@ export function TokenDetailView({
               }
             >
               <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0.5 pt-0.5">
-                <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
+                {process.env.NEXT_PUBLIC_ADVANCED_CHART === '0' ? (
+                  <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
+                ) : (
+                  <TradingViewAdvancedChart
+                    mint={mint}
+                    symbol={symbol}
+                    edgeToEdge
+                    fallback={
+                      <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />
+                    }
+                  />
+                )}
               </div>
               {tradesPanel ? (
                 <TokenLiveTradesSidePanel

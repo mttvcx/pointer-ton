@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getTokenChartBars } from '@/lib/helius/chart';
-import { isValidPublicKey } from '@/lib/utils/addresses';
+import { isValidTokenMintParam } from '@/lib/chains/mintKind';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET(
   ctx: { params: Promise<{ mint: string }> },
 ) {
   const { mint } = await ctx.params;
-  if (!isValidPublicKey(mint)) {
+  if (!isValidTokenMintParam(mint)) {
     return NextResponse.json({ error: 'invalid_mint' }, { status: 400 });
   }
 

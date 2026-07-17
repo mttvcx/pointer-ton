@@ -46,6 +46,7 @@
     "apps/**",
     "pointer-remotion/**",
     "pointer-extension/**",
+    "public/charting_library/**",
     "tests/**",
     "**/*.test.ts",
     "**/*.test.tsx"
