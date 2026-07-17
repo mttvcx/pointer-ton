@@ -130,11 +130,17 @@ export interface TvContextMenuItem {
   click: () => void;
 }
 
+export interface TvSubscription<T> {
+  subscribe(guid: null, callback: T): void;
+}
+
 export interface TvChartApi {
   refreshMarks(): void;
   clearMarks(): void;
   resetData(): void;
   setSymbol(symbol: string, options?: { dataReady?: () => void } | (() => void)): Promise<boolean>;
+  resolution(): ResolutionString;
+  onIntervalChanged(): TvSubscription<(interval: ResolutionString) => void>;
 }
 
 export interface TvCreateButtonOptions {

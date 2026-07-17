@@ -18,6 +18,7 @@ export const LAYOUT_SYNC_PREFIXES: readonly string[] = [
   'pointer.trades-table',
   'pointer-holders-table-settings',
   'pointer.wallet-quickbuy',
+  'pointer.chart-prefs',
 ];
 
 export function isLayoutSyncKey(key: string): boolean {

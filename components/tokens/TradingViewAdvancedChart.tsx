@@ -9,6 +9,7 @@ import { useNativeUsdSpot } from '@/lib/hooks/useJupiterTickers';
 import { createPointerDatafeed, type DatafeedMarkFetcher, type ViewConfig } from '@/lib/tradingview/datafeed';
 import { buildChartMarks, defaultMarkFilters, type MarkCategory } from '@/lib/tradingview/marks';
 import { mountDisplayMenu } from '@/lib/tradingview/displayOptions';
+import { useChartPrefsStore } from '@/store/chartPrefs';
 import {
   pointerChartOverrides,
   pointerChromeCss,
@@ -132,9 +133,13 @@ export function TradingViewAdvancedChart({
   const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '') || 'TOKEN';
 
   // Live view config the header toggles mutate; the datafeed reads it directly.
+  // Initial values come from the account-synced chart-prefs store so the user's
+  // interval / MCap-Price / USD-native / bubble choices persist across sessions
+  // and devices (via [[layoutSyncKeys]]).
+  const prefs0 = useChartPrefsStore.getState();
   const viewRef = useRef<ViewConfig>({
-    mode: 'price',
-    quote: 'usd',
+    mode: prefs0.mode,
+    quote: prefs0.quote,
     supply: supplyTokens ?? null,
     nativeUsd: nativeUsdSpot,
     nativeTicker: nativeSym,
@@ -147,8 +152,11 @@ export function TradingViewAdvancedChart({
   authRef.current = { authenticated, getAccessToken };
 
   // Bubble controls: master "Hide All" + per-category filters (Display Options).
-  const hideAllRef = useRef(false);
-  const filtersRef = useRef<Record<MarkCategory, boolean>>(defaultMarkFilters());
+  const hideAllRef = useRef(prefs0.hideAllBubbles);
+  const filtersRef = useRef<Record<MarkCategory, boolean>>({
+    ...defaultMarkFilters(),
+    ...prefs0.markFilters,
+  });
 
   const fetchMarks = useCallback<DatafeedMarkFetcher>(
     async () => {
@@ -187,7 +195,7 @@ export function TradingViewAdvancedChart({
         const bg = resolveContainerBg(containerRef.current);
         const widget = new window.TradingView.widget({
           symbol: symbolString(),
-          interval,
+          interval: useChartPrefsStore.getState().interval || interval,
           container: containerRef.current,
           datafeed: createPointerDatafeed(mint, symbol, viewRef.current, { fetchMarks }),
           library_path: LIBRARY_PATH,
@@ -228,6 +236,7 @@ export function TradingViewAdvancedChart({
           mcBtn.title = 'Toggle Market Cap / Price';
           mcBtn.onclick = () => {
             viewRef.current.mode = viewRef.current.mode === 'mc' ? 'price' : 'mc';
+            useChartPrefsStore.getState().setMode(viewRef.current.mode);
             paintMc();
             reload();
           };
@@ -242,6 +251,7 @@ export function TradingViewAdvancedChart({
           quoteBtn.title = `Toggle USD / ${nativeSym}`;
           quoteBtn.onclick = () => {
             viewRef.current.quote = viewRef.current.quote === 'sol' ? 'usd' : 'sol';
+            useChartPrefsStore.getState().setQuote(viewRef.current.quote);
             paintQuote();
             reload();
           };
@@ -257,6 +267,7 @@ export function TradingViewAdvancedChart({
             getState: (k) => filtersRef.current[k] !== false,
             setState: (k, v) => {
               filtersRef.current[k] = v;
+              useChartPrefsStore.getState().setMarkFilter(k, v);
             },
             colors: {
               popup: cssColor('--bg-hover', '#1b1b20'),
@@ -281,6 +292,7 @@ export function TradingViewAdvancedChart({
           hideBtn.title = 'Show / hide all trade bubbles';
           hideBtn.onclick = () => {
             hideAllRef.current = !hideAllRef.current;
+            useChartPrefsStore.getState().setHideAllBubbles(hideAllRef.current);
             paintHide();
             const chart = widgetRef.current?.activeChart();
             if (hideAllRef.current) chart?.clearMarks();
@@ -296,6 +308,18 @@ export function TradingViewAdvancedChart({
             window.setTimeout(() => widgetRef.current?.activeChart().refreshMarks(), 2_500),
             window.setTimeout(() => widgetRef.current?.activeChart().refreshMarks(), 7_000),
           );
+
+          // Persist the interval the user picks (account-synced) so it restores next visit.
+          try {
+            widget
+              .activeChart()
+              .onIntervalChanged()
+              .subscribe(null, (nextInterval) => {
+                if (!disposed) useChartPrefsStore.getState().setInterval(nextInterval);
+              });
+          } catch {
+            // interval subscription is best-effort
+          }
 
           widget.onContextMenu((_unixTime, price) => {
             const dispatch = (kind: 'limit_buy' | 'limit_sell' | 'alert') => {
