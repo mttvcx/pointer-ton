@@ -685,6 +685,8 @@ export function TokenDetailView({
                   <TradingViewAdvancedChart
                     mint={mint}
                     symbol={symbol}
+                    supplyTokens={supplyTokens ?? null}
+                    creatorWallet={creatorWallet}
                     edgeToEdge
                     fallback={
                       <TokenChart mint={mint} symbol={symbol} supplyTokens={supplyTokens ?? null} edgeToEdge />

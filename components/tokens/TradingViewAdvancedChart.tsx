@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { usePointerAuth } from '@/lib/auth/pointerAuth';
-import { createPointerDatafeed, type DatafeedMarkFetcher } from '@/lib/tradingview/datafeed';
+import { useUIStore } from '@/store/ui';
+import { nativeTicker, nativeUsdTickerSymbol } from '@/lib/chains/nativeCurrency';
+import { useNativeUsdSpot } from '@/lib/hooks/useJupiterTickers';
+import { createPointerDatafeed, type DatafeedMarkFetcher, type ViewConfig } from '@/lib/tradingview/datafeed';
+import { buildChartMarks } from '@/lib/tradingview/marks';
 import {
   pointerChartOverrides,
   pointerChromeCss,
@@ -11,7 +15,7 @@ import {
   pointerThemeName,
   pointerToolbarBg,
 } from '@/lib/tradingview/theme';
-import type { ResolutionString, TvMark, TvWidget } from '@/types/tradingview';
+import type { ResolutionString, TvWidget } from '@/types/tradingview';
 
 const LIBRARY_PATH = '/charting_library/';
 const SCRIPT_SRC = '/charting_library/charting_library.standalone.js';
@@ -19,7 +23,6 @@ const CHROME_STYLE_ID = 'pointer-tv-chrome';
 
 let scriptPromise: Promise<void> | null = null;
 
-/** Load the vendored standalone build once; resolves when `window.TradingView` is ready. */
 function loadTradingView(): Promise<void> {
   if (typeof window === 'undefined') return Promise.reject(new Error('no_window'));
   if (window.TradingView?.widget) return Promise.resolve();
@@ -40,15 +43,26 @@ function loadTradingView(): Promise<void> {
 
 function cssColor(name: string, fallback: string): string {
   if (typeof window === 'undefined') return fallback;
-  const rgb = getComputedStyle(document.documentElement).getPropertyValue(`${name}-rgb`).trim();
+  const root = document.documentElement;
+  const rgb = getComputedStyle(root).getPropertyValue(`${name}-rgb`).trim();
   if (rgb) {
     const p = rgb.split(/\s+/).filter(Boolean);
     if (p.length >= 3) return `rgb(${p.slice(0, 3).join(', ')})`;
   }
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  return getComputedStyle(root).getPropertyValue(name).trim() || fallback;
 }
 
-/** Small price formatter that survives sub-cent memecoin prices. */
+/** The exact background the chart sits on — walk up until a solid color is found. */
+function resolveContainerBg(el: HTMLElement | null): string {
+  let node = el?.parentElement ?? null;
+  for (let i = 0; node && i < 8; i++) {
+    const bg = getComputedStyle(node).backgroundColor;
+    if (bg && bg !== 'transparent' && !bg.replace(/\s/g, '').startsWith('rgba(0,0,0,0)')) return bg;
+    node = node.parentElement;
+  }
+  return cssColor('--bg-raised', '#121214');
+}
+
 function fmtPrice(p: number): string {
   if (!Number.isFinite(p) || p <= 0) return '$0';
   if (p >= 1) return `$${p.toFixed(4)}`;
@@ -56,7 +70,6 @@ function fmtPrice(p: number): string {
   return `$${p.toExponential(2)}`;
 }
 
-/** Inject/replace the Pointer chrome stylesheet inside the widget's same-origin iframe. */
 function applyChromeCss(container: HTMLElement | null) {
   const iframe = container?.querySelector('iframe');
   const doc = iframe?.contentDocument;
@@ -70,23 +83,37 @@ function applyChromeCss(container: HTMLElement | null) {
   style.textContent = pointerChromeCss();
 }
 
+/** A plain header button styled to sit in the TradingView toolbar. */
+function styleHeaderButton(el: HTMLElement) {
+  el.style.cursor = 'pointer';
+  el.style.padding = '0 8px';
+  el.style.height = '100%';
+  el.style.display = 'inline-flex';
+  el.style.alignItems = 'center';
+  el.style.fontSize = '13px';
+  el.style.fontWeight = '600';
+  el.style.userSelect = 'none';
+}
+
 /**
- * TradingView Advanced Charts, wired into Pointer:
- * - theme-reactive (tracks `data-theme`, re-themes chart + chrome live)
- * - trade bubbles via the datafeed's `getMarks`
- * - right-click → limit buy/sell + alert, prefilling the Buy/Sell panel
- * Falls back to `fallback` (the classic lightweight-charts panel) if the licensed
- * library can't load, so the chart area never goes blank.
+ * TradingView Advanced Charts wired into Pointer: seamless (container-matched)
+ * background, theme-reactive chrome, MarketCap/Price + USD/native toggles, real
+ * dev/KOL/tracked trade bubbles, and right-click limit/alert. Falls back to the
+ * classic panel if the licensed library can't load.
  */
 export function TradingViewAdvancedChart({
   mint,
   symbol,
+  supplyTokens,
+  creatorWallet,
   interval = '5',
   edgeToEdge,
   fallback,
 }: {
   mint: string;
   symbol: string | null;
+  supplyTokens?: number | null;
+  creatorWallet?: string | null;
   interval?: ResolutionString;
   edgeToEdge?: boolean;
   fallback?: ReactNode;
@@ -96,57 +123,66 @@ export function TradingViewAdvancedChart({
   const [failed, setFailed] = useState(false);
   const { authenticated, getAccessToken } = usePointerAuth();
 
-  // Latest auth in a ref so the datafeed closure never goes stale.
+  const activeChain = useUIStore((s) => s.activeChain);
+  const nativeSym = nativeTicker(activeChain);
+  const nativeUsdSpotQ = useNativeUsdSpot(nativeUsdTickerSymbol(activeChain), { staleTime: 60_000 });
+  const nativeUsdSpot = nativeUsdSpotQ.data ?? null;
+
+  const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '') || 'TOKEN';
+
+  // Live view config the header toggles mutate; the datafeed reads it directly.
+  const viewRef = useRef<ViewConfig>({
+    mode: 'price',
+    quote: 'usd',
+    supply: supplyTokens ?? null,
+    nativeUsd: nativeUsdSpot,
+    nativeTicker: nativeSym,
+  });
+  viewRef.current.supply = supplyTokens ?? null;
+  viewRef.current.nativeUsd = nativeUsdSpot;
+  viewRef.current.nativeTicker = nativeSym;
+
   const authRef = useRef({ authenticated, getAccessToken });
   authRef.current = { authenticated, getAccessToken };
 
   const fetchMarks = useCallback<DatafeedMarkFetcher>(
-    async (from, to) => {
+    async () => {
       const { authenticated: authed, getAccessToken: getTok } = authRef.current;
-      if (!authed) return [];
-      const token = await getTok();
-      if (!token) return [];
-      const r = await fetch(`/api/tokens/${encodeURIComponent(mint)}/wallet-markers`, {
-        headers: { Authorization: `Bearer ${token}` },
+      return buildChartMarks({
+        mint,
+        creatorWallet: creatorWallet ?? null,
+        bull: cssColor('--signal-bull', '#34d399'),
+        bear: cssColor('--signal-bear', '#fb7185'),
+        authenticated: authed,
+        getToken: getTok,
       });
-      if (!r.ok) return [];
-      const j = (await r.json()) as {
-        markers: { time: number; side: 'buy' | 'sell'; trackerLabel: string | null; txSignature: string }[];
-      };
-      const bull = cssColor('--signal-bull', '#34d399');
-      const bear = cssColor('--signal-bear', '#fb7185');
-      return (j.markers ?? [])
-        .filter((m) => m.time >= from && m.time <= to)
-        .map<TvMark>((m) => {
-          const buy = m.side === 'buy';
-          return {
-            id: m.txSignature,
-            time: m.time,
-            color: buy ? { border: bull, background: bull } : { border: bear, background: bear },
-            text: `${m.trackerLabel ? `${m.trackerLabel} ` : ''}${buy ? 'bought' : 'sold'}`,
-            label: buy ? 'B' : 'S',
-            labelFontColor: '#0b0b0d',
-            minSize: 14,
-          };
-        });
     },
-    [mint],
+    [mint, creatorWallet],
   );
 
   useEffect(() => {
     let disposed = false;
     setFailed(false);
     let themeObserver: MutationObserver | null = null;
+    let themeDebounce: number | null = null;
+    const refreshTimers: number[] = [];
+
+    // Clean, human label that also varies per mode/quote so setSymbol re-resolves
+    // (new pricescale) on toggle. Shows in the chart legend.
+    const symbolString = () => {
+      const q = viewRef.current.quote === 'sol' ? viewRef.current.nativeTicker : 'USD';
+      return viewRef.current.mode === 'mc' ? `${tick} MC/${q}` : `${tick}/${q}`;
+    };
 
     loadTradingView()
       .then(() => {
         if (disposed || !containerRef.current || !window.TradingView) return;
-        const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '') || 'TOKEN';
+        const bg = resolveContainerBg(containerRef.current);
         const widget = new window.TradingView.widget({
-          symbol: `${tick}/USD`,
+          symbol: symbolString(),
           interval,
           container: containerRef.current,
-          datafeed: createPointerDatafeed(mint, symbol, { fetchMarks }),
+          datafeed: createPointerDatafeed(mint, symbol, viewRef.current, { fetchMarks }),
           library_path: LIBRARY_PATH,
           locale: 'en',
           theme: pointerThemeName(),
@@ -163,18 +199,56 @@ export function TradingViewAdvancedChart({
           ],
           enabled_features: ['seconds_resolution', 'items_favoriting', 'move_logo_to_main_pane'],
           favorites: { intervals: ['1S', '1', '5', '15', '60', '1D'] as ResolutionString[] },
-          overrides: pointerChartOverrides(),
+          overrides: pointerChartOverrides(bg),
           loading_screen: pointerLoadingScreen(),
-          toolbar_bg: pointerToolbarBg(),
+          toolbar_bg: bg,
           auto_save_delay: 2,
         });
         widgetRef.current = widget;
 
+        // Header toggles: MarketCap/Price + USD/native.
+        void widget.headerReady().then(() => {
+          if (disposed) return;
+          const reload = () => void widget.activeChart().setSymbol(symbolString());
+
+          const mcBtn = widget.createButton({ align: 'left', useTradingViewStyle: false });
+          styleHeaderButton(mcBtn);
+          const paintMc = () => {
+            mcBtn.textContent = viewRef.current.mode === 'mc' ? 'MCap' : 'Price';
+            mcBtn.style.color = cssColor('--accent-primary', '#7C5CFF');
+          };
+          paintMc();
+          mcBtn.title = 'Toggle Market Cap / Price';
+          mcBtn.onclick = () => {
+            viewRef.current.mode = viewRef.current.mode === 'mc' ? 'price' : 'mc';
+            paintMc();
+            reload();
+          };
+
+          const quoteBtn = widget.createButton({ align: 'left', useTradingViewStyle: false });
+          styleHeaderButton(quoteBtn);
+          const paintQuote = () => {
+            quoteBtn.textContent = viewRef.current.quote === 'sol' ? viewRef.current.nativeTicker : 'USD';
+            quoteBtn.style.color = cssColor('--fg-secondary', '#c7ccd6');
+          };
+          paintQuote();
+          quoteBtn.title = `Toggle USD / ${nativeSym}`;
+          quoteBtn.onclick = () => {
+            viewRef.current.quote = viewRef.current.quote === 'sol' ? 'usd' : 'sol';
+            paintQuote();
+            reload();
+          };
+        });
+
         widget.onChartReady(() => {
           if (disposed) return;
           applyChromeCss(containerRef.current);
+          // Re-pull marks a couple times as the identity registry hydrates.
+          refreshTimers.push(
+            window.setTimeout(() => widgetRef.current?.activeChart().refreshMarks(), 2_500),
+            window.setTimeout(() => widgetRef.current?.activeChart().refreshMarks(), 7_000),
+          );
 
-          // Right-click → Pointer order actions (prefill the Buy/Sell panel).
           widget.onContextMenu((_unixTime, price) => {
             const dispatch = (kind: 'limit_buy' | 'limit_sell' | 'alert') => {
               window.dispatchEvent(
@@ -191,17 +265,29 @@ export function TradingViewAdvancedChart({
           });
         });
 
-        // Re-theme live when Pointer's `data-theme` flips.
-        themeObserver = new MutationObserver(() => {
+        // Re-theme when Pointer's palette changes. A custom-theme edit fires a
+        // burst of inline `--x-rgb` style mutations, so debounce into one pass;
+        // only call changeTheme on an actual light<->dark flip (it resets
+        // overrides), otherwise just re-apply overrides + chrome from live vars.
+        let lastTheme = pointerThemeName();
+        const reTheme = () => {
           const w = widgetRef.current;
-          if (!w) return;
-          void w
-            .changeTheme(pointerThemeName())
-            .then(() => {
-              w.applyOverrides(pointerChartOverrides());
-              applyChromeCss(containerRef.current);
-            })
-            .catch(() => {});
+          if (disposed || !w) return;
+          const applyRest = () => {
+            w.applyOverrides(pointerChartOverrides(resolveContainerBg(containerRef.current)));
+            applyChromeCss(containerRef.current);
+          };
+          const next = pointerThemeName();
+          if (next !== lastTheme) {
+            lastTheme = next;
+            void w.changeTheme(next).then(applyRest).catch(() => {});
+          } else {
+            applyRest();
+          }
+        };
+        themeObserver = new MutationObserver(() => {
+          if (themeDebounce != null) window.clearTimeout(themeDebounce);
+          themeDebounce = window.setTimeout(reTheme, 120);
         });
         themeObserver.observe(document.documentElement, {
           attributes: true,
@@ -215,6 +301,8 @@ export function TradingViewAdvancedChart({
     return () => {
       disposed = true;
       themeObserver?.disconnect();
+      if (themeDebounce != null) window.clearTimeout(themeDebounce);
+      refreshTimers.forEach((t) => window.clearTimeout(t));
       try {
         widgetRef.current?.remove();
       } catch {
@@ -222,7 +310,7 @@ export function TradingViewAdvancedChart({
       }
       widgetRef.current = null;
     };
-  }, [mint, symbol, interval, fetchMarks]);
+  }, [mint, symbol, interval, tick, nativeSym, fetchMarks]);
 
   if (failed && fallback) return <>{fallback}</>;
 

@@ -133,6 +133,13 @@ export interface TvContextMenuItem {
 export interface TvChartApi {
   refreshMarks(): void;
   clearMarks(): void;
+  resetData(): void;
+  setSymbol(symbol: string, options?: { dataReady?: () => void } | (() => void)): Promise<boolean>;
+}
+
+export interface TvCreateButtonOptions {
+  align?: 'left' | 'right';
+  useTradingViewStyle: false;
 }
 
 export interface TvWidget {
@@ -143,6 +150,7 @@ export interface TvWidget {
   applyOverrides(overrides: Record<string, string | number | boolean>): void;
   onContextMenu(callback: (unixTime: number, price: number) => TvContextMenuItem[]): void;
   activeChart(): TvChartApi;
+  createButton(options?: TvCreateButtonOptions): HTMLElement;
   setSymbol?(symbol: string, interval: ResolutionString, cb: () => void): void;
 }
 

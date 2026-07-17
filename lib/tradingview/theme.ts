@@ -46,9 +46,14 @@ function rgba(name: string, alpha: number, fallback: [number, number, number]): 
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** Chart-pane overrides (background, grid, scales, candle colors). */
-export function pointerChartOverrides(): Record<string, string | number | boolean> {
-  const bg = cssColor('--bg-base', '#0b0b0d');
+/**
+ * Chart-pane overrides (background, grid, scales, candle colors). Pass the
+ * chart container's *actual* computed background so the pane is pixel-identical
+ * to what it sits on — no "off-black" seam. Falls back to `--bg-raised` (the
+ * surface the chart column uses) when no explicit color is given.
+ */
+export function pointerChartOverrides(explicitBg?: string): Record<string, string | number | boolean> {
+  const bg = explicitBg || cssColor('--bg-raised', '#121214');
   const bull = cssColor('--signal-bull', '#34d399');
   const bear = cssColor('--signal-bear', '#fb7185');
   const grid = rgba('--fg-primary', 0.05, [255, 255, 255]);
