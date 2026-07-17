@@ -72,6 +72,19 @@ function fmtPrice(p: number): string {
   return `$${p.toExponential(2)}`;
 }
 
+/** Compact number for the MCap axis/legend — 1.2M, 3.3K, 4.1B, etc. */
+function fmtCompact(v: number): string {
+  if (!Number.isFinite(v)) return '0';
+  const sign = v < 0 ? '-' : '';
+  const abs = Math.abs(v);
+  if (abs >= 1e12) return `${sign}${(abs / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(2)}K`;
+  if (abs >= 1) return `${sign}${abs.toFixed(2)}`;
+  return `${sign}${abs.toPrecision(3)}`;
+}
+
 function applyChromeCss(container: HTMLElement | null, surface?: string) {
   const iframe = container?.querySelector('iframe');
   const doc = iframe?.contentDocument;
@@ -218,6 +231,11 @@ export function TradingViewAdvancedChart({
           loading_screen: pointerLoadingScreen(),
           toolbar_bg: bg,
           auto_save_delay: 2,
+          // MCap mode → compact axis/legend (1.2M, 3.3K); price mode → default.
+          custom_formatters: {
+            priceFormatterFactory: () =>
+              viewRef.current.mode === 'mc' ? { format: (price: number) => fmtCompact(price) } : null,
+          },
         });
         widgetRef.current = widget;
 

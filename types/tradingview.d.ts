@@ -122,6 +122,12 @@ export interface TvWidgetOptions {
   auto_save_delay?: number;
   client_id?: string;
   user_id?: string;
+  custom_formatters?: {
+    priceFormatterFactory?: (
+      symbolInfo: TvSymbolInfo | null,
+      minTick: string,
+    ) => { format: (price: number, signPositive?: boolean) => string } | null;
+  };
 }
 
 export interface TvContextMenuItem {

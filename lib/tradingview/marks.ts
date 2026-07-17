@@ -97,16 +97,27 @@ export async function buildChartMarks(opts: {
     .then((j) => (Array.isArray(j.trades) ? (j.trades as ChainTrade[]) : []))
     .catch(() => []);
 
+  // The user's tracked wallets (addresses + labels) — so we can bubble ANY of
+  // their on-chain trades, not just ones Pointer happened to record. This is the
+  // reliable tracked signal (matching by wallet, not tx-signature).
+  const trackedByWallet = new Map<string, string | null>();
   let tracked: TrackedMarker[] = [];
   if (opts.authenticated) {
     const token = await opts.getToken();
     if (token) {
-      tracked = await fetch(`/api/tokens/${encodeURIComponent(mint)}/wallet-markers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => (r.ok ? r.json() : { markers: [] }))
-        .then((j) => (Array.isArray(j.markers) ? (j.markers as TrackedMarker[]) : []))
-        .catch(() => []);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [trackersRes, markersRes] = await Promise.all([
+        fetch('/api/trackers', { headers })
+          .then((r) => (r.ok ? r.json() : { trackers: [] }))
+          .then((j) => (Array.isArray(j.trackers) ? (j.trackers as { walletAddress: string; label: string | null }[]) : []))
+          .catch(() => []),
+        fetch(`/api/tokens/${encodeURIComponent(mint)}/wallet-markers`, { headers })
+          .then((r) => (r.ok ? r.json() : { markers: [] }))
+          .then((j) => (Array.isArray(j.markers) ? (j.markers as TrackedMarker[]) : []))
+          .catch(() => []),
+      ]);
+      for (const tk of trackersRes) trackedByWallet.set(tk.walletAddress, tk.label);
+      tracked = markersRes;
     }
   }
 
@@ -130,11 +141,15 @@ export async function buildChartMarks(opts: {
     const identity = resolveWalletIdentity({ chain: 'sol', address: wallet });
     const isDev = Boolean(t.desk_badges?.includes('dev')) || (creator != null && wallet.toLowerCase() === creator);
     const isSniper = Boolean(t.desk_badges?.includes('sniper'));
-    const labeled = Boolean(identity.avatarUrl) || identity.displayName !== identity.shortAddress;
-    const tracker = trackedByTx.get(t.tx_signature);
-    if (!isDev && !labeled && !isSniper && !tracker) continue; // notable only
+    const hasAvatar = Boolean(identity.avatarUrl);
+    const labeled = hasAvatar || identity.displayName !== identity.shortAddress;
+    const isTracked = trackedByWallet.has(wallet) || trackedByTx.has(t.tx_signature);
+    if (!isDev && !labeled && !isSniper && !isTracked) continue; // notable only
 
-    const name = tracker?.trackerLabel || (labeled ? identity.displayName : null) || (isDev ? 'Dev' : identity.shortAddress);
+    // Priority: dev > tracked (user explicitly follows) > KOL identity > sniper.
+    const trackerLabel = trackedByWallet.get(wallet) ?? trackedByTx.get(t.tx_signature)?.trackerLabel ?? null;
+    const name =
+      trackerLabel || (labeled ? identity.displayName : null) || (isDev ? 'Dev' : identity.shortAddress);
     const verb = buy ? 'bought' : 'sold';
     const base = {
       id: t.tx_signature,
@@ -143,29 +158,30 @@ export async function buildChartMarks(opts: {
       text: `${name} ${verb}`,
       labelFontColor: dark,
     };
+    const avatarMark = (category: MarkCategory) => ({
+      ...base,
+      category,
+      label: initials(name),
+      labelFontColor: '#ffffff',
+      minSize: 20,
+      borderWidth: 2,
+      imageUrl: identity.avatarUrl!,
+    });
 
     if (isDev) {
       push({ ...base, category: 'devTrades', label: buy ? 'DB' : 'DS', minSize: 18 });
-    } else if (identity.avatarUrl) {
-      push({
-        ...base,
-        category: 'kolTrades',
-        label: initials(name),
-        labelFontColor: '#ffffff',
-        minSize: 20,
-        borderWidth: 2,
-        imageUrl: identity.avatarUrl,
-      });
+    } else if (isTracked) {
+      push(hasAvatar ? avatarMark('trackedTrades') : { ...base, category: 'trackedTrades', label: buy ? 'B' : 'S', minSize: 15 });
+    } else if (hasAvatar) {
+      push(avatarMark('kolTrades'));
     } else if (labeled) {
       push({ ...base, category: 'kolTrades', label: initials(name), minSize: 16 });
     } else if (isSniper) {
       push({ ...base, category: 'sniperTrades', label: 'SN', minSize: 15 });
-    } else {
-      push({ ...base, category: 'trackedTrades', label: buy ? 'B' : 'S', minSize: 14 });
     }
   }
 
-  // Tracked trades not covered by the chain feed.
+  // Tracked trades Pointer recorded but the chain feed didn't return.
   for (const t of tracked) {
     if (seen.has(t.txSignature)) continue;
     const buy = t.side === 'buy';
