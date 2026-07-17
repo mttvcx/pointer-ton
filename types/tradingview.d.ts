@@ -7,6 +7,7 @@
  */
 
 export type ResolutionString = string;
+export type ThemeName = 'light' | 'dark';
 
 export interface TvBar {
   /** UNIX time in **milliseconds**. */
@@ -16,6 +17,20 @@ export interface TvBar {
   low: number;
   close: number;
   volume?: number;
+}
+
+/** A bar mark (dot under/over a bar). `imageUrl` renders an avatar inside it. */
+export interface TvMark {
+  id: string | number;
+  time: number; // seconds
+  color: { border: string; background: string };
+  text: string;
+  label: string;
+  labelFontColor: string;
+  minSize: number;
+  borderWidth?: number;
+  hoveredBorderWidth?: number;
+  imageUrl?: string;
 }
 
 export interface TvSymbolInfo {
@@ -31,6 +46,8 @@ export interface TvSymbolInfo {
   minmov: number;
   pricescale: number;
   has_intraday: boolean;
+  has_seconds?: boolean;
+  seconds_multipliers?: string[];
   has_daily?: boolean;
   has_weekly_and_monthly?: boolean;
   supported_resolutions: ResolutionString[];
@@ -74,6 +91,13 @@ export interface TvDatafeed {
     onResetCacheNeededCallback: () => void,
   ): void;
   unsubscribeBars(listenerGuid: string): void;
+  getMarks?(
+    symbolInfo: TvSymbolInfo,
+    from: number,
+    to: number,
+    onData: (marks: TvMark[]) => void,
+    resolution: ResolutionString,
+  ): void;
 }
 
 export interface TvWidgetOptions {
@@ -83,7 +107,7 @@ export interface TvWidgetOptions {
   datafeed: TvDatafeed;
   library_path: string;
   locale: string;
-  theme?: 'light' | 'dark';
+  theme?: ThemeName;
   autosize?: boolean;
   fullscreen?: boolean;
   timezone?: string;
@@ -94,11 +118,31 @@ export interface TvWidgetOptions {
   loading_screen?: { backgroundColor?: string; foregroundColor?: string };
   toolbar_bg?: string;
   favorites?: { intervals?: ResolutionString[] };
+  settings_overrides?: Record<string, string | number | boolean>;
+  auto_save_delay?: number;
+  client_id?: string;
+  user_id?: string;
+}
+
+export interface TvContextMenuItem {
+  position: 'top' | 'bottom';
+  text: string;
+  click: () => void;
+}
+
+export interface TvChartApi {
+  refreshMarks(): void;
+  clearMarks(): void;
 }
 
 export interface TvWidget {
   onChartReady(cb: () => void): void;
+  headerReady(): Promise<void>;
   remove(): void;
+  changeTheme(theme: ThemeName, options?: { disableUndo?: boolean }): Promise<void>;
+  applyOverrides(overrides: Record<string, string | number | boolean>): void;
+  onContextMenu(callback: (unixTime: number, price: number) => TvContextMenuItem[]): void;
+  activeChart(): TvChartApi;
   setSymbol?(symbol: string, interval: ResolutionString, cb: () => void): void;
 }
 

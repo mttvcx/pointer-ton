@@ -277,6 +277,29 @@ export function BuySellPanel({
   const [dcaMaxMc, setDcaMaxMc] = useState('');
 
   const [tab, setTab] = useState<TradeSide>(initialTradeSide);
+
+  // Right-click on the chart → prefill this panel (Axiom-style). The advanced
+  // chart dispatches `pointer:chart-order` with the clicked USD price.
+  useEffect(() => {
+    const onChartOrder = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { mint?: string; kind?: 'limit_buy' | 'limit_sell' | 'alert'; priceUsd?: number }
+        | undefined;
+      if (!detail || detail.mint !== mint || typeof detail.priceUsd !== 'number') return;
+      const p = detail.priceUsd;
+      const priceStr = p >= 1 ? String(p) : p.toFixed(12).replace(/0+$/, '').replace(/\.$/, '');
+      setLimitTriggerUsd(priceStr);
+      if (detail.kind === 'alert') {
+        setTradePanelMode('limit_alerts');
+      } else {
+        setTab(detail.kind === 'limit_sell' ? 'sell' : 'buy');
+        setTradePanelMode('limit_mcap');
+      }
+    };
+    window.addEventListener('pointer:chart-order', onChartOrder);
+    return () => window.removeEventListener('pointer:chart-order', onChartOrder);
+  }, [mint]);
+
   const [perfTf, setPerfTf] = useState<TokenTradePerfTf>('24h');
   const [activePresetSol, setActivePresetSol] = useState<number | null>(resolveDefaultBuyPresetSol());
   const [buyCustomSol, setBuyCustomSol] = useState('');

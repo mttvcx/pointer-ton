@@ -5,6 +5,7 @@ import type {
   ResolutionString,
   TvBar,
   TvDatafeed,
+  TvMark,
   TvPeriodParams,
   TvSymbolInfo,
 } from '@/types/tradingview';
@@ -12,11 +13,14 @@ import type {
 type ApiBar = { time: number; open: number; high: number; low: number; close: number };
 type ChartResponse = { mint: string; interval: ChartInterval; bars: ApiBar[] };
 
-const SUPPORTED_RESOLUTIONS: ResolutionString[] = ['1', '3', '5', '15', '60', '1D', '5D'];
+const SUPPORTED_RESOLUTIONS: ResolutionString[] = ['1S', '1', '3', '5', '15', '60', '1D', '5D'];
 
 /** TradingView resolution → Pointer chart interval (nearest available source bucket). */
 function toInterval(resolution: ResolutionString): ChartInterval {
   switch (resolution) {
+    case '1S':
+    case '15S':
+      return '1s';
     case '1':
       return '1m';
     case '3':
@@ -48,13 +52,18 @@ function priceScaleFor(price: number): number {
   return 10 ** Math.min(digits, 16);
 }
 
+export type DatafeedMarkFetcher = (from: number, to: number) => Promise<TvMark[]>;
+
 /**
  * A TradingView datafeed backed by Pointer's chart endpoint (GeckoTerminal
  * OHLCV under the hood). History is the recent window the endpoint returns;
- * live updates poll the last candle. Wallet-trade markers are a follow-up
- * (datafeed `getMarks`).
+ * live updates poll the last candle. `fetchMarks` supplies trade bubbles.
  */
-export function createPointerDatafeed(mint: string, symbol: string | null): TvDatafeed {
+export function createPointerDatafeed(
+  mint: string,
+  symbol: string | null,
+  opts?: { fetchMarks?: DatafeedMarkFetcher },
+): TvDatafeed {
   const tick = (symbol ?? 'TOKEN').replace(/^\$+/, '') || 'TOKEN';
   const subs = new Map<string, number>();
 
@@ -83,7 +92,7 @@ export function createPointerDatafeed(mint: string, symbol: string | null): TvDa
         () =>
           cb({
             supported_resolutions: SUPPORTED_RESOLUTIONS,
-            supports_marks: false,
+            supports_marks: true,
             supports_timescale_marks: false,
             supports_time: true,
           }),
@@ -108,6 +117,8 @@ export function createPointerDatafeed(mint: string, symbol: string | null): TvDa
           minmov: 1,
           pricescale: priceScaleFor(sample),
           has_intraday: true,
+          has_seconds: true,
+          seconds_multipliers: ['1'],
           has_daily: true,
           has_weekly_and_monthly: false,
           supported_resolutions: SUPPORTED_RESOLUTIONS,
@@ -153,6 +164,17 @@ export function createPointerDatafeed(mint: string, symbol: string | null): TvDa
         window.clearInterval(timer);
         subs.delete(listenerGuid);
       }
+    },
+
+    getMarks(_symbolInfo, from, to, onData) {
+      if (!opts?.fetchMarks) {
+        onData([]);
+        return;
+      }
+      void opts
+        .fetchMarks(from, to)
+        .then((marks) => onData(marks))
+        .catch(() => onData([]));
     },
   };
 }
