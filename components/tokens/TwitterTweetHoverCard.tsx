@@ -138,7 +138,7 @@ function TweetMedia({ src, maxH = 380, className }: { src: string; maxH?: number
           src={src}
           alt=""
           draggable={false}
-          className="max-h-[80vh] max-w-[min(560px,calc(100vw-32px))] rounded-xl border border-white/[0.12] object-contain shadow-[0_24px_70px_-16px_rgba(0,0,0,0.9)]"
+          className="max-h-[94vh] max-w-[min(1240px,calc(100vw-32px))] rounded-xl border border-white/[0.12] object-contain shadow-[0_28px_90px_-16px_rgba(0,0,0,0.92)]"
         />
       </HoverCardContent>
     </HoverCard>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowDownToLine, ArrowUpToLine, Copy, Settings } from 'lucide-react';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { Popover } from '@/components/ui/popover';
 import { TerminalWalletChip } from '@/components/wallet/TerminalWalletChip';
 import { useUIStore } from '@/store/ui';
@@ -126,7 +127,12 @@ export function WalletBalancePopover({
         </button>
       </Popover.Trigger>
 
-      <Popover.Content align="end" sideOffset={8} disableAnimation backdrop className={AXIOM_WALLET_PANEL}>
+      <Popover.Content align="end" sideOffset={8} disableAnimation backdrop className={cn(AXIOM_WALLET_PANEL, 'relative')}>
+        <CloseButton
+          size="sm"
+          onClick={() => handleOpenChange(false)}
+          className="absolute right-2 top-2 z-10"
+        />
         {!hasActiveWallet ? (
           <div className="mx-3 mt-3 rounded-sm border border-amber-400/20 bg-amber-400/[0.08] px-2.5 py-2 text-[11px] text-amber-100/90">
             No {nativeSym} wallet.{' '}

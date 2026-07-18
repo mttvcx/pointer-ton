@@ -99,7 +99,7 @@ export const DEFAULT_X_MONITOR_PEEK_SIZE: PulsePeekPanelSize = {
   width: 380,
   height: 640,
 };
-const DEFAULT_X_MONITOR_POS = { x: 12, y: 96 };
+export const DEFAULT_X_MONITOR_POS = { x: 12, y: 96 };
 /** Squads chat float */
 export const DEFAULT_SQUADS_PEEK_SIZE: PulsePeekPanelSize = {
   width: 360,

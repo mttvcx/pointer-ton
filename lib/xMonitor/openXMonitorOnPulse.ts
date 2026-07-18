@@ -1,7 +1,7 @@
 'use client';
 
 import { goToPulse, isOnPulseRoute, isOnTokenRoute } from '@/lib/navigation/clientNavigate';
-import { pickFreeDockSide, useTokenDockPeekStore } from '@/store/tokenDockPeek';
+import { DEFAULT_X_MONITOR_POS, pickFreeDockSide, useTokenDockPeekStore } from '@/store/tokenDockPeek';
 import { usePulseTwitterRailStore } from '@/store/pulseTwitterRail';
 import { useUIStore } from '@/store/ui';
 
@@ -15,27 +15,34 @@ export function isXMonitorOpen(): boolean {
 export function closeXMonitor() {
   usePulseTwitterRailStore.getState().setSide('hidden');
   const peek = useTokenDockPeekStore.getState();
+  // Just hide it — KEEP the dock snap / floating position / size so reopening
+  // from the topbar restores it exactly where the user left it (same behaviour
+  // as the instant-trade dock).
   peek.setXMonitorPeekOpen(false);
-  peek.setXMonitorDockSnap(null);
 }
 
 /** Pulse side rail — closes duplicate popouts/floats. */
 export function openXMonitorOnPulse(side: 'left' | 'right' = 'left') {
   const peek = useTokenDockPeekStore.getState();
-  peek.setXMonitorPeekOpen(false);
-  peek.setXMonitorDockSnap(null);
 
   const ui = useUIStore.getState();
   ui.setAlertRulesModalOpen(false);
   ui.setAlertRulesDocked(false);
   ui.setAlertRulesPopout(null);
 
-  // Always open the draggable/resizable floating dock (like the wallet tracker),
-  // docked to a FREE side so it stands full-height + pushes content over without
-  // spawning on top of another already-docked panel (wallet/squads/pulse).
   usePulseTwitterRailStore.getState().setSide('hidden');
+
+  // Reopen exactly where the user last left it. Its dock snap, floating position
+  // and size are all persisted; only pick a fresh free side on the very first
+  // open (no remembered snap AND still at the default floating anchor).
+  const savedSnap = peek.dockXMonitorDockSnap;
+  const pos = peek.dockXMonitorPosition;
+  const hasFloatingMemory =
+    !!pos && (pos.x !== DEFAULT_X_MONITOR_POS.x || pos.y !== DEFAULT_X_MONITOR_POS.y);
+  if (savedSnap == null && !hasFloatingMemory) {
+    peek.setXMonitorDockSnap(pickFreeDockSide('xMonitor') ?? side);
+  }
   peek.setXMonitorPeekOpen(true);
-  peek.setXMonitorDockSnap(pickFreeDockSide('xMonitor') ?? side);
 
   if (isOnPulseRoute() || isOnTokenRoute()) return;
   goToPulse();
