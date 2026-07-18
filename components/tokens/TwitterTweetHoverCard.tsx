@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { type ReactNode } from 'react';
 import {
   BadgeCheck,
   Bookmark,
-  Camera,
   Calendar,
   Eye,
   EyeOff,
@@ -13,7 +11,6 @@ import {
   Maximize2,
   MessageCircle,
   Repeat2,
-  X,
 } from 'lucide-react';
 import {
   HoverCard,
@@ -86,64 +83,13 @@ function TwitterTweetHoverShell({ children }: { children: ReactNode }) {
 }
 
 /**
- * Fullscreen image lightbox (Axiom-style). Rendered in a portal so it escapes
- * the hover card's overflow, and the image is clamped to the viewport
- * (max 92vw/92vh, object-contain) so it can NEVER bleed off-screen — the reason
- * the old floating preview was pulled. Backdrop / Esc / X to close.
+ * Tweet media. Inline + bounded in the card; HOVERING it opens a bigger version
+ * in a floating hover card — the same interaction as the tweet card itself, just
+ * a second, larger preview. The preview is clamped to the viewport
+ * (max 80vh / min(560px, viewport-32)) and collision-aware, so it can never
+ * bleed off-screen. Click searches the image on Google Lens.
  */
-function ImageLightbox({ src, onClose, onLens }: { src: string; onClose: () => void; onLens: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  if (typeof document === 'undefined') return null;
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-      data-row-click-skip="true"
-      onClick={onClose}
-      onWheel={(e) => e.stopPropagation()}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt=""
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[92vh] max-w-[92vw] rounded-lg object-contain shadow-[0_24px_80px_-16px_rgba(0,0,0,0.9)]"
-        draggable={false}
-      />
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute right-4 top-4 inline-flex items-center justify-center rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
-      >
-        <X className="h-5 w-5" strokeWidth={2} aria-hidden />
-      </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onLens();
-        }}
-        className="absolute bottom-5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-2 text-[12px] font-medium text-white transition hover:bg-white/20"
-      >
-        <Camera className="h-4 w-4" strokeWidth={2} aria-hidden />
-        Search on Google Lens
-      </button>
-    </div>,
-    document.body,
-  );
-}
-
-/** Tweet media, shown inline + bounded in the card. Click expands to a fullscreen
- *  lightbox (Axiom-style); Google Lens is a button inside it. */
 function TweetMedia({ src, maxH = 380, className }: { src: string; maxH?: number; className?: string }) {
-  const [expanded, setExpanded] = useState(false);
   const openLens = () => {
     window.open(
       `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(absImageUrl(src))}`,
@@ -152,33 +98,50 @@ function TweetMedia({ src, maxH = 380, className }: { src: string; maxH?: number
     );
   };
   return (
-    <>
-      <button
-        type="button"
-        aria-label="Expand image"
-        data-row-click-skip="true"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setExpanded(true);
-        }}
-        className={cn(
-          'group/media relative block overflow-hidden rounded-xl border border-white/[0.1] bg-[#0a0c10]',
-          className,
-        )}
+    <HoverCard openDelay={110} closeDelay={60}>
+      <HoverCardTrigger asChild>
+        <button
+          type="button"
+          aria-label="Enlarge image (hover) — click to search on Google Lens"
+          data-row-click-skip="true"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openLens();
+          }}
+          className={cn(
+            'group/media relative block overflow-hidden rounded-xl border border-white/[0.1] bg-[#0a0c10]',
+            className,
+          )}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt="" className="block w-full object-contain" style={{ maxHeight: maxH }} draggable={false} />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/media:bg-black/20">
+            <Maximize2
+              className="h-6 w-6 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/media:opacity-100"
+              strokeWidth={2}
+              aria-hidden
+            />
+          </span>
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent
+        side="left"
+        align="center"
+        sideOffset={12}
+        collisionPadding={16}
+        instant
+        className="pointer-events-none w-auto border-0 bg-transparent p-0 shadow-none"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" className="block w-full object-contain" style={{ maxHeight: maxH }} draggable={false} />
-        <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover/media:bg-black/25">
-          <Maximize2
-            className="h-6 w-6 text-white opacity-0 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition group-hover/media:opacity-100"
-            strokeWidth={2}
-            aria-hidden
-          />
-        </span>
-      </button>
-      {expanded ? <ImageLightbox src={src} onClose={() => setExpanded(false)} onLens={openLens} /> : null}
-    </>
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          className="max-h-[80vh] max-w-[min(560px,calc(100vw-32px))] rounded-xl border border-white/[0.12] object-contain shadow-[0_24px_70px_-16px_rgba(0,0,0,0.9)]"
+        />
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
