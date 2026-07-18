@@ -564,16 +564,28 @@ export function XMonitorPanel({
           <div
             onMouseEnter={() => setFeedHovered(true)}
             onMouseLeave={() => setFeedHovered(false)}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)] [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+            className="relative flex min-h-0 flex-1 flex-col"
           >
-            {showDemo && feedHovered ? (
-              <div className="pointer-events-none sticky top-1 z-[3] flex justify-center">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[10px] font-semibold text-amber-300 shadow-[0_4px_14px_-4px_rgba(0,0,0,0.6)] backdrop-blur">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-                  Paused — hovering
+            {/* Floating status chip — overlays the feed (doesn't push rows down
+                or scroll away). Glassy pill + live pulse so it reads as UI chrome. */}
+            <div
+              aria-hidden={!(showDemo && feedHovered)}
+              className={cn(
+                'pointer-events-none absolute left-1/2 top-2 z-[6] -translate-x-1/2 transition-all duration-200',
+                showDemo && feedHovered
+                  ? 'translate-y-0 opacity-100'
+                  : '-translate-y-1 opacity-0',
+              )}
+            >
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-[#181410]/85 px-2.5 py-1 text-[10px] font-semibold tracking-tight text-amber-200/95 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.85)] ring-1 ring-inset ring-white/[0.06] backdrop-blur-md">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400/70" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
                 </span>
-              </div>
-            ) : null}
+                Paused · hovering
+              </span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(var(--app-bottombar-h)+12px)] [scrollbar-color:rgba(255,255,255,0.14)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5 hover:[&::-webkit-scrollbar-thumb]:bg-white/20">
             {isFetching && !mock && rows.length === 0 ? (
               <p className="px-3 py-4 text-[11px] text-fg-muted">Loading listens…</p>
             ) : null}
@@ -920,6 +932,7 @@ export function XMonitorPanel({
                 );
               })}
             </ul>
+            </div>
           </div>
         </>
       )}
