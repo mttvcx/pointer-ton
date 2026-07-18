@@ -94,37 +94,48 @@ export function PerpsTerminal() {
         onSelectPair={setPairId}
       />
 
-      <div ref={splitRef} className="flex min-h-0 w-full min-w-0 flex-1 flex-col max-lg:overflow-y-auto">
-        <div
-          className="grid w-full min-w-0 min-h-0 grid-cols-1 gap-px bg-border-subtle lg:grid-cols-[minmax(0,1fr)_11rem_17.5rem]"
-          style={{ flex: `${1 - bottomSplit} 1 0%` }}
-        >
-          <section className="flex min-h-[280px] min-w-0 flex-col lg:min-h-0">
+      {/* Chart + positions split (left) | order book | order panel — the last two
+          are FULL-HEIGHT columns so the resize divider only affects the chart and
+          the buy panel runs seamlessly to the bottom of the page (Axiom-style). */}
+      <div
+        ref={splitRef}
+        className="flex min-h-0 w-full min-w-0 flex-1 flex-row gap-px bg-border-subtle max-lg:flex-col max-lg:overflow-y-auto"
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-px bg-border-subtle">
+          <section
+            className="flex min-h-[280px] min-w-0 flex-col bg-bg-base lg:min-h-0"
+            style={{ flex: `${1 - bottomSplit} 1 0%` }}
+          >
             <PerpsChartPanel pair={pair} tf={tf} onTfChange={setTf} />
           </section>
-          <section className="flex min-h-[180px] min-w-0 flex-col lg:min-h-0">
-            <PerpsOrderBook coin={pair.coin} book={l2Q.data} loading={l2Q.isPending} />
-          </section>
-          <section className="flex min-h-[360px] min-w-0 flex-col lg:min-h-0">
-            <PerpsOrderPanel pair={pair} />
+
+          <div
+            role="separator"
+            aria-label="Resize chart versus positions"
+            onPointerDown={onVertDown}
+            onPointerMove={onVertMove}
+            onPointerUp={onVertUp}
+            onPointerCancel={onVertUp}
+            className="group relative z-10 hidden h-[3px] shrink-0 cursor-row-resize bg-bg-base lg:block"
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border-subtle transition-colors group-hover:bg-accent-primary/60" />
+          </div>
+
+          <section
+            className="flex min-h-0 flex-col overflow-hidden bg-bg-base lg:min-h-0"
+            style={{ flex: `${bottomSplit} 1 0%`, minHeight: '6rem' }}
+          >
+            <PerpsBottomPanel />
           </section>
         </div>
 
-        <div
-          role="separator"
-          aria-label="Resize chart versus positions"
-          onPointerDown={onVertDown}
-          onPointerMove={onVertMove}
-          onPointerUp={onVertUp}
-          onPointerCancel={onVertUp}
-          className="group relative z-10 hidden h-1 shrink-0 cursor-row-resize lg:block"
-        >
-          <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-border-subtle group-hover:bg-accent-primary/45" />
-        </div>
+        <section className="flex min-h-[180px] w-full min-w-0 flex-col bg-bg-base lg:min-h-0 lg:w-[11rem] lg:shrink-0">
+          <PerpsOrderBook coin={pair.coin} book={l2Q.data} loading={l2Q.isPending} />
+        </section>
 
-        <div className="flex min-h-0 flex-col overflow-hidden" style={{ flex: `${bottomSplit} 1 0%`, minHeight: '6rem' }}>
-          <PerpsBottomPanel />
-        </div>
+        <section className="flex min-h-[360px] w-full min-w-0 flex-col bg-bg-base lg:min-h-0 lg:w-[17.5rem] lg:shrink-0">
+          <PerpsOrderPanel pair={pair} />
+        </section>
       </div>
     </div>
   );

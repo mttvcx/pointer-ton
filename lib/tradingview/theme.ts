@@ -58,15 +58,19 @@ export function pointerChartOverrides(explicitBg?: string): Record<string, strin
   const bear = cssColor('--signal-bear', '#fb7185');
   const grid = rgba('--fg-primary', 0.05, [255, 255, 255]);
   const text = cssColor('--fg-muted', '#8b92a4');
+  // Brighter + larger axis/legend text so MC + time labels are clearly readable
+  // (Axiom's are noticeably heavier than TradingView's thin default).
+  const textStrong = cssColor('--fg-primary', '#e8eaf0');
   const scaleLine = rgba('--fg-primary', 0.1, [255, 255, 255]);
   return {
     'paneProperties.background': bg,
     'paneProperties.backgroundType': 'solid',
     'paneProperties.vertGridProperties.color': grid,
     'paneProperties.horzGridProperties.color': grid,
-    'paneProperties.crossHairProperties.color': text,
+    'paneProperties.crossHairProperties.color': textStrong,
     'paneProperties.legendProperties.showStudyArguments': true,
-    'scalesProperties.textColor': text,
+    'scalesProperties.textColor': textStrong,
+    'scalesProperties.fontSize': 12,
     'scalesProperties.lineColor': scaleLine,
     'scalesProperties.backgroundColor': bg,
     'mainSeriesProperties.candleStyle.upColor': bull,
