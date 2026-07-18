@@ -10,6 +10,7 @@ import { AppleEmoji } from '@/components/ui/AppleEmoji';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { useTraderMintHoverStats } from '@/lib/hooks/useTraderMintHoverStats';
 import { resolveWalletIdentityCore } from '@/lib/walletIdentity/resolveWalletIdentity';
+import { useIdentityRegistryStore } from '@/store/identityRegistry';
 import {
   buildWalletTokenContextFromTraderRow,
   tokenContextFromHoverStats,
@@ -128,6 +129,7 @@ export function WalletIdentityAnchor({
     [resolveLabel, address, truncate],
   );
   const tracked = isTracked(address);
+  const registryVersion = useIdentityRegistryStore((s) => s.version);
 
   const extras = useMemo(() => {
     const e = [...inlineBadges];
@@ -149,7 +151,8 @@ export function WalletIdentityAnchor({
         creatorWallet: creatorWallet ?? null,
         allowDemoDirectory: uiDemo,
       }),
-    [address, walletChain, labelDisp, tracked, extras, creatorWallet, uiDemo],
+    // registryVersion: re-resolve once the full KOL directory hydrates.
+    [address, walletChain, labelDisp, tracked, extras, creatorWallet, uiDemo, registryVersion],
   );
 
   const wideDemo = useMemo(
@@ -195,7 +198,10 @@ export function WalletIdentityAnchor({
       ? forcedLabel.trim()
       : labelDisp?.labeled === true
       ? labelDisp.label
-      : addressFormat === 'axiom-ticker' && address.length >= 3
+      : // Recognized KOL / directory identity → show the real name, not the address.
+        identity.knownIdentity
+        ? identity.displayName
+        : addressFormat === 'axiom-ticker' && address.length >= 3
         ? address.slice(-3)
         : addressFormat === 'axiom' && address.length >= 6
           ? `${address.slice(0, 3)}. ${address.slice(-3)}`

@@ -7,6 +7,7 @@ import type { MintTopTraderRow } from '@/lib/trading/mintTopTraders';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { resolveWalletIdentityCore } from '@/lib/walletIdentity/resolveWalletIdentity';
+import { useIdentityRegistryStore } from '@/store/identityRegistry';
 import { mockWalletWideStats } from '@/lib/walletIdentity/mockWalletWideStats';
 import { useUiDemoMode } from '@/lib/hooks/useUiDemoMode';
 import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
@@ -26,6 +27,7 @@ export function useWalletIdentity(params: {
   const { isTracked } = useTrackedWalletsLookup();
   const uiDemo = useUiDemoMode();
   const activeChain = useUIStore((s) => s.activeChain);
+  const registryVersion = useIdentityRegistryStore((s) => s.version);
 
   const labelDisp = resolveLabel(address, truncateLen);
   const tracked = isTracked(address);
@@ -43,7 +45,8 @@ export function useWalletIdentity(params: {
         creatorWallet,
         allowDemoDirectory: uiDemo,
       }),
-    [address, chain, labelDisp, tracked, extras, creatorWallet, uiDemo],
+    // registryVersion: re-resolve once the full KOL directory hydrates.
+    [address, chain, labelDisp, tracked, extras, creatorWallet, uiDemo, registryVersion],
   );
 
   const wide = useMemo(

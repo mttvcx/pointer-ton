@@ -12,6 +12,7 @@ import { Topbar } from '@/components/layout/Topbar';
 import { WatchlistTickerBar } from '@/components/layout/WatchlistTickerBar';
 import { WalletLabelsBootstrap } from '@/components/wallets/WalletLabelsBootstrap';
 import { LayoutSync } from '@/components/layout/LayoutSync';
+import { IdentityRegistryHydrator } from '@/components/identity/IdentityRegistryHydrator';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { XMonitorContextBar } from '@/components/monitor/XMonitorContextBar';
 import { XMonitorCaToast } from '@/components/monitor/XMonitorCaToast';
@@ -191,6 +192,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {!isMobile ? <CopilotStripSlot /> : null}
       <GlobalSearchModal />
       <LayoutSync />
+      <IdentityRegistryHydrator />
       <WalletLabelsBootstrap />
       <LabelWalletModal />
       <LaunchModal />

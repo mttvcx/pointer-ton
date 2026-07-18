@@ -6,6 +6,7 @@ import type { AppChainId } from '@/lib/chains/appChain';
 import { useWalletLabels } from '@/lib/hooks/useWalletLabels';
 import { useTrackedWalletsLookup } from '@/lib/hooks/useTrackedWalletsLookup';
 import { resolveWalletIdentity } from '@/lib/identity/identityService';
+import { useIdentityRegistryStore } from '@/store/identityRegistry';
 import { IdentityAvatar } from '@/components/identity/IdentityAvatar';
 import { IdentityBadge } from '@/components/identity/IdentityBadge';
 import { IdentityName } from '@/components/identity/IdentityName';
@@ -34,6 +35,7 @@ export function WalletIdentityLabel({
 }) {
   const { resolveLabel } = useWalletLabels();
   const { isTracked } = useTrackedWalletsLookup();
+  const registryVersion = useIdentityRegistryStore((s) => s.version);
   const labelDisp = resolveLabel(address, 5);
   const userLabel =
     labelDisp?.labeled === true ? labelDisp.label : null;
@@ -45,7 +47,8 @@ export function WalletIdentityLabel({
         address,
         userLabel,
       }),
-    [chain, address, userLabel],
+    // registryVersion: re-resolve once the full KOL directory hydrates.
+    [chain, address, userLabel, registryVersion],
   );
 
   const known = Boolean(identity.identityId);

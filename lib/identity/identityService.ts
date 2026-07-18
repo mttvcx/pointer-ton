@@ -32,6 +32,15 @@ function cacheSet(key: string, value: ResolvedWalletIdentity): void {
   resolveCache.set(key, { at: Date.now(), value });
 }
 
+/**
+ * Drop all cached resolutions. Called after the client registry is hydrated with
+ * the full server directory so wallets that resolved to a short-address fallback
+ * before hydration get re-resolved against the now-populated registry.
+ */
+export function clearWalletIdentityCache(): void {
+  resolveCache.clear();
+}
+
 export type ResolveWalletIdentityParams = {
   chain: AppChainId;
   address: string;
