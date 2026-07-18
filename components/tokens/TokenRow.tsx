@@ -1344,11 +1344,24 @@ function UltraQuickBuyZone({
   const labelAmount = formatSolDraft(quickBuySol) || String(quickBuySol);
   const useFilled = filled || ultraChromeStyle === 'filled';
   const borderless = ultraChromeStyle === 'borderless';
+  // Cursor-following spotlight for the outline zone (GMGN/Axiom). The glow span
+  // is inset-0 + rounded, so it's self-clipped — NO overflow-hidden on the
+  // button (that would kill the outline's `backdrop-filter: blur` hover effect).
+  const showGlow = !useFilled;
+  const onGlowMove = showGlow
+    ? (e: MouseEvent<HTMLButtonElement>) => {
+        const el = e.currentTarget;
+        const r = el.getBoundingClientRect();
+        el.style.setProperty('--qb-mx', `${e.clientX - r.left}px`);
+        el.style.setProperty('--qb-my', `${e.clientY - r.top}px`);
+      }
+    : undefined;
 
   return (
     <button
       type="button"
       onClick={onBuy}
+      onMouseMove={onGlowMove}
       disabled={disabled}
       className={cn(
         /**
@@ -1359,7 +1372,7 @@ function UltraQuickBuyZone({
          *     the right edge + lifted off the bottom edge so it reads as a button,
          *     not a flush slab. Chip centered, V/MC stays visible above.
          */
-        'pulse-qb-ultra focus-ring pointer-events-auto relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-sans font-semibold tabular-nums tracking-normal',
+        'pulse-qb-ultra group/qb focus-ring pointer-events-auto relative z-[21] flex min-h-0 max-h-full max-w-full rounded-[5px] border font-sans font-semibold tabular-nums tracking-normal',
         useFilled ? 'pulse-qb-ultra--filled transition-[filter] duration-200' : 'pulse-qb-ultra--outline',
         borderless && !useFilled && 'pulse-qb-ultra--borderless',
         useFilled
@@ -1369,9 +1382,19 @@ function UltraQuickBuyZone({
       )}
       aria-label={`Quick buy ${labelAmount} ${quoteSymbol}`}
     >
+      {showGlow ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0 rounded-[5px] opacity-0 transition-opacity duration-150 group-hover/qb:opacity-100"
+          style={{
+            background:
+              'radial-gradient(60px circle at var(--qb-mx, 50%) var(--qb-my, 50%), rgb(var(--pulse-accent-rgb) / 0.25), transparent 70%)',
+          }}
+        />
+      ) : null}
       <span
         className={cn(
-          'flex shrink-0 items-center gap-1 text-[10px] leading-none sm:text-[11px]',
+          'relative z-[1] flex shrink-0 items-center gap-1 text-[10px] leading-none sm:text-[11px]',
           loading && 'opacity-0',
         )}
       >

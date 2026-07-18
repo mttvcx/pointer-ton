@@ -8,7 +8,6 @@ import {
   BarChart3,
   CheckCircle2,
   ChevronDown,
-  CircleDollarSign,
   Clock,
   LayoutList,
   LineChart,
@@ -475,7 +474,7 @@ export function GlobalSearchModal() {
                 label="USDC"
                 active={usdcOnly}
                 onClick={() => setUsdcOnly((v) => !v)}
-                MetaIcon={CircleDollarSign}
+                imageSrc="/logos/protocols/usdc.png"
               />
             </div>
 
@@ -596,7 +595,7 @@ export function GlobalSearchModal() {
         </div>
 
         {/* Scroll body only */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-bg-raised px-4 py-2 sm:px-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-bg-hover px-4 py-2 sm:px-5">
           {hasSearchSection ? (
             <section className="mb-3">
               <p className="mb-1 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
@@ -666,7 +665,7 @@ export function GlobalSearchModal() {
         ) : null}
 
         {/* Fixed slim footer */}
-        <div className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-white/[0.06] bg-bg-raised px-3">
+        <div className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-white/[0.06] bg-bg-hover px-3">
           <p className="text-[11px] text-fg-muted">
             {CHAIN_DROPDOWN_LABEL[activeChain]} · CA or wallet · Enter
           </p>

@@ -3,7 +3,7 @@
 import { formatDistanceToNowStrict, subMilliseconds } from 'date-fns';
 import { Copy, Globe, Shield, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { toast } from 'sonner';
 import { TokenImage } from '@/components/shared/TokenImage';
 import { Popover } from '@/components/ui/popover';
@@ -117,6 +117,17 @@ export function SearchTokenRow({
   const buyLabel = formatBuyAmount(quickBuyAmount);
   // Smaller + rounded reads crisper (Axiom-style) than the old boxy 44-48px.
   const avatarSize = compact ? 38 : 42;
+  const isUltra = quickBuySize === 'ultra';
+  // Cursor spotlight (matches the Pulse ultra outline) — glow span is self-clipped.
+  const onGlowMove = (e: ReactMouseEvent<HTMLElement>) => {
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--qb-mx', `${e.clientX - r.left}px`);
+    el.style.setProperty('--qb-my', `${e.clientY - r.top}px`);
+  };
+  const mc = row.mcUsd != null ? formatCompactUsd(row.mcUsd) : '—';
+  const vol = row.volUsd != null ? formatCompactUsd(row.volUsd) : '—';
+  const liq = row.liqUsd != null ? formatCompactUsd(row.liqUsd) : '—';
 
   async function copyText(value: string, label: string) {
     try {
@@ -223,13 +234,61 @@ export function SearchTokenRow({
         </div>
 
         <div className="hidden shrink-0 items-center gap-4 sm:flex lg:gap-5">
-          <SearchStatCell label="MC" value={row.mcUsd != null ? formatCompactUsd(row.mcUsd) : '—'} />
-          <SearchStatCell label="V" value={row.volUsd != null ? formatCompactUsd(row.volUsd) : '—'} />
-          <SearchStatCell label="L" value={row.liqUsd != null ? formatCompactUsd(row.liqUsd) : '—'} />
+          <SearchStatCell label="MC" value={mc} />
+          {!isUltra ? (
+            <>
+              <SearchStatCell label="V" value={vol} />
+              <SearchStatCell label="L" value={liq} />
+            </>
+          ) : null}
         </div>
       </Link>
 
-      {activeChain === 'sol' ? (
+      {activeChain === 'sol' && isUltra ? (
+        // Ultra = ONE outlined block (Axiom/Pulse-style): V + L + buy, full row
+        // height, accent border + backdrop-blur on hover + cursor spotlight.
+        // Reuses the exact `pulse-qb-ultra` CSS so border/no-border/blur match Pulse.
+        <button
+          type="button"
+          disabled={!canTrade}
+          onMouseMove={onGlowMove}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void buyToken(row.mint, quickBuyAmount, { spendAsset: spendAsset === 'usdc' ? 'usdc' : 'sol' });
+          }}
+          className={cn(
+            'pulse-qb-ultra group/qb focus-ring relative flex shrink-0 self-stretch items-center gap-3 rounded-lg border px-3 font-semibold transition-colors sm:gap-4 sm:px-4',
+            quickBuyChrome === 'filled' ? 'pulse-qb-ultra--filled' : 'pulse-qb-ultra--outline',
+            'disabled:pointer-events-none disabled:opacity-55',
+          )}
+          title={canTrade ? `Quick buy ${buyLabel} ${quote}` : 'Connect wallet to quick buy'}
+          aria-label={`Quick buy ${buyLabel} ${quote}`}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 rounded-lg opacity-0 transition-opacity duration-150 group-hover/qb:opacity-100"
+            style={{
+              background:
+                'radial-gradient(70px circle at var(--qb-mx, 50%) var(--qb-my, 50%), rgb(var(--pulse-accent-rgb) / 0.22), transparent 72%)',
+            }}
+          />
+          <div className="relative z-[1] hidden shrink-0 items-center gap-3 sm:flex sm:gap-4">
+            <SearchStatCell label="V" value={vol} />
+            <SearchStatCell label="L" value={liq} />
+          </div>
+          <span className="relative z-[1] flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[12.5px] tabular-nums">
+            <Zap
+              className={cn(
+                'h-3.5 w-3.5 shrink-0',
+                quickBuyChrome === 'filled' ? 'fill-[#030806] text-[#030806]' : 'fill-current',
+              )}
+              aria-hidden
+            />
+            {`${buyLabel} ${quote}`}
+          </span>
+        </button>
+      ) : activeChain === 'sol' ? (
         <button
           type="button"
           disabled={!canTrade}
@@ -255,9 +314,7 @@ export function SearchTokenRow({
             )}
             aria-hidden
           />
-          <span className="min-w-0 truncate leading-none">
-            {quickBuySize === 'ultra' ? `${buyLabel} ${quote}` : 'Buy'}
-          </span>
+          <span className="min-w-0 truncate leading-none">Buy</span>
         </button>
       ) : (
         <Link

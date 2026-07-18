@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils/cn';
 
 /** Token-page grey shell — seamless, minimal chrome. */
 export const searchModalPanelClass =
-  'rounded-xl border border-white/[0.06] bg-bg-raised shadow-[0_28px_80px_-36px_rgba(0,0,0,0.82)]';
+  'rounded-xl border border-white/[0.08] bg-bg-hover shadow-[0_28px_80px_-36px_rgba(0,0,0,0.82)]';
 
 export const searchModalIconBtnClass =
   'focus-ring rounded-md border-0 bg-transparent p-1.5 text-fg-muted transition-colors hover:bg-white/[0.08] hover:text-fg-primary hover:backdrop-blur-sm';
