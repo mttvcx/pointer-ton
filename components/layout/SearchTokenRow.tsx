@@ -39,14 +39,18 @@ function formatBuyAmount(n: number): string {
 
 function searchQuickBuyClasses(chrome: SearchQuickBuyChrome, size: SearchQuickBuySize): string {
   const dim =
-    size === 'small'
-      ? 'h-9 min-w-[5rem] px-2.5 text-[10px]'
-      : size === 'large' || size === 'mega'
-        ? 'h-11 min-w-[7.25rem] px-3.5 text-xs'
-        : 'h-10 min-w-[6.25rem] px-3 text-[11px]';
+    size === 'ultra'
+      ? // Ultra = the whole row's right edge is one outlined buy zone (Axiom-style),
+        // not a little pill. Stretches to the full row height.
+        'self-stretch min-h-full min-w-[7rem] rounded-lg px-3.5 text-[12.5px]'
+      : size === 'small'
+        ? 'h-9 min-w-[5rem] rounded-md px-2.5 text-[10px]'
+        : size === 'large' || size === 'mega'
+          ? 'h-11 min-w-[7.25rem] rounded-md px-3.5 text-xs'
+          : 'h-10 min-w-[6.25rem] rounded-md px-3 text-[11px]';
 
   const base = cn(
-    'focus-ring relative flex shrink-0 flex-row items-center justify-center gap-1.5 rounded-md border font-semibold tabular-nums transition-colors',
+    'focus-ring relative flex shrink-0 flex-row items-center justify-center gap-1.5 border font-semibold tabular-nums transition-colors',
     'disabled:pointer-events-none disabled:opacity-55',
     dim,
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { SearchProtocolFilterChip } from '@/components/layout/SearchProtocolFilterChip';
+import { SearchChainRail } from '@/components/layout/SearchChainRail';
 import { SearchQuickBuySettingsPanel } from '@/components/layout/SearchQuickBuySettingsPanel';
 import { SearchTokenRow } from '@/components/layout/SearchTokenRow';
 import {
@@ -416,7 +417,7 @@ export function GlobalSearchModal() {
 
   if (!overlayMounted) return null;
 
-  const rowPadding = compactRows ? 'py-2 min-h-[64px]' : 'py-2.5 min-h-[76px]';
+  const rowPadding = compactRows ? 'py-1.5 min-h-[52px]' : 'py-2 min-h-[62px]';
 
   return (
     <div className="fixed inset-0 z-[620] flex items-start justify-center px-3 pt-[min(8vh,72px)] sm:px-4" role="presentation">
@@ -432,7 +433,7 @@ export function GlobalSearchModal() {
       />
       <div
         className={cn(
-          'relative z-10 flex w-full max-h-[78vh] max-w-[min(1080px,calc(100vw-1.5rem))] origin-top flex-col overflow-hidden fill-mode-forwards motion-reduce:transition-none',
+          'relative z-10 flex w-full max-h-[64vh] max-w-[min(700px,calc(100vw-1.5rem))] origin-top flex-row overflow-hidden fill-mode-forwards motion-reduce:transition-none',
           searchModalPanelClass,
           overlayPanelFromTopClasses(visible),
         )}
@@ -444,6 +445,10 @@ export function GlobalSearchModal() {
         <h2 id="global-search-title" className="sr-only">
           Search
         </h2>
+
+        <SearchChainRail />
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* Fixed header: chips + input + History / sort */}
         <div className="shrink-0 border-b border-border-subtle px-4 pt-2.5 pb-2 sm:px-5">
@@ -666,6 +671,7 @@ export function GlobalSearchModal() {
             {CHAIN_DROPDOWN_LABEL[activeChain]} · CA or wallet · Enter
           </p>
           <CloseButton label="Close" onClick={() => setOpen(false)} />
+        </div>
         </div>
       </div>
     </div>
