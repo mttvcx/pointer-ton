@@ -1,8 +1,9 @@
 'use client';
 
 import { CopilotBriefPanel } from './CopilotBriefPanel';
+import { DraggableBrief } from './DraggableBrief';
 
-/** Level 2 — centered answer card (compact elsewhere, tall on Pulse). */
+/** Level 2 — centered answer card (compact elsewhere, tall on Pulse). Draggable side-to-side. */
 export function CopilotStripBody({
   variant = 'compact',
   className,
@@ -10,5 +11,9 @@ export function CopilotStripBody({
   variant?: 'compact' | 'pulse';
   className?: string;
 }) {
-  return <CopilotBriefPanel variant="compact" size={variant} className={className} />;
+  return (
+    <DraggableBrief>
+      <CopilotBriefPanel variant="compact" size={variant} className={className} />
+    </DraggableBrief>
+  );
 }

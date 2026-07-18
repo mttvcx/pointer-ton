@@ -20,6 +20,7 @@ import type { WalletIntelBadgeKind } from '@/lib/walletIdentity/types';
 import { appChainForWalletAddress } from '@/lib/chains/walletIntelChain';
 import { useUIStore } from '@/store/ui';
 
+import { IdentityAvatar } from '@/components/identity/IdentityAvatar';
 import { WalletIdentityBadges } from '@/components/wallet/identity/WalletIdentityBadges';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { WalletCompactTooltipPanel } from '@/components/wallet/identity/WalletCompactTooltipPanel';
@@ -434,6 +435,14 @@ export function WalletIdentityAnchor({
           />
         ) : null}
         {labelEmoji ? <AppleEmoji emoji={labelEmoji} size={12} className="shrink-0" /> : null}
+        {identity.knownIdentity && identity.avatarUrl ? (
+          <IdentityAvatar
+            src={identity.avatarUrl}
+            name={identity.displayName}
+            size={16}
+            className="shrink-0"
+          />
+        ) : null}
         {triggerInner}
         {!badgeBeforeAddress ? badgeRow : null}
       </span>
