@@ -349,6 +349,20 @@ function PulseColumnBody({
   const showBondingProgress = usePulseDisplayPrefsStore((s) => s.showBondingProgress);
   const hideColumnSearch = usePulseDisplayPrefsStore((s) => s.hideColumnSearch);
   const secondButtonMode = usePulseDisplayPrefsStore((s) => s.secondButtonMode);
+  const miniChartPrefs = usePulseDisplayPrefsStore((s) => s.miniChart);
+
+  // Axiom-style faint price sparkline behind the rows — resolved per column.
+  const resolvedMiniChart = useMemo(
+    () =>
+      miniChartPrefs.columns[column]
+        ? {
+            size: miniChartPrefs.size,
+            opacity: miniChartPrefs.opacity,
+            edgeFade: miniChartPrefs.edgeFade,
+          }
+        : null,
+    [miniChartPrefs, column],
+  );
 
   const displayForRow = useMemo(
     (): ColumnDisplayOptions => ({
@@ -813,6 +827,7 @@ function PulseColumnBody({
                     slotHeight={rowSize}
                     quoteSymbol={quoteSymbol}
                     avatarImagePriority={vi.index < 8}
+                    miniChart={resolvedMiniChart}
                     onPulseQuickBuy={handlePulseQuickBuy}
                     onPulseSecondBuy={handlePulseSecondBuy}
                     onPulseQuickSell={handlePulseQuickSell}

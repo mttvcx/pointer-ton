@@ -14,6 +14,8 @@ import {
 import { Eye, Loader2, Zap } from 'lucide-react';
 import { PulseRowSocialStrip } from '@/components/tokens/PulseRowSocialStrip';
 import { PulseRowVolMc } from '@/components/tokens/PulseRowVolMc';
+import { PulseRowMiniChart } from '@/components/tokens/PulseRowMiniChart';
+import { getMiniChartSeries, pushMiniChartPrice } from '@/store/pulseMiniChartSeries';
 import { PulseRowAxiomSpriteStrip } from '@/components/tokens/PulseRowAxiomSpriteStrip';
 import { PulseRowBondingHoverTag } from '@/components/tokens/PulseRowBondingHoverTag';
 import { PulseMayhemTimerBadge } from '@/components/tokens/PulseMayhemTimerBadge';
@@ -72,6 +74,7 @@ function TokenRowInner({
   /** Native quote for quick-buy chip (TON / SOL / …). */
   quoteSymbol = 'TON',
   avatarImagePriority = false,
+  miniChart = null,
 }: {
   bundle: PulseTokenBundle;
   density?: PulseRowDensity;
@@ -91,9 +94,23 @@ function TokenRowInner({
   slotHeight?: number;
   quoteSymbol?: string;
   avatarImagePriority?: boolean;
+  /** Resolved Axiom-style mini-chart background for this column (null = off). */
+  miniChart?: { size: number; opacity: number; edgeFade: number } | null;
 }) {
   const router = useRouter();
   const { token, snapshot } = bundle;
+
+  // Accumulate this row's real observed price into the rolling buffer that feeds
+  // the Mini Chart background. Always record (even when the chart is off) so
+  // toggling it on shows history immediately. Decorative only — never affects data.
+  const priceUsd = snapshot?.price_usd ?? null;
+  useEffect(() => {
+    pushMiniChartPrice(token.mint, priceUsd);
+  }, [token.mint, priceUsd]);
+  // Copy so the chart's memo sees a new reference each tick (the buffer mutates
+  // in place). Cheap — at most 48 numbers.
+  const miniSeries = miniChart ? getMiniChartSeries(token.mint).slice() : null;
+
   const trackPulseFlashMint = useUIStore((s) => s.trackPulseHighlightMint);
   const activeChain = useUIStore((s) => s.activeChain);
   const pulseFlashHighlight =
@@ -532,6 +549,15 @@ function TokenRowInner({
           : {}),
       }}
     >
+      {miniChart && miniSeries ? (
+        <PulseRowMiniChart
+          series={miniSeries}
+          size={miniChart.size}
+          opacity={miniChart.opacity}
+          edgeFade={miniChart.edgeFade}
+        />
+      ) : null}
+
       <span
         aria-hidden
         className={cn(

@@ -20,6 +20,23 @@ export type QuickBuyUltraChrome = z.infer<typeof QuickBuyUltraChromeSchema>;
 
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
+/**
+ * Axiom-style "Mini Chart" — a faint price sparkline rendered as the row
+ * background. Purely decorative (pointer-events-none, sits behind content), fed
+ * by a rolling buffer of the row's real observed prices. Per-column visibility
+ * plus size / opacity / edge-fade knobs.
+ */
+export const PulseMiniChartPrefsSchema = z.object({
+  columns: z.object({ new: z.boolean(), stretch: z.boolean(), migrated: z.boolean() }),
+  /** Vertical height of the chart as a % of the row (10–100). */
+  size: z.number().min(10).max(100),
+  /** Overall chart alpha (0–100). */
+  opacity: z.number().min(0).max(100),
+  /** Horizontal fade toward each edge so it blends into the row (0–100). */
+  edgeFade: z.number().min(0).max(100),
+});
+export type PulseMiniChartPrefs = z.infer<typeof PulseMiniChartPrefsSchema>;
+
 export const MetricBandColorsSchema = z.tuple([HexColorSchema, HexColorSchema, HexColorSchema]);
 
 export const MetricBandSchema = z.object({
@@ -88,6 +105,8 @@ export const PulseDisplayPrefsSchema = z.object({
   tokenHoverDetail: z.boolean(),
   /** Strip the grey card background + border off token rows so they sit flush on the column. */
   transparentRows: z.boolean(),
+  /** Axiom-style faint price sparkline behind the rows. */
+  miniChart: PulseMiniChartPrefsSchema,
 });
 
 export type PulseDisplayPrefs = z.infer<typeof PulseDisplayPrefsSchema>;
@@ -164,6 +183,12 @@ export const DEFAULT_PULSE_DISPLAY_PREFS: PulseDisplayPrefs = {
   toastColor: null,
   tokenHoverDetail: false,
   transparentRows: false,
+  miniChart: {
+    columns: { new: true, stretch: true, migrated: true },
+    size: 38,
+    opacity: 100,
+    edgeFade: 100,
+  },
 };
 
 export function withPulseDisplayDefaults(
@@ -205,6 +230,14 @@ export function withPulseDisplayDefaults(
       ...DEFAULT_PULSE_DISPLAY_PREFS.protocolColorHex,
       ...base.protocolColorHex,
     },
+    miniChart: {
+      ...DEFAULT_PULSE_DISPLAY_PREFS.miniChart,
+      ...base.miniChart,
+      columns: {
+        ...DEFAULT_PULSE_DISPLAY_PREFS.miniChart.columns,
+        ...base.miniChart?.columns,
+      },
+    },
   });
 }
 
@@ -244,6 +277,7 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     toastColor,
     tokenHoverDetail,
     transparentRows,
+    miniChart,
   } = state;
   return withPulseDisplayDefaults({
     activeTab,
@@ -269,5 +303,6 @@ export function pickPulseDisplayPrefs(state: Partial<PulseDisplayPrefs> & Record
     toastColor,
     tokenHoverDetail,
     transparentRows,
+    miniChart,
   });
 }

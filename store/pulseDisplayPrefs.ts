@@ -86,7 +86,7 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
     }),
     {
       name: 'pointer.pulse-display',
-      version: 6,
+      version: 7,
       partialize: (s) => pickPulseDisplayPrefs(s),
       migrate: (persisted, fromVersion) => {
         let base = withPulseDisplayDefaults(persisted as Partial<PulseDisplayPrefs> | undefined);
@@ -103,6 +103,7 @@ export const usePulseDisplayPrefsStore = create<PulseDisplayState>()(
         if (fromVersion < 6 && base.toastColor === undefined) {
           base = { ...base, toastColor: null };
         }
+        // v7 — Axiom-style Mini Chart background (withPulseDisplayDefaults fills it).
         return base;
       },
       merge: (persisted, current) => ({

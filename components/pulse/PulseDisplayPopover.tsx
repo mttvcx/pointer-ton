@@ -7,6 +7,7 @@ import {
   Eye,
   Hash,
   LayoutList,
+  LineChart,
   LoaderCircle,
   MousePointerClick,
   Search,
@@ -93,6 +94,39 @@ function TopChip({
     >
       {children}
     </button>
+  );
+}
+
+function MiniChartSlider({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="mt-2.5">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] text-fg-secondary">{label}</span>
+        <span className="text-[11px] font-semibold tabular-nums text-fg-primary">
+          {Math.round(value)}%
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-bg-hover accent-accent-primary"
+      />
+    </div>
   );
 }
 
@@ -386,6 +420,67 @@ export function PulseDisplayPopover() {
                     value={prefs.transparentRows}
                     onChange={(v) => setPrefs({ transparentRows: v })}
                   />
+
+                  <div className="mt-2 rounded-lg border border-border-subtle/60 bg-bg-sunken/30 p-2.5">
+                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                      <LineChart className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                      Mini chart
+                    </p>
+                    <p className="mt-2 text-[10px] font-medium text-fg-muted">Show in tables</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(
+                        [
+                          ['new', 'New Pairs'],
+                          ['stretch', 'Final Stretch'],
+                          ['migrated', 'Migrated'],
+                        ] as const
+                      ).map(([key, label]) => {
+                        const on = prefs.miniChart.columns[key];
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() =>
+                              setPrefs({
+                                miniChart: {
+                                  ...prefs.miniChart,
+                                  columns: { ...prefs.miniChart.columns, [key]: !on },
+                                },
+                              })
+                            }
+                            className={cn(
+                              'rounded-md border px-2 py-1 text-[11px] font-medium transition',
+                              on ? CHIP_ACTIVE : CHIP_IDLE,
+                            )}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <MiniChartSlider
+                      label="Chart size"
+                      value={prefs.miniChart.size}
+                      min={10}
+                      max={100}
+                      onChange={(v) => setPrefs({ miniChart: { ...prefs.miniChart, size: v } })}
+                    />
+                    <MiniChartSlider
+                      label="Chart opacity"
+                      value={prefs.miniChart.opacity}
+                      min={0}
+                      max={100}
+                      onChange={(v) => setPrefs({ miniChart: { ...prefs.miniChart, opacity: v } })}
+                    />
+                    <MiniChartSlider
+                      label="Edge fade"
+                      value={prefs.miniChart.edgeFade}
+                      min={0}
+                      max={100}
+                      onChange={(v) => setPrefs({ miniChart: { ...prefs.miniChart, edgeFade: v } })}
+                    />
+                  </div>
+
                   <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
                     Customize rows
                   </p>
